@@ -169,6 +169,10 @@ select:focus{border-color:var(--green)}
   /* Kickout GK comparison: stack single column */
   .ko-gk-grid{grid-template-columns:1fr!important}
 
+  /* Radar chart: full width on mobile, taller to match Score Sources */
+  .ov-radar-card{width:100%}
+  .ov-radar-card .chart-wrap{height:280px!important}
+
   /* Results summary: full scrollable height */
   #ov-results-table table{min-width:480px}
 
@@ -376,9 +380,9 @@ tr:hover td{background:#f9fafb}
       <div class="grid-2">
         <div class="card">
           <div class="card-title">Results Summary</div>
-          <div class="scroll-table" style="max-height:340px;overflow-y:auto"><div id="ov-results-table"></div></div>
+          <div class="scroll-table" style="max-height:340px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"><div id="ov-results-table"></div></div>
         </div>
-        <div class="card">
+        <div class="card ov-radar-card">
           <div class="card-title">Season KPI Radar</div>
           <div class="chart-wrap" style="height:220px"><canvas id="ov-radar-chart"></canvas></div>
         </div>
