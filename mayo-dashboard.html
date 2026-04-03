@@ -2547,22 +2547,7 @@ function renderOverview(){
   document.getElementById('ov-results-table').innerHTML=resultsTable(ms);
 
   // Radar
-  // On mobile, constrain the card itself to 250px so Chart.js measures correctly
-  const radarWrap=document.getElementById('ov-radar-wrap');
-  const radarCard=radarWrap.closest('.ov-radar-card');
-  if(window.innerWidth<=768){
-    radarCard.style.maxWidth='250px';
-    radarCard.style.margin='0 auto';
-    radarWrap.style.height='220px';
-    radarWrap.style.maxWidth='100%';
-    radarWrap.style.margin='';
-  } else {
-    radarCard.style.maxWidth='';
-    radarCard.style.margin='';
-    radarWrap.style.height='220px';
-    radarWrap.style.maxWidth='';
-    radarWrap.style.margin='';
-  }
+  const isMobile=window.innerWidth<=768;
   mkChart('ov-radar-chart',{type:'radar',data:{
     labels:['Shot Acc','KO Win%','Attack Conv','Scoring Rate','Opp Resist'],
     datasets:[{
@@ -2576,7 +2561,10 @@ function renderOverview(){
       ],
       borderColor:GREEN,backgroundColor:GREEN+'33',pointBackgroundColor:GREEN,
     }]
-  },options:{responsive:true,maintainAspectRatio:false,scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:BORDER}}},plugins:{legend:{display:false}}}});
+  },options:{responsive:true,maintainAspectRatio:false,
+    layout:{padding:isMobile?{top:24,bottom:24,left:36,right:36}:10},
+    scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:BORDER},pointLabels:{font:{size:isMobile?8:11}}}},
+    plugins:{legend:{display:false}}}});
 
   // ── Score Sources panel ──
   const ss=SCORE_SOURCES;
