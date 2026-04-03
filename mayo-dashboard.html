@@ -169,10 +169,8 @@ select:focus{border-color:var(--green)}
   /* Kickout GK comparison: stack single column */
   .ko-gk-grid{grid-template-columns:1fr!important}
 
-  /* Radar chart: match width of other cards, fixed height, hard clip */
-  .ov-radar-card{width:100%;overflow:hidden;box-sizing:border-box}
-  .ov-radar-card .chart-wrap{height:260px!important;overflow:hidden;max-width:100%}
-  .ov-radar-card canvas{max-width:100%!important;height:260px!important}
+  /* Radar card: full width on mobile, sizing handled by JS */
+  .ov-radar-card{width:100%;overflow:hidden}
 
   /* Results summary: full scrollable height */
   #ov-results-table table{min-width:480px}
@@ -385,7 +383,7 @@ tr:hover td{background:#f9fafb}
         </div>
         <div class="card ov-radar-card">
           <div class="card-title">Season KPI Radar</div>
-          <div class="chart-wrap" style="height:220px"><canvas id="ov-radar-chart"></canvas></div>
+          <div id="ov-radar-wrap" class="chart-wrap" style="height:220px"><canvas id="ov-radar-chart"></canvas></div>
         </div>
       </div>
       <div class="grid-2">
@@ -2549,6 +2547,17 @@ function renderOverview(){
   document.getElementById('ov-results-table').innerHTML=resultsTable(ms);
 
   // Radar
+  // On mobile, shrink the radar wrap before Chart.js measures it
+  const radarWrap=document.getElementById('ov-radar-wrap');
+  if(window.innerWidth<=768){
+    radarWrap.style.height='160px';
+    radarWrap.style.maxWidth='55%';
+    radarWrap.style.margin='0 auto';
+  } else {
+    radarWrap.style.height='220px';
+    radarWrap.style.maxWidth='';
+    radarWrap.style.margin='';
+  }
   mkChart('ov-radar-chart',{type:'radar',data:{
     labels:['Shot Acc','KO Win%','Attack Conv','Scoring Rate','Opp Resist'],
     datasets:[{
