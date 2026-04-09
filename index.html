@@ -2905,7 +2905,7 @@ function renderShootingTop3(){
 
   const medals=['🥇','🥈','🥉'];
   wrap.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">${ranked.map((p,i)=>{
-    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(p.name)+'.jpg';
+    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(p.name)+'.jpg?v=2';
     const boxes=statBoxes(p);
     return `<div style="flex:1;min-width:180px;background:var(--green-light);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:2px solid ${i===0?'var(--green)':'var(--border)'}">
       <div style="position:relative">
@@ -3157,7 +3157,7 @@ function renderShotMap(){
       const pPt1Conv=pPt1Att?Math.round(pPt1/pPt1Att*100):0;
       const pPlay=pShots.filter(d=>d[2]==='play').length;
       const pDB=pShots.filter(d=>d[2]==='deadball').length;
-      const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(playerFilter)+'.jpg';
+      const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(playerFilter)+'.jpg?v=2';
       playerStats.innerHTML=`
         <div style="background:var(--green-light);border-radius:12px;padding:14px;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;border:1.5px solid var(--border)">
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;width:100%">
@@ -3629,7 +3629,7 @@ function renderAttackingTop3(){
   const medals=['🥇','🥈','🥉'];
   const label=active==='All'?'All Rounds':active+' '+oppNames[active];
   wrap.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">${players.map((p,i)=>{
-    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(p.name)+'.jpg';
+    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(p.name)+'.jpg?v=2';
     const scoreRate=p.shots>0?Math.round(p.scores/p.shots*100)+'%':'—';
     const attShot=p.attacks>0?Math.round(p.shots/p.attacks*100)+'%':'—';
     return `<div style="flex:1;min-width:180px;background:var(--green-light);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:2px solid ${i===0?'var(--green)':'var(--border)'}">
@@ -4481,7 +4481,7 @@ function renderPlayerDetail(){
   // ── Photo + header ──
   const photoEl=document.getElementById('pl-photo');
   const initialsEl=document.getElementById('pl-initials');
-  const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(name)+'.jpg';
+  const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(name)+'.jpg?v=2';
   photoEl.style.display='block';
   photoEl.src=imgPath;
   initialsEl.style.display='none';
