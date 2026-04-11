@@ -603,6 +603,10 @@ tr:hover td{background:#f9fafb}
         <div id="def-top3"></div>
       </div>
       <div class="card grid-1" style="margin-bottom:0">
+        <div class="card-title" id="def-tackle-title">Tackles by 12-Min Period — Season Total</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="def-tackle-chart"></canvas></div>
+      </div>
+      <div class="card grid-1" style="margin-bottom:0">
         <div class="card-title">Turnover Zones &amp; Attacking Third Impact</div>
         <div id="def-to-zones"></div>
       </div>
@@ -1787,6 +1791,28 @@ const FOUL_PERIOD_DATA={
   "Rd.5":{mayo:[3,4,3,2,3,6],opp:[3,2,2,1,0,5]},
   "Rd.6":{mayo:[3,3,0,2,2,1],opp:[1,1,0,2,3,6]},
   "Rd.7":{mayo:[3,4,1,1,2,1],opp:[2,3,4,0,1,1]},
+};
+
+// ── Tackle data per 12-min period (extracted from XML — MAYO TACKLE events, injury time folded into P6) ──
+const TACKLE_PERIOD_DATA={
+  "Rd.1":[6,1,4,9,4,7],
+  "Rd.2":[4,12,7,6,6,13],
+  "Rd.3":[20,9,12,8,3,10],
+  "Rd.4":[14,11,13,6,3,9],
+  "Rd.5":[13,14,6,4,10,18],
+  "Rd.6":[17,19,12,7,7,5],
+  "Rd.7":[24,16,6,5,4,10],
+};
+
+// ── Per-player tackle counts per round (from MAYO TACKLE XML events) ──────────
+const TACKLE_COUNTS_PER_PLAYER={
+  "Rd.1":{"Aidan O'Shea":5,"Enda Hession":3,"Michael Plunkett":2,"Sam Callinan":2,"Stephen Coen":2,"Ryan O'Donoghue":2,"Jordan Flynn":1,"Eoin McGreal":1,"Jack Carney":1,"Tommy Conroy":1,"Bob Tuohy":1,"David McBrien":1,"Darragh Beirne":1,"Sean Morahan":1,"Fergal Boland":1},
+  "Rd.2":{"Ryan O'Donoghue":6,"Enda Hession":6,"Rory Brickenden":5,"Jack Coyne":4,"Jordan Flynn":3,"David McBrien":3,"Darragh Beirne":2,"Fergal Boland":2,"Stephen Coen":2,"Paul Towey":2,"Paddy Durcan":1,"Bob Tuohy":1,"Sam Callinan":1,"Diarmuid O'Connor":1,"Jack Carney":1},
+  "Rd.3":{"Jordan Flynn":7,"Enda Hession":6,"Fenton Kelly":5,"Sam Callinan":5,"Darragh Beirne":4,"Aidan O'Shea":3,"Diarmuid O'Connor":3,"Rory Brickenden":3,"Donnacha McHugh":3,"Jack Carney":3,"Conor Loftus":3,"Bob Tuohy":3,"Diarmuid Duffy":3,"James Carr":1,"Jack Coyne":1,"Fergal Boland":1,"Seamus Howard":1},
+  "Rd.4":{"Sam Callinan":10,"Jordan Flynn":8,"Enda Hession":6,"Conor Loftus":4,"Jack Coyne":3,"Donnacha McHugh":3,"David McBrien":3,"Bob Tuohy":2,"Aidan O'Shea":2,"Darragh Beirne":2,"Jack Carney":2,"Paddy Durcan":2,"Ryan O'Donoghue":2,"Fergal Boland":1,"Michael Plunkett":1},
+  "Rd.5":{"David McBrien":9,"Jordan Flynn":6,"Enda Hession":5,"Aidan O'Shea":5,"Sam Callinan":4,"Paddy Durcan":4,"Paul Towey":3,"Ryan O'Donoghue":3,"Conor Loftus":2,"Seán Morahan":2,"Stephen Coen":2,"Bob Tuohy":2,"Cian McHale":1,"Kobe McDonald":1,"Jack Carney":1,"Rory Brickenden":1},
+  "Rd.6":{"Ryan O'Donoghue":9,"Kobe McDonald":7,"Jack Coyne":6,"Rory Brickenden":6,"Sam Callinan":4,"Jordan Flynn":4,"Conal Dawson":3,"David McBrien":3,"Diarmuid O'Connor":3,"Jack Carney":3,"Darragh Beirne":3,"Seán Morahan":3,"Fergal Boland":2,"Bob Tuohy":2,"Donnacha McHugh":2,"Diarmuid Duffy":2,"Stephen Coen":1,"Aidan O'Shea":1,"Cillian O'Connor":1},
+  "Rd.7":{"David McBrien":8,"Jack Carney":7,"Michael Plunkett":6,"Sam Callinan":6,"Jack Coyne":6,"Seamus Howard":6,"Diarmuid Duffy":5,"Paul Towey":4,"Ryan O'Donoghue":3,"John MacMonagle":3,"Rory Brickenden":2,"Aidan O'Shea":2,"Jordan Flynn":2,"Cian McHale":2,"Cillian O'Connor":2,"Hugh O'Loughlin":1},
 };
 
 // ── Block data (extracted from XML — shot blocks by each team) ───────────────
@@ -3858,30 +3884,79 @@ function renderDefensive(){
   const avgTO=ms.reduce((a,m)=>a+m.mayoTurnovers,0)/ms.length;
   const avgFouls=ms.reduce((a,m)=>a+m.mayoFouls,0)/ms.length;
 
+  // ── Avg tackles per game (from TACKLE_PERIOD_DATA sums) ─────────────────────
+  const tackleRoundTotals=ms.map(m=>(TACKLE_PERIOD_DATA[m.round]||[]).reduce((a,v)=>a+v,0));
+  const totalTackles=tackleRoundTotals.reduce((a,v)=>a+v,0);
+  const avgTackles=totalTackles/ms.length;
+
   document.getElementById('def-kpis').innerHTML=[
+    kpiCard({label:'Avg Tackles/Game',value:+avgTackles.toFixed(1),unit:'',bench:'Total: '+totalTackles+' tackles'}),
     kpiCard({label:'Avg Turnovers/Game',value:+avgTO.toFixed(1),unit:'',bench:'Lower is better',benchDir:'lower'}),
     kpiCard({label:'Total Turnovers',value:ms.reduce((a,m)=>a+m.mayoTurnovers,0),unit:'int',bench:'Season total'}),
     kpiCard({label:'Avg Fouls/Game',value:+avgFouls.toFixed(1),unit:'',bench:'Conceded average',benchDir:'lower'}),
     kpiCard({label:'Total Fouls',value:ms.reduce((a,m)=>a+m.mayoFouls,0),unit:'int',bench:'Season total'}),
-    kpiCard({label:'AT TOs → Opp Score',value:42,unit:'pct',bench:'42% of attacking-third TOs concede a score',highlight:'bad'}),
     kpiCard({label:'Turnovers Forced',value:ms.reduce((a,m)=>a+m.oppTurnovers,0),unit:'int',bench:'Opposition TOs won by Mayo'}),
   ].join('');
 
-  // ── Top 3 Defensive Players ──────────────────────────────────────────────
+  // ── Top 3 Defensive Players (round-aware) ────────────────────────────────
   const sp=RAW.seasonPlayers;
-  const defRanked=Object.entries(sp)
-    .map(([name,p])=>{
-      const tm=TACKLE_META[name]||{attempts:p.tackles,turnoversForced:0,hits:0};
-      const pct=tm.attempts>0?+(p.tackles/tm.attempts*100).toFixed(0):0;
-      return {name,tackles:p.tackles,attempts:tm.attempts,tacklePct:pct,toForced:tm.turnoversForced,hits:tm.hits,matches:p.matches};
-    })
-    .filter(d=>d.tackles>0)
-    .sort((a,b)=>(b.tackles+b.toForced*1.5)-(a.tackles+a.toForced*1.5))
-    .slice(0,3);
+  const singleRound=(ms.length===1);
+  const roundKey=singleRound?ms[0].round:null;
+
+  let defRanked;
+  if(singleRound && TACKLE_COUNTS_PER_PLAYER[roundKey]){
+    // Use XML per-round tackle counts for ranking
+    defRanked=Object.entries(TACKLE_COUNTS_PER_PLAYER[roundKey])
+      .map(([name,rdTackles])=>{
+        const seasonSp=sp[name]||{tackles:0,matches:1};
+        const tm=TACKLE_META[name]||{attempts:seasonSp.tackles,turnoversForced:0,hits:0};
+        const pct=tm.attempts>0?+(seasonSp.tackles/tm.attempts*100).toFixed(0):0;
+        return {name,rdTackles,tackles:seasonSp.tackles,attempts:tm.attempts,tacklePct:pct,toForced:tm.turnoversForced,matches:seasonSp.matches};
+      })
+      .sort((a,b)=>b.rdTackles-a.rdTackles)
+      .slice(0,3);
+  } else {
+    defRanked=Object.entries(sp)
+      .map(([name,p])=>{
+        const tm=TACKLE_META[name]||{attempts:p.tackles,turnoversForced:0,hits:0};
+        const pct=tm.attempts>0?+(p.tackles/tm.attempts*100).toFixed(0):0;
+        return {name,rdTackles:null,tackles:p.tackles,attempts:tm.attempts,tacklePct:pct,toForced:tm.turnoversForced,matches:p.matches};
+      })
+      .filter(d=>d.tackles>0)
+      .sort((a,b)=>(b.tackles+b.toForced*1.5)-(a.tackles+a.toForced*1.5))
+      .slice(0,3);
+  }
 
   const top3HTML=defRanked.map((d,i)=>{
     const medal=['🥇','🥈','🥉'][i];
-    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(d.name)+'.jpg';
+    const imgPath='Assets/Profiles%20Images/'+encodeURIComponent(d.name)+'.jpg?v=2';
+    if(singleRound && d.rdTackles!==null){
+      // Single-round card: prominent round tackle count + season context
+      return `<div style="flex:1;min-width:180px;background:var(--green-light);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:2px solid ${i===0?'var(--green)':'var(--border)'}">
+        <div style="position:relative">
+          <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid var(--green);background:#e5e7eb">
+            <img src="${imgPath}" style="width:100%;height:100%;object-fit:cover;object-position:top" onerror="this.style.display='none'">
+          </div>
+          <span style="position:absolute;top:-6px;right:-8px;font-size:20px">${medal}</span>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:var(--text);text-align:center">${d.name}</div>
+        <div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center">
+          <div style="background:#fff;border-radius:8px;padding:8px 4px;grid-column:1/-1">
+            <div style="font-size:28px;font-weight:900;color:var(--green-dark)">${d.rdTackles}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600">${roundKey} Tackles</div>
+          </div>
+          <div style="background:#fff;border-radius:8px;padding:8px 4px">
+            <div style="font-size:20px;font-weight:900;color:var(--green-dark)">${d.tacklePct}%</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600">Success%</div>
+          </div>
+          <div style="background:#fff;border-radius:8px;padding:8px 4px">
+            <div style="font-size:20px;font-weight:900;color:var(--green-dark)">${d.toForced}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600">TOs Forced</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:center">Season: ${d.tackles} won · ${d.attempts} att.</div>
+      </div>`;
+    }
     return `<div style="flex:1;min-width:180px;background:var(--green-light);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;border:2px solid ${i===0?'var(--green)':'var(--border)'}">
       <div style="position:relative">
         <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:3px solid var(--green);background:#e5e7eb">
@@ -3913,6 +3988,34 @@ function renderDefensive(){
   }).join('');
   document.getElementById('def-top3').innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">${top3HTML}</div>`;
 
+  // ── Tackles by 12-Min Period chart ────────────────────────────────────────
+  const PERIOD_LABELS_TACKLE=['0–12','12–24','24–35','35–47','47–59','59–70+'];
+  if(singleRound){
+    const periods=TACKLE_PERIOD_DATA[roundKey]||Array(6).fill(0);
+    const rdTotal=periods.reduce((a,v)=>a+v,0);
+    document.getElementById('def-tackle-title').textContent=
+      'Tackles by 12-Min Period — '+roundKey+' v '+ms[0].opponent+' · Total: '+rdTotal;
+    mkChart('def-tackle-chart',{type:'bar',data:{labels:PERIOD_LABELS_TACKLE,
+      datasets:[{label:'Tackles',data:periods,backgroundColor:GREEN+'CC',borderRadius:6}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>'Period: '+ctx[0].label,
+            afterBody:()=>['Total: '+rdTotal+' tackles']}}},
+        scales:{y:{ticks:{stepSize:1},grid:{color:BORDER}},x:{grid:{display:false}}}}});
+  } else {
+    const labels=ms.map(m=>m.round);
+    const totals=ms.map(m=>(TACKLE_PERIOD_DATA[m.round]||[]).reduce((a,v)=>a+v,0));
+    const overall=totals.reduce((a,v)=>a+v,0);
+    document.getElementById('def-tackle-title').textContent=
+      'Tackles by Round — Season Total: '+overall;
+    mkChart('def-tackle-chart',{type:'bar',data:{labels,
+      datasets:[{label:'Tackles',data:totals,backgroundColor:GREEN+'CC',borderRadius:6}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>ctx[0].label,label:ctx=>ctx.parsed.y+' tackles'}}},
+        scales:{y:{ticks:{stepSize:5},grid:{color:BORDER}},x:{grid:{display:false}}}}});
+  }
+
   // ── Turnover Zone Impact ─────────────────────────────────────────────────
   const tz=TURNOVER_ZONES;
   document.getElementById('def-to-zones').innerHTML=`
@@ -3935,7 +4038,6 @@ function renderDefensive(){
       </div>
     </div>`;
 
-  const singleRound=(ms.length===1);
   const PERIOD_LABELS_DEF=['0–12','12–24','24–35','35–47','47–59','59–70'];
 
   if(singleRound){
