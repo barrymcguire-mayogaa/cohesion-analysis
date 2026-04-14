@@ -4919,14 +4919,19 @@ function renderPlayerDetail(){
   // Shot attempt breakdowns from SHOT_META
   const playerShotRounds=SHOT_META[name]||{};
   let pt1Att=0,pt1Made=0,pt2Att=0,pt2Made=0,goalAtt=0,goalMade=0;
+  let openPlay=0,openPlayMade=0,deadBall=0,deadBallMade=0;
   Object.values(playerShotRounds).forEach(r=>{
-    pt1Att +=r.pt1Att||0; pt1Made +=r.pt1||0;
-    pt2Att +=r.pt2Att||0; pt2Made +=r.pt2||0;
-    goalAtt+=r.goalAtt||0; goalMade+=r.goals||0;
+    pt1Att    +=r.pt1Att||0;    pt1Made    +=r.pt1||0;
+    pt2Att    +=r.pt2Att||0;    pt2Made    +=r.pt2||0;
+    goalAtt   +=r.goalAtt||0;   goalMade   +=r.goals||0;
+    openPlay  +=r.play||0;      openPlayMade+=r.playMade||0;
+    deadBall  +=r.deadball||0;  deadBallMade+=r.deadballMade||0;
   });
-  const pct1pt  =pt1Att >0?+(pt1Made /pt1Att *100).toFixed(0):0;
-  const pct2pt  =pt2Att >0?+(pt2Made /pt2Att *100).toFixed(0):0;
-  const pctGoal =goalAtt>0?+(goalMade/goalAtt*100).toFixed(0):0;
+  const pct1pt       =pt1Att   >0?+(pt1Made    /pt1Att   *100).toFixed(0):0;
+  const pct2pt       =pt2Att   >0?+(pt2Made    /pt2Att   *100).toFixed(0):0;
+  const pctGoal      =goalAtt  >0?+(goalMade   /goalAtt  *100).toFixed(0):0;
+  const pctOpenPlay  =openPlay >0?+(openPlayMade/openPlay *100).toFixed(0):0;
+  const pctDeadBall  =deadBall >0?+(deadBallMade/deadBall *100).toFixed(0):0;
 
   // Attack involvements from PLAYER_ATTACK_META
   const attackInvMap=PLAYER_ATTACK_META[name]||{};
@@ -4937,6 +4942,8 @@ function renderPlayerDetail(){
     kpiCard({label:'Total Shots',value:sp.shots,unit:'int',bench:shotConv+'% shot conversion'}),
     kpiCard({label:'Total Points',value:sp.points,unit:'int',bench:sp.goals+'G + '+sp.pts1+'×1pt + '+(sp.pts2||0)+'×2pt'}),
     kpiCard({label:'Avg Pts/Game',value:avgPts,unit:'',bench:'Season scoring rate'}),
+    kpiCard({label:'Open Play Shots',value:openPlay,unit:'int',bench:pctOpenPlay+'% success rate'}),
+    kpiCard({label:'Dead Ball Shots',value:deadBall,unit:'int',bench:pctDeadBall+'% success rate'}),
     kpiCard({label:'1pt Attempts',value:pt1Att,unit:'int',bench:pct1pt+'% success rate'}),
     kpiCard({label:'2pt Attempts',value:pt2Att,unit:'int',bench:pct2pt+'% success rate'}),
     kpiCard({label:'Goal Attempts',value:goalAtt,unit:'int',bench:pctGoal+'% success rate'}),
