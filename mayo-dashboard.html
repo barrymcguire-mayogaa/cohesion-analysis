@@ -5918,13 +5918,14 @@ function renderKoPitchMap(){
   const gkLbl=gkFilter==='H'?'Hennelly (Rd.1–6 + CSFC QF)':gkFilter==='L'?'Livingstone (Rd.7)':'All GKs';
   const b=(active,col)=>`padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${active?col:'var(--border)'};background:${active?col:'transparent'};color:${active?'white':'var(--text)'}`;
 
-  const ALL_KO_ROUNDS=['All','Rd.1','Rd.2','Rd.3','Rd.4','Rd.5','Rd.6','Rd.7','CSFC QF'];
   wrap.innerHTML=`
-    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <span style="font-size:11px;font-weight:700;color:var(--muted)">Game</span>
-      ${ALL_KO_ROUNDS.map(v=>`<button onclick="document.getElementById('ko-pitch-map-wrap')._round='${v}';renderKoPitchMap()" style="${b(roundFilter===v,'var(--green)')}">${v==='All'?'All Games':v}</button>`).join('')}
-    </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <div style="margin-right:auto;display:flex;gap:8px;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">Game</span>
+        <select onchange="document.getElementById('ko-pitch-map-wrap')._round=this.value;renderKoPitchMap()" style="font-size:12px;padding:4px 10px;font-weight:500;border-radius:8px;border:1px solid var(--border);color:var(--text);background:var(--white);cursor:pointer">
+          ${['All','Rd.1','Rd.2','Rd.3','Rd.4','Rd.5','Rd.6','Rd.7','CSFC QF'].map(v=>`<option value="${v}" ${roundFilter===v?'selected':''}>${v==='All'?'All Games':v}</option>`).join('')}
+        </select>
+      </div>
       <span style="font-size:11px;font-weight:700;color:var(--muted)">GK</span>
       ${['All','H','L'].map(v=>`<button onclick="document.getElementById('ko-pitch-map-wrap')._gk='${v}';renderKoPitchMap()" style="${b(gkFilter===v,'var(--green)')}">${v==='All'?'All':v==='H'?'Hennelly':'Livingstone'}</button>`).join('')}
       <span style="font-size:11px;font-weight:700;color:var(--muted);margin-left:8px">Outcome</span>
