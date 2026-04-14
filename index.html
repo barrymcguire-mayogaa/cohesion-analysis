@@ -4914,15 +4914,36 @@ function renderPlayerDetail(){
 
   const saDetail=PLAYER_SCORE_ASSIST_DETAIL[name]||{goals:0,pt2:0,pt1:0,total:0};
   const shotAsstMeta=PLAYER_SHOT_ASSIST_META[name]||{goalAtt:0,pt2Att:0,pt1Att:0,total:0};
+
+  // Shot attempt breakdowns from SHOT_META
+  const playerShotRounds=SHOT_META[name]||{};
+  let pt1Att=0,pt1Made=0,pt2Att=0,pt2Made=0,goalAtt=0,goalMade=0;
+  Object.values(playerShotRounds).forEach(r=>{
+    pt1Att +=r.pt1Att||0; pt1Made +=r.pt1||0;
+    pt2Att +=r.pt2Att||0; pt2Made +=r.pt2||0;
+    goalAtt+=r.goalAtt||0; goalMade+=r.goals||0;
+  });
+  const pct1pt  =pt1Att >0?+(pt1Made /pt1Att *100).toFixed(0):0;
+  const pct2pt  =pt2Att >0?+(pt2Made /pt2Att *100).toFixed(0):0;
+  const pctGoal =goalAtt>0?+(goalMade/goalAtt*100).toFixed(0):0;
+
+  // Attack involvements from PLAYER_ATTACK_META
+  const attackInvMap=PLAYER_ATTACK_META[name]||{};
+  const totalAttackInv=Object.values(attackInvMap).reduce((a,b)=>a+b,0);
+
   document.getElementById('pl-kpis').innerHTML=[
-    kpiCard({label:'Total Points',value:sp.points,unit:'int',bench:sp.goals+'G + '+sp.pts1+'×1pt + '+(sp.pts2||0)+'×2pt'}),
     kpiCard({label:'Matches Played',value:sp.matches,unit:'int',bench:'Out of '+RAW.matches.length+' games'}),
-    kpiCard({label:'Avg Pts/Game',value:avgPts,unit:'',bench:'Season scoring rate'}),
     kpiCard({label:'Total Shots',value:sp.shots,unit:'int',bench:shotConv+'% shot conversion'}),
-    kpiCard({label:'Total Tackles',value:sp.tackles,unit:'int',bench:'Defensive work rate'}),
-    kpiCard({label:'Pass Completion',value:passComp,unit:'pct',bench:totalPasses+' completed ('+sp.kickpasses+'KP + '+meta.handpasses+'HP) from '+sp.possessions+' poss'}),
+    kpiCard({label:'Total Points',value:sp.points,unit:'int',bench:sp.goals+'G + '+sp.pts1+'×1pt + '+(sp.pts2||0)+'×2pt'}),
+    kpiCard({label:'Avg Pts/Game',value:avgPts,unit:'',bench:'Season scoring rate'}),
+    kpiCard({label:'1pt Attempts',value:pt1Att,unit:'int',bench:pct1pt+'% success rate'}),
+    kpiCard({label:'2pt Attempts',value:pt2Att,unit:'int',bench:pct2pt+'% success rate'}),
+    kpiCard({label:'Goal Attempts',value:goalAtt,unit:'int',bench:pctGoal+'% success rate'}),
     kpiCard({label:'Score Assists',value:saDetail.total,unit:'int',bench:saDetail.goals+'G + '+saDetail.pt2+'×2pt + '+saDetail.pt1+'×1pt'}),
     kpiCard({label:'Shot Assists',value:shotAsstMeta.total,unit:'int',bench:shotAsstMeta.goalAtt+'G att + '+shotAsstMeta.pt2Att+'×2pt att + '+shotAsstMeta.pt1Att+'×1pt att'}),
+    kpiCard({label:'Pass Completion',value:passComp,unit:'pct',bench:totalPasses+' completed ('+sp.kickpasses+'KP + '+meta.handpasses+'HP) from '+sp.possessions+' poss'}),
+    kpiCard({label:'Total Tackles',value:sp.tackles,unit:'int',bench:'Defensive work rate'}),
+    kpiCard({label:'Attack Involvements',value:totalAttackInv,unit:'int',bench:+(totalAttackInv/sp.matches).toFixed(1)+' per game avg'}),
   ].join('');
 
   // ── vs Season averages ──
