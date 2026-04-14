@@ -5076,8 +5076,10 @@ function renderPlayerDetail(){
     // 3. Scoring Contribution: (scores + assists) per game
     const scoringContrib = (numScores + pAssist) / G;
 
-    // 4. Attacking Ball Carrier: (handpasses + kickpasses) per game
-    const ballCarrier = ((pMeta.handpasses||0) + (pSp.kickpasses||0)) / G;
+    // 4. Attacking Ball Carrier: (handpasses + kickpasses + attack involvements) per game
+    const pAttackRounds = PLAYER_ATTACK_META[pName]||{};
+    const pTotalAttacks = Object.values(pAttackRounds).reduce((a,b)=>a+b,0);
+    const ballCarrier = ((pMeta.handpasses||0) + (pSp.kickpasses||0) + pTotalAttacks) / G;
 
     // ── DEFENSIVE ──────────────────────────────────────────────────────────────
     // 5. Tackle Effectiveness: success_rate × tackles_per_game (quality × quantity)
@@ -5180,7 +5182,7 @@ function renderPlayerDetail(){
           `${raw.scoringRate.toFixed(2)} pts/game (weighted)`,
           `${shootEffFinal.toFixed(0)}% conv.${shootEffIsAvg?' [squad avg — <4 shots]':''}`,
           `${raw.scoringContrib.toFixed(2)} (scores+assists)/game`,
-          `${raw.ballCarrier.toFixed(1)} passes/game`,
+          `${raw.ballCarrier.toFixed(1)} involvements/game`,
           `${(raw.tackleEff).toFixed(2)} eff. score`,
           `${raw.defPressure.toFixed(1)} pressure actions/game`,
           `${raw.ballWinning.toFixed(2)} TOs forced/game`,
@@ -5196,6 +5198,8 @@ function renderPlayerDetail(){
   const aerialD = PLAYER_AERIAL_META[name]||null;
   const shadowCount = PLAYER_SHADOW_META[name]||0;
   const assistCount = PLAYER_ASSIST_META[name]||0;
+  const attackRounds = PLAYER_ATTACK_META[name]||{};
+  const totalAttacks = Object.values(attackRounds).reduce((a,b)=>a+b,0);
   const numScoresTotal = (sp.pts1||0)+(sp.pts2||0)+(sp.goals||0);
   const tacklesMissed = Math.max(0,(tm.attempts||0)-(sp.tackles||0));
   const tackleSuccPct = tm.attempts>0 ? Math.round((sp.tackles||0)/tm.attempts*100) : 0;
@@ -5205,7 +5209,7 @@ function renderPlayerDetail(){
     {label:'Scoring Rate',val:`${raw.scoringRate.toFixed(2)} pts/game`,note:'Weighted: goals×3 + 2pts×2 + 1pts×1',col:OFF},
     {label:'Shooting Eff.',val:shootEffIsAvg?`${shootEffFinal.toFixed(0)}% (squad avg)`:`${shootEffFinal.toFixed(0)}%`,note:shootEffIsAvg?'< 4 shots — squad avg applied':`${numScoresTotal} scores from ${sp.shots} shots`,col:OFF},
     {label:'Scoring Contribution',val:`${raw.scoringContrib.toFixed(2)}/game`,note:`${numScoresTotal} scores + ${assistCount} assists`,col:OFF},
-    {label:'Ball Carrier',val:`${raw.ballCarrier.toFixed(1)} passes/game`,note:`${meta.handpasses||0} HP + ${sp.kickpasses||0} KP`,col:OFF},
+    {label:'Ball Carrier',val:`${raw.ballCarrier.toFixed(1)} involvements/game`,note:`${meta.handpasses||0} HP + ${sp.kickpasses||0} KP + ${totalAttacks} Attk`,col:OFF},
     {label:'🛡 DEFENSIVE',isHeader:true,col:DEF},
     {label:'Tackle Effectiveness',val:`${tackleSuccPct}% success rate`,note:`${sp.tackles||0} made / ${tm.attempts||0} att. (${tacklesMissed} missed)`,col:DEF},
     {label:'Defensive Pressure',val:`${raw.defPressure.toFixed(1)}/game`,note:`${shadowCount} shadows + ${sp.tackles||0} tackles + ${tm.hits||0} hits`,col:DEF},
