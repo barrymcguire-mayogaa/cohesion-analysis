@@ -1014,6 +1014,62 @@ const PLAYER_ASSIST_META={
   "Cillian O'Connor":1,
 };
 
+// ── Score Assist breakdown (per player, with goal/2pt/1pt split) ─────────────
+// Source: MAYO SCORE ASSIST events timestamp-matched to nearest score within ±6s
+const PLAYER_SCORE_ASSIST_DETAIL={
+  "Ryan O'Donoghue":{goals:3,pt2:2,pt1:18,total:23},
+  "Sam Callinan":{goals:0,pt2:3,pt1:16,total:19},
+  "Jack Carney":{goals:1,pt2:2,pt1:9,total:12},
+  "Aidan O'Shea":{goals:0,pt2:0,pt1:11,total:11},
+  "David McBrien":{goals:1,pt2:1,pt1:8,total:10},
+  "Jordan Flynn":{goals:1,pt2:2,pt1:6,total:9},
+  "Cian McHale":{goals:1,pt2:0,pt1:6,total:7},
+  "Fergal Boland":{goals:0,pt2:1,pt1:6,total:7},
+  "Enda Hession":{goals:1,pt2:1,pt1:5,total:7},
+  "Darragh Beirne":{goals:0,pt2:0,pt1:6,total:6},
+  "Conor Loftus":{goals:1,pt2:1,pt1:4,total:6},
+  "Paddy Durcan":{goals:0,pt2:4,pt1:1,total:5},
+  "Bob Tuohy":{goals:1,pt2:0,pt1:3,total:4},
+  "Fenton Kelly":{goals:0,pt2:0,pt1:2,total:2},
+  "Diarmuid O'Connor":{goals:0,pt2:1,pt1:1,total:2},
+  "Cillian O'Connor":{goals:0,pt2:0,pt1:2,total:2},
+  "Sean Morahan":{goals:0,pt2:1,pt1:1,total:2},
+  "Jack Coyne":{goals:0,pt2:1,pt1:1,total:2},
+  "Tommy Conroy":{goals:0,pt2:0,pt1:2,total:2},
+  "Stephen Coen":{goals:0,pt2:0,pt1:1,total:1},
+  "James Carr":{goals:0,pt2:0,pt1:1,total:1},
+  "Kobe McDonald":{goals:0,pt2:0,pt1:1,total:1},
+  "Michael Plunkett":{goals:0,pt2:0,pt1:1,total:1},
+  "Paul Towey":{goals:0,pt2:0,pt1:1,total:1},
+};
+
+// ── Shot Assist breakdown (per player, with goal/2pt/1pt attempt split) ───────
+// Source: MAYO SHOT ASSIST events timestamp-matched to nearest shot within ±6s
+const PLAYER_SHOT_ASSIST_META={
+  "Ryan O'Donoghue":{goalAtt:0,pt2Att:0,pt1Att:13,total:13},
+  "Jack Carney":{goalAtt:0,pt2Att:0,pt1Att:11,total:11},
+  "Aidan O'Shea":{goalAtt:0,pt2Att:0,pt1Att:11,total:11},
+  "Paddy Durcan":{goalAtt:0,pt2Att:0,pt1Att:10,total:10},
+  "Jordan Flynn":{goalAtt:0,pt2Att:0,pt1Att:10,total:10},
+  "Sam Callinan":{goalAtt:0,pt2Att:0,pt1Att:8,total:8},
+  "Bob Tuohy":{goalAtt:0,pt2Att:0,pt1Att:8,total:8},
+  "Fergal Boland":{goalAtt:0,pt2Att:0,pt1Att:5,total:5},
+  "Darragh Beirne":{goalAtt:0,pt2Att:0,pt1Att:5,total:5},
+  "Diarmuid O'Connor":{goalAtt:0,pt2Att:0,pt1Att:4,total:4},
+  "David McBrien":{goalAtt:0,pt2Att:0,pt1Att:3,total:3},
+  "Michael Plunkett":{goalAtt:0,pt2Att:0,pt1Att:3,total:3},
+  "Kobe McDonald":{goalAtt:0,pt2Att:0,pt1Att:3,total:3},
+  "Cian McHale":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Conor Loftus":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Paul Towey":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Conal Dawson":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Stephen Coen":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Hugh O'Loughlin":{goalAtt:0,pt2Att:0,pt1Att:2,total:2},
+  "Tommy Conroy":{goalAtt:0,pt2Att:0,pt1Att:1,total:1},
+  "James Carr":{goalAtt:0,pt2Att:0,pt1Att:1,total:1},
+  "Seán Morahan":{goalAtt:0,pt2Att:0,pt1Att:1,total:1},
+};
+
 // ── Per-player per-round attack involvement (extracted from XML) ──────────────
 // Source: Game Involvement Outcomes > "Attack" label on player-coded events
 const PLAYER_ATTACK_META={
@@ -3955,13 +4011,15 @@ function renderAttacking(){
   if(!ms.length) return;
   const totalAtt=ms.reduce((a,m)=>a+m.mayoAttacks,0);
   const totalScored=ms.reduce((a,m)=>a+Math.round(m.mayoShots*m.mayoShotAcc/100),0);
+  const totalShots=ms.reduce((a,m)=>a+m.mayoShots,0);
   const avgConv=totalScored/totalAtt*100;
 
   document.getElementById('at-kpis').innerHTML=[
     kpiCard({label:'Attack→Score %',value:+avgConv.toFixed(1),unit:'pct',bench:totalScored+' scores from '+totalAtt+' attacks'}),
     kpiCard({label:'Total Attacks',value:totalAtt,unit:'int',bench:'Season total'}),
     kpiCard({label:'Avg Attacks/Game',value:(totalAtt/ms.length).toFixed(1),unit:'',bench:'Per game average'}),
-    kpiCard({label:'Shot/Attack Ratio',value:(ms.reduce((a,m)=>a+m.mayoShots,0)/totalAtt).toFixed(2),unit:'',bench:'Higher = more efficient'}),
+    kpiCard({label:'Attack→Shot %',value:+(totalShots/totalAtt*100).toFixed(1),unit:'pct',bench:totalShots+' shots from '+totalAtt+' attacks'}),
+    kpiCard({label:'Shot/Attack Ratio',value:(totalShots/totalAtt).toFixed(2),unit:'',bench:'Higher = more efficient'}),
   ].join('');
 
   renderAttackingTop3();
@@ -4864,6 +4922,8 @@ function renderPlayerDetail(){
   const totalPasses=sp.kickpasses+(meta.handpasses||0);
   const passComp=sp.possessions>0?+(totalPasses/sp.possessions*100).toFixed(1):0;
 
+  const saDetail=PLAYER_SCORE_ASSIST_DETAIL[name]||{goals:0,pt2:0,pt1:0,total:0};
+  const shotAsstMeta=PLAYER_SHOT_ASSIST_META[name]||{goalAtt:0,pt2Att:0,pt1Att:0,total:0};
   document.getElementById('pl-kpis').innerHTML=[
     kpiCard({label:'Total Points',value:sp.points,unit:'int',bench:sp.goals+'G + '+sp.pts1+'×1pt + '+(sp.pts2||0)+'×2pt'}),
     kpiCard({label:'Matches Played',value:sp.matches,unit:'int',bench:'Out of 7 rounds'}),
@@ -4871,6 +4931,8 @@ function renderPlayerDetail(){
     kpiCard({label:'Total Shots',value:sp.shots,unit:'int',bench:shotConv+'% shot conversion'}),
     kpiCard({label:'Total Tackles',value:sp.tackles,unit:'int',bench:'Defensive work rate'}),
     kpiCard({label:'Pass Completion',value:passComp,unit:'pct',bench:totalPasses+' completed ('+sp.kickpasses+'KP + '+meta.handpasses+'HP) from '+sp.possessions+' poss'}),
+    kpiCard({label:'Score Assists',value:saDetail.total,unit:'int',bench:saDetail.goals+'G + '+saDetail.pt2+'×2pt + '+saDetail.pt1+'×1pt'}),
+    kpiCard({label:'Shot Assists',value:shotAsstMeta.total,unit:'int',bench:shotAsstMeta.goalAtt+'G att + '+shotAsstMeta.pt2Att+'×2pt att + '+shotAsstMeta.pt1Att+'×1pt att'}),
   ].join('');
 
   // ── vs Season averages ──
