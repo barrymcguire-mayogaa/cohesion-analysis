@@ -966,45 +966,30 @@ const PLAYER_SHADOW_META={
   "Rob Hennelly":0,
 };
 
-// ── Aerial / Contest data (per player, season total, from XML) ────────────────
-// Source: 'Game Involvement Outcomes' > 'Contest Won' / 'Contest Lost' labels
+// ── Aerial / Contest — Opposition Kickout contests only ──────────────────────
+// Source: player instances with 'Contest Won'/'Contest Lost' whose timestamp falls
+// within the time window of an [OPP] KO event. All 8 games (Rd.1–Rd.7 + CSFC QF).
 // Players with total < 3 are excluded from Aerial axis (squad avg used instead)
 const PLAYER_AERIAL_META={
-  "Bob Tuohy":         {won:64,lost:41,total:105},
-  "Jordan Flynn":      {won:34,lost:24,total:58},
-  "Jack Carney":       {won:37,lost:15,total:52},
-  "Ryan O'Donoghue":   {won:38,lost:12,total:50},
-  "Sam Callinan":      {won:31,lost:14,total:45},
-  "Aidan O'Shea":      {won:27,lost:17,total:44},
-  "Jack Coyne":        {won:13,lost:24,total:37},
-  "David McBrien":     {won:21,lost:15,total:36},
-  "Fergal Boland":     {won:21,lost:8, total:29},
-  "Rory Brickenden":   {won:13,lost:14,total:27},
-  "Enda Hession":      {won:15,lost:11,total:26},
-  "Darragh Beirne":    {won:11,lost:7, total:18},
-  "Seán Morahan":      {won:5, lost:12,total:17},
-  "Sean Morahan":      {won:5, lost:12,total:17},
-  "Paddy Durcan":      {won:10,lost:3, total:13},
-  "Conor Loftus":      {won:10,lost:3, total:13},
-  "Paul Towey":        {won:7, lost:6, total:13},
-  "Diarmuid O'Connor": {won:6, lost:6, total:12},
-  "Diarmuid Duffy":    {won:2, lost:10,total:12},
-  "Seamus Howard":     {won:9, lost:3, total:12},
-  "Kobe McDonald":     {won:8, lost:4, total:12},
-  "Cian McHale":       {won:6, lost:5, total:11},
-  "Rob Hennelly":      {won:8, lost:1, total:9},
-  "Stephen Coen":      {won:4, lost:4, total:8},
-  "Conal Dawson":      {won:2, lost:6, total:8},
-  "James Carr":        {won:4, lost:4, total:8},
-  "Donnacha McHugh":   {won:4, lost:3, total:7},
-  "Hugh O'Loughlin":   {won:3, lost:4, total:7},
-  "Michael Plunkett":  {won:4, lost:1, total:5},
-  "Cillian O'Connor":  {won:3, lost:1, total:4},
-  "Eoin McGreal":      {won:2, lost:2, total:4},
-  "Jack Livingstone":  {won:2, lost:0, total:2},
-  "Tommy Conroy":      {won:1, lost:1, total:2},
-  "Fenton Kelly":      {won:1, lost:2, total:3},
-  "Kuba Callaghan":    {won:0, lost:1, total:1},
+  "Bob Tuohy":         {won:33, lost:20, total:53},
+  "Jordan Flynn":      {won:11, lost:4,  total:15},
+  "Jack Carney":       {won:8,  lost:5,  total:13},
+  "David McBrien":     {won:8,  lost:3,  total:11},
+  "Aidan O'Shea":      {won:6,  lost:4,  total:10},
+  "Ryan O'Donoghue":   {won:7,  lost:2,  total:9},
+  "Jack Coyne":        {won:3,  lost:3,  total:6},
+  "Hugh O'Loughlin":   {won:4,  lost:2,  total:6},
+  "Sam Callinan":      {won:3,  lost:3,  total:6},
+  "Rory Brickenden":   {won:3,  lost:2,  total:5},
+  "Seamus Howard":     {won:4,  lost:1,  total:5},
+  "Conor Loftus":      {won:4,  lost:1,  total:5},
+  "Paul Towey":        {won:2,  lost:2,  total:4},
+  "Darragh Beirne":    {won:4,  lost:0,  total:4},
+  "Cian McHale":       {won:3,  lost:1,  total:4},
+  "Enda Hession":      {won:1,  lost:2,  total:3},
+  "Stephen Coen":      {won:1,  lost:2,  total:3},
+  "Conal Dawson":      {won:2,  lost:1,  total:3},
+  "Fergal Boland":     {won:1,  lost:2,  total:3},
 };
 
 // ── Score Assists (per player, season total, from XML) ────────────────────────
@@ -5192,7 +5177,7 @@ function renderPlayerDetail(){
           `${(raw.tackleEff).toFixed(2)} eff. score`,
           `${raw.defPressure.toFixed(1)} pressure actions/game`,
           `${raw.ballWinning.toFixed(2)} TOs forced/game`,
-          `${aerialFinal.toFixed(0)}% win${aerialIsAvg?' [squad avg — <3 contests]':''}`,
+          `${aerialFinal.toFixed(0)}% win${aerialIsAvg?' [squad avg — <3 opp KO contests]':''}`,
         ];
         return [offLabel+' · '+spiderLabels[i],rawMap[i],'Score: '+spiderData[i]+' / 100'];
       }}}
@@ -5220,7 +5205,7 @@ function renderPlayerDetail(){
     {label:'Tackle Effectiveness',val:`${tackleSuccPct}% success rate`,note:`${sp.tackles||0} made / ${tm.attempts||0} att. (${tacklesMissed} missed)`,col:DEF},
     {label:'Defensive Pressure',val:`${raw.defPressure.toFixed(1)}/game`,note:`${shadowCount} shadows + ${sp.tackles||0} tackles + ${tm.hits||0} hits`,col:DEF},
     {label:'Ball-Winning',val:`${raw.ballWinning.toFixed(2)} TOs forced/game`,note:`${tm.turnoversForced||0} turnovers forced total`,col:DEF},
-    {label:'Aerial/Contest',val:aerialIsAvg?`${aerialFinal.toFixed(0)}% (squad avg)`:aerialD?`${aerialFinal.toFixed(0)}% win rate`:'—',note:aerialD&&aerialD.total>=3?`${aerialD.won}W / ${aerialD.lost}L from ${aerialD.total} contests`:aerialIsAvg?'< 3 contests — squad avg applied':'',col:DEF},
+    {label:'Aerial/Contest',val:aerialIsAvg?`${aerialFinal.toFixed(0)}% (squad avg)`:aerialD?`${aerialFinal.toFixed(0)}% win rate`:'—',note:aerialD&&aerialD.total>=3?`${aerialD.won}W / ${aerialD.lost}L from ${aerialD.total} opp KO contests`:aerialIsAvg?'< 3 opp KO contests — squad avg applied':'',col:DEF},
   ];
 
   document.getElementById('pl-spider-explainer').innerHTML=explainerRows.map(r=>{
