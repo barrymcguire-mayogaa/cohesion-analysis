@@ -1889,16 +1889,37 @@ const ROUND_TEMPO=[
   {round:'CSFC QF',oppName:'London',mayo:{fast:20,ctrl:9,patient:10,avg:35.2},opp:{fast:13,ctrl:4,patient:5,avg:30.6}},
 ];
 
-// ── Period Attack Data (all 7 rounds combined) ────────────────────────────────
-// [period_label, total, quick, q_goals, q_pts, medium, m_goals, m_pts, slow, s_goals, s_pts, shot_attacks, no_shot_attacks]
-const PERIOD_ATTACK_DATA=[
-  ['0–12',  60, 42, 0, 16, 14, 1, 12,  4, 0,  2, 34, 34],
-  ['12–24', 45, 32, 1, 16,  6, 0,  6,  7, 0,  4, 32, 17],
-  ['24–35', 62, 39, 0, 11, 17, 0, 14,  6, 1,  6, 39, 26],
-  ['35–47', 54, 25, 2, 11, 15, 0,  9, 14, 0, 10, 44, 12],
-  ['47–59', 52, 20, 1,  8, 18, 1, 12, 14, 0,  8, 39, 15],
-  ['59–70', 61, 44, 1, 15,  6, 0,  5, 11, 0, 10, 38, 25],
-];
+// ── Period Attack Data — per round (extracted from XML, all 8 games) ─────────
+// Format per period: [total, scored_att, shot_no_score, no_shot_att]
+// scored_att + shot_no_score + no_shot_att === total (verified for all periods)
+// Source: MAYO ATTACKS events timestamp-matched to MAYO SHOT OPEN PLAY / DEADBALL
+//   scored_att    = attacks with ≥1 shot outcome in {1 POINT, 2 POINT, GOAL}
+//   shot_no_score = attacks with ≥1 shot but no score
+//   no_shot_att   = attacks with no shot (turnover/giveaway)
+const PERIOD_ATTACK_DATA_BY_ROUND={
+  "Rd.1":   [[8,5,2,1],[4,2,1,1],[5,2,2,1],[7,3,2,2],[4,1,2,1],[5,2,3,0]],
+  "Rd.2":   [[8,2,2,4],[6,2,2,2],[9,1,3,5],[6,1,4,1],[7,4,1,2],[8,3,1,4]],
+  "Rd.3":   [[3,0,1,2],[6,1,3,2],[6,2,2,2],[7,2,3,2],[7,3,2,2],[7,3,1,3]],
+  "Rd.4":   [[6,4,0,2],[3,2,1,0],[6,3,1,2],[5,2,3,0],[5,3,0,2],[12,3,3,6]],
+  "Rd.5":   [[6,1,1,4],[3,2,0,1],[6,4,2,0],[5,3,2,0],[5,2,1,2],[3,2,0,1]],
+  "Rd.6":   [[9,4,1,4],[6,1,3,2],[6,0,2,4],[4,2,2,0],[7,1,6,0],[7,2,2,3]],
+  "Rd.7":   [[6,2,1,3],[7,2,0,5],[8,2,1,5],[8,5,1,2],[4,3,0,1],[6,1,1,4]],
+  "CSFC QF":[[7,0,2,5],[5,1,1,3],[8,2,2,4],[6,4,0,2],[6,3,0,3],[7,4,0,3]],
+};
+
+// ── Period Tempo Breakdown — per round (extracted from XML, all 8 games) ───────
+// Format per period: [total, quick, med, slow, q_goals, q_pts, m_goals, m_pts, s_goals, s_pts]
+// quick=0–25s, medium=26–50s, slow=51s+  |  pts = scoring units (goal=3, point=1)
+const PERIOD_TEMPO_DATA_BY_ROUND={
+  "Rd.1":   [[8,4,3,1,0,2,0,2,0,2],[4,2,1,1,1,3,0,0,0,1],[5,0,3,2,0,0,0,3,0,0],[7,5,1,1,1,3,0,1,0,2],[4,2,1,1,0,0,0,2,0,0],[5,5,0,0,1,4,0,0,0,0]],
+  "Rd.2":   [[8,5,3,0,0,1,0,2,0,0],[6,4,1,1,0,3,0,0,0,0],[9,8,1,0,0,1,0,0,0,0],[6,5,1,0,1,3,0,0,0,0],[7,4,2,1,0,2,0,1,0,1],[8,5,1,2,0,1,0,1,0,1]],
+  "Rd.3":   [[3,2,1,0,0,0,0,0,0,0],[6,4,0,2,0,0,0,0,0,2],[6,5,1,0,0,1,0,1,0,0],[7,4,2,1,0,0,0,2,0,0],[7,4,2,1,0,0,0,2,0,1],[7,5,1,1,0,1,0,1,0,1]],
+  "Rd.4":   [[6,4,2,0,0,3,0,3,0,0],[3,0,1,2,0,0,0,1,0,1],[6,4,2,0,0,1,0,3,0,0],[5,3,1,1,0,1,0,1,0,0],[5,2,1,2,0,0,1,3,0,2],[12,10,0,2,0,2,0,0,0,2]],
+  "Rd.5":   [[6,3,2,1,0,0,1,3,0,0],[3,2,1,0,0,1,0,2,0,0],[6,3,3,0,0,4,0,3,0,0],[5,1,3,1,0,1,0,2,0,0],[5,2,3,0,1,3,0,1,0,0],[3,2,0,1,0,1,0,0,0,1]],
+  "Rd.6":   [[9,8,1,0,0,5,0,1,0,0],[6,6,0,0,0,2,0,0,0,0],[6,5,1,0,0,0,0,0,0,0],[4,1,1,2,0,0,0,0,0,3],[7,1,3,3,0,0,0,1,0,0],[7,5,2,0,0,1,0,2,0,0]],
+  "Rd.7":   [[6,4,2,0,0,1,0,1,0,0],[7,6,0,1,0,1,0,0,0,1],[8,6,0,2,0,0,0,0,1,5],[8,4,2,2,0,2,0,1,0,2],[4,1,2,1,0,1,0,1,0,1],[6,6,0,0,0,1,0,0,0,0]],
+  "CSFC QF":[[7,6,0,1,0,0,0,0,0,0],[5,4,1,0,0,0,0,2,0,0],[8,4,3,1,0,0,0,2,0,1],[6,1,2,3,0,0,0,1,0,3],[6,2,2,2,0,1,0,0,0,2],[7,3,1,3,0,1,0,0,0,3]],
+};
 
 // ── Opposition KO data per 12-min period (extracted from XML) ────────────────
 // Format per period: [taken, won_by_opp, lost_by_opp]
@@ -3740,51 +3761,47 @@ function renderTempo(){
     backgroundColor:[GREEN+'CC','#F97316CC',RED+'88'],borderRadius:8,
   }]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:BORDER}}}}});
 
-  // ── Period Attacks grouped bar chart ──
+  // ── Period Attacks grouped bar chart (filter-aware, uses PERIOD_TEMPO_DATA_BY_ROUND) ──
   (function(){
-    const periodLabels=PERIOD_ATTACK_DATA.map(r=>r[0]);
-    const totals=PERIOD_ATTACK_DATA.map(r=>r[1]);
-    const quicks=PERIOD_ATTACK_DATA.map(r=>r[2]);
-    const meds  =PERIOD_ATTACK_DATA.map(r=>r[5]);
-    const slows =PERIOD_ATTACK_DATA.map(r=>r[8]);
-
-    // Per-period score strings for tooltip
-    const qScore=PERIOD_ATTACK_DATA.map(r=>`${r[3]}G · ${r[4]} pts`);
-    const mScore=PERIOD_ATTACK_DATA.map(r=>`${r[6]}G · ${r[7]} pts`);
-    const sScore=PERIOD_ATTACK_DATA.map(r=>`${r[9]}G · ${r[10]} pts`);
-
+    const PLABELS=['0–12','12–24','24–35','35–47','47–59','59–70'];
+    const selRounds=new Set(ms.map(m=>m.round));
+    const totals=Array(6).fill(0),quicks=Array(6).fill(0),meds=Array(6).fill(0),slows=Array(6).fill(0);
+    const qG=Array(6).fill(0),qPts=Array(6).fill(0),mG=Array(6).fill(0),mPts=Array(6).fill(0),sG=Array(6).fill(0),sPts=Array(6).fill(0);
+    selRounds.forEach(rnd=>{
+      const rdata=PERIOD_TEMPO_DATA_BY_ROUND[rnd];
+      if(!rdata) return;
+      rdata.forEach((p,i)=>{
+        totals[i]+=p[0];quicks[i]+=p[1];meds[i]+=p[2];slows[i]+=p[3];
+        qG[i]+=p[4];qPts[i]+=p[5];mG[i]+=p[6];mPts[i]+=p[7];sG[i]+=p[8];sPts[i]+=p[9];
+      });
+    });
+    const qScore=PLABELS.map((_,i)=>`${qG[i]}G · ${qPts[i]} pts`);
+    const mScore=PLABELS.map((_,i)=>`${mG[i]}G · ${mPts[i]} pts`);
+    const sScore=PLABELS.map((_,i)=>`${sG[i]}G · ${sPts[i]} pts`);
     document.getElementById('tp-period-badge').textContent=
       ms.length===1?ms[0].round+' v '+ms[0].opponent:'All Rounds';
-
     mkChart('tp-period-chart',{
       type:'bar',
       data:{
-        labels:periodLabels,
+        labels:PLABELS,
         datasets:[
-          {label:'Total Attacks', data:totals, backgroundColor:'#3B82F688', borderColor:'#3B82F6', borderWidth:1.5, borderRadius:4},
+          {label:'Total Attacks', data:totals, backgroundColor:'#3B82F688',borderColor:'#3B82F6',borderWidth:1.5,borderRadius:4},
           {label:'Quick (0–25s)', data:quicks, backgroundColor:GREEN+'CC',  borderRadius:4},
-          {label:'Medium (26–50s)',data:meds,  backgroundColor:'#F97316CC', borderRadius:4},
-          {label:'Slow (51s+)',   data:slows,  backgroundColor:RED+'BB',    borderRadius:4},
+          {label:'Medium (26–50s)',data:meds,  backgroundColor:'#F97316CC',borderRadius:4},
+          {label:'Slow (51s+)',    data:slows,  backgroundColor:RED+'BB',   borderRadius:4},
         ]
       },
       options:{
-        responsive:true,
-        maintainAspectRatio:false,
+        responsive:true,maintainAspectRatio:false,
         plugins:{
           legend:{position:'bottom',labels:{boxWidth:10,padding:12}},
-          tooltip:{
-            callbacks:{
-              label:function(ctx){
-                const ds=ctx.dataset.label;
-                const i=ctx.dataIndex;
-                const v=ctx.raw;
-                if(ds.startsWith('Quick'))   return `Quick: ${v} attacks  (${qScore[i]})`;
-                if(ds.startsWith('Medium'))  return `Medium: ${v} attacks  (${mScore[i]})`;
-                if(ds.startsWith('Slow'))    return `Slow: ${v} attacks  (${sScore[i]})`;
-                return `Total: ${v} attacks`;
-              }
-            }
-          }
+          tooltip:{callbacks:{label:function(ctx){
+            const ds=ctx.dataset.label,i=ctx.dataIndex,v=ctx.raw;
+            if(ds.startsWith('Quick'))  return 'Quick: '+v+' attacks  ('+qScore[i]+')';
+            if(ds.startsWith('Medium')) return 'Medium: '+v+' attacks  ('+mScore[i]+')';
+            if(ds.startsWith('Slow'))   return 'Slow: '+v+' attacks  ('+sScore[i]+')';
+            return 'Total: '+v+' attacks';
+          }}}
         },
         scales:{
           x:{grid:{display:false}},
@@ -4091,43 +4108,40 @@ function renderAttacking(){
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10}}},scales:{y:{grid:{color:BORDER}}}}});
   }
 
-  // ── Period Attack Outcomes chart ──
+  // ── Period Attack Outcomes chart ── (filter-aware, uses PERIOD_ATTACK_DATA_BY_ROUND)
   (function(){
-    const pLabels = PERIOD_ATTACK_DATA.map(r=>r[0]);
-    const totals  = PERIOD_ATTACK_DATA.map(r=>r[1]);
-    const scored  = PERIOD_ATTACK_DATA.map(r=>(r[4]-2*r[3])+(r[7]-2*r[6])+(r[10]-2*r[9]));
-    const shots   = PERIOD_ATTACK_DATA.map(r=>r[11]);
-    const tovers  = PERIOD_ATTACK_DATA.map(r=>r[12]);
-
+    const PLABELS=['0–12','12–24','24–35','35–47','47–59','59–70'];
+    const selectedRounds=new Set(ms.map(m=>m.round));
+    const totals=Array(6).fill(0),scored=Array(6).fill(0),
+          shotMiss=Array(6).fill(0),tovers=Array(6).fill(0);
+    selectedRounds.forEach(rnd=>{
+      const rdata=PERIOD_ATTACK_DATA_BY_ROUND[rnd];
+      if(!rdata) return;
+      rdata.forEach((p,i)=>{totals[i]+=p[0];scored[i]+=p[1];shotMiss[i]+=p[2];tovers[i]+=p[3];});
+    });
     document.getElementById('at-period-badge').textContent=
       ms.length===1?ms[0].round+' v '+ms[0].opponent:'All Rounds';
-
     mkChart('at-period-chart',{
       type:'bar',
       data:{
-        labels:pLabels,
+        labels:PLABELS,
         datasets:[
-          {label:'Total Attacks',    data:totals, backgroundColor:'#3B82F688', borderColor:'#3B82F6', borderWidth:1.5, borderRadius:4},
-          {label:'Ended in Score',   data:scored, backgroundColor:GREEN+'CC',  borderRadius:4},
-          {label:'Ended in Shot',    data:shots,  backgroundColor:'#EAB308CC', borderRadius:4},
-          {label:'Ended in Turnover',data:tovers, backgroundColor:RED+'BB',    borderRadius:4},
+          {label:'Total Attacks',     data:totals,   backgroundColor:'#3B82F688',borderColor:'#3B82F6',borderWidth:1.5,borderRadius:4},
+          {label:'Ended in Score',    data:scored,   backgroundColor:GREEN+'CC', borderRadius:4},
+          {label:'Ended in Shot',     data:shotMiss, backgroundColor:'#EAB308CC',borderRadius:4},
+          {label:'Ended in Turnover', data:tovers,   backgroundColor:RED+'BB',   borderRadius:4},
         ]
       },
       options:{
-        responsive:true,
-        maintainAspectRatio:false,
+        responsive:true,maintainAspectRatio:false,
         plugins:{
           legend:{position:'bottom',labels:{boxWidth:10,padding:12}},
-          tooltip:{
-            callbacks:{
-              afterBody:function(items){
-                const i=items[0].dataIndex;
-                const eff=(scored[i]/totals[i]*100).toFixed(0);
-                const shotPct=(shots[i]/totals[i]*100).toFixed(0);
-                return [`Attack efficiency: ${eff}%`,`Shot rate: ${shotPct}%`];
-              }
-            }
-          }
+          tooltip:{callbacks:{afterBody:function(items){
+            const i=items[0].dataIndex;
+            const eff=totals[i]>0?(scored[i]/totals[i]*100).toFixed(0):'0';
+            const shotRate=totals[i]>0?((scored[i]+shotMiss[i])/totals[i]*100).toFixed(0):'0';
+            return['Attack efficiency: '+eff+'%','Shot rate: '+shotRate+'%'];
+          }}}
         },
         scales:{
           x:{grid:{display:false}},
