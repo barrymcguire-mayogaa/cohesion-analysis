@@ -4203,22 +4203,54 @@ function renderAttacking(){
   const mayoEff=totalMayoScored/totalMayoAtt*100;
   const oppEff=totalOppScored/totalOppAtt*100;
 
+  const oppTotalGoals=ms.reduce((a,m)=>{const g=m.oppScore.match(/(\d+)-/);return a+(g?+g[1]:0);},0);
+  const fmt1=v=>singleRound?String(Math.round(v)):v.toFixed(1);
+
   const stats=[
-    {label:'Attacks',          mayo:totalMayoAtt/ms.length,          opp:totalOppAtt/ms.length,            max:50,  fmt:v=>v.toFixed(1)},
-    {label:'Shots',            mayo:totalMayoShots/ms.length,        opp:ms.reduce((a,m)=>a+m.oppShots,0)/ms.length, max:50, fmt:v=>v.toFixed(1)},
-    {label:'Shot Acc %',       mayo:ms.reduce((a,m)=>a+m.mayoShotAcc,0)/ms.length, opp:ms.reduce((a,m)=>a+m.oppShotAcc,0)/ms.length, max:100, fmt:v=>v.toFixed(1)+'%'},
-    {label:'Attack Eff %',     mayo:mayoEff,                          opp:oppEff,                           max:60,  fmt:v=>v.toFixed(1)+'%'},
-    {label:'Successful Att',   mayo:totalMayoScored/ms.length,        opp:totalOppScored/ms.length,         max:30,  fmt:v=>v.toFixed(1)},
-    {label:'Wasted Att',       mayo:wasted/ms.length,                 opp:wastedOpp/ms.length,              max:20,  fmt:v=>v.toFixed(1)},
-    {label:'Avg Att Length',   mayo:avgMayoDur,                       opp:avgOppDur,                        max:60,  fmt:v=>v.toFixed(1)+'s'},
+    {label:'Attacks',        mayo:totalMayoAtt/ms.length,                              opp:totalOppAtt/ms.length,                         max:50,  fmt:v=>v.toFixed(1)},
+    {label:'Shots',          mayo:totalMayoShots/ms.length,                            opp:ms.reduce((a,m)=>a+m.oppShots,0)/ms.length,    max:50,  fmt:v=>v.toFixed(1)},
+    {label:'Shot Acc %',     mayo:ms.reduce((a,m)=>a+m.mayoShotAcc,0)/ms.length,      opp:ms.reduce((a,m)=>a+m.oppShotAcc,0)/ms.length,  max:100, fmt:v=>v.toFixed(1)+'%'},
+    {label:'Attack Eff %',   mayo:mayoEff,                                             opp:oppEff,                                        max:60,  fmt:v=>v.toFixed(1)+'%'},
+    {label:'Successful Att', mayo:totalMayoScored/ms.length,                           opp:totalOppScored/ms.length,                      max:30,  fmt:v=>v.toFixed(1)},
+    {label:'Goals',          mayo:ms.reduce((a,m)=>a+m.mayoGoal,0)/ms.length,         opp:oppTotalGoals/ms.length,                       max:5,   fmt:fmt1},
+    {label:'1-Pt Scores',    mayo:ms.reduce((a,m)=>a+m.mayo1pt,0)/ms.length,          opp:null,                                          max:25,  fmt:fmt1},
+    {label:'2-Pt Scores',    mayo:ms.reduce((a,m)=>a+(m.mayo2pt||0),0)/ms.length,     opp:null,                                          max:10,  fmt:fmt1},
+    {label:'Wasted Att',     mayo:wasted/ms.length,                                   opp:wastedOpp/ms.length,                           max:20,  fmt:v=>v.toFixed(1)},
+    {label:'Avg Att Length', mayo:avgMayoDur,                                         opp:avgOppDur,                                     max:60,  fmt:v=>v.toFixed(1)+'s'},
   ];
 
-  document.getElementById('at-comp-bars').innerHTML=`
+  const CREST_MAP={'Galway':'Galway-GAA-300x300.png','Dublin':'Dublin-GAA.png',
+    'Donegal':'Donegal-GAA-300x300.png','Monaghan':'Monaghan-GAA.png',
+    'Armagh':'Armagh-GAA.png','Kerry':'Kerry-GAA.png',
+    'Roscommon':'Roscommon-GAA-300x300.png','London':'London-GAA-300x300.png'};
+  const cb='Assets/County%20Crests/';
+
+  const headerHtml=singleRound?`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px">
+        <span style="font-size:11px;font-weight:700;color:${GREEN_D}">MAYO</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="${cb}Mayo-GAA.png" style="width:52px;height:52px;object-fit:contain" onerror="this.style.display='none'">
+          <div style="font-size:26px;font-weight:900;color:var(--text)">${ms[0].mayoScore}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:${MUTED};text-align:center">Stat<br>(game total)</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span style="font-size:11px;font-weight:700;color:${RED_D}">OPPOSITION</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:26px;font-weight:900;color:var(--text)">${ms[0].oppScore}</div>
+          <img src="${cb}${CREST_MAP[ms[0].opponent]||''}" style="width:52px;height:52px;object-fit:contain" onerror="this.style.display='none'">
+        </div>
+      </div>
+    </div>`:`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:11px;font-weight:700">
       <span style="color:${GREEN_D}">MAYO</span><span style="color:${MUTED}">Stat (per game avg)</span><span style="color:${RED_D}">OPPOSITION</span>
-    </div>`+stats.map(s=>{
-    const mp=(s.mayo/s.max*50).toFixed(0);
-    const op=(s.opp/s.max*50).toFixed(0);
+    </div>`;
+
+  document.getElementById('at-comp-bars').innerHTML=headerHtml+stats.map(s=>{
+    const mp=Math.min(+s.mayo/s.max*50,50).toFixed(0);
+    const op=s.opp!=null?Math.min(+s.opp/s.max*50,50).toFixed(0):'0';
+    const oppVal=s.opp!=null?s.fmt(s.opp):'—';
     return `<div class="comp-row">
       <div class="comp-val-mayo">${s.fmt(s.mayo)}</div>
       <div style="flex:1;display:flex;align-items:center;gap:2px">
@@ -4227,10 +4259,10 @@ function renderAttacking(){
         </div>
         <div style="width:90px;text-align:center;font-size:11px;font-weight:600;color:${MUTED}">${s.label}</div>
         <div style="flex:1;display:flex;justify-content:flex-start">
-          <div class="comp-bar-opp" style="width:${op}%"></div>
+          ${s.opp!=null?`<div class="comp-bar-opp" style="width:${op}%"></div>`:''}
         </div>
       </div>
-      <div class="comp-val-opp">${s.fmt(s.opp)}</div>
+      <div class="comp-val-opp">${oppVal}</div>
     </div>`;
   }).join('');
 }
