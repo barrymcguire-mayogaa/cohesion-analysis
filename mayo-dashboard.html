@@ -4213,8 +4213,8 @@ function renderAttacking(){
     {label:'Attack Eff %',   mayo:mayoEff,                                             opp:oppEff,                                        max:60,  fmt:v=>v.toFixed(1)+'%'},
     {label:'Successful Att', mayo:totalMayoScored/ms.length,                           opp:totalOppScored/ms.length,                      max:30,  fmt:v=>v.toFixed(1)},
     {label:'Goals',          mayo:ms.reduce((a,m)=>a+m.mayoGoal,0)/ms.length,         opp:oppTotalGoals/ms.length,                       max:5,   fmt:fmt1},
-    {label:'1-Pt Scores',    mayo:ms.reduce((a,m)=>a+m.mayo1pt,0)/ms.length,          opp:null,                                          max:25,  fmt:fmt1},
-    {label:'2-Pt Scores',    mayo:ms.reduce((a,m)=>a+(m.mayo2pt||0),0)/ms.length,     opp:null,                                          max:10,  fmt:fmt1},
+    {label:'1-Pt Scores',    mayo:ms.reduce((a,m)=>a+m.mayo1pt,0)/ms.length,          opp:ms.reduce((a,m)=>a+(m.scoreTimeline||[]).filter(e=>e.team.toUpperCase()!=='MAYO'&&e.type==='1pt').length,0)/ms.length, max:25, fmt:fmt1},
+    {label:'2-Pt Scores',    mayo:ms.reduce((a,m)=>a+(m.mayo2pt||0),0)/ms.length,     opp:ms.reduce((a,m)=>a+(m.scoreTimeline||[]).filter(e=>e.team.toUpperCase()!=='MAYO'&&e.type==='2pt').length,0)/ms.length, max:10, fmt:fmt1},
     {label:'Wasted Att',     mayo:wasted/ms.length,                                   opp:wastedOpp/ms.length,                           max:20,  fmt:v=>v.toFixed(1)},
     {label:'Avg Att Length', mayo:avgMayoDur,                                         opp:avgOppDur,                                     max:60,  fmt:v=>v.toFixed(1)+'s'},
   ];
