@@ -588,6 +588,10 @@ tr:hover td{background:#f9fafb}
         <div class="chart-wrap" style="height:260px"><canvas id="at-period-chart"></canvas></div>
       </div>
       <div class="card grid-1" style="margin-top:16px">
+        <div class="card-title">Time of Possession by 12-Minute Period <span class="badge" id="at-poss-badge">All Rounds</span></div>
+        <div class="chart-wrap" style="height:240px"><canvas id="at-poss-chart"></canvas></div>
+      </div>
+      <div class="card grid-1" style="margin-top:16px">
         <div class="card-title">Top 3 Players — Attack Involvement</div>
         <div id="at-top3"></div>
       </div>
@@ -1958,6 +1962,20 @@ const PERIOD_TEMPO_DATA_BY_ROUND={
   "Rd.6":   [[9,8,1,0,0,5,0,1,0,0],[6,6,0,0,0,2,0,0,0,0],[6,5,1,0,0,0,0,0,0,0],[4,1,1,2,0,0,0,0,0,3],[7,1,3,3,0,0,0,1,0,0],[7,5,2,0,0,1,0,2,0,0]],
   "Rd.7":   [[6,4,2,0,0,1,0,1,0,0],[7,6,0,1,0,1,0,0,0,1],[8,6,0,2,0,0,0,0,1,5],[8,4,2,2,0,2,0,1,0,2],[4,1,2,1,0,1,0,1,0,1],[6,6,0,0,0,1,0,0,0,0]],
   "CSFC QF":[[7,6,0,1,0,0,0,0,0,0],[5,4,1,0,0,0,0,2,0,0],[8,4,3,1,0,0,0,2,0,1],[6,1,2,3,0,0,0,1,0,3],[6,2,2,2,0,1,0,0,0,2],[7,3,1,3,0,1,0,0,0,3]],
+};
+
+// ── Time of Possession per 12-min period (extracted from XML possession events) ──
+// Format per period: [mayo_seconds, opp_seconds]
+// Periods: P0=H1 0-12, P1=H1 12-24, P2=H1 24-35, P3=H2 0-12, P4=H2 12-24, P5=H2 24-35
+const POSSESSION_PERIOD_DATA={
+  "Rd.1":    [[354,271],[303,155],[513,499],[276,397],[214,257],[320,479]],
+  "Rd.2":    [[291,331],[248,349],[281,312],[339,247],[291,254],[392,423]],
+  "Rd.3":    [[180,557],[297,262],[172,378],[310,275],[291,295],[306,360]],
+  "Rd.4":    [[287,376],[159,459],[305,364],[232,315],[366,247],[489,343]],
+  "Rd.5":    [[265,401],[156,510],[309,311],[290,384],[229,306],[267,397]],
+  "Rd.6":    [[279,405],[215,321],[182,356],[285,308],[457,139],[394,356]],
+  "Rd.7":    [[172,440],[317,227],[353,221],[406,129],[351,176],[409,362]],
+  "CSFC QF": [[231,392],[207,395],[347,121],[450,178],[457,205],[312,157]],
 };
 
 // ── Opposition KO data per 12-min period (extracted from XML) ────────────────
@@ -4176,6 +4194,62 @@ function renderAttacking(){
         scales:{
           x:{grid:{display:false}},
           y:{min:0,ticks:{stepSize:5},grid:{color:BORDER},title:{display:true,text:'Attacks',font:{size:11}}}
+        }
+      }
+    });
+  })();
+
+  // ── Time of Possession line chart ──
+  (function(){
+    const PLABELS=['0–12','12–24','24–35','35–47','47–59','59–70'];
+    const selRounds=ms.map(m=>m.round);
+    const mayoPoss=Array(6).fill(0), oppPoss=Array(6).fill(0);
+    selRounds.forEach(rnd=>{
+      const rdata=POSSESSION_PERIOD_DATA[rnd];
+      if(!rdata) return;
+      rdata.forEach((p,i)=>{mayoPoss[i]+=p[0]; oppPoss[i]+=p[1];});
+    });
+    // Convert to percentage of total possession per period, averaged across rounds
+    const n=selRounds.filter(r=>POSSESSION_PERIOD_DATA[r]).length||1;
+    const mayoAvg=mayoPoss.map(v=>v/n);
+    const oppAvg=oppPoss.map(v=>v/n);
+    const mayoPct=mayoAvg.map((v,i)=>{const t=v+oppAvg[i];return t>0?+(v/t*100).toFixed(1):50;});
+    const oppPct=oppAvg.map((v,i)=>{const t=v+mayoAvg[i];return t>0?+(v/t*100).toFixed(1):50;});
+
+    document.getElementById('at-poss-badge').textContent=
+      ms.length===1?ms[0].round+' v '+ms[0].opponent:'All Rounds';
+
+    mkChart('at-poss-chart',{
+      type:'line',
+      data:{
+        labels:PLABELS,
+        datasets:[
+          {label:'Mayo',       data:mayoPct, borderColor:GREEN,     backgroundColor:GREEN+'33',     borderWidth:2.5, pointRadius:5, pointBackgroundColor:GREEN,     fill:true, tension:0.35},
+          {label:'Opposition', data:oppPct,  borderColor:RED,       backgroundColor:RED+'22',       borderWidth:2.5, pointRadius:5, pointBackgroundColor:RED,       fill:true, tension:0.35},
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom', labels:{boxWidth:10, padding:12}},
+          tooltip:{callbacks:{
+            label:function(ctx){
+              const i=ctx.dataIndex;
+              const isMayo=ctx.datasetIndex===0;
+              const secs=Math.round(isMayo?mayoAvg[i]:oppAvg[i]);
+              const m=Math.floor(secs/60), s=secs%60;
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y}%  (${m}m ${s}s${ms.length>1?' avg':''})`;
+            }
+          }}
+        },
+        scales:{
+          x:{grid:{display:false}},
+          y:{
+            min:0, max:100,
+            ticks:{callback:v=>v+'%', stepSize:25},
+            grid:{color:BORDER},
+            title:{display:true, text:'% of Period Possession', font:{size:11}}
+          }
         }
       }
     });
