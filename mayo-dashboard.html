@@ -4194,8 +4194,11 @@ function renderAttacking(){
   const avgMayoDur=tempoRows.length?tempoRows.reduce((a,r)=>a+r.mayo.avg,0)/tempoRows.length:0;
   const avgOppDur=tempoRows.length?tempoRows.reduce((a,r)=>a+r.opp.avg,0)/tempoRows.length:0;
 
-  // Wasted attacks = attacks that produced no shot (attacks minus shots per round)
-  const wasted=ms.reduce((a,m)=>a+Math.max(0,m.mayoAttacks-m.mayoShots),0);
+  // Wasted attacks = no_shot_att from PERIOD_ATTACK_DATA_BY_ROUND (same source as period chart)
+  const wasted=ms.reduce((a,m)=>{
+    const rdata=PERIOD_ATTACK_DATA_BY_ROUND[m.round];
+    return a+(rdata?rdata.reduce((s,p)=>s+(p[3]||0),0):Math.max(0,m.mayoAttacks-m.mayoShots));
+  },0);
   const wastedOpp=ms.reduce((a,m)=>a+Math.max(0,m.oppAttacks-m.oppShots),0);
   const mayoEff=totalMayoScored/totalMayoAtt*100;
   const oppEff=totalOppScored/totalOppAtt*100;
