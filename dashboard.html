@@ -327,7 +327,7 @@ function applyF(){
     if(activeCat!=='All'&&ev.category!==activeCat)return false;
     if(activeEvt&&EM[activeEvt]&&!EM[activeEvt](ev))return false;
     if(activeLF&&(!ev.labels||ev.labels[activeLF.g]!==activeLF.v))return false;
-    if(team&&ev.team!==team)return false;
+    if(team&&ev.team.toUpperCase()!==team.toUpperCase())return false;
     if(player&&ev.player!==player)return false;
     if(half&&ev.half!==half)return false;
     if(q&&!(ev.code+' '+ev.player+' '+ev.outcome+' '+ev.subtype+' '+ev.team+' '+ev.category).toLowerCase().includes(q))return false;
@@ -335,7 +335,9 @@ function applyF(){
   });
   const ht=GAME.homeTeam||'';
   document.getElementById('CT').textContent=filtered.length.toLocaleString();
-  document.getElementById('CH').textContent=filtered.filter(e=>e.team===ht).length;
+  document.getElementById('CT').textContent=filtered.length.toLocaleString();
+  document.getElementById('CH').textContent=filtered.filter(e=>e.team.toUpperCase()===(GAME.homeTeam||'').toUpperCase()).length;
+  document.getElementById('CA').textContent=filtered.filter(e=>e.team.toUpperCase()===(GAME.awayTeam||'').toUpperCase()).length;
   document.getElementById('CA').textContent=filtered.filter(e=>e.team===GAME.awayTeam).length;
   renderP();drawTL();
 }
