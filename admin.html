@@ -135,6 +135,16 @@ input[type=file]{display:none;}
 }
 code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent);}
 
+/* SOURCE BADGE */
+.src-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:20px;margin-top:8px;
+  font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;
+}
+.src-badge.sportscode{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
+.src-badge.gaelictracker{background:rgba(168,85,247,0.12);border:1px solid #a855f7;color:#a855f7;}
+.missing-row{display:none;margin-top:10px;}
+
 /* ERROR */
 .error-box{
   background:var(--red-bg);border:1px solid var(--red);border-radius:8px;
@@ -161,8 +171,9 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 <div class="page">
   <div class="page-title">Add New Game</div>
   <div class="page-sub">
-    Fill in the game details, enter the video start times, then upload the Sportscode XML.
-    The tool will process the XML in your browser and generate ready-to-upload files for GitHub.
+    Supports both <strong>Hudl Sportscode XML</strong> and <strong>Gaelic Tracker JSON</strong> exports.
+    Fill in the game details, enter the video start times, then upload your file.
+    Gaelic Tracker files will auto-fill teams, colours and date automatically.
   </div>
 
   <!-- STEP 1: Game Details -->
@@ -263,7 +274,15 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
         </div>
       </div>
     </div>
-    <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period.</div>
+    <div class="help" id="timingHelp">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period.</div>
+
+    <div class="missing-row" id="missingRow">
+      <div class="field" style="max-width:200px;">
+        <label>Footage Missing From Start (seconds)</label>
+        <input type="text" id="missingFootage" placeholder="e.g. 50" value="0">
+        <div class="help">How many seconds of the 1st half are missing from the beginning of the video? The video seek will be adjusted automatically.</div>
+      </div>
+    </div>
   </div>
 
   <!-- STEP 3: XML Upload & Process -->
@@ -271,8 +290,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <div class="step-header">
       <div class="step-num">3</div>
       <div>
-        <div class="step-title">Upload Sportscode XML</div>
-        <div class="step-sub">Drop or click to select the XML export from Hudl Sportscode</div>
+        <div class="step-title">Upload Match Data File</div>
+        <div class="step-sub">Sportscode XML <em>or</em> Gaelic Tracker JSON — file type is auto-detected</div>
       </div>
     </div>
 
@@ -282,11 +301,12 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
          ondragleave="this.classList.remove('over')"
          ondrop="handleDrop(event)">
       <div class="dz-icon">📂</div>
-      <div class="dz-title">Drop XML file here or click to browse</div>
-      <div class="dz-sub">Sportscode XML export (.xml) — UTF-16 LE encoding</div>
+      <div class="dz-title">Drop file here or click to browse</div>
+      <div class="dz-sub">Sportscode <code>.xml</code> or Gaelic Tracker <code>.json</code></div>
       <div class="dz-file" id="dzFileName"></div>
+      <div id="srcBadge" style="display:none;" class="src-badge"></div>
     </div>
-    <input type="file" id="xmlFile" accept=".xml" onchange="handleFileSelect(this)">
+    <input type="file" id="xmlFile" accept=".xml,.json" onchange="handleFileSelect(this)">
 
     <div class="error-box" id="errorBox"></div>
 
@@ -370,6 +390,8 @@ function toggleET(){
 
 // ── File handling ─────────────────────────────────────────────
 let xmlFile = null;
+let fileSource = null; // 'sportscode' | 'gaelictracker'
+let gtData = null;
 
 function handleFileSelect(input){
   if(input.files[0]) setFile(input.files[0]);
@@ -378,15 +400,70 @@ function handleDrop(e){
   e.preventDefault();
   document.getElementById('dropZone').classList.remove('over');
   const f = e.dataTransfer.files[0];
-  if(f && f.name.endsWith('.xml')) setFile(f);
-  else showError('Please drop a .xml file.');
+  if(f && (f.name.endsWith('.xml') || f.name.endsWith('.json'))) setFile(f);
+  else showError('Please drop a Sportscode .xml or Gaelic Tracker .json file.');
 }
-function setFile(f){
+async function setFile(f){
   xmlFile = f;
+  fileSource = f.name.endsWith('.json') ? 'gaelictracker' : 'sportscode';
   document.getElementById('dzFileName').textContent = '✓ ' + f.name;
   document.getElementById('dropZone').classList.add('ready');
   document.getElementById('processBtn').disabled = false;
   hideError();
+
+  const badge = document.getElementById('srcBadge');
+  if(fileSource === 'gaelictracker'){
+    badge.className = 'src-badge gaelictracker';
+    badge.textContent = '📱 Gaelic Tracker — auto-filling details…';
+    badge.style.display = 'inline-flex';
+    document.getElementById('missingRow').style.display = 'block';
+    document.getElementById('timingHelp').innerHTML =
+      '<strong>Gaelic Tracker:</strong> Enter the video time when the <strong>1st half throw-in</strong> occurs. For the 2nd half, find when the throw-in happens in the video. If footage is missing from the start, enter how many seconds below.';
+    try{
+      const text = await f.text();
+      gtData = JSON.parse(text);
+      prefillFromGT(gtData);
+      badge.textContent = '📱 Gaelic Tracker — details auto-filled ✓';
+    } catch(err){
+      badge.textContent = '📱 Gaelic Tracker';
+      showError('Could not parse JSON file: ' + err.message);
+    }
+  } else {
+    badge.className = 'src-badge sportscode';
+    badge.textContent = '🎬 Sportscode XML';
+    badge.style.display = 'inline-flex';
+    document.getElementById('missingRow').style.display = 'none';
+    document.getElementById('timingHelp').textContent =
+      'Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period.';
+    gtData = null;
+  }
+}
+
+function prefillFromGT(d){
+  if(d.homeTeamName) document.getElementById('homeTeam').value = d.homeTeamName;
+  if(d.awayTeamName) document.getElementById('awayTeam').value = d.awayTeamName;
+  if(d.homeColor && /^#[0-9a-fA-F]{6}$/.test(d.homeColor)){
+    document.getElementById('homeColor').value = d.homeColor;
+    document.getElementById('homeColorHex').value = d.homeColor;
+  }
+  if(d.awayColor && /^#[0-9a-fA-F]{6}$/.test(d.awayColor)){
+    document.getElementById('awayColor').value = d.awayColor;
+    document.getElementById('awayColorHex').value = d.awayColor;
+  }
+  if(d.date){
+    try{ document.getElementById('gameDate').value = new Date(d.date).toISOString().slice(0,10); }catch(_){}
+  }
+  // Try to match competition
+  if(d.matchType){
+    const sel = document.getElementById('competition');
+    const opts = [...sel.options];
+    const match = opts.find(o => d.matchType.toLowerCase().includes(o.value.toLowerCase()) && o.value);
+    if(match) sel.value = match.value;
+    // Put matchType into round if not matched to competition
+    if(!match || !sel.value){
+      document.getElementById('round').value = d.matchType;
+    }
+  }
 }
 
 // ── Time parsing ──────────────────────────────────────────────
@@ -440,6 +517,71 @@ function setProgress(pct, msg){
   document.getElementById('progMsg').textContent = msg;
 }
 
+// ── Gaelic Tracker processing ─────────────────────────────────
+const GT_CODE_MAP = {
+  'goal':'GOAL','point':'POINT','twoPoint':'TWO POINT',
+  'wide':'WIDE','short':'SHORT','post':'POST','save':'SAVE','block':'BLOCK',
+  'ownKickoutWon':'OWN KICKOUT WON','oppKickoutWon':'OPP KICKOUT WON',
+  'Contact TO':'CONTACT TO','Unforced TO':'UNFORCED TO',
+  'yellow':'YELLOW CARD','black':'BLACK CARD','red':'RED CARD',
+};
+function gtCode(ev){ return GT_CODE_MAP[ev] || ev.replace(/([A-Z])/g,' $1').trim().toUpperCase(); }
+function gtCategory(ev){
+  const e = ev.toLowerCase();
+  if(/goal|point|twopoint|wide|short|post|save|block/.test(e)) return 'Shots & Scores';
+  if(/kickout/.test(e)) return 'Kickouts';
+  if(/\bto\b|turnover/.test(e)) return 'Turnovers';
+  if(/foul|yellow|black|red/.test(e)) return 'Fouls';
+  if(/tackle/.test(e)) return 'Tackles';
+  return 'Player Actions';
+}
+function gtParseTime(str){ // "MM:SS" → seconds
+  const [m,s] = (str||'0:0').split(':').map(Number);
+  return (m||0)*60+(s||0);
+}
+function processGaelicTracker(d, half1Video, half2Video, missingFromStart){
+  const P2_CLOCK_START = 1800; // GAA 2nd-half clock starts at 30:00
+  const events = [];
+  const timeline = [...(d.timeline||[])].reverse(); // sort oldest-first
+  timeline.forEach(item=>{
+    if(item.team === 'referee') return;
+    const gameSeconds = gtParseTime(item.time);
+    let driveT, half, gameTimeStr;
+    if(item.period === 1){
+      half = '1st Half';
+      driveT = half1Video + gameSeconds - missingFromStart;
+      const m=Math.floor(gameSeconds/60), s=gameSeconds%60;
+      gameTimeStr = `1H ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    } else {
+      half = '2nd Half';
+      const halfSecs = Math.max(0, gameSeconds - P2_CLOCK_START);
+      driveT = half2Video + halfSecs;
+      const m=Math.floor(halfSecs/60), s=halfSecs%60;
+      gameTimeStr = `2H ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    driveT = Math.max(0, Math.round(driveT) - 2);
+    const player = (item.player||'').replace(/\s*\(\d+\)\s*$/, '').trim()
+                                    .replace(/\s*\(C\)\s*/,'').trim();
+    const team = item.team==='home' ? d.homeTeamName.toUpperCase()
+               : item.team==='away' ? d.awayTeamName.toUpperCase() : '';
+    const labels = {};
+    if(item.score) labels['Score'] = item.score;
+    events.push({
+      id: item.id || String(events.length+1),
+      start: gameSeconds,
+      end: gameSeconds+5,
+      half, gameTime: gameTimeStr,
+      code: gtCode(item.event),
+      team, player,
+      outcome: item.score || '',
+      subtype: '',
+      category: gtCategory(item.event),
+      driveT, labels,
+    });
+  });
+  return events;
+}
+
 // ── MAIN PROCESS ──────────────────────────────────────────────
 async function processGame(){
   hideError();
@@ -461,7 +603,7 @@ async function processGame(){
   if(!homeTeam||!awayTeam){ showError('Please enter both team names.'); return; }
   if(!competition){ showError('Please select a competition.'); return; }
   if(!ytUrl){ showError('Please enter the YouTube video URL.'); return; }
-  if(!xmlFile){ showError('Please select an XML file.'); return; }
+  if(!xmlFile){ showError('Please select a match data file.'); return; }
 
   const ytId = extractYtId(ytUrl);
   if(!ytId){ showError('Could not read YouTube video ID from that URL. Please use a standard YouTube or youtu.be link.'); return; }
@@ -477,116 +619,93 @@ async function processGame(){
   // Show progress
   document.getElementById('progressBlock').classList.add('show');
   document.getElementById('processBtn').disabled = true;
-  setProgress(10, 'Reading XML file…');
+
+  let events = [];
 
   try{
-    // Read file as ArrayBuffer
-    const buffer = await xmlFile.arrayBuffer();
-    setProgress(25, 'Decoding XML…');
+    // ── Gaelic Tracker JSON ──────────────────────────────────
+    if(fileSource === 'gaelictracker'){
+      setProgress(20, 'Reading Gaelic Tracker data…');
+      const missing = parseInt(document.getElementById('missingFootage').value)||0;
+      const data = gtData || JSON.parse(await xmlFile.text());
+      setProgress(60, `Processing ${data.timeline?.length||0} timeline events…`);
+      events = processGaelicTracker(data, half1Video, half2Video, missing);
+      setProgress(80, 'Generating files…');
 
-    // Decode UTF-16 LE
-    let text;
-    try{
-      const decoder = new TextDecoder('utf-16le');
-      text = decoder.decode(buffer);
-      if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    } catch(e){
-      const decoder = new TextDecoder('utf-8');
-      text = decoder.decode(buffer);
+    // ── Sportscode XML ───────────────────────────────────────
+    } else {
+      setProgress(10, 'Reading XML file…');
+      const buffer = await xmlFile.arrayBuffer();
+      setProgress(25, 'Decoding XML…');
+      let text;
+      try{
+        const decoder = new TextDecoder('utf-16le');
+        text = decoder.decode(buffer);
+        if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      } catch(e){
+        text = new TextDecoder('utf-8').decode(buffer);
+      }
+      setProgress(40, 'Parsing events…');
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'text/xml');
+      if(doc.querySelector('parsererror')){ showError('Could not parse the XML file. Please check it is a valid Sportscode export.'); return; }
+
+      const instances = Array.from(doc.querySelectorAll('instance'));
+      setProgress(55, `Found ${instances.length} instances…`);
+
+      let xmlHalf1=null, xmlHalf2=null, xmlET1=null, xmlET2=null;
+      instances.forEach(inst=>{
+        const code = inst.querySelector('code')?.textContent?.trim()||'';
+        const start = parseFloat(inst.querySelector('start')?.textContent||0);
+        if(code==='1st Half' && xmlHalf1===null) xmlHalf1=start;
+        if(code==='2nd Half' && xmlHalf2===null) xmlHalf2=start;
+        if(code==='ET 1st Half' && xmlET1===null) xmlET1=start;
+        if(code==='ET 2nd Half' && xmlET2===null) xmlET2=start;
+      });
+      if(xmlHalf1===null){ showError('Could not find "1st Half" marker in the XML.'); return; }
+      if(xmlHalf2===null){ showError('Could not find "2nd Half" marker in the XML.'); return; }
+
+      const offsets = {
+        '1st Half': half1Video - xmlHalf1,
+        '2nd Half': half2Video - xmlHalf2,
+        'ET 1st Half': et1Video!==null&&xmlET1!==null ? et1Video-xmlET1 : null,
+        'ET 2nd Half': et2Video!==null&&xmlET2!==null ? et2Video-xmlET2 : null,
+      };
+      const xmlRefs = {'1st Half':xmlHalf1,'2nd Half':xmlHalf2,'ET 1st Half':xmlET1,'ET 2nd Half':xmlET2};
+      const SKIP = new Set(['THROW-IN','1st Half','2nd Half','ET 1st Half','ET 2nd Half','Count']);
+
+      setProgress(65, 'Processing events…');
+      instances.forEach(inst=>{
+        const code = inst.querySelector('code')?.textContent?.trim()||'';
+        if(SKIP.has(code)) return;
+        const start = parseFloat(inst.querySelector('start')?.textContent||0);
+        const end   = parseFloat(inst.querySelector('end')?.textContent||0);
+        const labels = {};
+        inst.querySelectorAll('label').forEach(l=>{
+          const g = l.querySelector('group')?.textContent?.trim()||'NO_GROUP';
+          const t = l.querySelector('text')?.textContent?.trim()||'';
+          if(t) labels[g] = t;
+        });
+        let half = '1st Half';
+        if(xmlET2!==null && start>=xmlET2) half='ET 2nd Half';
+        else if(xmlET1!==null && start>=xmlET1) half='ET 1st Half';
+        else if(xmlHalf2!==null && start>=xmlHalf2) half='2nd Half';
+        const offset = offsets[half]||0;
+        const driveT = Math.max(0, Math.round(start+offset)-2);
+        const team = labels['Team Name'] || (code.includes('MAYO')?'MAYO': code.includes(awayTeam.toUpperCase())?awayTeam.toUpperCase():'');
+        const player = labels['Mayo Player Labels'] || labels['NO_GROUP'] || '';
+        const outcome = labels['Shot Outcomes']||labels['Game Involvement Outcomes']||labels['Kickout Outcomes']||labels['Turnover Outcomes']||labels['Tackle Outcomes']||'';
+        const subtype = labels['Deadball Shot Type']||labels['Shot Zones']||labels['Kickout Locations']||'';
+        events.push({
+          id: inst.querySelector('ID')?.textContent?.trim()||String(events.length+1),
+          start:Math.round(start), end:Math.round(end),
+          half, gameTime:getGameTime(half,start,xmlRefs),
+          code, team, player, outcome, subtype,
+          category:getCategory(code), driveT,
+        });
+      });
+      setProgress(80, 'Generating files…');
     }
-
-    setProgress(40, 'Parsing events…');
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(text, 'text/xml');
-    if(doc.querySelector('parsererror')){ showError('Could not parse the XML file. Please check it is a valid Sportscode export.'); return; }
-
-    const instances = Array.from(doc.querySelectorAll('instance'));
-    setProgress(55, `Found ${instances.length} instances…`);
-
-    // Find half boundaries in XML
-    let xmlHalf1=null, xmlHalf2=null, xmlET1=null, xmlET2=null;
-    instances.forEach(inst=>{
-      const code = inst.querySelector('code')?.textContent?.trim()||'';
-      const start = parseFloat(inst.querySelector('start')?.textContent||0);
-      if(code==='1st Half' && xmlHalf1===null) xmlHalf1=start;
-      if(code==='2nd Half' && xmlHalf2===null) xmlHalf2=start;
-      if(code==='ET 1st Half' && xmlET1===null) xmlET1=start;
-      if(code==='ET 2nd Half' && xmlET2===null) xmlET2=start;
-    });
-
-    if(xmlHalf1===null){ showError('Could not find "1st Half" marker in the XML. Please check this is a Sportscode export.'); return; }
-    if(xmlHalf2===null){ showError('Could not find "2nd Half" marker in the XML.'); return; }
-
-    // Offsets
-    const offsets = {
-      '1st Half':    half1Video - xmlHalf1,
-      '2nd Half':    half2Video - xmlHalf2,
-      'ET 1st Half': et1Video !== null && xmlET1 !== null ? et1Video - xmlET1 : null,
-      'ET 2nd Half': et2Video !== null && xmlET2 !== null ? et2Video - xmlET2 : null,
-    };
-
-    // Refs for game time calculation
-    const xmlRefs = {
-      '1st Half': xmlHalf1,
-      '2nd Half': xmlHalf2,
-      'ET 1st Half': xmlET1,
-      'ET 2nd Half': xmlET2,
-    };
-
-    const SKIP = new Set(['THROW-IN','1st Half','2nd Half','ET 1st Half','ET 2nd Half','Count']);
-
-    setProgress(65, 'Processing events…');
-    const events = [];
-    instances.forEach(inst=>{
-      const code = inst.querySelector('code')?.textContent?.trim()||'';
-      if(SKIP.has(code)) return;
-
-      const start = parseFloat(inst.querySelector('start')?.textContent||0);
-      const end   = parseFloat(inst.querySelector('end')?.textContent||0);
-
-      // Labels
-      const labels = {};
-      inst.querySelectorAll('label').forEach(l=>{
-        const g = l.querySelector('group')?.textContent?.trim()||'NO_GROUP';
-        const t = l.querySelector('text')?.textContent?.trim()||'';
-        if(t) labels[g] = t;
-      });
-
-      // Half
-      let half = '1st Half';
-      if(xmlET2!==null && start>=xmlET2) half='ET 2nd Half';
-      else if(xmlET1!==null && start>=xmlET1) half='ET 1st Half';
-      else if(xmlHalf2!==null && start>=xmlHalf2) half='2nd Half';
-
-      // Video timestamp
-      const offset = offsets[half]||0;
-      const driveT = Math.max(0, Math.round(start + offset) - 2);
-
-      const team = labels['Team Name'] || (code.includes('MAYO')?'MAYO': code.includes('LONDON')?'LONDON':'');
-      const player = labels['Mayo Player Labels'] || labels['NO_GROUP'] || '';
-      const outcome = labels['Shot Outcomes'] || labels['Game Involvement Outcomes'] ||
-                      labels['Kickout Outcomes'] || labels['Turnover Outcomes'] ||
-                      labels['Tackle Outcomes'] || '';
-      const subtype = labels['Deadball Shot Type'] || labels['Shot Zones'] ||
-                      labels['Kickout Locations'] || '';
-
-      events.push({
-        id: inst.querySelector('ID')?.textContent?.trim()||String(events.length+1),
-        start: Math.round(start),
-        end: Math.round(end),
-        half,
-        gameTime: getGameTime(half, start, xmlRefs),
-        code,
-        team,
-        player,
-        outcome,
-        subtype,
-        category: getCategory(code),
-        driveT,
-      });
-    });
-
-    setProgress(80, 'Generating files…');
 
     // Build game ID
     const safeHome = homeTeam.toLowerCase().replace(/[^a-z0-9]/g,'-');
@@ -641,7 +760,7 @@ async function processGame(){
   } catch(err){
     showError('An error occurred: ' + err.message);
     console.error(err);
-  } finally{
+  } finally {
     document.getElementById('processBtn').disabled = false;
   }
 }
