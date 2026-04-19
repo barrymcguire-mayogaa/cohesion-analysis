@@ -992,6 +992,75 @@ const TACKLE_META={
   "Kuba Callaghan":    {attempts:0,  turnoversForced:0,  hits:0},
 };
 
+// ── Fouls conceded per player with area breakdown (extracted from XML MAYO FOUL events) ──
+// def=Defensive Third, mid=Middle Third, att=Attacking Third; total includes events w/o area tag
+const PLAYER_FOUL_META={
+  "Aidan O'Shea":    {def:0,  mid:2,  att:4,  total:10},
+  "Bob Tuohy":       {def:1,  mid:3,  att:0,  total:8 },
+  "Cian McHale":     {def:0,  mid:0,  att:1,  total:3 },
+  "Cillian O'Connor":{def:0,  mid:0,  att:0,  total:1 },
+  "Conor Loftus":    {def:0,  mid:0,  att:0,  total:2 },
+  "Darragh Beirne":  {def:1,  mid:3,  att:0,  total:4 },
+  "David McBrien":   {def:1,  mid:3,  att:0,  total:5 },
+  "Diarmuid O'Connor":{def:0, mid:0,  att:1,  total:1 },
+  "Donnacha McHugh": {def:0,  mid:0,  att:0,  total:1 },
+  "Enda Hession":    {def:1,  mid:2,  att:0,  total:3 },
+  "Fenton Kelly":    {def:2,  mid:3,  att:0,  total:5 },
+  "Fergal Boland":   {def:0,  mid:3,  att:2,  total:6 },
+  "Hugh O'Loughlin": {def:0,  mid:0,  att:0,  total:1 },
+  "Jack Carney":     {def:1,  mid:1,  att:2,  total:7 },
+  "Jack Coyne":      {def:1,  mid:2,  att:0,  total:3 },
+  "James Carr":      {def:0,  mid:1,  att:1,  total:2 },
+  "Jordan Flynn":    {def:3,  mid:6,  att:2,  total:15},
+  "Kobe McDonald":   {def:0,  mid:0,  att:1,  total:3 },
+  "Michael Plunkett":{def:2,  mid:1,  att:0,  total:3 },
+  "Paddy Durcan":    {def:0,  mid:2,  att:1,  total:4 },
+  "Paul Towey":      {def:0,  mid:1,  att:1,  total:5 },
+  "Rory Brickenden": {def:0,  mid:2,  att:0,  total:3 },
+  "Ryan O'Donoghue": {def:0,  mid:2,  att:4,  total:10},
+  "Sam Callinan":    {def:3,  mid:2,  att:2,  total:12},
+  "Seán Morahan":    {def:0,  mid:0,  att:0,  total:1 },
+  "Stephen Coen":    {def:0,  mid:1,  att:1,  total:2 },
+};
+
+// ── Turnovers per player with area breakdown (extracted from XML MAYO TOs events) ──
+// def=Defensive Third, mid=Middle Third, att=Attacking Third
+const PLAYER_TURNOVER_META={
+  "Aidan O'Shea":    {def:0,  mid:8,  att:7,  total:16},
+  "Bob Tuohy":       {def:3,  mid:17, att:4,  total:24},
+  "Cian McHale":     {def:0,  mid:0,  att:3,  total:3 },
+  "Cillian O'Connor":{def:0,  mid:0,  att:1,  total:1 },
+  "Conal Dawson":    {def:0,  mid:0,  att:1,  total:1 },
+  "Conor Loftus":    {def:0,  mid:0,  att:1,  total:1 },
+  "Darragh Beirne":  {def:0,  mid:2,  att:10, total:12},
+  "David McBrien":   {def:0,  mid:5,  att:1,  total:6 },
+  "Diarmuid Duffy":  {def:1,  mid:1,  att:2,  total:4 },
+  "Diarmuid O'Connor":{def:0, mid:0,  att:1,  total:1 },
+  "Donnacha McHugh": {def:1,  mid:0,  att:0,  total:1 },
+  "Enda Hession":    {def:0,  mid:2,  att:2,  total:4 },
+  "Fenton Kelly":    {def:1,  mid:0,  att:1,  total:2 },
+  "Fergal Boland":   {def:1,  mid:0,  att:4,  total:5 },
+  "Hugh O'Loughlin": {def:1,  mid:0,  att:2,  total:3 },
+  "Jack Carney":     {def:1,  mid:8,  att:7,  total:16},
+  "Jack Coyne":      {def:2,  mid:4,  att:1,  total:7 },
+  "Jack Livingstone":{def:0,  mid:4,  att:0,  total:4 },
+  "James Carr":      {def:0,  mid:0,  att:5,  total:5 },
+  "Jordan Flynn":    {def:0,  mid:4,  att:9,  total:16},
+  "Kobe McDonald":   {def:0,  mid:0,  att:3,  total:3 },
+  "Kuba Callaghan":  {def:0,  mid:0,  att:1,  total:1 },
+  "Michael Plunkett":{def:0,  mid:2,  att:1,  total:3 },
+  "Paddy Durcan":    {def:0,  mid:4,  att:3,  total:7 },
+  "Paul Towey":      {def:0,  mid:1,  att:0,  total:1 },
+  "Rob Hennelly":    {def:1,  mid:33, att:0,  total:41},
+  "Rory Brickenden": {def:0,  mid:1,  att:1,  total:2 },
+  "Ryan O'Donoghue": {def:0,  mid:6,  att:25, total:32},
+  "Sam Callinan":    {def:2,  mid:2,  att:4,  total:8 },
+  "Sean Morahan":    {def:0,  mid:0,  att:2,  total:2 },
+  "Seán Morahan":    {def:1,  mid:0,  att:1,  total:3 },
+  "Stephen Coen":    {def:0,  mid:1,  att:1,  total:2 },
+  "Tommy Conroy":    {def:0,  mid:0,  att:2,  total:2 },
+};
+
 // ── Defensive Shadow counts (per player, season total, from XML) ─────────────
 // Source: 'Game Involvement Outcomes' > 'Defensive Shadowing' label
 // Sean/Seán Morahan spelling variants merged into "Sean Morahan" total = 29
@@ -5094,6 +5163,10 @@ function renderPlayerDetail(){
   const attackInvMap=PLAYER_ATTACK_META[name]||{};
   const totalAttackInv=Object.values(attackInvMap).reduce((a,b)=>a+b,0);
 
+  // Fouls & Turnovers meta
+  const pfm=PLAYER_FOUL_META[name]||{def:0,mid:0,att:0,total:0};
+  const ptm=PLAYER_TURNOVER_META[name]||{def:0,mid:0,att:0,total:0};
+
   document.getElementById('pl-kpis').innerHTML=[
     kpiCard({label:'Matches Played',value:sp.matches,unit:'int',bench:'Out of '+RAW.matches.length+' games'}),
     kpiCard({label:'Total Shots',value:sp.shots,unit:'int',bench:shotConv+'% shot conversion'}),
@@ -5109,6 +5182,8 @@ function renderPlayerDetail(){
     kpiCard({label:'Pass Completion',value:passComp,unit:'pct',bench:passMade+' completed ('+ppm.kp_made+'KP + '+ppm.hp_made+'HP) from '+passAtt+' attempts'}),
     kpiCard({label:'Total Tackles',value:sp.tackles,unit:'int',bench:'Defensive work rate'}),
     kpiCard({label:'Attack Involvements',value:totalAttackInv,unit:'int',bench:+(totalAttackInv/sp.matches).toFixed(1)+' per game avg'}),
+    kpiCard({label:'Fouls',value:pfm.total,unit:'int',bench:'Def: '+pfm.def+' · Mid: '+pfm.mid+' · Att: '+pfm.att}),
+    kpiCard({label:'Turnovers',value:ptm.total,unit:'int',bench:'Def: '+ptm.def+' · Mid: '+ptm.mid+' · Att: '+ptm.att}),
   ].join('');
 
   // ── vs Season averages ──
@@ -5138,11 +5213,14 @@ function renderPlayerDetail(){
     return a+(OPP_KO_WON_BY_PLAYER[n]||0)/m;
   },0)/koOppFieldPlayers.length;
 
+  const avgSeasonPoss=allPlayers.reduce((a,p)=>a+(p.possessions||0)/p.matches,0)/allPlayers.length;
+
   const stats=[
     {label:'Pts/Game',player:sp.points/sp.matches,avg:avgSeasonPts,max:8},
     {label:'Shots/Game',player:sp.shots/sp.matches,avg:avgSeasonShots,max:8},
     {label:'Tackles/Game',player:sp.tackles/sp.matches,avg:avgSeasonTackles,max:15},
     {label:'Pass Compl %',player:passComp,avg:avgPassComp,max:100},
+    {label:'Poss/Game',player:(sp.possessions||0)/sp.matches,avg:avgSeasonPoss,max:35,total:sp.possessions||0},
     {label:'Mayo KOs Won',player:playerMayoKOWon/sp.matches,avg:avgMayoKOWon,max:5,total:playerMayoKOWon},
     {label:'Opp KOs Won', player:playerOppKOWon/sp.matches, avg:avgOppKOWon, max:5,total:playerOppKOWon},
   ];
