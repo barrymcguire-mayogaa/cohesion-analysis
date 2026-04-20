@@ -108,6 +108,13 @@ select option{background:var(--card);}
   position:absolute;inset:0;
   background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.1) 60%);
   display:flex;align-items:flex-end;padding:10px 12px;
+  justify-content:space-between;
+}
+.card-angles{
+  font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;
+  color:rgba(255,255,255,0.9);background:rgba(0,0,0,0.55);
+  padding:3px 7px;border-radius:4px;display:flex;align-items:center;gap:4px;
+  flex-shrink:0;
 }
 .card-competition{
   font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;
@@ -221,6 +228,25 @@ select option{background:var(--card);}
   white-space:nowrap;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ANGLES SECTION (edit modal) */
+.angles-section{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+.angles-hdr{display:flex;align-items:center;margin-bottom:10px;}
+.angles-title{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;}
+.angle-row{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
+.angle-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.angle-cam-lbl{font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);}
+.angle-rm{width:22px;height:22px;border-radius:50%;background:rgba(220,38,38,0.12);border:1px solid rgba(220,38,38,0.3);color:#f87171;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;flex-shrink:0;}
+.angle-rm:hover{background:#dc2626;color:#fff;}
+.angle-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.angle-field{display:flex;flex-direction:column;gap:4px;}
+.angle-field label{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
+.angle-field input{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.angle-field input:focus{border-color:var(--accent);}
+.angle-field.afull{grid-column:1/-1;}
+.angle-add{width:100%;padding:7px;border-radius:7px;background:var(--card);border:1px dashed var(--border);color:var(--t3);font:600 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;margin-top:2px;}
+.angle-add:hover{border-color:var(--accent);color:var(--accent);}
+.angle-empty{font-size:11px;color:var(--t3);margin-bottom:8px;padding:4px 0;}
 
 /* EMPTY */
 .empty-state{
@@ -349,6 +375,13 @@ select option{background:var(--card);}
       <label>Date</label>
       <input type="date" id="eDate">
     </div>
+    <div class="angles-section">
+      <div class="angles-hdr">
+        <div class="angles-title">📹 Additional Camera Angles</div>
+      </div>
+      <div id="eAnglesList"></div>
+      <button class="angle-add" onclick="addEditAngle()">+ Add Camera Angle</button>
+    </div>
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" onclick="closeEditModal()">Cancel</button>
       <button class="mbtn mbtn-save" onclick="confirmEdit()">Save &amp; Download</button>
@@ -464,6 +497,7 @@ function renderGames(games){
                onerror="this.src='https://img.youtube.com/vi/${g.youtubeId}/hqdefault.jpg'">
           <div class="card-thumb-overlay">
             <div class="card-competition">${g.competition}</div>
+            ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
           </div>
           ${auth==='admin'?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
           ${auth==='admin'?`<button class="card-del" title="Remove game" onclick="startDelete('${g.id}',event)">✕</button>`:''}
@@ -540,6 +574,66 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeE
 
 // ── Edit / Modal ──────────────────────────────────────────────
 let pendingEditId = null;
+let editAngles = []; // alternate angles only (index 1+ from g.angles)
+
+function parseTimeVal(str){
+  if(!str||!str.trim())return null;
+  const neg=str.trim().startsWith('-');
+  const parts=str.trim().replace(/^-/,'').split(':');
+  if(parts.length!==2)return null;
+  const m=parseInt(parts[0]),s=parseInt(parts[1]);
+  if(isNaN(m)||isNaN(s))return null;
+  return (neg?-1:1)*(m*60+s);
+}
+function fmtTimeVal(secs){
+  if(secs===null||secs===undefined)return'';
+  const neg=secs<0,abs=Math.abs(Math.round(secs));
+  return(neg?'-':'')+String(Math.floor(abs/60)).padStart(2,'0')+':'+String(abs%60).padStart(2,'0');
+}
+function extractYtIdOrRaw(val){
+  const m=(val||'').match(/(?:youtu\.be\/|v=|embed\/)([A-Za-z0-9_-]{11})/);
+  return m?m[1]:val.trim();
+}
+function renderEditAngles(){
+  const list=document.getElementById('eAnglesList');if(!list)return;
+  if(!editAngles.length){
+    list.innerHTML='<div class="angle-empty">No additional angles. Click below to add one.</div>';
+    return;
+  }
+  list.innerHTML=editAngles.map((a,i)=>`
+    <div class="angle-row">
+      <div class="angle-row-top">
+        <div class="angle-cam-lbl">Angle ${i+2}</div>
+        <div class="angle-rm" onclick="removeEditAngle(${i})">✕</div>
+      </div>
+      <div class="angle-fields">
+        <div class="angle-field">
+          <label>Label</label>
+          <input type="text" value="${(a.label||'').replace(/"/g,'&quot;')}" placeholder="e.g. Behind Goals" oninput="editAngles[${i}].label=this.value">
+        </div>
+        <div class="angle-field">
+          <label>YouTube ID or URL</label>
+          <input type="text" value="${(a.youtubeId||'').replace(/"/g,'&quot;')}" placeholder="Video ID or full URL" oninput="editAngles[${i}].youtubeId=extractYtIdOrRaw(this.value)">
+        </div>
+        <div class="angle-field">
+          <label>1st Half Start (MM:SS)</label>
+          <input type="text" value="${fmtTimeVal(a.half1Start)}" placeholder="01:43" maxlength="6" oninput="editAngles[${i}].half1Start=parseTimeVal(this.value)">
+        </div>
+        <div class="angle-field">
+          <label>2nd Half Start (MM:SS)</label>
+          <input type="text" value="${fmtTimeVal(a.half2Start)}" placeholder="38:09" maxlength="6" oninput="editAngles[${i}].half2Start=parseTimeVal(this.value)">
+        </div>
+      </div>
+    </div>`).join('');
+}
+function addEditAngle(){
+  editAngles.push({label:'',youtubeId:'',half1Start:null,half2Start:null,et1Start:null,et2Start:null});
+  renderEditAngles();
+}
+function removeEditAngle(i){
+  editAngles.splice(i,1);
+  renderEditAngles();
+}
 
 function startEdit(id, e){
   e.preventDefault();
@@ -556,6 +650,9 @@ function startEdit(id, e){
   document.getElementById('eCompetition').value = g.competition || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  // Populate alternate angles (index 1+)
+  editAngles = g.angles&&g.angles.length>1 ? g.angles.slice(1).map(a=>({...a})) : [];
+  renderEditAngles();
   document.getElementById('editModal').classList.add('show');
 }
 function closeEditModal(){
@@ -581,6 +678,16 @@ function confirmEdit(){
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
   g.title       = `${homeTeam} v ${awayTeam}`;
+  // Save alternate angles
+  const validAlts = editAngles.filter(a=>a.youtubeId&&a.youtubeId.trim());
+  if(validAlts.length>0){
+    const mainAngle = g.angles&&g.angles.length>0
+      ? g.angles[0]
+      : {label:'Main',youtubeId:g.youtubeId,half1Start:g.half1Start||0,half2Start:g.half2Start||0,et1Start:g.et1Start||null,et2Start:g.et2Start||null};
+    g.angles = [mainAngle, ...validAlts];
+  } else {
+    if(g.angles&&g.angles.length<=1) delete g.angles;
+  }
   closeEditModal();
   const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
   fTeam.innerHTML='<option value="">All Teams</option>';

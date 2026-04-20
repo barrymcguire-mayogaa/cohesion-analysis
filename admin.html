@@ -144,6 +144,16 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 .src-badge.sportscode{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
 .src-badge.gaelictracker{background:rgba(168,85,247,0.12);border:1px solid #a855f7;color:#a855f7;}
 
+/* ANGLE ROWS */
+.angle-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+.angle-row-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.angle-row-lbl{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);}
+.angle-rm{width:24px;height:24px;border-radius:50%;background:var(--red-bg);border:1px solid rgba(244,67,54,0.3);color:var(--red);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;}
+.angle-rm:hover{background:var(--red);color:#fff;}
+.angle-add-btn{width:100%;padding:11px;border-radius:9px;background:var(--card);border:2px dashed var(--border);color:var(--t3);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;cursor:pointer;transition:all .15s;margin-top:4px;}
+.angle-add-btn:hover{border-color:var(--accent);color:var(--accent);}
+.angle-empty{font-size:12px;color:var(--t3);padding:4px 0 10px;}
+
 /* ERROR */
 .error-box{
   background:var(--red-bg);border:1px solid var(--red);border-radius:8px;
@@ -277,6 +287,19 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period. If footage is missing from the start of the video, enter a <strong>negative 1st half time</strong> — e.g. if 50 seconds of game are missing, enter <code>-00:50</code>. Events before that point will clamp to the video start; everything after will align correctly.</div>
   </div>
 
+  <!-- STEP 2.5: Additional Camera Angles (optional) -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="font-size:16px;">📹</div>
+      <div>
+        <div class="step-title">Additional Camera Angles <span style="font-weight:300;font-size:13px;color:var(--t3)">(Optional)</span></div>
+        <div class="step-sub">Add alternate YouTube recordings of the same game — users can switch between angles in the dashboard</div>
+      </div>
+    </div>
+    <div id="adminAnglesList"><div class="angle-empty">No additional angles added. Click below to add one.</div></div>
+    <button class="angle-add-btn" onclick="addAdminAngle()">+ Add Camera Angle</button>
+  </div>
+
   <!-- STEP 3: XML Upload & Process -->
   <div class="step">
     <div class="step-header">
@@ -378,6 +401,54 @@ initTheme();
 function toggleET(){
   const show = document.getElementById('etCheck').checked;
   document.getElementById('etFields').classList.toggle('show', show);
+}
+
+// ── Admin angle management ────────────────────────────────────
+let adminAngles = [];
+function fmtAdminTime(secs){
+  if(secs===null||secs===undefined)return'';
+  const neg=secs<0,abs=Math.abs(Math.round(secs));
+  return(neg?'-':'')+String(Math.floor(abs/60)).padStart(2,'0')+':'+String(abs%60).padStart(2,'0');
+}
+function addAdminAngle(){
+  adminAngles.push({label:'',youtubeId:'',half1Start:null,half2Start:null,et1Start:null,et2Start:null});
+  renderAdminAngles();
+}
+function removeAdminAngle(i){
+  adminAngles.splice(i,1);
+  renderAdminAngles();
+}
+function renderAdminAngles(){
+  const list=document.getElementById('adminAnglesList');if(!list)return;
+  if(!adminAngles.length){
+    list.innerHTML='<div class="angle-empty">No additional angles added. Click below to add one.</div>';
+    return;
+  }
+  list.innerHTML=adminAngles.map((a,i)=>`
+    <div class="angle-row">
+      <div class="angle-row-hdr">
+        <div class="angle-row-lbl">Camera Angle ${i+2}</div>
+        <div class="angle-rm" onclick="removeAdminAngle(${i})">✕</div>
+      </div>
+      <div class="field-grid">
+        <div class="field">
+          <label>Angle Label</label>
+          <input type="text" value="${(a.label||'').replace(/"/g,'&quot;')}" placeholder="e.g. Behind Goals" oninput="adminAngles[${i}].label=this.value">
+        </div>
+        <div class="field">
+          <label>YouTube URL</label>
+          <input type="url" value="${(a.youtubeId||'').replace(/"/g,'&quot;')}" placeholder="https://youtu.be/..." oninput="adminAngles[${i}].youtubeId=extractYtId(this.value)||this.value.trim()">
+        </div>
+        <div class="field">
+          <label>1st Half Start (MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.half1Start)}" placeholder="01:43" maxlength="6" oninput="adminAngles[${i}].half1Start=parseTime(this.value)">
+        </div>
+        <div class="field">
+          <label>2nd Half Start (MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.half2Start)}" placeholder="38:09" maxlength="6" oninput="adminAngles[${i}].half2Start=parseTime(this.value)">
+        </div>
+      </div>
+    </div>`).join('');
 }
 
 // ── File handling ─────────────────────────────────────────────
@@ -790,6 +861,13 @@ async function processGame(){
     const year     = dateVal ? dateVal.slice(0,4) : new Date().getFullYear();
     const gameId   = `${safeHome}-${safeAway}-${year}-${safeComp}`;
 
+    // Build angles array if any valid alternate angles were added
+    const validAdminAngles = adminAngles.filter(a=>a.youtubeId&&a.youtubeId.trim()&&a.half1Start!==null&&a.half2Start!==null);
+    const anglesField = validAdminAngles.length > 0 ? [
+      {label:'Main',youtubeId:ytId,half1Start:half1Video,half2Start:half2Video,et1Start:et1Video,et2Start:et2Video},
+      ...validAdminAngles
+    ] : undefined;
+
     // Game metadata entry
     const gameMeta = {
       id: gameId,
@@ -808,6 +886,7 @@ async function processGame(){
       et2Start: et2Video,
       thumbnail: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
       eventCount: events.length,
+      ...(anglesField ? {angles: anglesField} : {}),
     };
 
     // Create downloads

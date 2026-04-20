@@ -199,12 +199,58 @@ let viewMode='events';
 let EG=new Set(),LG=new Set(),LV=new Map();
 let tlZ=1,tlO=0,tlDur=5400,tlPeriod='full',vidT=0;
 let YTP=null,ytReady=false,gdReady=false,pendSeek=null,rafID=null;
+let currentAngleIdx=0;
 window.onYouTubeIframeAPIReady=function(){ytReady=true;if(gdReady)makeYTP();};
+function normalizeAngles(){
+  if(!GAME.angles||!GAME.angles.length){
+    GAME.angles=[{label:'Main',youtubeId:GAME.youtubeId,half1Start:GAME.half1Start||0,half2Start:GAME.half2Start||0,et1Start:GAME.et1Start||null,et2Start:GAME.et2Start||null}];
+  }
+}
+function driveToAngle(driveT,idx){
+  if(idx===0||!GAME.angles)return driveT;
+  const m=GAME.angles[0],t=GAME.angles[idx];
+  let period,gck;
+  if(m.et2Start&&driveT>=m.et2Start){period='et2';gck=driveT-m.et2Start;}
+  else if(m.et1Start&&driveT>=m.et1Start){period='et1';gck=driveT-m.et1Start;}
+  else if(driveT>=(m.half2Start||0)){period='2h';gck=driveT-(m.half2Start||0);}
+  else{period='1h';gck=driveT-(m.half1Start||0);}
+  const ts=period==='et2'?(t.et2Start??t.half2Start):period==='et1'?(t.et1Start??t.half2Start):period==='2h'?t.half2Start:t.half1Start;
+  return Math.max(0,(ts||0)+gck);
+}
+function videoTimeToDrive(vt,idx){
+  if(idx===0||!GAME.angles)return vt;
+  const m=GAME.angles[0],t=GAME.angles[idx];
+  let period,gck;
+  if(t.et2Start&&vt>=t.et2Start){period='et2';gck=vt-t.et2Start;}
+  else if(t.et1Start&&vt>=t.et1Start){period='et1';gck=vt-t.et1Start;}
+  else if(vt>=(t.half2Start||0)){period='2h';gck=vt-(t.half2Start||0);}
+  else{period='1h';gck=vt-(t.half1Start||0);}
+  const ms=period==='et2'?(m.et2Start??m.half2Start):period==='et1'?(m.et1Start??m.half2Start):period==='2h'?m.half2Start:m.half1Start;
+  return Math.max(0,(ms||0)+gck);
+}
+function setupAngleBtns(){
+  const grp=document.getElementById('angleGrp');if(!grp)return;
+  if(!GAME.angles||GAME.angles.length<2){grp.style.display='none';return;}
+  grp.style.display='flex';
+  grp.innerHTML=GAME.angles.map((a,i)=>`<div class="sbtn${i===currentAngleIdx?' on':''}" onclick="switchAngle(${i})">${a.label||('Cam '+(i+1))}</div>`).join('');
+}
+function switchAngle(idx){
+  if(idx===currentAngleIdx)return;
+  const curDrive=YTP&&YTP.getCurrentTime?videoTimeToDrive(YTP.getCurrentTime(),currentAngleIdx):curT;
+  currentAngleIdx=idx;
+  const ang=GAME.angles[idx];
+  const tgtVT=driveToAngle(curDrive,idx);
+  if(YTP&&YTP.loadVideoById){YTP.loadVideoById({videoId:ang.youtubeId,startSeconds:Math.max(0,tgtVT)});}
+  document.querySelectorAll('#angleGrp .sbtn').forEach((b,i)=>b.classList.toggle('on',i===idx));
+  const ytbEl=document.getElementById('YTB');if(ytbEl)ytbEl.href=`https://youtu.be/${ang.youtubeId}`;
+}
 function makeYTP(){
-  if(!GAME.youtubeId||!document.getElementById('ytPlayerDiv')) return;
+  if(!GAME.angles||!document.getElementById('ytPlayerDiv'))return;
+  const ang=GAME.angles[currentAngleIdx]||GAME.angles[0];
+  if(!ang||!ang.youtubeId)return;
   YTP=new YT.Player('ytPlayerDiv',{
-    videoId:GAME.youtubeId,
-    playerVars:{start:GAME.half1Start||0,rel:0,fs:1,modestbranding:1},
+    videoId:ang.youtubeId,
+    playerVars:{start:Math.max(0,ang.half1Start||0),rel:0,fs:1,modestbranding:1},
     events:{
       onReady:function(){tlDur=YTP.getDuration()||5400;if(pendSeek!==null){YTP.seekTo(pendSeek,true);YTP.playVideo();pendSeek=null;}drawTL();},
       onStateChange:function(e){if(e.data===1)startRAF();else stopRAF();},
@@ -213,8 +259,8 @@ function makeYTP(){
   });
   setTimeout(()=>{const el=document.getElementById('ytPlayerDiv');if(el){el.querySelectorAll('iframe').forEach(f=>{f.style.width='100%';f.style.height='100%';f.style.border='none';});}},1200);
 }
-function seekV(t){curT=t;if(YTP&&YTP.seekTo){YTP.seekTo(t,true);YTP.playVideo();}else pendSeek=t;updatePH(t);}
-function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){vidT=YTP.getCurrentTime();updatePH(vidT);}rafID=requestAnimationFrame(f);}rafID=requestAnimationFrame(f);}
+function seekV(t){curT=t;const vt=driveToAngle(t,currentAngleIdx);if(YTP&&YTP.seekTo){YTP.seekTo(vt,true);YTP.playVideo();}else pendSeek=vt;updatePH(t);}
+function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=YTP.getCurrentTime();vidT=videoTimeToDrive(vt,currentAngleIdx);updatePH(vidT);}rafID=requestAnimationFrame(f);}rafID=requestAnimationFrame(f);}
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
 async function loadGame(){
   try{
@@ -234,9 +280,11 @@ function buildPTM(){
 }
 function init(){
   const H=tc(GAME.homeTeam)||'Home',A=tc(GAME.awayTeam)||'Away';
+  normalizeAngles();
   document.getElementById('GT').innerHTML=`<strong>${H} v ${A}</strong> · ${GAME.competition||''} ${GAME.round||''}`;
   document.title=`COHESION — ${H} v ${A}`;
   document.getElementById('MA').innerHTML=buildHTML(H,A);
+  setupAngleBtns();
   populatePl();applyF();initDH();initTL();setH(240);
   gdReady=true;if(ytReady)makeYTP();
 }
@@ -286,9 +334,10 @@ function buildHTML(H,A){
         <div class="sbtn" onclick="setH(315)">L</div>
         <div class="sbtn" onclick="setH(400)">Xl</div>
       </div>
+      <div class="angle-grp" id="angleGrp" style="display:none;gap:2px;padding-left:8px;border-left:1px solid var(--border);"></div>
       <div class="v-spacer"></div>
       <div class="tbtn tbtn-fs" onclick="goFS()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/></svg> Fullscreen</div>
-      <a id="YTB" class="tbtn tbtn-yt" href="https://youtu.be/${GAME.youtubeId||''}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.8 15.5V8.5l6.4 3.5-6.4 3.5z"/></svg> Open In Youtube</a>
+      <a id="YTB" class="tbtn tbtn-yt" href="https://youtu.be/${(GAME.angles&&GAME.angles[0]?.youtubeId)||GAME.youtubeId||''}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.8 15.5V8.5l6.4 3.5-6.4 3.5z"/></svg> Open In Youtube</a>
     </div>
     <div class="vid-area" id="VA" style="height:240px"><div id="ytPlayerDiv" style="width:100%;height:100%;"></div></div>
     <div class="drag-handle" id="DH"></div>
@@ -397,7 +446,9 @@ function pickI(id){
   const ev=ALL.find(e=>e.id===id);if(!ev)return;
   activeId=ev.id;curT=ev.driveT;
   seekV(ev.driveT);
-  document.getElementById('YTB').href=`https://www.youtube.com/watch?v=${GAME.youtubeId}&t=${ev.driveT}s`;
+  const _ang=GAME.angles?GAME.angles[currentAngleIdx]:GAME;
+  const _ytVT=driveToAngle(ev.driveT,currentAngleIdx);
+  document.getElementById('YTB').href=`https://www.youtube.com/watch?v=${_ang.youtubeId}&t=${Math.round(_ytVT)}s`;
   document.getElementById('NPN').textContent=tc(ev.code);
   document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
@@ -410,7 +461,7 @@ function pickI(id){
 }
 const HH=[160,240,315,400];
 function setH(h){document.querySelectorAll('.sbtn').forEach((b,i)=>b.classList.toggle('on',HH[i]===h));const v=document.getElementById('VA');if(v)v.style.height=h+'px';}
-function goFS(){const el=document.getElementById('VA');const r=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;if(r)r.call(el);else window.open(`https://www.youtube.com/watch?v=${GAME.youtubeId}&t=${curT}s`,'_blank','noopener');}
+function goFS(){const el=document.getElementById('VA');const r=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;if(r)r.call(el);else{const ang=GAME.angles?GAME.angles[currentAngleIdx]:GAME;window.open(`https://www.youtube.com/watch?v=${ang.youtubeId}&t=${curT}s`,'_blank','noopener');}}
 function initDH(){
   const h=document.getElementById('DH'),v=document.getElementById('VA');if(!h||!v)return;
   let dr=false,sy=0,sh=0;
