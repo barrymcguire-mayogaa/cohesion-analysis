@@ -142,6 +142,14 @@ select option{background:var(--card);}
 .tl-zbtns{display:flex;gap:2px;}
 .tl-zb{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font:700 13px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);transition:all .12s;}
 .tl-zb:hover{border-color:var(--accent);color:var(--accent);}
+#tlTip{
+  position:fixed;z-index:300;pointer-events:none;display:none;
+  background:var(--panel);border:1px solid var(--border);border-radius:9px;
+  padding:9px 13px;box-shadow:0 6px 24px var(--shadow);min-width:140px;max-width:220px;
+}
+.tlt-code{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-bottom:3px;}
+.tlt-detail{font-size:11px;color:var(--t1);margin-bottom:2px;}
+.tlt-time{font-size:10px;color:var(--t3);}
 canvas#tlC{display:block;width:100%;cursor:crosshair;}
 .now-playing{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .np-lbl{font-size:9px;letter-spacing:2px;color:var(--t3);text-transform:uppercase;margin-bottom:2px;}
@@ -475,6 +483,40 @@ function initTL(){
   sync();new ResizeObserver(sync).observe(c);
   c.addEventListener('click',e=>{const r=c.getBoundingClientRect();const x=e.clientX-r.left;const t=tlO+(x/c.width)*(tlDur/tlZ);seekV(Math.max(0,t));});
   c.addEventListener('wheel',e=>{e.preventDefault();const r=c.getBoundingClientRect();const x=e.clientX-r.left;const tm=tlO+(x/c.width)*(tlDur/tlZ);if(e.deltaY<0)tlZ=Math.min(12,tlZ*1.5);else tlZ=Math.max(1,tlZ/1.5);tlO=tm-(x/c.width)*(tlDur/tlZ);tlO=Math.max(0,Math.min(tlDur-tlDur/tlZ,tlO));drawTL();},{passive:false});
+  // Tooltip on hover
+  const tip=document.getElementById('tlTip');
+  const RH=24,RG=2,RT=4,LW=16;
+  c.addEventListener('mousemove',e=>{
+    if(!tip||!filtered.length)return;
+    const r=c.getBoundingClientRect();
+    const sx=c.width/r.width;
+    const mx=(e.clientX-r.left)*sx;
+    const my=(e.clientY-r.top)*sx;
+    const vD=tlDur/tlZ;
+    const hY=RT,aY=RT+RH+RG;
+    let found=null;
+    for(const ev of filtered){
+      const x=((ev.driveT-tlO)/vD)*c.width;
+      const w=Math.max(3,((ev.end-ev.start)/vD)*c.width);
+      const iH=ev.team.toUpperCase()===(GAME.homeTeam||'').toUpperCase();
+      const y=iH?hY:aY;
+      if(mx>=Math.max(LW,x)&&mx<=Math.max(LW,x)+w&&my>=y&&my<=y+RH){found=ev;break;}
+    }
+    if(found){
+      const parts=[found.player,found.outcome?tc(found.outcome):'',found.subtype?tc(found.subtype):''].filter(Boolean);
+      document.getElementById('tltCode').textContent=tc(found.code);
+      document.getElementById('tltDetail').textContent=parts.join(' · ')||'—';
+      document.getElementById('tltTime').textContent=found.gameTime;
+      // Position: right of cursor, flip left if near edge
+      const tx=e.clientX+14,tw=220;
+      tip.style.left=(tx+tw>window.innerWidth?e.clientX-tw-8:tx)+'px';
+      tip.style.top=Math.max(8,e.clientY-50)+'px';
+      tip.style.display='block';
+    } else {
+      tip.style.display='none';
+    }
+  });
+  c.addEventListener('mouseleave',()=>{if(tip)tip.style.display='none';});
 }
 function setTP(p){
   tlPeriod=p;document.querySelectorAll('.tl-pb').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
@@ -583,5 +625,10 @@ window.addEventListener('orientationchange',function(){
 });
 loadGame();
 </script>
+<div id="tlTip">
+  <div class="tlt-code" id="tltCode"></div>
+  <div class="tlt-detail" id="tltDetail"></div>
+  <div class="tlt-time" id="tltTime"></div>
+</div>
 </body>
 </html>
