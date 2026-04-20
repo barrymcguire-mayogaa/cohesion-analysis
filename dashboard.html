@@ -33,6 +33,17 @@ header{height:50px;background:var(--panel);border-bottom:1px solid var(--border)
 .hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
 .hdr-btn.round{width:32px;height:32px;padding:0;border-radius:50%;font-size:14px;}
 main{flex:1;display:grid;grid-template-columns:310px 1fr;overflow:hidden;}
+main[data-sz="xl"]{grid-template-columns:430px 1fr;}
+main[data-sz="xl"] .vt-btn{font-size:15px;}
+main[data-sz="xl"] .chip{font-size:14px;padding:3px 10px;}
+main[data-sz="xl"] select{font-size:14px;}
+main[data-sz="xl"] .search-row input{font-size:16px;}
+main[data-sz="xl"] .inst-t{font-size:17px;}
+main[data-sz="xl"] .inst-vs{font-size:15px;}
+main[data-sz="xl"] .inst-pl{font-size:15px;}
+main[data-sz="xl"] .inst-sb{font-size:14px;}
+main[data-sz="xl"] .ev-inst{grid-template-columns:62px 1fr;padding:7px 12px 7px 24px;}
+main[data-sz="xl"] .showing-bar{font-size:13px;}
 .left-panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);}
 .view-toggle{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--panel);}
 .vt-btn{flex:1;padding:8px 6px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);background:none;border:none;cursor:pointer;transition:all .15s;border-bottom:2px solid transparent;}
@@ -468,7 +479,11 @@ function pickI(id){
   renderP();
 }
 const HH=[160,240,315,400];
-function setH(h){document.querySelectorAll('.sbtn').forEach((b,i)=>b.classList.toggle('on',HH[i]===h));const v=document.getElementById('VA');if(v)v.style.height=h+'px';}
+function setH(h){
+  document.querySelectorAll('.sbtn').forEach((b,i)=>b.classList.toggle('on',HH[i]===h));
+  const v=document.getElementById('VA');if(v)v.style.height=h+'px';
+  const m=document.querySelector('main');if(m)m.setAttribute('data-sz',h===400?'xl':'');
+}
 function goFS(){const el=document.getElementById('VA');const r=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;if(r)r.call(el);else{const ang=GAME.angles?GAME.angles[currentAngleIdx]:GAME;window.open(`https://www.youtube.com/watch?v=${ang.youtubeId}&t=${curT}s`,'_blank','noopener');}}
 function initDH(){
   const h=document.getElementById('DH'),v=document.getElementById('VA');if(!h||!v)return;
