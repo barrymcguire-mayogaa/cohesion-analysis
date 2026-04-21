@@ -826,7 +826,7 @@ async function processGame(){
       // Gaelic Insights uses <ALL_INSTANCES> WITHOUT period markers (relies on NA Whistle events).
       const hasAllInstances = !!doc.querySelector('ALL_INSTANCES');
       const hasPeriodMarkers = instances.some(i=>/^P[12] START$/.test((i.querySelector('code')?.textContent||'').trim()));
-      const hasHalfMarkers = instances.some(i=>/^(?:ET\s)?[12](?:st|nd)\s Half$/.test((i.querySelector('code')?.textContent||'').trim()));
+      const hasHalfMarkers = instances.some(i=>/^(?:ET\s)?[12](?:st|nd)\sHalf$/.test((i.querySelector('code')?.textContent||'').trim()));
       let xmlFormat = 'sportscode';
       if(hasAllInstances && hasPeriodMarkers) xmlFormat = 'giu';
       else if(hasAllInstances && hasHalfMarkers) xmlFormat = 'sportscode';
