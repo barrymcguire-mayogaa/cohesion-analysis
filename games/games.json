@@ -153,6 +153,42 @@
       "eventCount": 290
     },
     {
+      "id": "galway-roscommon-2026-national-football-league",
+      "title": "Galway v Roscommon",
+      "date": "2026-02-21",
+      "competition": "National Football League",
+      "round": "Round 4",
+      "homeTeam": "Galway",
+      "awayTeam": "Roscommon",
+      "homeColor": "#831100",
+      "awayColor": "#fec700",
+      "youtubeId": "exzm4EwoHGw",
+      "half1Start": 0,
+      "half2Start": 3290,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/exzm4EwoHGw/hqdefault.jpg",
+      "eventCount": 604,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "exzm4EwoHGw",
+          "half1Start": 0,
+          "half2Start": 3290,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "BROADCAST",
+          "youtubeId": "H93l16pQ5Gk",
+          "half1Start": 153,
+          "half2Start": 3444,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
+    },
+    {
       "id": "roscommon-armagh-2026-national-football-league",
       "title": "Roscommon v Armagh",
       "date": "2026-02-15",
