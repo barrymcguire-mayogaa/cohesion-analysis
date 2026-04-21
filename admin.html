@@ -442,7 +442,8 @@ function setMode(m){
 async function loadGamesForReparse(){
   const sel = document.getElementById('reparseGame');
   try {
-    const r = await fetch('games/games.json');
+    const t=Date.now();
+    const r = await fetch(`games/games.json?t=${t}`);
     const data = await r.json();
     reparseGames = data.games || [];
     sel.innerHTML = '<option value="">— Select a game —</option>' +

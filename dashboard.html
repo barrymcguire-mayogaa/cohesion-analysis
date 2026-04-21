@@ -279,7 +279,8 @@ function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
 async function loadGame(){
   try{
-    const[gr,er]=await Promise.all([fetch('games/games.json'),fetch(`games/${gameId}.json`)]);
+    const t=Date.now();
+    const[gr,er]=await Promise.all([fetch(`games/games.json?t=${t}`),fetch(`games/${gameId}.json?t=${t}`)]);
     const gd=await gr.json();GAME=gd.games.find(g=>g.id===gameId)||{};ALL=await er.json();
     buildPTM();init();
   }catch(e){
