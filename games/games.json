@@ -152,6 +152,42 @@
       "thumbnail": "https://img.youtube.com/vi/yNIqk7uvG0Q/hqdefault.jpg",
       "eventCount": 290
     },
+    {
+      "id": "kerry-roscommon-2026-national-football-league",
+      "title": "Kerry v Roscommon",
+      "date": "2026-01-25",
+      "competition": "National Football League",
+      "round": "Round 1",
+      "homeTeam": "Kerry",
+      "awayTeam": "Roscommon",
+      "homeColor": "#195232",
+      "awayColor": "#fec700",
+      "youtubeId": "WW1QiLbzzPI",
+      "half1Start": 9,
+      "half2Start": 2260,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/WW1QiLbzzPI/hqdefault.jpg",
+      "eventCount": 136,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "WW1QiLbzzPI",
+          "half1Start": 9,
+          "half2Start": 2260,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "BROADCAST",
+          "youtubeId": "0Q2PeCqsxkM",
+          "half1Start": 93,
+          "half2Start": 3354,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
+    },
      {
       "id": "mayo-galway-2026-u20-championship",
       "title": "Mayo v Galway",
