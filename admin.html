@@ -155,6 +155,17 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 .angle-add-btn:hover{border-color:var(--accent);color:var(--accent);}
 .angle-empty{font-size:12px;color:var(--t3);padding:4px 0 10px;}
 
+/* MODE TOGGLE */
+.mode-toggle{display:flex;gap:8px;margin-bottom:24px;}
+.mode-btn{flex:1;padding:10px;border-radius:9px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);transition:all .15s;}
+.mode-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.mode-btn:hover:not(.on){border-color:var(--accent);color:var(--accent);}
+
+/* WHISTLE DIAGNOSTIC */
+.wi-diag{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;font:12px/1.8 'Barlow',monospace;color:var(--t2);white-space:pre;}
+.wi-diag-title{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:6px;}
+.wi-used{color:var(--accent);font-weight:700;}
+
 /* ERROR */
 .error-box{
   background:var(--red-bg);border:1px solid var(--red);border-radius:8px;
@@ -179,11 +190,34 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 </header>
 
 <div class="page">
-  <div class="page-title">Add New Game</div>
-  <div class="page-sub">
+  <div class="page-title" id="pageTitle">Add New Game</div>
+  <div class="page-sub" id="pageSub">
     Supports <strong>Hudl Sportscode XML</strong>, <strong>GIU XML</strong>, <strong>Gaelic Insights XML</strong> and <strong>Gaelic Tracker JSON</strong> exports.
     Fill in the game details, enter the video start times, then upload your file.
     Gaelic Tracker files will auto-fill teams, colours and date automatically.
+  </div>
+
+  <!-- MODE TOGGLE -->
+  <div class="mode-toggle">
+    <button class="mode-btn on" id="modeNew"     onclick="setMode('new')">🆕 New Game</button>
+    <button class="mode-btn"    id="modeReparse" onclick="setMode('reparse')">🔄 Re-parse Existing Game</button>
+  </div>
+
+  <!-- RE-PARSE: GAME SELECTOR (hidden in new-game mode) -->
+  <div class="step" id="reparseStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num" style="font-size:16px;">🔄</div>
+      <div>
+        <div class="step-title">Select Game to Re-parse</div>
+        <div class="step-sub">Pick an existing game — half-time settings will pre-fill automatically. Upload a new XML to regenerate only the events file.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Existing Game</label>
+      <select class="finput" id="reparseGame" onchange="selectReparseGame()">
+        <option value="">Loading games…</option>
+      </select>
+    </div>
   </div>
 
   <!-- STEP 1: Game Details -->
@@ -336,9 +370,15 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="prog-bar-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
     </div>
 
+    <!-- Whistle diagnostic (Gaelic Insights only) -->
+    <div id="wiDiagBlock" style="display:none;">
+      <div class="wi-diag-title">📡 NA Whistle Detection</div>
+      <div class="wi-diag" id="wiDiagContent"></div>
+    </div>
+
     <!-- Downloads -->
     <div class="downloads" id="downloadsBlock">
-      <div class="dl-title">Files ready — download both:</div>
+      <div class="dl-title" id="dlTitle">Files ready — download both:</div>
       <a class="dl-btn" id="dlEvents" download>
         ⬇ Game Events JSON
       </a>
@@ -382,6 +422,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ── Mode toggle (New Game / Re-parse) ─────────────────────────
+let isReparse = false;
+let reparseGames = [];
+
+function setMode(m){
+  isReparse = m === 'reparse';
+  document.getElementById('modeNew').classList.toggle('on', !isReparse);
+  document.getElementById('modeReparse').classList.toggle('on', isReparse);
+  document.getElementById('reparseStep').style.display = isReparse ? '' : 'none';
+  document.getElementById('pageTitle').textContent = isReparse ? 'Re-parse Existing Game' : 'Add New Game';
+  document.getElementById('pageSub').textContent = isReparse
+    ? 'Select an existing game, upload the corrected XML file, and download the updated events JSON to replace the existing one.'
+    : 'Supports Hudl Sportscode XML, GIU XML, Gaelic Insights XML and Gaelic Tracker JSON exports. Fill in the game details, enter the video start times, then upload your file.';
+  if(isReparse && reparseGames.length === 0) loadGamesForReparse();
+}
+
+async function loadGamesForReparse(){
+  const sel = document.getElementById('reparseGame');
+  try {
+    const r = await fetch('games/games.json');
+    const data = await r.json();
+    reparseGames = data.games || [];
+    sel.innerHTML = '<option value="">— Select a game —</option>' +
+      reparseGames.map((g,i)=>`<option value="${i}">${g.title} · ${g.competition} ${g.round} (${g.date})</option>`).join('');
+  } catch(e){
+    sel.innerHTML = '<option value="">Could not load games.json</option>';
+  }
+}
+
+function selectReparseGame(){
+  const idx = parseInt(document.getElementById('reparseGame').value);
+  if(isNaN(idx)||idx<0) return;
+  const g = reparseGames[idx];
+  if(!g) return;
+  // Pre-fill game details
+  document.getElementById('homeTeam').value = g.homeTeam || '';
+  document.getElementById('awayTeam').value = g.awayTeam || '';
+  if(g.homeColor){ document.getElementById('homeColor').value=g.homeColor; document.getElementById('homeColorHex').value=g.homeColor; }
+  if(g.awayColor){ document.getElementById('awayColor').value=g.awayColor; document.getElementById('awayColorHex').value=g.awayColor; }
+  if(g.competition){
+    const sel=document.getElementById('competition');
+    [...sel.options].forEach(o=>{ if(o.text===g.competition||o.value===g.competition) sel.value=o.value; });
+  }
+  document.getElementById('round').value = g.round || '';
+  if(g.date) document.getElementById('gameDate').value = g.date;
+  // Pre-fill YouTube URL from youtubeId
+  if(g.youtubeId) document.getElementById('ytUrl').value = `https://www.youtube.com/watch?v=${g.youtubeId}`;
+  // Pre-fill half times
+  const toMM = s => { const neg=s<0; const a=Math.abs(s); return (neg?'-':'')+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0'); };
+  if(g.half1Start!=null) document.getElementById('th1').value = toMM(g.half1Start);
+  if(g.half2Start!=null) document.getElementById('th2').value = toMM(g.half2Start);
+  if(g.et1Start)  { document.getElementById('etToggle').checked=true; document.getElementById('etFields').classList.add('show'); document.getElementById('tet1').value=toMM(g.et1Start); }
+  if(g.et2Start)  { document.getElementById('tet2').value=toMM(g.et2Start); }
+  // Trigger YouTube validation
+  validateYT();
+}
 
 // ── Theme ─────────────────────────────────────────────────────
 function initTheme(){
@@ -811,19 +908,48 @@ async function processGame(){
 
         // Find NA Whistle events — used as period markers (like P1/P2 START in GIU).
         // Whistle structure: #1=1H start … #6=1H end · #7=2H start · #8=2H end (full time)
-        // So: first whistle = 1H kick-off (xmlP1), second-to-last = 2H kick-off (xmlP2),
-        // last whistle = full-time (ignored here).
-        const giWhistleTimes = instances
+        // First whistle = 1H kick-off (xmlP1); second-to-last = 2H kick-off (xmlP2);
+        // last whistle = full-time (ignored). We also capture IDs and labels so the
+        // diagnostic panel can show exactly what is in the XML for verification.
+        const giWhistleRaw = instances
           .filter(i=>(i.querySelector('code')?.textContent||'').trim()==='NA Whistle')
-          .map(i=>parseFloat(i.querySelector('start')?.textContent||0))
-          .filter((v,i,a)=>a.indexOf(v)===i) // deduplicate
-          .sort((a,b)=>a-b);
+          .map(i=>{
+            const t  = parseFloat(i.querySelector('start')?.textContent||0);
+            const id = (i.querySelector('ID')?.textContent||'').trim();
+            const lbls = {};
+            [...i.querySelectorAll('label')].forEach(l=>{
+              const n=(l.querySelector('name')?.textContent||'').trim();
+              const v=(l.querySelector('value')?.textContent||'').trim();
+              if(n&&v) lbls[n]=v;
+            });
+            return {t, id, lbls};
+          })
+          .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx) // deduplicate by time
+          .sort((a,b)=>a.t-b.t);
 
+        const giWhistleTimes = giWhistleRaw.map(w=>w.t);
         const giXmlP1 = giWhistleTimes.length > 0 ? giWhistleTimes[0] : 0;
         // Second-to-last = 2H kick-off whistle (#7); last = full-time whistle (#8)
         const giXmlP2 = giWhistleTimes.length > 2 ? giWhistleTimes[giWhistleTimes.length-2]
                       : giWhistleTimes.length > 1 ? giWhistleTimes[giWhistleTimes.length-1]
                       : giXmlP1;
+
+        // Build diagnostic display
+        const diagLines = giWhistleRaw.map((w,i)=>{
+          const isP1  = w.t === giXmlP1;
+          const isP2  = w.t === giXmlP2 && i > 0;
+          const isEnd = i === giWhistleRaw.length-1 && giWhistleRaw.length > 2;
+          const role  = isP1?'← 1H start (used)': isP2?'← 2H start (used)': isEnd?'← Full time (ignored)':'';
+          const idStr = w.id ? ` [ID: ${w.id}]` : '';
+          const lStr  = Object.keys(w.lbls).length
+            ? ' {' + Object.entries(w.lbls).map(([k,v])=>`${k}: ${v}`).join(', ') + '}'
+            : ' {no labels}';
+          const marker = (isP1||isP2) ? '★ ' : '  ';
+          return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}  ${role}`;
+        }).join('\n');
+        document.getElementById('wiDiagContent').innerHTML =
+          diagLines.replace(/★[^<]*(← [12]H start[^<]*)/g, m=>`<span class="wi-used">${m}</span>`);
+        document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
         const giOffset1H = half1Video - giXmlP1;
         const giOffset2H = half2Video - giXmlP2;
 
@@ -958,12 +1084,19 @@ async function processGame(){
       setProgress(80, 'Generating files…');
     }
 
-    // Build game ID
-    const safeHome = homeTeam.toLowerCase().replace(/[^a-z0-9]/g,'-');
-    const safeAway = awayTeam.toLowerCase().replace(/[^a-z0-9]/g,'-');
-    const safeComp = competition.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
-    const year     = dateVal ? dateVal.slice(0,4) : new Date().getFullYear();
-    const gameId   = `${safeHome}-${safeAway}-${year}-${safeComp}`;
+    // Build game ID — in re-parse mode reuse the existing game's ID
+    let gameId;
+    if(isReparse){
+      const rIdx = parseInt(document.getElementById('reparseGame').value);
+      gameId = (!isNaN(rIdx) && reparseGames[rIdx]) ? reparseGames[rIdx].id : null;
+    }
+    if(!gameId){
+      const safeHome = homeTeam.toLowerCase().replace(/[^a-z0-9]/g,'-');
+      const safeAway = awayTeam.toLowerCase().replace(/[^a-z0-9]/g,'-');
+      const safeComp = competition.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
+      const year     = dateVal ? dateVal.slice(0,4) : new Date().getFullYear();
+      gameId = `${safeHome}-${safeAway}-${year}-${safeComp}`;
+    }
 
     // Build angles array if any valid alternate angles were added
     const validAdminAngles = adminAngles.filter(a=>a.youtubeId&&a.youtubeId.trim()&&a.half1Start!==null&&a.half2Start!==null);
@@ -1010,9 +1143,22 @@ async function processGame(){
     document.getElementById('dlGames').href      = gamesUrl;
     document.getElementById('dlGames').download  = `${gameId}_meta.json`;
 
-    // Update instructions for games.json merging
-    document.querySelector('.dl-btn:last-of-type + .instructions .inst-step:last-child div:last-child').innerHTML =
-      `The metadata file contains the entry to add to your <code>games/games.json</code> inside the <code>"games": [...]</code> array. Open <code>games.json</code> in GitHub, click the pencil icon to edit, paste the new entry into the array, and commit.`;
+    if(isReparse){
+      // Re-parse mode: only the events JSON is needed — games.json stays unchanged
+      document.getElementById('dlTitle').textContent = 'Events file ready — upload to GitHub to replace existing data:';
+      document.getElementById('dlGames').style.display = 'none';
+      document.querySelector('.instructions').innerHTML =
+        '<div class="inst-title">Upload to GitHub</div>' +
+        '<div class="inst-step"><div class="inst-n">1</div><div>Open your GitHub repository and navigate to <code>games/</code>.</div></div>' +
+        '<div class="inst-step"><div class="inst-n">2</div><div>Find <code>' + gameId + '.json</code>, click it, then click the pencil (Edit) icon.</div></div>' +
+        '<div class="inst-step"><div class="inst-n">3</div><div>Select all (Cmd+A), delete, then paste the content of the downloaded file. Commit changes.</div></div>' +
+        '<div class="inst-step"><div class="inst-n">4</div><div>Alternatively: <strong>Add file → Upload files</strong>, drop the JSON — GitHub will overwrite the existing file.</div></div>';
+    } else {
+      document.getElementById('dlTitle').textContent = 'Files ready — download both:';
+      document.getElementById('dlGames').style.display = '';
+      document.querySelector('.instructions .inst-step:last-child div:last-child').innerHTML =
+        `The metadata file contains the entry to add to your <code>games/games.json</code> inside the <code>"games": [...]</code> array. Open <code>games.json</code> in GitHub, click the pencil icon to edit, paste the new entry into the array, and commit.`;
+    }
 
     document.getElementById('downloadsBlock').classList.add('show');
 
