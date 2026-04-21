@@ -209,7 +209,7 @@ initTheme();
 const gameId=new URLSearchParams(window.location.search).get('game');
 if(!gameId) window.location.href='library.html';
 let ALL=[],GAME={},filtered=[],PTM={};
-let activeCat='All',activeEvt='',activeLF=null,activeId=null,curT=0;
+let activeCat='All',activeEvt='',activeLF=null,activeId=null,activeCode=null,curT=0;
 let viewMode='events';
 let EG=new Set(),LG=new Set(),LV=new Map();
 let tlZ=1,tlO=0,tlDur=5400,tlPeriod='full',vidT=0;
@@ -474,7 +474,7 @@ function hlv(g,v){const k=g+'::'+v;if(LV.has(k))LV.delete(k);else LV.set(k,true)
 function ea(s){return(s||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");}
 function pickI(id){
   const ev=ALL.find(e=>e.id===id);if(!ev)return;
-  activeId=ev.id;curT=ev.driveT;
+  activeId=ev.id;activeCode=ev.code;curT=ev.driveT;
   seekV(ev.driveT);
   const _ang=GAME.angles?GAME.angles[currentAngleIdx]:GAME;
   const _ytVT=driveToAngle(ev.driveT,currentAngleIdx);
@@ -500,13 +500,15 @@ function vcSeek(delta){if(!YTP||!YTP.seekTo)return;const t=Math.max(0,(YTP.getCu
 function vcTogglePlay(){if(!YTP)return;const s=YTP.getPlayerState?YTP.getPlayerState():-1;if(s===1)YTP.pauseVideo();else YTP.playVideo();}
 function vcPrevEv(){
   const cur=YTP&&YTP.getCurrentTime?videoTimeToDrive(YTP.getCurrentTime(),currentAngleIdx):curT;
-  const prev=ALL.filter(e=>e.driveT<cur-0.5).sort((a,b)=>b.driveT-a.driveT)[0];
-  if(prev)seekV(prev.driveT);
+  const pool=activeCode?filtered.filter(e=>e.code===activeCode):filtered;
+  const prev=pool.filter(e=>e.driveT<cur-0.5).sort((a,b)=>b.driveT-a.driveT)[0];
+  if(prev)pickI(prev.id);
 }
 function vcNextEv(){
   const cur=YTP&&YTP.getCurrentTime?videoTimeToDrive(YTP.getCurrentTime(),currentAngleIdx):curT;
-  const next=ALL.filter(e=>e.driveT>cur+0.5).sort((a,b)=>a.driveT-b.driveT)[0];
-  if(next)seekV(next.driveT);
+  const pool=activeCode?filtered.filter(e=>e.code===activeCode):filtered;
+  const next=pool.filter(e=>e.driveT>cur+0.5).sort((a,b)=>a.driveT-b.driveT)[0];
+  if(next)pickI(next.id);
 }
 function fmtVC(s){s=Math.max(0,Math.floor(s));const m=Math.floor(s/60);return m+':'+(s%60<10?'0':'')+(s%60);}
 function updateVCTime(){
