@@ -469,15 +469,27 @@ function selectReparseGame(){
   document.getElementById('round').value = g.round || '';
   if(g.date) document.getElementById('gameDate').value = g.date;
   // Pre-fill YouTube URL from youtubeId
-  if(g.youtubeId) document.getElementById('ytUrl').value = `https://www.youtube.com/watch?v=${g.youtubeId}`;
+  if(g.youtubeId) document.getElementById('youtubeUrl').value = `https://www.youtube.com/watch?v=${g.youtubeId}`;
   // Pre-fill half times
   const toMM = s => { const neg=s<0; const a=Math.abs(s); return (neg?'-':'')+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0'); };
-  if(g.half1Start!=null) document.getElementById('th1').value = toMM(g.half1Start);
-  if(g.half2Start!=null) document.getElementById('th2').value = toMM(g.half2Start);
-  if(g.et1Start)  { document.getElementById('etToggle').checked=true; document.getElementById('etFields').classList.add('show'); document.getElementById('tet1').value=toMM(g.et1Start); }
+  if(g.half1Start!=null) document.getElementById('t1').value = toMM(g.half1Start);
+  if(g.half2Start!=null) document.getElementById('t2').value = toMM(g.half2Start);
+  if(g.et1Start)  { document.getElementById('etCheck').checked=true; document.getElementById('etFields').classList.add('show'); document.getElementById('tet1').value=toMM(g.et1Start); }
   if(g.et2Start)  { document.getElementById('tet2').value=toMM(g.et2Start); }
-  // Trigger YouTube validation
-  validateYT();
+  // Pre-fill camera angles (skip index 0 which is the main angle)
+  if(g.angles && g.angles.length > 1){
+    adminAngles = g.angles.slice(1).map(a=>({
+      label: a.label||'',
+      youtubeId: a.youtubeId||'',
+      half1Start: a.half1Start!=null ? a.half1Start : null,
+      half2Start: a.half2Start!=null ? a.half2Start : null,
+      et1Start: a.et1Start!=null ? a.et1Start : null,
+      et2Start: a.et2Start!=null ? a.et2Start : null,
+    }));
+  } else {
+    adminAngles = [];
+  }
+  renderAdminAngles();
 }
 
 // ── Theme ─────────────────────────────────────────────────────
