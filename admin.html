@@ -810,8 +810,9 @@ async function processGame(){
         badge.textContent = '📊 Gaelic Insights XML';
 
         // Find NA Whistle events — used as period markers (like P1/P2 START in GIU).
-        // First NA Whistle = 1st half kick-off (xmlP1).
-        // Last NA Whistle = 2nd half kick-off (xmlP2).
+        // Whistle structure: #1=1H start … #6=1H end · #7=2H start · #8=2H end (full time)
+        // So: first whistle = 1H kick-off (xmlP1), second-to-last = 2H kick-off (xmlP2),
+        // last whistle = full-time (ignored here).
         const giWhistleTimes = instances
           .filter(i=>(i.querySelector('code')?.textContent||'').trim()==='NA Whistle')
           .map(i=>parseFloat(i.querySelector('start')?.textContent||0))
@@ -819,7 +820,10 @@ async function processGame(){
           .sort((a,b)=>a-b);
 
         const giXmlP1 = giWhistleTimes.length > 0 ? giWhistleTimes[0] : 0;
-        const giXmlP2 = giWhistleTimes.length > 1 ? giWhistleTimes[giWhistleTimes.length-1] : giXmlP1;
+        // Second-to-last = 2H kick-off whistle (#7); last = full-time whistle (#8)
+        const giXmlP2 = giWhistleTimes.length > 2 ? giWhistleTimes[giWhistleTimes.length-2]
+                      : giWhistleTimes.length > 1 ? giWhistleTimes[giWhistleTimes.length-1]
+                      : giXmlP1;
         const giOffset1H = half1Video - giXmlP1;
         const giOffset2H = half2Video - giXmlP2;
 
