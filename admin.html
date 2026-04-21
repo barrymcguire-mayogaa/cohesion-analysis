@@ -1071,7 +1071,7 @@ async function processGame(){
           else if(xmlHalf2!==null && start>=xmlHalf2) half='2nd Half';
           const offset = offsets[half]||0;
           const driveT = Math.max(0, Math.round(start+offset)-2);
-          const team = labels['Team Name'] || (code.includes('MAYO')?'MAYO': code.includes(awayTeam.toUpperCase())?awayTeam.toUpperCase():'');
+          const team = labels['Team Name'] || (code.includes(homeTeam.toUpperCase())?homeTeam.toUpperCase(): code.includes(awayTeam.toUpperCase())?awayTeam.toUpperCase():'');
           const player = labels['Mayo Player Labels'] || labels['NO_GROUP'] || '';
           const outcome = labels['Shot Outcomes']||labels['Game Involvement Outcomes']||labels['Kickout Outcomes']||labels['Turnover Outcomes']||labels['Tackle Outcomes']||'';
           const subtype = labels['Deadball Shot Type']||labels['Shot Zones']||labels['Kickout Locations']||'';
