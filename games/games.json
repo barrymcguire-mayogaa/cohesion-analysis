@@ -321,6 +321,42 @@
           "et2Start": null
         }
       ]
+    },
+    {
+      "id": "kerry-galway-2026-national-football-league",
+      "title": "Kerry v Galway",
+      "date": "2026-02-14",
+      "competition": "National Football League",
+      "round": "Round 3",
+      "homeTeam": "Kerry",
+      "awayTeam": "Galway",
+      "homeColor": "#195232",
+      "awayColor": "#831100",
+      "youtubeId": "IfJYsQYqops",
+      "half1Start": 11,
+      "half2Start": 2170,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/IfJYsQYqops/hqdefault.jpg",
+      "eventCount": 155,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "IfJYsQYqops",
+          "half1Start": 11,
+          "half2Start": 2170,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "HI-BEHIND",
+          "youtubeId": "pwfumYzioms",
+          "half1Start": 151,
+          "half2Start": 3358,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
     }
   ]
 }
