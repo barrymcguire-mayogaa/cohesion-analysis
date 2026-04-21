@@ -277,6 +277,50 @@
       "et2Start": null,
       "thumbnail": "https://img.youtube.com/vi/04ODv_KouKE/hqdefault.jpg",
       "eventCount": 109
+    },
+    {
+      "id": "armagh-galway-2026-national-football-league",
+      "title": "Armagh v Galway",
+      "date": "2026-01-31",
+      "competition": "National Football League",
+      "round": "Round 2",
+      "homeTeam": "Armagh",
+      "awayTeam": "Galway",
+      "homeColor": "#ff6a00",
+      "awayColor": "#831100",
+      "youtubeId": "4puv8jQohno",
+      "half1Start": 10,
+      "half2Start": 2462,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/4puv8jQohno/hqdefault.jpg",
+      "eventCount": 139,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "4puv8jQohno",
+          "half1Start": 10,
+          "half2Start": 2462,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "BROADCAST",
+          "youtubeId": "LBHAl1KuR-8",
+          "half1Start": 1859,
+          "half2Start": 5266,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "HI-BEHIND",
+          "youtubeId": "XwEtK2TtTEM",
+          "half1Start": 1089,
+          "half2Start": 4496,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
     }
   ]
 }
