@@ -10,13 +10,13 @@
   --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
   --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
   --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);
-  --shadow:rgba(0,0,0,0.5);--logo-opacity:1;
+  --shadow:rgba(0,0,0,0.5);--logo-opacity:1;--logo-color:#ffffff;
 }
 [data-theme="light"]{
   --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
   --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
   --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);
-  --shadow:rgba(0,0,0,0.15);--logo-opacity:0.9;
+  --shadow:rgba(0,0,0,0.15);--logo-opacity:0.9;--logo-color:#1a1a28;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{
@@ -49,13 +49,13 @@ body::before{
 .logo-block{text-align:center;margin-bottom:40px;}
 .logo-name{
   font-family:'Barlow Condensed',sans-serif;font-weight:900;
-  font-size:48px;letter-spacing:6px;color:var(--t1);
+  font-size:48px;letter-spacing:6px;color:var(--logo-color);
   text-transform:uppercase;line-height:1;
 }
-.logo-name span{color:var(--accent);}
+.logo-name span{color:var(--logo-color);}
 .logo-sub{
-  font-family:'Barlow Condensed',sans-serif;font-weight:300;
-  font-size:14px;letter-spacing:5px;color:var(--t3);
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:14px;letter-spacing:5px;color:var(--logo-color);
   text-transform:uppercase;margin-top:6px;
 }
 .logo-line{
@@ -79,8 +79,8 @@ body::before{
   border-radius:9px;padding:13px 16px 13px 44px;
   color:var(--t1);font:500 15px 'Barlow',sans-serif;
   outline:none;transition:border-color .2s,box-shadow .2s;
-  -webkit-text-security:disc;
 }
+
 .input-group input[type="password"]{letter-spacing:3px;}
 .input-group input::placeholder{color:var(--t3);letter-spacing:0;}
 .input-group input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
@@ -166,9 +166,9 @@ function togglePw(){
   const inp = document.getElementById('passcode');
   const btn = document.getElementById('showPwBtn');
   if(inp.type === 'password'){
-    inp.type = 'text'; inp.style.letterSpacing = 'normal'; btn.textContent = 'HIDE';
+    inp.type = 'text'; inp.style.letterSpacing = 'normal'; inp.style.webkitTextSecurity = 'none'; btn.textContent = 'HIDE';
   } else {
-    inp.type = 'password'; inp.style.letterSpacing = '3px'; btn.textContent = 'SHOW';
+    inp.type = 'password'; inp.style.letterSpacing = '3px'; inp.style.webkitTextSecurity = 'disc'; btn.textContent = 'SHOW';
   }
 }
 function doLogin(){
