@@ -53,14 +53,6 @@ select option{background:var(--card);}
 .chip:hover:not(.on){border-color:var(--t2);}
 .chip.on{color:#fff;}
 .chip[data-c="All"].on{background:#4fc3f7;border-color:#4fc3f7;}
-.chip[data-c="Shots & Scores"].on{background:#ffd700;border-color:#ffd700;color:#000;}
-.chip[data-c="Kickouts"].on{background:#ab47bc;border-color:#ab47bc;}
-.chip[data-c="Fouls"].on{background:#f44336;border-color:#f44336;}
-.chip[data-c="Turnovers"].on{background:#ff7043;border-color:#ff7043;}
-.chip[data-c="Tackles"].on{background:#26a69a;border-color:#26a69a;}
-.chip[data-c="Possession & Attack"].on{background:#42a5f5;border-color:#42a5f5;}
-.chip[data-c="Player Actions"].on{background:#66bb6a;border-color:#66bb6a;}
-.chip[data-e].on{background:var(--accent);border-color:var(--accent);}
 .statbar{display:flex;gap:5px;margin-top:4px;}
 .sp{background:var(--card);border-radius:4px;padding:2px 7px;font-size:13px;color:var(--t2);}
 .sp b{color:var(--t1);}
@@ -209,7 +201,9 @@ initTheme();
 const gameId=new URLSearchParams(window.location.search).get('game');
 if(!gameId) window.location.href='library.html';
 let ALL=[],GAME={},filtered=[],PTM={};
-let activeCat='All',activeEvt='',activeLF=null,activeId=null,activeCode=null,curT=0;
+let activeLF=null,activeId=null,activeCode=null,curT=0;
+let gameFormat='gi',activeCatFn=null,activeCatKey='All',activeSubFn=null,activeSubKey='';
+let CHIP_FN_MAP={},SUB_FN_MAP={};
 let viewMode='events';
 let EG=new Set(),LG=new Set(),LV=new Map();
 let tlZ=1,tlO=0,tlDur=5400,tlPeriod='full',vidT=0;
@@ -301,7 +295,7 @@ function init(){
   document.title=`COHESION — ${H} v ${A}`;
   document.getElementById('MA').innerHTML=buildHTML(H,A);
   setupAngleBtns();
-  populatePl();applyF();initDH();initTL();setH(240);
+  gameFormat=detectFormat(ALL);populatePl();renderChips();applyF();initDH();initTL();setH(240);
   gdReady=true;if(ytReady)makeYTP();
 }
 function buildHTML(H,A){
@@ -319,26 +313,8 @@ function buildHTML(H,A){
       <div class="filters-row" style="margin-bottom:6px;">
         <select id="FH" onchange="applyF()"><option value="">All Periods</option><option value="1st Half">1st Half</option><option value="2nd Half">2nd Half</option></select>
       </div>
-      <div class="chips-row">
-        <div class="chip on" data-c="All" onclick="setC('All')">All</div>
-        <div class="chip" data-c="Shots & Scores" onclick="setC('Shots & Scores')">Shots</div>
-        <div class="chip" data-c="Kickouts" onclick="setC('Kickouts')">KOs</div>
-        <div class="chip" data-c="Fouls" onclick="setC('Fouls')">Fouls</div>
-        <div class="chip" data-c="Turnovers" onclick="setC('Turnovers')">TOs</div>
-        <div class="chip" data-c="Tackles" onclick="setC('Tackles')">Tackles</div>
-        <div class="chip" data-c="Possession & Attack" onclick="setC('Possession & Attack')">Attack</div>
-        <div class="chip" data-c="Player Actions" onclick="setC('Player Actions')">Players</div>
-      </div>
-      <div class="chips-row">
-        <div class="chip" data-e="op" onclick="setE('op')">Open Play</div>
-        <div class="chip" data-e="db" onclick="setE('db')">Dead Ball</div>
-        <div class="chip" data-e="gc" onclick="setE('gc')">Goal Chance</div>
-        <div class="chip" data-e="at" onclick="setE('at')">Attack</div>
-        <div class="chip" data-e="65" onclick="setE('65')">65m Entry</div>
-        <div class="chip" data-e="ss" onclick="setE('ss')">Score Source</div>
-        <div class="chip" data-e="sh" onclick="setE('sh')">Shot Source</div>
-        <div class="chip" data-e="sa" onclick="setE('sa')">Score Assist</div>
-      </div>
+      <div class="chips-row" id="catChips"></div>
+      <div class="chips-row" id="subChips" style="display:none"></div>
       <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div></div>
     </div>
     <div class="lbl-active-bar" id="LAB"><span id="LAT"></span><div class="lbl-clear" onclick="clearLF()">✕ Clear</div></div>
@@ -394,9 +370,104 @@ function buildHTML(H,A){
 }
 function populatePl(){const ps=[...new Set(ALL.map(e=>e.player).filter(Boolean))].sort();const s=document.getElementById('FP');if(!s)return;ps.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;s.appendChild(o);});}
 function setVM(m){viewMode=m;document.getElementById('vtE')?.classList.toggle('on',m==='events');document.getElementById('vtL')?.classList.toggle('on',m==='labels');renderP();}
-const EM={'op':e=>/SHOT OPEN PLAY/i.test(e.code),'db':e=>/SHOT DEADBALL/i.test(e.code),'gc':e=>/GOAL CHANCE/i.test(e.code),'at':e=>/ATTACKS/i.test(e.code),'65':e=>/65M ENTRY/i.test(e.code),'ss':e=>/SCORE SOURCE/i.test(e.code),'sh':e=>/SHOT SOURCE/i.test(e.code),'sa':e=>/SCORE ASSIST/i.test(e.code)};
-function setC(c){activeCat=c;activeEvt='';document.querySelectorAll('[data-c]').forEach(x=>x.classList.toggle('on',x.dataset.c===c));document.querySelectorAll('[data-e]').forEach(x=>x.classList.remove('on'));applyF();}
-function setE(e){activeEvt=activeEvt===e?'':e;if(activeEvt){activeCat='All';document.querySelectorAll('[data-c]').forEach(x=>x.classList.toggle('on',x.dataset.c==='All'));}document.querySelectorAll('[data-e]').forEach(x=>x.classList.toggle('on',x.dataset.e===activeEvt&&!!activeEvt));applyF();}
+// ── Format detection ─────────────────────────────────────────
+function detectFormat(evs){
+  if(!evs.length)return'gi';
+  if(evs.some(e=>/\([PF]\)/.test(e.code)))return'giu';
+  if(evs.some(e=>e.code===e.code.toUpperCase()&&/[A-Z]{2}/.test(e.code)))return'sc';
+  return'gi';
+}
+// ── Chip definitions per format ───────────────────────────────
+const CHIP_DEFS={
+  gi:[
+    {label:'Shots', key:'shots', filter:e=>e.category==='Shots & Scores', color:'#ffd700', dark:true},
+    {label:'KOs',   key:'kos',   filter:e=>e.category==='Kickouts',        color:'#ab47bc'},
+    {label:'TOs',   key:'tos',   filter:e=>e.category==='Turnovers',       color:'#ff7043'},
+  ],
+  giu:[
+    {label:'Possession', key:'poss',   filter:e=>/\bPoss\b/i.test(e.code),          color:'#42a5f5'},
+    {label:'Shots',      key:'shots',  filter:e=>/Shot\s*\([PF]\)/i.test(e.code),   color:'#ffd700', dark:true},
+    {label:'KOs',        key:'kos',    filter:e=>/Kickout/i.test(e.code),            color:'#ab47bc'},
+    {label:'TOs',        key:'tos',    filter:e=>/Turnover/i.test(e.code),           color:'#ff7043'},
+    {label:'Fouls',      key:'fouls',  filter:e=>/\bFoul\b/i.test(e.code),           color:'#f44336'},
+    {label:'Cards',      key:'cards',  filter:e=>/\bCard\b/i.test(e.code),           color:'#ef5350'},
+  ],
+  sc:[
+    {label:'Possession', key:'poss',    filter:e=>/POSSESSION/i.test(e.code),                   color:'#42a5f5'},
+    {label:'Shots',      key:'shots',   filter:e=>/SHOT OPEN PLAY|SHOT DEAD/i.test(e.code),     color:'#ffd700', dark:true},
+    {label:'KOs',        key:'kos',     filter:e=>/\bKO\b/i.test(e.code),                       color:'#ab47bc'},
+    {label:'TOs',        key:'tos',     filter:e=>/\bTOs\b/i.test(e.code),                      color:'#ff7043'},
+    {label:'Fouls',      key:'fouls',   filter:e=>/\bFOUL\b/i.test(e.code),                     color:'#f44336'},
+    {label:'Cards',      key:'cards',   filter:e=>/\bCARD\b/i.test(e.code),                     color:'#ef5350'},
+    {label:'Tackles',    key:'tackles', filter:e=>/\bTACKLE\b/i.test(e.code),                   color:'#26a69a'},
+  ],
+};
+const SUB_DEFS={
+  gi:[
+    {label:'Open Play', key:'op', filter:e=>e.labels?.Description==='Play'},
+    {label:'Dead Ball', key:'db', filter:e=>['Free','Forty Five','Mark','Penalty','Sideline'].includes(e.labels?.Description)},
+  ],
+  giu:[
+    {label:'Open Play', key:'op', filter:e=>/Shot\s*\(P\)/i.test(e.code)},
+    {label:'Dead Ball', key:'db', filter:e=>/Shot\s*\(F\)/i.test(e.code)},
+  ],
+  sc:[
+    {label:'Open Play', key:'op', filter:e=>/SHOT OPEN PLAY/i.test(e.code)},
+    {label:'Dead Ball', key:'db', filter:e=>/SHOT DEAD/i.test(e.code)},
+  ],
+};
+// ── Chip rendering ────────────────────────────────────────────
+function renderChips(){
+  const catEl=document.getElementById('catChips');
+  const subEl=document.getElementById('subChips');
+  if(!catEl||!subEl)return;
+  CHIP_FN_MAP={};SUB_FN_MAP={};
+  (CHIP_DEFS[gameFormat]||[]).forEach(d=>{CHIP_FN_MAP[d.key]=d;});
+  (SUB_DEFS[gameFormat]||[]).forEach(d=>{SUB_FN_MAP[d.key]=d;});
+  // Category chips — only render if game has matching events
+  const defs=(CHIP_DEFS[gameFormat]||[]).filter(d=>ALL.some(d.filter));
+  let h=`<div class="chip on" data-c="All" onclick="setChip('All')">All</div>`;
+  defs.forEach(d=>{h+=`<div class="chip" data-c="${d.key}" onclick="setChip('${d.key}')">${d.label}</div>`;});
+  catEl.innerHTML=h;
+  // Sub chips — only render if game has matching events
+  const sdefs=(SUB_DEFS[gameFormat]||[]).filter(d=>ALL.some(d.filter));
+  let sh='';sdefs.forEach(d=>{sh+=`<div class="chip" data-e="${d.key}" onclick="setSub('${d.key}')">${d.label}</div>`;});
+  subEl.innerHTML=sh;
+  subEl.style.display='none';
+}
+// ── Chip activation ───────────────────────────────────────────
+function setChip(key){
+  activeCatKey=key;
+  activeCatFn=key==='All'?null:(CHIP_FN_MAP[key]?.filter||null);
+  activeSubFn=null;activeSubKey='';
+  const isShots=key==='shots';
+  document.querySelectorAll('[data-c]').forEach(x=>{
+    const on=x.dataset.c===key;
+    x.classList.toggle('on',on);
+    if(on&&key!=='All'){
+      const d=CHIP_FN_MAP[key];
+      if(d){x.style.background=d.color;x.style.borderColor=d.color;x.style.color=d.dark?'#000':'#fff';}
+    }else{x.style.background='';x.style.borderColor='';x.style.color='';}
+  });
+  document.querySelectorAll('[data-e]').forEach(x=>{x.classList.remove('on');x.style.background='';x.style.borderColor='';});
+  const subEl=document.getElementById('subChips');
+  if(subEl)subEl.style.display=(isShots&&subEl.children.length)?'':'none';
+  applyF();
+}
+function setSub(key){
+  if(activeSubKey===key){
+    activeSubKey='';activeSubFn=null;
+    document.querySelectorAll('[data-e]').forEach(x=>{x.classList.remove('on');x.style.background='';x.style.borderColor='';});
+  }else{
+    activeSubKey=key;activeSubFn=SUB_FN_MAP[key]?.filter||null;
+    document.querySelectorAll('[data-e]').forEach(x=>{
+      const on=x.dataset.e===key;x.classList.toggle('on',on);
+      if(on){x.style.background='var(--accent)';x.style.borderColor='var(--accent)';}
+      else{x.style.background='';x.style.borderColor='';}
+    });
+  }
+  applyF();
+}
 function filterLbl(g,v){activeLF={g,v};const b=document.getElementById('LAB'),t=document.getElementById('LAT');if(b&&t){b.classList.add('show');t.textContent=`${g}: ${tc(v)}`;}applyF();}
 function clearLF(){activeLF=null;document.getElementById('LAB')?.classList.remove('show');applyF();}
 function applyF(){
@@ -405,8 +476,8 @@ function applyF(){
   const player=document.getElementById('FP')?.value||'';
   const half=document.getElementById('FH')?.value||'';
   filtered=ALL.filter(ev=>{
-    if(activeCat!=='All'&&ev.category!==activeCat)return false;
-    if(activeEvt&&EM[activeEvt]&&!EM[activeEvt](ev))return false;
+    if(activeCatFn&&!activeCatFn(ev))return false;
+    if(activeSubFn&&!activeSubFn(ev))return false;
     if(activeLF&&(!ev.labels||ev.labels[activeLF.g]!==activeLF.v))return false;
     if(team&&ev.team.toUpperCase()!==team.toUpperCase())return false;
     if(player&&ev.player!==player)return false;
@@ -449,7 +520,7 @@ function renderLV(){
   let h='';
   // Codes section
   const cO=LG.has('__c');
-  h+=`<div class="lbl-group"><div class="lbl-hdr" onclick="togLG('__c')"><span class="lbl-arr${cO?' o':''}">▶</span><span class="lbl-gname">Sportscode Codes</span><span class="lbl-gcnt">${Object.keys(cd).length}</span></div>`;
+  h+=`<div class="lbl-group"><div class="lbl-hdr" onclick="togLG('__c')"><span class="lbl-arr${cO?' o':''}">▶</span><span class="lbl-gname">Event Codes</span><span class="lbl-gcnt">${Object.keys(cd).length}</span></div>`;
   if(cO){
     h+=`<div class="lbl-vals">${Object.entries(cd).sort((a,b)=>b[1].length-a[1].length).map(([code,evs])=>{const k='__c::'+code;const vO=LV.has(k);return`<div class="lbl-val" onclick="togLV('__c','${ea(code)}')"><span class="lbl-varr${vO?' o':''}">▶</span><span class="lbl-vname">${tc(code)}</span><span class="lbl-vcnt">${evs.length}</span></div>${vO?`<div class="lbl-einsts">${evs.map(ev=>`<div class="lbl-einst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ev.player||tc(ev.outcome)||''}</div></div>`).join('')}</div>`:''}`}).join('')}</div>`;
   }
