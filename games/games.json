@@ -184,6 +184,43 @@
       "eventCount": 254
     },
     {
+      "id": "donegal-galway-2026-national-football-league",
+      "title": "Donegal v Galway",
+      "date": "2026-03-01",
+      "competition": "National Football League",
+      "division": "1",
+      "round": "Round 5",
+      "homeTeam": "Donegal",
+      "awayTeam": "Galway",
+      "homeColor": "#fec700",
+      "awayColor": "#831100",
+      "youtubeId": "3HQ2P8detIc",
+      "half1Start": 242,
+      "half2Start": 2785,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/3HQ2P8detIc/hqdefault.jpg",
+      "eventCount": 146,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "3HQ2P8detIc",
+          "half1Start": 242,
+          "half2Start": 2785,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "WIDE",
+          "youtubeId": "tZHOQV4bwdY",
+          "half1Start": 3,
+          "half2Start": 2427,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
+    },
+    {
       "id": "roscommon-dublin-2026-national-football-league",
       "title": "Roscommon v Dublin",
       "date": "2026-03-01",
