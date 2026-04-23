@@ -297,12 +297,23 @@ select option{background:var(--card);}
     <option>All-Ireland SFC</option>
     <option>U20 Championship</option>
   </select>
-  <select id="fDiv" style="display:none" onchange="applyFilters()">
+  <select id="fDiv" style="display:none" onchange="toggleRoundFilter();applyFilters()">
     <option value="">All Divisions</option>
     <option value="1">Division 1</option>
     <option value="2">Division 2</option>
     <option value="3">Division 3</option>
     <option value="4">Division 4</option>
+  </select>
+  <select id="fRound" style="display:none" onchange="applyFilters()">
+    <option value="">All Rounds</option>
+    <option value="Round 1">Round 1</option>
+    <option value="Round 2">Round 2</option>
+    <option value="Round 3">Round 3</option>
+    <option value="Round 4">Round 4</option>
+    <option value="Round 5">Round 5</option>
+    <option value="Round 6">Round 6</option>
+    <option value="Round 7">Round 7</option>
+    <option value="Final">Final</option>
   </select>
   <select id="fTeam" onchange="applyFilters()">
     <option value="">All Teams</option>
@@ -458,11 +469,22 @@ function toggleDivFilter(){
   const show = comp === 'National Football League';
   divSel.style.display = show ? '' : 'none';
   if(!show) divSel.value = '';
+  toggleRoundFilter();
+}
+
+function toggleRoundFilter(){
+  const comp = document.getElementById('fComp').value;
+  const div = document.getElementById('fDiv').value;
+  const roundSel = document.getElementById('fRound');
+  const show = comp === 'National Football League' && div;
+  roundSel.style.display = show ? '' : 'none';
+  if(!show) roundSel.value = '';
 }
 
 function applyFilters(){
   const comp   = document.getElementById('fComp').value;
   const div    = document.getElementById('fDiv').value;
+  const round  = document.getElementById('fRound').value;
   const team   = document.getElementById('fTeam').value;
   const year   = document.getElementById('fYear').value;
   const search = document.getElementById('fSearch').value.toLowerCase();
@@ -470,6 +492,7 @@ function applyFilters(){
   const filtered = allGames.filter(g=>{
     if(comp && g.competition !== comp) return false;
     if(div && g.division !== div) return false;
+    if(round && g.round !== round) return false;
     if(team && g.homeTeam !== team && g.awayTeam !== team) return false;
     if(year && !g.date?.startsWith(year)) return false;
     if(search && ![g.title,g.competition,g.homeTeam,g.awayTeam,g.round]
