@@ -257,7 +257,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
       <div class="field">
         <label>Competition</label>
-        <select class="finput" id="competition">
+        <select class="finput" id="competition" onchange="toggleAdminDiv()">
           <option value="">Select competition</option>
           <option>FBD League</option>
           <option>National Football League</option>
@@ -267,6 +267,16 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
           <option>Ulster SFC</option>
           <option>All-Ireland SFC</option>
           <option>U20 Championship</option>
+        </select>
+      </div>
+      <div class="field" id="divisionField" style="display:none">
+        <label>Division</label>
+        <select class="finput" id="division">
+          <option value="">Select division</option>
+          <option value="1">Division 1</option>
+          <option value="2">Division 2</option>
+          <option value="3">Division 3</option>
+          <option value="4">Division 4</option>
         </select>
       </div>
       <div class="field">
@@ -406,6 +416,14 @@ if(!auth) window.location.href = 'index.html';
 if(auth !== 'admin') window.location.href = 'library.html';
 function logout(){ sessionStorage.clear(); window.location.href = 'index.html'; }
 
+function toggleAdminDiv(){
+  const comp = document.getElementById('competition').value;
+  const field = document.getElementById('divisionField');
+  const show = comp === 'National Football League';
+  field.style.display = show ? '' : 'none';
+  if(!show) document.getElementById('division').value = '';
+}
+
 function syncColor(side, hex){
   const clean = hex.trim();
   if(/^#[0-9a-fA-F]{6}$/.test(clean)){
@@ -469,7 +487,9 @@ function selectReparseGame(){
   if(g.competition){
     const sel=document.getElementById('competition');
     [...sel.options].forEach(o=>{ if(o.text===g.competition||o.value===g.competition) sel.value=o.value; });
+    toggleAdminDiv();
   }
+  if(g.division) document.getElementById('division').value = g.division;
   document.getElementById('round').value = g.round || '';
   if(g.date) document.getElementById('gameDate').value = g.date;
   // Pre-fill YouTube URL from youtubeId
@@ -766,6 +786,7 @@ async function processGame(){
   const homeTeam    = document.getElementById('homeTeam').value.trim();
   const awayTeam    = document.getElementById('awayTeam').value.trim();
   const competition = document.getElementById('competition').value;
+  const division    = document.getElementById('division').value;
   const round       = document.getElementById('round').value.trim();
   const dateVal     = document.getElementById('gameDate').value;
   const ytUrl       = document.getElementById('youtubeUrl').value.trim();
@@ -1130,6 +1151,7 @@ async function processGame(){
       title: `${homeTeam} v ${awayTeam}`,
       date: dateVal || new Date().toISOString().slice(0,10),
       competition,
+      ...(division ? {division} : {}),
       round,
       homeTeam,
       awayTeam,
