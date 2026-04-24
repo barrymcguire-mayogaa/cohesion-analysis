@@ -184,6 +184,43 @@
       "eventCount": 254
     },
     {
+      "id": "armagh-kerry-2026-national-football-league",
+      "title": "Armagh v Kerry",
+      "date": "2026-03-22",
+      "competition": "National Football League",
+      "division": "1",
+      "round": "Round 7",
+      "homeTeam": "Armagh",
+      "awayTeam": "Kerry",
+      "homeColor": "#ff6a00",
+      "awayColor": "#195232",
+      "youtubeId": "EwoMpZsbzJs",
+      "half1Start": 108,
+      "half2Start": 3612,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/EwoMpZsbzJs/hqdefault.jpg",
+      "eventCount": 260,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "EwoMpZsbzJs",
+          "half1Start": 108,
+          "half2Start": 3612,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "WIDE",
+          "youtubeId": "qMLhSy3pLQA",
+          "half1Start": 0,
+          "half2Start": 2483,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
+    },
+    {
       "id": "donegal-galway-2026-national-football-league",
       "title": "Donegal v Galway",
       "date": "2026-03-01",
