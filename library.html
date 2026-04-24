@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Game Library</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -421,7 +422,11 @@ const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
 if(auth === 'admin') document.getElementById('adminBtn').style.display = 'flex';
 
-function logout(){ sessionStorage.clear(); window.location.href = 'index.html'; }
+function logout(){
+  netlifyIdentity.logout();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
 
 // ── Theme ─────────────────────────────────────────────────────
 function initTheme(){
