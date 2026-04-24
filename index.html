@@ -190,11 +190,16 @@ async function doLogin(){
 
   try {
     const user = await netlifyIdentity.gotrue.login(email, password, true);
-    const roles = user.app_metadata?.roles || [];
+
+    // Fetch full user object to get roles
+    const fullUser = await netlifyIdentity.gotrue.currentUser();
+    const roles = fullUser?.app_metadata?.roles || user?.app_metadata?.roles || [];
     const role  = roles.includes('admin') ? 'admin' : 'viewer';
+
     sessionStorage.setItem('cohesion_auth', role);
-    sessionStorage.setItem('cohesion_user', user.email);
+    sessionStorage.setItem('cohesion_user', email);
     window.location.href = 'library.html';
+
   } catch(e) {
     err.textContent = 'Incorrect email or password. Please try again.';
     document.getElementById('passcode').value = '';
