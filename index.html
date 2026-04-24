@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Team Analysis</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -134,8 +135,13 @@ body::before{
   <div class="card">
     <div class="card-title">Enter Passcode</div>
     <div class="input-group">
+      <span class="input-icon">✉️</span>
+      <input type="email" id="email" placeholder="Email address"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="input-group">
       <span class="input-icon">🔒</span>
-      <input type="password" id="passcode" placeholder="Passcode"
+      <input type="password" id="passcode" placeholder="Password"
              onkeydown="if(event.key==='Enter')doLogin()">
       <button class="show-pw" onclick="togglePw()" id="showPwBtn">SHOW</button>
     </div>
@@ -163,41 +169,48 @@ function togglePw(){
   const inp = document.getElementById('passcode');
   const btn = document.getElementById('showPwBtn');
   if(inp.type === 'password'){
-    inp.type = 'text'; inp.style.letterSpacing = 'normal'; inp.style.webkitTextSecurity = 'none'; btn.textContent = 'HIDE';
+    inp.type = 'text'; inp.style.letterSpacing = 'normal'; btn.textContent = 'HIDE';
   } else {
-    inp.type = 'password'; inp.style.letterSpacing = '3px'; inp.style.webkitTextSecurity = 'disc'; btn.textContent = 'SHOW';
+    inp.type = 'password'; inp.style.letterSpacing = '3px'; btn.textContent = 'SHOW';
   }
 }
+
 async function doLogin(){
-  const val = document.getElementById('passcode').value;
-  const err = document.getElementById('errMsg');
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('passcode').value;
+  const err      = document.getElementById('errMsg');
+
+  if(!email || !password){
+    err.textContent = 'Please enter your email and password.';
+    setTimeout(() => err.textContent = '', 3000);
+    return;
+  }
 
   err.textContent = 'Checking...';
 
   try {
-    const res = await fetch('/.netlify/functions/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: val })
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      sessionStorage.setItem('cohesion_auth', data.role);
-      window.location.href = 'library.html';
-    } else {
-      err.textContent = 'Incorrect passcode. Please try again.';
-      document.getElementById('passcode').value = '';
-      setTimeout(() => err.textContent = '', 3000);
-    }
+    const user = await netlifyIdentity.gotrue.login(email, password, true);
+    const roles = user.app_metadata?.roles || [];
+    const role  = roles.includes('admin') ? 'admin' : 'viewer';
+    sessionStorage.setItem('cohesion_auth', role);
+    sessionStorage.setItem('cohesion_user', user.email);
+    window.location.href = 'library.html';
   } catch(e) {
-    err.textContent = 'Connection error. Please try again.';
+    err.textContent = 'Incorrect email or password. Please try again.';
+    document.getElementById('passcode').value = '';
     setTimeout(() => err.textContent = '', 3000);
   }
 }
-// Already logged in?
-if(sessionStorage.getItem('cohesion_auth')) window.location.href = 'library.html';
+
+netlifyIdentity.on('init', user => {
+  if(user){
+    const roles = user.app_metadata?.roles || [];
+    const role  = roles.includes('admin') ? 'admin' : 'viewer';
+    sessionStorage.setItem('cohesion_auth', role);
+    window.location.href = 'library.html';
+  }
+});
+
 initTheme();
 </script>
 </body>
