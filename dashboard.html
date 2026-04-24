@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Match Dashboard</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.youtube.com/iframe_api"></script>
 <style>
@@ -194,7 +195,11 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
-function logout(){sessionStorage.clear();window.location.href='index.html';}
+function logout(){
+  netlifyIdentity.logout();
+  sessionStorage.clear();
+  window.location.href='index.html';
+}
 function initTheme(){const t=localStorage.getItem('cohesion_theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('TH').textContent=t==='dark'?'☀️':'🌙';}
 function toggleTheme(){const c=document.documentElement.getAttribute('data-theme'),n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('cohesion_theme',n);document.getElementById('TH').textContent=n==='dark'?'☀️':'🌙';drawTL();}
 initTheme();
