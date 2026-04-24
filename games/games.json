@@ -707,6 +707,43 @@
           "et2Start": null
         }
       ]
+    },
+    {
+      "id": "dublin-armagh-2026-national-football-league",
+      "title": "Dublin v Armagh",
+      "date": "2026-03-14",
+      "competition": "National Football League",
+      "division": "1",
+      "round": "Round 6",
+      "homeTeam": "Dublin",
+      "awayTeam": "Armagh",
+      "homeColor": "#00c7fc",
+      "awayColor": "#ff6a00",
+      "youtubeId": "xDxOmQph-gg",
+      "half1Start": 38,
+      "half2Start": 2418,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/xDxOmQph-gg/hqdefault.jpg",
+      "eventCount": 265,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "xDxOmQph-gg",
+          "half1Start": 38,
+          "half2Start": 2418,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "WIDE",
+          "youtubeId": "YPz-fmiINZw",
+          "half1Start": 7,
+          "half2Start": 2252,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
     }
   ]
 }
