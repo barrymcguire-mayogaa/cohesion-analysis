@@ -213,6 +213,10 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
     </div>
     <div class="field">
+      <label>Search Games</label>
+      <input type="text" id="gameSearch" placeholder="Search by team, date, round, or competition…" oninput="filterReparseGames()" style="margin-bottom:12px;">
+    </div>
+    <div class="field">
       <label>Existing Game</label>
       <select class="finput" id="reparseGame" onchange="selectReparseGame()">
         <option value="">Loading games…</option>
@@ -354,9 +358,18 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="step-num">3</div>
       <div>
         <div class="step-title">Upload Match Data File</div>
-        <div class="step-sub">Sportscode XML, GIU XML, Gaelic Insights XML <em>or</em> Gaelic Tracker JSON — auto-detected</div>
+        <div class="step-sub" id="xmlUploadSub">Sportscode XML, GIU XML, Gaelic Insights XML <em>or</em> Gaelic Tracker JSON — auto-detected</div>
       </div>
     </div>
+
+    <div id="existingEventMsg" style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--green);display:none;">
+      ✓ <strong>XML already parsed.</strong> Upload only if regenerating events from a corrected XML file.
+    </div>
+
+    <label class="et-toggle" id="skipXmlToggle" style="display:none;">
+      <input type="checkbox" id="skipXmlCheck" onchange="toggleSkipXml()">
+      Use existing event data (don't re-process XML)
+    </label>
 
     <div class="drop-zone" id="dropZone"
          onclick="document.getElementById('xmlFile').click()"
@@ -467,11 +480,48 @@ async function loadGamesForReparse(){
     const r = await fetch(`games/games.json?t=${t}`);
     const data = await r.json();
     reparseGames = data.games || [];
+
+    // Sort by date (newest first)
+    reparseGames.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Format date as "15 Mar 2026"
+    const formatDate = (dateStr) => {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
     sel.innerHTML = '<option value="">— Select a game —</option>' +
-      reparseGames.map((g,i)=>`<option value="${i}">${g.title} · ${g.competition} ${g.round} (${g.date})</option>`).join('');
+      reparseGames.map((g,i)=>`<option value="${i}">${g.title} · ${formatDate(g.date)}</option>`).join('');
+
+    // Reset search
+    document.getElementById('gameSearch').value = '';
   } catch(e){
     sel.innerHTML = '<option value="">Could not load games.json</option>';
   }
+}
+
+function filterReparseGames(){
+  const query = document.getElementById('gameSearch').value.toLowerCase();
+  const sel = document.getElementById('reparseGame');
+  const opts = sel.querySelectorAll('option');
+
+  opts.forEach((opt, idx) => {
+    if(idx === 0) return; // Skip placeholder
+    const text = opt.textContent.toLowerCase();
+    const gameIdx = parseInt(opt.value);
+    const game = reparseGames[gameIdx];
+
+    // Search across all fields: teams, date, round, competition
+    const searchFields = [
+      game.homeTeam,
+      game.awayTeam,
+      game.date,
+      game.round,
+      game.competition,
+    ].map(f => (f || '').toLowerCase()).join(' ');
+
+    opt.style.display = searchFields.includes(query) ? '' : 'none';
+  });
 }
 
 function selectReparseGame(){
@@ -479,6 +529,27 @@ function selectReparseGame(){
   if(isNaN(idx)||idx<0) return;
   const g = reparseGames[idx];
   if(!g) return;
+
+  // Check if game has angles (parsed XML exists)
+  const hasAngles = g.angles && g.angles.length > 0;
+  const msgEl = document.getElementById('existingEventMsg');
+  const skipToggle = document.getElementById('skipXmlToggle');
+  const dropZone = document.getElementById('dropZone');
+
+  // Show message and toggle if game has angles
+  if(hasAngles){
+    msgEl.style.display = '';
+    skipToggle.style.display = '';
+    dropZone.style.opacity = '0.6';
+    dropZone.style.pointerEvents = 'none';
+  } else {
+    msgEl.style.display = 'none';
+    skipToggle.style.display = 'none';
+    document.getElementById('skipXmlCheck').checked = false;
+    dropZone.style.opacity = '1';
+    dropZone.style.pointerEvents = 'auto';
+  }
+
   // Pre-fill game details
   document.getElementById('homeTeam').value = g.homeTeam || '';
   document.getElementById('awayTeam').value = g.awayTeam || '';
@@ -514,6 +585,17 @@ function selectReparseGame(){
     adminAngles = [];
   }
   renderAdminAngles();
+}
+
+function toggleSkipXml(){
+  const checked = document.getElementById('skipXmlCheck').checked;
+  const dropZone = document.getElementById('dropZone');
+  dropZone.style.opacity = checked ? '0.4' : '0.6';
+  dropZone.style.pointerEvents = checked ? 'none' : 'none';
+  if(checked) {
+    document.getElementById('dzFileName').textContent = '';
+    document.getElementById('dropZone').classList.remove('ready');
+  }
 }
 
 // ── Theme ─────────────────────────────────────────────────────
@@ -799,7 +881,9 @@ async function processGame(){
   if(!homeTeam||!awayTeam){ showError('Please enter both team names.'); return; }
   if(!competition){ showError('Please select a competition.'); return; }
   if(!ytUrl){ showError('Please enter the YouTube video URL.'); return; }
-  if(!xmlFile){ showError('Please select a match data file.'); return; }
+
+  const skipXml = document.getElementById('skipXmlCheck').checked;
+  if(!xmlFile && !skipXml){ showError('Please select a match data file.'); return; }
 
   const ytId = extractYtId(ytUrl);
   if(!ytId){ showError('Could not read YouTube video ID from that URL. Please use a standard YouTube or youtu.be link.'); return; }
@@ -819,8 +903,28 @@ async function processGame(){
   let events = [];
 
   try{
+    // ── Skip XML (for adding new angles only) ──────────────────
+    if(skipXml && isReparse){
+      setProgress(50, 'Loading existing events…');
+      const rIdx = parseInt(document.getElementById('reparseGame').value);
+      if(isNaN(rIdx) || !reparseGames[rIdx]){
+        showError('Could not find the selected game.');
+        return;
+      }
+      const gameId = reparseGames[rIdx].id;
+      try {
+        const t = Date.now();
+        const r = await fetch(`games/${gameId}.json?t=${t}`);
+        if(!r.ok) throw new Error('Game events file not found');
+        events = await r.json();
+        setProgress(80, 'Preparing updated file…');
+      } catch(e){
+        showError('Could not load existing events: ' + e.message);
+        return;
+      }
+    }
     // ── Gaelic Tracker JSON ──────────────────────────────────
-    if(fileSource === 'gaelictracker'){
+    else if(fileSource === 'gaelictracker'){
       setProgress(20, 'Reading Gaelic Tracker data…');
       const data = gtData || JSON.parse(await xmlFile.text());
       setProgress(60, `Processing ${data.timeline?.length||0} timeline events…`);
@@ -1140,10 +1244,21 @@ async function processGame(){
 
     // Build angles array if any valid alternate angles were added
     const validAdminAngles = adminAngles.filter(a=>a.youtubeId&&a.youtubeId.trim()&&a.half1Start!==null&&a.half2Start!==null);
-    const anglesField = validAdminAngles.length > 0 ? [
-      {label:'Main',youtubeId:ytId,half1Start:half1Video,half2Start:half2Video,et1Start:et1Video,et2Start:et2Video},
-      ...validAdminAngles
-    ] : undefined;
+    let anglesField;
+
+    if(skipXml && isReparse){
+      // In re-parse mode with existing events: append new angles to existing angles
+      const rIdx = parseInt(document.getElementById('reparseGame').value);
+      const existingGame = reparseGames[rIdx];
+      const existingAngles = existingGame.angles || [{label:'Main',youtubeId:existingGame.youtubeId,half1Start:existingGame.half1Start,half2Start:existingGame.half2Start,et1Start:existingGame.et1Start,et2Start:existingGame.et2Start}];
+      anglesField = validAdminAngles.length > 0 ? [...existingAngles, ...validAdminAngles] : existingAngles;
+    } else {
+      // New game or XML re-processing: build angles from scratch
+      anglesField = validAdminAngles.length > 0 ? [
+        {label:'Main',youtubeId:ytId,half1Start:half1Video,half2Start:half2Video,et1Start:et1Video,et2Start:et2Video},
+        ...validAdminAngles
+      ] : undefined;
+    }
 
     // Game metadata entry
     const gameMeta = {
