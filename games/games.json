@@ -670,6 +670,43 @@
           "et2Start": null
         }
       ]
+    },
+    {
+      "id": "kerry-monaghan-2026-national-football-league",
+      "title": "Kerry v Monaghan",
+      "date": "2026-03-01",
+      "competition": "National Football League",
+      "division": "1",
+      "round": "Round 5",
+      "homeTeam": "Kerry",
+      "awayTeam": "Monaghan",
+      "homeColor": "#195232",
+      "awayColor": "#ffffff",
+      "youtubeId": "OPcm_uV6TZE",
+      "half1Start": 134,
+      "half2Start": 2525,
+      "et1Start": null,
+      "et2Start": null,
+      "thumbnail": "https://img.youtube.com/vi/OPcm_uV6TZE/hqdefault.jpg",
+      "eventCount": 115,
+      "angles": [
+        {
+          "label": "Main",
+          "youtubeId": "OPcm_uV6TZE",
+          "half1Start": 134,
+          "half2Start": 2525,
+          "et1Start": null,
+          "et2Start": null
+        },
+        {
+          "label": "WIDE",
+          "youtubeId": "szfjlOavfTU",
+          "half1Start": 23,
+          "half2Start": 2320,
+          "et1Start": null,
+          "et2Start": null
+        }
+      ]
     }
   ]
 }
