@@ -214,14 +214,15 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     </div>
     <div class="field">
       <label>Search Games</label>
-      <input type="text" id="gameSearch" placeholder="Search by team, date, round, or competition…" oninput="filterReparseGames()" style="margin-bottom:12px;">
+      <input type="text" id="gameSearch" placeholder="Search by team, date, round, or competition…" oninput="filterReparseGames()" style="margin-bottom:4px;">
+      <div id="gameDropdownList" style="
+        border:1px solid var(--border);border-radius:7px;background:var(--card);
+        max-height:300px;overflow-y:auto;margin-bottom:12px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;
+      ">
+        <div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>
+      </div>
     </div>
-    <div class="field">
-      <label>Existing Game</label>
-      <select class="finput" id="reparseGame" onchange="selectReparseGame()">
-        <option value="">Loading games…</option>
-      </select>
-    </div>
+    <input type="hidden" id="reparseGame" value="">
   </div>
 
   <!-- STEP 1: Game Details -->
@@ -474,58 +475,110 @@ function setMode(m){
 }
 
 async function loadGamesForReparse(){
-  const sel = document.getElementById('reparseGame');
+  const listDiv = document.getElementById('gameDropdownList');
+  listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
+
   try {
-    const t=Date.now();
+    const t = Date.now();
     const r = await fetch(`games/games.json?t=${t}`);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+
     const data = await r.json();
     reparseGames = data.games || [];
+
+    if(!Array.isArray(reparseGames) || reparseGames.length === 0){
+      listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found in games.json</div>';
+      return;
+    }
 
     // Sort by date (newest first)
     reparseGames.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Format date as "15 Mar 2026"
-    const formatDate = (dateStr) => {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    };
-
-    sel.innerHTML = '<option value="">— Select a game —</option>' +
-      reparseGames.map((g,i)=>`<option value="${i}">${g.title} · ${formatDate(g.date)}</option>`).join('');
-
-    // Reset search
+    // Reset search and populate dropdown list
     document.getElementById('gameSearch').value = '';
+    filterReparseGames();
+
   } catch(e){
-    sel.innerHTML = '<option value="">Could not load games.json</option>';
+    console.error('Error loading games:', e);
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">⚠ Error: ' + e.message + '</div>';
   }
 }
 
 function filterReparseGames(){
-  const query = document.getElementById('gameSearch').value.toLowerCase();
-  const sel = document.getElementById('reparseGame');
-  const opts = sel.querySelectorAll('option');
+  const query = document.getElementById('gameSearch').value.toLowerCase().trim();
+  const listDiv = document.getElementById('gameDropdownList');
 
-  opts.forEach((opt, idx) => {
-    if(idx === 0) return; // Skip placeholder
-    const text = opt.textContent.toLowerCase();
-    const gameIdx = parseInt(opt.value);
-    const game = reparseGames[gameIdx];
+  if(!reparseGames || reparseGames.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">No games loaded</div>';
+    return;
+  }
 
-    // Search across all fields: teams, date, round, competition
-    const searchFields = [
-      game.homeTeam,
-      game.awayTeam,
-      game.date,
-      game.round,
-      game.competition,
-    ].map(f => (f || '').toLowerCase()).join(' ');
+  // Format date as "15 Mar 2026"
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
-    opt.style.display = searchFields.includes(query) ? '' : 'none';
-  });
+  // Filter games based on search
+  let toShow = reparseGames;
+  if(query.length > 0){
+    toShow = reparseGames.filter(g => {
+      const searchStr = [
+        g.homeTeam || '',
+        g.awayTeam || '',
+        g.date || '',
+        g.round || '',
+        g.competition || '',
+      ].join(' ').toLowerCase();
+      return searchStr.includes(query);
+    });
+  }
+
+  // Render the list
+  if(toShow.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found</div>';
+  } else {
+    listDiv.innerHTML = toShow.map((g, displayIdx) => {
+      const actualIdx = reparseGames.indexOf(g);
+      return `
+        <div style="
+          padding:10px 14px;border-bottom:1px solid var(--border);
+          cursor:pointer;transition:background .15s;
+          display:flex;flex-direction:column;gap:4px;
+        "
+        onmouseover="this.style.background='var(--hover)'"
+        onmouseout="this.style.background='transparent'"
+        onclick="selectReparseGameByIdx(${actualIdx})">
+          <div style="font:600 13px 'Barlow Condensed',sans-serif;color:var(--t1);">
+            ${g.title}
+          </div>
+          <div style="font-size:11px;color:var(--t3);">
+            ${formatDate(g.date)} · ${g.round} · ${g.competition}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
-function selectReparseGame(){
-  const idx = parseInt(document.getElementById('reparseGame').value);
+function selectReparseGameByIdx(idx){
+  if(isNaN(idx) || idx < 0) return;
+  const g = reparseGames[idx];
+  if(!g) return;
+
+  // Update hidden field and display selection
+  document.getElementById('reparseGame').value = idx;
+
+  // Hide dropdown list after selection
+  document.getElementById('gameDropdownList').style.display = 'none';
+  document.getElementById('gameSearch').value = '';
+
+  selectReparseGame(idx);
+}
+
+function selectReparseGame(idx){
+  // If called from onchange, use the value; if called directly, use the parameter
+  if(idx === undefined) idx = parseInt(document.getElementById('reparseGame').value);
   if(isNaN(idx)||idx<0) return;
   const g = reparseGames[idx];
   if(!g) return;
