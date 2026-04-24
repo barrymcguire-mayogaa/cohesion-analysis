@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Admin</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -428,7 +429,11 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
 if(auth !== 'admin') window.location.href = 'library.html';
-function logout(){ sessionStorage.clear(); window.location.href = 'index.html'; }
+function logout(){
+  netlifyIdentity.logout();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
 
 function toggleAdminDiv(){
   const comp = document.getElementById('competition').value;
