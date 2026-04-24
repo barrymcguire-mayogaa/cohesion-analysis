@@ -147,9 +147,6 @@ body::before{
 </div>
 
 <script>
-const VIEWER = 'Mayo2026';
-const ADMIN  = 'Analysis_26';
-
 function initTheme(){
   const t = localStorage.getItem('cohesion_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', t);
@@ -171,19 +168,32 @@ function togglePw(){
     inp.type = 'password'; inp.style.letterSpacing = '3px'; inp.style.webkitTextSecurity = 'disc'; btn.textContent = 'SHOW';
   }
 }
-function doLogin(){
+async function doLogin(){
   const val = document.getElementById('passcode').value;
   const err = document.getElementById('errMsg');
-  if(val === ADMIN){
-    sessionStorage.setItem('cohesion_auth','admin');
-    window.location.href = 'library.html';
-  } else if(val === VIEWER){
-    sessionStorage.setItem('cohesion_auth','viewer');
-    window.location.href = 'library.html';
-  } else {
-    err.textContent = 'Incorrect passcode. Please try again.';
-    document.getElementById('passcode').value = '';
-    setTimeout(()=>err.textContent='', 3000);
+
+  err.textContent = 'Checking...';
+
+  try {
+    const res = await fetch('/.netlify/functions/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: val })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      sessionStorage.setItem('cohesion_auth', data.role);
+      window.location.href = 'library.html';
+    } else {
+      err.textContent = 'Incorrect passcode. Please try again.';
+      document.getElementById('passcode').value = '';
+      setTimeout(() => err.textContent = '', 3000);
+    }
+  } catch(e) {
+    err.textContent = 'Connection error. Please try again.';
+    setTimeout(() => err.textContent = '', 3000);
   }
 }
 // Already logged in?
