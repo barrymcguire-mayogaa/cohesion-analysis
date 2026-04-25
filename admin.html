@@ -215,6 +215,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <button class="mode-btn on" id="modeNew"     onclick="setMode('new')">🆕 New Game</button>
     <button class="mode-btn"    id="modeReparse" onclick="setMode('reparse')">🔄 Re-parse Existing Game</button>
     <button class="mode-btn"    id="modeManage"  onclick="setMode('manage')">👥 Manage Players</button>
+    <button class="mode-btn"    id="modeDelete"  onclick="setMode('delete')" style="color:var(--red);border-color:var(--red);">🗑️ Delete Game</button>
   </div>
 
   <!-- RE-PARSE: GAME SELECTOR (hidden in new-game mode) -->
@@ -321,6 +322,51 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 
     <!-- Result Message -->
     <div class="error-box" id="rosterResultBox"></div>
+  </div>
+
+  <!-- DELETE GAME: GAME SELECTOR (hidden until delete mode selected) -->
+  <div class="step" id="deleteGameStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num" style="font-size:16px;color:var(--red);">🗑️</div>
+      <div>
+        <div class="step-title" style="color:var(--red);">Delete Game Permanently</div>
+        <div class="step-sub">⚠️ This action cannot be undone. The game and all its events will be permanently removed from the database.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Search Games</label>
+      <input type="text" id="deleteGameSearch" placeholder="Search by team, date, round, or competition…" oninput="filterDeleteGames()" style="margin-bottom:4px;">
+      <div id="deleteGameDropdownList" style="
+        border:1px solid var(--border);border-radius:7px;background:var(--card);
+        max-height:300px;overflow-y:auto;margin-bottom:12px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;
+      ">
+        <div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>
+      </div>
+    </div>
+    <input type="hidden" id="deleteGame" value="">
+
+    <!-- Delete Confirmation (shown after selecting game) -->
+    <div id="deleteConfirmationBox" style="display:none;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="color:var(--red);font-weight:700;margin-bottom:8px;">⚠️ Confirm Permanent Deletion</div>
+      <div id="deleteConfirmationText" style="color:var(--red);font-size:13px;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="process-btn" onclick="confirmDeleteGame()" style="flex:1;background:var(--red);color:#fff;">
+          🗑️ Delete Permanently
+        </button>
+        <button class="process-btn" onclick="cancelDeleteGame()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- Delete Progress -->
+    <div class="progress-block" id="deleteProgressBlock" style="display:none;">
+      <div class="prog-msg" id="deleteProgMsg">Deleting…</div>
+      <div class="prog-bar-wrap"><div class="prog-bar" id="deleteProgBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Delete Result Message -->
+    <div class="error-box" id="deleteResultBox"></div>
   </div>
 
   <!-- STEP 1: Game Details -->
@@ -1492,19 +1538,26 @@ let currentManageGameId = null;
 let currentRosters = { teamA: {}, teamB: {} };
 let currentTeamNames = { teamA: '', teamB: '' };
 
+// ── DELETE GAME MODE ───────────────────────────────────────
+let deleteGames = [];
+let selectedDeleteGameId = null;
+let selectedDeleteGameTitle = null;
+
 let currentMode = 'new';
 
 function setModeOverride(m){
   currentMode = m;
-  const modes = ['new','reparse','manage'];
+  const modes = ['new','reparse','manage','delete'];
 
   document.getElementById('modeNew').classList.toggle('on', m==='new');
   document.getElementById('modeReparse').classList.toggle('on', m==='reparse');
   document.getElementById('modeManage').classList.toggle('on', m==='manage');
+  document.getElementById('modeDelete').classList.toggle('on', m==='delete');
 
   // Hide all mode-specific sections
   document.getElementById('reparseStep').style.display = 'none';
   document.getElementById('managePlayersStep').style.display = 'none';
+  document.getElementById('deleteGameStep').style.display = 'none';
 
   if(m==='new'){
     isReparse = false;
@@ -1524,12 +1577,22 @@ function setModeOverride(m){
     document.querySelectorAll('.page > .step').forEach(s=>s.style.display='none');
     document.getElementById('managePlayersStep').style.display = '';
     if(manageGames.length === 0) loadGamesForManage();
+  } else if(m==='delete'){
+    document.getElementById('pageTitle').textContent = 'Delete Game';
+    document.getElementById('pageSub').textContent = '⚠️ Permanently remove a game and all its events from the database. This action cannot be undone.';
+    document.querySelectorAll('.page > .step').forEach(s=>s.style.display='none');
+    document.getElementById('deleteGameStep').style.display = '';
+    document.getElementById('deleteConfirmationBox').style.display = 'none';
+    document.getElementById('deleteProgressBlock').style.display = 'none';
+    document.getElementById('deleteResultBox').style.display = 'none';
+    selectedDeleteGameId = null;
+    if(deleteGames.length === 0) loadGamesForDelete();
   }
 }
 
-// Override the original setMode to handle manage mode
+// Override the original setMode to handle manage and delete modes
 const originalSetMode = setMode;
-setMode = function(m){ return m==='manage' ? setModeOverride(m) : originalSetMode(m); };
+setMode = function(m){ return (m==='manage' || m==='delete') ? setModeOverride(m) : originalSetMode(m); };
 
 async function loadGamesForManage(){
   const listDiv = document.getElementById('manageGameDropdownList');
@@ -1682,6 +1745,29 @@ async function savePlayerRosters(){
   resultBox.classList.remove('show');
 
   try {
+    // SAFEGUARD 1: Check for blank roster entries that would leave P-tags unfixed
+    const blankEntries = [];
+    for(let ptag in currentRosters.teamA){
+      if(!currentRosters.teamA[ptag] || currentRosters.teamA[ptag].trim() === ''){
+        blankEntries.push(`${currentTeamNames.teamA} ${ptag}`);
+      }
+    }
+    for(let ptag in currentRosters.teamB){
+      if(!currentRosters.teamB[ptag] || currentRosters.teamB[ptag].trim() === ''){
+        blankEntries.push(`${currentTeamNames.teamB} ${ptag}`);
+      }
+    }
+
+    if(blankEntries.length > 0){
+      const warning = `⚠️ Warning: ${blankEntries.length} player names are blank:\n\n${blankEntries.join('\n')}\n\nBlank entries will leave P-tags in the database.\n\nContinue anyway?`;
+      if(!confirm(warning)){
+        progressBlock.classList.remove('show');
+        resultBox.classList.add('show', 'error-box');
+        resultBox.textContent = '❌ Cancelled: Please fill in all player names before saving.';
+        return;
+      }
+    }
+
     const { data: eventsData, error: evErr } = await _sb.from('events').select('id, data').eq('game_id', currentManageGameId);
 
     if(evErr) throw evErr;
@@ -1739,15 +1825,44 @@ async function savePlayerRosters(){
       }
     }
 
+    // SAFEGUARD 2: Verify that no P-tags remain in the database
+    document.getElementById('rosterProgBar').style.width = '95%';
+    document.getElementById('rosterProgMsg').textContent = `Verifying no P-tags remain…`;
+
+    const { data: verifyData, error: verifyErr } = await _sb.from('events').select('data').eq('game_id', currentManageGameId);
+    if(verifyErr) throw verifyErr;
+
+    let remainingPtags = 0;
+    const ptagsFound = [];
+    verifyData.forEach(row => {
+      const playerTag = row.data.player || '';
+      if(/^P\d+$/.test(playerTag)){
+        remainingPtags++;
+        if(ptagsFound.indexOf(playerTag) === -1){
+          ptagsFound.push(playerTag);
+        }
+      }
+    });
+
     document.getElementById('rosterProgBar').style.width = '100%';
-    document.getElementById('rosterProgMsg').textContent = `✅ Complete! Updated ${updatedCount} events.`;
+    document.getElementById('rosterProgMsg').textContent = `✅ Complete!`;
 
     resultBox.classList.add('show');
     resultBox.classList.remove('error-box');
-    resultBox.style.backgroundColor = 'var(--green-bg)';
-    resultBox.style.borderColor = 'var(--green)';
-    resultBox.style.color = 'var(--green)';
-    resultBox.textContent = `✅ Success! Updated ${updatedCount} player tags in ${totalEvents} total events.`;
+
+    if(remainingPtags > 0){
+      // WARNING: P-tags still exist
+      resultBox.style.backgroundColor = 'rgba(255, 152, 0, 0.12)';
+      resultBox.style.borderColor = '#ff9800';
+      resultBox.style.color = '#ff9800';
+      resultBox.innerHTML = `⚠️ Partial Success! Updated ${updatedCount} player tags, but <strong>${remainingPtags} P-tags still remain</strong><br><small>Found: ${ptagsFound.join(', ')}</small><br><small>This may indicate missing roster entries or incomplete data.</small>`;
+    } else {
+      // SUCCESS: All P-tags removed
+      resultBox.style.backgroundColor = 'var(--green-bg)';
+      resultBox.style.borderColor = 'var(--green)';
+      resultBox.style.color = 'var(--green)';
+      resultBox.textContent = `✅ Success! Updated ${updatedCount} player tags and verified 0 P-tags remain.`;
+    }
 
   } catch(err){
     document.getElementById('rosterProgBar').style.width = '0%';
@@ -1803,6 +1918,146 @@ function downloadPlayerTemplate(){
   link.download = `${currentTeamNames.teamA}-${currentTeamNames.teamB}-players.json`;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+// ── DELETE GAME FUNCTIONS ───────────────────────────────────────
+
+async function loadGamesForDelete(){
+  const listDiv = document.getElementById('deleteGameDropdownList');
+  listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
+
+  try {
+    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
+    if(error) throw error;
+
+    deleteGames = (data || []).map(r => ({id: r.id, meta: r.meta}));
+
+    if(!deleteGames.length){
+      listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found</div>';
+      return;
+    }
+
+    // Sort by date (newest first)
+    deleteGames.sort((a, b) => new Date(b.meta.date) - new Date(a.meta.date));
+
+    // Reset search and populate dropdown list
+    document.getElementById('deleteGameSearch').value = '';
+    filterDeleteGames();
+
+  } catch(e){
+    console.error('Error loading games:', e);
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">⚠ Error: ' + e.message + '</div>';
+  }
+}
+
+function filterDeleteGames(){
+  const query = document.getElementById('deleteGameSearch').value.toLowerCase().trim();
+  const listDiv = document.getElementById('deleteGameDropdownList');
+
+  if(!deleteGames || deleteGames.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">No games loaded</div>';
+    return;
+  }
+
+  // Format date as "15 Mar 2026"
+  const formatDate = (dateStr) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const matches = deleteGames.filter(g => {
+    const text = `${g.meta.team_a} ${g.meta.team_b} ${g.meta.date} ${g.meta.round || ''} ${g.meta.competition || ''}`.toLowerCase();
+    return text.includes(query);
+  });
+
+  if(matches.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No matches found</div>';
+    return;
+  }
+
+  listDiv.innerHTML = matches.map((g, idx) => `
+    <div onclick="selectDeleteGame(${idx})" style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:all .12s;"
+         onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background=''">
+      <div style="font:700 13px 'Barlow Condensed';color:var(--t1);letter-spacing:.5px;">${g.meta.team_a} vs ${g.meta.team_b}</div>
+      <div style="font-size:12px;color:var(--t2);margin-top:3px;">${formatDate(g.meta.date)} • ${g.meta.round || 'Match'} • ${g.meta.competition || 'Competition'}</div>
+    </div>
+  `).join('');
+}
+
+function selectDeleteGame(idx){
+  const game = deleteGames[idx];
+  selectedDeleteGameId = game.id;
+  selectedDeleteGameTitle = `${game.meta.team_a} vs ${game.meta.team_b}`;
+
+  // Show confirmation box
+  document.getElementById('deleteGameSearch').value = selectedDeleteGameTitle;
+  document.getElementById('deleteGameDropdownList').style.display = 'none';
+  document.getElementById('deleteConfirmationBox').style.display = '';
+  document.getElementById('deleteConfirmationText').textContent = `You are about to permanently delete "${selectedDeleteGameTitle}" and all ${game.meta.total_events || '?'} of its events from the database. This cannot be undone.`;
+}
+
+function cancelDeleteGame(){
+  selectedDeleteGameId = null;
+  document.getElementById('deleteConfirmationBox').style.display = 'none';
+  document.getElementById('deleteGameSearch').value = '';
+  document.getElementById('deleteGameDropdownList').style.display = '';
+  filterDeleteGames();
+}
+
+async function confirmDeleteGame(){
+  if(!selectedDeleteGameId){
+    alert('No game selected');
+    return;
+  }
+
+  const progressBlock = document.getElementById('deleteProgressBlock');
+  const resultBox = document.getElementById('deleteResultBox');
+  progressBlock.style.display = '';
+  resultBox.style.display = 'none';
+
+  try {
+    // Delete all events for this game
+    document.getElementById('deleteProgBar').style.width = '33%';
+    document.getElementById('deleteProgMsg').textContent = 'Deleting events…';
+
+    const { error: evErr } = await _sb.from('events').delete().eq('game_id', selectedDeleteGameId);
+    if(evErr) throw evErr;
+
+    // Delete the game itself
+    document.getElementById('deleteProgBar').style.width = '66%';
+    document.getElementById('deleteProgMsg').textContent = 'Deleting game record…';
+
+    const { error: gameErr } = await _sb.from('games').delete().eq('id', selectedDeleteGameId);
+    if(gameErr) throw gameErr;
+
+    document.getElementById('deleteProgBar').style.width = '100%';
+    document.getElementById('deleteProgMsg').textContent = 'Complete!';
+
+    resultBox.style.display = '';
+    resultBox.classList.remove('error-box');
+    resultBox.style.backgroundColor = 'var(--green-bg)';
+    resultBox.style.borderColor = 'var(--green)';
+    resultBox.style.color = 'var(--green)';
+    resultBox.textContent = `✅ Successfully deleted "${selectedDeleteGameTitle}" and all its events from the database.`;
+
+    // Reset UI
+    document.getElementById('deleteConfirmationBox').style.display = 'none';
+    document.getElementById('deleteGameSearch').value = '';
+    selectedDeleteGameId = null;
+    deleteGames = [];
+    setTimeout(() => loadGamesForDelete(), 1000);
+
+  } catch(err){
+    document.getElementById('deleteProgBar').style.width = '0%';
+    resultBox.style.display = '';
+    resultBox.classList.add('error-box');
+    resultBox.textContent = '❌ Error: ' + err.message;
+    console.error(err);
+  }
 }
 </script>
 </body>
