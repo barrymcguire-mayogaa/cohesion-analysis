@@ -570,7 +570,7 @@ function pickI(id){
   document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player?' · '+r.player:''}</div></div>`).join('');
   renderP();
 }
-const HH=[160,240,315,400];
+const HH=[315,400,520,700];
 function setH(h){
   document.querySelectorAll('.sbtn').forEach((b,i)=>b.classList.toggle('on',HH[i]===h));
   const v=document.getElementById('VA');if(v)v.style.height=h+'px';
