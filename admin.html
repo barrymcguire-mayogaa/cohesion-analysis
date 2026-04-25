@@ -176,6 +176,17 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ROSTER EDITOR */
+.roster-item{display:flex;flex-direction:column;gap:4px;}
+.roster-label{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
+.roster-input{
+  background:var(--card);border:1px solid var(--border);border-radius:7px;
+  padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;
+  transition:border-color .2s;width:100%;
+}
+.roster-input:focus{border-color:var(--accent);}
+.roster-input.changed{background:var(--accent-bg);border-color:var(--accent);}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -203,6 +214,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <div class="mode-toggle">
     <button class="mode-btn on" id="modeNew"     onclick="setMode('new')">🆕 New Game</button>
     <button class="mode-btn"    id="modeReparse" onclick="setMode('reparse')">🔄 Re-parse Existing Game</button>
+    <button class="mode-btn"    id="modeManage"  onclick="setMode('manage')">👥 Manage Players</button>
   </div>
 
   <!-- RE-PARSE: GAME SELECTOR (hidden in new-game mode) -->
@@ -225,6 +237,90 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
     </div>
     <input type="hidden" id="reparseGame" value="">
+  </div>
+
+  <!-- MANAGE PLAYERS: GAME SELECTOR (hidden in new-game mode) -->
+  <div class="step" id="managePlayersStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num" style="font-size:16px;">👥</div>
+      <div>
+        <div class="step-title">Select Game to Manage Players</div>
+        <div class="step-sub">Choose a game, edit player rosters, and optionally load from a template file.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Search Games</label>
+      <input type="text" id="manageGameSearch" placeholder="Search by team, date, round, or competition…" oninput="filterManageGames()" style="margin-bottom:4px;">
+      <div id="manageGameDropdownList" style="
+        border:1px solid var(--border);border-radius:7px;background:var(--card);
+        max-height:300px;overflow-y:auto;margin-bottom:12px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;
+      ">
+        <div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>
+      </div>
+    </div>
+    <input type="hidden" id="manageGame" value="">
+  </div>
+
+  <!-- MANAGE PLAYERS: ROSTER EDITOR (hidden until game selected) -->
+  <div class="step" id="rosterEditorStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num" style="font-size:16px;">✏️</div>
+      <div>
+        <div class="step-title" id="rosterEditorTitle">Edit Player Rosters</div>
+        <div class="step-sub">Edit player names for P1-P26 tags and save changes directly to all events.</div>
+      </div>
+    </div>
+
+    <!-- Template Upload -->
+    <div style="margin-bottom:20px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <label style="display:block;margin-bottom:12px;">📋 Load from Template (Optional)</label>
+      <div class="drop-zone" id="templateDropZone"
+           onclick="document.getElementById('templateFile').click()"
+           ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+           ondragleave="this.classList.remove('over')"
+           ondrop="handleTemplateDrop(event)">
+        <div class="dz-icon">📄</div>
+        <div class="dz-title">Drop template or click to browse</div>
+        <div class="dz-sub">JSON format</div>
+        <div class="dz-file" id="templateFileName"></div>
+      </div>
+      <input type="file" id="templateFile" accept=".json" onchange="handleTemplateFileSelect(this)">
+    </div>
+
+    <!-- Team A Roster -->
+    <div id="rosterTeamAContainer" style="margin-bottom:20px;">
+      <div style="font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t1);margin-bottom:12px;" id="rosterTeamAName">Team A</div>
+      <div id="rosterTeamA" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Team B Roster -->
+    <div id="rosterTeamBContainer" style="margin-bottom:20px;">
+      <div style="font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t1);margin-bottom:12px;" id="rosterTeamBName">Team B</div>
+      <div id="rosterTeamB" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Save & Download -->
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <button class="process-btn" id="saveRostersBtn" onclick="savePlayerRosters()" style="flex:1;">
+        💾 Save to Database
+      </button>
+      <button class="process-btn" id="downloadTemplateBtn" onclick="downloadPlayerTemplate()" style="flex:1;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent);">
+        ⬇ Download Template
+      </button>
+    </div>
+
+    <!-- Save Progress -->
+    <div class="progress-block" id="rosterProgressBlock">
+      <div class="prog-msg" id="rosterProgMsg">Saving…</div>
+      <div class="prog-bar-wrap"><div class="prog-bar" id="rosterProgBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Result Message -->
+    <div class="error-box" id="rosterResultBox"></div>
   </div>
 
   <!-- STEP 1: Game Details -->
@@ -1388,6 +1484,315 @@ async function processGame(){
   } finally {
     document.getElementById('processBtn').disabled = false;
   }
+}
+
+// ── MANAGE PLAYERS MODE ───────────────────────────────────────
+let manageGames = [];
+let currentManageGameId = null;
+let currentRosters = { teamA: {}, teamB: {} };
+let currentTeamNames = { teamA: '', teamB: '' };
+
+let currentMode = 'new';
+
+function setModeOverride(m){
+  currentMode = m;
+  const modes = ['new','reparse','manage'];
+
+  document.getElementById('modeNew').classList.toggle('on', m==='new');
+  document.getElementById('modeReparse').classList.toggle('on', m==='reparse');
+  document.getElementById('modeManage').classList.toggle('on', m==='manage');
+
+  // Hide all mode-specific sections
+  document.getElementById('reparseStep').style.display = 'none';
+  document.getElementById('managePlayersStep').style.display = 'none';
+
+  if(m==='new'){
+    isReparse = false;
+    document.getElementById('pageTitle').textContent = 'Add New Game';
+    document.getElementById('pageSub').textContent = 'Supports Hudl Sportscode XML, GIU XML, Gaelic Insights XML and Gaelic Tracker JSON exports. Fill in the game details, enter the video start times, then upload your file. Gaelic Tracker files will auto-fill teams, colours and date automatically.';
+    document.querySelectorAll('.page > .step').forEach((s,i)=>{if(i===0 || i>5) s.style.display='';});
+  } else if(m==='reparse'){
+    isReparse = true;
+    document.getElementById('pageTitle').textContent = 'Re-parse Existing Game';
+    document.getElementById('pageSub').textContent = 'Select an existing game, upload the corrected XML file, and download the updated events JSON to replace the existing one.';
+    document.getElementById('reparseStep').style.display = '';
+    document.querySelectorAll('.page > .step').forEach((s,i)=>{if(i>0 && i<7) s.style.display='';});
+    if(reparseGames.length === 0) loadGamesForReparse();
+  } else if(m==='manage'){
+    document.getElementById('pageTitle').textContent = 'Manage Player Rosters';
+    document.getElementById('pageSub').textContent = 'Select a game and edit player names. You can load a template from a JSON file or edit directly in the form.';
+    document.getElementById('managePlayersStep').style.display = '';
+    document.querySelectorAll('.page > .step').forEach(s=>s.style.display='none');
+    if(manageGames.length === 0) loadGamesForManage();
+  }
+}
+
+// Override the original setMode to handle manage mode
+const originalSetMode = setMode;
+setMode = function(m){ return m==='manage' ? setModeOverride(m) : originalSetMode(m); };
+
+async function loadGamesForManage(){
+  const listDiv = document.getElementById('manageGameDropdownList');
+  listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
+
+  try {
+    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
+    if(error) throw error;
+
+    manageGames = (data || []).map(r => ({id: r.id, meta: r.meta}));
+
+    if(!manageGames.length){
+      listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found</div>';
+      return;
+    }
+
+    manageGames.sort((a, b) => new Date(b.meta.date) - new Date(a.meta.date));
+
+    document.getElementById('manageGameSearch').value = '';
+    filterManageGames();
+
+  } catch(e){
+    console.error('Error loading games:', e);
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">⚠ Error: ' + e.message + '</div>';
+  }
+}
+
+function filterManageGames(){
+  const query = document.getElementById('manageGameSearch').value.toLowerCase().trim();
+  const listDiv = document.getElementById('manageGameDropdownList');
+
+  if(!manageGames || manageGames.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--red);font-size:12px;text-align:center;">No games loaded</div>';
+    return;
+  }
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  let toShow = manageGames;
+  if(query.length > 0){
+    toShow = manageGames.filter(g => {
+      const searchStr = [(g.meta.homeTeam || ''), (g.meta.awayTeam || ''), (g.meta.date || ''), (g.meta.round || ''), (g.meta.competition || '')].join(' ').toLowerCase();
+      return searchStr.includes(query);
+    });
+  }
+
+  if(toShow.length === 0){
+    listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found</div>';
+  } else {
+    listDiv.innerHTML = toShow.map((g, displayIdx) => {
+      const actualIdx = manageGames.indexOf(g);
+      return `<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;display:flex;flex-direction:column;gap:4px;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='transparent'" onclick="selectManageGameByIdx(${actualIdx})"><div style="font:600 13px 'Barlow Condensed',sans-serif;color:var(--t1);">${g.meta.homeTeam} v ${g.meta.awayTeam}</div><div style="font-size:11px;color:var(--t3);">${formatDate(g.meta.date)} · ${g.meta.round} · ${g.meta.competition}</div></div>`;
+    }).join('');
+  }
+}
+
+function selectManageGameByIdx(idx){
+  if(isNaN(idx) || idx < 0) return;
+  const g = manageGames[idx];
+  if(!g) return;
+
+  document.getElementById('manageGame').value = idx;
+  document.getElementById('manageGameDropdownList').style.display = 'none';
+  document.getElementById('manageGameSearch').value = '';
+
+  loadAndRenderRosters(g);
+}
+
+async function loadAndRenderRosters(game){
+  const rosterEditorStep = document.getElementById('rosterEditorStep');
+
+  try {
+    document.getElementById('rosterEditorTitle').textContent = `Edit Rosters: ${game.meta.homeTeam} v ${game.meta.awayTeam}`;
+
+    const { data: eventsData, error: evErr } = await _sb.from('events').select('data').eq('game_id', game.id);
+
+    if(evErr) throw evErr;
+
+    currentManageGameId = game.id;
+    currentTeamNames.teamA = (game.meta.homeTeam || '').toUpperCase();
+    currentTeamNames.teamB = (game.meta.awayTeam || '').toUpperCase();
+
+    currentRosters = { teamA: {}, teamB: {} };
+
+    const events = (eventsData || []).map(r => r.data);
+    events.forEach(ev => {
+      const playerName = ev.player || '';
+      if(playerName && /P\d+/.test(playerName)){
+        if(ev.team === currentTeamNames.teamA){
+          currentRosters.teamA[playerName] = playerName;
+        } else if(ev.team === currentTeamNames.teamB){
+          currentRosters.teamB[playerName] = playerName;
+        }
+      }
+    });
+
+    for(let i = 1; i <= 26; i++){
+      const pTag = `P${i}`;
+      if(!currentRosters.teamA[pTag]) currentRosters.teamA[pTag] = '';
+      if(!currentRosters.teamB[pTag]) currentRosters.teamB[pTag] = '';
+    }
+
+    renderRosterInputs();
+    rosterEditorStep.style.display = '';
+
+  } catch(e){
+    alert('Error loading rosters: ' + e.message);
+    console.error(e);
+  }
+}
+
+function renderRosterInputs(){
+  const teamADiv = document.getElementById('rosterTeamA');
+  const teamBDiv = document.getElementById('rosterTeamB');
+
+  document.getElementById('rosterTeamAName').textContent = currentTeamNames.teamA;
+  document.getElementById('rosterTeamBName').textContent = currentTeamNames.teamB;
+
+  const renderTeam = (roster, div) => {
+    div.innerHTML = Object.entries(roster).sort((a, b) => { const numA = parseInt(a[0].replace('P','')); const numB = parseInt(b[0].replace('P','')); return numA - numB; }).map(([pTag, playerName]) => `<div class="roster-item"><label class="roster-label">${pTag}</label><input type="text" class="roster-input" value="${playerName}" onchange="updateRosterPlayer('${pTag}', this, 'teamA')"></div>`).join('');
+  };
+
+  renderTeam(currentRosters.teamA, teamADiv);
+
+  teamBDiv.innerHTML = Object.entries(currentRosters.teamB).sort((a, b) => { const numA = parseInt(a[0].replace('P','')); const numB = parseInt(b[0].replace('P','')); return numA - numB; }).map(([pTag, playerName]) => `<div class="roster-item"><label class="roster-label">${pTag}</label><input type="text" class="roster-input" value="${playerName}" onchange="updateRosterPlayer('${pTag}', this, 'teamB')"></div>`).join('');
+}
+
+function updateRosterPlayer(pTag, inputEl, team){
+  const newName = inputEl.value.trim();
+  if(team === 'teamA'){
+    currentRosters.teamA[pTag] = newName;
+  } else {
+    currentRosters.teamB[pTag] = newName;
+  }
+  inputEl.classList.toggle('changed', newName !== '');
+}
+
+async function savePlayerRosters(){
+  if(!currentManageGameId){
+    alert('No game selected');
+    return;
+  }
+
+  const progressBlock = document.getElementById('rosterProgressBlock');
+  const resultBox = document.getElementById('rosterResultBox');
+  progressBlock.classList.add('show');
+  resultBox.classList.remove('show');
+
+  try {
+    const { data: eventsData, error: evErr } = await _sb.from('events').select('id, data').eq('game_id', currentManageGameId);
+
+    if(evErr) throw evErr;
+
+    const totalEvents = eventsData.length;
+    let updatedCount = 0;
+    const updates = [];
+
+    eventsData.forEach((row, idx) => {
+      const event = { ...row.data };
+      const playerTag = event.player || '';
+
+      if(/P\d+/.test(playerTag)){
+        if(event.team === currentTeamNames.teamA){
+          const newName = currentRosters.teamA[playerTag];
+          if(newName && newName !== playerTag){
+            event.player = newName;
+            updates.push({ id: row.id, data: event, game_id: currentManageGameId });
+            updatedCount++;
+          }
+        } else if(event.team === currentTeamNames.teamB){
+          const newName = currentRosters.teamB[playerTag];
+          if(newName && newName !== playerTag){
+            event.player = newName;
+            updates.push({ id: row.id, data: event, game_id: currentManageGameId });
+            updatedCount++;
+          }
+        }
+      }
+
+      const percent = Math.round((idx / totalEvents) * 50);
+      document.getElementById('rosterProgBar').style.width = percent + '%';
+      document.getElementById('rosterProgMsg').textContent = `Scanning events (${idx}/${totalEvents})…`;
+    });
+
+    if(updates.length > 0){
+      const chunkSize = 100;
+      for(let i = 0; i < updates.length; i += chunkSize){
+        const chunk = updates.slice(i, i + chunkSize);
+        document.getElementById('rosterProgBar').style.width = (50 + Math.round((i / updates.length) * 50)) + '%';
+        document.getElementById('rosterProgMsg').textContent = `Saving updates (${Math.min(i + chunkSize, updates.length)}/${updates.length})…`;
+
+        const { error: updateErr } = await _sb.from('events').upsert(chunk);
+        if(updateErr) throw updateErr;
+      }
+    }
+
+    document.getElementById('rosterProgBar').style.width = '100%';
+    document.getElementById('rosterProgMsg').textContent = `✅ Complete! Updated ${updatedCount} events.`;
+
+    resultBox.classList.add('show');
+    resultBox.classList.remove('error-box');
+    resultBox.style.backgroundColor = 'var(--green-bg)';
+    resultBox.style.borderColor = 'var(--green)';
+    resultBox.style.color = 'var(--green)';
+    resultBox.textContent = `✅ Success! Updated ${updatedCount} player tags in ${totalEvents} total events.`;
+
+  } catch(err){
+    document.getElementById('rosterProgBar').style.width = '0%';
+    resultBox.classList.add('show', 'error-box');
+    resultBox.textContent = '❌ Error: ' + err.message;
+    console.error(err);
+  }
+}
+
+function handleTemplateFileSelect(input){
+  if(input.files[0]) loadTemplate(input.files[0]);
+}
+
+function handleTemplateDrop(e){
+  e.preventDefault();
+  document.getElementById('templateDropZone').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if(f && f.name.endsWith('.json')) loadTemplate(f);
+  else alert('Please drop a JSON template file.');
+}
+
+async function loadTemplate(file){
+  try {
+    const text = await file.text();
+    const template = JSON.parse(text);
+
+    if(template.teamA) Object.assign(currentRosters.teamA, template.teamA);
+    if(template.teamB) Object.assign(currentRosters.teamB, template.teamB);
+
+    renderRosterInputs();
+
+    document.getElementById('templateFileName').textContent = '✓ ' + file.name;
+    document.getElementById('templateDropZone').classList.add('ready');
+
+  } catch(err){
+    alert('Error loading template: ' + err.message);
+  }
+}
+
+function downloadPlayerTemplate(){
+  const template = {
+    teamA: currentRosters.teamA,
+    teamB: currentRosters.teamB,
+    teamAName: currentTeamNames.teamA,
+    teamBName: currentTeamNames.teamB
+  };
+
+  const dataStr = JSON.stringify(template, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${currentTeamNames.teamA}-${currentTeamNames.teamB}-players.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>
