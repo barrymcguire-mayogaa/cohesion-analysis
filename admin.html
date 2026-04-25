@@ -1317,37 +1317,66 @@ async function processGame(){
           .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx) // deduplicate by time
           .sort((a,b)=>a.t-b.t);
 
-        // Detect period starts by analyzing gaps between whistles
-        // Expected pattern: 1H start, [~2380s gap], 2H start, [large gap], ET1 start?, [~750s gap], ET2 start?, [gap], FT
+        // Detect period starts using user-provided times as anchors
+        // This is more reliable than gap analysis alone, as it uses known times to identify correct whistles
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
         if(giWhistleRaw.length > 0){
-          giXmlP1 = giWhistleRaw[0].t; // First whistle = 1H start
-          // Scan for remaining period starts based on gaps
-          for(let i = 1; i < giWhistleRaw.length; i++){
-            const gap = giWhistleRaw[i].t - giWhistleRaw[i-1].t;
-            // Large gap (>1000s) indicates period transition
-            if(gap > 1000){
-              if(giXmlP2 === null){
-                giXmlP2 = giWhistleRaw[i].t; // 2H start
-              } else if(giXmlET1 === null && et1Video !== null){
-                giXmlET1 = giWhistleRaw[i].t; // ET1 start
+          // Strategy: Use user-provided video times to find the closest matching whistles
+          // This handles XML files where whistle timing is inconsistent
+
+          // 1H start: find whistle closest to half1Video
+          let closestP1 = giWhistleRaw[0];
+          for(const w of giWhistleRaw){
+            if(Math.abs(w.t - half1Video) < Math.abs(closestP1.t - half1Video)){
+              closestP1 = w;
+            }
+          }
+          giXmlP1 = closestP1.t;
+
+          // 2H start: find whistle closest to half2Video, but must be after 1H
+          let closestP2 = null;
+          let minDistP2 = Infinity;
+          for(const w of giWhistleRaw){
+            if(w.t > giXmlP1){ // Must be after 1H start
+              const dist = Math.abs(w.t - half2Video);
+              if(dist < minDistP2){
+                minDistP2 = dist;
+                closestP2 = w;
               }
             }
-            // Medium gap (400-1200s) after ET1 found = ET2 start
-            else if(giXmlET1 !== null && giXmlET2 === null && et2Video !== null && gap >= 400 && gap <= 1200){
-              giXmlET2 = giWhistleRaw[i].t; // ET2 start (typical 12-15 min gap)
+          }
+          if(closestP2) giXmlP2 = closestP2.t;
+
+          // ET1 start: find whistle after 2H, closest to et1Video (if ET enabled)
+          if(et1Video !== null && giXmlP2 !== null){
+            let closestET1 = null;
+            let minDistET1 = Infinity;
+            for(const w of giWhistleRaw){
+              if(w.t > giXmlP2){ // Must be after 2H start
+                const dist = Math.abs(w.t - et1Video);
+                if(dist < minDistET1){
+                  minDistET1 = dist;
+                  closestET1 = w;
+                }
+              }
             }
+            if(closestET1) giXmlET1 = closestET1.t;
           }
-        }
-        // Fallback if ET periods weren't detected but user has ET times
-        if(giXmlET1 === null && giXmlET2 === null && et1Video !== null && giWhistleRaw.length >= 4){
-          // Look for whistles after 2H start that could be ET periods
-          const wAfter2H = giWhistleRaw.filter(w => w.t > giXmlP2);
-          if(wAfter2H.length >= 1){
-            giXmlET1 = wAfter2H[0].t; // First whistle after 2H = ET1
-          }
-          if(wAfter2H.length >= 2 && et2Video !== null){
-            giXmlET2 = wAfter2H[1].t; // Second whistle after 2H = ET2
+
+          // ET2 start: find whistle after ET1, closest to et2Video (if ET enabled)
+          if(et2Video !== null && giXmlET1 !== null){
+            let closestET2 = null;
+            let minDistET2 = Infinity;
+            for(const w of giWhistleRaw){
+              if(w.t > giXmlET1){ // Must be after ET1 start
+                const dist = Math.abs(w.t - et2Video);
+                if(dist < minDistET2){
+                  minDistET2 = dist;
+                  closestET2 = w;
+                }
+              }
+            }
+            if(closestET2) giXmlET2 = closestET2.t;
           }
         }
 
