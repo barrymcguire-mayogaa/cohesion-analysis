@@ -1689,6 +1689,7 @@ async function savePlayerRosters(){
     const totalEvents = eventsData.length;
     let updatedCount = 0;
     const updates = [];
+    const updateIds = [];
 
     eventsData.forEach((row, idx) => {
       const event = { ...row.data };
@@ -1699,14 +1700,16 @@ async function savePlayerRosters(){
           const newName = currentRosters.teamA[playerTag];
           if(newName && newName !== playerTag){
             event.player = newName;
-            updates.push({ id: row.id, data: event, game_id: currentManageGameId });
+            updates.push({ game_id: currentManageGameId, data: event });
+            updateIds.push(row.id);
             updatedCount++;
           }
         } else if(event.team === currentTeamNames.teamB){
           const newName = currentRosters.teamB[playerTag];
           if(newName && newName !== playerTag){
             event.player = newName;
-            updates.push({ id: row.id, data: event, game_id: currentManageGameId });
+            updates.push({ game_id: currentManageGameId, data: event });
+            updateIds.push(row.id);
             updatedCount++;
           }
         }
@@ -1718,14 +1721,21 @@ async function savePlayerRosters(){
     });
 
     if(updates.length > 0){
+      // Delete the rows that need updating
+      document.getElementById('rosterProgBar').style.width = '50%';
+      document.getElementById('rosterProgMsg').textContent = `Deleting old entries…`;
+      const { error: delErr } = await _sb.from('events').delete().in('id', updateIds);
+      if(delErr) throw delErr;
+
+      // Insert fresh rows with updated player names
       const chunkSize = 100;
       for(let i = 0; i < updates.length; i += chunkSize){
         const chunk = updates.slice(i, i + chunkSize);
         document.getElementById('rosterProgBar').style.width = (50 + Math.round((i / updates.length) * 50)) + '%';
         document.getElementById('rosterProgMsg').textContent = `Saving updates (${Math.min(i + chunkSize, updates.length)}/${updates.length})…`;
 
-        const { error: updateErr } = await _sb.from('events').upsert(chunk);
-        if(updateErr) throw updateErr;
+        const { error: insErr } = await _sb.from('events').insert(chunk);
+        if(insErr) throw insErr;
       }
     }
 
