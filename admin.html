@@ -1324,6 +1324,11 @@ async function processGame(){
           // Strategy: Use user-provided video times to find the closest matching whistles
           // This handles XML files where whistle timing is inconsistent
 
+          // Log all whistles for debugging
+          console.log('🎺 Gaelic Insights XML - Whistle Detection:');
+          console.log('Available whistles:', giWhistleRaw.map((w,i) => `W${i+1}: ${w.t}s`).join(', '));
+          console.log('User-provided times: 1H=${half1Video}s, 2H=${half2Video}s, ET1=${et1Video}s, ET2=${et2Video}s');
+
           // 1H start: find whistle closest to half1Video
           let closestP1 = giWhistleRaw[0];
           for(const w of giWhistleRaw){
@@ -1332,6 +1337,7 @@ async function processGame(){
             }
           }
           giXmlP1 = closestP1.t;
+          console.log(`✓ giXmlP1 (1H) = ${giXmlP1}s (closest to ${half1Video}s)`);
 
           // 2H start: find whistle closest to half2Video, but must be after 1H
           let closestP2 = null;
@@ -1339,6 +1345,7 @@ async function processGame(){
           for(const w of giWhistleRaw){
             if(w.t > giXmlP1){ // Must be after 1H start
               const dist = Math.abs(w.t - half2Video);
+              console.log(`  Whistle ${w.t}s: distance to ${half2Video}s = ${dist.toFixed(2)}s`);
               if(dist < minDistP2){
                 minDistP2 = dist;
                 closestP2 = w;
@@ -1346,6 +1353,7 @@ async function processGame(){
             }
           }
           if(closestP2) giXmlP2 = closestP2.t;
+          console.log(`✓ giXmlP2 (2H) = ${giXmlP2}s (closest to ${half2Video}s)`);
 
           // ET1 start: find whistle after 2H, closest to et1Video (if ET enabled)
           if(et1Video !== null && giXmlP2 !== null){
