@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Game Library</title>
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -271,6 +270,8 @@ select option{background:var(--card);}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -343,7 +344,6 @@ select option{background:var(--card);}
     <div class="modal-title">Remove Game?</div>
     <div class="modal-body">This will remove <strong id="delGameName"></strong> from the library.</div>
     <div class="modal-warn">⚠ Once removed, this cannot be retrieved. This action is permanent.</div>
-    <div class="modal-note">An updated <code>games.json</code> will download automatically. Upload it to the <code>games/</code> folder on GitHub to make the change permanent.</div>
     <div class="modal-btns">
       <button class="mbtn mbtn-cancel" onclick="closeModal()">Cancel</button>
       <button class="mbtn mbtn-delete" onclick="confirmDelete()">Remove Game</button>
@@ -417,16 +417,17 @@ select option{background:var(--card);}
 </div>
 
 <script>
+// ── Supabase ──────────────────────────────────────────────────
+const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // ── Auth ──────────────────────────────────────────────────────
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
 if(auth === 'admin') document.getElementById('adminBtn').style.display = 'flex';
 
-function logout(){
-  netlifyIdentity.logout();
-  sessionStorage.clear();
-  window.location.href = 'index.html';
-}
+function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
 
 // ── Theme ─────────────────────────────────────────────────────
 function initTheme(){
@@ -588,27 +589,23 @@ function closeModal(){
   document.getElementById('delModal').classList.remove('show');
   pendingDeleteId = null;
 }
-function confirmDelete(){
+async function confirmDelete(){
   if(!pendingDeleteId) return;
-  allGames = allGames.filter(g=>g.id!==pendingDeleteId);
-  closeModal();
-  // Rebuild filters from scratch with updated list
-  const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
-  fTeam.innerHTML='<option value="">All Teams</option>';
-  fYear.innerHTML='<option value="">All Years</option>';
-  buildTeamFilter(allGames);
-  buildYearFilter(allGames);
-  applyFilters();
-  downloadGamesJson();
-  showToast('Game removed. Upload the downloaded games.json to GitHub to make it permanent.');
-}
-function downloadGamesJson(){
-  const blob = new Blob([JSON.stringify({games:allGames},null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'games.json';
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  try{
+    const { error } = await _sb.from('games').delete().eq('id', pendingDeleteId);
+    if(error) throw error;
+    allGames = allGames.filter(g=>g.id!==pendingDeleteId);
+    closeModal();
+    const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
+    fTeam.innerHTML='<option value="">All Teams</option>';
+    fYear.innerHTML='<option value="">All Years</option>';
+    buildTeamFilter(allGames);
+    buildYearFilter(allGames);
+    applyFilters();
+    showToast('Game removed successfully.');
+  } catch(e){
+    showToast('Error removing game: ' + e.message);
+  }
 }
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -716,7 +713,7 @@ function syncEC(side, hex){
   if(/^#[0-9a-fA-F]{6}$/.test(hex.trim()))
     document.getElementById(side==='home'?'eHomeColor':'eAwayColor').value = hex.trim();
 }
-function confirmEdit(){
+async function confirmEdit(){
   if(!pendingEditId) return;
   const g = allGames.find(x=>x.id===pendingEditId);
   if(!g) return;
@@ -731,7 +728,6 @@ function confirmEdit(){
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
   g.title       = `${homeTeam} v ${awayTeam}`;
-  // Save alternate angles
   const validAlts = editAngles.filter(a=>a.youtubeId&&a.youtubeId.trim());
   if(validAlts.length>0){
     const mainAngle = g.angles&&g.angles.length>0
@@ -741,29 +737,33 @@ function confirmEdit(){
   } else {
     if(g.angles&&g.angles.length<=1) delete g.angles;
   }
-  closeEditModal();
-  const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
-  fTeam.innerHTML='<option value="">All Teams</option>';
-  fYear.innerHTML='<option value="">All Years</option>';
-  buildTeamFilter(allGames);
-  buildYearFilter(allGames);
-  applyFilters();
-  downloadGamesJson();
-  showToast('Game updated. Upload the downloaded games.json to GitHub to make it permanent.');
+  try{
+    const { error } = await _sb.from('games').update({ meta: g }).eq('id', pendingEditId);
+    if(error) throw error;
+    closeEditModal();
+    const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
+    fTeam.innerHTML='<option value="">All Teams</option>';
+    fYear.innerHTML='<option value="">All Years</option>';
+    buildTeamFilter(allGames);
+    buildYearFilter(allGames);
+    applyFilters();
+    showToast('Game updated successfully.');
+  } catch(e){
+    showToast('Error saving changes: ' + e.message);
+  }
 }
 
 async function loadGames(){
   try{
-    const r = await fetch('games/games.json');
-    const d = await r.json();
-    allGames = d.games || [];
+    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
+    if(error) throw error;
+    allGames = (data || []).map(r => r.meta);
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();
   } catch(e){
     document.getElementById('gridWrap').innerHTML =
-      `<div class="empty-state"><h3>Could not load games</h3>
-       <p>Make sure you are viewing this from a web server (GitHub Pages),<br>not a local file.</p></div>`;
+      `<div class="empty-state"><h3>Could not load games</h3><p>${e.message}</p></div>`;
   }
 }
 
