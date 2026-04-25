@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Admin</title>
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -178,6 +177,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -429,11 +430,11 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
 if(auth !== 'admin') window.location.href = 'library.html';
-function logout(){
-  netlifyIdentity.logout();
-  sessionStorage.clear();
-  window.location.href = 'index.html';
-}
+function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 function toggleAdminDiv(){
   const comp = document.getElementById('competition').value;
@@ -484,15 +485,13 @@ async function loadGamesForReparse(){
   listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
 
   try {
-    const t = Date.now();
-    const r = await fetch(`games/games.json?t=${t}`);
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
+    if(error) throw error;
 
-    const data = await r.json();
-    reparseGames = data.games || [];
+    reparseGames = (data || []).map(r => r.meta);
 
-    if(!Array.isArray(reparseGames) || reparseGames.length === 0){
-      listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found in games.json</div>';
+    if(!reparseGames.length){
+      listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">No games found in database</div>';
       return;
     }
 
@@ -971,11 +970,10 @@ async function processGame(){
       }
       const gameId = reparseGames[rIdx].id;
       try {
-        const t = Date.now();
-        const r = await fetch(`games/${gameId}.json?t=${t}`);
-        if(!r.ok) throw new Error('Game events file not found');
-        events = await r.json();
-        setProgress(80, 'Preparing updated file…');
+        const { data: evData, error: evErr } = await _sb.from('events').select('data').eq('game_id', gameId);
+        if(evErr) throw evErr;
+        events = (evData || []).map(r => r.data);
+        setProgress(80, 'Preparing updated data…');
       } catch(e){
         showError('Could not load existing events: ' + e.message);
         return;
@@ -1340,41 +1338,49 @@ async function processGame(){
       ...(anglesField ? {angles: anglesField} : {}),
     };
 
-    // Create downloads
-    const eventsBlob = new Blob([JSON.stringify(events)], {type:'application/json'});
-    const eventsUrl  = URL.createObjectURL(eventsBlob);
+    setProgress(90, 'Saving to database…');
 
-    // For games.json we provide the new entry — user will need to add to existing file
-    // We generate a stub showing what to add
-    const newGamesEntry = JSON.stringify({games:[gameMeta]}, null, 2);
-    const gamesBlob = new Blob([newGamesEntry], {type:'application/json'});
-    const gamesUrl  = URL.createObjectURL(gamesBlob);
-
-    setProgress(100, `Done — ${events.length} events processed.`);
-
-    document.getElementById('dlEvents').href     = eventsUrl;
-    document.getElementById('dlEvents').download = `${gameId}.json`;
-    document.getElementById('dlGames').href      = gamesUrl;
-    document.getElementById('dlGames').download  = `${gameId}_meta.json`;
-
+    // Save to Supabase
     if(isReparse){
-      // Re-parse mode: only the events JSON is needed — games.json stays unchanged
-      document.getElementById('dlTitle').textContent = 'Events file ready — upload to GitHub to replace existing data:';
-      document.getElementById('dlGames').style.display = 'none';
-      document.querySelector('.instructions').innerHTML =
-        '<div class="inst-title">Upload to GitHub</div>' +
-        '<div class="inst-step"><div class="inst-n">1</div><div>Open your GitHub repository and navigate to <code>games/</code>.</div></div>' +
-        '<div class="inst-step"><div class="inst-n">2</div><div>Find <code>' + gameId + '.json</code>, click it, then click the pencil (Edit) icon.</div></div>' +
-        '<div class="inst-step"><div class="inst-n">3</div><div>Select all (Cmd+A), delete, then paste the content of the downloaded file. Commit changes.</div></div>' +
-        '<div class="inst-step"><div class="inst-n">4</div><div>Alternatively: <strong>Add file → Upload files</strong>, drop the JSON — GitHub will overwrite the existing file.</div></div>';
+      // Re-parse: update events only, keep game meta unchanged
+      const { error: delErr } = await _sb.from('events').delete().eq('game_id', gameId);
+      if(delErr) throw new Error('Could not clear old events: ' + delErr.message);
+      const eventRows = events.map(e => ({ game_id: gameId, data: e }));
+      const chunkSize = 500;
+      for(let i = 0; i < eventRows.length; i += chunkSize){
+        const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
+        if(insErr) throw new Error('Could not save events: ' + insErr.message);
+      }
+      // Update event count in game meta
+      const { data: gData } = await _sb.from('games').select('meta').eq('id', gameId).single();
+      if(gData){
+        const updatedMeta = { ...gData.meta, eventCount: events.length };
+        await _sb.from('games').update({ meta: updatedMeta }).eq('id', gameId);
+      }
     } else {
-      document.getElementById('dlTitle').textContent = 'Files ready — download both:';
-      document.getElementById('dlGames').style.display = '';
-      document.querySelector('.instructions .inst-step:last-child div:last-child').innerHTML =
-        `The metadata file contains the entry to add to your <code>games/games.json</code> inside the <code>"games": [...]</code> array. Open <code>games.json</code> in GitHub, click the pencil icon to edit, paste the new entry into the array, and commit.`;
+      // New game: upsert game meta + insert all events
+      const { error: gameErr } = await _sb.from('games').upsert({ id: gameId, meta: gameMeta });
+      if(gameErr) throw new Error('Could not save game: ' + gameErr.message);
+      // Delete any existing events first (in case of re-upload)
+      await _sb.from('events').delete().eq('game_id', gameId);
+      const eventRows = events.map(e => ({ game_id: gameId, data: e }));
+      const chunkSize = 500;
+      for(let i = 0; i < eventRows.length; i += chunkSize){
+        const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
+        if(insErr) throw new Error('Could not save events: ' + insErr.message);
+      }
     }
 
+    setProgress(100, `Done — ${events.length} events saved to database.`);
     document.getElementById('downloadsBlock').classList.add('show');
+    document.getElementById('dlTitle').textContent = isReparse
+      ? `✅ Events updated — ${events.length} events saved to database.`
+      : `✅ Game saved — ${gameMeta.title} is now live in the library.`;
+    document.getElementById('dlEvents').style.display = 'none';
+    document.getElementById('dlGames').style.display = 'none';
+    document.querySelector('.instructions').innerHTML =
+      '<div class="inst-title">Game is live</div>' +
+      '<div class="inst-step"><div class="inst-n">✓</div><div>Your game has been saved directly to the database. It will appear in the library immediately — no file uploads needed.</div></div>';
 
   } catch(err){
     showError('An error occurred: ' + err.message);
