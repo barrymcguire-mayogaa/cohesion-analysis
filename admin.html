@@ -1197,19 +1197,23 @@ async function processGame(){
         // ── GIU XML format ──────────────────────────────────────
         document.getElementById('srcBadge').textContent = '📊 GIU XML';
 
-        // Find period start markers: P1 START = 1st half, P2 START = 2nd half
-        let xmlP1=null, xmlP2=null;
+        // Find period start markers: P1 START = 1st half, P2 START = 2nd half, P3 START = ET1, P4 START = ET2
+        let xmlP1=null, xmlP2=null, xmlP3=null, xmlP4=null;
         instances.forEach(inst=>{
           const code = (inst.querySelector('code')?.textContent||'').trim();
           const start = parseFloat(inst.querySelector('start')?.textContent||0);
           if(code==='P1 START' && xmlP1===null) xmlP1=start;
           if(code==='P2 START' && xmlP2===null) xmlP2=start;
+          if(code==='P3 START' && xmlP3===null) xmlP3=start;
+          if(code==='P4 START' && xmlP4===null) xmlP4=start;
         });
         if(xmlP1===null){ showError('Could not find "P1 START" marker in the GIU XML.'); return; }
         if(xmlP2===null){ showError('Could not find "P2 START" marker (2nd half start) in the GIU XML.'); return; }
 
         const offset1H = half1Video - xmlP1;
         const offset2H = half2Video - xmlP2;
+        const offsetET1 = xmlP3 !== null ? (et1Video - xmlP3) : null;
+        const offsetET2 = xmlP4 !== null ? (et2Video - xmlP4) : null;
         const GIU_SKIP = /^P\d START$/;
 
         // Extract team from code prefix (e.g. "Roscommon Shot (P)" → "ROSCOMMON")
@@ -1242,14 +1246,41 @@ async function processGame(){
             const t = (l.querySelector('text')?.textContent||'').trim();
             if(g && t) labels[g] = t;
           });
-          // Use explicit Half label; fall back to position relative to P2
-          const half      = labels['Half'] || (start >= xmlP2 ? '2nd Half' : '1st Half');
-          const refStart  = half === '2nd Half' ? xmlP2 : xmlP1;
-          const offset    = half === '2nd Half' ? offset2H : offset1H;
+          // Determine period: use explicit Half label, or infer from position relative to period starts
+          let half, refStart, offset;
+          if(labels['Half']){
+            half = labels['Half'];
+            if(half === '2nd Half'){ refStart = xmlP2; offset = offset2H; }
+            else if(half === 'ET 1st Half'){ refStart = xmlP3; offset = offsetET1; }
+            else if(half === 'ET 2nd Half'){ refStart = xmlP4; offset = offsetET2; }
+            else { refStart = xmlP1; offset = offset1H; } // default to 1st Half
+          } else {
+            // Infer from time position (check in reverse order of period starts)
+            if(xmlP4 !== null && start >= xmlP4){
+              half = 'ET 2nd Half'; refStart = xmlP4; offset = offsetET2;
+            } else if(xmlP3 !== null && start >= xmlP3){
+              half = 'ET 1st Half'; refStart = xmlP3; offset = offsetET1;
+            } else if(start >= xmlP2){
+              half = '2nd Half'; refStart = xmlP2; offset = offset2H;
+            } else {
+              half = '1st Half'; refStart = xmlP1; offset = offset1H;
+            }
+          }
+
           const driveT    = Math.max(0, Math.round(start + offset) - 2);
           const relSecs   = Math.max(0, Math.round(start - refStart));
           const gm = Math.floor(relSecs/60), gs = relSecs%60;
-          const gameTimeStr = `${half==='2nd Half'?'2H':'1H'} ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
+          let gameTimeStr;
+          if(half === '1st Half'){
+            gameTimeStr = `1H ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
+          } else if(half === '2nd Half'){
+            gameTimeStr = `2H ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
+          } else if(half === 'ET 1st Half'){
+            gameTimeStr = `ET1 ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
+          } else {
+            gameTimeStr = `ET2 ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
+          }
+
           const outcome = labels['ShotOutcome'] || labels['KickoutOutcome'] || labels['PossFrom'] || '';
           const subtype = labels['KODistance'] || labels['PitchArea'] || '';
           events.push({
