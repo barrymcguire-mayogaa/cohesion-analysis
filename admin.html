@@ -1013,8 +1013,9 @@ function gtParseTime(str){ // "MM:SS" → seconds
   const [m,s] = (str||'0:0').split(':').map(Number);
   return (m||0)*60+(s||0);
 }
-function processGaelicTracker(d, half1Video, half2Video){
+function processGaelicTracker(d, half1Video, half2Video, et1Video, et2Video){
   const P2_CLOCK_START = 1800; // GAA 2nd-half clock starts at 30:00
+  const ET1_CLOCK_START = 2700; // ET 1st half clock starts at 45:00
   const events = [];
   const timeline = [...(d.timeline||[])].reverse(); // sort oldest-first
   timeline.forEach(item=>{
@@ -1026,7 +1027,26 @@ function processGaelicTracker(d, half1Video, half2Video){
       driveT = half1Video + gameSeconds; // half1Video is negative if footage missing
       const m=Math.floor(gameSeconds/60), s=gameSeconds%60;
       gameTimeStr = `1H ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    } else if(item.period === 2){
+      half = '2nd Half';
+      const halfSecs = Math.max(0, gameSeconds - P2_CLOCK_START);
+      driveT = half2Video + halfSecs;
+      const m=Math.floor(halfSecs/60), s=halfSecs%60;
+      gameTimeStr = `2H ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    } else if(item.period === 3 && et1Video !== null){
+      half = 'ET 1st Half';
+      const etSecs = Math.max(0, gameSeconds - ET1_CLOCK_START);
+      driveT = et1Video + etSecs;
+      const m=Math.floor(etSecs/60), s=etSecs%60;
+      gameTimeStr = `ET1 ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    } else if(item.period === 4 && et2Video !== null){
+      half = 'ET 2nd Half';
+      const etSecs = Math.max(0, gameSeconds - ET1_CLOCK_START - 900); // 900s = 15 min ET 1st half
+      driveT = et2Video + etSecs;
+      const m=Math.floor(etSecs/60), s=etSecs%60;
+      gameTimeStr = `ET2 ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     } else {
+      // Fallback for periods without ET data
       half = '2nd Half';
       const halfSecs = Math.max(0, gameSeconds - P2_CLOCK_START);
       driveT = half2Video + halfSecs;
@@ -1126,7 +1146,7 @@ async function processGame(){
       setProgress(20, 'Reading Gaelic Tracker data…');
       const data = gtData || JSON.parse(await xmlFile.text());
       setProgress(60, `Processing ${data.timeline?.length||0} timeline events…`);
-      events = processGaelicTracker(data, half1Video, half2Video);
+      events = processGaelicTracker(data, half1Video, half2Video, et1Video, et2Video);
       setProgress(80, 'Generating files…');
 
     // ── Sportscode XML ───────────────────────────────────────

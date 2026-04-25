@@ -305,6 +305,9 @@ function init(){
   document.title=`COHESION — ${H} v ${A}`;
   document.getElementById('MA').innerHTML=buildHTML(H,A);
   setupAngleBtns();
+  // Show ET buttons if extra time exists
+  if(GAME.et1Start){document.getElementById('etBtn1').style.display='';}
+  if(GAME.et2Start){document.getElementById('etBtn2').style.display='';}
   gameFormat=detectFormat(ALL);populatePl();renderChips();applyF();initDH();initTL();setH(240);
   gdReady=true;if(ytReady)makeYTP();
 }
@@ -321,7 +324,7 @@ function buildHTML(H,A){
         <select id="FP" onchange="applyF()"><option value="">All Players</option></select>
       </div>
       <div class="filters-row" style="margin-bottom:6px;">
-        <select id="FH" onchange="applyF()"><option value="">All Periods</option><option value="1st Half">1st Half</option><option value="2nd Half">2nd Half</option></select>
+        <select id="FH" onchange="applyF()"><option value="">All Periods</option><option value="1st Half">1st Half</option><option value="2nd Half">2nd Half</option><option value="ET 1st Half">ET 1st Half</option><option value="ET 2nd Half">ET 2nd Half</option></select>
       </div>
       <div class="chips-row" id="catChips"></div>
       <div class="chips-row" id="subChips" style="display:none"></div>
@@ -359,10 +362,12 @@ function buildHTML(H,A){
     <div class="drag-handle" id="DH"></div>
     <div class="tl-section">
       <div class="tl-bar">
-        <div class="tl-pbtns">
+        <div class="tl-pbtns" id="tlPeriodBtns">
           <div class="tl-pb on" data-p="full" onclick="setTP('full')">Full</div>
           <div class="tl-pb" data-p="1h" onclick="setTP('1h')">1st Half</div>
           <div class="tl-pb" data-p="2h" onclick="setTP('2h')">2nd Half</div>
+          <div class="tl-pb" data-p="et1" onclick="setTP('et1')" id="etBtn1" style="display:none">ET 1</div>
+          <div class="tl-pb" data-p="et2" onclick="setTP('et2')" id="etBtn2" style="display:none">ET 2</div>
         </div>
         <div class="tl-sp"></div>
         <div class="tl-leg">
@@ -495,6 +500,13 @@ function applyF(){
     if(q&&!(ev.code+' '+ev.player+' '+ev.outcome+' '+ev.subtype+' '+ev.team+' '+ev.category).toLowerCase().includes(q))return false;
     return true;
   });
+  // Update half filter options to include ET periods
+  const halfSel=document.getElementById('FH');
+  if(halfSel){
+    const halfSet=new Set(ALL.map(e=>e.half).filter(Boolean));
+    const opts=[...halfSel.querySelectorAll('option')];
+    opts.forEach(o=>{if(o.value&&!halfSet.has(o.value))o.style.display='none';else if(o.value)o.style.display='';});
+  }
   const ht=GAME.homeTeam||'';
   document.getElementById('CT').textContent=filtered.length.toLocaleString();
   document.getElementById('CH').textContent=filtered.filter(e=>e.team.toUpperCase()===(GAME.homeTeam||'').toUpperCase()).length;
@@ -669,8 +681,11 @@ function initTL(){
 function setTP(p){
   tlPeriod=p;document.querySelectorAll('.tl-pb').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
   const h1=GAME.half1Start||103,h2=GAME.half2Start||2289;
+  const et1=GAME.et1Start,et2=GAME.et2Start;
   if(p==='1h'){tlO=h1;tlZ=tlDur/(h2-h1);}
-  else if(p==='2h'){tlO=h2;tlZ=tlDur/(tlDur-h2+60);}
+  else if(p==='2h'){tlO=h2;tlZ=tlDur/((et1||tlDur)-h2+60);}
+  else if(p==='et1'&&et1){tlO=et1;tlZ=tlDur/((et2||tlDur)-et1+60);}
+  else if(p==='et2'&&et2){tlO=et2;tlZ=tlDur/(tlDur-et2+60);}
   else{tlO=0;tlZ=1;}
   drawTL();
 }
