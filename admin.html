@@ -1521,8 +1521,8 @@ function setModeOverride(m){
   } else if(m==='manage'){
     document.getElementById('pageTitle').textContent = 'Manage Player Rosters';
     document.getElementById('pageSub').textContent = 'Select a game and edit player names. You can load a template from a JSON file or edit directly in the form.';
-    document.getElementById('managePlayersStep').style.display = '';
     document.querySelectorAll('.page > .step').forEach(s=>s.style.display='none');
+    document.getElementById('managePlayersStep').style.display = '';
     if(manageGames.length === 0) loadGamesForManage();
   }
 }
