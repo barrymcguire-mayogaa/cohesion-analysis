@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Match Dashboard</title>
-<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.youtube.com/iframe_api"></script>
 <style>
@@ -182,6 +181,8 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 <header>
@@ -195,11 +196,10 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
-function logout(){
-  netlifyIdentity.logout();
-  sessionStorage.clear();
-  window.location.href='index.html';
-}
+function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
+const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 function initTheme(){const t=localStorage.getItem('cohesion_theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('TH').textContent=t==='dark'?'☀️':'🌙';}
 function toggleTheme(){const c=document.documentElement.getAttribute('data-theme'),n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('cohesion_theme',n);document.getElementById('TH').textContent=n==='dark'?'☀️':'🌙';drawTL();}
 initTheme();
@@ -278,12 +278,17 @@ function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
 async function loadGame(){
   try{
-    const t=Date.now();
-    const[gr,er]=await Promise.all([fetch(`games/games.json?t=${t}`),fetch(`games/${gameId}.json?t=${t}`)]);
-    const gd=await gr.json();GAME=gd.games.find(g=>g.id===gameId)||{};ALL=await er.json();
+    const [gameRes, eventsRes] = await Promise.all([
+      _sb.from('games').select('meta').eq('id', gameId).single(),
+      _sb.from('events').select('data').eq('game_id', gameId)
+    ]);
+    if(gameRes.error) throw gameRes.error;
+    if(eventsRes.error) throw eventsRes.error;
+    GAME = gameRes.data.meta || {};
+    ALL  = (eventsRes.data || []).map(r => r.data);
     buildPTM();init();
   }catch(e){
-    document.getElementById('MA').innerHTML='<div class="load-st" style="text-align:center;padding:60px;color:var(--t3)"><div style="font-size:16px;color:var(--t2);margin-bottom:8px">Could not load match data</div><div style="font-size:12px">Must be served from GitHub Pages, not a local file.</div></div>';
+    document.getElementById('MA').innerHTML='<div class="load-st" style="text-align:center;padding:60px;color:var(--t3)"><div style="font-size:16px;color:var(--t2);margin-bottom:8px">Could not load match data</div><div style="font-size:12px">'+e.message+'</div></div>';
   }
 }
 function buildPTM(){
