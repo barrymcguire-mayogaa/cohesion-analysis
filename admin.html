@@ -1287,34 +1287,36 @@ async function processGame(){
           .sort((a,b)=>a.t-b.t);
 
         // Detect period starts by analyzing gaps between whistles
-        // Expected pattern: 1H start, [~2380s gap], 2H start, [large gap], ET1 start?, [small gap], ET2 start?, [gap], FT
+        // Expected pattern: 1H start, [~2380s gap], 2H start, [large gap], ET1 start?, [~750s gap], ET2 start?, [gap], FT
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
         if(giWhistleRaw.length > 0){
           giXmlP1 = giWhistleRaw[0].t; // First whistle = 1H start
           // Scan for remaining period starts based on gaps
           for(let i = 1; i < giWhistleRaw.length; i++){
             const gap = giWhistleRaw[i].t - giWhistleRaw[i-1].t;
-            // Large gap (>1000s) indicates period transition; small gap (<500s) is likely noise
+            // Large gap (>1000s) indicates period transition
             if(gap > 1000){
               if(giXmlP2 === null){
                 giXmlP2 = giWhistleRaw[i].t; // 2H start
               } else if(giXmlET1 === null && et1Video !== null){
                 giXmlET1 = giWhistleRaw[i].t; // ET1 start
               }
-            } else if(gap < 500 && giXmlET1 !== null && giXmlET2 === null && et2Video !== null){
-              giXmlET2 = giWhistleRaw[i].t; // ET2 start (small gap after ET1)
+            }
+            // Medium gap (400-1200s) after ET1 found = ET2 start
+            else if(giXmlET1 !== null && giXmlET2 === null && et2Video !== null && gap >= 400 && gap <= 1200){
+              giXmlET2 = giWhistleRaw[i].t; // ET2 start (typical 12-15 min gap)
             }
           }
         }
         // Fallback if ET periods weren't detected but user has ET times
         if(giXmlET1 === null && giXmlET2 === null && et1Video !== null && giWhistleRaw.length >= 4){
-          // Likely pattern: W1(1H start), W2(2H start), W3+ (one is ET1 start)
-          // Take 3rd whistle if it's far enough after 2H start
-          if(giWhistleRaw[2] && (giWhistleRaw[2].t - giXmlP2) > 1800){
-            giXmlET1 = giWhistleRaw[2].t;
+          // Look for whistles after 2H start that could be ET periods
+          const wAfter2H = giWhistleRaw.filter(w => w.t > giXmlP2);
+          if(wAfter2H.length >= 1){
+            giXmlET1 = wAfter2H[0].t; // First whistle after 2H = ET1
           }
-          if(giWhistleRaw[3] && giXmlET1 && (giWhistleRaw[3].t - giXmlET1) < 1000){
-            giXmlET2 = giWhistleRaw[3].t;
+          if(wAfter2H.length >= 2 && et2Video !== null){
+            giXmlET2 = wAfter2H[1].t; // Second whistle after 2H = ET2
           }
         }
 
