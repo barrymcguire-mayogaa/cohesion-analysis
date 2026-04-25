@@ -149,7 +149,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 .angle-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
 .angle-row-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .angle-row-lbl{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);}
-.angle-rm{width:24px;height:24px;border-radius:50%;background:var(--red-bg);border:1px solid rgba(244,67,54,0.3);color:var(--red);font-size:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;}
+.angle-rm{width:24px;height:24px;border-radius:50%;background:var(--red-bg);border:1px solid rgba(244,67,54,0.3);color:var(--red);font-size:13px;display:none;align-items:center;justify-content:center;cursor:pointer;transition:all .12s;}
 .angle-rm:hover{background:var(--red);color:#fff;}
 .angle-add-btn{width:100%;padding:11px;border-radius:9px;background:var(--card);border:2px dashed var(--border);color:var(--t3);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;cursor:pointer;transition:all .15s;margin-top:4px;}
 .angle-add-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -388,23 +388,23 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
         <label>Away Team</label>
         <input type="text" id="awayTeam" placeholder="e.g. Galway">
       </div>
-      <div class="field">
+      <div class="field full">
         <label>Home Jersey Colour</label>
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="color" id="homeColor" value="#0B2447" style="width:42px;height:36px;padding:2px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;">
           <input type="text" id="homeColorHex" value="#0B2447" placeholder="#0B2447" style="flex:1;" oninput="syncColor('home',this.value)">
         </div>
-        <div class="help">Main jersey colour used on timeline and badges</div>
+        <div class="help">Main jersey colour (home team)</div>
       </div>
-      <div class="field">
+      <div class="field full">
         <label>Away Jersey Colour</label>
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="color" id="awayColor" value="#22C55E" style="width:42px;height:36px;padding:2px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;">
           <input type="text" id="awayColorHex" value="#22C55E" placeholder="#22C55E" style="flex:1;" oninput="syncColor('away',this.value)">
         </div>
-        <div class="help">Main jersey colour used on timeline and badges</div>
+        <div class="help">Main jersey colour (away team)</div>
       </div>
-      <div class="field">
+      <div class="field full">
         <label>Competition</label>
         <select class="finput" id="competition" onchange="toggleAdminDiv()">
           <option value="">Select competition</option>
@@ -418,7 +418,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
           <option>U20 Championship</option>
         </select>
       </div>
-      <div class="field" id="divisionField" style="display:none">
+      <div class="field full" id="divisionField" style="display:none">
         <label>Division</label>
         <select class="finput" id="division">
           <option value="">Select division</option>
@@ -484,8 +484,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period. If footage is missing from the start of the video, enter a <strong>negative 1st half time</strong> — e.g. if 50 seconds of game are missing, enter <code>-00:50</code>. Events before that point will clamp to the video start; everything after will align correctly.</div>
   </div>
 
-  <!-- STEP 2.5: Additional Camera Angles (optional) -->
-  <div class="step">
+  <!-- STEP 2.5: Additional Camera Angles (hidden - removed from UI) -->
+  <div class="step" style="display:none;">
     <div class="step-header">
       <div class="step-num" style="font-size:16px;">📹</div>
       <div>
