@@ -1299,8 +1299,14 @@ async function processGame(){
         badge.className = 'src-badge gaelicinsights';
         badge.textContent = '📊 Gaelic Insights XML';
 
-        // Find NA Whistle events — used as period markers.
-        // These mark: 1H start, 2H start, ET1 start (optional), ET2 start (optional), full-time
+        // ── GAMEPLAY EVENT-BASED ANCHORING (IMPROVED) ──────────────────────────────
+        // Instead of relying on unreliable whistle detection, use the first GAMEPLAY EVENT
+        // of each period as the anchor point. This is more robust because:
+        // 1. First gameplay event is unambiguous (only one per period)
+        // 2. Not affected by multiple whistle entries (timeouts, stoppages, etc.)
+        // 3. More accurate timing reference than trying to guess which whistle is which
+
+        // First, find all whistles to determine approximate period boundaries
         const giWhistleRaw = instances
           .filter(i=>(i.querySelector('code')?.textContent||'').trim()==='NA Whistle')
           .map(i=>{
@@ -1317,19 +1323,15 @@ async function processGame(){
           .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx) // deduplicate by time
           .sort((a,b)=>a.t-b.t);
 
-        // Detect period starts using user-provided times as anchors
-        // This is more reliable than gap analysis alone, as it uses known times to identify correct whistles
+        // Find period boundaries from whistles, then use first gameplay event for anchoring
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
         if(giWhistleRaw.length > 0){
-          // Strategy: Use user-provided video times to find the closest matching whistles
-          // This handles XML files where whistle timing is inconsistent
-
-          // Log all whistles for debugging
-          console.log('🎺 Gaelic Insights XML - Whistle Detection:');
+          // Step 1: Identify period boundaries using whistles
+          console.log('🎺 Gaelic Insights XML - Gameplay Event Anchoring:');
           console.log('Available whistles:', giWhistleRaw.map((w,i) => `W${i+1}: ${w.t}s`).join(', '));
           console.log('User-provided times: 1H=${half1Video}s, 2H=${half2Video}s, ET1=${et1Video}s, ET2=${et2Video}s');
 
-          // 1H start: find whistle closest to half1Video
+          // Find whistle closest to 1H start time
           let closestP1 = giWhistleRaw[0];
           for(const w of giWhistleRaw){
             if(Math.abs(w.t - half1Video) < Math.abs(closestP1.t - half1Video)){
@@ -1337,15 +1339,13 @@ async function processGame(){
             }
           }
           giXmlP1 = closestP1.t;
-          console.log(`✓ giXmlP1 (1H) = ${giXmlP1}s (closest to ${half1Video}s)`);
 
-          // 2H start: find whistle closest to half2Video, but must be after 1H
+          // Find whistle closest to 2H start time (must be after 1H)
           let closestP2 = null;
           let minDistP2 = Infinity;
           for(const w of giWhistleRaw){
-            if(w.t > giXmlP1){ // Must be after 1H start
+            if(w.t > giXmlP1){
               const dist = Math.abs(w.t - half2Video);
-              console.log(`  Whistle ${w.t}s: distance to ${half2Video}s = ${dist.toFixed(2)}s`);
               if(dist < minDistP2){
                 minDistP2 = dist;
                 closestP2 = w;
@@ -1353,14 +1353,13 @@ async function processGame(){
             }
           }
           if(closestP2) giXmlP2 = closestP2.t;
-          console.log(`✓ giXmlP2 (2H) = ${giXmlP2}s (closest to ${half2Video}s)`);
 
-          // ET1 start: find whistle after 2H, closest to et1Video (if ET enabled)
+          // Find whistles for ET periods (if enabled)
           if(et1Video !== null && giXmlP2 !== null){
             let closestET1 = null;
             let minDistET1 = Infinity;
             for(const w of giWhistleRaw){
-              if(w.t > giXmlP2){ // Must be after 2H start
+              if(w.t > giXmlP2){
                 const dist = Math.abs(w.t - et1Video);
                 if(dist < minDistET1){
                   minDistET1 = dist;
@@ -1371,12 +1370,11 @@ async function processGame(){
             if(closestET1) giXmlET1 = closestET1.t;
           }
 
-          // ET2 start: find whistle after ET1, closest to et2Video (if ET enabled)
           if(et2Video !== null && giXmlET1 !== null){
             let closestET2 = null;
             let minDistET2 = Infinity;
             for(const w of giWhistleRaw){
-              if(w.t > giXmlET1){ // Must be after ET1 start
+              if(w.t > giXmlET1){
                 const dist = Math.abs(w.t - et2Video);
                 if(dist < minDistET2){
                   minDistET2 = dist;
@@ -1386,24 +1384,60 @@ async function processGame(){
             }
             if(closestET2) giXmlET2 = closestET2.t;
           }
+
+          // Step 2: Find first GAMEPLAY EVENT in each period (not whistles)
+          // These are more reliable anchors than whistles
+          let giGameplayP1 = null, giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
+
+          instances.forEach(inst=>{
+            const code = (inst.querySelector('code')?.textContent||'').trim();
+            if(code === 'NA Whistle') return;  // Skip whistles
+
+            const t = parseFloat(inst.querySelector('start')?.textContent||0);
+
+            // Find first gameplay event in each period
+            if(giXmlP1 !== null && giGameplayP1 === null && t > giXmlP1){
+              giGameplayP1 = t;
+            }
+            if(giXmlP2 !== null && giGameplayP2 === null && t > giXmlP2){
+              giGameplayP2 = t;
+            }
+            if(giXmlET1 !== null && giGameplayET1 === null && t > giXmlET1){
+              giGameplayET1 = t;
+            }
+            if(giXmlET2 !== null && giGameplayET2 === null && t > giXmlET2){
+              giGameplayET2 = t;
+            }
+          });
+
+          // Step 3: Use gameplay events as anchors if found, otherwise fall back to whistles
+          const anchorP1 = giGameplayP1 !== null ? giGameplayP1 : giXmlP1;
+          const anchorP2 = giGameplayP2 !== null ? giGameplayP2 : giXmlP2;
+          const anchorET1 = giGameplayET1 !== null ? giGameplayET1 : giXmlET1;
+          const anchorET2 = giGameplayET2 !== null ? giGameplayET2 : giXmlET2;
+
+          console.log(`✓ 1H anchor: ${anchorP1.toFixed(2)}s ${giGameplayP1 !== null ? '(gameplay event)' : '(whistle)'}`);
+          console.log(`✓ 2H anchor: ${anchorP2.toFixed(2)}s ${giGameplayP2 !== null ? '(gameplay event)' : '(whistle)'}`);
+
+          // Update the period markers to use gameplay event anchors
+          giXmlP1 = anchorP1;
+          giXmlP2 = anchorP2;
+          giXmlET1 = anchorET1;
+          giXmlET2 = anchorET2;
         }
 
-        // Build diagnostic display
+        // Build diagnostic display for whistles
         const diagLines = giWhistleRaw.map((w,i)=>{
-          const isP1  = w.t === giXmlP1;
-          const isP2  = w.t === giXmlP2;
-          const isET1 = w.t === giXmlET1;
-          const isET2 = w.t === giXmlET2;
-          const role  = isP1?'← 1H start (used)': isP2?'← 2H start (used)': isET1?'← ET1 start (used)': isET2?'← ET2 start (used)':'';
           const idStr = w.id ? ` [ID: ${w.id}]` : '';
           const lStr  = Object.keys(w.lbls).length
             ? ' {' + Object.entries(w.lbls).map(([k,v])=>`${k}: ${v}`).join(', ') + '}'
             : ' {no labels}';
-          const marker = (isP1||isP2||isET1||isET2) ? '★ ' : '  ';
-          return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}  ${role}`;
+          return `  #${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}`;
         }).join('\n');
-        document.getElementById('wiDiagContent').innerHTML =
-          diagLines.replace(/★[^<]*(← (?:1H|2H|ET[12]) start[^<]*)/g, m=>`<span class="wi-used">${m}</span>`);
+
+        // Add note about gameplay event anchoring
+        const anchorNote = `🎯 ANCHORING METHOD: Using first gameplay event of each period (more reliable than whistles)\n\nAvailable whistles (for reference):\n${diagLines}`;
+        document.getElementById('wiDiagContent').innerHTML = anchorNote;
         document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
 
         // Calculate offsets for each period
