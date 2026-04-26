@@ -1299,14 +1299,15 @@ async function processGame(){
         badge.className = 'src-badge gaelicinsights';
         badge.textContent = '📊 Gaelic Insights XML';
 
-        // ── GAMEPLAY EVENT-BASED ANCHORING (IMPROVED) ──────────────────────────────
-        // Instead of relying on unreliable whistle detection, use the first GAMEPLAY EVENT
-        // of each period as the anchor point. This is more robust because:
-        // 1. First gameplay event is unambiguous (only one per period)
-        // 2. Not affected by multiple whistle entries (timeouts, stoppages, etc.)
-        // 3. More accurate timing reference than trying to guess which whistle is which
+        // ── INDEPENDENT PERIOD ANCHORING ──────────────────────────────────────────
+        // Each period is anchored independently using user-provided times.
+        // This avoids sync issues caused by XML gaps (dead time between halves).
+        // Strategy:
+        // 1. 1H: Always use NA Whistle #1 as anchor (guaranteed game start)
+        // 2. 2H+: Use first gameplay event after detected whistle (more reliable)
+        // 3. Calculate offsets independently - don't try to sync between periods
+        // 4. Validate half duration (35-38 min for regular, 10-12 min for ET)
 
-        // First, find all whistles to determine approximate period boundaries
         const giWhistleRaw = instances
           .filter(i=>(i.querySelector('code')?.textContent||'').trim()==='NA Whistle')
           .map(i=>{
@@ -1320,29 +1321,22 @@ async function processGame(){
             });
             return {t, id, lbls};
           })
-          .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx) // deduplicate by time
+          .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx)
           .sort((a,b)=>a.t-b.t);
 
-        // Find period boundaries from whistles, then use first gameplay event for anchoring
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
+
         if(giWhistleRaw.length > 0){
-          // Step 1: Identify period boundaries using whistles
-          console.log('🎺 Gaelic Insights XML - Gameplay Event Anchoring:');
+          console.log('🎺 Gaelic Insights XML - Independent Period Anchoring:');
           console.log('Available whistles:', giWhistleRaw.map((w,i) => `W${i+1}: ${w.t}s`).join(', '));
           console.log('User-provided times: 1H=${half1Video}s, 2H=${half2Video}s, ET1=${et1Video}s, ET2=${et2Video}s');
 
-          // Find whistle closest to 1H start time
-          let closestP1 = giWhistleRaw[0];
-          for(const w of giWhistleRaw){
-            if(Math.abs(w.t - half1Video) < Math.abs(closestP1.t - half1Video)){
-              closestP1 = w;
-            }
-          }
-          giXmlP1 = closestP1.t;
+          // 1H: Always use first whistle (NA WHISTLE #1)
+          giXmlP1 = giWhistleRaw[0].t;
+          console.log(`✓ 1H anchor: Whistle #1 @ ${giXmlP1.toFixed(2)}s → maps to ${half1Video}s video`);
 
-          // Find whistle closest to 2H start time (must be after 1H)
-          let closestP2 = null;
-          let minDistP2 = Infinity;
+          // Find whistles for other periods (to establish approximate boundaries)
+          let closestP2 = null, minDistP2 = Infinity;
           for(const w of giWhistleRaw){
             if(w.t > giXmlP1){
               const dist = Math.abs(w.t - half2Video);
@@ -1354,7 +1348,7 @@ async function processGame(){
           }
           if(closestP2) giXmlP2 = closestP2.t;
 
-          // Find whistles for ET periods (if enabled)
+          // Find ET whistles if enabled
           if(et1Video !== null && giXmlP2 !== null){
             let closestET1 = null;
             let minDistET1 = Infinity;
@@ -1385,20 +1379,13 @@ async function processGame(){
             if(closestET2) giXmlET2 = closestET2.t;
           }
 
-          // Step 2: Find first GAMEPLAY EVENT in each period (not whistles)
-          // These are more reliable anchors than whistles
-          let giGameplayP1 = null, giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
-
+          // Find first gameplay event after each period's whistle
+          let giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
           instances.forEach(inst=>{
             const code = (inst.querySelector('code')?.textContent||'').trim();
-            if(code === 'NA Whistle') return;  // Skip whistles
-
+            if(code === 'NA Whistle') return;
             const t = parseFloat(inst.querySelector('start')?.textContent||0);
 
-            // Find first gameplay event in each period
-            if(giXmlP1 !== null && giGameplayP1 === null && t > giXmlP1){
-              giGameplayP1 = t;
-            }
             if(giXmlP2 !== null && giGameplayP2 === null && t > giXmlP2){
               giGameplayP2 = t;
             }
@@ -1410,64 +1397,61 @@ async function processGame(){
             }
           });
 
-          // Step 3: Use best anchor for each period
-          // 1H: Always use first whistle (guaranteed game start)
-          // 2H+: Use gameplay event if found, otherwise whistle
-          const anchorP1 = giXmlP1;  // Always use first whistle for 1H (reliable)
-          const anchorP2 = giGameplayP2 !== null ? giGameplayP2 : giXmlP2;  // Gameplay event preferred for 2H
-          const anchorET1 = giGameplayET1 !== null ? giGameplayET1 : giXmlET1;
-          const anchorET2 = giGameplayET2 !== null ? giGameplayET2 : giXmlET2;
+          // Use first gameplay event as anchor if found, otherwise use whistle
+          if(giGameplayP2 !== null){
+            giXmlP2 = giGameplayP2;
+            console.log(`✓ 2H anchor: First gameplay event @ ${giXmlP2.toFixed(2)}s → maps to ${half2Video}s video`);
+          } else if(giXmlP2 !== null){
+            console.log(`✓ 2H anchor: Whistle @ ${giXmlP2.toFixed(2)}s → maps to ${half2Video}s video`);
+          }
 
-          console.log(`✓ 1H anchor: ${anchorP1.toFixed(2)}s (whistle #1 - guaranteed game start)`);
-          console.log(`✓ 2H anchor: ${anchorP2.toFixed(2)}s ${giGameplayP2 !== null ? '(gameplay event - most reliable)' : '(whistle - fallback)'}`);
-          if(anchorET1) console.log(`✓ ET1 anchor: ${anchorET1.toFixed(2)}s ${giGameplayET1 !== null ? '(gameplay event)' : '(whistle)'}`);
-          if(anchorET2) console.log(`✓ ET2 anchor: ${anchorET2.toFixed(2)}s ${giGameplayET2 !== null ? '(gameplay event)' : '(whistle)'}`);
+          if(et1Video !== null){
+            if(giGameplayET1 !== null){
+              giXmlET1 = giGameplayET1;
+              console.log(`✓ ET1 anchor: First gameplay event @ ${giXmlET1.toFixed(2)}s → maps to ${et1Video}s video`);
+            } else if(giXmlET1 !== null){
+              console.log(`✓ ET1 anchor: Whistle @ ${giXmlET1.toFixed(2)}s → maps to ${et1Video}s video`);
+            }
+          }
 
-          // Update the period markers to use best anchors
-          giXmlP1 = anchorP1;
-          giXmlP2 = anchorP2;
-          giXmlET1 = anchorET1;
-          giXmlET2 = anchorET2;
+          if(et2Video !== null){
+            if(giGameplayET2 !== null){
+              giXmlET2 = giGameplayET2;
+              console.log(`✓ ET2 anchor: First gameplay event @ ${giXmlET2.toFixed(2)}s → maps to ${et2Video}s video`);
+            } else if(giXmlET2 !== null){
+              console.log(`✓ ET2 anchor: Whistle @ ${giXmlET2.toFixed(2)}s → maps to ${et2Video}s video`);
+            }
+          }
         }
 
         // Build diagnostic display for whistles
         const diagLines = giWhistleRaw.map((w,i)=>{
-          const isUsedFor1H = (i === 0);  // First whistle used for 1H
+          const isUsedFor1H = (i === 0);
           const idStr = w.id ? ` [ID: ${w.id}]` : '';
           const lStr  = Object.keys(w.lbls).length
             ? ' {' + Object.entries(w.lbls).map(([k,v])=>`${k}: ${v}`).join(', ') + '}'
             : ' {no labels}';
           const marker = isUsedFor1H ? '★ ' : '  ';
-          const role = isUsedFor1H ? ' ← Used for 1H start' : '';
+          const role = isUsedFor1H ? ' ← 1H anchor' : '';
           return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}${role}`;
         }).join('\n');
 
-        // Add note about hybrid anchoring strategy
-        const anchorNote = `🎯 HYBRID ANCHORING STRATEGY:\n• 1H: Always whistle #1 (guaranteed game start)\n• 2H: First gameplay event (avoids multi-whistle confusion)\n• ET: First gameplay event if available\n\nWhistles:\n${diagLines}`;
+        const anchorNote = `🎯 INDEPENDENT PERIOD ANCHORING:\n• 1H: Whistle #1 @ ${giXmlP1.toFixed(1)}s (guaranteed game start)\n• 2H: First gameplay event (ignores dead time in XML)\n• ET: First gameplay event (10-12 min duration expected)\n• No drift correction - each period uses independent offset\n\nWhistles:\n${diagLines}`;
         document.getElementById('wiDiagContent').innerHTML = anchorNote;
         document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
 
-        // Calculate offsets for each period
+        // Calculate offsets for each period independently
+        // No drift correction - treat each period separately to avoid sync issues
         const giOffset1H = half1Video - giXmlP1;
         const giOffset2H = giXmlP2 !== null ? (half2Video - giXmlP2) : giOffset1H;
         const giOffsetET1 = giXmlET1 !== null ? (et1Video - giXmlET1) : null;
         const giOffsetET2 = giXmlET2 !== null ? (et2Video - giXmlET2) : null;
 
-        // ── TIMING DRIFT CORRECTION ──────────────────────────────────────────
-        // Gaelic Insights XML files sometimes have timing drift between 1H and 2H recordings.
-        // If 2H syncs correctly (which is usually the case), use it as ground truth
-        // and correct 1H by the detected drift amount.
-        let giOffset1H_corrected = giOffset1H;
-        if(giXmlP2 !== null && giXmlP1 !== null){
-          const driftCorrection = giOffset2H - giOffset1H;
-          if(Math.abs(driftCorrection) > 0.1){  // Only apply if drift is meaningful (>0.1s)
-            giOffset1H_corrected = giOffset1H + driftCorrection;
-            console.log(`⚠ Timing drift detected: 1H offset differs from 2H by ${driftCorrection.toFixed(2)}s`);
-            console.log(`  Original 1H offset: ${giOffset1H.toFixed(2)}s`);
-            console.log(`  Corrected 1H offset: ${giOffset1H_corrected.toFixed(2)}s`);
-            console.log(`  2H offset (reference): ${giOffset2H.toFixed(2)}s`);
-          }
-        }
+        console.log(`📊 Calculated offsets (independent):`);
+        console.log(`  1H offset: ${giOffset1H.toFixed(2)}s`);
+        if(giXmlP2 !== null) console.log(`  2H offset: ${giOffset2H.toFixed(2)}s`);
+        if(giXmlET1 !== null) console.log(`  ET1 offset: ${giOffsetET1.toFixed(2)}s`);
+        if(giXmlET2 !== null) console.log(`  ET2 offset: ${giOffsetET2.toFixed(2)}s`);
 
         // Group instances by ID (each event appears multiple times — once per label group).
         const giMap = new Map();
@@ -1526,7 +1510,7 @@ async function processGame(){
             offsetRef = half2Video;
           } else {
             half = '1st Half';
-            offset = giOffset1H_corrected;  // Use drift-corrected offset for 1H
+            offset = giOffset1H;
             offsetRef = half1Video;
           }
 
@@ -1566,6 +1550,34 @@ async function processGame(){
             category:giCategory(code), driveT, labels:cleanLabels,
           });
         });
+
+        // ── DURATION VALIDATION ──────────────────────────────────────────
+        // Validate that each period has expected duration as sanity check
+        const validateDuration = (periodName, eventsInPeriod, minMins, maxMins) => {
+          if(eventsInPeriod.length === 0) return;
+          const gameTimes = eventsInPeriod.map(e => {
+            const match = e.gameTime.match(/(\d{2}):(\d{2})/);
+            return match ? parseInt(match[1])*60 + parseInt(match[2]) : 0;
+          });
+          const minTime = Math.min(...gameTimes);
+          const maxTime = Math.max(...gameTimes);
+          const duration = (maxTime - minTime) / 60;
+          const status = duration >= minMins && duration <= maxMins ? '✓' : '⚠';
+          console.log(`${status} ${periodName}: ${duration.toFixed(1)} minutes (expected ${minMins}-${maxMins} min)`);
+          if(duration < minMins || duration > maxMins){
+            console.warn(`  WARNING: ${periodName} duration outside expected range!`);
+          }
+        };
+
+        const p1Events = events.filter(e => e.half === '1st Half');
+        const p2Events = events.filter(e => e.half === '2nd Half');
+        const et1Events = events.filter(e => e.half === 'ET 1st Half');
+        const et2Events = events.filter(e => e.half === 'ET 2nd Half');
+
+        if(p1Events.length > 0) validateDuration('1st Half', p1Events, 20, 50);
+        if(p2Events.length > 0) validateDuration('2nd Half', p2Events, 20, 50);
+        if(et1Events.length > 0) validateDuration('ET 1st Half', et1Events, 8, 15);
+        if(et2Events.length > 0) validateDuration('ET 2nd Half', et2Events, 8, 15);
 
       } else {
         // ── Sportscode XML format ───────────────────────────────
