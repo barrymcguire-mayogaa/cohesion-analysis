@@ -1410,16 +1410,20 @@ async function processGame(){
             }
           });
 
-          // Step 3: Use gameplay events as anchors if found, otherwise fall back to whistles
-          const anchorP1 = giGameplayP1 !== null ? giGameplayP1 : giXmlP1;
-          const anchorP2 = giGameplayP2 !== null ? giGameplayP2 : giXmlP2;
+          // Step 3: Use best anchor for each period
+          // 1H: Always use first whistle (guaranteed game start)
+          // 2H+: Use gameplay event if found, otherwise whistle
+          const anchorP1 = giXmlP1;  // Always use first whistle for 1H (reliable)
+          const anchorP2 = giGameplayP2 !== null ? giGameplayP2 : giXmlP2;  // Gameplay event preferred for 2H
           const anchorET1 = giGameplayET1 !== null ? giGameplayET1 : giXmlET1;
           const anchorET2 = giGameplayET2 !== null ? giGameplayET2 : giXmlET2;
 
-          console.log(`✓ 1H anchor: ${anchorP1.toFixed(2)}s ${giGameplayP1 !== null ? '(gameplay event)' : '(whistle)'}`);
-          console.log(`✓ 2H anchor: ${anchorP2.toFixed(2)}s ${giGameplayP2 !== null ? '(gameplay event)' : '(whistle)'}`);
+          console.log(`✓ 1H anchor: ${anchorP1.toFixed(2)}s (whistle #1 - guaranteed game start)`);
+          console.log(`✓ 2H anchor: ${anchorP2.toFixed(2)}s ${giGameplayP2 !== null ? '(gameplay event - most reliable)' : '(whistle - fallback)'}`);
+          if(anchorET1) console.log(`✓ ET1 anchor: ${anchorET1.toFixed(2)}s ${giGameplayET1 !== null ? '(gameplay event)' : '(whistle)'}`);
+          if(anchorET2) console.log(`✓ ET2 anchor: ${anchorET2.toFixed(2)}s ${giGameplayET2 !== null ? '(gameplay event)' : '(whistle)'}`);
 
-          // Update the period markers to use gameplay event anchors
+          // Update the period markers to use best anchors
           giXmlP1 = anchorP1;
           giXmlP2 = anchorP2;
           giXmlET1 = anchorET1;
@@ -1428,15 +1432,18 @@ async function processGame(){
 
         // Build diagnostic display for whistles
         const diagLines = giWhistleRaw.map((w,i)=>{
+          const isUsedFor1H = (i === 0);  // First whistle used for 1H
           const idStr = w.id ? ` [ID: ${w.id}]` : '';
           const lStr  = Object.keys(w.lbls).length
             ? ' {' + Object.entries(w.lbls).map(([k,v])=>`${k}: ${v}`).join(', ') + '}'
             : ' {no labels}';
-          return `  #${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}`;
+          const marker = isUsedFor1H ? '★ ' : '  ';
+          const role = isUsedFor1H ? ' ← Used for 1H start' : '';
+          return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}${role}`;
         }).join('\n');
 
-        // Add note about gameplay event anchoring
-        const anchorNote = `🎯 ANCHORING METHOD: Using first gameplay event of each period (more reliable than whistles)\n\nAvailable whistles (for reference):\n${diagLines}`;
+        // Add note about hybrid anchoring strategy
+        const anchorNote = `🎯 HYBRID ANCHORING STRATEGY:\n• 1H: Always whistle #1 (guaranteed game start)\n• 2H: First gameplay event (avoids multi-whistle confusion)\n• ET: First gameplay event if available\n\nWhistles:\n${diagLines}`;
         document.getElementById('wiDiagContent').innerHTML = anchorNote;
         document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
 
