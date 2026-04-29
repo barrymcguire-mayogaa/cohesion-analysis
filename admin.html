@@ -484,8 +484,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period. If footage is missing from the start of the video, enter a <strong>negative 1st half time</strong> — e.g. if 50 seconds of game are missing, enter <code>-00:50</code>. Events before that point will clamp to the video start; everything after will align correctly.</div>
   </div>
 
-  <!-- STEP 2.5: Additional Camera Angles (hidden - removed from UI) -->
-  <div class="step" style="display:none;">
+  <!-- STEP 2.5: Additional Camera Angles -->
+  <div class="step">
     <div class="step-header">
       <div class="step-num" style="font-size:16px;">📹</div>
       <div>
@@ -1772,13 +1772,13 @@ function setModeOverride(m){
     isReparse = false;
     document.getElementById('pageTitle').textContent = 'Add New Game';
     document.getElementById('pageSub').textContent = 'Supports Hudl Sportscode XML, GIU XML, Gaelic Insights XML and Gaelic Tracker JSON exports. Fill in the game details, enter the video start times, then upload your file. Gaelic Tracker files will auto-fill teams, colours and date automatically.';
-    document.querySelectorAll('.page > .step').forEach((s,i)=>{if(i===0 || i>5) s.style.display='';});
+    document.querySelectorAll('.page > .step').forEach((s,i)=>{if(i<=4 || i>5) s.style.display='';});
   } else if(m==='reparse'){
     isReparse = true;
     document.getElementById('pageTitle').textContent = 'Re-parse Existing Game';
     document.getElementById('pageSub').textContent = 'Select an existing game, upload the corrected XML file, and download the updated events JSON to replace the existing one.';
     document.getElementById('reparseStep').style.display = '';
-    document.querySelectorAll('.page > .step').forEach((s,i)=>{if(i>0 && i<7) s.style.display='';});
+    document.querySelectorAll('.page > .step').forEach((s,i)=>{if((i>0 && i<7) || i===2) s.style.display='';});
     if(reparseGames.length === 0) loadGamesForReparse();
   } else if(m==='manage'){
     document.getElementById('pageTitle').textContent = 'Manage Player Rosters';
