@@ -1761,11 +1761,29 @@ async function processGame(){
     let anglesField;
 
     if(skipXml && isReparse){
-      // In re-parse mode with existing events: append new angles to existing angles
+      // In re-parse mode with existing events: update main angle with NEW timestamps, preserve other angles
       const rIdx = parseInt(document.getElementById('reparseGame').value);
       const existingGame = reparseGames[rIdx];
-      const existingAngles = existingGame.angles || [{label:'Main',youtubeId:existingGame.youtubeId,half1Start:existingGame.half1Start,half2Start:existingGame.half2Start,et1Start:existingGame.et1Start,et2Start:existingGame.et2Start}];
-      anglesField = validAdminAngles.length > 0 ? [...existingAngles, ...validAdminAngles] : existingAngles;
+
+      // Get existing angles, excluding the main angle (index 0)
+      const otherAngles = (existingGame.angles && existingGame.angles.length > 1)
+        ? existingGame.angles.slice(1)
+        : [];
+
+      // Rebuild main angle with NEW timestamps
+      const mainAngle = {
+        label: 'Main',
+        youtubeId: ytId,
+        half1Start: half1Video,
+        half2Start: half2Video,
+        et1Start: et1Video,
+        et2Start: et2Video
+      };
+
+      // Build angles array: updated main angle + existing other angles + new admin angles
+      anglesField = validAdminAngles.length > 0
+        ? [mainAngle, ...otherAngles, ...validAdminAngles]
+        : [mainAngle, ...otherAngles];
     } else {
       // New game or XML re-processing: build angles from scratch
       anglesField = validAdminAngles.length > 0 ? [
