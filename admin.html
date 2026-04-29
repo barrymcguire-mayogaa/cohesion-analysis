@@ -1800,20 +1800,41 @@ async function processGame(){
 
     // Save to Supabase
     if(isReparse){
-      // Re-parse: update events only, keep game meta unchanged
-      const { error: delErr } = await _sb.from('events').delete().eq('game_id', gameId);
-      if(delErr) throw new Error('Could not clear old events: ' + delErr.message);
-      const eventRows = events.map(e => ({ game_id: gameId, data: e }));
-      const chunkSize = 500;
-      for(let i = 0; i < eventRows.length; i += chunkSize){
-        const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
-        if(insErr) throw new Error('Could not save events: ' + insErr.message);
-      }
-      // Update event count in game meta
-      const { data: gData } = await _sb.from('games').select('meta').eq('id', gameId).single();
-      if(gData){
-        const updatedMeta = { ...gData.meta, eventCount: events.length };
-        await _sb.from('games').update({ meta: updatedMeta }).eq('id', gameId);
+      if(skipXml){
+        // ── RE-PARSE MODE + USE EXISTING EVENT DATA ──────────────────────────────────────
+        // User only wants to update timestamps/angles, NOT re-process XML
+        // Preserve existing events, just update game metadata
+        console.log('📝 Reparse with existing data: updating timestamps and angles only');
+        const { data: gData } = await _sb.from('games').select('meta').eq('id', gameId).single();
+        if(gData){
+          // Preserve event count, update timestamps and angles
+          const updatedMeta = {
+            ...gData.meta,
+            half1Start: half1Video,
+            half2Start: half2Video,
+            et1Start: et1Video,
+            et2Start: et2Video,
+            youtubeId: ytId,
+            ...(anglesField ? {angles: anglesField} : {})
+          };
+          const { error: updateErr } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', gameId);
+          if(updateErr) throw new Error('Could not update game: ' + updateErr.message);
+          console.log('✓ Timestamps updated, existing events preserved');
+        }
+      } else {
+        // ── RE-PARSE MODE + RE-PROCESS XML ──────────────────────────────────────────────
+        // User uploaded new XML, regenerate all events
+        const { error: delErr } = await _sb.from('events').delete().eq('game_id', gameId);
+        if(delErr) throw new Error('Could not clear old events: ' + delErr.message);
+        const eventRows = events.map(e => ({ game_id: gameId, data: e }));
+        const chunkSize = 500;
+        for(let i = 0; i < eventRows.length; i += chunkSize){
+          const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
+          if(insErr) throw new Error('Could not save events: ' + insErr.message);
+        }
+        // Update full game meta with new event count
+        const { error: gameErr } = await _sb.from('games').upsert({ id: gameId, meta: gameMeta });
+        if(gameErr) throw new Error('Could not update game: ' + gameErr.message);
       }
     } else {
       // New game: upsert game meta + insert all events
