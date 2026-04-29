@@ -547,6 +547,36 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="wi-diag" id="wiDiagContent"></div>
     </div>
 
+    <!-- WHISTLE SELECTOR FOR GAELIC INSIGHTS XML -->
+    <div id="whistleSelectorBlock" style="display:none;background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:16px;">
+      <div style="font-weight:700;color:var(--accent);margin-bottom:12px;font-size:13px;letter-spacing:.5px;">⚙️ MANUAL WHISTLE SELECTION (Gaelic Insights XML)</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">Click on a period assignment below, then click a whistle to assign it. Times shown in MM:SS format from the XML.</div>
+
+      <div id="whistleGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;"></div>
+
+      <div style="border-top:1px solid var(--border);padding-top:12px;font-size:12px;color:var(--t3);">
+        <strong style="color:var(--t1);">Assignments:</strong>
+        <div style="margin-top:8px;cursor:pointer;user-select:none;" onclick="enterWhistleSelectionMode('1H')">
+          1H Start: <span id="sel1H" style="color:var(--accent);font-weight:600;text-decoration:underline;">Click to select</span>
+        </div>
+        <div style="margin-top:6px;cursor:pointer;user-select:none;" onclick="enterWhistleSelectionMode('2H')">
+          2H Start: <span id="sel2H" style="color:var(--accent);font-weight:600;text-decoration:underline;">Click to select</span>
+        </div>
+        <div id="etSelector1" style="margin-top:6px;display:none;cursor:pointer;user-select:none;" onclick="enterWhistleSelectionMode('ET1')">
+          ET1 Start: <span id="selET1" style="color:var(--accent);font-weight:600;text-decoration:underline;">Click to select</span>
+        </div>
+        <div id="etSelector2" style="margin-top:6px;display:none;cursor:pointer;user-select:none;" onclick="enterWhistleSelectionMode('ET2')">
+          ET2 Start: <span id="selET2" style="color:var(--accent);font-weight:600;text-decoration:underline;">Click to select</span>
+        </div>
+      </div>
+      <div id="whistleSelectionMode" style="display:none;margin-top:12px;padding:12px;background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:12px;">
+        <strong id="modeLabel">Selection mode: 1H</strong> — Click a whistle to assign it or press Escape to cancel
+      </div>
+      <button id="confirmWhistleBtn" class="process-btn" onclick="confirmWhistleSelections()" style="margin-top:12px;display:none;">
+        ✓ Confirm Whistle Assignments
+      </button>
+    </div>
+
     <!-- Downloads -->
     <div class="downloads" id="downloadsBlock">
       <div class="dl-title" id="dlTitle">Files ready — download both:</div>
@@ -1324,59 +1354,133 @@ async function processGame(){
           .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx)
           .sort((a,b)=>a.t-b.t);
 
+        // ── HELPER: Convert seconds to MM:SS format ──
+        const secsToMMSS = (secs) => {
+          const mins = Math.floor(secs / 60);
+          const s = Math.floor(secs % 60);
+          return `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        };
+
+        // Track user's manual whistle selections (overrides automatic detection)
+        let userWhistleSelections = {
+          '1H': null,  // Will be set to whistle time if user selects one
+          '2H': null,
+          'ET1': null,
+          'ET2': null
+        };
+
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
 
         if(giWhistleRaw.length > 0){
           console.log('🎺 Gaelic Insights XML - Independent Period Anchoring:');
-          console.log('Available whistles:', giWhistleRaw.map((w,i) => `W${i+1}: ${w.t}s`).join(', '));
+          console.log('Available whistles:', giWhistleRaw.map((w,i) => `W${i+1}: ${secsToMMSS(w.t)}`).join(', '));
           console.log('User-provided times: 1H=${half1Video}s, 2H=${half2Video}s, ET1=${et1Video}s, ET2=${et2Video}s');
 
-          // 1H: Always use first whistle (NA WHISTLE #1)
+          // ── SHOW WHISTLE SELECTOR UI ──────────────────────────────────────
+          const whistleSelectorBlock = document.getElementById('whistleSelectorBlock');
+          const whistleGrid = document.getElementById('whistleGrid');
+
+          // Populate whistle grid with clickable options
+          whistleGrid.innerHTML = giWhistleRaw.map((w, i) => {
+            const mmss = secsToMMSS(w.t);
+            return `
+              <div class="whistle-btn"
+                   data-time="${w.t}"
+                   data-index="${i}"
+                   style="background:var(--bg);border:2px solid var(--border);border-radius:6px;padding:10px;cursor:pointer;transition:all .15s;text-align:center;"
+                   onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--accent-bg)'"
+                   onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'"
+                   onclick="assignWhistleToSelectedPeriod(${w.t}, ${i})">
+                <div style="font-weight:700;color:var(--accent);font-size:14px;">${mmss}</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:4px;">Whistle #${i+1}</div>
+              </div>
+            `;
+          }).join('');
+
+          whistleSelectorBlock.style.display = '';
+
+          // Show/hide ET selectors based on user input
+          if(et1Video !== null) document.getElementById('etSelector1').style.display = '';
+          if(et2Video !== null) document.getElementById('etSelector2').style.display = '';
+
+          // Show confirm button
+          document.getElementById('confirmWhistleBtn').style.display = '';
+
+          // 1H: Always use first whistle (NA WHISTLE #1) as default
           giXmlP1 = giWhistleRaw[0].t;
-          console.log(`✓ 1H anchor: Whistle #1 @ ${giXmlP1.toFixed(2)}s → maps to ${half1Video}s video`);
+          userWhistleSelections['1H'] = giXmlP1;
+          document.getElementById('sel1H').textContent = `W1 @ ${secsToMMSS(giXmlP1)} (auto-selected - First whistle)`;
+          console.log(`✓ 1H anchor: Whistle #1 @ ${secsToMMSS(giXmlP1)} → maps to ${half1Video}s video`);
 
-          // Find whistles for other periods (to establish approximate boundaries)
-          let closestP2 = null, minDistP2 = Infinity;
-          for(const w of giWhistleRaw){
-            if(w.t > giXmlP1){
-              const dist = Math.abs(w.t - half2Video);
-              if(dist < minDistP2){
-                minDistP2 = dist;
-                closestP2 = w;
-              }
-            }
-          }
-          if(closestP2) giXmlP2 = closestP2.t;
+          // ── PAUSE HERE FOR USER WHISTLE SELECTION ──────────────────────────────────────
+          setProgress(60, 'Waiting for whistle selection confirmation…');
 
-          // Find ET whistles if enabled
-          if(et1Video !== null && giXmlP2 !== null){
-            let closestET1 = null;
-            let minDistET1 = Infinity;
+          // Create a Promise that will resolve when user confirms selections
+          await new Promise((resolve) => {
+            whistleSelectionPromiseResolve = resolve;
+          });
+
+          setProgress(65, 'Processing events with selected whistles…');
+
+          // ── DETERMINE PERIOD ANCHORS: USER SELECTION OR AUTOMATIC ──────────────────────
+          // 2H: Use user selection if available, otherwise use automatic detection
+          if(userWhistleSelections['2H'] !== null){
+            giXmlP2 = userWhistleSelections['2H'];
+            console.log(`✓ 2H anchor: User selected @ ${giXmlP2.toFixed(2)}s`);
+          } else {
+            let closestP2 = null, minDistP2 = Infinity;
             for(const w of giWhistleRaw){
-              if(w.t > giXmlP2){
-                const dist = Math.abs(w.t - et1Video);
-                if(dist < minDistET1){
-                  minDistET1 = dist;
-                  closestET1 = w;
+              if(w.t > giXmlP1){
+                const dist = Math.abs(w.t - half2Video);
+                if(dist < minDistP2){
+                  minDistP2 = dist;
+                  closestP2 = w;
                 }
               }
             }
-            if(closestET1) giXmlET1 = closestET1.t;
+            if(closestP2) giXmlP2 = closestP2.t;
           }
 
-          if(et2Video !== null && giXmlET1 !== null){
-            let closestET2 = null;
-            let minDistET2 = Infinity;
-            for(const w of giWhistleRaw){
-              if(w.t > giXmlET1){
-                const dist = Math.abs(w.t - et2Video);
-                if(dist < minDistET2){
-                  minDistET2 = dist;
-                  closestET2 = w;
+          // ET1: Use user selection if available, otherwise use automatic detection
+          if(et1Video !== null){
+            if(userWhistleSelections['ET1'] !== null){
+              giXmlET1 = userWhistleSelections['ET1'];
+              console.log(`✓ ET1 anchor: User selected @ ${giXmlET1.toFixed(2)}s`);
+            } else if(giXmlP2 !== null){
+              let closestET1 = null;
+              let minDistET1 = Infinity;
+              for(const w of giWhistleRaw){
+                if(w.t > giXmlP2){
+                  const dist = Math.abs(w.t - et1Video);
+                  if(dist < minDistET1){
+                    minDistET1 = dist;
+                    closestET1 = w;
+                  }
                 }
               }
+              if(closestET1) giXmlET1 = closestET1.t;
             }
-            if(closestET2) giXmlET2 = closestET2.t;
+          }
+
+          // ET2: Use user selection if available, otherwise use automatic detection
+          if(et2Video !== null){
+            if(userWhistleSelections['ET2'] !== null){
+              giXmlET2 = userWhistleSelections['ET2'];
+              console.log(`✓ ET2 anchor: User selected @ ${giXmlET2.toFixed(2)}s`);
+            } else if(giXmlET1 !== null){
+              let closestET2 = null;
+              let minDistET2 = Infinity;
+              for(const w of giWhistleRaw){
+                if(w.t > giXmlET1){
+                  const dist = Math.abs(w.t - et2Video);
+                  if(dist < minDistET2){
+                    minDistET2 = dist;
+                    closestET2 = w;
+                  }
+                }
+              }
+              if(closestET2) giXmlET2 = closestET2.t;
+            }
           }
 
           // Find first gameplay event after each period's whistle
@@ -2215,6 +2319,95 @@ function cancelDeleteGame(){
   document.getElementById('deleteGameSearch').value = '';
   document.getElementById('deleteGameDropdownList').style.display = '';
   filterDeleteGames();
+}
+
+// ── Whistle Selection Mode ─────────────────────────────────────
+let whistleSelectionMode = null; // 'null' | '1H' | '2H' | 'ET1' | 'ET2'
+let currentWhistleSelections = {}; // Track selections: { '1H': timeInSecs, '2H': timeInSecs, ... }
+let userWhistleSelections = { '1H': null, '2H': null, 'ET1': null, 'ET2': null }; // Global for persistence
+
+// Persistent parsing state for Gaelic Insights whistle selection
+let pendingGaelicInsightsParse = null;
+let whistleSelectionPromiseResolve = null; // Resolve function for waiting on whistle selection
+
+function enterWhistleSelectionMode(period){
+  whistleSelectionMode = period;
+
+  // Show selection mode indicator
+  const modeIndicator = document.getElementById('whistleSelectionMode');
+  const modeLabel = document.getElementById('modeLabel');
+  modeLabel.textContent = `Selection mode: ${period}`;
+  modeIndicator.style.display = '';
+
+  // Highlight the active selection area
+  const selSpan = document.getElementById(`sel${period}`);
+  if(selSpan) selSpan.style.opacity = '0.7';
+
+  // Listen for Escape key to cancel
+  document.addEventListener('keydown', cancelWhistleSelection);
+}
+
+function cancelWhistleSelection(e){
+  if(e && e.key === 'Escape'){
+    exitWhistleSelectionMode();
+  }
+}
+
+function exitWhistleSelectionMode(){
+  whistleSelectionMode = null;
+  document.getElementById('whistleSelectionMode').style.display = 'none';
+
+  // Restore opacity of all selection spans
+  ['1H', '2H', 'ET1', 'ET2'].forEach(p => {
+    const span = document.getElementById(`sel${p}`);
+    if(span) span.style.opacity = '1';
+  });
+
+  // Remove escape listener
+  document.removeEventListener('keydown', cancelWhistleSelection);
+}
+
+function assignWhistleToSelectedPeriod(whistleTimeSecs, whistleIndex){
+  if(!whistleSelectionMode){
+    alert('Please click on a period assignment first (1H Start, 2H Start, etc.)');
+    return;
+  }
+
+  const period = whistleSelectionMode;
+  const secsToMMSS = (secs) => {
+    const mins = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  };
+
+  // Store the selection
+  currentWhistleSelections[period] = whistleTimeSecs;
+  userWhistleSelections[period] = whistleTimeSecs;
+
+  // Update UI to show assignment
+  const mmss = secsToMMSS(whistleTimeSecs);
+  const spanId = `sel${period}`;
+  document.getElementById(spanId).textContent = `Whistle #${whistleIndex + 1} @ ${mmss}`;
+
+  console.log(`✓ Assigned ${period} to Whistle #${whistleIndex + 1} @ ${mmss} (${whistleTimeSecs}s)`);
+
+  // Exit selection mode
+  exitWhistleSelectionMode();
+}
+
+function confirmWhistleSelections(){
+  // Hide the whistle selector and button
+  document.getElementById('whistleSelectorBlock').style.display = 'none';
+  document.getElementById('confirmWhistleBtn').style.display = 'none';
+
+  // Log final assignments
+  console.log('✓ Whistle selections confirmed:', userWhistleSelections);
+
+  // Resolve the Promise to resume processGame()
+  if(whistleSelectionPromiseResolve){
+    whistleSelectionPromiseResolve();
+    whistleSelectionPromiseResolve = null;
+  }
 }
 
 async function confirmDeleteGame(){
