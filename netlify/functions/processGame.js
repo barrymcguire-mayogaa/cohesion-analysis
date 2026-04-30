@@ -140,17 +140,10 @@ exports.handler = async (event) => {
     // STEP 5: Create/update game metadata FIRST (required for foreign key)
     // ========================================================================
     // Must happen before inserting events (foreign key constraint)
+    // Store entire gameMeta as JSON in the 'meta' column (existing schema)
     const gameRecord = {
       id: gameId,
-      title: gameMeta.title,
-      date: gameMeta.date,
-      opposition: `${gameMeta.homeTeam} v ${gameMeta.awayTeam}`,
-      competition: gameMeta.competition,
-      venue: gameMeta.venue || '',
-      youtube_id: gameMeta.youtubeId,
-      thumbnail: gameMeta.thumbnail,
-      // Store angles if provided, otherwise empty array
-      angles: gameMeta.angles || []
+      meta: gameMeta
     };
 
     const { error: upsertErr } = await supabase
