@@ -4,6 +4,10 @@
   command = ""
   publish = "."
   functions = "netlify/functions"
+  # Ignore false-positive secret detection for public Supabase credentials
+  # SUPABASE_URL and SUPABASE_KEY are public (used in browser code)
+  # Only SUPABASE_SERVICE_ROLE_KEY is actually sensitive (server-side only)
+  environment = { SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_KEY" }
 
 [dev]
   framework = "static"
