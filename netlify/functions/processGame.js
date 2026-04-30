@@ -117,14 +117,21 @@ exports.handler = async (event) => {
     // ========================================================================
     // STEP 4: Validate admin role
     // ========================================================================
-    const userRole = decodedToken.app_metadata?.authorization?.roles?.[0];
+    // Netlify Identity stores roles in app_metadata.roles array
+    const userRole = decodedToken.app_metadata?.roles?.[0];
 
     if (userRole !== 'admin') {
+      console.error('Admin role validation failed:', {
+        roles: decodedToken.app_metadata?.roles,
+        userRole: userRole,
+        fullToken: decodedToken
+      });
       return {
         statusCode: 403,
         body: JSON.stringify({
           error: 'Forbidden: admin role required',
-          userRole: userRole || 'none'
+          userRole: userRole || 'none',
+          availableRoles: decodedToken.app_metadata?.roles || []
         })
       };
     }
@@ -179,9 +186,23 @@ exports.handler = async (event) => {
     // ========================================================================
     // STEP 8: Update or insert game metadata
     // ========================================================================
+    // Map gameMeta fields to games table columns
+    const gameRecord = {
+      id: gameId,
+      title: gameMeta.title,
+      date: gameMeta.date,
+      opposition: `${gameMeta.homeTeam} v ${gameMeta.awayTeam}`,
+      competition: gameMeta.competition,
+      venue: gameMeta.venue || '',
+      youtube_id: gameMeta.youtubeId,
+      thumbnail: gameMeta.thumbnail,
+      // Store angles if provided, otherwise empty array
+      angles: gameMeta.angles || []
+    };
+
     const { error: upsertErr } = await supabase
       .from('games')
-      .upsert({ id: gameId, meta: gameMeta });
+      .upsert(gameRecord);
 
     if (upsertErr) {
       throw new Error(`Failed to save game metadata: ${upsertErr.message}`);

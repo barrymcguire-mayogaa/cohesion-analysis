@@ -619,8 +619,19 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
     const user = netlifyIdentity.gotrue.currentUser();
     if(!user) throw new Error('Not authenticated');
 
-    const token = user.token?.access_token;
+    // Get the JWT token - it's stored directly in user.token.access_token
+    let token = user.token?.access_token;
+
+    // If that doesn't work, try getting a fresh token
+    if(!token){
+      await netlifyIdentity.refresh();
+      const refreshedUser = netlifyIdentity.gotrue.currentUser();
+      token = refreshedUser?.token?.access_token;
+    }
+
     if(!token) throw new Error('Could not get auth token');
+
+    console.log('📤 Calling processGame function with admin auth');
 
     // Call Netlify Function with auth token
     const response = await fetch('/.netlify/functions/processGame', {
@@ -641,9 +652,11 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
     const result = await response.json();
 
     if(!response.ok) {
+      console.error('❌ Function error:', result);
       throw new Error(result.error || `HTTP ${response.status}`);
     }
 
+    console.log('✓ Game processed successfully:', result);
     return result;
   } catch(err) {
     console.error('processGameSecure error:', err);
