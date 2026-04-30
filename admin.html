@@ -571,7 +571,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
         <div class="dz-icon">📊</div>
         <div class="dz-title">Drop Excel file or click to browse</div>
         <div class="dz-sub">cohesion_bulk_upload_template.xlsx</div>
-        <div class="dz-file" id="batchExcelFile Name"></div>
+        <div class="dz-file" id="batchExcelFileName"></div>
       </div>
       <input type="file" id="batchExcelFile" accept=".xlsx,.xls" onchange="handleBatchExcelSelect(this)">
 
@@ -2706,7 +2706,7 @@ function handleBatchExcelSelect(input) {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       batchExcelData = XLSX.utils.sheet_to_json(sheet, {defval: ''});
 
-      document.getElementById('batchExcelFile Name').textContent = '✓ ' + file.name;
+      document.getElementById('batchExcelFileName').textContent = '✓ ' + file.name;
       document.getElementById('batchExcelZone').classList.add('ready');
 
       validateBatchFiles();
