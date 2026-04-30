@@ -2922,7 +2922,22 @@ async function startBatchUpload() {
 function buildGameMetaFromExcel(row) {
   const gameId = row['game_id'] || row['Game ID'] || '';
   const title = row['title'] || row['Title'] || '';
-  const date = row['date'] || row['Date'] || new Date().toISOString().slice(0, 10);
+
+  // Convert date from Excel (Date object) or string to ISO string format
+  let date = row['date'] || row['Date'] || null;
+  if (date) {
+    if (typeof date === 'object' && date instanceof Date) {
+      // Convert Date object to ISO string (YYYY-MM-DD)
+      date = date.toISOString().slice(0, 10);
+    } else if (typeof date === 'string') {
+      // Already a string, keep it
+      date = date;
+    }
+  } else {
+    // Default to today
+    date = new Date().toISOString().slice(0, 10);
+  }
+
   const opposition = row['opposition'] || row['Opposition'] || '';
   const competition = row['competition'] || row['Competition'] || '';
   const venue = row['venue'] || row['Venue'] || '';
