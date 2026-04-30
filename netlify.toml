@@ -1,6 +1,7 @@
 # Netlify Configuration for Cohesion Analysis
 
 [build]
+  command = ""
   publish = "."
   functions = "netlify/functions"
 
