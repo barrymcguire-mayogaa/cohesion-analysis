@@ -608,6 +608,49 @@ const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ── SECURE GAME STORAGE (via Netlify Function) ──────────────────
+// Calls /.netlify/functions/processGame to atomically save games
+// - Validates admin role via JWT
+// - Uses service role key (protected on server)
+// - Ensures no orphaned data if inserts fail
+async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse){
+  try {
+    // Get current user's JWT token from Netlify Identity
+    const user = netlifyIdentity.gotrue.currentUser();
+    if(!user) throw new Error('Not authenticated');
+
+    const token = user.token?.access_token;
+    if(!token) throw new Error('Could not get auth token');
+
+    // Call Netlify Function with auth token
+    const response = await fetch('/.netlify/functions/processGame', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        gameId,
+        gameMeta,
+        eventRows,
+        skipXml,
+        isReparse
+      })
+    });
+
+    const result = await response.json();
+
+    if(!response.ok) {
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+
+    return result;
+  } catch(err) {
+    console.error('processGameSecure error:', err);
+    throw err;
+  }
+}
+
 function toggleAdminDiv(){
   const comp = document.getElementById('competition').value;
   const field = document.getElementById('divisionField');
@@ -1816,58 +1859,21 @@ async function processGame(){
 
     setProgress(90, 'Saving to database…');
 
-    // Save to Supabase
-    if(isReparse){
-      if(skipXml){
-        // ── RE-PARSE MODE + USE EXISTING EVENT DATA ──────────────────────────────────────
-        // User only wants to update timestamps/angles, NOT re-process XML
-        // Preserve existing events, just update game metadata
-        console.log('📝 Reparse with existing data: updating timestamps and angles only');
-        const { data: gData } = await _sb.from('games').select('meta').eq('id', gameId).single();
-        if(gData){
-          // Preserve event count, update timestamps and angles
-          const updatedMeta = {
-            ...gData.meta,
-            half1Start: half1Video,
-            half2Start: half2Video,
-            et1Start: et1Video,
-            et2Start: et2Video,
-            youtubeId: ytId,
-            ...(anglesField ? {angles: anglesField} : {})
-          };
-          const { error: updateErr } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', gameId);
-          if(updateErr) throw new Error('Could not update game: ' + updateErr.message);
-          console.log('✓ Timestamps updated, existing events preserved');
-        }
-      } else {
-        // ── RE-PARSE MODE + RE-PROCESS XML ──────────────────────────────────────────────
-        // User uploaded new XML, regenerate all events
-        const { error: delErr } = await _sb.from('events').delete().eq('game_id', gameId);
-        if(delErr) throw new Error('Could not clear old events: ' + delErr.message);
-        const eventRows = events.map(e => ({ game_id: gameId, data: e }));
-        const chunkSize = 500;
-        for(let i = 0; i < eventRows.length; i += chunkSize){
-          const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
-          if(insErr) throw new Error('Could not save events: ' + insErr.message);
-        }
-        // Update full game meta with new event count
-        const { error: gameErr } = await _sb.from('games').upsert({ id: gameId, meta: gameMeta });
-        if(gameErr) throw new Error('Could not update game: ' + gameErr.message);
-      }
-    } else {
-      // New game: upsert game meta + insert all events
-      const { error: gameErr } = await _sb.from('games').upsert({ id: gameId, meta: gameMeta });
-      if(gameErr) throw new Error('Could not save game: ' + gameErr.message);
-      // Delete any existing events first (in case of re-upload)
-      await _sb.from('events').delete().eq('game_id', gameId);
-      const eventRows = events.map(e => ({ game_id: gameId, data: e }));
-      const chunkSize = 500;
-      for(let i = 0; i < eventRows.length; i += chunkSize){
-        const { error: insErr } = await _sb.from('events').insert(eventRows.slice(i, i + chunkSize));
-        if(insErr) throw new Error('Could not save events: ' + insErr.message);
-      }
-    }
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    // PHASE 1 SECURITY UPGRADE: Use Netlify Function for atomic game storage
+    // - Browser no longer has direct Supabase write access
+    // - Function validates admin role via JWT
+    // - All writes happen server-side with service role key (protected)
+    // - On DELETE CASCADE prevents orphaned events
+    // ═══════════════════════════════════════════════════════════════════════════════════════
 
+    // Prepare event rows for storage (convert events to database format)
+    const eventRows = events.map(e => ({ game_id: gameId, data: e }));
+
+    // Call secure Netlify Function to save game atomically
+    const result = await processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse);
+
+    console.log('✓ Game processed successfully:', result);
     setProgress(100, `Done — ${events.length} events saved to database.`);
     document.getElementById('downloadsBlock').classList.add('show');
     document.getElementById('dlTitle').textContent = isReparse

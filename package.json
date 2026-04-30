@@ -1,5 +1,18 @@
 {
+  "name": "cohesion-analysis",
+  "version": "1.0.0",
+  "description": "COHESION: Gaelic Football Event Analysis Dashboard",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'Static site, no build needed'",
+    "test": "echo 'No tests configured'",
+    "check:data": "node test-dashboard-data.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": "18.x"
   }
 }

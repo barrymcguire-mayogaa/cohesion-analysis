@@ -20,5 +20,15 @@ Team Sheets/
 .DS_Store
 **/.DS_Store
 
+# Node.js dependencies — should be installed via npm install
+node_modules/
+npm-debug.log
+.npm
+
+# Environment files — contain secrets, never commit
+.env
+.env.local
+.env.*.local
+
 # Claude Code project files — local only
 .claude/
