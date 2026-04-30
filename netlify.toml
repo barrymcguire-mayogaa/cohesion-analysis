@@ -5,14 +5,12 @@
   command = "npm install"
   functions = "netlify/functions"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
 [dev]
   framework = "static"
   publish = "."
+
+# Static site - serve files as-is, no SPA redirect needed
+# This is NOT a single-page app, so don't redirect to index.html
 
 [[headers]]
   for = "/*.html"
