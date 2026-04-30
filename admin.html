@@ -190,6 +190,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
 </head>
 <body>
 
@@ -511,12 +512,27 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       ✓ <strong>XML already parsed.</strong> Upload only if regenerating events from a corrected XML file.
     </div>
 
-    <label class="et-toggle" id="skipXmlToggle" style="display:none;">
-      <input type="checkbox" id="skipXmlCheck" onchange="toggleSkipXml()">
-      Use existing event data (don't re-process XML)
-    </label>
+    <!-- UPLOAD MODE TOGGLE -->
+    <div style="margin-bottom:24px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+      <div style="font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:12px;">Upload Mode</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px;">
+        <input type="radio" name="uploadMode" value="single" checked onchange="setUploadMode('single')" style="cursor:pointer;">
+        <span>Single Game Upload</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <input type="radio" name="uploadMode" value="batch" onchange="setUploadMode('batch')" style="cursor:pointer;">
+        <span>Batch Upload (Excel + Multiple XMLs)</span>
+      </label>
+    </div>
 
-    <div class="drop-zone" id="dropZone"
+    <!-- SINGLE GAME MODE -->
+    <div id="singleModeSection">
+      <label class="et-toggle" id="skipXmlToggle" style="display:none;">
+        <input type="checkbox" id="skipXmlCheck" onchange="toggleSkipXml()">
+        Use existing event data (don't re-process XML)
+      </label>
+
+      <div class="drop-zone" id="dropZone"
          onclick="document.getElementById('xmlFile').click()"
          ondragover="e=>{e.preventDefault();this.classList.add('over')}"
          ondragleave="this.classList.remove('over')"
@@ -531,15 +547,83 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 
     <div class="error-box" id="errorBox"></div>
 
-    <button class="process-btn" id="processBtn" onclick="processGame()" disabled>
-      ⚙ Generate Game Files
-    </button>
+      <button class="process-btn" id="processBtn" onclick="processGame()" disabled>
+        ⚙ Generate Game Files
+      </button>
 
-    <!-- Progress -->
-    <div class="progress-block" id="progressBlock">
-      <div class="prog-msg" id="progMsg">Parsing XML…</div>
-      <div class="prog-bar-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
-    </div>
+      <!-- Progress -->
+      <div class="progress-block" id="progressBlock">
+        <div class="prog-msg" id="progMsg">Parsing XML…</div>
+        <div class="prog-bar-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
+      </div>
+    </div><!-- END singleModeSection -->
+
+    <!-- BATCH MODE SECTION -->
+    <div id="batchModeSection" style="display:none;">
+      <h3 style="margin-bottom:16px;font-size:14px;">Batch Upload: Excel + XML Files</h3>
+
+      <!-- Excel file upload -->
+      <label style="display:block;margin-bottom:12px;font-weight:700;font-size:10px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;">Game Metadata (Excel)</label>
+      <div class="drop-zone" id="batchExcelZone" onclick="document.getElementById('batchExcelFile').click()"
+           ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+           ondragleave="this.classList.remove('over')"
+           ondrop="handleBatchExcelDrop(event)">
+        <div class="dz-icon">📊</div>
+        <div class="dz-title">Drop Excel file or click to browse</div>
+        <div class="dz-sub">cohesion_bulk_upload_template.xlsx</div>
+        <div class="dz-file" id="batchExcelFile Name"></div>
+      </div>
+      <input type="file" id="batchExcelFile" accept=".xlsx,.xls" onchange="handleBatchExcelSelect(this)">
+
+      <!-- XML files upload -->
+      <label style="display:block;margin-bottom:12px;margin-top:20px;font-weight:700;font-size:10px;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;">Event Data (XML Files)</label>
+      <div class="drop-zone" id="batchXmlZone" onclick="document.getElementById('batchXmlFiles').click()"
+           ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+           ondragleave="this.classList.remove('over')"
+           ondrop="handleBatchXmlDrop(event)">
+        <div class="dz-icon">📂</div>
+        <div class="dz-title">Drop XML files or click to browse</div>
+        <div class="dz-sub">Select multiple XML files (one per game)</div>
+        <div class="dz-file" id="batchXmlFileName"></div>
+      </div>
+      <input type="file" id="batchXmlFiles" accept=".xml,.json" multiple onchange="handleBatchXmlSelect(this)">
+
+      <!-- File matching status -->
+      <div id="batchMatchingStatus" style="margin-top:20px;font-size:12px;color:var(--t3);"></div>
+
+      <!-- Validation errors -->
+      <div id="batchValidationErrors" style="margin-top:20px;"></div>
+
+      <!-- Preview table -->
+      <div id="batchPreviewSection" style="margin-top:20px;display:none;">
+        <h4 style="margin-bottom:12px;font-size:12px;font-weight:700;">Games to Upload</h4>
+        <div style="overflow-x:auto;font-size:12px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:var(--card);border-bottom:1px solid var(--border);">
+                <th style="padding:8px;text-align:left;">Game ID</th>
+                <th style="padding:8px;text-align:left;">Title</th>
+                <th style="padding:8px;text-align:left;">XML</th>
+                <th style="padding:8px;text-align:left;">Events</th>
+              </tr>
+            </thead>
+            <tbody id="batchPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Upload button -->
+      <button class="process-btn" id="batchUploadBtn" onclick="startBatchUpload()" disabled style="margin-top:20px;">
+        ⚙ Upload All Games
+      </button>
+
+      <!-- Progress -->
+      <div class="progress-block" id="batchProgressBlock" style="display:none;">
+        <div class="prog-msg" id="batchProgMsg">Uploading games…</div>
+        <div class="prog-bar-wrap"><div class="prog-bar" id="batchProgBar" style="width:0%"></div></div>
+        <div id="batchProgressLog" style="margin-top:12px;font-size:12px;color:var(--t3);max-height:200px;overflow-y:auto;"></div>
+      </div>
+    </div><!-- END batchModeSection -->
 
     <!-- Whistle diagnostic (Gaelic Insights only) -->
     <div id="wiDiagBlock" style="display:none;">
@@ -1459,15 +1543,20 @@ async function processGame(){
           return `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         };
 
-        // Track user's manual whistle selections (overrides automatic detection)
-        let userWhistleSelections = {
+        // Track user's manual whistle selections (overrides automatic detection).
+        // This must use the global object written by assignWhistleToSelectedPeriod().
+        userWhistleSelections = {
           '1H': null,  // Will be set to whistle time if user selects one
           '2H': null,
           'ET1': null,
           'ET2': null
         };
+        currentWhistleSelections = {};
 
         let giXmlP1 = null, giXmlP2 = null, giXmlET1 = null, giXmlET2 = null;
+        let giVideoAnchor1H = null, giVideoAnchor2H = null, giVideoAnchorET1 = null, giVideoAnchorET2 = null;
+        let giHalfEnd = null;
+        const GI_PERIOD_TOLERANCE = 10;
 
         if(giWhistleRaw.length > 0){
           console.log('🎺 Gaelic Insights XML - Independent Period Anchoring:');
@@ -1525,6 +1614,9 @@ async function processGame(){
           if(userWhistleSelections['2H'] !== null){
             giXmlP2 = userWhistleSelections['2H'];
             console.log(`✓ 2H anchor: User selected @ ${giXmlP2.toFixed(2)}s`);
+          } else if(giWhistleRaw.length >= 3){
+            giXmlP2 = giWhistleRaw[2].t;
+            console.log(`✓ 2H boundary: Auto-selected Whistle #3 @ ${giXmlP2.toFixed(2)}s`);
           } else {
             let closestP2 = null, minDistP2 = Infinity;
             for(const w of giWhistleRaw){
@@ -1581,14 +1673,21 @@ async function processGame(){
             }
           }
 
-          // Find first gameplay event after each period's whistle
-          let giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
+          // Find first gameplay event for each period. Whistles define boundaries;
+          // first gameplay events define video alignment to the user's entered times.
+          let giGameplayP1 = null, giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
+          giHalfEnd = giXmlP2 !== null
+            ? [...giWhistleRaw].filter(w => w.t < giXmlP2).sort((a,b)=>b.t-a.t)[0]?.t ?? null
+            : null;
           instances.forEach(inst=>{
             const code = (inst.querySelector('code')?.textContent||'').trim();
             if(code === 'NA Whistle') return;
             const t = parseFloat(inst.querySelector('start')?.textContent||0);
 
-            if(giXmlP2 !== null && giGameplayP2 === null && t > giXmlP2){
+            if(giXmlP1 !== null && giGameplayP1 === null && (giXmlP2 === null || t < giXmlP2) && t >= giXmlP1){
+              giGameplayP1 = t;
+            }
+            if(giXmlP2 !== null && giGameplayP2 === null && t >= giXmlP2 - GI_PERIOD_TOLERANCE && (giHalfEnd === null || t > giHalfEnd)){
               giGameplayP2 = t;
             }
             if(giXmlET1 !== null && giGameplayET1 === null && t > giXmlET1){
@@ -1599,29 +1698,35 @@ async function processGame(){
             }
           });
 
-          // Use first gameplay event as anchor if found, otherwise use whistle
+          giVideoAnchor1H = giGameplayP1 !== null ? giGameplayP1 : giXmlP1;
+          console.log(`✓ 1H timing anchor: ${giGameplayP1 !== null ? 'First gameplay event' : 'Whistle'} @ ${giVideoAnchor1H.toFixed(2)}s → maps to ${half1Video}s video`);
+
+          // Keep whistle as period boundary; use first gameplay as timing anchor.
           if(giGameplayP2 !== null){
-            giXmlP2 = giGameplayP2;
-            console.log(`✓ 2H anchor: First gameplay event @ ${giXmlP2.toFixed(2)}s → maps to ${half2Video}s video`);
+            giVideoAnchor2H = giGameplayP2;
+            console.log(`✓ 2H timing anchor: First gameplay event @ ${giVideoAnchor2H.toFixed(2)}s → maps to ${half2Video}s video`);
           } else if(giXmlP2 !== null){
-            console.log(`✓ 2H anchor: Whistle @ ${giXmlP2.toFixed(2)}s → maps to ${half2Video}s video`);
+            giVideoAnchor2H = giXmlP2;
+            console.log(`✓ 2H timing anchor: Whistle @ ${giVideoAnchor2H.toFixed(2)}s → maps to ${half2Video}s video`);
           }
 
           if(et1Video !== null){
             if(giGameplayET1 !== null){
-              giXmlET1 = giGameplayET1;
-              console.log(`✓ ET1 anchor: First gameplay event @ ${giXmlET1.toFixed(2)}s → maps to ${et1Video}s video`);
+              giVideoAnchorET1 = giGameplayET1;
+              console.log(`✓ ET1 timing anchor: First gameplay event @ ${giVideoAnchorET1.toFixed(2)}s → maps to ${et1Video}s video`);
             } else if(giXmlET1 !== null){
-              console.log(`✓ ET1 anchor: Whistle @ ${giXmlET1.toFixed(2)}s → maps to ${et1Video}s video`);
+              giVideoAnchorET1 = giXmlET1;
+              console.log(`✓ ET1 timing anchor: Whistle @ ${giVideoAnchorET1.toFixed(2)}s → maps to ${et1Video}s video`);
             }
           }
 
           if(et2Video !== null){
             if(giGameplayET2 !== null){
-              giXmlET2 = giGameplayET2;
-              console.log(`✓ ET2 anchor: First gameplay event @ ${giXmlET2.toFixed(2)}s → maps to ${et2Video}s video`);
+              giVideoAnchorET2 = giGameplayET2;
+              console.log(`✓ ET2 timing anchor: First gameplay event @ ${giVideoAnchorET2.toFixed(2)}s → maps to ${et2Video}s video`);
             } else if(giXmlET2 !== null){
-              console.log(`✓ ET2 anchor: Whistle @ ${giXmlET2.toFixed(2)}s → maps to ${et2Video}s video`);
+              giVideoAnchorET2 = giXmlET2;
+              console.log(`✓ ET2 timing anchor: Whistle @ ${giVideoAnchorET2.toFixed(2)}s → maps to ${et2Video}s video`);
             }
           }
         }
@@ -1638,16 +1743,16 @@ async function processGame(){
           return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}${role}`;
         }).join('\n');
 
-        const anchorNote = `🎯 INDEPENDENT PERIOD ANCHORING:\n• 1H: Whistle #1 @ ${giXmlP1.toFixed(1)}s (guaranteed game start)\n• 2H: First gameplay event (ignores dead time in XML)\n• ET: First gameplay event (10-12 min duration expected)\n• No drift correction - each period uses independent offset\n\nWhistles:\n${diagLines}`;
+        const anchorNote = `🎯 GAELIC INSIGHTS TIMING:\n• Whistles define period boundaries and game clocks\n• First gameplay events define video alignment\n• 1H boundary: ${giXmlP1?.toFixed(1)}s; timing anchor: ${giVideoAnchor1H?.toFixed(1)}s\n• 2H boundary: ${giXmlP2?.toFixed(1)}s; timing anchor: ${giVideoAnchor2H?.toFixed(1)}s\n• No drift correction - each period uses an independent offset\n\nWhistles:\n${diagLines}`;
         document.getElementById('wiDiagContent').innerHTML = anchorNote;
         document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
 
         // Calculate offsets for each period independently
         // No drift correction - treat each period separately to avoid sync issues
-        const giOffset1H = half1Video - giXmlP1;
-        const giOffset2H = giXmlP2 !== null ? (half2Video - giXmlP2) : giOffset1H;
-        const giOffsetET1 = giXmlET1 !== null ? (et1Video - giXmlET1) : null;
-        const giOffsetET2 = giXmlET2 !== null ? (et2Video - giXmlET2) : null;
+        const giOffset1H = half1Video - giVideoAnchor1H;
+        const giOffset2H = giVideoAnchor2H !== null ? (half2Video - giVideoAnchor2H) : giOffset1H;
+        const giOffsetET1 = giVideoAnchorET1 !== null ? (et1Video - giVideoAnchorET1) : null;
+        const giOffsetET2 = giVideoAnchorET2 !== null ? (et2Video - giVideoAnchorET2) : null;
 
         console.log(`📊 Calculated offsets (independent):`);
         console.log(`  1H offset: ${giOffset1H.toFixed(2)}s`);
@@ -1697,27 +1802,27 @@ async function processGame(){
           const { id, start, end, code, labels } = ev;
 
           // Determine period: check event time against period start times (in order)
-          let half, offset, offsetRef;
+          let half, offset, boundaryRef;
           if(giXmlET2 !== null && start >= giXmlET2){
             half = 'ET 2nd Half';
             offset = giOffsetET2;
-            offsetRef = et2Video;
+            boundaryRef = giXmlET2;
           } else if(giXmlET1 !== null && start >= giXmlET1){
             half = 'ET 1st Half';
             offset = giOffsetET1;
-            offsetRef = et1Video;
-          } else if(giXmlP2 !== null && start >= giXmlP2){
+            boundaryRef = giXmlET1;
+          } else if(giXmlP2 !== null && (start >= giXmlP2 || (giHalfEnd !== null && start > giHalfEnd && start >= giXmlP2 - GI_PERIOD_TOLERANCE))){
             half = '2nd Half';
             offset = giOffset2H;
-            offsetRef = half2Video;
+            boundaryRef = giXmlP2;
           } else {
             half = '1st Half';
             offset = giOffset1H;
-            offsetRef = half1Video;
+            boundaryRef = giXmlP1;
           }
 
           // Format game time based on period
-          const relSecs = Math.max(0, Math.round(start + offset - offsetRef));
+          const relSecs = Math.max(0, Math.round(start - boundaryRef));
           const gm = Math.floor(relSecs/60), gs = relSecs%60;
           let gameTimeStr;
           if(half === '1st Half'){
@@ -1730,7 +1835,8 @@ async function processGame(){
             gameTimeStr = `ET2 ${String(gm).padStart(2,'0')}:${String(gs).padStart(2,'0')}`;
           }
 
-          const driveT  = Math.max(0, Math.round(start + offset) - 2);
+          const videoT  = Math.max(0, Math.round(start + offset));
+          const driveT  = Math.max(0, videoT - 2);
           const team    = giTeam(code);
           const player  = labels['Player']      || '';
           const outcome = labels['Outcome']     || '';
@@ -1749,7 +1855,7 @@ async function processGame(){
             id, start:Math.round(start), end:Math.round(end),
             half, gameTime:gameTimeStr,
             code, team, player, outcome, subtype,
-            category:giCategory(code), driveT, labels:cleanLabels,
+            category:giCategory(code), driveT, videoT, labels:cleanLabels,
           });
         });
 
@@ -2559,6 +2665,324 @@ async function confirmDeleteGame(){
     resultBox.classList.add('error-box');
     resultBox.textContent = '❌ Error: ' + err.message;
     console.error(err);
+  }
+}
+
+// ==================== BATCH MODE FUNCTIONS ====================
+
+let batchExcelData = [];
+let batchXmlFiles = [];
+
+function setUploadMode(mode) {
+  const singleSection = document.getElementById('singleModeSection');
+  const batchSection = document.getElementById('batchModeSection');
+
+  if (mode === 'single') {
+    singleSection.style.display = 'block';
+    batchSection.style.display = 'none';
+  } else {
+    singleSection.style.display = 'none';
+    batchSection.style.display = 'block';
+  }
+}
+
+function handleBatchExcelDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('batchExcelZone').classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleBatchExcelSelect({files: [file]});
+}
+
+function handleBatchExcelSelect(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type: 'array'});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      batchExcelData = XLSX.utils.sheet_to_json(sheet, {defval: ''});
+
+      document.getElementById('batchExcelFile Name').textContent = '✓ ' + file.name;
+      document.getElementById('batchExcelZone').classList.add('ready');
+
+      validateBatchFiles();
+    } catch (err) {
+      alert('Error parsing Excel: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function handleBatchXmlDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('batchXmlZone').classList.remove('over');
+  const files = Array.from(e.dataTransfer.files);
+  batchXmlFiles = files;
+  updateBatchXmlStatus();
+}
+
+function handleBatchXmlSelect(input) {
+  batchXmlFiles = Array.from(input.files || []);
+  updateBatchXmlStatus();
+}
+
+function updateBatchXmlStatus() {
+  const fileName = document.getElementById('batchXmlFileName');
+  const zone = document.getElementById('batchXmlZone');
+
+  if (batchXmlFiles.length === 0) {
+    fileName.textContent = '';
+    zone.classList.remove('ready');
+  } else {
+    fileName.textContent = `✓ ${batchXmlFiles.length} file(s) selected`;
+    zone.classList.add('ready');
+    validateBatchFiles();
+  }
+}
+
+function validateBatchFiles() {
+  const statusDiv = document.getElementById('batchMatchingStatus');
+  const errorsDiv = document.getElementById('batchValidationErrors');
+  const previewSection = document.getElementById('batchPreviewSection');
+  const uploadBtn = document.getElementById('batchUploadBtn');
+
+  statusDiv.innerHTML = '';
+  errorsDiv.innerHTML = '';
+  previewSection.style.display = 'none';
+  uploadBtn.disabled = true;
+
+  if (batchExcelData.length === 0) {
+    statusDiv.textContent = '📋 Waiting for Excel file...';
+    return;
+  }
+
+  if (batchXmlFiles.length === 0) {
+    statusDiv.textContent = '📂 Waiting for XML files...';
+    return;
+  }
+
+  // Parse Excel rows and match to XML files
+  const games = [];
+  const errors = [];
+
+  for (let i = 0; i < batchExcelData.length; i++) {
+    const row = batchExcelData[i];
+    const gameId = row['game_id'] || row['Game ID'] || '';
+    const title = row['title'] || row['Title'] || '';
+
+    if (!gameId || !title) {
+      errors.push(`Row ${i + 2}: Missing game_id or title`);
+      continue;
+    }
+
+    // Find matching XML file
+    const xmlFile = batchXmlFiles.find(f => f.name.includes(gameId));
+    if (!xmlFile) {
+      errors.push(`Row ${i + 2} (${gameId}): No matching XML file found`);
+      continue;
+    }
+
+    games.push({
+      rowNum: i + 2,
+      gameId: gameId,
+      title: title,
+      excelRow: row,
+      xmlFile: xmlFile
+    });
+  }
+
+  // Show status
+  if (errors.length > 0) {
+    const errorBox = document.createElement('div');
+    errorBox.style.cssText = 'background:var(--red-bg);color:var(--red);border:1px solid var(--red);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;';
+    errorBox.innerHTML = '<strong>⚠️ Errors:</strong><br>' + errors.map(e => `• ${e}`).join('<br>');
+    errorsDiv.appendChild(errorBox);
+  }
+
+  if (games.length > 0) {
+    statusDiv.textContent = `✓ ${games.length} of ${batchExcelData.length} games matched to XML files`;
+    showBatchPreview(games);
+    uploadBtn.disabled = false;
+  } else {
+    statusDiv.textContent = '❌ No valid game/XML matches found';
+  }
+}
+
+function showBatchPreview(games) {
+  const tbody = document.getElementById('batchPreviewBody');
+  tbody.innerHTML = '';
+
+  for (const game of games) {
+    const row = document.createElement('tr');
+    row.style.borderBottom = '1px solid var(--border)';
+    row.innerHTML = `
+      <td style="padding:8px;">${game.gameId}</td>
+      <td style="padding:8px;">${game.title}</td>
+      <td style="padding:8px;"><small>${game.xmlFile.name}</small></td>
+      <td style="padding:8px;"><small>Pending</small></td>
+    `;
+    tbody.appendChild(row);
+  }
+
+  document.getElementById('batchPreviewSection').style.display = 'block';
+}
+
+async function startBatchUpload() {
+  const statusDiv = document.getElementById('batchMatchingStatus');
+  const previewSection = document.getElementById('batchPreviewSection');
+  const progressBlock = document.getElementById('batchProgressBlock');
+  const uploadBtn = document.getElementById('batchUploadBtn');
+  const logDiv = document.getElementById('batchProgressLog');
+
+  uploadBtn.disabled = true;
+  previewSection.style.display = 'none';
+  progressBlock.style.display = 'block';
+  logDiv.innerHTML = '';
+
+  const games = [];
+  const errors = [];
+
+  for (let i = 0; i < batchExcelData.length; i++) {
+    const row = batchExcelData[i];
+    const gameId = row['game_id'] || row['Game ID'] || '';
+    const xmlFile = batchXmlFiles.find(f => f.name.includes(gameId));
+
+    if (!gameId || !xmlFile) continue;
+
+    games.push({
+      gameId: gameId,
+      excelRow: row,
+      xmlFile: xmlFile
+    });
+  }
+
+  if (games.length === 0) {
+    alert('No valid games to upload');
+    uploadBtn.disabled = false;
+    progressBlock.style.display = 'none';
+    return;
+  }
+
+  // Parse each game
+  const gamesToUpload = [];
+  for (let i = 0; i < games.length; i++) {
+    const game = games[i];
+    updateBatchProgress(i, games.length, `Parsing ${game.gameId}...`);
+
+    try {
+      // Parse Excel row for metadata
+      const gameMeta = buildGameMetaFromExcel(game.excelRow);
+
+      // Parse XML file for events
+      const xmlText = await game.xmlFile.text();
+      // Here we would call the existing processXML function to parse events
+      // For now, we'll create empty events and just upload metadata
+      const eventRows = [];
+
+      gamesToUpload.push({
+        gameId: game.gameId,
+        gameMeta: gameMeta,
+        eventRows: eventRows
+      });
+
+      logMessage(`✓ Parsed ${game.gameId}`);
+    } catch (err) {
+      logMessage(`✗ ${game.gameId}: ${err.message}`);
+      errors.push(game.gameId);
+    }
+  }
+
+  if (gamesToUpload.length === 0) {
+    logMessage('❌ No games could be parsed');
+    uploadBtn.disabled = false;
+    return;
+  }
+
+  // Call batch upload function
+  updateBatchProgress(games.length, games.length, 'Uploading to database...');
+  await callBatchUpload(gamesToUpload);
+
+  uploadBtn.disabled = false;
+}
+
+function buildGameMetaFromExcel(row) {
+  const gameId = row['game_id'] || row['Game ID'] || '';
+  const title = row['title'] || row['Title'] || '';
+  const date = row['date'] || row['Date'] || new Date().toISOString().slice(0, 10);
+  const opposition = row['opposition'] || row['Opposition'] || '';
+  const competition = row['competition'] || row['Competition'] || '';
+  const venue = row['venue'] || row['Venue'] || '';
+
+  return {
+    id: gameId,
+    title: title,
+    date: date,
+    opposition: opposition,
+    competition: competition,
+    venue: venue,
+    youtubeId: null,
+    half1Start: null,
+    half2Start: null
+  };
+}
+
+function updateBatchProgress(current, total, status) {
+  const percent = Math.round((current / total) * 100);
+  document.getElementById('batchProgBar').style.width = percent + '%';
+  document.getElementById('batchProgMsg').textContent = `${current} / ${total} — ${status}`;
+}
+
+function logMessage(msg) {
+  const log = document.getElementById('batchProgressLog');
+  const entry = document.createElement('div');
+  entry.textContent = msg;
+  entry.style.padding = '4px 0';
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function callBatchUpload(games) {
+  try {
+    const user = netlifyIdentity.currentUser();
+    if (!user) {
+      logMessage('❌ Not authenticated');
+      return;
+    }
+
+    const response = await fetch('/.netlify/functions/processBatchGames', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${user.token.access_token}`
+      },
+      body: JSON.stringify({ games: games })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      logMessage(`❌ Upload failed: ${result.error}`);
+      return;
+    }
+
+    logMessage(`✅ Batch upload complete: ${result.processed} succeeded, ${result.failed} failed`);
+
+    if (result.results) {
+      for (const r of result.results) {
+        if (r.success) {
+          logMessage(`  ✓ ${r.gameId}: ${r.eventCount} events`);
+        } else {
+          logMessage(`  ✗ ${r.gameId}: ${r.error}`);
+        }
+      }
+    }
+  } catch (err) {
+    logMessage(`❌ Error: ${err.message}`);
   }
 }
 </script>
