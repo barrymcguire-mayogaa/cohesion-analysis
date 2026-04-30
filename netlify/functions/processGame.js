@@ -137,21 +137,28 @@ exports.handler = async (event) => {
     }
 
     // ========================================================================
-    // STEP 5: Fetch existing game (if reparse mode)
+    // STEP 5: Create/update game metadata FIRST (required for foreign key)
     // ========================================================================
-    let existingGame = null;
-    if (skipXml && isReparse) {
-      const { data: existing, error: fetchErr } = await supabase
-        .from('games')
-        .select('meta')
-        .eq('id', gameId)
-        .single();
+    // Must happen before inserting events (foreign key constraint)
+    const gameRecord = {
+      id: gameId,
+      title: gameMeta.title,
+      date: gameMeta.date,
+      opposition: `${gameMeta.homeTeam} v ${gameMeta.awayTeam}`,
+      competition: gameMeta.competition,
+      venue: gameMeta.venue || '',
+      youtube_id: gameMeta.youtubeId,
+      thumbnail: gameMeta.thumbnail,
+      // Store angles if provided, otherwise empty array
+      angles: gameMeta.angles || []
+    };
 
-      if (fetchErr && fetchErr.code !== 'PGRST116') { // PGRST116 = no rows
-        throw new Error(`Failed to fetch existing game: ${fetchErr.message}`);
-      }
+    const { error: upsertErr } = await supabase
+      .from('games')
+      .upsert(gameRecord);
 
-      existingGame = existing;
+    if (upsertErr) {
+      throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
     }
 
     // ========================================================================
@@ -184,32 +191,7 @@ exports.handler = async (event) => {
     }
 
     // ========================================================================
-    // STEP 8: Update or insert game metadata
-    // ========================================================================
-    // Map gameMeta fields to games table columns
-    const gameRecord = {
-      id: gameId,
-      title: gameMeta.title,
-      date: gameMeta.date,
-      opposition: `${gameMeta.homeTeam} v ${gameMeta.awayTeam}`,
-      competition: gameMeta.competition,
-      venue: gameMeta.venue || '',
-      youtube_id: gameMeta.youtubeId,
-      thumbnail: gameMeta.thumbnail,
-      // Store angles if provided, otherwise empty array
-      angles: gameMeta.angles || []
-    };
-
-    const { error: upsertErr } = await supabase
-      .from('games')
-      .upsert(gameRecord);
-
-    if (upsertErr) {
-      throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
-    }
-
-    // ========================================================================
-    // STEP 9: Return success response
+    // STEP 8: Return success response
     // ========================================================================
     return {
       statusCode: 200,
