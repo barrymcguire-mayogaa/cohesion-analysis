@@ -2773,7 +2773,16 @@ function validateBatchFiles() {
   for (let i = 0; i < batchExcelData.length; i++) {
     const row = batchExcelData[i];
     const gameId = row['game_id'] || row['Game ID'] || '';
-    const title = row['title'] || row['Title'] || '';
+    let title = row['title'] || row['Title'] || '';
+
+    // Auto-generate title from home_team and away_team if not provided
+    if (!title) {
+      const homeTeam = row['home_team'] || row['Home Team'] || '';
+      const awayTeam = row['away_team'] || row['Away Team'] || '';
+      if (homeTeam && awayTeam) {
+        title = `${homeTeam} v ${awayTeam}`;
+      }
+    }
 
     if (!gameId || !title) {
       errors.push(`Row ${i + 2}: Missing game_id or title`);
