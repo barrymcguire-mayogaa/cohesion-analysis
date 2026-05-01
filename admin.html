@@ -2893,20 +2893,22 @@ async function startBatchUpload() {
       // Detect file type and parse accordingly
       let eventRows = [];
       let parseStatus = 'unknown';
+      const half1Video = gameMeta.half1Start || 0;
+      const half2Video = gameMeta.half2Start || 0;
+      const homeTeam = batchExcelData[i]['home_team'] || batchExcelData[i]['Home Team'] || '';
+      const awayTeam = batchExcelData[i]['away_team'] || batchExcelData[i]['Away Team'] || '';
 
       if (xmlText.includes('timeline') && xmlText.includes('period')) {
         // Likely Gaelic Tracker JSON
         try {
           const data = JSON.parse(xmlText);
-          const half1Video = gameMeta.half1Start || 0;
-          const half2Video = gameMeta.half2Start || 0;
           eventRows = processGaelicTracker(data, half1Video, half2Video, null, null);
           parseStatus = 'gaelic-tracker';
         } catch (e) {
           parseStatus = `gaelic-tracker-error: ${e.message}`;
         }
-      } else if (xmlText.includes('<instance') || xmlText.includes('Sportscode') || xmlText.includes('GIU')) {
-        // Sportscode or GIU XML
+      } else if (xmlText.includes('<instance')) {
+        // Sportscode or GIU XML - use proper parsing logic
         try {
           const parser = new DOMParser();
           const doc = parser.parseFromString(xmlText, 'text/xml');
@@ -2916,34 +2918,114 @@ async function startBatchUpload() {
           }
 
           const instances = Array.from(doc.querySelectorAll('instance'));
-          const half1Video = gameMeta.half1Start || 0;
-          const half2Video = gameMeta.half2Start || 0;
 
-          // Simple Sportscode/GIU parser
-          eventRows = instances.map((inst, idx) => {
-            const start = parseFloat(inst.getAttribute('start') || inst.getAttribute('time') || 0);
-            const end = parseFloat(inst.getAttribute('end') || start);
-            const code = inst.getAttribute('code') || inst.querySelector('label')?.textContent || 'UNKNOWN';
+          // Helper: read a named label group from an <instance>
+          function getLbl(inst, group) {
+            for (const lbl of inst.querySelectorAll('label')) {
+              if ((lbl.querySelector('group')?.textContent || '').trim() === group)
+                return (lbl.querySelector('text')?.textContent || '').trim();
+            }
+            return '';
+          }
 
-            // Determine half
-            const isSecondHalf = start >= (half2Video || 2000); // Heuristic: if past 2H marker, it's 2H
-            const videoTime = isSecondHalf ? start : start;
+          // Auto-detect XML format
+          const hasPeriodMarkers = instances.some(i => /^P[12] START$/.test((i.querySelector('code')?.textContent || '').trim()));
+          const hasHalfMarkers = instances.some(i => /^(?:ET\s)?[12](?:st|nd)\sHalf$/.test((i.querySelector('code')?.textContent || '').trim()));
+          let xmlFormat = 'sportscode';
+          if (hasPeriodMarkers) xmlFormat = 'giu';
+          else if (hasHalfMarkers) xmlFormat = 'sportscode';
 
-            return {
-              gameId: game.gameId,
-              instanceId: idx.toString(),
-              code: code,
-              startTime: start,
-              endTime: end,
-              videoT: videoTime,
-              driveT: Math.max(0, videoTime - 2),
-              gameTime: formatGameTime(start),
-              team: 'UNKNOWN',
-              data: {}
-            };
-          });
+          if (xmlFormat === 'giu') {
+            // ── GIU Format ──
+            let xmlP1 = null, xmlP2 = null;
+            instances.forEach(inst => {
+              const code = (inst.querySelector('code')?.textContent || '').trim();
+              const start = parseFloat(inst.querySelector('start')?.textContent || 0);
+              if (code === 'P1 START' && xmlP1 === null) xmlP1 = start;
+              if (code === 'P2 START' && xmlP2 === null) xmlP2 = start;
+            });
 
-          parseStatus = `sportscode-${instances.length}-events`;
+            if (xmlP1 !== null && xmlP2 !== null) {
+              const offset1H = half1Video - xmlP1;
+              const offset2H = half2Video - xmlP2;
+              const GIU_SKIP = /^P\d START$/;
+
+              function giuTeam(code) {
+                const cl = code.toLowerCase();
+                if (cl.startsWith(homeTeam.toLowerCase())) return homeTeam.toUpperCase();
+                if (cl.startsWith(awayTeam.toLowerCase())) return awayTeam.toUpperCase();
+                return '';
+              }
+
+              instances.forEach(inst => {
+                const code = (inst.querySelector('code')?.textContent || '').trim();
+                if (GIU_SKIP.test(code)) return;
+                const start = parseFloat(inst.querySelector('start')?.textContent || 0);
+                const end = parseFloat(inst.querySelector('end')?.textContent || 0);
+
+                const isSecondHalf = start >= xmlP2;
+                const offset = isSecondHalf ? offset2H : offset1H;
+                const refStart = isSecondHalf ? xmlP2 : xmlP1;
+                const driveT = Math.max(0, Math.round(start + offset) - 2);
+                const relSecs = Math.max(0, Math.round(start - refStart));
+                const gm = Math.floor(relSecs / 60), gs = relSecs % 60;
+                const gameTimeStr = (isSecondHalf ? '2H' : '1H') + ` ${String(gm).padStart(2, '0')}:${String(gs).padStart(2, '0')}`;
+
+                eventRows.push({
+                  id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
+                  gameId: game.gameId,
+                  code: code,
+                  team: giuTeam(code),
+                  start: Math.round(start),
+                  end: Math.round(end),
+                  driveT: driveT,
+                  gameTime: gameTimeStr,
+                  half: isSecondHalf ? '2H' : '1H',
+                  data: {}
+                });
+              });
+
+              parseStatus = `giu-${eventRows.length}-events`;
+            } else {
+              parseStatus = 'giu-missing-markers';
+            }
+          } else {
+            // ── Basic Sportscode (assume simple structure without period markers) ──
+            // Map codes to team based on naming convention
+            function sportscodeTeam(code) {
+              const cl = code.toLowerCase();
+              if (cl.includes(homeTeam.toLowerCase())) return homeTeam.toUpperCase();
+              if (cl.includes(awayTeam.toLowerCase())) return awayTeam.toUpperCase();
+              return '';
+            }
+
+            // Without explicit period markers, we'll use time heuristic
+            // Events before half2Video time go to 1H, after go to 2H
+            instances.forEach(inst => {
+              const code = (inst.querySelector('code')?.textContent || '').trim();
+              const start = parseFloat(inst.querySelector('start')?.textContent || 0);
+              const end = parseFloat(inst.querySelector('end')?.textContent || 0);
+
+              const isSecondHalf = start >= half2Video;
+              const offset = isSecondHalf ? (half2Video - start) : (half1Video - start);
+              const driveT = Math.max(0, start + offset - 2);
+
+              eventRows.push({
+                id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
+                gameId: game.gameId,
+                code: code,
+                team: sportscodeTeam(code),
+                start: Math.round(start),
+                end: Math.round(end),
+                driveT: Math.round(driveT),
+                gameTime: (isSecondHalf ? '2H' : '1H') + ' 00:00',
+                half: isSecondHalf ? '2H' : '1H',
+                data: {}
+              });
+            });
+
+            parseStatus = `sportscode-${eventRows.length}-events`;
+          }
         } catch (e) {
           parseStatus = `xml-error: ${e.message}`;
         }
