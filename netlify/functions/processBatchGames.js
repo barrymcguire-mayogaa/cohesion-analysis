@@ -138,6 +138,10 @@ exports.handler = async (event) => {
       };
 
       try {
+        // ========================================================================
+        // VALIDATION: Reject game before touching Supabase if any field is invalid
+        // ========================================================================
+
         // Validate required fields for this game
         if (!gameId) {
           throw new Error('gameId is required');
@@ -152,6 +156,23 @@ exports.handler = async (event) => {
         // CRITICAL: Reject uploads with 0 events (prevents corrupt game records)
         if (eventRows.length === 0) {
           throw new Error(`${gameId}: XML parsed 0 events. Upload REJECTED to prevent corrupt database records.`);
+        }
+
+        // CRITICAL: Validate event shape BEFORE saving metadata
+        // Events must be: { game_id, data: {...} }
+        for (let i = 0; i < eventRows.length; i++) {
+          const evt = eventRows[i];
+          if (!evt.game_id) {
+            throw new Error(`${gameId}: Event ${i} missing game_id field. Event shape must be { game_id, data: {...} }`);
+          }
+          if (!evt.data || typeof evt.data !== 'object') {
+            throw new Error(`${gameId}: Event ${i} missing or invalid data field. Event shape must be { game_id, data: {...} }`);
+          }
+        }
+
+        // Validate gameMeta has required fields
+        if (!gameMeta.date || typeof gameMeta.date !== 'string') {
+          throw new Error(`${gameId}: gameMeta.date must be a string (YYYY-MM-DD format), got ${typeof gameMeta.date}`);
         }
 
         // ====================================================================

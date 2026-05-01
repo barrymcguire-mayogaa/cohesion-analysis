@@ -2971,17 +2971,19 @@ async function startBatchUpload() {
                 const gm = Math.floor(relSecs / 60), gs = relSecs % 60;
                 const gameTimeStr = (isSecondHalf ? '2H' : '1H') + ` ${String(gm).padStart(2, '0')}:${String(gs).padStart(2, '0')}`;
 
+                // EVENT SHAPE: Must match Supabase contract { game_id, data: {...} }
                 eventRows.push({
-                  id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
-                  gameId: game.gameId,
-                  code: code,
-                  team: giuTeam(code),
-                  start: Math.round(start),
-                  end: Math.round(end),
-                  driveT: driveT,
-                  gameTime: gameTimeStr,
-                  half: isSecondHalf ? '2H' : '1H',
-                  data: {}
+                  game_id: game.gameId,
+                  data: {
+                    id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
+                    code: code,
+                    team: giuTeam(code),
+                    start: Math.round(start),
+                    end: Math.round(end),
+                    driveT: driveT,
+                    gameTime: gameTimeStr,
+                    half: isSecondHalf ? '2H' : '1H'
+                  }
                 });
               });
 
@@ -3010,17 +3012,19 @@ async function startBatchUpload() {
               const offset = isSecondHalf ? (half2Video - start) : (half1Video - start);
               const driveT = Math.max(0, start + offset - 2);
 
+              // EVENT SHAPE: Must match Supabase contract { game_id, data: {...} }
               eventRows.push({
-                id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
-                gameId: game.gameId,
-                code: code,
-                team: sportscodeTeam(code),
-                start: Math.round(start),
-                end: Math.round(end),
-                driveT: Math.round(driveT),
-                gameTime: (isSecondHalf ? '2H' : '1H') + ' 00:00',
-                half: isSecondHalf ? '2H' : '1H',
-                data: {}
+                game_id: game.gameId,
+                data: {
+                  id: (inst.querySelector('ID')?.textContent || '').trim() || String(eventRows.length + 1),
+                  code: code,
+                  team: sportscodeTeam(code),
+                  start: Math.round(start),
+                  end: Math.round(end),
+                  driveT: Math.round(driveT),
+                  gameTime: (isSecondHalf ? '2H' : '1H') + ' 00:00',
+                  half: isSecondHalf ? '2H' : '1H'
+                }
               });
             });
 

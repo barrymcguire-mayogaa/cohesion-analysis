@@ -463,7 +463,13 @@ function buildTeamFilter(games){
   });
 }
 function buildYearFilter(games){
-  const years = new Set(games.map(g=>g.date?g.date.slice(0,4):'').filter(Boolean));
+  // Safe date extraction: handle string, Date object, or invalid dates
+  const years = new Set(games.map(g=>{
+    if (!g.date) return '';
+    if (typeof g.date === 'string') return g.date.slice(0,4);
+    if (g.date instanceof Date) return g.date.getFullYear().toString();
+    return ''; // Fallback for malformed dates
+  }).filter(Boolean));
   const sel = document.getElementById('fYear');
   [...years].sort().reverse().forEach(y=>{
     const o = document.createElement('option');
