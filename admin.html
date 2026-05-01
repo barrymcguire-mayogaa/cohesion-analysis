@@ -2889,9 +2889,74 @@ async function startBatchUpload() {
 
       // Parse XML file for events
       const xmlText = await game.xmlFile.text();
-      // Here we would call the existing processXML function to parse events
-      // For now, we'll create empty events and just upload metadata
-      const eventRows = [];
+
+      // Detect file type and parse accordingly
+      let eventRows = [];
+      let parseStatus = 'unknown';
+
+      if (xmlText.includes('timeline') && xmlText.includes('period')) {
+        // Likely Gaelic Tracker JSON
+        try {
+          const data = JSON.parse(xmlText);
+          const half1Video = gameMeta.half1Start || 0;
+          const half2Video = gameMeta.half2Start || 0;
+          eventRows = processGaelicTracker(data, half1Video, half2Video, null, null);
+          parseStatus = 'gaelic-tracker';
+        } catch (e) {
+          parseStatus = `gaelic-tracker-error: ${e.message}`;
+        }
+      } else if (xmlText.includes('<instance') || xmlText.includes('Sportscode') || xmlText.includes('GIU')) {
+        // Sportscode or GIU XML
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xmlText, 'text/xml');
+
+          if (doc.querySelector('parsererror')) {
+            throw new Error('Invalid XML format');
+          }
+
+          const instances = Array.from(doc.querySelectorAll('instance'));
+          const half1Video = gameMeta.half1Start || 0;
+          const half2Video = gameMeta.half2Start || 0;
+
+          // Simple Sportscode/GIU parser
+          eventRows = instances.map((inst, idx) => {
+            const start = parseFloat(inst.getAttribute('start') || inst.getAttribute('time') || 0);
+            const end = parseFloat(inst.getAttribute('end') || start);
+            const code = inst.getAttribute('code') || inst.querySelector('label')?.textContent || 'UNKNOWN';
+
+            // Determine half
+            const isSecondHalf = start >= (half2Video || 2000); // Heuristic: if past 2H marker, it's 2H
+            const videoTime = isSecondHalf ? start : start;
+
+            return {
+              gameId: game.gameId,
+              instanceId: idx.toString(),
+              code: code,
+              startTime: start,
+              endTime: end,
+              videoT: videoTime,
+              driveT: Math.max(0, videoTime - 2),
+              gameTime: formatGameTime(start),
+              team: 'UNKNOWN',
+              data: {}
+            };
+          });
+
+          parseStatus = `sportscode-${instances.length}-events`;
+        } catch (e) {
+          parseStatus = `xml-error: ${e.message}`;
+        }
+      } else {
+        parseStatus = 'unknown-format';
+      }
+
+      // CRITICAL VALIDATION: Reject uploads with 0 events
+      if (eventRows.length === 0) {
+        logMessage(`✗ ${game.gameId}: Could not parse events (${parseStatus}) - upload BLOCKED to prevent corrupt data`);
+        errors.push(game.gameId);
+        continue;
+      }
 
       gamesToUpload.push({
         gameId: game.gameId,
@@ -2899,7 +2964,7 @@ async function startBatchUpload() {
         eventRows: eventRows
       });
 
-      logMessage(`✓ Parsed ${game.gameId}`);
+      logMessage(`✓ ${game.gameId}: ${eventRows.length} events parsed (${parseStatus})`);
     } catch (err) {
       logMessage(`✗ ${game.gameId}: ${err.message}`);
       errors.push(game.gameId);
@@ -2907,8 +2972,9 @@ async function startBatchUpload() {
   }
 
   if (gamesToUpload.length === 0) {
-    logMessage('❌ No games could be parsed');
+    logMessage('❌ No games could be parsed. Check XML formats and try again.');
     uploadBtn.disabled = false;
+    progressBlock.style.display = 'none';
     return;
   }
 
@@ -2916,6 +2982,9 @@ async function startBatchUpload() {
   updateBatchProgress(games.length, games.length, 'Uploading to database...');
   await callBatchUpload(gamesToUpload);
 
+  // Final status
+  updateBatchProgress(games.length, games.length, '✅ Upload complete! You can close this window.');
+  logMessage('✅ All games uploaded successfully.');
   uploadBtn.disabled = false;
 }
 
@@ -2923,22 +2992,39 @@ function buildGameMetaFromExcel(row) {
   const gameId = row['game_id'] || row['Game ID'] || '';
   const title = row['title'] || row['Title'] || '';
 
-  // Convert date from Excel (Date object) or string to ISO string format
+  // Convert date from Excel (Date object, serial number, or string) to ISO string format
   let date = row['date'] || row['Date'] || null;
   if (date) {
     if (typeof date === 'object' && date instanceof Date) {
-      // Convert Date object to ISO string (YYYY-MM-DD)
+      // Excel Date object → ISO string (YYYY-MM-DD)
       date = date.toISOString().slice(0, 10);
+    } else if (typeof date === 'number') {
+      // Excel serial number (days since 1900-01-01) → convert to date
+      // Excel's epoch is January 1, 1900
+      const excelEpoch = new Date(1900, 0, 1);
+      const dateObj = new Date(excelEpoch.getTime() + (date - 2) * 24 * 60 * 60 * 1000);
+      date = dateObj.toISOString().slice(0, 10);
     } else if (typeof date === 'string') {
-      // Already a string, keep it
-      date = date;
+      // Already a string, keep it (assume YYYY-MM-DD format)
+      date = date.trim();
     }
   } else {
     // Default to today
     date = new Date().toISOString().slice(0, 10);
   }
 
-  const opposition = row['opposition'] || row['Opposition'] || '';
+  // Parse video start times from string format (MM:SS) to seconds
+  const half1Start = row['half1_start'] ? parseTime(row['half1_start']) : null;
+  const half2Start = row['half2_start'] ? parseTime(row['half2_start']) : null;
+
+  // Extract YouTube video ID
+  let youtubeId = null;
+  const ytUrl = row['youtube_url'] || row['YouTube URL'] || '';
+  if (ytUrl) {
+    youtubeId = extractYtId(ytUrl);
+  }
+
+  const opposition = row['opposition'] || row['Opposition'] || row['away_team'] || row['Away Team'] || '';
   const competition = row['competition'] || row['Competition'] || '';
   const venue = row['venue'] || row['Venue'] || '';
 
@@ -2949,9 +3035,9 @@ function buildGameMetaFromExcel(row) {
     opposition: opposition,
     competition: competition,
     venue: venue,
-    youtubeId: null,
-    half1Start: null,
-    half2Start: null
+    youtubeId: youtubeId,
+    half1Start: half1Start,
+    half2Start: half2Start
   };
 }
 

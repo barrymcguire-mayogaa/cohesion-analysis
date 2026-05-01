@@ -149,6 +149,11 @@ exports.handler = async (event) => {
           throw new Error('eventRows must be an array');
         }
 
+        // CRITICAL: Reject uploads with 0 events (prevents corrupt game records)
+        if (eventRows.length === 0) {
+          throw new Error(`${gameId}: XML parsed 0 events. Upload REJECTED to prevent corrupt database records.`);
+        }
+
         // ====================================================================
         // UPSERT game metadata FIRST (required for foreign key)
         // ====================================================================
