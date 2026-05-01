@@ -2902,7 +2902,12 @@ async function startBatchUpload() {
         // Likely Gaelic Tracker JSON
         try {
           const data = JSON.parse(xmlText);
-          eventRows = processGaelicTracker(data, half1Video, half2Video, null, null);
+          const rawEvents = processGaelicTracker(data, half1Video, half2Video, null, null);
+          // Wrap events in proper shape: { game_id, data }
+          eventRows = rawEvents.map(evt => ({
+            game_id: game.gameId,
+            data: evt
+          }));
           parseStatus = 'gaelic-tracker';
         } catch (e) {
           parseStatus = `gaelic-tracker-error: ${e.message}`;
@@ -2931,11 +2936,41 @@ async function startBatchUpload() {
           // Auto-detect XML format
           const hasPeriodMarkers = instances.some(i => /^P[12] START$/.test((i.querySelector('code')?.textContent || '').trim()));
           const hasHalfMarkers = instances.some(i => /^(?:ET\s)?[12](?:st|nd)\sHalf$/.test((i.querySelector('code')?.textContent || '').trim()));
+          const hasGaelicInsights = instances.some(i => (i.querySelector('code')?.textContent || '').includes('NA Whistle'));
           let xmlFormat = 'sportscode';
-          if (hasPeriodMarkers) xmlFormat = 'giu';
+          if (hasGaelicInsights) xmlFormat = 'gaelic-insights';
+          else if (hasPeriodMarkers) xmlFormat = 'giu';
           else if (hasHalfMarkers) xmlFormat = 'sportscode';
 
-          if (xmlFormat === 'giu') {
+          if (xmlFormat === 'gaelic-insights') {
+            // ── Gaelic Insights Format ──
+            // Use the parseGaelicInsightsXml function from the main admin mode
+            try {
+              const parseResult = parseGaelicInsightsXml({
+                xmlText: xmlText,
+                homeTeam: homeTeam,
+                awayTeam: awayTeam,
+                half1Video: half1Video,
+                half2Video: half2Video,
+                selectedWhistles: null,
+                seekPrerollSeconds: 2
+              });
+
+              if (parseResult.status === 'error') {
+                parseStatus = `gaelic-insights-error: ${parseResult.error}`;
+              } else if (parseResult.status === 'needs_whistle_selection') {
+                parseStatus = 'gaelic-insights-needs-whistle-selection';
+              } else {
+                eventRows = parseResult.events.map(evt => ({
+                  game_id: game.gameId,
+                  data: evt
+                }));
+                parseStatus = `gaelic-insights-${eventRows.length}-events`;
+              }
+            } catch (e) {
+              parseStatus = `gaelic-insights-parse-error: ${e.message}`;
+            }
+          } else if (xmlFormat === 'giu') {
             // ── GIU Format ──
             let xmlP1 = null, xmlP2 = null;
             instances.forEach(inst => {
@@ -3044,6 +3079,9 @@ async function startBatchUpload() {
         continue;
       }
 
+      // Update eventCount in metadata before upload
+      gameMeta.eventCount = eventRows.length;
+
       gamesToUpload.push({
         gameId: game.gameId,
         gameMeta: gameMeta,
@@ -3066,17 +3104,24 @@ async function startBatchUpload() {
 
   // Call batch upload function
   updateBatchProgress(games.length, games.length, 'Uploading to database...');
-  await callBatchUpload(gamesToUpload);
+  const uploadSuccess = await callBatchUpload(gamesToUpload);
 
-  // Final status
-  updateBatchProgress(games.length, games.length, '✅ Upload complete! You can close this window.');
-  logMessage('✅ All games uploaded successfully.');
+  // Final status - only show success if upload actually succeeded
+  if (uploadSuccess) {
+    updateBatchProgress(games.length, games.length, '✅ Upload complete! You can close this window.');
+    logMessage('✅ All games uploaded successfully.');
+  } else {
+    updateBatchProgress(games.length, games.length, '⚠️ Upload failed. See details above.');
+    logMessage('⚠️ Some games failed to upload. Check the log above for details.');
+  }
   uploadBtn.disabled = false;
 }
 
 function buildGameMetaFromExcel(row) {
   const gameId = row['game_id'] || row['Game ID'] || '';
-  const title = row['title'] || row['Title'] || '';
+  const homeTeam = row['home_team'] || row['Home Team'] || '';
+  const awayTeam = row['away_team'] || row['Away Team'] || '';
+  const title = row['title'] || row['Title'] || `${homeTeam} v ${awayTeam}`;
 
   // Convert date from Excel (Date object, serial number, or string) to ISO string format
   let date = row['date'] || row['Date'] || null;
@@ -3102,6 +3147,8 @@ function buildGameMetaFromExcel(row) {
   // Parse video start times from string format (MM:SS) to seconds
   const half1Start = row['half1_start'] ? parseTime(row['half1_start']) : null;
   const half2Start = row['half2_start'] ? parseTime(row['half2_start']) : null;
+  const et1Start = row['et1_start'] ? parseTime(row['et1_start']) : null;
+  const et2Start = row['et2_start'] ? parseTime(row['et2_start']) : null;
 
   // Extract YouTube video ID
   let youtubeId = null;
@@ -3110,20 +3157,34 @@ function buildGameMetaFromExcel(row) {
     youtubeId = extractYtId(ytUrl);
   }
 
-  const opposition = row['opposition'] || row['Opposition'] || row['away_team'] || row['Away Team'] || '';
   const competition = row['competition'] || row['Competition'] || '';
+  const round = row['round'] || row['Round'] || '';
+  const division = row['division'] || row['Division'] || '';
   const venue = row['venue'] || row['Venue'] || '';
+  const homeColor = row['home_color'] || row['Home Color'] || '#0B2447';
+  const awayColor = row['away_color'] || row['Away Color'] || '#22C55E';
+  const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : '';
 
   return {
     id: gameId,
     title: title,
     date: date,
-    opposition: opposition,
+    homeTeam: homeTeam,
+    awayTeam: awayTeam,
     competition: competition,
+    round: round,
+    division: division,
     venue: venue,
+    homeColor: homeColor,
+    awayColor: awayColor,
     youtubeId: youtubeId,
+    thumbnail: thumbnail,
     half1Start: half1Start,
-    half2Start: half2Start
+    half2Start: half2Start,
+    et1Start: et1Start,
+    et2Start: et2Start,
+    eventCount: 0,
+    parser: 'batch-upload'
   };
 }
 
@@ -3147,7 +3208,7 @@ async function callBatchUpload(games) {
     const user = netlifyIdentity.currentUser();
     if (!user) {
       logMessage('❌ Not authenticated');
-      return;
+      return false;
     }
 
     const response = await fetch('/.netlify/functions/processBatchGames', {
@@ -3163,7 +3224,7 @@ async function callBatchUpload(games) {
 
     if (!response.ok) {
       logMessage(`❌ Upload failed: ${result.error}`);
-      return;
+      return false;
     }
 
     logMessage(`✅ Batch upload complete: ${result.processed} succeeded, ${result.failed} failed`);
@@ -3177,8 +3238,12 @@ async function callBatchUpload(games) {
         }
       }
     }
+
+    // Return true only if all games succeeded
+    return result.success === true && result.failed === 0;
   } catch (err) {
     logMessage(`❌ Error: ${err.message}`);
+    return false;
   }
 }
 </script>

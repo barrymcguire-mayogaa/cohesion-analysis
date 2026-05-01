@@ -13,24 +13,7 @@
  * - Checks for 'admin' role
  * - Bypasses RLS policies (service key privilege)
  *
- * Usage from admin.html:
- *   const response = await fetch('/.netlify/functions/processBatchGames', {
- *     method: 'POST',
- *     headers: { 'Content-Type': 'application/json' },
- *     body: JSON.stringify({
- *       games: [
- *         { gameId: 'game-1', gameMeta: {...}, eventRows: [...] },
- *         { gameId: 'game-2', gameMeta: {...}, eventRows: [...] },
- *         ...
- *       ]
- *     })
- *   });
- *
- * Benefits over processGame.js:
- * - Single JWT validation (vs. N validations)
- * - Single Netlify cold-start (vs. N cold-starts)
- * - Connection pooling efficiency
- * - Reduces token usage by ~90% for batch uploads
+ * CRITICAL: Validation happens BEFORE any database writes to prevent orphaned records
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -129,7 +112,7 @@ exports.handler = async (event) => {
     let failureCount = 0;
 
     for (const game of games) {
-      const { gameId, gameMeta, eventRows, skipXml, isReparse } = game;
+      const { gameId, gameMeta, eventRows } = game;
       const gameResult = {
         gameId: gameId,
         success: false,
@@ -138,9 +121,9 @@ exports.handler = async (event) => {
       };
 
       try {
-        // ========================================================================
-        // VALIDATION: Reject game before touching Supabase if any field is invalid
-        // ========================================================================
+        // ====================================================================
+        // VALIDATION: Reject game BEFORE touching Supabase if any field invalid
+        // ====================================================================
 
         // Validate required fields for this game
         if (!gameId) {
@@ -176,8 +159,10 @@ exports.handler = async (event) => {
         }
 
         // ====================================================================
-        // UPSERT game metadata FIRST (required for foreign key)
+        // NOW that all validation passed, write to database
         // ====================================================================
+
+        // UPSERT game metadata
         const gameRecord = {
           id: gameId,
           meta: gameMeta
@@ -191,23 +176,17 @@ exports.handler = async (event) => {
           throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
         }
 
-        // ====================================================================
-        // DELETE old events (if not in skipXml reparse mode)
-        // ====================================================================
-        if (!(skipXml && isReparse)) {
-          const { error: delErr } = await supabase
-            .from('events')
-            .delete()
-            .eq('game_id', gameId);
+        // DELETE old events
+        const { error: delErr } = await supabase
+          .from('events')
+          .delete()
+          .eq('game_id', gameId);
 
-          if (delErr) {
-            throw new Error(`Failed to delete old events: ${delErr.message}`);
-          }
+        if (delErr) {
+          throw new Error(`Failed to delete old events: ${delErr.message}`);
         }
 
-        // ====================================================================
         // INSERT new events in chunks (avoid timeout with large datasets)
-        // ====================================================================
         const chunkSize = 50;
         for (let i = 0; i < eventRows.length; i += chunkSize) {
           const chunk = eventRows.slice(i, i + chunkSize);
@@ -216,7 +195,7 @@ exports.handler = async (event) => {
             .insert(chunk);
 
           if (insErr) {
-            throw new Error(`Failed to insert events chunk ${i / chunkSize + 1}: ${insErr.message}`);
+            throw new Error(`Failed to insert events chunk ${Math.floor(i / chunkSize) + 1}: ${insErr.message}`);
           }
         }
 
