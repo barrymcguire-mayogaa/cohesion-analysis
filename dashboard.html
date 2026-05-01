@@ -264,11 +264,20 @@ function makeYTP(){
   if(!ang||!ang.youtubeId)return;
   YTP=new YT.Player('ytPlayerDiv',{
     videoId:ang.youtubeId,
-    playerVars:{start:Math.max(0,ang.half1Start||0),rel:0,fs:1,modestbranding:1},
+    playerVars:{start:Math.max(0,ang.half1Start||0),rel:0,fs:1,modestbranding:1,enablejsapi:1,origin:window.location.origin},
     events:{
-      onReady:function(){tlDur=YTP.getDuration()||5400;if(pendSeek!==null){YTP.seekTo(pendSeek,true);YTP.playVideo();pendSeek=null;}drawTL();},
+      onReady:function(){tlDur=YTP.getDuration()||5400;if(pendSeek!==null){YTP.seekTo(pendSeek,true);YTP.playVideo();pendSeek=null;}drawTL();document.getElementById('ytFallback').style.display='none';},
       onStateChange:function(e){if(e.data===1)startRAF();else stopRAF();},
-      onError:function(e){console.warn('YT:',e.data);}
+      onError:function(e){
+        console.warn('YT Error:',e.data);
+        // Show fallback on embedding error (error code 150 = blocked embedding)
+        if(e.data===150||e.data===2){
+          document.getElementById('ytPlayerDiv').style.display='none';
+          document.getElementById('ytFallback').style.display='flex';
+          const vid=(GAME.angles&&GAME.angles[currentAngleIdx||0]?.youtubeId)||GAME.youtubeId||'';
+          document.getElementById('ytFallbackLink').href='https://youtu.be/'+vid;
+        }
+      }
     }
   });
   setTimeout(()=>{const el=document.getElementById('ytPlayerDiv');if(el){el.querySelectorAll('iframe').forEach(f=>{f.style.width='100%';f.style.height='100%';f.style.border='none';});}},1200);
@@ -346,7 +355,22 @@ function buildHTML(H,A){
       <div class="tbtn tbtn-fs" onclick="goFS()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/></svg> Fullscreen</div>
       <a id="YTB" class="tbtn tbtn-yt" href="https://youtu.be/${(GAME.angles&&GAME.angles[0]?.youtubeId)||GAME.youtubeId||''}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.8 15.5V8.5l6.4 3.5-6.4 3.5z"/></svg> Open In Youtube</a>
     </div>
-    <div class="vid-area" id="VA" style="height:240px"><div id="ytPlayerDiv" style="width:100%;height:100%;"></div></div>
+    <div class="vid-area" id="VA" style="height:240px">
+      <div id="ytPlayerDiv" style="width:100%;height:100%;"></div>
+      <div id="ytFallback" style="display:none;width:100%;height:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div style="font-size:14px;color:var(--t2);margin-bottom:12px;">⚠ YouTube is blocking embedded playback</div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.5;">
+          <div>YouTube may require authentication or is blocking this session.</div>
+          <div style="margin-top:8px;">Try these steps:</div>
+          <div style="margin-top:8px;text-align:left;display:inline-block;color:var(--t2);">
+            <div>1. Click "Open In YouTube" above</div>
+            <div>2. Sign in to your Google account</div>
+            <div>3. Return here and refresh</div>
+          </div>
+        </div>
+        <a href="" id="ytFallbackLink" target="_blank" rel="noopener" style="padding:8px 16px;background:var(--accent);color:#fff;border-radius:6px;font-size:11px;font-weight:bold;text-decoration:none;cursor:pointer;">Open In YouTube</a>
+      </div>
+    </div>
     <div class="vid-controls">
       <div class="vc-btn" onclick="vcPrevEv()" title="Previous event">⏮</div>
       <div class="vc-btn" onclick="vcSeek(-30)" title="Back 30s">⏪</div>
