@@ -478,7 +478,10 @@ function getYearFromDate(dateValue) {
 
 function buildTeamFilter(games){
   const teams = new Set();
-  games.forEach(g=>{ teams.add(g.homeTeam); teams.add(g.awayTeam); });
+  games.forEach(g=>{
+    if(g.homeTeam) teams.add(g.homeTeam);
+    if(g.awayTeam) teams.add(g.awayTeam);
+  });
   const sel = document.getElementById('fTeam');
   [...teams].sort().forEach(t=>{
     const o = document.createElement('option');
@@ -521,12 +524,13 @@ function applyFilters(){
   const search = document.getElementById('fSearch').value.toLowerCase();
 
   const filtered = allGames.filter(g=>{
+    if(!g) return false;
     if(comp && g.competition !== comp) return false;
     if(div && g.division !== div) return false;
     if(round && g.round !== round) return false;
     if(team && g.homeTeam !== team && g.awayTeam !== team) return false;
     if(year && getYearFromDate(g.date) !== year) return false;
-    if(search && ![g.title,g.competition,g.homeTeam,g.awayTeam,g.round]
+    if(search && ![g.title||'',g.competition||'',g.homeTeam||'',g.awayTeam||'',g.round||'']
         .join(' ').toLowerCase().includes(search)) return false;
     return true;
   });
@@ -567,13 +571,20 @@ function renderGames(games){
 
   wrap.innerHTML = sortedKeys.map(k=>{
     const grp = groups[k];
-    const cards = grp.games.map(g=>`
+    const cards = grp.games.map(g=>{
+      const home = g.homeTeam || 'Unknown';
+      const away = g.awayTeam || 'Unknown';
+      const title = g.title || `${home} v ${away}`;
+      const comp = g.competition || '—';
+      const thumbUrl = g.thumbnail || `https://img.youtube.com/vi/${g.youtubeId}/hqdefault.jpg`;
+      const ytId = g.youtubeId || '';
+      return `
       <a class="game-card" href="dashboard.html?game=${g.id}">
         <div class="card-thumb">
-          <img src="${g.thumbnail}" alt="${g.title}"
-               onerror="this.src='https://img.youtube.com/vi/${g.youtubeId}/hqdefault.jpg'">
+          <img src="${thumbUrl}" alt="${title}"
+               onerror="this.src='https://img.youtube.com/vi/${ytId}/hqdefault.jpg'">
           <div class="card-thumb-overlay">
-            <div class="card-competition">${g.competition}</div>
+            <div class="card-competition">${comp}</div>
             ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
           </div>
           ${auth==='admin'?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
@@ -581,7 +592,7 @@ function renderGames(games){
         </div>
         <div class="card-body">
           <div class="card-teams">
-            ${g.homeTeam} <span class="vs">v</span> ${g.awayTeam}
+            ${home} <span class="vs">v</span> ${away}
           </div>
           <div class="card-meta">
             <div class="card-date">${formatDate(g.date)}</div>
@@ -589,7 +600,8 @@ function renderGames(games){
           </div>
           <div class="card-events"><b>${g.eventCount||'—'}</b> coded events</div>
         </div>
-      </a>`).join('');
+      </a>`;
+    }).join('');
     return `
       <div class="section-header">${grp.label} <span>· ${grp.games.length} game${grp.games.length!==1?'s':''}</span></div>
       <div class="game-grid">${cards}</div>`;
@@ -605,7 +617,10 @@ function startDelete(id, e){
   const g = allGames.find(x=>x.id===id);
   if(!g) return;
   pendingDeleteId = id;
-  document.getElementById('delGameName').textContent = `${g.homeTeam} v ${g.awayTeam} (${getYearFromDate(g.date)})`;
+  const home = g.homeTeam || 'Unknown';
+  const away = g.awayTeam || 'Unknown';
+  const year = getYearFromDate(g.date) || '—';
+  document.getElementById('delGameName').textContent = `${home} v ${away} (${year})`;
   document.getElementById('delModal').classList.add('show');
 }
 function closeModal(){
@@ -780,7 +795,10 @@ async function loadGames(){
   try{
     const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
     if(error) throw error;
-    allGames = (data || []).map(r => r.meta);
+    // Filter out null/undefined meta objects to prevent crashes
+    allGames = (data || [])
+      .map(r => r.meta)
+      .filter(g => g && typeof g === 'object');
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();

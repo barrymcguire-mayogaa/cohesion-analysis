@@ -1,0 +1,8370 @@
+<?xml version="1.0"?>
+
+<file>
+  <ALL_INSTANCES>
+    <instance>
+      <ID>1</ID>
+      <start>18.66</start>
+      <end>28.66</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>1</ID>
+      <start>18.66</start>
+      <end>28.66</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>1</ID>
+      <start>18.66</start>
+      <end>28.66</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>22.08</start>
+      <end>36.08</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>22.08</start>
+      <end>36.08</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>22.08</start>
+      <end>36.08</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>22.08</start>
+      <end>36.08</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>22.08</start>
+      <end>36.08</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Liam Kelly</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>50.92</start>
+      <end>68.92</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>76.28</start>
+      <end>90.28</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>76.28</start>
+      <end>90.28</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>76.28</start>
+      <end>90.28</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>76.28</start>
+      <end>90.28</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>76.28</start>
+      <end>90.28</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>109.6</start>
+      <end>127.6</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>136.26</start>
+      <end>150.26</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>136.26</start>
+      <end>150.26</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>136.26</start>
+      <end>150.26</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben Loakman</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>136.26</start>
+      <end>150.26</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>136.26</start>
+      <end>150.26</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>141.02</start>
+      <end>155.02</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>141.02</start>
+      <end>155.02</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>141.02</start>
+      <end>155.02</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>141.02</start>
+      <end>155.02</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>209.98</start>
+      <end>223.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>209.98</start>
+      <end>223.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>209.98</start>
+      <end>223.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>209.98</start>
+      <end>223.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>209.98</start>
+      <end>223.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>212.7</start>
+      <end>226.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>212.7</start>
+      <end>226.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>212.7</start>
+      <end>226.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>212.7</start>
+      <end>226.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>225.32</start>
+      <end>239.32</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>225.32</start>
+      <end>239.32</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>225.32</start>
+      <end>239.32</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>225.32</start>
+      <end>239.32</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>235.12</start>
+      <end>249.12</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>235.12</start>
+      <end>249.12</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>235.12</start>
+      <end>249.12</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>235.12</start>
+      <end>249.12</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>235.12</start>
+      <end>249.12</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>286</start>
+      <end>300</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>286</start>
+      <end>300</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Forty Five</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>286</start>
+      <end>300</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>286</start>
+      <end>300</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>286</start>
+      <end>300</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>318.58</start>
+      <end>336.58</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>325.28</start>
+      <end>339.28</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>325.28</start>
+      <end>339.28</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>325.28</start>
+      <end>339.28</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>325.28</start>
+      <end>339.28</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>325.28</start>
+      <end>339.28</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>333.46</start>
+      <end>347.46</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>333.46</start>
+      <end>347.46</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>333.46</start>
+      <end>347.46</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>333.46</start>
+      <end>347.46</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>397.8</start>
+      <end>411.8</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>397.8</start>
+      <end>411.8</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>397.8</start>
+      <end>411.8</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>397.8</start>
+      <end>411.8</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>397.8</start>
+      <end>411.8</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Liam Kelly</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>428.76</start>
+      <end>446.76</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>452.68</start>
+      <end>466.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ben Loakman</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>452.68</start>
+      <end>466.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>452.68</start>
+      <end>466.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>452.68</start>
+      <end>466.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>452.68</start>
+      <end>466.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>458.34</start>
+      <end>472.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>458.34</start>
+      <end>472.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>458.34</start>
+      <end>472.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>458.34</start>
+      <end>472.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>499.1</start>
+      <end>513.1</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>499.1</start>
+      <end>513.1</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>499.1</start>
+      <end>513.1</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>499.1</start>
+      <end>513.1</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>499.1</start>
+      <end>513.1</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>529.62</start>
+      <end>547.62</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>534.38</start>
+      <end>548.38</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>534.38</start>
+      <end>548.38</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>534.38</start>
+      <end>548.38</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Moran</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>534.38</start>
+      <end>548.38</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>534.38</start>
+      <end>548.38</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>552.9</start>
+      <end>570.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>563.16</start>
+      <end>577.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>563.16</start>
+      <end>577.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>563.16</start>
+      <end>577.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>563.16</start>
+      <end>577.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>563.16</start>
+      <end>577.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Hit Post</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>566.56</start>
+      <end>580.56</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>566.56</start>
+      <end>580.56</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>566.56</start>
+      <end>580.56</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>566.56</start>
+      <end>580.56</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>600.06</start>
+      <end>614.06</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>600.06</start>
+      <end>614.06</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>600.06</start>
+      <end>614.06</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>600.06</start>
+      <end>614.06</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>606.66</start>
+      <end>620.66</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>606.66</start>
+      <end>620.66</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>606.66</start>
+      <end>620.66</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>606.66</start>
+      <end>620.66</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ryan Burke</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>647.68</start>
+      <end>665.68</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>672.54</start>
+      <end>686.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>672.54</start>
+      <end>686.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>672.54</start>
+      <end>686.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>672.54</start>
+      <end>686.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>672.54</start>
+      <end>686.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>700.4</start>
+      <end>718.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>708.26</start>
+      <end>722.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>708.26</start>
+      <end>722.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>708.26</start>
+      <end>722.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>708.26</start>
+      <end>722.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>708.26</start>
+      <end>722.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>730.96</start>
+      <end>744.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>730.96</start>
+      <end>744.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>730.96</start>
+      <end>744.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>730.96</start>
+      <end>744.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>730.96</start>
+      <end>744.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>James Harris</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>733.82</start>
+      <end>751.82</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Liam Kelly</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>761.54</start>
+      <end>779.54</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>810.72</start>
+      <end>824.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>810.72</start>
+      <end>824.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>810.72</start>
+      <end>824.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>810.72</start>
+      <end>824.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>810.72</start>
+      <end>824.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>842.32</start>
+      <end>860.32</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>889.8</start>
+      <end>903.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>889.8</start>
+      <end>903.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>889.8</start>
+      <end>903.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>889.8</start>
+      <end>903.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>912.46</start>
+      <end>926.46</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>912.46</start>
+      <end>926.46</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>912.46</start>
+      <end>926.46</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>912.46</start>
+      <end>926.46</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>912.46</start>
+      <end>926.46</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ryan Burke</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>959.04</start>
+      <end>977.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>988.82</start>
+      <end>1002.82</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sam Doran</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>988.82</start>
+      <end>1002.82</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>988.82</start>
+      <end>1002.82</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>988.82</start>
+      <end>1002.82</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>988.82</start>
+      <end>1002.82</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1018.14</start>
+      <end>1036.14</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1035.34</start>
+      <end>1049.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1035.34</start>
+      <end>1049.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1035.34</start>
+      <end>1049.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1035.34</start>
+      <end>1049.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1035.34</start>
+      <end>1049.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1059.38</start>
+      <end>1077.38</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1082.92</start>
+      <end>1096.92</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1082.92</start>
+      <end>1096.92</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1082.92</start>
+      <end>1096.92</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1082.92</start>
+      <end>1096.92</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1111.82</start>
+      <end>1125.82</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1111.82</start>
+      <end>1125.82</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1111.82</start>
+      <end>1125.82</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1111.82</start>
+      <end>1125.82</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1162.54</start>
+      <end>1176.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1162.54</start>
+      <end>1176.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1162.54</start>
+      <end>1176.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1162.54</start>
+      <end>1176.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1162.54</start>
+      <end>1176.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian Byrne</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1184.74</start>
+      <end>1202.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1246.64</start>
+      <end>1260.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1246.64</start>
+      <end>1260.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1246.64</start>
+      <end>1260.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1246.64</start>
+      <end>1260.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1246.64</start>
+      <end>1260.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1283.36</start>
+      <end>1301.36</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1309.86</start>
+      <end>1323.86</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1309.86</start>
+      <end>1323.86</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1309.86</start>
+      <end>1323.86</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1309.86</start>
+      <end>1323.86</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1371.44</start>
+      <end>1385.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1371.44</start>
+      <end>1385.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1371.44</start>
+      <end>1385.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1371.44</start>
+      <end>1385.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1371.44</start>
+      <end>1385.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1402.6</start>
+      <end>1420.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1402.76</start>
+      <end>1416.76</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1402.76</start>
+      <end>1416.76</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1402.76</start>
+      <end>1416.76</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1402.76</start>
+      <end>1416.76</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1443.9</start>
+      <end>1457.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1443.9</start>
+      <end>1457.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1443.9</start>
+      <end>1457.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1443.9</start>
+      <end>1457.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1443.9</start>
+      <end>1457.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1466.74</start>
+      <end>1484.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1493.68</start>
+      <end>1507.68</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1493.68</start>
+      <end>1507.68</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1493.68</start>
+      <end>1507.68</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1493.68</start>
+      <end>1507.68</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1515.96</start>
+      <end>1529.96</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1515.96</start>
+      <end>1529.96</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1515.96</start>
+      <end>1529.96</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1515.96</start>
+      <end>1529.96</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1551.08</start>
+      <end>1565.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1551.08</start>
+      <end>1565.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1551.08</start>
+      <end>1565.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1551.08</start>
+      <end>1565.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1551.08</start>
+      <end>1565.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1554.7</start>
+      <end>1568.7</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1554.7</start>
+      <end>1568.7</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1554.7</start>
+      <end>1568.7</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brendan Gibbons</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1554.7</start>
+      <end>1568.7</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1554.7</start>
+      <end>1568.7</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1588.88</start>
+      <end>1606.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1631.04</start>
+      <end>1645.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1631.04</start>
+      <end>1645.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1631.04</start>
+      <end>1645.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1631.04</start>
+      <end>1645.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1631.04</start>
+      <end>1645.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1642.24</start>
+      <end>1656.24</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1642.24</start>
+      <end>1656.24</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1642.24</start>
+      <end>1656.24</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1642.24</start>
+      <end>1656.24</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1642.24</start>
+      <end>1656.24</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1672.34</start>
+      <end>1690.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1680</start>
+      <end>1694</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1680</start>
+      <end>1694</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1680</start>
+      <end>1694</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1680</start>
+      <end>1694</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>1687.32</start>
+      <end>1701.32</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>1687.32</start>
+      <end>1701.32</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>1687.32</start>
+      <end>1701.32</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>1687.32</start>
+      <end>1701.32</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>1687.32</start>
+      <end>1701.32</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>1727.24</start>
+      <end>1745.24</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>1762.2</start>
+      <end>1776.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>1762.2</start>
+      <end>1776.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>1762.2</start>
+      <end>1776.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>1762.2</start>
+      <end>1776.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>1762.2</start>
+      <end>1776.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>1793.46</start>
+      <end>1811.46</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>1827.08</start>
+      <end>1841.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>1827.08</start>
+      <end>1841.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>1827.08</start>
+      <end>1841.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>1827.08</start>
+      <end>1841.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>1827.08</start>
+      <end>1841.08</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Brady</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>1847.9</start>
+      <end>1865.9</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>1868.16</start>
+      <end>1882.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>1868.16</start>
+      <end>1882.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>1868.16</start>
+      <end>1882.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>1868.16</start>
+      <end>1882.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>1868.16</start>
+      <end>1882.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Maurice Shanley</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>1897.22</start>
+      <end>1915.22</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>1900.58</start>
+      <end>1914.58</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm Moran</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>1900.58</start>
+      <end>1914.58</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>1900.58</start>
+      <end>1914.58</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>1900.58</start>
+      <end>1914.58</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>1900.58</start>
+      <end>1914.58</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>1942.6</start>
+      <end>1960.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>1975.56</start>
+      <end>1989.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>1975.56</start>
+      <end>1989.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>1975.56</start>
+      <end>1989.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>1975.56</start>
+      <end>1989.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>1975.56</start>
+      <end>1989.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>1978.12</start>
+      <end>1992.12</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>1978.12</start>
+      <end>1992.12</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>1978.12</start>
+      <end>1992.12</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>1978.12</start>
+      <end>1992.12</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2102.82</start>
+      <end>2116.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2102.82</start>
+      <end>2116.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2102.82</start>
+      <end>2116.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2102.82</start>
+      <end>2116.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2102.82</start>
+      <end>2116.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2134.42</start>
+      <end>2152.42</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2168.22</start>
+      <end>2182.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2168.22</start>
+      <end>2182.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2168.22</start>
+      <end>2182.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2168.22</start>
+      <end>2182.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2168.22</start>
+      <end>2182.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2189.98</start>
+      <end>2199.98</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2189.98</start>
+      <end>2199.98</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2189.98</start>
+      <end>2199.98</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>3168.96</start>
+      <end>3178.96</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>3168.96</start>
+      <end>3178.96</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>3168.96</start>
+      <end>3178.96</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>3173.78</start>
+      <end>3187.78</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>3173.78</start>
+      <end>3187.78</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>3173.78</start>
+      <end>3187.78</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>3173.78</start>
+      <end>3187.78</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>3173.78</start>
+      <end>3187.78</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>3212.74</start>
+      <end>3230.74</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>3232.36</start>
+      <end>3246.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>3232.36</start>
+      <end>3246.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>3232.36</start>
+      <end>3246.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>3232.36</start>
+      <end>3246.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>3232.36</start>
+      <end>3246.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Tommy Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>3265.44</start>
+      <end>3283.44</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>3282.16</start>
+      <end>3296.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>3282.16</start>
+      <end>3296.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>3282.16</start>
+      <end>3296.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>3282.16</start>
+      <end>3296.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>3297.48</start>
+      <end>3311.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>3297.48</start>
+      <end>3311.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>3297.48</start>
+      <end>3311.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>3297.48</start>
+      <end>3311.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>3297.48</start>
+      <end>3311.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>3299.5</start>
+      <end>3313.5</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>3299.5</start>
+      <end>3313.5</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>3299.5</start>
+      <end>3313.5</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>3299.5</start>
+      <end>3313.5</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>3327.3</start>
+      <end>3341.3</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>3327.3</start>
+      <end>3341.3</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>3327.3</start>
+      <end>3341.3</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>3327.3</start>
+      <end>3341.3</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>3327.3</start>
+      <end>3341.3</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>3366.46</start>
+      <end>3384.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>3399.9</start>
+      <end>3413.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>3399.9</start>
+      <end>3413.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>3399.9</start>
+      <end>3413.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>3399.9</start>
+      <end>3413.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>3399.9</start>
+      <end>3413.9</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>3419.66</start>
+      <end>3433.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>3419.66</start>
+      <end>3433.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>3419.66</start>
+      <end>3433.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>3419.66</start>
+      <end>3433.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>3419.66</start>
+      <end>3433.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Harry O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>3420.78</start>
+      <end>3438.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>3448.66</start>
+      <end>3466.66</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>3478.96</start>
+      <end>3492.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>3478.96</start>
+      <end>3492.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>3478.96</start>
+      <end>3492.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>3478.96</start>
+      <end>3492.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>3478.96</start>
+      <end>3492.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brendan Gibbons</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>3512.34</start>
+      <end>3530.34</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>3625.6</start>
+      <end>3639.6</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>3625.6</start>
+      <end>3639.6</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>3625.6</start>
+      <end>3639.6</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>3625.6</start>
+      <end>3639.6</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>3625.6</start>
+      <end>3639.6</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>3661.72</start>
+      <end>3679.72</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3664.04</start>
+      <end>3678.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3664.04</start>
+      <end>3678.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3664.04</start>
+      <end>3678.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3664.04</start>
+      <end>3678.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3664.04</start>
+      <end>3678.04</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3687.78</start>
+      <end>3705.78</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3710.62</start>
+      <end>3724.62</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3710.62</start>
+      <end>3724.62</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3710.62</start>
+      <end>3724.62</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3710.62</start>
+      <end>3724.62</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3710.62</start>
+      <end>3724.62</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3757.5</start>
+      <end>3775.5</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3769.56</start>
+      <end>3783.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3769.56</start>
+      <end>3783.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3769.56</start>
+      <end>3783.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Moran</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3769.56</start>
+      <end>3783.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3769.56</start>
+      <end>3783.56</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3811.82</start>
+      <end>3829.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3820.16</start>
+      <end>3834.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3820.16</start>
+      <end>3834.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3820.16</start>
+      <end>3834.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3820.16</start>
+      <end>3834.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3820.16</start>
+      <end>3834.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3875.04</start>
+      <end>3893.04</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3885.76</start>
+      <end>3899.76</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ben Loakman</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3885.76</start>
+      <end>3899.76</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3885.76</start>
+      <end>3899.76</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3885.76</start>
+      <end>3899.76</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3885.76</start>
+      <end>3899.76</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3917.64</start>
+      <end>3935.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>4027.06</start>
+      <end>4041.06</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sean Brady</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>4027.06</start>
+      <end>4041.06</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>4027.06</start>
+      <end>4041.06</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>4027.06</start>
+      <end>4041.06</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>4027.06</start>
+      <end>4041.06</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>4030.72</start>
+      <end>4044.72</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>4030.72</start>
+      <end>4044.72</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>4030.72</start>
+      <end>4044.72</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>4030.72</start>
+      <end>4044.72</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>4059.44</start>
+      <end>4073.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ryan Burke</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>4059.44</start>
+      <end>4073.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>4059.44</start>
+      <end>4073.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>4059.44</start>
+      <end>4073.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>4059.44</start>
+      <end>4073.44</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>4089.46</start>
+      <end>4107.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>4122.18</start>
+      <end>4136.18</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>4122.18</start>
+      <end>4136.18</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>4122.18</start>
+      <end>4136.18</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack Robinson</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>4122.18</start>
+      <end>4136.18</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>4122.18</start>
+      <end>4136.18</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>4163.64</start>
+      <end>4181.64</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>4218.16</start>
+      <end>4232.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>4218.16</start>
+      <end>4232.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>4218.16</start>
+      <end>4232.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>4218.16</start>
+      <end>4232.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>4218.16</start>
+      <end>4232.16</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>4262.56</start>
+      <end>4280.56</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>4322.48</start>
+      <end>4336.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>4322.48</start>
+      <end>4336.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>4322.48</start>
+      <end>4336.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>4322.48</start>
+      <end>4336.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>4322.48</start>
+      <end>4336.48</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4347.86</start>
+      <end>4365.86</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4379.64</start>
+      <end>4393.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4379.64</start>
+      <end>4393.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4379.64</start>
+      <end>4393.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4379.64</start>
+      <end>4393.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4379.64</start>
+      <end>4393.64</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4414.88</start>
+      <end>4432.88</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4428.26</start>
+      <end>4442.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4428.26</start>
+      <end>4442.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4428.26</start>
+      <end>4442.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4428.26</start>
+      <end>4442.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4428.26</start>
+      <end>4442.26</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4459.2</start>
+      <end>4477.2</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4466.02</start>
+      <end>4480.02</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian O Driscoll</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4466.02</start>
+      <end>4480.02</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4466.02</start>
+      <end>4480.02</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Tommy Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4466.02</start>
+      <end>4480.02</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4466.02</start>
+      <end>4480.02</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4504.02</start>
+      <end>4522.02</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4508.2</start>
+      <end>4522.2</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4508.2</start>
+      <end>4522.2</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4508.2</start>
+      <end>4522.2</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben Loakman</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4508.2</start>
+      <end>4522.2</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4508.2</start>
+      <end>4522.2</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4547.28</start>
+      <end>4565.28</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4547.28</start>
+      <end>4565.28</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4547.28</start>
+      <end>4565.28</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4547.28</start>
+      <end>4565.28</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4547.28</start>
+      <end>4565.28</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4564.34</start>
+      <end>4578.34</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4564.34</start>
+      <end>4578.34</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4564.34</start>
+      <end>4578.34</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4564.34</start>
+      <end>4578.34</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4564.34</start>
+      <end>4578.34</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4590.38</start>
+      <end>4608.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4744.84</start>
+      <end>4758.84</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4744.84</start>
+      <end>4758.84</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Penalty</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4744.84</start>
+      <end>4758.84</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4744.84</start>
+      <end>4758.84</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4744.84</start>
+      <end>4758.84</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4747.34</start>
+      <end>4761.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4747.34</start>
+      <end>4761.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4747.34</start>
+      <end>4761.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4747.34</start>
+      <end>4761.34</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4873.3</start>
+      <end>4887.3</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4873.3</start>
+      <end>4887.3</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4873.3</start>
+      <end>4887.3</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4873.3</start>
+      <end>4887.3</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4880.5</start>
+      <end>4894.5</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4880.5</start>
+      <end>4894.5</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4880.5</start>
+      <end>4894.5</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4880.5</start>
+      <end>4894.5</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4880.5</start>
+      <end>4894.5</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4883.24</start>
+      <end>4897.24</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4883.24</start>
+      <end>4897.24</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4883.24</start>
+      <end>4897.24</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian Byrne</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4883.24</start>
+      <end>4897.24</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4883.24</start>
+      <end>4897.24</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4884.42</start>
+      <end>4898.42</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4884.42</start>
+      <end>4898.42</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4884.42</start>
+      <end>4898.42</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4884.42</start>
+      <end>4898.42</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4895.1</start>
+      <end>4909.1</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4895.1</start>
+      <end>4909.1</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4895.1</start>
+      <end>4909.1</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4895.1</start>
+      <end>4909.1</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4900.72</start>
+      <end>4914.72</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4900.72</start>
+      <end>4914.72</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4900.72</start>
+      <end>4914.72</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4900.72</start>
+      <end>4914.72</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4900.72</start>
+      <end>4914.72</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4937.8</start>
+      <end>4951.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4937.8</start>
+      <end>4951.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4937.8</start>
+      <end>4951.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4937.8</start>
+      <end>4951.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4938.4</start>
+      <end>4956.4</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>5001.28</start>
+      <end>5015.28</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>5001.28</start>
+      <end>5015.28</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>5001.28</start>
+      <end>5015.28</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>5001.28</start>
+      <end>5015.28</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>5042.16</start>
+      <end>5056.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Lawlor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>5042.16</start>
+      <end>5056.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>5042.16</start>
+      <end>5056.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>5042.16</start>
+      <end>5056.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>5042.16</start>
+      <end>5056.16</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>5077.84</start>
+      <end>5095.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>5081.36</start>
+      <end>5095.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>5081.36</start>
+      <end>5095.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>5081.36</start>
+      <end>5095.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>5081.36</start>
+      <end>5095.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>5081.36</start>
+      <end>5095.36</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>5084.26</start>
+      <end>5098.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>5084.26</start>
+      <end>5098.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>5084.26</start>
+      <end>5098.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>5084.26</start>
+      <end>5098.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>5176.68</start>
+      <end>5190.68</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>5176.68</start>
+      <end>5190.68</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>5176.68</start>
+      <end>5190.68</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>5257.68</start>
+      <end>5271.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>5257.68</start>
+      <end>5271.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>5257.68</start>
+      <end>5271.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack Robinson</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>5257.68</start>
+      <end>5271.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>5257.68</start>
+      <end>5271.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>5290.46</start>
+      <end>5308.46</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>147</ID>
+      <start>5322.7</start>
+      <end>5336.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>147</ID>
+      <start>5322.7</start>
+      <end>5336.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>147</ID>
+      <start>5322.7</start>
+      <end>5336.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>147</ID>
+      <start>5322.7</start>
+      <end>5336.7</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>148</ID>
+      <start>5330.86</start>
+      <end>5344.86</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>148</ID>
+      <start>5330.86</start>
+      <end>5344.86</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>148</ID>
+      <start>5330.86</start>
+      <end>5344.86</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack Robinson</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>148</ID>
+      <start>5330.86</start>
+      <end>5344.86</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>148</ID>
+      <start>5330.86</start>
+      <end>5344.86</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>149</ID>
+      <start>5354.74</start>
+      <end>5368.74</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>149</ID>
+      <start>5354.74</start>
+      <end>5368.74</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>149</ID>
+      <start>5354.74</start>
+      <end>5368.74</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Darragh Kirwan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>149</ID>
+      <start>5354.74</start>
+      <end>5368.74</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>149</ID>
+      <start>5354.74</start>
+      <end>5368.74</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Rory Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>150</ID>
+      <start>5400.96</start>
+      <end>5418.96</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>151</ID>
+      <start>5410.64</start>
+      <end>5424.64</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>151</ID>
+      <start>5410.64</start>
+      <end>5424.64</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>151</ID>
+      <start>5410.64</start>
+      <end>5424.64</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ruairi Deane</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>151</ID>
+      <start>5410.64</start>
+      <end>5424.64</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>151</ID>
+      <start>5410.64</start>
+      <end>5424.64</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>152</ID>
+      <start>5419.22</start>
+      <end>5433.22</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>152</ID>
+      <start>5419.22</start>
+      <end>5433.22</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>152</ID>
+      <start>5419.22</start>
+      <end>5433.22</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>152</ID>
+      <start>5419.22</start>
+      <end>5433.22</end>
+      <code>Kildare Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>153</ID>
+      <start>5443</start>
+      <end>5457</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>153</ID>
+      <start>5443</start>
+      <end>5457</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>153</ID>
+      <start>5443</start>
+      <end>5457</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brian McLoughlin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>153</ID>
+      <start>5443</start>
+      <end>5457</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>153</ID>
+      <start>5443</start>
+      <end>5457</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>154</ID>
+      <start>5453.42</start>
+      <end>5467.42</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>154</ID>
+      <start>5453.42</start>
+      <end>5467.42</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>154</ID>
+      <start>5453.42</start>
+      <end>5467.42</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>154</ID>
+      <start>5453.42</start>
+      <end>5467.42</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>154</ID>
+      <start>5453.42</start>
+      <end>5467.42</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>155</ID>
+      <start>5489.84</start>
+      <end>5507.84</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>156</ID>
+      <start>5494.92</start>
+      <end>5508.92</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>156</ID>
+      <start>5494.92</start>
+      <end>5508.92</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>156</ID>
+      <start>5494.92</start>
+      <end>5508.92</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack Robinson</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>156</ID>
+      <start>5494.92</start>
+      <end>5508.92</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>156</ID>
+      <start>5494.92</start>
+      <end>5508.92</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>157</ID>
+      <start>5496.26</start>
+      <end>5510.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>157</ID>
+      <start>5496.26</start>
+      <end>5510.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>157</ID>
+      <start>5496.26</start>
+      <end>5510.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>157</ID>
+      <start>5496.26</start>
+      <end>5510.26</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>158</ID>
+      <start>5542.98</start>
+      <end>5556.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>158</ID>
+      <start>5542.98</start>
+      <end>5556.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>158</ID>
+      <start>5542.98</start>
+      <end>5556.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>158</ID>
+      <start>5542.98</start>
+      <end>5556.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>158</ID>
+      <start>5542.98</start>
+      <end>5556.98</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Callum Bolton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>159</ID>
+      <start>5565.04</start>
+      <end>5583.04</end>
+      <code>Kildare Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>160</ID>
+      <start>5577.68</start>
+      <end>5591.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ben McCormack</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>160</ID>
+      <start>5577.68</start>
+      <end>5591.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>160</ID>
+      <start>5577.68</start>
+      <end>5591.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Brendan Gibbons</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>160</ID>
+      <start>5577.68</start>
+      <end>5591.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>160</ID>
+      <start>5577.68</start>
+      <end>5591.68</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>161</ID>
+      <start>5617.38</start>
+      <end>5635.38</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>162</ID>
+      <start>5623.54</start>
+      <end>5637.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>162</ID>
+      <start>5623.54</start>
+      <end>5637.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>162</ID>
+      <start>5623.54</start>
+      <end>5637.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McKevitt</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>162</ID>
+      <start>5623.54</start>
+      <end>5637.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>162</ID>
+      <start>5623.54</start>
+      <end>5637.54</end>
+      <code>Kildare Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>163</ID>
+      <start>5631.16</start>
+      <end>5645.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>163</ID>
+      <start>5631.16</start>
+      <end>5645.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>163</ID>
+      <start>5631.16</start>
+      <end>5645.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>163</ID>
+      <start>5631.16</start>
+      <end>5645.16</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>164</ID>
+      <start>5643.7</start>
+      <end>5653.7</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>164</ID>
+      <start>5643.7</start>
+      <end>5653.7</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>164</ID>
+      <start>5643.7</start>
+      <end>5653.7</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+  </ALL_INSTANCES>
+  <ROWS>
+    <row>
+      <code>Cork Kickout</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Cork Shot</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Cork Turnover Won</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Kildare Kickout</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Kildare Shot</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Kildare Turnover Won</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>NA Whistle</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+  </ROWS>
+</file>

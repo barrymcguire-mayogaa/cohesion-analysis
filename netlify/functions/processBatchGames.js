@@ -162,47 +162,67 @@ exports.handler = async (event) => {
         // NOW that all validation passed, write to database
         // ====================================================================
 
-        // UPSERT game metadata
-        const gameRecord = {
-          id: gameId,
-          meta: gameMeta
-        };
+        let metadataWritten = false;
 
-        const { error: upsertErr } = await supabase
-          .from('games')
-          .upsert(gameRecord);
+        try {
+          // UPSERT game metadata
+          const gameRecord = {
+            id: gameId,
+            meta: gameMeta
+          };
 
-        if (upsertErr) {
-          throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
-        }
+          const { error: upsertErr } = await supabase
+            .from('games')
+            .upsert(gameRecord);
 
-        // DELETE old events
-        const { error: delErr } = await supabase
-          .from('events')
-          .delete()
-          .eq('game_id', gameId);
-
-        if (delErr) {
-          throw new Error(`Failed to delete old events: ${delErr.message}`);
-        }
-
-        // INSERT new events in chunks (avoid timeout with large datasets)
-        const chunkSize = 50;
-        for (let i = 0; i < eventRows.length; i += chunkSize) {
-          const chunk = eventRows.slice(i, i + chunkSize);
-          const { error: insErr } = await supabase
-            .from('events')
-            .insert(chunk);
-
-          if (insErr) {
-            throw new Error(`Failed to insert events chunk ${Math.floor(i / chunkSize) + 1}: ${insErr.message}`);
+          if (upsertErr) {
+            throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
           }
-        }
+          metadataWritten = true;
 
-        // Mark as success
-        gameResult.success = true;
-        gameResult.eventCount = eventRows.length;
-        successCount++;
+          // DELETE old events
+          const { error: delErr } = await supabase
+            .from('events')
+            .delete()
+            .eq('game_id', gameId);
+
+          if (delErr) {
+            throw new Error(`Failed to delete old events: ${delErr.message}`);
+          }
+
+          // INSERT new events in chunks (avoid timeout with large datasets)
+          const chunkSize = 50;
+          for (let i = 0; i < eventRows.length; i += chunkSize) {
+            const chunk = eventRows.slice(i, i + chunkSize);
+            const { error: insErr } = await supabase
+              .from('events')
+              .insert(chunk);
+
+            if (insErr) {
+              throw new Error(`Failed to insert events chunk ${Math.floor(i / chunkSize) + 1}: ${insErr.message}`);
+            }
+          }
+
+          // Mark as success
+          gameResult.success = true;
+          gameResult.eventCount = eventRows.length;
+          successCount++;
+
+        } catch (dbError) {
+          // If metadata was written but events failed, rollback the metadata
+          if (metadataWritten) {
+            try {
+              await supabase
+                .from('games')
+                .delete()
+                .eq('id', gameId);
+              console.log(`Rolled back metadata for game ${gameId} due to event insert failure`);
+            } catch (rollbackErr) {
+              console.error(`Failed to rollback metadata for game ${gameId}:`, rollbackErr);
+            }
+          }
+          throw dbError;
+        }
 
       } catch (error) {
         gameResult.success = false;

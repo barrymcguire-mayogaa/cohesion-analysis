@@ -1,0 +1,7320 @@
+<?xml version="1.0"?>
+
+<file>
+  <ALL_INSTANCES>
+    <instance>
+      <ID>1</ID>
+      <start>31.6</start>
+      <end>41.6</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>1</ID>
+      <start>31.6</start>
+      <end>41.6</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>1</ID>
+      <start>31.6</start>
+      <end>41.6</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>32.7</start>
+      <end>46.7</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>32.7</start>
+      <end>46.7</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>32.7</start>
+      <end>46.7</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>2</ID>
+      <start>32.7</start>
+      <end>46.7</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>72.83</start>
+      <end>86.83</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>72.83</start>
+      <end>86.83</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>72.83</start>
+      <end>86.83</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>3</ID>
+      <start>72.83</start>
+      <end>86.83</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>4</ID>
+      <start>138.97</start>
+      <end>156.97</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>145.77</start>
+      <end>159.77</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>145.77</start>
+      <end>159.77</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>145.77</start>
+      <end>159.77</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>5</ID>
+      <start>145.77</start>
+      <end>159.77</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>175.41</start>
+      <end>189.41</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>175.41</start>
+      <end>189.41</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>175.41</start>
+      <end>189.41</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>6</ID>
+      <start>175.41</start>
+      <end>189.41</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>196.25</start>
+      <end>210.25</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>196.25</start>
+      <end>210.25</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>196.25</start>
+      <end>210.25</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>7</ID>
+      <start>196.25</start>
+      <end>210.25</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>205.2</start>
+      <end>219.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Paul Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>205.2</start>
+      <end>219.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>205.2</start>
+      <end>219.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>205.2</start>
+      <end>219.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>8</ID>
+      <start>205.2</start>
+      <end>219.2</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>9</ID>
+      <start>231.02</start>
+      <end>249.02</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>237.26</start>
+      <end>251.26</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>237.26</start>
+      <end>251.26</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>237.26</start>
+      <end>251.26</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>237.26</start>
+      <end>251.26</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>10</ID>
+      <start>237.26</start>
+      <end>251.26</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>11</ID>
+      <start>259.54</start>
+      <end>277.54</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>291.47</start>
+      <end>305.47</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Diarmuid Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>291.47</start>
+      <end>305.47</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>291.47</start>
+      <end>305.47</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>291.47</start>
+      <end>305.47</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>12</ID>
+      <start>291.47</start>
+      <end>305.47</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Meehan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>13</ID>
+      <start>317.55</start>
+      <end>335.55</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>377.5</start>
+      <end>391.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>377.5</start>
+      <end>391.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>377.5</start>
+      <end>391.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>377.5</start>
+      <end>391.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>14</ID>
+      <start>377.5</start>
+      <end>391.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>15</ID>
+      <start>401.62</start>
+      <end>419.62</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>458.38</start>
+      <end>472.38</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>458.38</start>
+      <end>472.38</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>458.38</start>
+      <end>472.38</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>16</ID>
+      <start>458.38</start>
+      <end>472.38</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>480.48</start>
+      <end>494.48</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>480.48</start>
+      <end>494.48</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>480.48</start>
+      <end>494.48</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>17</ID>
+      <start>480.48</start>
+      <end>494.48</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>502.66</start>
+      <end>516.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Maurice Shanley</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>502.66</start>
+      <end>516.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>502.66</start>
+      <end>516.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>502.66</start>
+      <end>516.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>18</ID>
+      <start>502.66</start>
+      <end>516.66</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>19</ID>
+      <start>536.92</start>
+      <end>554.92</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>561.22</start>
+      <end>575.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>561.22</start>
+      <end>575.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>561.22</start>
+      <end>575.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>561.22</start>
+      <end>575.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>20</ID>
+      <start>561.22</start>
+      <end>575.22</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>21</ID>
+      <start>585.2</start>
+      <end>603.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Meehan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>22</ID>
+      <start>617.12</start>
+      <end>635.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>660.51</start>
+      <end>674.51</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>660.51</start>
+      <end>674.51</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>660.51</start>
+      <end>674.51</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>660.51</start>
+      <end>674.51</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>23</ID>
+      <start>660.51</start>
+      <end>674.51</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>David Dempsey</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>24</ID>
+      <start>689.14</start>
+      <end>707.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>802.16</start>
+      <end>816.16</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>802.16</start>
+      <end>816.16</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>802.16</start>
+      <end>816.16</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>802.16</start>
+      <end>816.16</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>25</ID>
+      <start>802.16</start>
+      <end>816.16</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>26</ID>
+      <start>835.12</start>
+      <end>853.12</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>27</ID>
+      <start>875.42</start>
+      <end>893.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>892.3</start>
+      <end>906.3</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>892.3</start>
+      <end>906.3</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>892.3</start>
+      <end>906.3</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>892.3</start>
+      <end>906.3</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>28</ID>
+      <start>892.3</start>
+      <end>906.3</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>29</ID>
+      <start>926.33</start>
+      <end>944.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>962.01</start>
+      <end>976.01</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>962.01</start>
+      <end>976.01</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>962.01</start>
+      <end>976.01</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>30</ID>
+      <start>962.01</start>
+      <end>976.01</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>1015.63</start>
+      <end>1029.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Diarmuid Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>1015.63</start>
+      <end>1029.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>1015.63</start>
+      <end>1029.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>1015.63</start>
+      <end>1029.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>31</ID>
+      <start>1015.63</start>
+      <end>1029.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>1076.73</start>
+      <end>1090.73</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>1076.73</start>
+      <end>1090.73</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>32</ID>
+      <start>1076.73</start>
+      <end>1090.73</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>1082.09</start>
+      <end>1096.09</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>1082.09</start>
+      <end>1096.09</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>1082.09</start>
+      <end>1096.09</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>1082.09</start>
+      <end>1096.09</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>33</ID>
+      <start>1082.09</start>
+      <end>1096.09</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>34</ID>
+      <start>1114.71</start>
+      <end>1132.71</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>1118.98</start>
+      <end>1132.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>1118.98</start>
+      <end>1132.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>1118.98</start>
+      <end>1132.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>35</ID>
+      <start>1118.98</start>
+      <end>1132.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>1219.45</start>
+      <end>1233.45</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>1219.45</start>
+      <end>1233.45</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>1219.45</start>
+      <end>1233.45</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>1219.45</start>
+      <end>1233.45</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>36</ID>
+      <start>1219.45</start>
+      <end>1233.45</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Two Points</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>37</ID>
+      <start>1269.79</start>
+      <end>1287.79</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>1328.41</start>
+      <end>1342.41</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>1328.41</start>
+      <end>1342.41</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>1328.41</start>
+      <end>1342.41</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>1328.41</start>
+      <end>1342.41</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>38</ID>
+      <start>1328.41</start>
+      <end>1342.41</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>39</ID>
+      <start>1371.2</start>
+      <end>1389.2</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>1371.63</start>
+      <end>1385.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Sawyer</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>1371.63</start>
+      <end>1385.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>1371.63</start>
+      <end>1385.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>1371.63</start>
+      <end>1385.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>40</ID>
+      <start>1371.63</start>
+      <end>1385.63</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>41</ID>
+      <start>1404.09</start>
+      <end>1422.09</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1431.86</start>
+      <end>1445.86</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1431.86</start>
+      <end>1445.86</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1431.86</start>
+      <end>1445.86</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1431.86</start>
+      <end>1445.86</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>42</ID>
+      <start>1431.86</start>
+      <end>1445.86</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1432.74</start>
+      <end>1446.74</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1432.74</start>
+      <end>1446.74</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1432.74</start>
+      <end>1446.74</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>43</ID>
+      <start>1432.74</start>
+      <end>1446.74</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1466.19</start>
+      <end>1480.19</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Eoin Sawyer</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1466.19</start>
+      <end>1480.19</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1466.19</start>
+      <end>1480.19</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>44</ID>
+      <start>1466.19</start>
+      <end>1480.19</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1475.4</start>
+      <end>1489.4</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1475.4</start>
+      <end>1489.4</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1475.4</start>
+      <end>1489.4</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>45</ID>
+      <start>1475.4</start>
+      <end>1489.4</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1512.95</start>
+      <end>1526.95</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1512.95</start>
+      <end>1526.95</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1512.95</start>
+      <end>1526.95</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>46</ID>
+      <start>1512.95</start>
+      <end>1526.95</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ciaran Murphy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>47</ID>
+      <start>1534.33</start>
+      <end>1552.33</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1538.5</start>
+      <end>1552.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Dara Sheedy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1538.5</start>
+      <end>1552.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1538.5</start>
+      <end>1552.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1538.5</start>
+      <end>1552.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>48</ID>
+      <start>1538.5</start>
+      <end>1552.5</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Hit Post</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1594.82</start>
+      <end>1608.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1594.82</start>
+      <end>1608.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1594.82</start>
+      <end>1608.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1594.82</start>
+      <end>1608.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>49</ID>
+      <start>1594.82</start>
+      <end>1608.82</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>50</ID>
+      <start>1626.72</start>
+      <end>1644.72</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1637.88</start>
+      <end>1651.88</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1637.88</start>
+      <end>1651.88</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1637.88</start>
+      <end>1651.88</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1637.88</start>
+      <end>1651.88</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>51</ID>
+      <start>1637.88</start>
+      <end>1651.88</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Saved</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1699.22</start>
+      <end>1713.22</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1699.22</start>
+      <end>1713.22</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Forty Five</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1699.22</start>
+      <end>1713.22</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1699.22</start>
+      <end>1713.22</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>52</ID>
+      <start>1699.22</start>
+      <end>1713.22</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Hit Post</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1704.88</start>
+      <end>1718.88</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1704.88</start>
+      <end>1718.88</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1704.88</start>
+      <end>1718.88</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>53</ID>
+      <start>1704.88</start>
+      <end>1718.88</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1731.71</start>
+      <end>1745.71</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1731.71</start>
+      <end>1745.71</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1731.71</start>
+      <end>1745.71</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>54</ID>
+      <start>1731.71</start>
+      <end>1745.71</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1753.09</start>
+      <end>1767.09</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1753.09</start>
+      <end>1767.09</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1753.09</start>
+      <end>1767.09</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1753.09</start>
+      <end>1767.09</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>55</ID>
+      <start>1753.09</start>
+      <end>1767.09</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>56</ID>
+      <start>1783.35</start>
+      <end>1801.35</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1803.09</start>
+      <end>1817.09</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1803.09</start>
+      <end>1817.09</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1803.09</start>
+      <end>1817.09</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>57</ID>
+      <start>1803.09</start>
+      <end>1817.09</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1806.95</start>
+      <end>1820.95</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1806.95</start>
+      <end>1820.95</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>58</ID>
+      <start>1806.95</start>
+      <end>1820.95</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1848.85</start>
+      <end>1862.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1848.85</start>
+      <end>1862.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1848.85</start>
+      <end>1862.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1848.85</start>
+      <end>1862.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>59</ID>
+      <start>1848.85</start>
+      <end>1862.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>60</ID>
+      <start>1883.25</start>
+      <end>1901.25</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1891.33</start>
+      <end>1905.33</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1891.33</start>
+      <end>1905.33</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1891.33</start>
+      <end>1905.33</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1891.33</start>
+      <end>1905.33</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>61</ID>
+      <start>1891.33</start>
+      <end>1905.33</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Marcus Dalton</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>62</ID>
+      <start>1918.85</start>
+      <end>1936.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1943.34</start>
+      <end>1957.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Daniel O Mahony</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1943.34</start>
+      <end>1957.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1943.34</start>
+      <end>1957.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1943.34</start>
+      <end>1957.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>63</ID>
+      <start>1943.34</start>
+      <end>1957.34</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>64</ID>
+      <start>1981.88</start>
+      <end>1999.88</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>2006.6</start>
+      <end>2020.6</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>2006.6</start>
+      <end>2020.6</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>2006.6</start>
+      <end>2020.6</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>65</ID>
+      <start>2006.6</start>
+      <end>2020.6</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>2038.17</start>
+      <end>2052.17</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>2038.17</start>
+      <end>2052.17</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>2038.17</start>
+      <end>2052.17</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>2038.17</start>
+      <end>2052.17</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>66</ID>
+      <start>2038.17</start>
+      <end>2052.17</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>67</ID>
+      <start>2067.96</start>
+      <end>2085.96</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>2073.8</start>
+      <end>2087.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>2073.8</start>
+      <end>2087.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>2073.8</start>
+      <end>2087.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>68</ID>
+      <start>2073.8</start>
+      <end>2087.8</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>2126.11</start>
+      <end>2140.11</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>2126.11</start>
+      <end>2140.11</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>2126.11</start>
+      <end>2140.11</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>69</ID>
+      <start>2126.11</start>
+      <end>2140.11</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>2154.49</start>
+      <end>2164.49</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>2154.49</start>
+      <end>2164.49</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>70</ID>
+      <start>2154.49</start>
+      <end>2164.49</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>2219.55</start>
+      <end>2229.55</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>2219.55</start>
+      <end>2229.55</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>71</ID>
+      <start>2219.55</start>
+      <end>2229.55</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>2227.81</start>
+      <end>2241.81</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>2227.81</start>
+      <end>2241.81</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>2227.81</start>
+      <end>2241.81</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>72</ID>
+      <start>2227.81</start>
+      <end>2241.81</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>2242.72</start>
+      <end>2256.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Luke Fahy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>2242.72</start>
+      <end>2256.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>2242.72</start>
+      <end>2256.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>2242.72</start>
+      <end>2256.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>73</ID>
+      <start>2242.72</start>
+      <end>2256.72</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Rory Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>74</ID>
+      <start>2270.14</start>
+      <end>2288.14</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>2340.35</start>
+      <end>2354.35</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Shane O Toole Greene</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>2340.35</start>
+      <end>2354.35</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>2340.35</start>
+      <end>2354.35</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>2340.35</start>
+      <end>2354.35</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>75</ID>
+      <start>2340.35</start>
+      <end>2354.35</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>76</ID>
+      <start>2371.48</start>
+      <end>2389.48</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2381.23</start>
+      <end>2395.23</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2381.23</start>
+      <end>2395.23</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2381.23</start>
+      <end>2395.23</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2381.23</start>
+      <end>2395.23</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>77</ID>
+      <start>2381.23</start>
+      <end>2395.23</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>78</ID>
+      <start>2408.34</start>
+      <end>2426.34</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2411.96</start>
+      <end>2425.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2411.96</start>
+      <end>2425.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2411.96</start>
+      <end>2425.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2411.96</start>
+      <end>2425.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>79</ID>
+      <start>2411.96</start>
+      <end>2425.96</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>80</ID>
+      <start>2436.29</start>
+      <end>2454.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>2447.79</start>
+      <end>2461.79</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Sean Meehan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>2447.79</start>
+      <end>2461.79</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>2447.79</start>
+      <end>2461.79</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>2447.79</start>
+      <end>2461.79</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>81</ID>
+      <start>2447.79</start>
+      <end>2461.79</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Goal</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Aaron Leavy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>82</ID>
+      <start>2473.85</start>
+      <end>2491.85</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>2517.08</start>
+      <end>2531.08</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ciaran Murphy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>2517.08</start>
+      <end>2531.08</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>2517.08</start>
+      <end>2531.08</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>2517.08</start>
+      <end>2531.08</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>83</ID>
+      <start>2517.08</start>
+      <end>2531.08</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Rory Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>84</ID>
+      <start>2555.18</start>
+      <end>2573.18</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>2568.32</start>
+      <end>2582.32</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>2568.32</start>
+      <end>2582.32</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>2568.32</start>
+      <end>2582.32</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>85</ID>
+      <start>2568.32</start>
+      <end>2582.32</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>2729.14</start>
+      <end>2743.14</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>2729.14</start>
+      <end>2743.14</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>2729.14</start>
+      <end>2743.14</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Ciaran Murphy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>2729.14</start>
+      <end>2743.14</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>86</ID>
+      <start>2729.14</start>
+      <end>2743.14</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>87</ID>
+      <start>2751.81</start>
+      <end>2769.81</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>2756.29</start>
+      <end>2770.29</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>2756.29</start>
+      <end>2770.29</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>2756.29</start>
+      <end>2770.29</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>88</ID>
+      <start>2756.29</start>
+      <end>2770.29</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>2774.37</start>
+      <end>2788.37</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>2774.37</start>
+      <end>2788.37</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>2774.37</start>
+      <end>2788.37</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>89</ID>
+      <start>2774.37</start>
+      <end>2788.37</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>2780.84</start>
+      <end>2794.84</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>2780.84</start>
+      <end>2794.84</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>90</ID>
+      <start>2780.84</start>
+      <end>2794.84</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>2794.94</start>
+      <end>2808.94</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>2794.94</start>
+      <end>2808.94</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>2794.94</start>
+      <end>2808.94</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>91</ID>
+      <start>2794.94</start>
+      <end>2808.94</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>2831.98</start>
+      <end>2845.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>2831.98</start>
+      <end>2845.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>2831.98</start>
+      <end>2845.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>92</ID>
+      <start>2831.98</start>
+      <end>2845.98</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>2855.7</start>
+      <end>2869.7</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>2855.7</start>
+      <end>2869.7</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>2855.7</start>
+      <end>2869.7</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Daire McDaid</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>2855.7</start>
+      <end>2869.7</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>93</ID>
+      <start>2855.7</start>
+      <end>2869.7</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Meehan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>94</ID>
+      <start>2877.42</start>
+      <end>2895.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>2902.91</start>
+      <end>2916.91</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>2902.91</start>
+      <end>2916.91</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>2902.91</start>
+      <end>2916.91</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>95</ID>
+      <start>2902.91</start>
+      <end>2916.91</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>2919.98</start>
+      <end>2933.98</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>2919.98</start>
+      <end>2933.98</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>2919.98</start>
+      <end>2933.98</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>96</ID>
+      <start>2919.98</start>
+      <end>2933.98</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>2959.54</start>
+      <end>2973.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>2959.54</start>
+      <end>2973.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>2959.54</start>
+      <end>2973.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Chris Og Jones</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>2959.54</start>
+      <end>2973.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>97</ID>
+      <start>2959.54</start>
+      <end>2973.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>2962.2</start>
+      <end>2976.2</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>2962.2</start>
+      <end>2976.2</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>2962.2</start>
+      <end>2976.2</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>98</ID>
+      <start>2962.2</start>
+      <end>2976.2</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3162.64</start>
+      <end>3176.64</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3162.64</start>
+      <end>3176.64</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3162.64</start>
+      <end>3176.64</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3162.64</start>
+      <end>3176.64</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>99</ID>
+      <start>3162.64</start>
+      <end>3176.64</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ian Maguire</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>100</ID>
+      <start>3194.33</start>
+      <end>3212.33</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3210.1</start>
+      <end>3224.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3210.1</start>
+      <end>3224.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3210.1</start>
+      <end>3224.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3210.1</start>
+      <end>3224.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>101</ID>
+      <start>3210.1</start>
+      <end>3224.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>102</ID>
+      <start>3240.3</start>
+      <end>3258.3</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3419.56</start>
+      <end>3433.56</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3419.56</start>
+      <end>3433.56</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3419.56</start>
+      <end>3433.56</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3419.56</start>
+      <end>3433.56</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>103</ID>
+      <start>3419.56</start>
+      <end>3433.56</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>104</ID>
+      <start>3449.64</start>
+      <end>3467.64</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3528.35</start>
+      <end>3542.35</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3528.35</start>
+      <end>3542.35</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3528.35</start>
+      <end>3542.35</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Mark Cronin</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3528.35</start>
+      <end>3542.35</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>105</ID>
+      <start>3528.35</start>
+      <end>3542.35</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Eoin Dunne</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>106</ID>
+      <start>3556.22</start>
+      <end>3574.22</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3598.04</start>
+      <end>3612.04</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Shane O Toole Greene</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3598.04</start>
+      <end>3612.04</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3598.04</start>
+      <end>3612.04</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Niall Furlong</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3598.04</start>
+      <end>3612.04</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>107</ID>
+      <start>3598.04</start>
+      <end>3612.04</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Daniel O Mahony</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>108</ID>
+      <start>3621.42</start>
+      <end>3639.42</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>3644.06</start>
+      <end>3658.06</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>3644.06</start>
+      <end>3658.06</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>3644.06</start>
+      <end>3658.06</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>109</ID>
+      <start>3644.06</start>
+      <end>3658.06</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>3661.02</start>
+      <end>3675.02</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>3661.02</start>
+      <end>3675.02</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>3661.02</start>
+      <end>3675.02</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>3661.02</start>
+      <end>3675.02</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>110</ID>
+      <start>3661.02</start>
+      <end>3675.02</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>111</ID>
+      <start>3698.86</start>
+      <end>3716.86</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>3756.42</start>
+      <end>3770.42</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Daire McDaid</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>3756.42</start>
+      <end>3770.42</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Free</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>3756.42</start>
+      <end>3770.42</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>3756.42</start>
+      <end>3770.42</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>112</ID>
+      <start>3756.42</start>
+      <end>3770.42</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>3790.82</start>
+      <end>3808.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>3790.82</start>
+      <end>3808.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>3790.82</start>
+      <end>3808.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>3790.82</start>
+      <end>3808.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>113</ID>
+      <start>3790.82</start>
+      <end>3808.82</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>3797.62</start>
+      <end>3811.62</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Harry Plunkett</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>3797.62</start>
+      <end>3811.62</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>3797.62</start>
+      <end>3811.62</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>3797.62</start>
+      <end>3811.62</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>114</ID>
+      <start>3797.62</start>
+      <end>3811.62</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>115</ID>
+      <start>3828.1</start>
+      <end>3846.1</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>3859</start>
+      <end>3873</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>3859</start>
+      <end>3873</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>3859</start>
+      <end>3873</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>116</ID>
+      <start>3859</start>
+      <end>3873</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>3909.54</start>
+      <end>3923.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Matty Taylor</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>3909.54</start>
+      <end>3923.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>3909.54</start>
+      <end>3923.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>3909.54</start>
+      <end>3923.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>117</ID>
+      <start>3909.54</start>
+      <end>3923.54</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Eoin Dunne</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>118</ID>
+      <start>4006.38</start>
+      <end>4024.38</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4050.96</start>
+      <end>4064.96</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Shane O Toole Greene</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4050.96</start>
+      <end>4064.96</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4050.96</start>
+      <end>4064.96</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>119</ID>
+      <start>4050.96</start>
+      <end>4064.96</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>120</ID>
+      <start>4083.17</start>
+      <end>4101.17</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4087.65</start>
+      <end>4101.65</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4087.65</start>
+      <end>4101.65</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4087.65</start>
+      <end>4101.65</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>121</ID>
+      <start>4087.65</start>
+      <end>4101.65</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Ruairi Deane</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>122</ID>
+      <start>4131.83</start>
+      <end>4149.83</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4135.37</start>
+      <end>4149.37</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Ruairi Deane</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4135.37</start>
+      <end>4149.37</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4135.37</start>
+      <end>4149.37</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean McDonnell</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4135.37</start>
+      <end>4149.37</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>123</ID>
+      <start>4135.37</start>
+      <end>4149.37</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Eoin Dunne</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>124</ID>
+      <start>4162.37</start>
+      <end>4180.37</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4179.61</start>
+      <end>4193.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4179.61</start>
+      <end>4193.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4179.61</start>
+      <end>4193.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>125</ID>
+      <start>4179.61</start>
+      <end>4193.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4197.43</start>
+      <end>4211.43</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4197.43</start>
+      <end>4211.43</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4197.43</start>
+      <end>4211.43</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4197.43</start>
+      <end>4211.43</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>126</ID>
+      <start>4197.43</start>
+      <end>4211.43</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>127</ID>
+      <start>4236.05</start>
+      <end>4254.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4240.73</start>
+      <end>4254.73</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Cathail O Mahony</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4240.73</start>
+      <end>4254.73</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4240.73</start>
+      <end>4254.73</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4240.73</start>
+      <end>4254.73</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>128</ID>
+      <start>4240.73</start>
+      <end>4254.73</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Daire McDaid</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>129</ID>
+      <start>4267.77</start>
+      <end>4285.77</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4288.61</start>
+      <end>4302.61</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4288.61</start>
+      <end>4302.61</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4288.61</start>
+      <end>4302.61</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>130</ID>
+      <start>4288.61</start>
+      <end>4302.61</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4296.61</start>
+      <end>4310.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4296.61</start>
+      <end>4310.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4296.61</start>
+      <end>4310.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>131</ID>
+      <start>4296.61</start>
+      <end>4310.61</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4303.41</start>
+      <end>4317.41</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4303.41</start>
+      <end>4317.41</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4303.41</start>
+      <end>4317.41</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Middle Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>132</ID>
+      <start>4303.41</start>
+      <end>4317.41</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4311.69</start>
+      <end>4325.69</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4311.69</start>
+      <end>4325.69</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4311.69</start>
+      <end>4325.69</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4311.69</start>
+      <end>4325.69</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>133</ID>
+      <start>4311.69</start>
+      <end>4325.69</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>134</ID>
+      <start>4354.29</start>
+      <end>4372.29</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4372.45</start>
+      <end>4386.45</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4372.45</start>
+      <end>4386.45</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4372.45</start>
+      <end>4386.45</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>135</ID>
+      <start>4372.45</start>
+      <end>4386.45</end>
+      <code>Cork Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4411.44</start>
+      <end>4425.44</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Stephen Sherlock</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4411.44</start>
+      <end>4425.44</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4411.44</start>
+      <end>4425.44</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4411.44</start>
+      <end>4425.44</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>136</ID>
+      <start>4411.44</start>
+      <end>4425.44</end>
+      <code>Cork Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Right</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>137</ID>
+      <start>4450.84</start>
+      <end>4468.84</end>
+      <code>Offaly Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4480.1</start>
+      <end>4494.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Diarmuid Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4480.1</start>
+      <end>4494.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4480.1</start>
+      <end>4494.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Keith O Neill</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4480.1</start>
+      <end>4494.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Own Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>138</ID>
+      <start>4480.1</start>
+      <end>4494.1</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Meehan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>KT Won Clean</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Short</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>139</ID>
+      <start>4504.6</start>
+      <end>4522.6</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>4591.25</start>
+      <end>4605.25</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>4591.25</start>
+      <end>4605.25</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>4591.25</start>
+      <end>4605.25</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>turnover_zone</group>
+        <text>Own Third</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>140</ID>
+      <start>4591.25</start>
+      <end>4605.25</end>
+      <code>Offaly Turnover Won</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>4607.85</start>
+      <end>4621.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jack McEvoy</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>4607.85</start>
+      <end>4621.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>4607.85</start>
+      <end>4621.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>4607.85</start>
+      <end>4621.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Turnover</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>141</ID>
+      <start>4607.85</start>
+      <end>4621.85</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Colm O Callaghan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Mid-Range</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>142</ID>
+      <start>4640.05</start>
+      <end>4658.05</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>4668.86</start>
+      <end>4682.86</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>David Dempsey</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>4668.86</start>
+      <end>4682.86</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>4668.86</start>
+      <end>4682.86</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>4668.86</start>
+      <end>4682.86</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>143</ID>
+      <start>4668.86</start>
+      <end>4682.86</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Point</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Player</group>
+        <text>Sean Walsh</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>PO_Result</group>
+        <text>RT Won Break</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Kickout_Length</group>
+        <text>Long</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>144</ID>
+      <start>4708.16</start>
+      <end>4726.16</end>
+      <code>Cork Kickout</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>4712.12</start>
+      <end>4726.12</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Assist</group>
+        <text>Jordan Hayes</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>4712.12</start>
+      <end>4726.12</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Description</group>
+        <text>Play</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>4712.12</start>
+      <end>4726.12</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Player</group>
+        <text>Cormac Egan</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>4712.12</start>
+      <end>4726.12</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Source</group>
+        <text>Opp Kickout</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>145</ID>
+      <start>4712.12</start>
+      <end>4726.12</end>
+      <code>Offaly Shot</code>
+      <label>
+        <group>Outcome</group>
+        <text>Wide Left</text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>4736.76</start>
+      <end>4746.76</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Assist</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>4736.76</start>
+      <end>4746.76</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Description</group>
+        <text></text>
+      </label>
+    </instance>
+    <instance>
+      <ID>146</ID>
+      <start>4736.76</start>
+      <end>4746.76</end>
+      <code>NA Whistle</code>
+      <label>
+        <group>Outcome</group>
+        <text></text>
+      </label>
+    </instance>
+  </ALL_INSTANCES>
+  <ROWS>
+    <row>
+      <code>Cork Kickout</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Cork Shot</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Cork Turnover Won</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>NA Whistle</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Offaly Kickout</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Offaly Shot</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+    <row>
+      <code>Offaly Turnover Won</code>
+      <R>65535</R>
+      <G>29555</G>
+      <B>4112</B>
+    </row>
+  </ROWS>
+</file>

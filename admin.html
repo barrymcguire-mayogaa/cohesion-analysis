@@ -2943,33 +2943,12 @@ async function startBatchUpload() {
           else if (hasHalfMarkers) xmlFormat = 'sportscode';
 
           if (xmlFormat === 'gaelic-insights') {
-            // ── Gaelic Insights Format ──
-            // Use the parseGaelicInsightsXml function from the main admin mode
-            try {
-              const parseResult = parseGaelicInsightsXml({
-                xmlText: xmlText,
-                homeTeam: homeTeam,
-                awayTeam: awayTeam,
-                half1Video: half1Video,
-                half2Video: half2Video,
-                selectedWhistles: null,
-                seekPrerollSeconds: 2
-              });
-
-              if (parseResult.status === 'error') {
-                parseStatus = `gaelic-insights-error: ${parseResult.error}`;
-              } else if (parseResult.status === 'needs_whistle_selection') {
-                parseStatus = 'gaelic-insights-needs-whistle-selection';
-              } else {
-                eventRows = parseResult.events.map(evt => ({
-                  game_id: game.gameId,
-                  data: evt
-                }));
-                parseStatus = `gaelic-insights-${eventRows.length}-events`;
-              }
-            } catch (e) {
-              parseStatus = `gaelic-insights-parse-error: ${e.message}`;
-            }
+            // ── Gaelic Insights Format (Not Yet Supported in Batch) ──
+            // Gaelic Insights parsing requires whistle selection and interactive UI
+            // that cannot be automated in batch mode without manual per-game intervention.
+            // For now, batch upload blocks Gaelic Insights files with clear error.
+            parseStatus = 'gaelic-insights-not-supported-in-batch';
+            eventRows = []; // Empty events will fail validation below
           } else if (xmlFormat === 'giu') {
             // ── GIU Format ──
             let xmlP1 = null, xmlP2 = null;
@@ -3074,7 +3053,11 @@ async function startBatchUpload() {
 
       // CRITICAL VALIDATION: Reject uploads with 0 events
       if (eventRows.length === 0) {
-        logMessage(`✗ ${game.gameId}: Could not parse events (${parseStatus}) - upload BLOCKED to prevent corrupt data`);
+        if (parseStatus === 'gaelic-insights-not-supported-in-batch') {
+          logMessage(`✗ ${game.gameId}: Gaelic Insights XML files need manual whistle selection. Please upload this game individually using the single-game mode.`);
+        } else {
+          logMessage(`✗ ${game.gameId}: Could not parse events (${parseStatus}) - upload BLOCKED to prevent corrupt data`);
+        }
         errors.push(game.gameId);
         continue;
       }
@@ -3095,12 +3078,27 @@ async function startBatchUpload() {
     }
   }
 
+  // ========================================================================
+  // VALIDATION GATE: Only proceed if we have at least one valid game
+  // ========================================================================
   if (gamesToUpload.length === 0) {
-    logMessage('❌ No games could be parsed. Check XML formats and try again.');
+    logMessage('');
+    logMessage('❌ VALIDATION GATE: No games ready for upload');
+    logMessage(`  ${games.length} games total, ${errors.length} blocked, 0 ready`);
+    logMessage('');
+    logMessage('Please fix the issues above and try again.');
     uploadBtn.disabled = false;
     progressBlock.style.display = 'none';
     return;
   }
+
+  // Show validation gate summary before uploading
+  const blockedCount = errors.length;
+  const readyCount = gamesToUpload.length;
+  logMessage('');
+  logMessage(`✓ VALIDATION GATE PASSED: ${readyCount} games ready, ${blockedCount} blocked`);
+  logMessage(`  Proceeding with upload...`);
+  logMessage('');
 
   // Call batch upload function
   updateBatchProgress(games.length, games.length, 'Uploading to database...');
@@ -3165,6 +3163,45 @@ function buildGameMetaFromExcel(row) {
   const awayColor = row['away_color'] || row['Away Color'] || '#22C55E';
   const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : '';
 
+  // Build angles array from Excel columns
+  const angles = [];
+
+  // Main angle (angle_1)
+  if (youtubeId) {
+    angles.push({
+      label: 'Main',
+      youtubeId: youtubeId,
+      half1Start: half1Start,
+      half2Start: half2Start,
+      et1Start: et1Start,
+      et2Start: et2Start
+    });
+  }
+
+  // Additional angles (angle_2 through angle_5)
+  for (let i = 2; i <= 5; i++) {
+    const label = row[`angle_${i}_label`] || row[`Angle ${i} Label`] || `Angle ${i}`;
+    const url = row[`angle_${i}_youtube_url`] || row[`Angle ${i} YouTube URL`] || '';
+    const id = url ? extractYtId(url) : null;
+
+    if (id) {
+      // Parse timing for this angle (if available)
+      const angleHalf1Start = row[`angle_${i}_half1_start`] ? parseTime(row[`angle_${i}_half1_start`]) : null;
+      const angleHalf2Start = row[`angle_${i}_half2_start`] ? parseTime(row[`angle_${i}_half2_start`]) : null;
+      const angleEt1Start = row[`angle_${i}_et1_start`] ? parseTime(row[`angle_${i}_et1_start`]) : null;
+      const angleEt2Start = row[`angle_${i}_et2_start`] ? parseTime(row[`angle_${i}_et2_start`]) : null;
+
+      angles.push({
+        label: label,
+        youtubeId: id,
+        half1Start: angleHalf1Start,
+        half2Start: angleHalf2Start,
+        et1Start: angleEt1Start,
+        et2Start: angleEt2Start
+      });
+    }
+  }
+
   return {
     id: gameId,
     title: title,
@@ -3183,6 +3220,7 @@ function buildGameMetaFromExcel(row) {
     half2Start: half2Start,
     et1Start: et1Start,
     et2Start: et2Start,
+    angles: angles,
     eventCount: 0,
     parser: 'batch-upload'
   };
