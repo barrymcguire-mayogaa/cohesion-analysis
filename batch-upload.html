@@ -112,13 +112,16 @@ header{
 .game-btn-danger{border-color:#dc2626;color:#f87171;}
 .game-btn-danger:hover{background:#dc2626;color:#fff;}
 
-.game-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px;}
+.game-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px;}
 .field{display:flex;flex-direction:column;gap:4px;}
 .field label{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
 .field input,.field select{
   background:var(--card);border:1px solid var(--border);border-radius:6px;
   padding:8px 10px;color:var(--t1);font:12px 'Barlow',sans-serif;
-  outline:none;transition:border-color .15s;
+  outline:none;transition:border-color .15s;width:100%;
+}
+.field input[type="color"]{
+  padding:4px;height:40px;cursor:pointer;
 }
 .field input:focus,.field select:focus{border-color:var(--accent);}
 .field-error{border-color:#dc2626 !important;}
@@ -343,6 +346,25 @@ function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.loca
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════
+function normalizeExcelDate(value) {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'number') {
+    const date = new Date((value - 25569) * 86400 * 1000);
+    return date.toISOString().slice(0, 10);
+  }
+
+  return '';
+}
+
 function parseTime(str) {
   if (!str || !String(str).trim()) return null;
   const text = String(str).trim();
@@ -462,7 +484,7 @@ async function handleExcelFile(file) {
         gameId: row[normalized['game_id']] || '',
         homeTeam: row[normalized['home_team']] || '',
         awayTeam: row[normalized['away_team']] || '',
-        date: row[normalized['date']] || '',
+        date: normalizeExcelDate(row[normalized['date']]),
         competition: row[normalized['competition']] || '',
         division: row[normalized['division']] || '',
         round: row[normalized['round']] || '',
@@ -954,11 +976,12 @@ function buildBatchGameMeta(game) {
   const youtubeId = extractYtId(game.youtubeUrl);
   const half1Start = parseTime(game.half1StartText);
   const half2Start = parseTime(game.half2StartText);
+  const normalizedDate = normalizeExcelDate(game.date);
 
   const gameId = game.gameId || [
     slugify(game.homeTeam),
     slugify(game.awayTeam),
-    String(game.date).slice(0, 4),
+    normalizedDate.slice(0, 4),
     slugify(game.competition),
     slugify(game.round)
   ].filter(Boolean).join('-');
@@ -989,7 +1012,7 @@ function buildBatchGameMeta(game) {
   return {
     id: gameId,
     title: `${game.homeTeam} v ${game.awayTeam}`,
-    date: game.date,
+    date: normalizedDate,
     homeTeam: game.homeTeam,
     awayTeam: game.awayTeam,
     competition: game.competition,
