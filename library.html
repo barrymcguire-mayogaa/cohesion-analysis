@@ -282,6 +282,9 @@ select option{background:var(--card);}
   <a href="admin.html" class="hdr-btn hdr-btn-admin" id="adminBtn" style="display:none">
     + Add Game
   </a>
+  <a href="batch-upload.html" class="hdr-btn hdr-btn-admin" id="batchBtn" style="display:none">
+    Batch Upload
+  </a>
   <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
   <div class="hdr-btn" onclick="logout()">Sign Out</div>
 </header>
@@ -425,7 +428,10 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ── Auth ──────────────────────────────────────────────────────
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
-if(auth === 'admin') document.getElementById('adminBtn').style.display = 'flex';
+if(auth === 'admin') {
+  document.getElementById('adminBtn').style.display = 'flex';
+  document.getElementById('batchBtn').style.display = 'flex';
+}
 
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
 

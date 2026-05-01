@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Batch Upload</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--gold:#ffd700;
+  --shadow:rgba(0,0,0,0.4);--mayo:#006747;--london:#003087;
+  --logo-color:#ffffff;
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--gold:#b45309;
+  --shadow:rgba(0,0,0,0.12);--mayo:#006747;--london:#003087;
+  --logo-color:#1a1a28;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+
+/* HEADER */
+header{
+  height:56px;background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:16px;
+  position:sticky;top:0;z-index:50;
+}
+.logo{
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;
+}
+.logo span{color:var(--logo-color);}
+.logo-sub{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:11px;letter-spacing:3px;color:var(--logo-color);
+  text-transform:uppercase;margin-left:2px;
+}
+.hdr-spacer{flex:1;}
+.hdr-btn{
+  display:flex;align-items:center;gap:5px;padding:6px 12px;
+  border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;
+  letter-spacing:.5px;text-transform:uppercase;cursor:pointer;
+  border:1px solid var(--border);background:var(--card);color:var(--t2);
+  text-decoration:none;transition:all .15s;
+}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.theme-btn{width:36px;height:36px;border-radius:50%;justify-content:center;font-size:16px;padding:0;}
+
+/* MAIN CONTAINER */
+.container{max-width:1200px;margin:0 auto;padding:24px 20px;}
+
+/* SECTION HEADER */
+.section-title{
+  font:700 18px 'Barlow Condensed',sans-serif;letter-spacing:2px;
+  color:var(--t1);margin-bottom:20px;text-transform:uppercase;
+}
+
+/* EXCEL IMPORT */
+.excel-section{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:24px;margin-bottom:32px;
+}
+.drop-zone{
+  border:2px dashed var(--border);border-radius:8px;padding:40px;
+  text-align:center;cursor:pointer;transition:all .2s;
+}
+.drop-zone:hover{border-color:var(--accent);background:var(--accent-bg);}
+.drop-zone.dragover{border-color:var(--accent);background:var(--accent-bg);}
+.drop-text{font-size:14px;color:var(--t2);margin-bottom:8px;}
+.drop-label{
+  display:inline-block;padding:8px 16px;background:var(--accent);
+  color:#fff;border-radius:6px;font:600 12px 'Barlow Condensed',sans-serif;
+  cursor:pointer;
+}
+#excelFile{display:none;}
+
+/* GAME ROWS */
+.games-section{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:24px;margin-bottom:32px;
+}
+.games-table{width:100%;border-collapse:collapse;}
+.games-table th{
+  background:var(--card);padding:12px;text-align:left;
+  font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;
+  color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--border);
+}
+.games-table td{border-bottom:1px solid var(--border);padding:0;}
+.game-row{display:grid;grid-template-columns:1fr;gap:0;padding:16px;border-bottom:1px solid var(--border);}
+.game-row:last-child{border-bottom:none;}
+.game-row-header{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;margin-bottom:12px;}
+.game-row-status{
+  font-size:11px;font:700 'Barlow Condensed',sans-serif;letter-spacing:.5px;
+  text-transform:uppercase;padding:4px 8px;border-radius:4px;
+}
+.status-not-parsed{background:rgba(139,92,246,0.2);color:#a78bfa;}
+.status-ready{background:rgba(34,197,94,0.2);color:#86efac;}
+.status-blocked{background:rgba(239,68,68,0.2);color:#fca5a5;}
+.status-uploaded{background:rgba(79,195,247,0.2);color:#81d4fa;}
+
+.game-row-actions{display:flex;gap:8px;justify-content:flex-end;}
+.game-btn{
+  padding:6px 12px;border-radius:5px;border:1px solid var(--border);
+  background:var(--card);color:var(--t2);font:600 11px 'Barlow Condensed',sans-serif;
+  cursor:pointer;transition:all .15s;
+}
+.game-btn:hover{border-color:var(--accent);color:var(--accent);}
+.game-btn-danger{border-color:#dc2626;color:#f87171;}
+.game-btn-danger:hover{background:#dc2626;color:#fff;}
+
+.game-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
+.field input,.field select{
+  background:var(--card);border:1px solid var(--border);border-radius:6px;
+  padding:8px 10px;color:var(--t1);font:12px 'Barlow',sans-serif;
+  outline:none;transition:border-color .15s;
+}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.field-error{border-color:#dc2626 !important;}
+.field-hint{font-size:10px;color:var(--t3);margin-top:2px;}
+.field-error-msg{font-size:10px;color:#fca5a5;margin-top:2px;}
+
+.game-xml{
+  background:var(--card);border:1px solid var(--border);border-radius:6px;
+  padding:12px;margin-bottom:12px;
+}
+.xml-label{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);margin-bottom:8px;text-transform:uppercase;}
+.xml-input-wrap{display:flex;gap:8px;align-items:center;}
+.xml-input-wrap input[type="file"]{flex:1;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--t2);font-size:11px;}
+.xml-status{font-size:11px;color:var(--t3);padding:8px;background:var(--bg);border-radius:5px;}
+
+.angles-section{
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:12px;margin-bottom:12px;
+}
+.angles-header{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;
+  color:var(--t2);text-transform:uppercase;
+}
+.angles-toggle{font-size:14px;transition:transform .15s;}
+.angles-toggle.open{transform:rotate(90deg);}
+.angles-detail{
+  display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+}
+.angles-detail.open{display:block;}
+.angle-fields{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.angle-fields:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.angle-title{font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;margin-bottom:8px;}
+.angle-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
+
+/* ACTION BUTTONS */
+.action-bar{
+  display:flex;gap:12px;margin-bottom:32px;flex-wrap:wrap;
+}
+.btn{
+  padding:12px 20px;border-radius:7px;border:none;
+  font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;
+  text-transform:uppercase;cursor:pointer;transition:all .15s;
+}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.9;}
+.btn-secondary{background:var(--card);border:1px solid var(--border);color:var(--t2);}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+
+/* RESULTS */
+.results-section{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:24px;margin-bottom:32px;display:none;
+}
+.results-section.show{display:block;}
+.results-header{
+  font:700 18px 'Barlow Condensed',sans-serif;letter-spacing:2px;
+  color:var(--t1);margin-bottom:20px;
+}
+.results-summary{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px;
+}
+.result-stat{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:16px;text-align:center;
+}
+.result-stat-num{font:800 28px 'Barlow Condensed',sans-serif;color:var(--accent);margin-bottom:4px;}
+.result-stat-label{font:600 11px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;}
+
+.results-list{margin-bottom:24px;}
+.results-list-title{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t2);text-transform:uppercase;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px;}
+.result-item{
+  background:var(--card);border-left:3px solid var(--accent);border-radius:6px;
+  padding:12px;margin-bottom:8px;font-size:13px;
+}
+.result-item.error{border-left-color:#dc2626;}
+.result-item-icon{margin-right:8px;font-weight:bold;}
+
+.results-actions{
+  display:flex;gap:12px;flex-wrap:wrap;
+}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:60px 20px;color:var(--t3);}
+.empty-state h3{font-size:18px;color:var(--t2);margin-bottom:8px;}
+.empty-state p{font-size:13px;}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel);border:1px solid var(--border);border-radius:9px;
+  padding:12px 18px;font:600 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;
+  color:var(--t1);box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:300;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.error{border-left:3px solid #dc2626;}
+.toast.success{border-left:3px solid #22c55e;}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="logo-sub">Batch Upload</div>
+  <div class="hdr-spacer"></div>
+  <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="container">
+
+  <!-- EXCEL IMPORT -->
+  <div class="excel-section">
+    <div class="section-title">Step 1: Import Excel</div>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-text">Drag and drop your Excel file here, or click to browse</div>
+      <label class="drop-label">
+        Select .xlsx file
+        <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelFile(this.files[0])">
+      </label>
+    </div>
+  </div>
+
+  <!-- GAME ROWS -->
+  <div class="games-section" id="gamesSection" style="display:none;">
+    <div class="section-title">Step 2: Review & Attach XML</div>
+    <div id="gamesList"></div>
+    <div id="noGames" class="empty-state">
+      <p>No games loaded. Import an Excel file to begin.</p>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="action-bar" id="actionBar" style="display:none;">
+    <button class="btn btn-primary" onclick="validateAndParseAll()">✓ Validate / Parse All Games</button>
+    <button class="btn btn-primary" onclick="uploadReadyGames()">⬆ Upload Ready Games</button>
+    <button class="btn btn-secondary" onclick="resetForm()">⟲ Start New Batch</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-section" id="resultsSection">
+    <div class="results-header">Upload Complete</div>
+    <div class="results-summary">
+      <div class="result-stat">
+        <div class="result-stat-num" id="statUploaded">0</div>
+        <div class="result-stat-label">Uploaded</div>
+      </div>
+      <div class="result-stat">
+        <div class="result-stat-num" id="statBlocked" style="color:#f87171;">0</div>
+        <div class="result-stat-label">Blocked</div>
+      </div>
+      <div class="result-stat">
+        <div class="result-stat-num" id="statErrors" style="color:#fca5a5;">0</div>
+        <div class="result-stat-label">Errors</div>
+      </div>
+    </div>
+
+    <div class="results-list" id="uploadedList" style="display:none;">
+      <div class="results-list-title">✓ Uploaded Games</div>
+      <div id="uploadedItems"></div>
+    </div>
+
+    <div class="results-list" id="blockedList" style="display:none;">
+      <div class="results-list-title">⚠ Blocked Games</div>
+      <div id="blockedItems"></div>
+    </div>
+
+    <div class="results-actions">
+      <button class="btn btn-primary" onclick="goToLibrary()">📚 View Library</button>
+      <button class="btn btn-secondary" onclick="resetForm()">+ Start New Batch</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SUPABASE & AUTH
+// ═══════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Auth check - admin only
+const auth = sessionStorage.getItem('cohesion_auth');
+if (!auth) window.location.href = 'index.html';
+if (auth !== 'admin') {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h2>Access Denied</h2><p>Batch upload is admin-only.</p><a href="library.html">Return to Library</a></div>';
+  throw new Error('Not admin');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let batchGames = [];
+
+// ═══════════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════════
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const c = document.documentElement.getAttribute('data-theme');
+  const n = c==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  localStorage.setItem('cohesion_theme', n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function parseTime(str) {
+  if (!str || !String(str).trim()) return null;
+  const text = String(str).trim();
+  const neg = text.startsWith('-');
+  const parts = text.replace(/^-/,'').split(':').map(Number);
+  if (parts.length !== 2 || parts.some(Number.isNaN)) return null;
+  return (neg ? -1 : 1) * ((parts[0] * 60) + parts[1]);
+}
+
+function extractYtId(url) {
+  if (!url) return null;
+  const text = String(url).trim();
+  const match = text.match(/(?:youtu\.be\/|v=|embed\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : /^[A-Za-z0-9_-]{11}$/.test(text) ? text : null;
+}
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type}`;
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXCEL IMPORT
+// ═══════════════════════════════════════════════════════════════
+function normalizeHeaders(headers) {
+  const map = {
+    'game_id': ['game_id', 'gameid', 'id'],
+    'home_team': ['home_team', 'hometeam', 'home'],
+    'away_team': ['away_team', 'awayteam', 'away'],
+    'date': ['date'],
+    'competition': ['competition', 'comp'],
+    'division': ['division', 'div'],
+    'round': ['round'],
+    'youtube_url': ['youtube_url', 'youtube', 'url', 'video'],
+    'half1_start': ['half1_start', 'half1start', '1h_start', '1hstart'],
+    'half2_start': ['half2_start', 'half2start', '2h_start', '2hstart'],
+    'home_color': ['home_color', 'homecolor'],
+    'away_color': ['away_color', 'awaycolor'],
+    'venue': ['venue'],
+    'et1_start': ['et1_start', 'et1start'],
+    'et2_start': ['et2_start', 'et2start'],
+    'angle_2_label': ['angle_2_label', 'angle2_label'],
+    'angle_2_youtube_url': ['angle_2_youtube_url', 'angle2_youtube_url'],
+    'angle_2_half1_start': ['angle_2_half1_start', 'angle2_half1_start'],
+    'angle_2_half2_start': ['angle_2_half2_start', 'angle2_half2_start'],
+    'angle_3_label': ['angle_3_label', 'angle3_label'],
+    'angle_3_youtube_url': ['angle_3_youtube_url', 'angle3_youtube_url'],
+    'angle_3_half1_start': ['angle_3_half1_start', 'angle3_half1_start'],
+    'angle_3_half2_start': ['angle_3_half2_start', 'angle3_half2_start'],
+    'angle_4_label': ['angle_4_label', 'angle4_label'],
+    'angle_4_youtube_url': ['angle_4_youtube_url', 'angle4_youtube_url'],
+    'angle_4_half1_start': ['angle_4_half1_start', 'angle4_half1_start'],
+    'angle_4_half2_start': ['angle_4_half2_start', 'angle4_half2_start'],
+    'angle_5_label': ['angle_5_label', 'angle5_label'],
+    'angle_5_youtube_url': ['angle_5_youtube_url', 'angle5_youtube_url'],
+    'angle_5_half1_start': ['angle_5_half1_start', 'angle5_half1_start'],
+    'angle_5_half2_start': ['angle_5_half2_start', 'angle5_half2_start'],
+    'notes': ['notes']
+  };
+
+  const normalized = {};
+  headers.forEach(h => {
+    const lower = String(h).toLowerCase().trim();
+    for (const [key, aliases] of Object.entries(map)) {
+      if (aliases.some(a => a === lower)) {
+        normalized[key] = h;
+        break;
+      }
+    }
+  });
+  return normalized;
+}
+
+async function handleExcelFile(file) {
+  if (!file) return;
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, {type: 'array'});
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (rows.length === 0) {
+      showToast('Excel file is empty', 'error');
+      return;
+    }
+
+    const headers = Object.keys(rows[0]);
+    const normalized = normalizeHeaders(headers);
+
+    batchGames = rows.map((row, idx) => {
+      const angles = [];
+      for (let i = 2; i <= 5; i++) {
+        const label = row[normalized[`angle_${i}_label`]];
+        const url = row[normalized[`angle_${i}_youtube_url`]];
+        if (url) {
+          angles.push({
+            label: label || `Angle ${i}`,
+            youtubeUrl: url,
+            half1StartText: row[normalized[`angle_${i}_half1_start`]] || '',
+            half2StartText: row[normalized[`angle_${i}_half2_start`]] || ''
+          });
+        }
+      }
+
+      return {
+        id: crypto.randomUUID(),
+        gameId: row[normalized['game_id']] || '',
+        homeTeam: row[normalized['home_team']] || '',
+        awayTeam: row[normalized['away_team']] || '',
+        date: row[normalized['date']] || '',
+        competition: row[normalized['competition']] || '',
+        division: row[normalized['division']] || '',
+        round: row[normalized['round']] || '',
+        homeColor: row[normalized['home_color']] || '#0B2447',
+        awayColor: row[normalized['away_color']] || '#22C55E',
+        youtubeUrl: row[normalized['youtube_url']] || '',
+        half1StartText: String(row[normalized['half1_start']] || ''),
+        half2StartText: String(row[normalized['half2_start']] || ''),
+        et1StartText: String(row[normalized['et1_start']] || ''),
+        et2StartText: String(row[normalized['et2_start']] || ''),
+        angles,
+        xmlFile: null,
+        xmlText: '',
+        parseStatus: 'not_parsed',
+        parsedEvents: [],
+        diagnostics: null,
+        errors: []
+      };
+    });
+
+    renderBatchTable();
+    document.getElementById('gamesSection').style.display = 'block';
+    document.getElementById('actionBar').style.display = 'flex';
+    showToast(`Loaded ${batchGames.length} games from Excel`, 'success');
+  } catch (e) {
+    showToast(`Error reading Excel: ${e.message}`, 'error');
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER BATCH TABLE
+// ═══════════════════════════════════════════════════════════════
+function renderBatchTable() {
+  const list = document.getElementById('gamesList');
+
+  if (!batchGames.length) {
+    list.innerHTML = '<div class="empty-state"><p>No games to display</p></div>';
+    return;
+  }
+
+  list.innerHTML = batchGames.map((game, idx) => `
+    <div class="game-row">
+      <div class="game-row-header">
+        <div class="game-row-status ${`status-${game.parseStatus}`}">
+          ${game.parseStatus === 'ready' ? '✓ Ready' :
+            game.parseStatus === 'blocked' ? '✕ Blocked' :
+            game.parseStatus === 'uploaded' ? '✓ Uploaded' :
+            'Needs Validation'}
+        </div>
+        <div style="color:var(--t2);">${game.homeTeam} v ${game.awayTeam}</div>
+        <div class="game-row-actions">
+          <button class="game-btn" onclick="toggleAngles('${game.id}')">📹 ${game.angles.length + 1} angles</button>
+          <button class="game-btn game-btn-danger" onclick="removeGame('${game.id}')">✕ Remove</button>
+        </div>
+      </div>
+
+      <div class="game-fields">
+        <div class="field">
+          <label>Game ID</label>
+          <input type="text" value="${game.gameId}" onchange="updateGame('${game.id}', 'gameId', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing game_id') ? '<div class="field-error-msg">⚠ Missing</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Home Team</label>
+          <input type="text" value="${game.homeTeam}" onchange="updateGame('${game.id}', 'homeTeam', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing home team') ? '<div class="field-error-msg">⚠ Missing</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Away Team</label>
+          <input type="text" value="${game.awayTeam}" onchange="updateGame('${game.id}', 'awayTeam', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing away team') ? '<div class="field-error-msg">⚠ Missing</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" value="${game.date}" onchange="updateGame('${game.id}', 'date', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing date') ? '<div class="field-error-msg">⚠ Missing</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Competition</label>
+          <select onchange="updateGame('${game.id}', 'competition', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+            <option value="${game.competition}" selected>${game.competition || 'Select...'}</option>
+            <option>FBD League</option>
+            <option>National Football League</option>
+            <option>Connacht SFC</option>
+            <option>All-Ireland SFC</option>
+            <option>U20 Championship</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Division</label>
+          <input type="text" value="${game.division}" onchange="updateGame('${game.id}', 'division', this.value)" placeholder="e.g. Division 1" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+        </div>
+        <div class="field">
+          <label>Round</label>
+          <input type="text" value="${game.round}" onchange="updateGame('${game.id}', 'round', this.value)" placeholder="e.g. Round 1" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+        </div>
+        <div class="field">
+          <label>YouTube URL</label>
+          <input type="text" value="${game.youtubeUrl}" onchange="updateGame('${game.id}', 'youtubeUrl', this.value)" placeholder="youtu.be/... or ID" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Invalid YouTube URL') ? '<div class="field-error-msg">⚠ Invalid URL</div>' : ''}
+        </div>
+        <div class="field">
+          <label>1H Start (MM:SS)</label>
+          <input type="text" value="${game.half1StartText}" placeholder="00:00" maxlength="6" onchange="updateGame('${game.id}', 'half1StartText', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing/invalid 1H start') ? '<div class="field-error-msg">⚠ Invalid</div>' : ''}
+        </div>
+        <div class="field">
+          <label>2H Start (MM:SS)</label>
+          <input type="text" value="${game.half2StartText}" placeholder="00:00" maxlength="6" onchange="updateGame('${game.id}', 'half2StartText', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+          ${game.errors.includes('Missing/invalid 2H start') ? '<div class="field-error-msg">⚠ Invalid</div>' : ''}
+        </div>
+        <div class="field">
+          <label>Home Color</label>
+          <input type="color" value="${game.homeColor}" onchange="updateGame('${game.id}', 'homeColor', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+        </div>
+        <div class="field">
+          <label>Away Color</label>
+          <input type="color" value="${game.awayColor}" onchange="updateGame('${game.id}', 'awayColor', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+        </div>
+      </div>
+
+      <div class="game-xml">
+        <div class="xml-label">🎬 XML File</div>
+        <div class="xml-input-wrap">
+          <input type="file" accept=".xml,.json" onchange="attachXmlToGame('${game.id}', this.files[0])" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+        </div>
+        <div class="xml-status">
+          ${game.xmlText ? `<span style="color:#86efac;">✓ XML attached (${game.xmlText.length} bytes)</span>` : '<span style="color:var(--t3);">No XML attached</span>'}
+          ${game.xmlText.includes('NA Whistle') ? '<span style="margin-left:12px;color:#81d4fa;">📊 Gaelic Insights detected</span>' : ''}
+        </div>
+      </div>
+
+      <div class="angles-section">
+        <div class="angles-header" onclick="toggleAngles('${game.id}')">
+          <span class="angles-toggle" id="toggle-${game.id}">▶</span>
+          <span>📹 ${game.angles.length > 0 ? game.angles.length + ' additional angle' + (game.angles.length > 1 ? 's' : '') : 'No additional angles'}</span>
+        </div>
+        <div class="angles-detail" id="angles-${game.id}">
+          ${game.angles.map((angle, ai) => `
+            <div class="angle-fields">
+              <div class="angle-title">Angle ${ai + 2}</div>
+              <div class="angle-grid">
+                <div class="field">
+                  <label>Label</label>
+                  <input type="text" value="${angle.label}" onchange="updateAngle('${game.id}', ${ai}, 'label', this.value)" placeholder="e.g. Behind Goals" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+                </div>
+                <div class="field">
+                  <label>YouTube URL</label>
+                  <input type="text" value="${angle.youtubeUrl}" onchange="updateAngle('${game.id}', ${ai}, 'youtubeUrl', this.value)" placeholder="youtu.be/... or ID" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+                </div>
+                <div class="field">
+                  <label>1H Start (MM:SS)</label>
+                  <input type="text" value="${angle.half1StartText}" placeholder="00:00" maxlength="6" onchange="updateAngle('${game.id}', ${ai}, 'half1StartText', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+                </div>
+                <div class="field">
+                  <label>2H Start (MM:SS)</label>
+                  <input type="text" value="${angle.half2StartText}" placeholder="00:00" maxlength="6" onchange="updateAngle('${game.id}', ${ai}, 'half2StartText', this.value)" ${game.parseStatus === 'uploaded' ? 'disabled' : ''}>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      ${game.errors.length > 0 ? `
+        <div style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:6px;padding:12px;margin-top:12px;">
+          <div style="font:700 11px 'Barlow Condensed',sans-serif;color:#fca5a5;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">⚠ Issues Found</div>
+          ${game.errors.map(err => `<div style="font-size:12px;color:#fca5a5;margin-bottom:4px;">• ${err}</div>`).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+function toggleAngles(gameId) {
+  const detail = document.getElementById(`angles-${gameId}`);
+  const toggle = document.getElementById(`toggle-${gameId}`);
+  detail.classList.toggle('open');
+  toggle.classList.toggle('open');
+}
+
+function updateGame(gameId, field, value) {
+  const game = batchGames.find(g => g.id === gameId);
+  if (!game) return;
+
+  game[field] = value;
+  game.parseStatus = 'not_parsed'; // Reset status on edit
+  game.errors = [];
+  renderBatchTable();
+}
+
+function updateAngle(gameId, angleIdx, field, value) {
+  const game = batchGames.find(g => g.id === gameId);
+  if (!game || !game.angles[angleIdx]) return;
+
+  game.angles[angleIdx][field] = value;
+  game.parseStatus = 'not_parsed';
+  game.errors = [];
+  renderBatchTable();
+}
+
+async function attachXmlToGame(gameId, file) {
+  const game = batchGames.find(g => g.id === gameId);
+  if (!game || !file) return;
+
+  try {
+    game.xmlFile = file;
+    game.xmlText = await file.text();
+    game.parseStatus = 'not_parsed'; // Will be validated on Parse All
+    renderBatchTable();
+    showToast(`XML attached: ${file.name}`, 'success');
+  } catch (e) {
+    showToast(`Error reading XML: ${e.message}`, 'error');
+  }
+}
+
+function removeGame(gameId) {
+  batchGames = batchGames.filter(g => g.id !== gameId);
+  if (batchGames.length === 0) {
+    document.getElementById('gamesSection').style.display = 'none';
+    document.getElementById('actionBar').style.display = 'none';
+  }
+  renderBatchTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAELIC INSIGHTS PARSER
+// ═══════════════════════════════════════════════════════════════
+function parseGaelicInsightsXml({
+  xmlText,
+  homeTeam,
+  awayTeam,
+  half1Video,
+  half2Video,
+  et1Video = null,
+  et2Video = null,
+  selectedWhistles = null
+}) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+
+  if (doc.querySelector('parsererror')) {
+    return { status: 'error', reason: 'Invalid XML file', events: [] };
+  }
+
+  const instances = Array.from(doc.querySelectorAll('instance'));
+
+  const whistles = instances
+    .filter(inst => (inst.querySelector('code')?.textContent || '').trim() === 'NA Whistle')
+    .map(inst => ({
+      id: (inst.querySelector('ID')?.textContent || '').trim(),
+      time: parseFloat(inst.querySelector('start')?.textContent || '0')
+    }))
+    .filter((w, index, arr) => arr.findIndex(x => x.time === w.time) === index)
+    .sort((a, b) => a.time - b.time);
+
+  if (whistles.length < 2) {
+    return {
+      status: 'needs_manual_selection',
+      reason: 'Could not find enough NA Whistle events',
+      whistles,
+      events: []
+    };
+  }
+
+  const firstHalfBoundary = selectedWhistles?.firstHalf ?? whistles[0]?.time;
+  const secondHalfBoundary = selectedWhistles?.secondHalf ?? whistles[2]?.time ?? null;
+
+  if (firstHalfBoundary == null || secondHalfBoundary == null) {
+    return {
+      status: 'needs_manual_selection',
+      reason: 'Could not confidently identify second-half whistle',
+      whistles,
+      events: []
+    };
+  }
+
+  const grouped = new Map();
+
+  for (const inst of instances) {
+    const id = (inst.querySelector('ID')?.textContent || '').trim();
+    const code = (inst.querySelector('code')?.textContent || '').trim();
+
+    if (!id || code === 'NA Whistle') continue;
+
+    if (!grouped.has(id)) {
+      grouped.set(id, {
+        id,
+        code,
+        start: parseFloat(inst.querySelector('start')?.textContent || '0'),
+        end: parseFloat(inst.querySelector('end')?.textContent || '0'),
+        labels: {}
+      });
+    }
+
+    const label = inst.querySelector('label');
+    if (label) {
+      const group = (label.querySelector('group')?.textContent || '').trim();
+      const text = (label.querySelector('text')?.textContent || '').trim();
+      if (group && text) grouped.get(id).labels[group] = text;
+    }
+  }
+
+  const rawEvents = Array.from(grouped.values()).sort((a, b) => a.start - b.start);
+
+  const firstGameplay1H = rawEvents.find(e =>
+    e.start >= firstHalfBoundary && e.start < secondHalfBoundary
+  );
+
+  const firstGameplay2H = rawEvents.find(e =>
+    e.start >= secondHalfBoundary
+  );
+
+  if (!firstGameplay1H || !firstGameplay2H) {
+    return {
+      status: 'needs_manual_selection',
+      reason: 'Could not find first gameplay event after each half boundary',
+      whistles,
+      events: []
+    };
+  }
+
+  const offset1H = half1Video - firstGameplay1H.start;
+  const offset2H = half2Video - firstGameplay2H.start;
+
+  function getTeam(code) {
+    const lower = code.toLowerCase();
+    if (homeTeam && lower.startsWith(homeTeam.toLowerCase())) return homeTeam.toUpperCase();
+    if (awayTeam && lower.startsWith(awayTeam.toLowerCase())) return awayTeam.toUpperCase();
+    return '';
+  }
+
+  function getCategory(code) {
+    const upper = code.toUpperCase();
+    if (upper.includes('SHOT')) return 'Shots & Scores';
+    if (upper.includes('KICKOUT')) return 'Kickouts';
+    if (upper.includes('TURNOVER')) return 'Turnovers';
+    if (upper.includes('FOUL')) return 'Fouls';
+    return 'Player Actions';
+  }
+
+  function formatGameTime(prefix, seconds) {
+    const safe = Math.max(0, Math.round(seconds));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${prefix} ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  const events = rawEvents.map(event => {
+    const isSecondHalf = event.start >= secondHalfBoundary;
+    const boundary = isSecondHalf ? secondHalfBoundary : firstHalfBoundary;
+    const offset = isSecondHalf ? offset2H : offset1H;
+    const videoT = Math.max(0, Math.round(event.start + offset));
+    const driveT = Math.max(0, videoT - 2);
+
+    const half = isSecondHalf ? '2nd Half' : '1st Half';
+    const gameTime = isSecondHalf
+      ? formatGameTime('2H', event.start - boundary)
+      : formatGameTime('1H', event.start - boundary);
+
+    return {
+      id: event.id,
+      start: Math.round(event.start),
+      end: Math.round(event.end),
+      half,
+      gameTime,
+      code: event.code,
+      team: getTeam(event.code),
+      player: event.labels.Player || '',
+      outcome: event.labels.Outcome || '',
+      subtype: event.labels.Description || event.labels.Kickout_Length || '',
+      category: getCategory(event.code),
+      driveT,
+      videoT,
+      labels: event.labels
+    };
+  });
+
+  if (!events.length) {
+    return {
+      status: 'error',
+      reason: 'Parsed 0 events',
+      whistles,
+      events: []
+    };
+  }
+
+  return {
+    status: 'ok',
+    events,
+    diagnostics: {
+      format: 'gaelic-insights',
+      whistleCount: whistles.length,
+      firstHalfBoundary,
+      secondHalfBoundary,
+      firstGameplay1H: firstGameplay1H.start,
+      firstGameplay2H: firstGameplay2H.start,
+      offset1H,
+      offset2H,
+      eventCount: events.length
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATION & PARSING
+// ═══════════════════════════════════════════════════════════════
+function validateBatchGame(game) {
+  const errors = [];
+
+  if (!game.homeTeam) errors.push('Missing home team');
+  if (!game.awayTeam) errors.push('Missing away team');
+  if (!game.date) errors.push('Missing date');
+  if (!extractYtId(game.youtubeUrl)) errors.push('Invalid YouTube URL');
+  if (parseTime(game.half1StartText) == null) errors.push('Missing/invalid 1H start');
+  if (parseTime(game.half2StartText) == null) errors.push('Missing/invalid 2H start');
+  if (!game.xmlText) errors.push('Missing XML file');
+
+  return errors;
+}
+
+function parseBatchGame(game) {
+  const errors = validateBatchGame(game);
+
+  if (errors.length) {
+    game.parseStatus = 'blocked';
+    game.errors = errors;
+    return game;
+  }
+
+  const half1Video = parseTime(game.half1StartText);
+  const half2Video = parseTime(game.half2StartText);
+
+  const isGaelicInsights = game.xmlText.includes('NA Whistle');
+
+  let result;
+
+  if (isGaelicInsights) {
+    result = parseGaelicInsightsXml({
+      xmlText: game.xmlText,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      half1Video,
+      half2Video
+    });
+  } else {
+    return {
+      ...game,
+      parseStatus: 'blocked',
+      errors: ['Format detected but not yet enabled for batch. Use single-game upload.']
+    };
+  }
+
+  if (result.status !== 'ok') {
+    game.parseStatus = 'blocked';
+    game.errors = [result.reason || 'Could not parse XML'];
+    game.diagnostics = result.diagnostics || null;
+    return game;
+  }
+
+  game.parsedEvents = result.events;
+  game.diagnostics = result.diagnostics;
+  game.parseStatus = 'ready';
+  game.errors = [];
+
+  return game;
+}
+
+async function validateAndParseAll() {
+  if (!batchGames.length) {
+    showToast('No games to validate', 'error');
+    return;
+  }
+
+  batchGames = batchGames.map(game => parseBatchGame(game));
+  renderBatchTable();
+
+  const ready = batchGames.filter(g => g.parseStatus === 'ready').length;
+  const blocked = batchGames.filter(g => g.parseStatus === 'blocked').length;
+
+  showToast(`Validation complete: ${ready} ready, ${blocked} blocked`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUILD METADATA & UPLOAD
+// ═══════════════════════════════════════════════════════════════
+function buildBatchGameMeta(game) {
+  const youtubeId = extractYtId(game.youtubeUrl);
+  const half1Start = parseTime(game.half1StartText);
+  const half2Start = parseTime(game.half2StartText);
+
+  const gameId = game.gameId || [
+    slugify(game.homeTeam),
+    slugify(game.awayTeam),
+    String(game.date).slice(0, 4),
+    slugify(game.competition),
+    slugify(game.round)
+  ].filter(Boolean).join('-');
+
+  const angles = [{
+    label: 'Main',
+    youtubeId,
+    half1Start,
+    half2Start,
+    et1Start: null,
+    et2Start: null
+  }];
+
+  for (const angle of game.angles || []) {
+    const id = extractYtId(angle.youtubeUrl);
+    if (!id) continue;
+
+    angles.push({
+      label: angle.label || `Angle ${angles.length}`,
+      youtubeId: id,
+      half1Start: parseTime(angle.half1StartText),
+      half2Start: parseTime(angle.half2StartText),
+      et1Start: null,
+      et2Start: null
+    });
+  }
+
+  return {
+    id: gameId,
+    title: `${game.homeTeam} v ${game.awayTeam}`,
+    date: game.date,
+    homeTeam: game.homeTeam,
+    awayTeam: game.awayTeam,
+    competition: game.competition,
+    division: game.division || '',
+    round: game.round || '',
+    homeColor: game.homeColor || '#0B2447',
+    awayColor: game.awayColor || '#22C55E',
+    youtubeId,
+    thumbnail: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+    half1Start,
+    half2Start,
+    angles,
+    eventCount: game.parsedEvents.length,
+    parser: 'batch-upload'
+  };
+}
+
+async function uploadReadyGames() {
+  const readyGames = batchGames.filter(g => g.parseStatus === 'ready');
+
+  if (!readyGames.length) {
+    showToast('No valid games ready to upload', 'error');
+    return;
+  }
+
+  try {
+    const payload = {
+      games: readyGames.map(game => {
+        const gameMeta = buildBatchGameMeta(game);
+        return {
+          gameId: gameMeta.id,
+          gameMeta,
+          eventRows: game.parsedEvents.map(event => ({
+            game_id: gameMeta.id,
+            data: event
+          }))
+        };
+      })
+    };
+
+    const user = netlifyIdentity.currentUser();
+
+    const response = await fetch('/.netlify/functions/processBatchGames', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user.token.access_token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      showToast(`Upload failed: ${result.error}`, 'error');
+      return;
+    }
+
+    // Mark uploaded games
+    result.results.forEach(res => {
+      const game = batchGames.find(g => g.gameId === res.gameId || buildBatchGameMeta(g).id === res.gameId);
+      if (game) {
+        game.parseStatus = res.success ? 'uploaded' : 'blocked';
+        if (!res.success) game.errors = [res.error];
+      }
+    });
+
+    showResults(result);
+  } catch (e) {
+    showToast(`Error: ${e.message}`, 'error');
+    console.error(e);
+  }
+}
+
+function showResults(result) {
+  document.getElementById('statUploaded').textContent = result.processed || 0;
+  document.getElementById('statBlocked').textContent = result.failed || 0;
+  document.getElementById('statErrors').textContent = result.failed || 0;
+
+  const uploaded = batchGames.filter(g => g.parseStatus === 'uploaded');
+  const blocked = batchGames.filter(g => g.parseStatus === 'blocked');
+
+  if (uploaded.length > 0) {
+    const uploadedList = document.getElementById('uploadedList');
+    uploadedList.style.display = 'block';
+    document.getElementById('uploadedItems').innerHTML = uploaded.map(game => {
+      const meta = buildBatchGameMeta(game);
+      return `<div class="result-item"><span class="result-item-icon">✓</span> ${meta.title} — ${game.parsedEvents.length} events</div>`;
+    }).join('');
+  }
+
+  if (blocked.length > 0) {
+    const blockedList = document.getElementById('blockedList');
+    blockedList.style.display = 'block';
+    document.getElementById('blockedItems').innerHTML = blocked.map(game => {
+      return `<div class="result-item error"><span class="result-item-icon">⚠</span> ${game.homeTeam} v ${game.awayTeam} — ${game.errors[0] || 'Unknown error'}</div>`;
+    }).join('');
+  }
+
+  document.getElementById('resultsSection').classList.add('show');
+  document.getElementById('gamesSection').style.display = 'none';
+  document.getElementById('actionBar').style.display = 'none';
+}
+
+function goToLibrary() {
+  window.location.href = 'library.html';
+}
+
+function resetForm() {
+  batchGames = [];
+  document.getElementById('gamesList').innerHTML = '';
+  document.getElementById('gamesSection').style.display = 'none';
+  document.getElementById('actionBar').style.display = 'none';
+  document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('excelFile').value = '';
+  showToast('Ready for new batch', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════════════
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleExcelFile(files[0]);
+});
+</script>
+</body>
+</html>
