@@ -477,24 +477,41 @@ function getYearFromDate(dateValue) {
 }
 
 function buildTeamFilter(games){
-  const teams = new Set();
-  games.forEach(g=>{
-    if(g.homeTeam) teams.add(g.homeTeam);
-    if(g.awayTeam) teams.add(g.awayTeam);
-  });
-  const sel = document.getElementById('fTeam');
-  [...teams].sort().forEach(t=>{
-    const o = document.createElement('option');
-    o.value = t; o.textContent = t; sel.appendChild(o);
-  });
+  try {
+    const teams = new Set();
+    games.forEach(g=>{
+      if(g && g.homeTeam) teams.add(g.homeTeam);
+      if(g && g.awayTeam) teams.add(g.awayTeam);
+    });
+    const sel = document.getElementById('fTeam');
+    if (sel) {
+      [...teams].sort().forEach(t=>{
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t; sel.appendChild(o);
+      });
+    }
+  } catch (e) {
+    console.error('buildTeamFilter error:', e);
+  }
 }
 function buildYearFilter(games){
-  const years = new Set(games.map(g => getYearFromDate(g.date)).filter(Boolean));
-  const sel = document.getElementById('fYear');
-  [...years].sort().reverse().forEach(y=>{
-    const o = document.createElement('option');
-    o.value = y; o.textContent = y; sel.appendChild(o);
-  });
+  try {
+    const years = new Set(
+      games
+        .map(g => {
+          if (!g || !g.date) return null;
+          return getYearFromDate(g.date);
+        })
+        .filter(y => y && y.length > 0)
+    );
+    const sel = document.getElementById('fYear');
+    [...years].sort().reverse().forEach(y=>{
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y; sel.appendChild(o);
+    });
+  } catch (e) {
+    console.error('buildYearFilter error:', e);
+  }
 }
 
 function toggleDivFilter(){
@@ -543,69 +560,81 @@ function applyFilters(){
 
 function renderGames(games){
   const wrap = document.getElementById('gridWrap');
-  if(!games.length){
+  if(!games || !games.length){
     wrap.innerHTML = `<div class="empty-state"><h3>No games found</h3><p>Try adjusting your filters</p></div>`;
     return;
   }
 
-  // Group by competition + year
-  const groups = {};
-  games.forEach(g=>{
-    const year = getYearFromDate(g.date);
-    const key  = `${year} ${g.competition}`;
-    if(!groups[key]) groups[key] = {label:`${g.competition} ${year}`, games:[]};
-    groups[key].games.push(g);
-  });
+  try {
+    // Group by competition + year
+    const groups = {};
+    games.forEach(g=>{
+      if (!g) return; // Skip null games
+      const year = getYearFromDate(g.date || '');
+      const competition = g.competition || 'Unknown';
+      const key  = `${year} ${competition}`;
+      if(!groups[key]) groups[key] = {label:`${competition} ${year}`, games:[]};
+      groups[key].games.push(g);
+    });
 
-  // Sort games within each group newest first
-  Object.values(groups).forEach(grp=>{
-    grp.games.sort((a,b)=>(b.date||'')>(a.date||'')?1:(b.date||'')<(a.date||'')?-1:0);
-  });
+    // Sort games within each group newest first
+    Object.values(groups).forEach(grp=>{
+      grp.games.sort((a,b)=>{
+        const dateA = (a && a.date) || '';
+        const dateB = (b && b.date) || '';
+        return dateB > dateA ? 1 : dateB < dateA ? -1 : 0;
+      });
+    });
 
-  // Sort groups by the most recent game date in each group (newest group first)
-  const sortedKeys = Object.keys(groups).sort((a,b)=>{
-    const dA = groups[a].games[0]?.date||'';
-    const dB = groups[b].games[0]?.date||'';
-    return dB>dA?1:dB<dA?-1:0;
-  });
+    // Sort groups by the most recent game date in each group (newest group first)
+    const sortedKeys = Object.keys(groups).sort((a,b)=>{
+      const dA = (groups[a].games[0] && groups[a].games[0].date) || '';
+      const dB = (groups[b].games[0] && groups[b].games[0].date) || '';
+      return dB>dA?1:dB<dA?-1:0;
+    });
 
-  wrap.innerHTML = sortedKeys.map(k=>{
-    const grp = groups[k];
-    const cards = grp.games.map(g=>{
-      const home = g.homeTeam || 'Unknown';
-      const away = g.awayTeam || 'Unknown';
-      const title = g.title || `${home} v ${away}`;
-      const comp = g.competition || '—';
-      const thumbUrl = g.thumbnail || `https://img.youtube.com/vi/${g.youtubeId}/hqdefault.jpg`;
-      const ytId = g.youtubeId || '';
+    wrap.innerHTML = sortedKeys.map(k=>{
+      const grp = groups[k];
+      const cards = grp.games.map(g=>{
+        if (!g) return '';
+        const home = g.homeTeam || 'Unknown';
+        const away = g.awayTeam || 'Unknown';
+        const title = g.title || `${home} v ${away}`;
+        const comp = g.competition || '—';
+        const thumbUrl = g.thumbnail || `https://img.youtube.com/vi/${g.youtubeId}/hqdefault.jpg`;
+        const ytId = g.youtubeId || '';
+        return `
+        <a class="game-card" href="dashboard.html?game=${g.id}">
+          <div class="card-thumb">
+            <img src="${thumbUrl}" alt="${title}"
+                 onerror="this.src='https://img.youtube.com/vi/${ytId}/hqdefault.jpg'">
+            <div class="card-thumb-overlay">
+              <div class="card-competition">${comp}</div>
+              ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
+            </div>
+            ${auth==='admin'?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
+            ${auth==='admin'?`<button class="card-del" title="Remove game" onclick="startDelete('${g.id}',event)">✕</button>`:''}
+          </div>
+          <div class="card-body">
+            <div class="card-teams">
+              ${home} <span class="vs">v</span> ${away}
+            </div>
+            <div class="card-meta">
+              <div class="card-date">${formatDate(g.date)}</div>
+              ${g.round?`<div class="card-round">${g.round}</div>`:''}
+            </div>
+            <div class="card-events"><b>${g.eventCount||'—'}</b> coded events</div>
+          </div>
+        </a>`;
+      }).join('');
       return `
-      <a class="game-card" href="dashboard.html?game=${g.id}">
-        <div class="card-thumb">
-          <img src="${thumbUrl}" alt="${title}"
-               onerror="this.src='https://img.youtube.com/vi/${ytId}/hqdefault.jpg'">
-          <div class="card-thumb-overlay">
-            <div class="card-competition">${comp}</div>
-            ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
-          </div>
-          ${auth==='admin'?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
-          ${auth==='admin'?`<button class="card-del" title="Remove game" onclick="startDelete('${g.id}',event)">✕</button>`:''}
-        </div>
-        <div class="card-body">
-          <div class="card-teams">
-            ${home} <span class="vs">v</span> ${away}
-          </div>
-          <div class="card-meta">
-            <div class="card-date">${formatDate(g.date)}</div>
-            ${g.round?`<div class="card-round">${g.round}</div>`:''}
-          </div>
-          <div class="card-events"><b>${g.eventCount||'—'}</b> coded events</div>
-        </div>
-      </a>`;
+        <div class="section-header">${grp.label} <span>· ${grp.games.length} game${grp.games.length!==1?'s':''}</span></div>
+        <div class="game-grid">${cards}</div>`;
     }).join('');
-    return `
-      <div class="section-header">${grp.label} <span>· ${grp.games.length} game${grp.games.length!==1?'s':''}</span></div>
-      <div class="game-grid">${cards}</div>`;
-  }).join('');
+  } catch (e) {
+    console.error('renderGames error:', e);
+    wrap.innerHTML = `<div class="empty-state"><h3>Error rendering games</h3><p>${e.message}</p></div>`;
+  }
 }
 
 // ── Delete / Modal / Toast ────────────────────────────────────
@@ -795,14 +824,36 @@ async function loadGames(){
   try{
     const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
     if(error) throw error;
-    // Filter out null/undefined meta objects to prevent crashes
+
+    // Parse meta: handle both JSON string and object formats
+    // (Supabase may return JSON as string depending on column type)
     allGames = (data || [])
-      .map(r => r.meta)
+      .map(r => {
+        let meta = r.meta;
+        // If meta is a JSON string, parse it
+        if (typeof meta === 'string') {
+          try {
+            meta = JSON.parse(meta);
+          } catch (e) {
+            console.warn('Failed to parse meta for game:', r.id, e);
+            return null;
+          }
+        }
+        return meta;
+      })
       .filter(g => g && typeof g === 'object');
+
+    // Add defensive console logging for debugging
+    console.log(`Loaded ${allGames.length} games from database`);
+    if (allGames.length === 0) {
+      console.warn('No games found after filtering. Raw data:', data);
+    }
+
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();
   } catch(e){
+    console.error('loadGames error:', e);
     document.getElementById('gridWrap').innerHTML =
       `<div class="empty-state"><h3>Could not load games</h3><p>${e.message}</p></div>`;
   }
