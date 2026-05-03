@@ -417,12 +417,25 @@ select option{background:var(--card);}
     <div class="edit-row">
       <div class="edit-field half">
         <label>Competition</label>
-        <select id="eCompetition">
+        <select id="eCompetition" onchange="toggleEditDivisionField()">
           <option>FBD League</option>
           <option>National Football League</option>
           <option>Connacht SFC</option>
+          <option>Leinster SFC</option>
+          <option>Munster SFC</option>
+          <option>Ulster SFC</option>
           <option>All-Ireland SFC</option>
           <option>U20 Championship</option>
+        </select>
+      </div>
+      <div class="edit-field half" id="eDivisionRow" style="display:none;">
+        <label>Division</label>
+        <select id="eDivision">
+          <option value="">No Division</option>
+          <option value="1">Division 1</option>
+          <option value="2">Division 2</option>
+          <option value="3">Division 3</option>
+          <option value="4">Division 4</option>
         </select>
       </div>
       <div class="edit-field half">
@@ -883,6 +896,14 @@ function removeEditAngle(i){
   renderEditAngles();
 }
 
+function toggleEditDivisionField(){
+  const comp = document.getElementById('eCompetition').value;
+  const divRow = document.getElementById('eDivisionRow');
+  const show = comp === 'National Football League';
+  divRow.style.display = show ? '' : 'none';
+  if(!show) document.getElementById('eDivision').value = '';
+}
+
 function startEdit(id, e){
   e.preventDefault();
   e.stopPropagation();
@@ -896,8 +917,11 @@ function startEdit(id, e){
   document.getElementById('eAwayColor').value   = g.awayColor   || '#000000';
   document.getElementById('eAwayHex').value     = g.awayColor   || '#000000';
   document.getElementById('eCompetition').value = g.competition || '';
+  document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  // Show/hide division field based on competition
+  toggleEditDivisionField();
   // Populate alternate angles (index 1+)
   editAngles = g.angles&&g.angles.length>1 ? g.angles.slice(1).map(a=>({...a})) : [];
   renderEditAngles();
@@ -923,6 +947,7 @@ async function confirmEdit(){
   g.homeColor   = document.getElementById('eHomeColor').value;
   g.awayColor   = document.getElementById('eAwayColor').value;
   g.competition = document.getElementById('eCompetition').value;
+  g.division    = document.getElementById('eDivision').value || undefined;
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
   g.title       = `${homeTeam} v ${awayTeam}`;
