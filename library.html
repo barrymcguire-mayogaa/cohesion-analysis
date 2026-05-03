@@ -271,9 +271,12 @@ select option{background:var(--card);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 
 /* LIBRARY TILE SHORTCUTS */
+.library-tile-wrap{
+  max-width:1400px;margin:28px auto 34px;padding:0 20px;
+}
 .library-tile-grid{
   display:grid;grid-template-columns:repeat(8,minmax(110px,1fr));gap:16px;
-  max-width:1680px;margin:28px auto 36px;padding:0 24px;
+  margin:0;
 }
 .library-tile{
   background:var(--card);border:1px solid var(--border);border-radius:8px;
@@ -285,12 +288,21 @@ select option{background:var(--card);}
   border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg);
 }
 .library-tile img{width:100%;height:100%;object-fit:cover;display:block;}
+.library-reset{
+  margin-top:14px;
+  border:none;background:transparent;color:var(--t2);
+  font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;
+  text-transform:uppercase;cursor:pointer;padding:4px 0;
+  transition:color .15s;
+}
+.library-reset:hover{color:var(--accent);}
 
 @media (max-width:1200px){
   .library-tile-grid{grid-template-columns:repeat(4,1fr);}
 }
 @media (max-width:640px){
-  .library-tile-grid{grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px;}
+  .library-tile-wrap{padding:0 10px;margin-top:20px;margin-bottom:28px;}
+  .library-tile-grid{grid-template-columns:repeat(4,1fr);gap:8px;}
 }
 @media (max-width:420px){
   .library-tile-grid{grid-template-columns:repeat(2,1fr);}
@@ -360,7 +372,10 @@ select option{background:var(--card);}
 </div>
 
 <!-- Library Tile Shortcuts -->
-<div class="library-tile-grid" id="libraryTileGrid"></div>
+<div class="library-tile-wrap">
+  <div class="library-tile-grid" id="libraryTileGrid"></div>
+  <button type="button" class="library-reset" onclick="resetLibraryFilters()">All Competitions</button>
+</div>
 
 <div class="grid-wrap" id="gridWrap">
   <div class="loading">
@@ -589,6 +604,19 @@ function applyLibraryTileFilter(tileKey){
 function clearActiveTile(){
   activeTileKey = null;
   renderLibraryTiles();
+}
+
+function resetLibraryFilters(){
+  activeTileKey = null;
+  document.getElementById('fComp').value = '';
+  document.getElementById('fDiv').value = '';
+  document.getElementById('fRound').value = '';
+  document.getElementById('fTeam').value = '';
+  document.getElementById('fYear').value = '';
+  document.getElementById('fSearch').value = '';
+  toggleDivFilter();
+  renderLibraryTiles();
+  applyFilters();
 }
 
 function formatDate(d){
