@@ -269,6 +269,32 @@ select option{background:var(--card);}
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* LIBRARY TILE SHORTCUTS */
+.library-tile-grid{
+  display:grid;grid-template-columns:repeat(8,minmax(110px,1fr));gap:16px;
+  max-width:1680px;margin:28px auto 36px;padding:0 24px;
+}
+.library-tile{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  overflow:hidden;cursor:pointer;aspect-ratio:1/1;
+  transition:border-color .15s,transform .15s,box-shadow .15s;
+}
+.library-tile:hover{border-color:var(--accent);transform:translateY(-2px);}
+.library-tile.active{
+  border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg);
+}
+.library-tile img{width:100%;height:100%;object-fit:cover;display:block;}
+
+@media (max-width:1200px){
+  .library-tile-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media (max-width:640px){
+  .library-tile-grid{grid-template-columns:repeat(4,1fr);gap:8px;padding:0 10px;}
+}
+@media (max-width:420px){
+  .library-tile-grid{grid-template-columns:repeat(2,1fr);}
+}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -291,7 +317,7 @@ select option{background:var(--card);}
 
 <div class="filter-bar">
   <span class="filter-label">Filter</span>
-  <select id="fComp" onchange="toggleDivFilter();applyFilters()">
+  <select id="fComp" onchange="clearActiveTile();toggleDivFilter();applyFilters()">
     <option value="">All Competitions</option>
     <option>FBD League</option>
     <option>National Football League</option>
@@ -302,14 +328,14 @@ select option{background:var(--card);}
     <option>All-Ireland SFC</option>
     <option>U20 Championship</option>
   </select>
-  <select id="fDiv" style="display:none" onchange="toggleRoundFilter();applyFilters()">
+  <select id="fDiv" style="display:none" onchange="clearActiveTile();toggleRoundFilter();applyFilters()">
     <option value="">All Divisions</option>
     <option value="1">Division 1</option>
     <option value="2">Division 2</option>
     <option value="3">Division 3</option>
     <option value="4">Division 4</option>
   </select>
-  <select id="fRound" style="display:none" onchange="applyFilters()">
+  <select id="fRound" style="display:none" onchange="clearActiveTile();applyFilters()">
     <option value="">All Rounds</option>
     <option value="Round 1">Round 1</option>
     <option value="Round 2">Round 2</option>
@@ -322,16 +348,19 @@ select option{background:var(--card);}
     <option value="Division 2 Final">Division 2 Final</option>
     <option value="Final">Final</option>
   </select>
-  <select id="fTeam" onchange="applyFilters()">
+  <select id="fTeam" onchange="clearActiveTile();applyFilters()">
     <option value="">All Teams</option>
   </select>
-  <select id="fYear" onchange="applyFilters()">
+  <select id="fYear" onchange="clearActiveTile();applyFilters()">
     <option value="">All Years</option>
   </select>
   <input class="search-inp" id="fSearch" type="text"
-         placeholder="Search games…" oninput="applyFilters()">
+         placeholder="Search games…" oninput="clearActiveTile();applyFilters()">
   <div class="filter-count" id="filterCount"></div>
 </div>
+
+<!-- Library Tile Shortcuts -->
+<div class="library-tile-grid" id="libraryTileGrid"></div>
 
 <div class="grid-wrap" id="gridWrap">
   <div class="loading">
@@ -452,6 +481,102 @@ initTheme();
 
 // ── Data ──────────────────────────────────────────────────────
 let allGames = [];
+let activeTileKey = null;
+
+// ── Library Tile Configuration ──────────────────────────────────
+const libraryTiles = [
+  {
+    key: 'division-1',
+    label: 'Division 1',
+    image: 'Assets/Div 1.png',
+    competition: 'National Football League',
+    division: '1'
+  },
+  {
+    key: 'division-2',
+    label: 'Division 2',
+    image: 'Assets/Div 2.png',
+    competition: 'National Football League',
+    division: '2'
+  },
+  {
+    key: 'division-3',
+    label: 'Division 3',
+    image: 'Assets/Div 3.png',
+    competition: 'National Football League',
+    division: '3'
+  },
+  {
+    key: 'division-4',
+    label: 'Division 4',
+    image: 'Assets/Div 4.png',
+    competition: 'National Football League',
+    division: '4'
+  },
+  {
+    key: 'csfc',
+    label: 'CSFC',
+    image: 'Assets/CSFC.png',
+    competition: 'Connacht SFC'
+  },
+  {
+    key: 'lsfc',
+    label: 'LSFC',
+    image: 'Assets/LSFC.png',
+    competition: 'Leinster SFC'
+  },
+  {
+    key: 'msfc',
+    label: 'MSFC',
+    image: 'Assets/MSFC.png',
+    competition: 'Munster SFC'
+  },
+  {
+    key: 'usfc',
+    label: 'USFC',
+    image: 'Assets/USFC.png',
+    competition: 'Ulster SFC'
+  }
+];
+
+function renderLibraryTiles(){
+  const grid = document.getElementById('libraryTileGrid');
+  grid.innerHTML = libraryTiles.map(tile => `
+    <div class="library-tile ${activeTileKey === tile.key ? 'active' : ''}"
+         onclick="applyLibraryTileFilter('${tile.key}')"
+         title="${tile.label}">
+      <img src="${tile.image}" alt="${tile.label}" loading="lazy">
+    </div>
+  `).join('');
+}
+
+function applyLibraryTileFilter(tileKey){
+  const tile = libraryTiles.find(t => t.key === tileKey);
+  if(!tile) return;
+
+  activeTileKey = tileKey;
+
+  document.getElementById('fComp').value = tile.competition || '';
+  toggleDivFilter();
+
+  if(tile.division){
+    document.getElementById('fDiv').value = tile.division;
+  } else {
+    document.getElementById('fDiv').value = '';
+  }
+
+  document.getElementById('fTeam').value = '';
+  document.getElementById('fYear').value = '';
+  document.getElementById('fSearch').value = '';
+
+  renderLibraryTiles();
+  applyFilters();
+}
+
+function clearActiveTile(){
+  activeTileKey = null;
+  renderLibraryTiles();
+}
 
 function formatDate(d){
   if(!d) return '';
@@ -866,6 +991,7 @@ async function loadGames(){
 }
 
 loadGames();
+renderLibraryTiles();
 </script>
 </body>
 </html>
