@@ -431,6 +431,14 @@ function normalizeHeaders(headers) {
     'angle_5_youtube_url': ['angle_5_youtube_url', 'angle5_youtube_url'],
     'angle_5_half1_start': ['angle_5_half1_start', 'angle5_half1_start'],
     'angle_5_half2_start': ['angle_5_half2_start', 'angle5_half2_start'],
+    'angle_2_et1_start': ['angle_2_et1_start', 'angle2_et1_start'],
+    'angle_2_et2_start': ['angle_2_et2_start', 'angle2_et2_start'],
+    'angle_3_et1_start': ['angle_3_et1_start', 'angle3_et1_start'],
+    'angle_3_et2_start': ['angle_3_et2_start', 'angle3_et2_start'],
+    'angle_4_et1_start': ['angle_4_et1_start', 'angle4_et1_start'],
+    'angle_4_et2_start': ['angle_4_et2_start', 'angle4_et2_start'],
+    'angle_5_et1_start': ['angle_5_et1_start', 'angle5_et1_start'],
+    'angle_5_et2_start': ['angle_5_et2_start', 'angle5_et2_start'],
     'notes': ['notes']
   };
 
@@ -474,7 +482,9 @@ async function handleExcelFile(file) {
             label: label || `Angle ${i}`,
             youtubeUrl: url,
             half1StartText: row[normalized[`angle_${i}_half1_start`]] || '',
-            half2StartText: row[normalized[`angle_${i}_half2_start`]] || ''
+            half2StartText: row[normalized[`angle_${i}_half2_start`]] || '',
+            et1StartText: row[normalized[`angle_${i}_et1_start`]] || '',
+            et2StartText: row[normalized[`angle_${i}_et2_start`]] || ''
           });
         }
       }
@@ -615,6 +625,7 @@ function renderBatchTable() {
         <div class="xml-status">
           ${game.xmlText ? `<span style="color:#86efac;">✓ XML attached (${game.xmlText.length} bytes)</span>` : '<span style="color:var(--t3);">No XML attached</span>'}
           ${game.xmlText.includes('NA Whistle') ? '<span style="margin-left:12px;color:#81d4fa;">📊 Gaelic Insights detected</span>' : ''}
+          ${game.xmlText.includes('P1 START') && game.xmlText.includes('P2 START') ? '<span style="margin-left:12px;color:#81d4fa;">📊 GIU detected</span>' : ''}
         </div>
       </div>
 
@@ -891,6 +902,176 @@ function parseGaelicInsightsXml({
 }
 
 // ═══════════════════════════════════════════════════════════════
+// GIU PARSER
+// ═══════════════════════════════════════════════════════════════
+function parseGiuXml({
+  xmlText,
+  homeTeam,
+  awayTeam,
+  half1Video,
+  half2Video,
+  et1Video = null,
+  et2Video = null
+}) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+
+  if (doc.querySelector('parsererror')) {
+    return { status: 'error', reason: 'Invalid XML file', events: [] };
+  }
+
+  const instances = Array.from(doc.querySelectorAll('instance'));
+
+  let xmlP1 = null, xmlP2 = null, xmlP3 = null, xmlP4 = null;
+  instances.forEach(inst => {
+    const code = (inst.querySelector('code')?.textContent || '').trim();
+    const start = parseFloat(inst.querySelector('start')?.textContent || '0');
+    if (code === 'P1 START' && xmlP1 === null) xmlP1 = start;
+    if (code === 'P2 START' && xmlP2 === null) xmlP2 = start;
+    if (code === 'P3 START' && xmlP3 === null) xmlP3 = start;
+    if (code === 'P4 START' && xmlP4 === null) xmlP4 = start;
+  });
+
+  if (xmlP1 === null) {
+    return { status: 'error', reason: 'Could not find "P1 START" marker in the GIU XML', events: [] };
+  }
+  if (xmlP2 === null) {
+    return { status: 'error', reason: 'Could not find "P2 START" marker in the GIU XML', events: [] };
+  }
+
+  const offset1H = half1Video - xmlP1;
+  const offset2H = half2Video - xmlP2;
+  const offsetET1 = xmlP3 !== null && et1Video !== null ? et1Video - xmlP3 : null;
+  const offsetET2 = xmlP4 !== null && et2Video !== null ? et2Video - xmlP4 : null;
+  const GIU_SKIP = /^P\d START$/;
+
+  function giuTeam(code) {
+    const lower = code.toLowerCase();
+    if (homeTeam && lower.startsWith(homeTeam.toLowerCase())) return homeTeam.toUpperCase();
+    if (awayTeam && lower.startsWith(awayTeam.toLowerCase())) return awayTeam.toUpperCase();
+    return '';
+  }
+
+  function giuCategory(code) {
+    const upper = code.toUpperCase();
+    if (/SHOT/.test(upper)) return 'Shots & Scores';
+    if (/KICKOUT/.test(upper)) return 'Kickouts';
+    if (/TURNOVER/.test(upper)) return 'Turnovers';
+    if (/FOUL/.test(upper)) return 'Fouls';
+    if (/TACKLE/.test(upper)) return 'Tackles';
+    if (/POSS/.test(upper)) return 'Possession & Attack';
+    return 'Player Actions';
+  }
+
+  function gameTimeForHalf(half, seconds) {
+    const safe = Math.max(0, Math.round(seconds));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    const prefix = half === '1st Half' ? '1H' :
+      half === '2nd Half' ? '2H' :
+      half === 'ET 1st Half' ? 'ET1' : 'ET2';
+    return `${prefix} ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  const events = [];
+
+  instances.forEach(inst => {
+    const code = (inst.querySelector('code')?.textContent || '').trim();
+    if (!code || GIU_SKIP.test(code)) return;
+
+    const start = parseFloat(inst.querySelector('start')?.textContent || '0');
+    const end = parseFloat(inst.querySelector('end')?.textContent || '0');
+    const labels = {};
+
+    inst.querySelectorAll('label').forEach(label => {
+      const group = (label.querySelector('group')?.textContent || '').trim();
+      const text = (label.querySelector('text')?.textContent || '').trim();
+      if (group && text) labels[group] = text;
+    });
+
+    let half;
+    let refStart;
+    let offset;
+
+    if (labels.Half) {
+      half = labels.Half;
+      if (half === '2nd Half') {
+        refStart = xmlP2;
+        offset = offset2H;
+      } else if (half === 'ET 1st Half' && xmlP3 !== null && offsetET1 !== null) {
+        refStart = xmlP3;
+        offset = offsetET1;
+      } else if (half === 'ET 2nd Half' && xmlP4 !== null && offsetET2 !== null) {
+        refStart = xmlP4;
+        offset = offsetET2;
+      } else {
+        half = '1st Half';
+        refStart = xmlP1;
+        offset = offset1H;
+      }
+    } else if (xmlP4 !== null && offsetET2 !== null && start >= xmlP4) {
+      half = 'ET 2nd Half';
+      refStart = xmlP4;
+      offset = offsetET2;
+    } else if (xmlP3 !== null && offsetET1 !== null && start >= xmlP3) {
+      half = 'ET 1st Half';
+      refStart = xmlP3;
+      offset = offsetET1;
+    } else if (start >= xmlP2) {
+      half = '2nd Half';
+      refStart = xmlP2;
+      offset = offset2H;
+    } else {
+      half = '1st Half';
+      refStart = xmlP1;
+      offset = offset1H;
+    }
+
+    const videoT = Math.max(0, Math.round(start + offset));
+    const driveT = Math.max(0, videoT - 2);
+    const relSecs = Math.max(0, Math.round(start - refStart));
+    const outcome = labels.ShotOutcome || labels.KickoutOutcome || labels.PossFrom || labels.Outcome || '';
+    const subtype = labels.KODistance || labels.PitchArea || labels.Description || '';
+
+    events.push({
+      id: (inst.querySelector('ID')?.textContent || '').trim() || String(events.length + 1),
+      start: Math.round(start),
+      end: Math.round(end),
+      half,
+      gameTime: gameTimeForHalf(half, relSecs),
+      code,
+      team: giuTeam(code),
+      player: labels.Player || '',
+      outcome,
+      subtype,
+      category: giuCategory(code),
+      driveT,
+      videoT,
+      labels
+    });
+  });
+
+  if (!events.length) {
+    return { status: 'error', reason: 'Parsed 0 GIU events', events: [] };
+  }
+
+  return {
+    status: 'ok',
+    events,
+    diagnostics: {
+      format: 'giu',
+      p1Start: xmlP1,
+      p2Start: xmlP2,
+      p3Start: xmlP3,
+      p4Start: xmlP4,
+      offset1H,
+      offset2H,
+      eventCount: events.length
+    }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // VALIDATION & PARSING
 // ═══════════════════════════════════════════════════════════════
 function validateBatchGame(game) {
@@ -918,8 +1099,18 @@ function parseBatchGame(game) {
 
   const half1Video = parseTime(game.half1StartText);
   const half2Video = parseTime(game.half2StartText);
+  const et1Video = parseTime(game.et1StartText);
+  const et2Video = parseTime(game.et2StartText);
 
-  const isGaelicInsights = game.xmlText.includes('NA Whistle');
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(game.xmlText, 'text/xml');
+  const instances = Array.from(doc.querySelectorAll('instance'));
+  const isGaelicInsights = instances.some(inst =>
+    (inst.querySelector('code')?.textContent || '').trim() === 'NA Whistle'
+  );
+  const isGiu = instances.some(inst =>
+    /^P[12] START$/.test((inst.querySelector('code')?.textContent || '').trim())
+  );
 
   let result;
 
@@ -930,6 +1121,16 @@ function parseBatchGame(game) {
       awayTeam: game.awayTeam,
       half1Video,
       half2Video
+    });
+  } else if (isGiu) {
+    result = parseGiuXml({
+      xmlText: game.xmlText,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      half1Video,
+      half2Video,
+      et1Video,
+      et2Video
     });
   } else {
     return {
@@ -1004,8 +1205,8 @@ function buildBatchGameMeta(game) {
       youtubeId: id,
       half1Start: parseTime(angle.half1StartText),
       half2Start: parseTime(angle.half2StartText),
-      et1Start: null,
-      et2Start: null
+      et1Start: parseTime(angle.et1StartText),
+      et2Start: parseTime(angle.et2StartText)
     });
   }
 

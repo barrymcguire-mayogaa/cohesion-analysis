@@ -329,7 +329,7 @@ function buildHTML(H,A){
     <div class="controls">
       <div class="search-row"><span class="si">🔍</span><input id="SR" type="text" placeholder="Search events, players…" oninput="applyF()"></div>
       <div class="filters-row">
-        <select id="FT" onchange="applyF()"><option value="">All Teams</option><option value="${GAME.homeTeam}">${H}</option><option value="${GAME.awayTeam}">${A}</option></select>
+        <select id="FT" onchange="populatePl();applyF()"><option value="">All Teams</option><option value="${GAME.homeTeam}">${H}</option><option value="${GAME.awayTeam}">${A}</option></select>
         <select id="FP" onchange="applyF()"><option value="">All Players</option></select>
       </div>
       <div class="filters-row" style="margin-bottom:6px;">
@@ -407,7 +407,28 @@ function buildHTML(H,A){
     <div class="nearby" id="NB" style="display:none"><div class="nb-lbl">Nearby Events</div><div id="NBI"></div></div>
   </div>`;
 }
-function populatePl(){const ps=[...new Set(ALL.map(e=>e.player).filter(Boolean))].sort();const s=document.getElementById('FP');if(!s)return;ps.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;s.appendChild(o);});}
+function populatePl(){
+  const s=document.getElementById('FP');
+  if(!s)return;
+  const selectedTeam=document.getElementById('FT')?.value||'';
+  const current=s.value;
+  const players=[...new Set(
+    ALL
+      .filter(e => !selectedTeam || (e.team || '').toUpperCase() === selectedTeam.toUpperCase())
+      .map(e => e.player)
+      .filter(Boolean)
+  )].sort();
+  s.innerHTML='<option value="">All Players</option>';
+  players.forEach(p=>{
+    const o=document.createElement('option');
+    o.value=p;
+    o.textContent=p;
+    s.appendChild(o);
+  });
+  if(players.includes(current)){
+    s.value=current;
+  }
+}
 function setVM(m){viewMode=m;document.getElementById('vtE')?.classList.toggle('on',m==='events');document.getElementById('vtL')?.classList.toggle('on',m==='labels');renderP();}
 // ── Format detection ─────────────────────────────────────────
 function detectFormat(evs){
