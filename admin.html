@@ -1029,6 +1029,7 @@ initTheme();
 function toggleET(){
   const show = document.getElementById('etCheck').checked;
   document.getElementById('etFields').classList.toggle('show', show);
+  renderAdminAngles();
 }
 
 // ── Admin angle management ────────────────────────────────────
@@ -1052,6 +1053,7 @@ function renderAdminAngles(){
     list.innerHTML='<div class="angle-empty">No additional angles added. Click below to add one.</div>';
     return;
   }
+  const showET = document.getElementById('etCheck')?.checked;
   list.innerHTML=adminAngles.map((a,i)=>`
     <div class="angle-row">
       <div class="angle-row-hdr">
@@ -1074,6 +1076,14 @@ function renderAdminAngles(){
         <div class="field">
           <label>2nd Half Start (MM:SS)</label>
           <input type="text" value="${fmtAdminTime(a.half2Start)}" placeholder="38:09" maxlength="6" oninput="adminAngles[${i}].half2Start=parseTime(this.value)">
+        </div>
+        <div class="field" style="display:${showET ? 'block' : 'none'}">
+          <label>ET 1st Half Start (MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.et1Start)}" placeholder="MM:SS" maxlength="6" oninput="adminAngles[${i}].et1Start=parseTime(this.value)">
+        </div>
+        <div class="field" style="display:${showET ? 'block' : 'none'}">
+          <label>ET 2nd Half Start (MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.et2Start)}" placeholder="MM:SS" maxlength="6" oninput="adminAngles[${i}].et2Start=parseTime(this.value)">
         </div>
       </div>
     </div>`).join('');
@@ -1959,19 +1969,26 @@ async function processGame(){
     }
 
     // Build angles array if any valid alternate angles were added
-    const validAdminAngles = adminAngles.filter(a=>a.youtubeId&&a.youtubeId.trim()&&a.half1Start!==null&&a.half2Start!==null);
+    const invalidAdminAngle = adminAngles.find(a =>
+      a.youtubeId && a.youtubeId.trim() &&
+      (a.half1Start === null || a.half2Start === null ||
+        (hasET && (a.et1Start === null || a.et2Start === null)))
+    );
+    if(invalidAdminAngle){
+      showError(hasET
+        ? 'Please enter 1H, 2H, ET 1 and ET 2 start times for each additional camera angle.'
+        : 'Please enter 1H and 2H start times for each additional camera angle.');
+      return;
+    }
+    const validAdminAngles = adminAngles.filter(a =>
+      a.youtubeId && a.youtubeId.trim() &&
+      a.half1Start !== null &&
+      a.half2Start !== null &&
+      (!hasET || (a.et1Start !== null && a.et2Start !== null))
+    );
     let anglesField;
 
     if(skipXml && isReparse){
-      // In re-parse mode with existing events: update main angle with NEW timestamps, preserve other angles
-      const rIdx = parseInt(document.getElementById('reparseGame').value);
-      const existingGame = reparseGames[rIdx];
-
-      // Get existing angles, excluding the main angle (index 0)
-      const otherAngles = (existingGame.angles && existingGame.angles.length > 1)
-        ? existingGame.angles.slice(1)
-        : [];
-
       // Rebuild main angle with NEW timestamps
       const mainAngle = {
         label: 'Main',
@@ -1982,10 +1999,9 @@ async function processGame(){
         et2Start: et2Video
       };
 
-      // Build angles array: updated main angle + existing other angles + new admin angles
-      anglesField = validAdminAngles.length > 0
-        ? [mainAngle, ...otherAngles, ...validAdminAngles]
-        : [mainAngle, ...otherAngles];
+      // Build angles array from the editable angle list.
+      // Existing alternate angles are pre-filled into adminAngles, so do not append them again.
+      anglesField = [mainAngle, ...validAdminAngles];
     } else {
       // New game or XML re-processing: build angles from scratch
       anglesField = validAdminAngles.length > 0 ? [
