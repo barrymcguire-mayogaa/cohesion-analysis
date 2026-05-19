@@ -189,6 +189,17 @@ iframe{width:100%;height:100%;border:none;}
       </div>
     </div>
 
+    <div style="margin-bottom:16px;">
+      <label style="display:block;margin-bottom:8px;">Filter Events</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="period-btn selected" data-filter="all" onclick="filterEvents('all')">All Events</button>
+        <button class="period-btn" data-filter="whistle" onclick="filterEvents('whistle')">NA Whistle</button>
+        <button class="period-btn" data-filter="shot" onclick="filterEvents('shot')">Shots</button>
+        <button class="period-btn" data-filter="kickout" onclick="filterEvents('kickout')">Kickouts</button>
+        <button class="period-btn" data-filter="turnover" onclick="filterEvents('turnover')">Turnovers</button>
+      </div>
+    </div>
+
     <div id="eventListContainer">
       <div class="events-grid" id="eventsList">
         <!-- Populated by JavaScript -->
@@ -239,18 +250,30 @@ iframe{width:100%;height:100%;border:none;}
     </div>
 
     <div class="sync-panel">
+      <div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--accent);line-height:1.5;">
+        <strong>How to sync:</strong> Scrub the video to the moment you see the actual event occurring. Click "Sync This Moment" when positioned at the real-world moment. <span id="gaelicInsightsNote" style="display:none;">For Gaelic Insights, events have an 8-second lead-in before the tagged point.</span>
+      </div>
+
       <div class="sync-row">
-        <div class="sync-row-label">Current Time:</div>
+        <div class="sync-row-label">Video Moment:</div>
         <div class="sync-row-value" id="currentVideoTime">00:00</div>
       </div>
+
       <div class="sync-row">
-        <div class="sync-row-label">Event Start (XML):</div>
+        <div class="sync-row-label">Event XML Time:</div>
         <div class="sync-row-value" id="eventStartTime">—</div>
       </div>
+
       <div class="sync-row">
-        <div class="sync-row-label">Calculated Offset:</div>
+        <div class="sync-row-label">Offset Calculation:</div>
+        <div id="offsetCalculation" style="font-size:11px;color:var(--t3);font-family:monospace;margin-top:4px;padding:8px;background:var(--card);border-radius:4px;">—</div>
+      </div>
+
+      <div class="sync-row">
+        <div class="sync-row-label">Final Offset:</div>
         <div class="sync-row-value" id="calculatedOffset">—</div>
       </div>
+
       <button class="sync-btn" onclick="calculateSync()">🔗 Sync This Moment</button>
     </div>
 
@@ -325,7 +348,10 @@ const visualSyncState = {
   syncOffsets: {}, // { '1H': { main: offset, ... }, '2H': {...}, ... }
   videoIds: {}, // { main: 'xxx', angle2: 'yyy', ... }
   videoCurrentTime: 0,
-  validationState: {}
+  validationState: {},
+  eventFilter: 'all',
+  gaelicInsightsLeadIn: 8, // seconds before event in XML
+  gaelicInsightsLag: 6    // seconds after event in XML
 };
 
 // ============ THEME TOGGLE ============
@@ -731,12 +757,46 @@ function guessPeriodFromTime(secs) {
 
 // ============ EVENT SELECTION ============
 
+function getEventFilterCategory(code) {
+  if (!code) return 'other';
+  const lower = code.toLowerCase();
+  if (lower.includes('whistle')) return 'whistle';
+  if (lower.includes('shot')) return 'shot';
+  if (lower.includes('kickout')) return 'kickout';
+  if (lower.includes('turnover')) return 'turnover';
+  return 'other';
+}
+
+function filterEvents(filter) {
+  visualSyncState.eventFilter = filter;
+
+  // Update button states
+  document.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.filter === filter);
+  });
+
+  renderEventsList();
+}
+
 function renderEventsList() {
   const container = document.getElementById('eventsList');
-  container.innerHTML = visualSyncState.parsedEvents.map((evt, idx) => {
+
+  // Filter events based on selected filter
+  let filteredEvents = visualSyncState.parsedEvents;
+  if (visualSyncState.eventFilter !== 'all') {
+    filteredEvents = visualSyncState.parsedEvents.filter((evt, idx) => {
+      const category = getEventFilterCategory(evt.code);
+      return category === visualSyncState.eventFilter || (visualSyncState.eventFilter === 'all');
+    });
+  }
+
+  container.innerHTML = filteredEvents.map((evt, origIdx) => {
+    // Find original index
+    const idx = visualSyncState.parsedEvents.indexOf(evt);
     const timeStr = secsToMMSS(evt.start);
+    const category = getEventFilterCategory(evt.code);
     return `
-      <div class="event-card" onclick="selectEvent(${idx})" data-event-idx="${idx}">
+      <div class="event-card" onclick="selectEvent(${idx})" data-event-idx="${idx}" data-category="${category}">
         <div class="event-card-time">${timeStr}</div>
         <div class="event-card-code">${evt.code}</div>
         <div class="event-card-info">${evt.team || 'N/A'}</div>
@@ -744,6 +804,10 @@ function renderEventsList() {
       </div>
     `;
   }).join('');
+
+  if (filteredEvents.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--t3);padding:20px;">No events match this filter</div>';
+  }
 }
 
 function selectEvent(idx) {
@@ -777,9 +841,32 @@ function selectPeriod(period) {
   document.getElementById('periodSelectionStatus').innerHTML =
     `<div class="status-box success">✅ Period selected: <strong>${period}</strong> for event <strong>${evt.code}</strong></div>`;
 
+  // Show Gaelic Insights note if applicable
+  const giNote = document.getElementById('gaelicInsightsNote');
+  if (visualSyncState.xmlFormat === 'gaelic-insights') {
+    giNote.style.display = 'inline';
+  } else {
+    giNote.style.display = 'none';
+  }
+
   loadVideoEmbed();
   document.getElementById('syncVideoStep').style.display = 'block';
   document.getElementById('eventStartTime').textContent = secsToMMSS(evt.start);
+
+  // Update offset calculation display
+  updateOffsetCalculationDisplay();
+}
+
+function updateOffsetCalculationDisplay() {
+  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
+  const calcDiv = document.getElementById('offsetCalculation');
+
+  if (visualSyncState.xmlFormat === 'gaelic-insights') {
+    const adjustedXmlTime = evt.start - visualSyncState.gaelicInsightsLeadIn;
+    calcDiv.textContent = `videoTime - (xmlTime - 8s)\n= ? - (${secsToMMSS(evt.start)} - 8s)\n= ? - ${secsToMMSS(adjustedXmlTime)}`;
+  } else {
+    calcDiv.textContent = `videoTime - xmlTime\n= ? - ${secsToMMSS(evt.start)}`;
+  }
 }
 
 // ============ VIDEO EMBED ============
@@ -825,6 +912,22 @@ function onPlayerReady(event) {
         const time = window.player.getCurrentTime();
         visualSyncState.videoCurrentTime = time;
         document.getElementById('currentVideoTime').textContent = secsToMMSS(time);
+
+        // Update offset calculation display in real-time
+        const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
+        if (evt && visualSyncState.selectedPeriod) {
+          const calcDiv = document.getElementById('offsetCalculation');
+          if (visualSyncState.xmlFormat === 'gaelic-insights') {
+            const adjustedXmlTime = evt.start - visualSyncState.gaelicInsightsLeadIn;
+            const offset = time - adjustedXmlTime;
+            const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
+            calcDiv.textContent = `videoTime - (xmlTime - 8s)\n= ${secsToMMSS(time)} - ${secsToMMSS(adjustedXmlTime)}\n= ${offsetStr}`;
+          } else {
+            const offset = time - evt.start;
+            const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
+            calcDiv.textContent = `videoTime - xmlTime\n= ${secsToMMSS(time)} - ${secsToMMSS(evt.start)}\n= ${offsetStr}`;
+          }
+        }
       } catch (e) {
         // Silently ignore player errors
       }
@@ -843,8 +946,14 @@ function calculateSync() {
     return;
   }
 
-  // Calculate offset: videoTime - xmlTime
-  const offset = videoTime - evt.start;
+  // Calculate offset with Gaelic Insights lead-in adjustment
+  // For GI events: actual event starts 8 seconds before XML tag point
+  // So: offset = (videoTime) - (xmlTime - leadIn)
+  let offset = videoTime - evt.start;
+
+  if (visualSyncState.xmlFormat === 'gaelic-insights') {
+    offset = videoTime - (evt.start - visualSyncState.gaelicInsightsLeadIn);
+  }
 
   // Store offset
   if (!visualSyncState.syncOffsets[period]) {
@@ -852,14 +961,49 @@ function calculateSync() {
   }
   visualSyncState.syncOffsets[period][visualSyncState.selectedAngle] = offset;
 
-  document.getElementById('calculatedOffset').textContent = `${offset.toFixed(1)}s`;
+  const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
+  document.getElementById('calculatedOffset').textContent = offsetStr;
+
+  const adjustmentNote = visualSyncState.xmlFormat === 'gaelic-insights'
+    ? ` (adjusted for 8-sec lead-in)`
+    : '';
+
   document.getElementById('syncStatus').innerHTML =
-    `<div class="status-box success">✅ Synced! Offset for <strong>${period}</strong> (${visualSyncState.selectedAngle}): <strong>${offset.toFixed(1)}s</strong></div>`;
+    `<div class="status-box success">✅ Synced! <strong>${period}</strong> offset: <strong>${offsetStr}</strong>${adjustmentNote}</div>`;
 
   updateAngleStatus();
 
-  // Show continue options
+  // Show continue options with summary
+  showSyncSummary();
   document.getElementById('continueOptions').style.display = 'flex';
+}
+
+function showSyncSummary() {
+  const summaryDiv = document.getElementById('syncSummary') || (() => {
+    const div = document.createElement('div');
+    div.id = 'syncSummary';
+    div.style.marginTop = '16px';
+    document.getElementById('syncStatus').parentNode.insertBefore(div, document.getElementById('continueOptions'));
+    return div;
+  })();
+
+  const periods = Object.keys(visualSyncState.syncOffsets).sort();
+  if (periods.length === 0) return;
+
+  let summaryHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">';
+  summaryHTML += '<div style="font:700 12px \'Barlow Condensed\',sans-serif;color:var(--t1);margin-bottom:8px;">📊 Synced Offsets Summary</div>';
+
+  periods.forEach(period => {
+    const angles = visualSyncState.syncOffsets[period];
+    Object.entries(angles).forEach(([angle, offset]) => {
+      const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
+      const angleLabel = angle === 'main' ? '🎬 Main' : angle;
+      summaryHTML += `<div style="font-size:12px;color:var(--t2);margin-bottom:4px;">✓ <strong>${period}</strong> (${angleLabel}): <strong style="color:var(--accent);">${offsetStr}</strong></div>`;
+    });
+  });
+
+  summaryHTML += '</div>';
+  summaryDiv.innerHTML = summaryHTML;
 }
 
 function continueSyncAnother() {
