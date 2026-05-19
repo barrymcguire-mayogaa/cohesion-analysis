@@ -606,6 +606,56 @@ function clearActiveTile(){
   renderLibraryTiles();
 }
 
+function syncActiveTileFromFilters(){
+  const comp = document.getElementById('fComp').value;
+  const div = document.getElementById('fDiv').value;
+  const match = libraryTiles.find(tile =>
+    (tile.competition || '') === comp &&
+    (tile.division || '') === (div || '')
+  );
+  activeTileKey = match ? match.key : null;
+  renderLibraryTiles();
+}
+
+function updateLibraryUrl(){
+  const params = new URLSearchParams();
+  const values = {
+    comp: document.getElementById('fComp').value,
+    div: document.getElementById('fDiv').value,
+    round: document.getElementById('fRound').value,
+    team: document.getElementById('fTeam').value,
+    year: document.getElementById('fYear').value,
+    q: document.getElementById('fSearch').value.trim()
+  };
+
+  Object.entries(values).forEach(([key, value])=>{
+    if(value) params.set(key, value);
+  });
+
+  const query = params.toString();
+  const nextUrl = query ? `${location.pathname}?${query}` : location.pathname;
+  history.replaceState(null, '', nextUrl);
+}
+
+function restoreLibraryFiltersFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const setIfPresent = (id, key)=>{
+    const val = params.get(key);
+    const el = document.getElementById(id);
+    if(val !== null && el) el.value = val;
+  };
+
+  setIfPresent('fComp', 'comp');
+  toggleDivFilter();
+  setIfPresent('fDiv', 'div');
+  toggleRoundFilter();
+  setIfPresent('fRound', 'round');
+  setIfPresent('fTeam', 'team');
+  setIfPresent('fYear', 'year');
+  setIfPresent('fSearch', 'q');
+  syncActiveTileFromFilters();
+}
+
 function resetLibraryFilters(){
   activeTileKey = null;
   document.getElementById('fComp').value = '';
@@ -728,6 +778,7 @@ function applyFilters(){
     `${filtered.length} game${filtered.length!==1?'s':''}`;
 
   renderGames(filtered);
+  updateLibraryUrl();
 }
 
 function renderGames(games){
@@ -1035,6 +1086,7 @@ async function loadGames(){
 
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
+    restoreLibraryFiltersFromUrl();
     applyFilters();
   } catch(e){
     console.error('loadGames error:', e);

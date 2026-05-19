@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Visual Sync Upload (Trial)</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:900px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
+label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;}
+input[type=text],input[type=date],input[type=url],select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+input::placeholder{color:var(--t3);}
+input:focus,select:focus{border-color:var(--accent);}
+select option{background:var(--card);}
+
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);}
+.drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--accent-bg);}
+.drop-zone.ready{border-color:var(--green);background:var(--green-bg);}
+.dz-icon{font-size:28px;opacity:.4;margin-bottom:8px;}
+.dz-title{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);margin-bottom:4px;}
+.dz-sub{font-size:12px;color:var(--t3);}
+.dz-file{font:700 13px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;}
+input[type=file]{display:none;}
+
+.process-btn{width:100%;padding:13px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;margin-top:4px;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+.status-box{padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin-bottom:16px;}
+.status-box.info{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
+.status-box.success{background:var(--green-bg);border:1px solid var(--green);color:var(--green);}
+.status-box.error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);}
+.status-box.warning{background:rgba(255,152,0,0.12);border:1px solid #ff9800;color:#ff9800;}
+
+.events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
+.event-card{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all .2s;font-size:12px;}
+.event-card:hover{border-color:var(--accent);background:var(--hover);}
+.event-card.selected{border-color:var(--green);background:var(--green-bg);}
+.event-card-time{font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);margin-bottom:4px;}
+.event-card-code{color:var(--t2);margin-bottom:4px;}
+.event-card-info{font-size:11px;color:var(--t3);}
+
+.period-buttons{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.period-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .2s;}
+.period-btn:hover{border-color:var(--accent);color:var(--accent);}
+.period-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+.sync-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;}
+.sync-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.sync-row-label{width:120px;font-size:12px;color:var(--t2);}
+.sync-row-value{flex:1;font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);}
+.sync-btn{padding:8px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
+.sync-btn:hover{opacity:.9;}
+.sync-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+.preview-table th{background:var(--card);border:1px solid var(--border);padding:8px;text-align:left;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);}
+.preview-table td{border:1px solid var(--border);padding:8px;}
+.preview-table tr:nth-child(even){background:var(--hover);}
+
+.angle-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
+.angle-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;}
+.angle-item-label{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;}
+.angle-item-status{font-size:11px;color:var(--t2);line-height:1.5;}
+.angle-item-status.ok{color:var(--green);}
+.angle-item-status.pending{color:var(--t3);}
+
+.validation-list{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;}
+.val-item{display:flex;align-items:center;gap:8px;padding:6px 0;color:var(--t2);}
+.val-item.ok{color:var(--green);}
+.val-item.error{color:var(--red);}
+.val-icon{font-size:14px;min-width:16px;}
+
+.video-embed{width:100%;aspect-ratio:16/9;border-radius:8px;background:var(--card);border:1px solid var(--border);overflow:hidden;margin-bottom:16px;}
+iframe{width:100%;height:100%;border:none;}
+
+.help{font-size:11px;color:var(--t3);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="admin.html" class="logo">COHESION</a>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="library.html" class="hdr-btn">← Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">🎬 Visual Sync Upload (Trial)</div>
+  <div class="page-sub">
+    Upload an XML file, manually select specific event instances, scrub the YouTube video to the matching moment, and let the system calculate timing offsets automatically.
+    <strong>Trial feature:</strong> Isolated from main upload flows. Requires manual period selection.
+  </div>
+
+  <!-- STEP 1: Select Game -->
+  <div class="step" id="gameSelectionStep">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Select Game</div>
+        <div class="step-sub">Search and select a game to sync (or enter game ID manually)</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Search Games</label>
+      <input type="text" id="gameSearch" placeholder="Search by team, date, or game ID…" oninput="filterGameList()">
+      <div id="gameDropdown" style="border:1px solid var(--border);border-radius:7px;background:var(--card);max-height:300px;overflow-y:auto;margin-bottom:12px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;display:none;">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+    <div class="field">
+      <label>Or Enter Game ID Manually</label>
+      <input type="text" id="gameIdManual" placeholder="e.g. mayo-london-2026-qf">
+    </div>
+    <button class="process-btn" onclick="selectGame()">Select Game →</button>
+  </div>
+
+  <!-- STEP 2: Upload XML -->
+  <div class="step" id="xmlUploadStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Upload XML File</div>
+        <div class="step-sub">Supports Gaelic Insights, GIU, and Sportscode formats. Auto-detects format.</div>
+      </div>
+    </div>
+
+    <div id="selectedGameInfo" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+      <div style="color:var(--t3);margin-bottom:4px;">Selected Game:</div>
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);" id="selectedGameDisplay"></div>
+    </div>
+
+    <div class="drop-zone" id="xmlDropZone"
+         onclick="document.getElementById('xmlFile').click()"
+         ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+         ondragleave="this.classList.remove('over')"
+         ondrop="handleXmlDrop(event)">
+      <div class="dz-icon">📁</div>
+      <div class="dz-title">Drop XML file or click to browse</div>
+      <div class="dz-sub">Gaelic Insights, GIU, or Sportscode</div>
+      <div class="dz-file" id="xmlFileName"></div>
+    </div>
+    <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)">
+
+    <div id="xmlParseStatus"></div>
+  </div>
+
+  <!-- STEP 3: Select Event Instance -->
+  <div class="step" id="eventSelectionStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Select Event Instance</div>
+        <div class="step-sub">Click an event to select it. This specific instance will be synced.</div>
+      </div>
+    </div>
+
+    <div id="eventListContainer">
+      <div class="events-grid" id="eventsList">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <div id="selectedEventInfo" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+      <div style="color:var(--t3);margin-bottom:4px;">Selected Event:</div>
+      <div id="selectedEventDisplay" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4: Select Period -->
+  <div class="step" id="periodSelectionStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Select Period</div>
+        <div class="step-sub">Which period does this event belong to? (Required before sync)</div>
+      </div>
+    </div>
+
+    <div class="period-buttons" id="periodButtons">
+      <button class="period-btn" data-period="1H" onclick="selectPeriod('1H')">1st Half</button>
+      <button class="period-btn" data-period="2H" onclick="selectPeriod('2H')">2nd Half</button>
+      <button class="period-btn" data-period="ET1" onclick="selectPeriod('ET1')">ET 1st</button>
+      <button class="period-btn" data-period="ET2" onclick="selectPeriod('ET2')">ET 2nd</button>
+    </div>
+
+    <div id="periodSelectionStatus"></div>
+  </div>
+
+  <!-- STEP 5: Sync Video -->
+  <div class="step" id="syncVideoStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <div>
+        <div class="step-title">Sync Video</div>
+        <div class="step-sub">Scrub the YouTube video to the exact moment this event happens in real-world. Then click [Sync] to calculate the offset.</div>
+      </div>
+    </div>
+
+    <label style="display:block;margin-bottom:8px;">YouTube Video (Main Angle)</label>
+    <div class="video-embed" id="videoContainer">
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;">
+        Select main angle YouTube URL in game details, or upload will use existing angle URLs.
+      </div>
+    </div>
+
+    <div class="sync-panel">
+      <div class="sync-row">
+        <div class="sync-row-label">Current Time:</div>
+        <div class="sync-row-value" id="currentVideoTime">00:00</div>
+      </div>
+      <div class="sync-row">
+        <div class="sync-row-label">Event Start (XML):</div>
+        <div class="sync-row-value" id="eventStartTime">—</div>
+      </div>
+      <div class="sync-row">
+        <div class="sync-row-label">Calculated Offset:</div>
+        <div class="sync-row-value" id="calculatedOffset">—</div>
+      </div>
+      <button class="sync-btn" onclick="calculateSync()">🔗 Sync This Moment</button>
+    </div>
+
+    <div id="syncStatus"></div>
+
+    <div id="continueOptions" style="display:none;margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="process-btn" onclick="continueSyncAnother()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">↻ Sync Another Period/Angle</button>
+      <button class="process-btn" onclick="moveToReview()" style="flex:1;">→ Review & Save</button>
+    </div>
+  </div>
+
+  <!-- STEP 6: Review & Save -->
+  <div class="step" id="reviewStep" style="display:none;">
+    <div class="step-header">
+      <div class="step-num">6</div>
+      <div>
+        <div class="step-title">Review & Save</div>
+        <div class="step-sub">Verify synced times and save to database. All required periods must be synced before saving.</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Sync Status by Angle & Period:</div>
+      <div class="angle-status" id="angleStatusGrid">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Validation Checklist:</div>
+      <div class="validation-list" id="validationList">
+        <!-- Populated by JavaScript -->
+      </div>
+    </div>
+
+    <div id="previewTableContainer" style="margin-bottom:20px;display:none;overflow-x:auto;">
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Preview (Original vs. Synced Times):</div>
+      <table class="preview-table" id="previewTable">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Period</th>
+            <th>Original Start (s)</th>
+            <th>Offset (s)</th>
+            <th>Synced Start (s)</th>
+          </tr>
+        </thead>
+        <tbody id="previewTableBody"></tbody>
+      </table>
+    </div>
+
+    <button class="process-btn" id="saveBtn" onclick="saveSync()" style="display:none;">💾 Save to Database</button>
+    <div id="saveStatus"></div>
+  </div>
+
+</div>
+
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============ STATE MANAGEMENT ============
+
+const visualSyncState = {
+  selectedGame: null,
+  gamesMeta: [],
+  xmlText: null,
+  xmlFormat: null,
+  parsedEvents: [],
+  selectedEventIdx: null,
+  selectedPeriod: null,
+  selectedAngle: 'main',
+  syncOffsets: {}, // { '1H': { main: offset, ... }, '2H': {...}, ... }
+  videoIds: {}, // { main: 'xxx', angle2: 'yyy', ... }
+  videoCurrentTime: 0,
+  validationState: {}
+};
+
+// ============ THEME TOGGLE ============
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeToggle();
+}
+
+function updateThemeToggle() {
+  const theme = document.documentElement.getAttribute('data-theme');
+  document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+// ============ AUTH ============
+
+const auth = sessionStorage.getItem('cohesion_auth');
+if (!auth) {
+  window.location.href = 'index.html';
+}
+if (auth !== 'admin') {
+  window.location.href = 'library.html';
+}
+
+function logout() {
+  netlifyIdentity.logout();
+  sessionStorage.clear();
+  window.location.href = 'index.html';
+}
+
+// ============ SUPABASE SETUP ============
+
+const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+let _sb = null;
+
+function initSupabase() {
+  _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+// ============ GAME SELECTION ============
+
+async function loadGames() {
+  try {
+    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
+    if (error) throw error;
+
+    visualSyncState.gamesMeta = (data || [])
+      .map(r => {
+        let meta = r.meta;
+        if (typeof meta === 'string') {
+          try {
+            meta = JSON.parse(meta);
+          } catch (e) {
+            return null;
+          }
+        }
+        return meta;
+      })
+      .filter(g => g && typeof g === 'object');
+  } catch (e) {
+    console.error('Failed to load games:', e);
+    showStatus('gameSelectionStep', 'error', `❌ Failed to load games: ${e.message}`);
+  }
+}
+
+function filterGameList() {
+  const query = document.getElementById('gameSearch').value.toLowerCase();
+  const dropdown = document.getElementById('gameDropdown');
+
+  if (!query) {
+    dropdown.style.display = 'none';
+    return;
+  }
+
+  const filtered = visualSyncState.gamesMeta.filter(g =>
+    (g.id && g.id.toLowerCase().includes(query)) ||
+    (g.homeTeam && g.homeTeam.toLowerCase().includes(query)) ||
+    (g.awayTeam && g.awayTeam.toLowerCase().includes(query)) ||
+    (g.title && g.title.toLowerCase().includes(query))
+  ).slice(0, 10);
+
+  dropdown.innerHTML = filtered.map(g =>
+    `<div onclick="selectGameFromDropdown('${g.id}')" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .2s;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='transparent'">
+      <div style="font:700 12px 'Barlow Condensed',sans-serif;color:var(--t1);">${g.id}</div>
+      <div style="font-size:11px;color:var(--t3);">${g.homeTeam} v ${g.awayTeam} • ${g.date}</div>
+    </div>`
+  ).join('');
+
+  dropdown.style.display = 'block';
+}
+
+function selectGameFromDropdown(gameId) {
+  document.getElementById('gameSearch').value = gameId;
+  document.getElementById('gameDropdown').style.display = 'none';
+  selectGame();
+}
+
+function selectGame() {
+  const query = document.getElementById('gameSearch').value || document.getElementById('gameIdManual').value;
+  const game = visualSyncState.gamesMeta.find(g => g.id === query);
+
+  if (!game) {
+    showStatus('gameSelectionStep', 'error', '❌ Game not found');
+    return;
+  }
+
+  visualSyncState.selectedGame = game;
+  showStatus('gameSelectionStep', 'success', `✅ Game selected: ${game.title}`);
+
+  document.getElementById('selectedGameDisplay').textContent = `${game.homeTeam} v ${game.awayTeam} • ${game.date}`;
+
+  // Store video IDs from game
+  visualSyncState.videoIds.main = game.youtubeId || null;
+  if (game.angles) {
+    game.angles.forEach((angle, idx) => {
+      visualSyncState.videoIds[`angle${idx+2}`] = angle.youtubeId || null;
+    });
+  }
+
+  document.getElementById('xmlUploadStep').style.display = 'block';
+}
+
+// ============ XML PARSING ============
+
+function handleXmlDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleXmlFileSelect({ files: files });
+}
+
+function handleXmlFileSelect(input) {
+  const files = input.files || input.target?.files;
+  if (!files || files.length === 0) return;
+
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    visualSyncState.xmlText = evt.target.result;
+    document.getElementById('xmlFileName').textContent = file.name;
+    document.getElementById('xmlDropZone').classList.add('ready');
+    parseXml();
+  };
+  reader.readAsText(file);
+}
+
+function parseXml() {
+  showStatus('xmlUploadStep', 'info', '⏳ Parsing XML...');
+
+  // Auto-detect format
+  visualSyncState.xmlFormat = autoDetectFormat(visualSyncState.xmlText);
+
+  if (!visualSyncState.xmlFormat) {
+    showStatus('xmlUploadStep', 'error', '❌ Could not detect XML format. Supports: Gaelic Insights, GIU, Sportscode');
+    return;
+  }
+
+  // Parse based on format
+  let parseResult;
+  if (visualSyncState.xmlFormat === 'gaelic-insights') {
+    parseResult = parseGaelicInsightsXml(visualSyncState.xmlText);
+  } else if (visualSyncState.xmlFormat === 'giu') {
+    parseResult = parseGiuXml(visualSyncState.xmlText);
+  } else {
+    showStatus('xmlUploadStep', 'error', '❌ Format not yet supported in Visual Sync');
+    return;
+  }
+
+  if (!parseResult.success) {
+    showStatus('xmlUploadStep', 'error', `❌ Parse error: ${parseResult.error}`);
+    return;
+  }
+
+  visualSyncState.parsedEvents = parseResult.events;
+
+  showStatus('xmlUploadStep', 'success', `✅ Parsed ${visualSyncState.parsedEvents.length} events from ${visualSyncState.xmlFormat}`);
+
+  renderEventsList();
+  document.getElementById('eventSelectionStep').style.display = 'block';
+}
+
+function autoDetectFormat(xmlText) {
+  if (!xmlText) return null;
+
+  if (xmlText.includes('GaelicInsights') || xmlText.includes('NA Whistle')) {
+    return 'gaelic-insights';
+  }
+  if (xmlText.includes('GIU') || xmlText.includes('P1 START')) {
+    return 'giu';
+  }
+  if (xmlText.includes('SportsCode')) {
+    return 'sportscode';
+  }
+
+  return null;
+}
+
+// ============ GAELIC INSIGHTS PARSER ============
+
+function parseGaelicInsightsXml(xmlText) {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+    if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+      return { success: false, error: 'Invalid XML' };
+    }
+
+    const events = [];
+    const eventElements = xmlDoc.getElementsByTagName('Event');
+
+    for (let elem of eventElements) {
+      const code = elem.getAttribute('EventCode') || '';
+      const startStr = elem.getAttribute('EventTime') || '';
+      const start = parseEventTime(startStr);
+
+      if (start === null) continue;
+
+      const team = elem.getAttribute('Team') || '';
+      const player = elem.getAttribute('Player') || '';
+      const period = elem.getAttribute('Period') || 'Unknown';
+
+      // Auto-detect period if available
+      let periodGuess = period;
+      if (period === 'Unknown') {
+        periodGuess = guessPeriodFromTime(start);
+      }
+
+      events.push({
+        id: `GI-${code}-${start}`,
+        code,
+        start,
+        end: start + 1,
+        team,
+        player,
+        period: periodGuess,
+        labels: [code, team || '', player || ''].filter(Boolean),
+        isSyncCandidate: true,
+        syncPriority: code.includes('Whistle') ? 'high' : 'normal'
+      });
+    }
+
+    if (events.length === 0) {
+      return { success: false, error: 'No events found in XML' };
+    }
+
+    return { success: true, events };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ============ GIU PARSER ============
+
+function parseGiuXml(xmlText) {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+    if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+      return { success: false, error: 'Invalid XML' };
+    }
+
+    const events = [];
+    const matchElements = xmlDoc.getElementsByTagName('Match');
+
+    for (let match of matchElements) {
+      const periodElements = match.getElementsByTagName('Period');
+
+      for (let period of periodElements) {
+        const periodNum = period.getAttribute('Number') || '';
+        let periodLabel = `${periodNum}`;
+        if (periodNum === '1') periodLabel = '1H';
+        else if (periodNum === '2') periodLabel = '2H';
+        else if (periodNum === '3') periodLabel = 'ET1';
+        else if (periodNum === '4') periodLabel = 'ET2';
+
+        const eventElements = period.getElementsByTagName('Event');
+
+        for (let elem of eventElements) {
+          const code = elem.getAttribute('EventType') || '';
+          const timeStr = elem.getAttribute('EventTime') || '';
+          const start = parseInt(timeStr) || 0;
+
+          const team = elem.getAttribute('Team') || '';
+          const player = elem.getAttribute('Player') || '';
+
+          events.push({
+            id: `GIU-${code}-${start}-${periodNum}`,
+            code,
+            start,
+            end: start + 1,
+            team,
+            player,
+            period: periodLabel,
+            labels: [code, team || '', player || ''].filter(Boolean),
+            isSyncCandidate: true,
+            syncPriority: code.includes('START') ? 'high' : 'normal'
+          });
+        }
+      }
+    }
+
+    if (events.length === 0) {
+      return { success: false, error: 'No events found in GIU XML' };
+    }
+
+    return { success: true, events };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function parseEventTime(timeStr) {
+  if (!timeStr) return null;
+  const parts = timeStr.match(/(\d+):(\d+)/);
+  if (!parts) return null;
+  return parseInt(parts[1]) * 60 + parseInt(parts[2]);
+}
+
+function guessPeriodFromTime(secs) {
+  if (secs < 2700) return '1H'; // < 45 min
+  if (secs < 5400) return '2H'; // < 90 min
+  if (secs < 6600) return 'ET1'; // < 110 min
+  return 'ET2';
+}
+
+// ============ EVENT SELECTION ============
+
+function renderEventsList() {
+  const container = document.getElementById('eventsList');
+  container.innerHTML = visualSyncState.parsedEvents.map((evt, idx) => {
+    const timeStr = secsToMMSS(evt.start);
+    return `
+      <div class="event-card" onclick="selectEvent(${idx})" data-event-idx="${idx}">
+        <div class="event-card-time">${timeStr}</div>
+        <div class="event-card-code">${evt.code}</div>
+        <div class="event-card-info">${evt.team || 'N/A'}</div>
+        <div class="event-card-info">${evt.player || ''}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectEvent(idx) {
+  visualSyncState.selectedEventIdx = idx;
+  const evt = visualSyncState.parsedEvents[idx];
+
+  // Clear previous selection
+  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`[data-event-idx="${idx}"]`).classList.add('selected');
+
+  const timeStr = secsToMMSS(evt.start);
+  document.getElementById('selectedEventDisplay').textContent =
+    `${timeStr} • ${evt.code} • ${evt.team} • ${evt.player || 'N/A'}`;
+  document.getElementById('selectedEventInfo').style.display = 'block';
+
+  document.getElementById('periodSelectionStep').style.display = 'block';
+  document.getElementById('periodSelectionStatus').innerHTML = '';
+}
+
+// ============ PERIOD SELECTION ============
+
+function selectPeriod(period) {
+  visualSyncState.selectedPeriod = period;
+
+  // Update button states
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.period === period);
+  });
+
+  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
+  document.getElementById('periodSelectionStatus').innerHTML =
+    `<div class="status-box success">✅ Period selected: <strong>${period}</strong> for event <strong>${evt.code}</strong></div>`;
+
+  loadVideoEmbed();
+  document.getElementById('syncVideoStep').style.display = 'block';
+  document.getElementById('eventStartTime').textContent = secsToMMSS(evt.start);
+}
+
+// ============ VIDEO EMBED ============
+
+function loadVideoEmbed() {
+  const videoId = visualSyncState.videoIds.main;
+  if (!videoId) {
+    document.getElementById('videoContainer').innerHTML =
+      `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video URL found for this game</div>`;
+    return;
+  }
+
+  document.getElementById('videoContainer').innerHTML =
+    `<iframe id="youtubePlayer" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen></iframe>`;
+
+  // Set up YouTube API listener
+  window.onYouTubeIframeAPIReady = initYouTubePlayer;
+
+  // If YT is already loaded, initialize immediately
+  if (window.YT && window.YT.Player) {
+    initYouTubePlayer();
+  }
+}
+
+function initYouTubePlayer() {
+  const iframe = document.getElementById('youtubePlayer');
+  if (!iframe || window.player) return; // Already initialized
+
+  window.player = new YT.Player(iframe, {
+    events: {
+      'onReady': onPlayerReady
+    }
+  });
+}
+
+function onPlayerReady(event) {
+  // Start polling video time
+  if (window.videoTimeInterval) clearInterval(window.videoTimeInterval);
+
+  window.videoTimeInterval = setInterval(() => {
+    if (window.player && window.player.getCurrentTime) {
+      try {
+        const time = window.player.getCurrentTime();
+        visualSyncState.videoCurrentTime = time;
+        document.getElementById('currentVideoTime').textContent = secsToMMSS(time);
+      } catch (e) {
+        // Silently ignore player errors
+      }
+    }
+  }, 100);
+}
+
+function calculateSync() {
+  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
+  const period = visualSyncState.selectedPeriod;
+  const videoTime = visualSyncState.videoCurrentTime;
+
+  if (!evt || !period) {
+    document.getElementById('syncStatus').innerHTML =
+      `<div class="status-box error">❌ Please select an event and period first</div>`;
+    return;
+  }
+
+  // Calculate offset: videoTime - xmlTime
+  const offset = videoTime - evt.start;
+
+  // Store offset
+  if (!visualSyncState.syncOffsets[period]) {
+    visualSyncState.syncOffsets[period] = {};
+  }
+  visualSyncState.syncOffsets[period][visualSyncState.selectedAngle] = offset;
+
+  document.getElementById('calculatedOffset').textContent = `${offset.toFixed(1)}s`;
+  document.getElementById('syncStatus').innerHTML =
+    `<div class="status-box success">✅ Synced! Offset for <strong>${period}</strong> (${visualSyncState.selectedAngle}): <strong>${offset.toFixed(1)}s</strong></div>`;
+
+  updateAngleStatus();
+
+  // Show continue options
+  document.getElementById('continueOptions').style.display = 'flex';
+}
+
+function continueSyncAnother() {
+  // Reset event and period selection
+  visualSyncState.selectedEventIdx = null;
+  visualSyncState.selectedPeriod = null;
+
+  // Clear UI
+  document.getElementById('selectedEventInfo').style.display = 'none';
+  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('selected'));
+  document.getElementById('syncStatus').innerHTML = '';
+  document.getElementById('continueOptions').style.display = 'none';
+
+  // Scroll to event selection
+  document.getElementById('eventSelectionStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateAngleStatus() {
+  // Show which periods are synced for each angle
+  const angleStatusGrid = document.getElementById('angleStatusGrid');
+  const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
+  const periods = ['1H', '2H', 'ET1', 'ET2'];
+
+  const grid = angles.map(angle => {
+    const status = periods.map(period => {
+      const isSynced = visualSyncState.syncOffsets[period] && visualSyncState.syncOffsets[period][angle];
+      return `<div class="val-item ${isSynced ? 'ok' : 'pending'}">
+        <span class="val-icon">${isSynced ? '✓' : '○'}</span>
+        <span>${period}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="angle-item">
+      <div class="angle-item-label">${angle === 'main' ? '🎬 Main Angle' : angle}</div>
+      <div class="angle-item-status">${status}</div>
+    </div>`;
+  }).join('');
+
+  angleStatusGrid.innerHTML = grid;
+}
+
+// ============ VALIDATION ============
+
+function validateSync() {
+  const game = visualSyncState.selectedGame;
+  const validation = [];
+
+  // Check: Must have at least one synced offset
+  const totalOffsets = Object.values(visualSyncState.syncOffsets)
+    .reduce((sum, periods) => sum + Object.keys(periods).length, 0);
+
+  if (totalOffsets === 0) {
+    validation.push({ ok: false, msg: 'No synced offsets. Must sync at least one period.' });
+  } else {
+    validation.push({ ok: true, msg: `${totalOffsets} offset(s) synced` });
+  }
+
+  // Check: Main angle must have required periods
+  const mainAngleSynced = visualSyncState.syncOffsets['1H']?.main !== undefined ||
+                          visualSyncState.syncOffsets['2H']?.main !== undefined;
+
+  if (mainAngleSynced) {
+    validation.push({ ok: true, msg: 'Main angle has required sync' });
+  } else {
+    validation.push({ ok: false, msg: 'Main angle needs at least one synced period' });
+  }
+
+  // Check: Game has required metadata
+  if (game.homeTeam && game.awayTeam) {
+    validation.push({ ok: true, msg: 'Game metadata complete' });
+  } else {
+    validation.push({ ok: false, msg: 'Game metadata incomplete' });
+  }
+
+  // Check: Events exist
+  if (visualSyncState.parsedEvents.length > 0) {
+    validation.push({ ok: true, msg: `${visualSyncState.parsedEvents.length} events parsed` });
+  } else {
+    validation.push({ ok: false, msg: 'No events in XML' });
+  }
+
+  return validation;
+}
+
+function displayValidation() {
+  const validation = validateSync();
+  const list = document.getElementById('validationList');
+
+  list.innerHTML = validation.map(v =>
+    `<div class="val-item ${v.ok ? 'ok' : 'error'}">
+      <span class="val-icon">${v.ok ? '✓' : '✗'}</span>
+      <span>${v.msg}</span>
+    </div>`
+  ).join('');
+
+  const allOk = validation.every(v => v.ok);
+  const saveBtn = document.getElementById('saveBtn');
+  if (allOk) {
+    saveBtn.style.display = 'block';
+    saveBtn.disabled = false;
+  } else {
+    saveBtn.disabled = true;
+  }
+
+  return allOk;
+}
+
+function populatePreviewTable() {
+  const tbody = document.getElementById('previewTableBody');
+  const rows = [];
+
+  // For each synced period and angle
+  const allPeriods = Object.keys(visualSyncState.syncOffsets).sort();
+  const game = visualSyncState.selectedGame;
+
+  allPeriods.forEach(period => {
+    const angles = visualSyncState.syncOffsets[period];
+    Object.entries(angles).forEach(([angle, offset]) => {
+      // Find a sample event from this period to show timing
+      const sampleEvent = visualSyncState.parsedEvents.find(e => e.period === period);
+      if (sampleEvent) {
+        const syncedStart = sampleEvent.start + offset;
+        rows.push({
+          event: `${sampleEvent.code} (${sampleEvent.team})`,
+          period: period,
+          originalStart: sampleEvent.start,
+          offset: offset,
+          syncedStart: syncedStart
+        });
+      }
+    });
+  });
+
+  if (rows.length === 0) {
+    document.getElementById('previewTableContainer').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row =>
+    `<tr>
+      <td>${row.event}</td>
+      <td>${row.period}</td>
+      <td>${row.originalStart.toFixed(1)}</td>
+      <td>${row.offset > 0 ? '+' : ''}${row.offset.toFixed(1)}</td>
+      <td>${row.syncedStart.toFixed(1)}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('previewTableContainer').style.display = 'block';
+}
+
+function showReview() {
+  document.getElementById('reviewStep').style.display = 'block';
+  updateAngleStatus();
+  populatePreviewTable();
+  displayValidation();
+  document.getElementById('reviewStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============ SAVE ============
+
+async function saveSync() {
+  const saveStatus = document.getElementById('saveStatus');
+  saveStatus.innerHTML = '<div class="status-box info">⏳ Saving sync offsets…</div>';
+
+  try {
+    const game = visualSyncState.selectedGame;
+    if (!game || !game.id) {
+      saveStatus.innerHTML = '<div class="status-box error">❌ No game selected</div>';
+      return;
+    }
+
+    // Add visual sync metadata to game
+    const updatedMeta = { ...game };
+    updatedMeta.visualSync = {
+      offsets: visualSyncState.syncOffsets,
+      format: visualSyncState.xmlFormat,
+      eventCount: visualSyncState.parsedEvents.length,
+      syncedAt: new Date().toISOString(),
+      syncedPeriods: Object.keys(visualSyncState.syncOffsets).sort()
+    };
+
+    // Save to Supabase
+    const { error } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', game.id);
+
+    if (error) {
+      saveStatus.innerHTML = `<div class="status-box error">❌ Save failed: ${error.message}</div>`;
+      return;
+    }
+
+    saveStatus.innerHTML = `<div class="status-box success">✅ Saved! Visual sync offsets stored for <strong>${game.id}</strong><br/>Periods: ${Object.keys(visualSyncState.syncOffsets).join(', ')}</div>`;
+
+    // Reset form after delay
+    setTimeout(() => {
+      location.reload();
+    }, 2500);
+
+  } catch (e) {
+    saveStatus.innerHTML = `<div class="status-box error">❌ Error: ${e.message}</div>`;
+  }
+}
+
+// ============ UTILITIES ============
+
+function secsToMMSS(secs) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function showStatus(stepId, type, msg) {
+  const step = document.getElementById(stepId);
+  const statusDiv = step.querySelector('[id$="Status"]') ||
+                    (() => {
+                      const div = document.createElement('div');
+                      step.appendChild(div);
+                      return div;
+                    })();
+
+  statusDiv.innerHTML = `<div class="status-box ${type}">${msg}</div>`;
+}
+
+// ============ INIT ============
+
+async function initPage() {
+  // Initialize theme
+  const theme = localStorage.getItem('cohesion_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeToggle();
+
+  // Initialize Supabase
+  initSupabase();
+
+  // Load games
+  await loadGames();
+}
+
+// Auto-initialize on page load
+document.addEventListener('DOMContentLoaded', initPage);
+</script>
+
+</body>
+</html>
