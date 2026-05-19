@@ -493,6 +493,8 @@ function parseXml() {
     parseResult = parseGaelicInsightsXml(visualSyncState.xmlText);
   } else if (visualSyncState.xmlFormat === 'giu') {
     parseResult = parseGiuXml(visualSyncState.xmlText);
+  } else if (visualSyncState.xmlFormat === 'instances') {
+    parseResult = parseInstancesXml(visualSyncState.xmlText);
   } else {
     showStatus('xmlUploadStep', 'error', '❌ Format not yet supported in Visual Sync');
     return;
@@ -514,7 +516,10 @@ function parseXml() {
 function autoDetectFormat(xmlText) {
   if (!xmlText) return null;
 
-  if (xmlText.includes('GaelicInsights') || xmlText.includes('NA Whistle')) {
+  if (xmlText.includes('<ALL_INSTANCES>')) {
+    return 'instances';
+  }
+  if (xmlText.includes('GaelicInsights') || xmlText.includes('EventCode')) {
     return 'gaelic-insights';
   }
   if (xmlText.includes('GIU') || xmlText.includes('P1 START')) {
@@ -567,6 +572,73 @@ function parseGaelicInsightsXml(xmlText) {
         player,
         period: periodGuess,
         labels: [code, team || '', player || ''].filter(Boolean),
+        isSyncCandidate: true,
+        syncPriority: code.includes('Whistle') ? 'high' : 'normal'
+      });
+    }
+
+    if (events.length === 0) {
+      return { success: false, error: 'No events found in XML' };
+    }
+
+    return { success: true, events };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// ============ INSTANCES PARSER (Sportscode/SOS format) ============
+
+function parseInstancesXml(xmlText) {
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+    if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+      return { success: false, error: 'Invalid XML' };
+    }
+
+    const events = [];
+    const instanceElements = xmlDoc.getElementsByTagName('instance');
+
+    // Track seen IDs to deduplicate (multiple labels per instance)
+    const seenIds = new Set();
+
+    for (let elem of instanceElements) {
+      const id = elem.querySelector('ID')?.textContent || '';
+
+      // Skip if we've already processed this ID (same event, different label)
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      const startStr = elem.querySelector('start')?.textContent || '';
+      const endStr = elem.querySelector('end')?.textContent || '';
+      const code = elem.querySelector('code')?.textContent || '';
+      const start = parseFloat(startStr) || 0;
+      const end = parseFloat(endStr) || 0;
+
+      if (!code || start === 0 && end === 0) continue;
+
+      const period = guessPeriodFromTime(start);
+      const labels = [code];
+
+      // Extract label text if available
+      const labelGroups = elem.querySelectorAll('label group');
+      const labelTexts = elem.querySelectorAll('label text');
+      if (labelTexts.length > 0) {
+        const text = labelTexts[0]?.textContent?.trim();
+        if (text) labels.push(text);
+      }
+
+      events.push({
+        id: `INST-${id}`,
+        code,
+        start,
+        end,
+        team: code.split(' ')[0] || '',
+        player: '',
+        period: period,
+        labels: labels,
         isSyncCandidate: true,
         syncPriority: code.includes('Whistle') ? 'high' : 'normal'
       });
