@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>COHESION — Visual Sync Upload (Trial)</title>
+<title>COHESION — Visual Sync Upload</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -12,13 +12,14 @@
   --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
   --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
   --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --orange:#ff9800;
 }
 [data-theme="light"]{
   --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
   --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
   --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
   --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
-  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);--orange:#d97706;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
@@ -28,22 +29,74 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
 .hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
 
-.page{max-width:900px;margin:0 auto;padding:28px 20px 60px;}
-.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
-.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+.page{max-width:1400px;margin:0 auto;padding:20px;}
 
-.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
-.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
-.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.page-header{margin-bottom:20px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.6;}
+
+.game-details{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
+.detail-field{display:flex;flex-direction:column;}
+.detail-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:4px;}
+.detail-value{font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);}
+.detail-value.sub{font:400 12px 'Barlow',sans-serif;color:var(--t2);margin-top:2px;}
+
+.video-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;margin-bottom:20px;}
+.video-embed{width:100%;aspect-ratio:16/9;background:var(--card);}
+.video-embed iframe{width:100%;height:100%;border:none;}
+
+.sync-toolbar{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.toolbar-group{display:flex;gap:8px;align-items:center;}
+.toolbar-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin-right:4px;}
+.toolbar-btn{padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
+.toolbar-btn:hover{border-color:var(--accent);color:var(--accent);}
+.toolbar-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.toolbar-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:border-color .2s;}
+select:focus{outline:none;border-color:var(--accent);}
+select option{background:var(--card);}
+
+.timeline-container{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;overflow:auto;}
+.timeline-wrapper{position:relative;height:auto;}
+.timeline-rows{display:flex;flex-direction:column;gap:4px;margin-bottom:20px;}
+.timeline-row{display:flex;align-items:center;height:24px;gap:12px;}
+.timeline-row-label{width:200px;flex-shrink:0;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;border-right:1px solid var(--border);}
+.timeline-row-track{flex:1;position:relative;height:100%;background:var(--card);border-radius:4px;cursor:pointer;overflow:visible;}
+.timeline-marker{position:absolute;width:8px;height:100%;border-radius:2px;cursor:pointer;transition:all .1s;}
+.timeline-marker:hover{filter:brightness(1.2);}
+.timeline-marker.whistle{background:var(--orange);}
+
+.timeline-playhead{position:absolute;width:2px;height:100%;background:var(--accent);top:0;cursor:col-resize;z-index:10;}
+.timeline-playhead-label{position:absolute;top:-24px;left:-30px;width:60px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:4px;padding:4px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--accent);white-space:nowrap;}
+
+.status-box{padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin-bottom:16px;}
+.status-box.info{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
+.status-box.success{background:var(--green-bg);border:1px solid var(--green);color:var(--green);}
+.status-box.error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);}
+.status-box.warning{background:rgba(255,152,0,0.12);border:1px solid var(--orange);color:var(--orange);}
+
+.sync-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;}
+.sync-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.sync-row-label{width:150px;font-size:12px;color:var(--t2);}
+.sync-row-value{flex:1;font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);}
+
+.process-btn{padding:10px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;display:none;}
+.step.active{display:block;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 12px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
 .step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
 .step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
 
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
 label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;}
-input[type=text],input[type=date],input[type=url],select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+input[type=text],input[type=date],input[type=url]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;transition:border-color .2s;width:100%;}
 input::placeholder{color:var(--t3);}
-input:focus,select:focus{border-color:var(--accent);}
-select option{background:var(--card);}
+input:focus{border-color:var(--accent);}
 
 .drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);}
 .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--accent-bg);}
@@ -54,59 +107,24 @@ select option{background:var(--card);}
 .dz-file{font:700 13px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;}
 input[type=file]{display:none;}
 
-.process-btn{width:100%;padding:13px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;margin-top:4px;}
-.process-btn:hover{opacity:.9;transform:translateY(-1px);}
-.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
-
-.status-box{padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin-bottom:16px;}
-.status-box.info{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
-.status-box.success{background:var(--green-bg);border:1px solid var(--green);color:var(--green);}
-.status-box.error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);}
-.status-box.warning{background:rgba(255,152,0,0.12);border:1px solid #ff9800;color:#ff9800;}
-
-.events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
-.event-card{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all .2s;font-size:12px;}
-.event-card:hover{border-color:var(--accent);background:var(--hover);}
-.event-card.selected{border-color:var(--green);background:var(--green-bg);}
-.event-card-time{font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);margin-bottom:4px;}
-.event-card-code{color:var(--t2);margin-bottom:4px;}
-.event-card-info{font-size:11px;color:var(--t3);}
-
-.period-buttons{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.period-btn{padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .2s;}
-.period-btn:hover{border-color:var(--accent);color:var(--accent);}
-.period-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
-
-.sync-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;}
-.sync-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.sync-row-label{width:120px;font-size:12px;color:var(--t2);}
-.sync-row-value{flex:1;font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);}
-.sync-btn{padding:8px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
-.sync-btn:hover{opacity:.9;}
-.sync-btn:disabled{opacity:.4;cursor:not-allowed;}
-
-.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
-.preview-table th{background:var(--card);border:1px solid var(--border);padding:8px;text-align:left;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);}
-.preview-table td{border:1px solid var(--border);padding:8px;}
-.preview-table tr:nth-child(even){background:var(--hover);}
-
-.angle-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
-.angle-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;}
-.angle-item-label{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;}
-.angle-item-status{font-size:11px;color:var(--t2);line-height:1.5;}
-.angle-item-status.ok{color:var(--green);}
-.angle-item-status.pending{color:var(--t3);}
-
 .validation-list{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;}
 .val-item{display:flex;align-items:center;gap:8px;padding:6px 0;color:var(--t2);}
 .val-item.ok{color:var(--green);}
 .val-item.error{color:var(--red);}
 .val-icon{font-size:14px;min-width:16px;}
 
-.video-embed{width:100%;aspect-ratio:16/9;border-radius:8px;background:var(--card);border:1px solid var(--border);overflow:hidden;margin-bottom:16px;}
-iframe{width:100%;height:100%;border:none;}
+.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+.preview-table th{background:var(--card);border:1px solid var(--border);padding:8px;text-align:left;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);}
+.preview-table td{border:1px solid var(--border);padding:8px;}
+.preview-table tr:nth-child(even){background:var(--hover);}
 
-.help{font-size:11px;color:var(--t3);margin-top:2px;}
+@media(max-width:768px){
+  .game-details{grid-template-columns:1fr;}
+  .sync-toolbar{flex-direction:column;align-items:flex-start;}
+  .toolbar-group{width:100%;}
+  .timeline-row-label{width:100px;font-size:10px;}
+  .page{padding:12px;}
+}
 </style>
 </head>
 <body>
@@ -120,187 +138,149 @@ iframe{width:100%;height:100%;border:none;}
 </header>
 
 <div class="page">
-  <div class="page-title">🎬 Visual Sync Upload (Trial)</div>
-  <div class="page-sub">
-    Upload an XML file, manually select specific event instances, scrub the YouTube video to the matching moment, and let the system calculate timing offsets automatically.
-    <strong>Trial feature:</strong> Isolated from main upload flows. Requires manual period selection.
-  </div>
 
-  <!-- STEP 1: Select Game -->
-  <div class="step" id="gameSelectionStep">
+  <!-- STEP 1: Select & Upload -->
+  <div class="step active" id="setupStep">
     <div class="step-header">
       <div class="step-num">1</div>
       <div>
-        <div class="step-title">Select Game</div>
-        <div class="step-sub">Search and select a game to sync (or enter game ID manually)</div>
+        <div class="step-title">Select Game & Upload XML</div>
+        <div class="step-sub">Choose a game and upload an XML sync file to begin</div>
       </div>
     </div>
+
     <div class="field">
-      <label>Search Games</label>
+      <label>Search or Select Game</label>
       <input type="text" id="gameSearch" placeholder="Search by team, date, or game ID…" oninput="filterGameList()">
-      <div id="gameDropdown" style="border:1px solid var(--border);border-radius:7px;background:var(--card);max-height:300px;overflow-y:auto;margin-bottom:12px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;display:none;">
-        <!-- Populated by JavaScript -->
-      </div>
-    </div>
-    <div class="field">
-      <label>Or Enter Game ID Manually</label>
-      <input type="text" id="gameIdManual" placeholder="e.g. mayo-london-2026-qf">
-    </div>
-    <button class="process-btn" onclick="selectGame()">Select Game →</button>
-  </div>
-
-  <!-- STEP 2: Upload XML -->
-  <div class="step" id="xmlUploadStep" style="display:none;">
-    <div class="step-header">
-      <div class="step-num">2</div>
-      <div>
-        <div class="step-title">Upload XML File</div>
-        <div class="step-sub">Supports Gaelic Insights, GIU, and Sportscode formats. Auto-detects format.</div>
-      </div>
-    </div>
-
-    <div id="selectedGameInfo" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
-      <div style="color:var(--t3);margin-bottom:4px;">Selected Game:</div>
-      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);" id="selectedGameDisplay"></div>
-    </div>
-
-    <div class="drop-zone" id="xmlDropZone"
-         onclick="document.getElementById('xmlFile').click()"
-         ondragover="e=>{e.preventDefault();this.classList.add('over')}"
-         ondragleave="this.classList.remove('over')"
-         ondrop="handleXmlDrop(event)">
-      <div class="dz-icon">📁</div>
-      <div class="dz-title">Drop XML file or click to browse</div>
-      <div class="dz-sub">Gaelic Insights, GIU, or Sportscode</div>
-      <div class="dz-file" id="xmlFileName"></div>
-    </div>
-    <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)">
-
-    <div id="xmlParseStatus"></div>
-  </div>
-
-  <!-- STEP 3: Select Event Instance -->
-  <div class="step" id="eventSelectionStep" style="display:none;">
-    <div class="step-header">
-      <div class="step-num">3</div>
-      <div>
-        <div class="step-title">Select Event Instance</div>
-        <div class="step-sub">Click an event to select it. This specific instance will be synced.</div>
-      </div>
-    </div>
-
-    <div style="margin-bottom:16px;">
-      <label style="display:block;margin-bottom:8px;">Filter Events</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="period-btn selected" data-filter="all" onclick="filterEvents('all')">All Events</button>
-        <button class="period-btn" data-filter="whistle" onclick="filterEvents('whistle')">NA Whistle</button>
-        <button class="period-btn" data-filter="shot" onclick="filterEvents('shot')">Shots</button>
-        <button class="period-btn" data-filter="kickout" onclick="filterEvents('kickout')">Kickouts</button>
-        <button class="period-btn" data-filter="turnover" onclick="filterEvents('turnover')">Turnovers</button>
-      </div>
-    </div>
-
-    <div id="eventListContainer">
-      <div class="events-grid" id="eventsList">
+      <div id="gameDropdown" style="border:1px solid var(--border);border-radius:7px;background:var(--card);max-height:300px;overflow-y:auto;margin-top:-8px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;display:none;">
         <!-- Populated by JavaScript -->
       </div>
     </div>
 
-    <div id="selectedEventInfo" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
-      <div style="color:var(--t3);margin-bottom:4px;">Selected Event:</div>
-      <div id="selectedEventDisplay" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);"></div>
+    <div id="setupStatus"></div>
+
+    <div class="field" style="margin-top:20px;">
+      <label>Upload XML File</label>
+      <div class="drop-zone" id="xmlDropZone"
+           onclick="document.getElementById('xmlFile').click()"
+           ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+           ondragleave="this.classList.remove('over')"
+           ondrop="handleXmlDrop(event)">
+        <div class="dz-icon">📁</div>
+        <div class="dz-title">Drop XML file or click to browse</div>
+        <div class="dz-sub">Gaelic Insights, GIU, or Sportscode</div>
+        <div class="dz-file" id="xmlFileName"></div>
+      </div>
+      <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)">
     </div>
+
+    <button class="process-btn" onclick="proceedToTimeline()" id="proceedBtn" style="display:none;width:100%;">→ Load Timeline</button>
   </div>
 
-  <!-- STEP 4: Select Period -->
-  <div class="step" id="periodSelectionStep" style="display:none;">
-    <div class="step-header">
-      <div class="step-num">4</div>
-      <div>
-        <div class="step-title">Select Period</div>
-        <div class="step-sub">Which period does this event belong to? (Required before sync)</div>
+  <!-- STEP 2: Visual Timeline Sync -->
+  <div class="step" id="timelineStep">
+
+    <div class="page-header">
+      <div class="page-title">🎬 Visual Sync Timeline</div>
+      <div class="page-sub" id="gameSubtitle"></div>
+    </div>
+
+    <div class="game-details" id="gameDetails">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <div class="video-section" id="videoSection">
+      <div class="video-embed" id="videoContainer">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;">
+          No YouTube video found for this game
+        </div>
       </div>
     </div>
 
-    <div class="period-buttons" id="periodButtons">
-      <button class="period-btn" data-period="1H" onclick="selectPeriod('1H')">1st Half</button>
-      <button class="period-btn" data-period="2H" onclick="selectPeriod('2H')">2nd Half</button>
-      <button class="period-btn" data-period="ET1" onclick="selectPeriod('ET1')">ET 1st</button>
-      <button class="period-btn" data-period="ET2" onclick="selectPeriod('ET2')">ET 2nd</button>
-    </div>
-
-    <div id="periodSelectionStatus"></div>
-  </div>
-
-  <!-- STEP 5: Sync Video -->
-  <div class="step" id="syncVideoStep" style="display:none;">
-    <div class="step-header">
-      <div class="step-num">5</div>
-      <div>
-        <div class="step-title">Sync Video</div>
-        <div class="step-sub">Scrub the YouTube video to the exact moment this event happens in real-world. Then click [Sync] to calculate the offset.</div>
+    <div class="sync-toolbar">
+      <div class="toolbar-group">
+        <label class="toolbar-label">XML Type</label>
+        <select id="xmlTypeSelect" disabled style="width:120px;">
+          <option value="">Auto-detected</option>
+        </select>
       </div>
+      <div class="toolbar-group">
+        <label class="toolbar-label">Period</label>
+        <select id="periodSelect">
+          <option value="1H">1st Half</option>
+          <option value="2H">2nd Half</option>
+          <option value="ET1">ET 1st</option>
+          <option value="ET2">ET 2nd</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <label class="toolbar-label">Angle</label>
+        <select id="angleSelect">
+          <option value="main">Main Angle</option>
+        </select>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="toolbar-btn" onclick="zoomTimeline(-0.2)" title="Zoom out">−</button>
+      <button class="toolbar-btn" onclick="zoomTimeline(0.2)" title="Zoom in">+</button>
+      <span style="font-size:11px;color:var(--t3);" id="zoomLabel">100%</span>
     </div>
 
-    <label style="display:block;margin-bottom:8px;">YouTube Video (Main Angle)</label>
-    <div class="video-embed" id="videoContainer">
-      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;">
-        Select main angle YouTube URL in game details, or upload will use existing angle URLs.
+    <div id="syncStatus"></div>
+
+    <div class="timeline-container">
+      <div class="timeline-wrapper" id="timelineWrapper">
+        <div class="timeline-rows" id="timelineRows">
+          <!-- Populated by JavaScript -->
+        </div>
+        <div style="height:40px;"></div>
       </div>
     </div>
 
     <div class="sync-panel">
       <div style="background:var(--accent-bg);border:1px solid var(--accent);border-radius:6px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--accent);line-height:1.5;">
-        <strong>How to sync:</strong> Scrub the video to the moment you see the actual event occurring. Click "Sync This Moment" when positioned at the real-world moment. <span id="gaelicInsightsNote" style="display:none;">For Gaelic Insights, events have an 8-second lead-in before the tagged point.</span>
+        <strong>How to sync:</strong> Click on the timeline to position the playhead. Scrub the video to match the moment. Then click "Sync Point" to anchor the offset.
       </div>
 
       <div class="sync-row">
-        <div class="sync-row-label">Video Moment:</div>
-        <div class="sync-row-value" id="currentVideoTime">00:00</div>
+        <div class="sync-row-label">XML Playhead Time:</div>
+        <div class="sync-row-value" id="xmlPlayheadTime">00:00:00</div>
       </div>
 
       <div class="sync-row">
-        <div class="sync-row-label">Event XML Time:</div>
-        <div class="sync-row-value" id="eventStartTime">—</div>
+        <div class="sync-row-label">Video Current Time:</div>
+        <div class="sync-row-value" id="videoCurrentTime">00:00:00</div>
       </div>
 
       <div class="sync-row">
-        <div class="sync-row-label">Offset Calculation:</div>
-        <div id="offsetCalculation" style="font-size:11px;color:var(--t3);font-family:monospace;margin-top:4px;padding:8px;background:var(--card);border-radius:4px;">—</div>
-      </div>
-
-      <div class="sync-row">
-        <div class="sync-row-label">Final Offset:</div>
+        <div class="sync-row-label">Calculated Offset:</div>
         <div class="sync-row-value" id="calculatedOffset">—</div>
       </div>
 
-      <button class="sync-btn" onclick="calculateSync()">🔗 Sync This Moment</button>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="process-btn" onclick="syncPointClick()" style="flex:1;">🔗 Sync Point</button>
+        <button class="process-btn" onclick="undoLastSync()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">↶ Undo</button>
+        <button class="process-btn" onclick="resetCurrentPeriod()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">Reset Period</button>
+        <button class="process-btn" onclick="resetAllSegments()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">Reset All</button>
+      </div>
     </div>
 
-    <div id="syncStatus"></div>
-
-    <div id="continueOptions" style="display:none;margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="process-btn" onclick="continueSyncAnother()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">↻ Sync Another Period/Angle</button>
-      <button class="process-btn" onclick="moveToReview()" style="flex:1;">→ Review & Save</button>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="process-btn" onclick="showReview()" style="flex:1;">→ Review & Save</button>
+      <button class="process-btn" onclick="backToSetup()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">← Back</button>
     </div>
   </div>
 
-  <!-- STEP 6: Review & Save -->
-  <div class="step" id="reviewStep" style="display:none;">
+  <!-- STEP 3: Review & Save -->
+  <div class="step" id="reviewStep">
     <div class="step-header">
-      <div class="step-num">6</div>
+      <div class="step-num">3</div>
       <div>
         <div class="step-title">Review & Save</div>
-        <div class="step-sub">Verify synced times and save to database. All required periods must be synced before saving.</div>
+        <div class="step-sub">Verify sync segments and save to database</div>
       </div>
     </div>
 
-    <div style="margin-bottom:20px;">
-      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Sync Status by Angle & Period:</div>
-      <div class="angle-status" id="angleStatusGrid">
-        <!-- Populated by JavaScript -->
-      </div>
-    </div>
+    <div id="reviewStatus"></div>
 
     <div style="margin-bottom:20px;">
       <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Validation Checklist:</div>
@@ -309,23 +289,28 @@ iframe{width:100%;height:100%;border:none;}
       </div>
     </div>
 
-    <div id="previewTableContainer" style="margin-bottom:20px;display:none;overflow-x:auto;">
-      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Preview (Original vs. Synced Times):</div>
+    <div id="previewTableContainer" style="margin-bottom:20px;overflow-x:auto;display:none;">
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Synced Segments Preview:</div>
       <table class="preview-table" id="previewTable">
         <thead>
           <tr>
-            <th>Event</th>
             <th>Period</th>
-            <th>Original Start (s)</th>
-            <th>Offset (s)</th>
-            <th>Synced Start (s)</th>
+            <th>Angle</th>
+            <th>Type</th>
+            <th>Start XML Time</th>
+            <th>Anchor Times</th>
+            <th>Offset</th>
           </tr>
         </thead>
         <tbody id="previewTableBody"></tbody>
       </table>
     </div>
 
-    <button class="process-btn" id="saveBtn" onclick="saveSync()" style="display:none;">💾 Save to Database</button>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="process-btn" id="saveBtn" onclick="saveSync()" style="flex:1;display:none;">💾 Save to Database</button>
+      <button class="process-btn" onclick="backToTimeline()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">← Back to Sync</button>
+    </div>
+
     <div id="saveStatus"></div>
   </div>
 
@@ -334,6 +319,7 @@ iframe{width:100%;height:100%;border:none;}
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
+
 // ============ STATE MANAGEMENT ============
 
 const visualSyncState = {
@@ -342,16 +328,29 @@ const visualSyncState = {
   xmlText: null,
   xmlFormat: null,
   parsedEvents: [],
-  selectedEventIdx: null,
-  selectedPeriod: null,
+  selectedPeriod: '1H',
   selectedAngle: 'main',
-  syncOffsets: {}, // { '1H': { main: offset, ... }, '2H': {...}, ... }
-  videoIds: {}, // { main: 'xxx', angle2: 'yyy', ... }
+
+  // Sync segments: organized by angle -> period -> [segments]
+  syncSegments: {},
+
+  // Timeline playhead position (XML time in seconds)
+  playheadXmlTime: 0,
+
+  // Video current time (seconds)
   videoCurrentTime: 0,
-  validationState: {},
+
+  // Timeline zoom level (0.5 = 50%, 1.0 = 100%, 2.0 = 200%)
+  zoomLevel: 1.0,
+
+  // Event filter for timeline display
   eventFilter: 'all',
-  gaelicInsightsLeadIn: 8, // seconds before event in XML
-  gaelicInsightsLag: 6    // seconds after event in XML
+
+  // Video IDs by angle
+  videoIds: {},
+
+  // Segment undo stack
+  undoStack: []
 };
 
 // ============ THEME TOGGLE ============
@@ -360,7 +359,7 @@ function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const newTheme = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+  localStorage.setItem('cohesion_theme', newTheme);
   updateThemeToggle();
 }
 
@@ -417,7 +416,7 @@ async function loadGames() {
       .filter(g => g && typeof g === 'object');
   } catch (e) {
     console.error('Failed to load games:', e);
-    showStatus('gameSelectionStep', 'error', `❌ Failed to load games: ${e.message}`);
+    showStatus('setupStep', 'error', `❌ Failed to load games: ${e.message}`);
   }
 }
 
@@ -454,18 +453,16 @@ function selectGameFromDropdown(gameId) {
 }
 
 function selectGame() {
-  const query = document.getElementById('gameSearch').value || document.getElementById('gameIdManual').value;
+  const query = document.getElementById('gameSearch').value;
   const game = visualSyncState.gamesMeta.find(g => g.id === query);
 
   if (!game) {
-    showStatus('gameSelectionStep', 'error', '❌ Game not found');
+    showStatus('setupStep', 'error', '❌ Game not found');
     return;
   }
 
   visualSyncState.selectedGame = game;
-  showStatus('gameSelectionStep', 'success', `✅ Game selected: ${game.title}`);
-
-  document.getElementById('selectedGameDisplay').textContent = `${game.homeTeam} v ${game.awayTeam} • ${game.date}`;
+  showStatus('setupStep', 'success', `✅ Game selected: ${game.title}`);
 
   // Store video IDs from game
   visualSyncState.videoIds.main = game.youtubeId || null;
@@ -475,7 +472,8 @@ function selectGame() {
     });
   }
 
-  document.getElementById('xmlUploadStep').style.display = 'block';
+  // Update angle selector
+  updateAngleSelector();
 }
 
 // ============ XML PARSING ============
@@ -503,17 +501,15 @@ function handleXmlFileSelect(input) {
 }
 
 function parseXml() {
-  showStatus('xmlUploadStep', 'info', '⏳ Parsing XML...');
+  showStatus('setupStep', 'info', '⏳ Parsing XML...');
 
-  // Auto-detect format
   visualSyncState.xmlFormat = autoDetectFormat(visualSyncState.xmlText);
 
   if (!visualSyncState.xmlFormat) {
-    showStatus('xmlUploadStep', 'error', '❌ Could not detect XML format. Supports: Gaelic Insights, GIU, Sportscode');
+    showStatus('setupStep', 'error', '❌ Could not detect XML format. Supports: Gaelic Insights, GIU, Sportscode');
     return;
   }
 
-  // Parse based on format
   let parseResult;
   if (visualSyncState.xmlFormat === 'gaelic-insights') {
     parseResult = parseGaelicInsightsXml(visualSyncState.xmlText);
@@ -522,49 +518,36 @@ function parseXml() {
   } else if (visualSyncState.xmlFormat === 'instances') {
     parseResult = parseInstancesXml(visualSyncState.xmlText);
   } else {
-    showStatus('xmlUploadStep', 'error', '❌ Format not yet supported in Visual Sync');
+    showStatus('setupStep', 'error', '❌ Format not yet supported');
     return;
   }
 
   if (!parseResult.success) {
-    showStatus('xmlUploadStep', 'error', `❌ Parse error: ${parseResult.error}`);
+    showStatus('setupStep', 'error', `❌ Parse error: ${parseResult.error}`);
     return;
   }
 
   visualSyncState.parsedEvents = parseResult.events;
+  showStatus('setupStep', 'success', `✅ Parsed ${visualSyncState.parsedEvents.length} events from ${visualSyncState.xmlFormat}`);
 
-  showStatus('xmlUploadStep', 'success', `✅ Parsed ${visualSyncState.parsedEvents.length} events from ${visualSyncState.xmlFormat}`);
-
-  renderEventsList();
-  document.getElementById('eventSelectionStep').style.display = 'block';
+  document.getElementById('proceedBtn').style.display = 'block';
 }
 
 function autoDetectFormat(xmlText) {
   if (!xmlText) return null;
-
-  if (xmlText.includes('<ALL_INSTANCES>')) {
-    return 'instances';
-  }
-  if (xmlText.includes('GaelicInsights') || xmlText.includes('EventCode')) {
-    return 'gaelic-insights';
-  }
-  if (xmlText.includes('GIU') || xmlText.includes('P1 START')) {
-    return 'giu';
-  }
-  if (xmlText.includes('SportsCode')) {
-    return 'sportscode';
-  }
-
+  if (xmlText.includes('<ALL_INSTANCES>')) return 'instances';
+  if (xmlText.includes('GaelicInsights') || xmlText.includes('EventCode')) return 'gaelic-insights';
+  if (xmlText.includes('GIU') || xmlText.includes('P1 START')) return 'giu';
+  if (xmlText.includes('SportsCode')) return 'sportscode';
   return null;
 }
 
-// ============ GAELIC INSIGHTS PARSER ============
+// ============ XML PARSERS ============
 
 function parseGaelicInsightsXml(xmlText) {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
-
     if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
       return { success: false, error: 'Invalid XML' };
     }
@@ -576,18 +559,11 @@ function parseGaelicInsightsXml(xmlText) {
       const code = elem.getAttribute('EventCode') || '';
       const startStr = elem.getAttribute('EventTime') || '';
       const start = parseEventTime(startStr);
-
       if (start === null) continue;
 
       const team = elem.getAttribute('Team') || '';
       const player = elem.getAttribute('Player') || '';
-      const period = elem.getAttribute('Period') || 'Unknown';
-
-      // Auto-detect period if available
-      let periodGuess = period;
-      if (period === 'Unknown') {
-        periodGuess = guessPeriodFromTime(start);
-      }
+      const period = elem.getAttribute('Period') || guessPeriodFromTime(start);
 
       events.push({
         id: `GI-${code}-${start}`,
@@ -596,10 +572,8 @@ function parseGaelicInsightsXml(xmlText) {
         end: start + 1,
         team,
         player,
-        period: periodGuess,
-        labels: [code, team || '', player || ''].filter(Boolean),
-        isSyncCandidate: true,
-        syncPriority: code.includes('Whistle') ? 'high' : 'normal'
+        period,
+        labels: [code, team || '', player || ''].filter(Boolean)
       });
     }
 
@@ -613,27 +587,20 @@ function parseGaelicInsightsXml(xmlText) {
   }
 }
 
-// ============ INSTANCES PARSER (Sportscode/SOS format) ============
-
 function parseInstancesXml(xmlText) {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
-
     if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
       return { success: false, error: 'Invalid XML' };
     }
 
     const events = [];
     const instanceElements = xmlDoc.getElementsByTagName('instance');
-
-    // Track seen IDs to deduplicate (multiple labels per instance)
     const seenIds = new Set();
 
     for (let elem of instanceElements) {
       const id = elem.querySelector('ID')?.textContent || '';
-
-      // Skip if we've already processed this ID (same event, different label)
       if (seenIds.has(id)) continue;
       seenIds.add(id);
 
@@ -643,13 +610,10 @@ function parseInstancesXml(xmlText) {
       const start = parseFloat(startStr) || 0;
       const end = parseFloat(endStr) || 0;
 
-      if (!code || start === 0 && end === 0) continue;
+      if (!code || (start === 0 && end === 0)) continue;
 
       const period = guessPeriodFromTime(start);
       const labels = [code];
-
-      // Extract label text if available
-      const labelGroups = elem.querySelectorAll('label group');
       const labelTexts = elem.querySelectorAll('label text');
       if (labelTexts.length > 0) {
         const text = labelTexts[0]?.textContent?.trim();
@@ -664,9 +628,7 @@ function parseInstancesXml(xmlText) {
         team: code.split(' ')[0] || '',
         player: '',
         period: period,
-        labels: labels,
-        isSyncCandidate: true,
-        syncPriority: code.includes('Whistle') ? 'high' : 'normal'
+        labels: labels
       });
     }
 
@@ -680,13 +642,10 @@ function parseInstancesXml(xmlText) {
   }
 }
 
-// ============ GIU PARSER ============
-
 function parseGiuXml(xmlText) {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
-
     if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
       return { success: false, error: 'Invalid XML' };
     }
@@ -696,7 +655,6 @@ function parseGiuXml(xmlText) {
 
     for (let match of matchElements) {
       const periodElements = match.getElementsByTagName('Period');
-
       for (let period of periodElements) {
         const periodNum = period.getAttribute('Number') || '';
         let periodLabel = `${periodNum}`;
@@ -706,12 +664,10 @@ function parseGiuXml(xmlText) {
         else if (periodNum === '4') periodLabel = 'ET2';
 
         const eventElements = period.getElementsByTagName('Event');
-
         for (let elem of eventElements) {
           const code = elem.getAttribute('EventType') || '';
           const timeStr = elem.getAttribute('EventTime') || '';
           const start = parseInt(timeStr) || 0;
-
           const team = elem.getAttribute('Team') || '';
           const player = elem.getAttribute('Player') || '';
 
@@ -723,9 +679,7 @@ function parseGiuXml(xmlText) {
             team,
             player,
             period: periodLabel,
-            labels: [code, team || '', player || ''].filter(Boolean),
-            isSyncCandidate: true,
-            syncPriority: code.includes('START') ? 'high' : 'normal'
+            labels: [code, team || '', player || ''].filter(Boolean)
           });
         }
       }
@@ -749,124 +703,237 @@ function parseEventTime(timeStr) {
 }
 
 function guessPeriodFromTime(secs) {
-  if (secs < 2700) return '1H'; // < 45 min
-  if (secs < 5400) return '2H'; // < 90 min
-  if (secs < 6600) return 'ET1'; // < 110 min
+  if (secs < 2700) return '1H';
+  if (secs < 5400) return '2H';
+  if (secs < 6600) return 'ET1';
   return 'ET2';
 }
 
-// ============ EVENT SELECTION ============
+// ============ TIMELINE RENDERING ============
 
-function getEventFilterCategory(code) {
-  if (!code) return 'other';
-  const lower = code.toLowerCase();
-  if (lower.includes('whistle')) return 'whistle';
-  if (lower.includes('shot')) return 'shot';
-  if (lower.includes('kickout')) return 'kickout';
-  if (lower.includes('turnover')) return 'turnover';
-  return 'other';
-}
-
-function filterEvents(filter) {
-  visualSyncState.eventFilter = filter;
-
-  // Update button states
-  document.querySelectorAll('[data-filter]').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.filter === filter);
-  });
-
-  renderEventsList();
-}
-
-function renderEventsList() {
-  const container = document.getElementById('eventsList');
-
-  // Filter events based on selected filter
-  let filteredEvents = visualSyncState.parsedEvents;
-  if (visualSyncState.eventFilter !== 'all') {
-    filteredEvents = visualSyncState.parsedEvents.filter((evt, idx) => {
-      const category = getEventFilterCategory(evt.code);
-      return category === visualSyncState.eventFilter || (visualSyncState.eventFilter === 'all');
-    });
+function proceedToTimeline() {
+  if (!visualSyncState.selectedGame || !visualSyncState.parsedEvents.length) {
+    showStatus('setupStep', 'error', '❌ Please select a game and upload XML');
+    return;
   }
 
-  container.innerHTML = filteredEvents.map((evt, origIdx) => {
-    // Find original index
-    const idx = visualSyncState.parsedEvents.indexOf(evt);
-    const timeStr = secsToMMSS(evt.start);
-    const category = getEventFilterCategory(evt.code);
+  // Initialize sync segments structure
+  const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
+  angles.forEach(angle => {
+    visualSyncState.syncSegments[angle] = {
+      '1H': [],
+      '2H': [],
+      'ET1': [],
+      'ET2': []
+    };
+  });
+
+  // Switch steps
+  document.getElementById('setupStep').classList.remove('active');
+  document.getElementById('timelineStep').classList.add('active');
+
+  // Load game details
+  loadGameDetails();
+
+  // Load video
+  loadVideoEmbed();
+
+  // Render timeline
+  renderTimeline();
+}
+
+function loadGameDetails() {
+  const game = visualSyncState.selectedGame;
+  const subtitle = document.getElementById('gameSubtitle');
+  const details = document.getElementById('gameDetails');
+
+  subtitle.textContent = `${game.homeTeam} v ${game.awayTeam} • ${game.date}`;
+
+  const detailsHTML = `
+    <div class="detail-field">
+      <div class="detail-label">Home Team</div>
+      <div class="detail-value">${game.homeTeam}</div>
+      <div class="detail-value sub">${game.homeColor || 'Color TBD'}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">Away Team</div>
+      <div class="detail-value">${game.awayTeam}</div>
+      <div class="detail-value sub">${game.awayColor || 'Color TBD'}</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">XML Format</div>
+      <div class="detail-value">${visualSyncState.xmlFormat}</div>
+      <div class="detail-value sub">${visualSyncState.parsedEvents.length} events</div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">Game ID</div>
+      <div class="detail-value">${game.id}</div>
+    </div>
+  `;
+
+  details.innerHTML = detailsHTML;
+}
+
+function renderTimeline() {
+  const rows = document.getElementById('timelineRows');
+  const period = visualSyncState.selectedPeriod;
+  const angle = visualSyncState.selectedAngle;
+
+  // Get events for current period
+  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+
+  // Group events by type/team
+  const eventRows = groupEventsByTypeAndTeam(periodEvents);
+
+  if (eventRows.length === 0) {
+    rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);">No events in this period</div>';
+    return;
+  }
+
+  // Calculate timeline bounds
+  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const timeSpan = periodEnd - periodStart;
+
+  // Render each row
+  rows.innerHTML = eventRows.map(rowGroup => {
+    const timelineWidth = 1200; // pixels for base 100% zoom
+    const scaledWidth = timelineWidth * visualSyncState.zoomLevel;
+
+    const eventMarkersHTML = rowGroup.events.map(evt => {
+      const markerColor = getEventColor(evt);
+      const position = ((evt.start - periodStart) / timeSpan) * 100;
+      const width = Math.max(2, ((evt.end - evt.start) / timeSpan) * 100);
+
+      return `<div class="timeline-marker" style="left:${position}%;width:${width}%;background:${markerColor};" title="${evt.code}" onclick="selectTimelineEvent(${evt.start}, event)"></div>`;
+    }).join('');
+
     return `
-      <div class="event-card" onclick="selectEvent(${idx})" data-event-idx="${idx}" data-category="${category}">
-        <div class="event-card-time">${timeStr}</div>
-        <div class="event-card-code">${evt.code}</div>
-        <div class="event-card-info">${evt.team || 'N/A'}</div>
-        <div class="event-card-info">${evt.player || ''}</div>
+      <div class="timeline-row">
+        <div class="timeline-row-label" title="${rowGroup.label}">${rowGroup.label}</div>
+        <div class="timeline-row-track" style="width:${scaledWidth}px;" onclick="setPlayheadFromClick(this, event)">
+          ${eventMarkersHTML}
+          <div class="timeline-playhead" id="playhead" style="left:0;"></div>
+          <div class="timeline-playhead-label" id="playheadLabel">00:00:00</div>
+        </div>
       </div>
     `;
   }).join('');
 
-  if (filteredEvents.length === 0) {
-    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--t3);padding:20px;">No events match this filter</div>';
-  }
+  updatePlayheadDisplay();
 }
 
-function selectEvent(idx) {
-  visualSyncState.selectedEventIdx = idx;
-  const evt = visualSyncState.parsedEvents[idx];
+function groupEventsByTypeAndTeam(events) {
+  const game = visualSyncState.selectedGame;
+  const groups = {};
 
-  // Clear previous selection
-  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
-  document.querySelector(`[data-event-idx="${idx}"]`).classList.add('selected');
-
-  const timeStr = secsToMMSS(evt.start);
-  document.getElementById('selectedEventDisplay').textContent =
-    `${timeStr} • ${evt.code} • ${evt.team} • ${evt.player || 'N/A'}`;
-  document.getElementById('selectedEventInfo').style.display = 'block';
-
-  document.getElementById('periodSelectionStep').style.display = 'block';
-  document.getElementById('periodSelectionStatus').innerHTML = '';
-}
-
-// ============ PERIOD SELECTION ============
-
-function selectPeriod(period) {
-  visualSyncState.selectedPeriod = period;
-
-  // Update button states
-  document.querySelectorAll('.period-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.period === period);
-  });
-
-  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
-  document.getElementById('periodSelectionStatus').innerHTML =
-    `<div class="status-box success">✅ Period selected: <strong>${period}</strong> for event <strong>${evt.code}</strong></div>`;
-
-  // Show Gaelic Insights note if applicable
-  const giNote = document.getElementById('gaelicInsightsNote');
-  if (visualSyncState.xmlFormat === 'gaelic-insights') {
-    giNote.style.display = 'inline';
-  } else {
-    giNote.style.display = 'none';
+  // Add NA Whistle first
+  const whistles = events.filter(e => e.code && e.code.toLowerCase().includes('whistle'));
+  if (whistles.length > 0) {
+    groups['🎺 NA Whistle'] = { label: '🎺 NA Whistle', events: whistles };
   }
 
-  loadVideoEmbed();
-  document.getElementById('syncVideoStep').style.display = 'block';
-  document.getElementById('eventStartTime').textContent = secsToMMSS(evt.start);
+  // Group by team
+  const homeTeamEvents = events.filter(e => e.team === game.homeTeam && !e.code.includes('Whistle'));
+  if (homeTeamEvents.length > 0) {
+    groups[`${game.homeTeam} Events`] = { label: `${game.homeTeam} Events`, events: homeTeamEvents };
+  }
 
-  // Update offset calculation display
-  updateOffsetCalculationDisplay();
+  const awayTeamEvents = events.filter(e => e.team === game.awayTeam && !e.code.includes('Whistle'));
+  if (awayTeamEvents.length > 0) {
+    groups[`${game.awayTeam} Events`] = { label: `${game.awayTeam} Events`, events: awayTeamEvents };
+  }
+
+  const otherEvents = events.filter(e => !e.team && !e.code.includes('Whistle'));
+  if (otherEvents.length > 0) {
+    groups['Other Events'] = { label: 'Other Events', events: otherEvents };
+  }
+
+  return Object.values(groups);
 }
 
-function updateOffsetCalculationDisplay() {
-  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
-  const calcDiv = document.getElementById('offsetCalculation');
-
-  if (visualSyncState.xmlFormat === 'gaelic-insights') {
-    const adjustedXmlTime = evt.start - visualSyncState.gaelicInsightsLeadIn;
-    calcDiv.textContent = `videoTime - (xmlTime - 8s)\n= ? - (${secsToMMSS(evt.start)} - 8s)\n= ? - ${secsToMMSS(adjustedXmlTime)}`;
-  } else {
-    calcDiv.textContent = `videoTime - xmlTime\n= ? - ${secsToMMSS(evt.start)}`;
+function getEventColor(evt) {
+  if (evt.code && evt.code.toLowerCase().includes('whistle')) {
+    return 'var(--orange)';
   }
+  const game = visualSyncState.selectedGame;
+  if (evt.team === game.homeTeam && game.homeColor) {
+    return game.homeColor;
+  }
+  if (evt.team === game.awayTeam && game.awayColor) {
+    return game.awayColor;
+  }
+  return 'var(--t2)';
+}
+
+function selectTimelineEvent(xmlTime, event) {
+  event.stopPropagation();
+  setPlayhead(xmlTime);
+}
+
+function setPlayheadFromClick(track, event) {
+  const rect = track.getBoundingClientRect();
+  const period = visualSyncState.selectedPeriod;
+  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const timeSpan = periodEnd - periodStart;
+
+  const clickX = event.clientX - rect.left;
+  const percent = clickX / track.offsetWidth;
+  const xmlTime = periodStart + (percent * timeSpan);
+
+  setPlayhead(Math.max(0, xmlTime));
+}
+
+function setPlayhead(xmlTime) {
+  visualSyncState.playheadXmlTime = xmlTime;
+  updatePlayheadDisplay();
+}
+
+function updatePlayheadDisplay() {
+  const playhead = document.getElementById('playhead');
+  const label = document.getElementById('playheadLabel');
+  const period = visualSyncState.selectedPeriod;
+  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const timeSpan = periodEnd - periodStart;
+
+  if (playhead && label) {
+    const percent = ((visualSyncState.playheadXmlTime - periodStart) / timeSpan) * 100;
+    playhead.style.left = percent + '%';
+    label.textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
+  }
+
+  document.getElementById('xmlPlayheadTime').textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
+  document.getElementById('calculatedOffset').textContent = formatOffset(visualSyncState.videoCurrentTime - visualSyncState.playheadXmlTime);
+}
+
+function zoomTimeline(delta) {
+  visualSyncState.zoomLevel = Math.max(0.5, Math.min(3.0, visualSyncState.zoomLevel + delta));
+  document.getElementById('zoomLabel').textContent = Math.round(visualSyncState.zoomLevel * 100) + '%';
+  renderTimeline();
+}
+
+function updateAngleSelector() {
+  const select = document.getElementById('angleSelect');
+  const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
+
+  select.innerHTML = angles.map(angle => {
+    const label = angle === 'main' ? '🎬 Main Angle' : angle;
+    return `<option value="${angle}">${label}</option>`;
+  }).join('');
+
+  if (angles.length > 0) {
+    visualSyncState.selectedAngle = angles[0];
+    select.value = visualSyncState.selectedAngle;
+  }
+
+  select.onchange = () => {
+    visualSyncState.selectedAngle = select.value;
+    renderTimeline();
+  };
 }
 
 // ============ VIDEO EMBED ============
@@ -874,18 +941,14 @@ function updateOffsetCalculationDisplay() {
 function loadVideoEmbed() {
   const videoId = visualSyncState.videoIds.main;
   if (!videoId) {
-    document.getElementById('videoContainer').innerHTML =
-      `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video URL found for this game</div>`;
+    document.getElementById('videoContainer').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video URL found for this game</div>';
     return;
   }
 
-  document.getElementById('videoContainer').innerHTML =
-    `<iframe id="youtubePlayer" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen></iframe>`;
+  document.getElementById('videoContainer').innerHTML = `<iframe id="youtubePlayer" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen></iframe>`;
 
-  // Set up YouTube API listener
   window.onYouTubeIframeAPIReady = initYouTubePlayer;
 
-  // If YT is already loaded, initialize immediately
   if (window.YT && window.YT.Player) {
     initYouTubePlayer();
   }
@@ -893,7 +956,7 @@ function loadVideoEmbed() {
 
 function initYouTubePlayer() {
   const iframe = document.getElementById('youtubePlayer');
-  if (!iframe || window.player) return; // Already initialized
+  if (!iframe || window.player) return;
 
   window.player = new YT.Player(iframe, {
     events: {
@@ -903,7 +966,6 @@ function initYouTubePlayer() {
 }
 
 function onPlayerReady(event) {
-  // Start polling video time
   if (window.videoTimeInterval) clearInterval(window.videoTimeInterval);
 
   window.videoTimeInterval = setInterval(() => {
@@ -911,186 +973,140 @@ function onPlayerReady(event) {
       try {
         const time = window.player.getCurrentTime();
         visualSyncState.videoCurrentTime = time;
-        document.getElementById('currentVideoTime').textContent = secsToMMSS(time);
-
-        // Update offset calculation display in real-time
-        const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
-        if (evt && visualSyncState.selectedPeriod) {
-          const calcDiv = document.getElementById('offsetCalculation');
-          if (visualSyncState.xmlFormat === 'gaelic-insights') {
-            const adjustedXmlTime = evt.start - visualSyncState.gaelicInsightsLeadIn;
-            const offset = time - adjustedXmlTime;
-            const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
-            calcDiv.textContent = `videoTime - (xmlTime - 8s)\n= ${secsToMMSS(time)} - ${secsToMMSS(adjustedXmlTime)}\n= ${offsetStr}`;
-          } else {
-            const offset = time - evt.start;
-            const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
-            calcDiv.textContent = `videoTime - xmlTime\n= ${secsToMMSS(time)} - ${secsToMMSS(evt.start)}\n= ${offsetStr}`;
-          }
-        }
+        document.getElementById('videoCurrentTime').textContent = secsToHHMMSS(time);
+        updatePlayheadDisplay();
       } catch (e) {
-        // Silently ignore player errors
+        // Silently ignore
       }
     }
   }, 100);
 }
 
-function calculateSync() {
-  const evt = visualSyncState.parsedEvents[visualSyncState.selectedEventIdx];
+// ============ SYNC LOGIC ============
+
+function syncPointClick() {
   const period = visualSyncState.selectedPeriod;
+  const angle = visualSyncState.selectedAngle;
+  const xmlTime = visualSyncState.playheadXmlTime;
   const videoTime = visualSyncState.videoCurrentTime;
 
-  if (!evt || !period) {
-    document.getElementById('syncStatus').innerHTML =
-      `<div class="status-box error">❌ Please select an event and period first</div>`;
+  if (xmlTime === undefined || videoTime === undefined) {
+    document.getElementById('syncStatus').innerHTML = '<div class="status-box error">❌ Position playhead and video first</div>';
     return;
   }
 
-  // Calculate offset with Gaelic Insights lead-in adjustment
-  // For GI events: actual event starts 8 seconds before XML tag point
-  // So: offset = (videoTime) - (xmlTime - leadIn)
-  let offset = videoTime - evt.start;
+  const offset = videoTime - xmlTime;
 
-  if (visualSyncState.xmlFormat === 'gaelic-insights') {
-    offset = videoTime - (evt.start - visualSyncState.gaelicInsightsLeadIn);
-  }
+  // Create sync point segment
+  const segment = {
+    id: crypto.randomUUID(),
+    type: 'sync-point',
+    period: period,
+    angleKey: angle,
+    startXmlTime: 0,  // Sync point applies from start of period
+    endXmlTime: null,
+    anchorXmlTime: xmlTime,
+    anchorVideoTime: videoTime,
+    offset: offset,
+    createdAt: new Date().toISOString()
+  };
 
-  // Store offset
-  if (!visualSyncState.syncOffsets[period]) {
-    visualSyncState.syncOffsets[period] = {};
-  }
-  visualSyncState.syncOffsets[period][visualSyncState.selectedAngle] = offset;
+  // Save to undo stack
+  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
 
-  const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
-  document.getElementById('calculatedOffset').textContent = offsetStr;
+  // Add segment
+  visualSyncState.syncSegments[angle][period].push(segment);
 
-  const adjustmentNote = visualSyncState.xmlFormat === 'gaelic-insights'
-    ? ` (adjusted for 8-sec lead-in)`
-    : '';
+  const offsetStr = formatOffset(offset);
+  document.getElementById('syncStatus').innerHTML = `<div class="status-box success">✅ Sync Point anchored! Offset: <strong>${offsetStr}</strong></div>`;
 
-  document.getElementById('syncStatus').innerHTML =
-    `<div class="status-box success">✅ Synced! <strong>${period}</strong> offset: <strong>${offsetStr}</strong>${adjustmentNote}</div>`;
-
-  updateAngleStatus();
-
-  // Show continue options with summary
-  showSyncSummary();
-  document.getElementById('continueOptions').style.display = 'flex';
+  renderTimeline();
 }
 
-function showSyncSummary() {
-  const summaryDiv = document.getElementById('syncSummary') || (() => {
-    const div = document.createElement('div');
-    div.id = 'syncSummary';
-    div.style.marginTop = '16px';
-    document.getElementById('syncStatus').parentNode.insertBefore(div, document.getElementById('continueOptions'));
-    return div;
-  })();
+function undoLastSync() {
+  if (visualSyncState.undoStack.length === 0) {
+    document.getElementById('syncStatus').innerHTML = '<div class="status-box warning">⚠ Nothing to undo</div>';
+    return;
+  }
 
-  const periods = Object.keys(visualSyncState.syncOffsets).sort();
-  if (periods.length === 0) return;
+  visualSyncState.syncSegments = visualSyncState.undoStack.pop();
+  document.getElementById('syncStatus').innerHTML = '<div class="status-box info">↶ Undo successful</div>';
+  renderTimeline();
+}
 
-  let summaryHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">';
-  summaryHTML += '<div style="font:700 12px \'Barlow Condensed\',sans-serif;color:var(--t1);margin-bottom:8px;">📊 Synced Offsets Summary</div>';
+function resetCurrentPeriod() {
+  const period = visualSyncState.selectedPeriod;
+  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
 
-  periods.forEach(period => {
-    const angles = visualSyncState.syncOffsets[period];
-    Object.entries(angles).forEach(([angle, offset]) => {
-      const offsetStr = offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
-      const angleLabel = angle === 'main' ? '🎬 Main' : angle;
-      summaryHTML += `<div style="font-size:12px;color:var(--t2);margin-bottom:4px;">✓ <strong>${period}</strong> (${angleLabel}): <strong style="color:var(--accent);">${offsetStr}</strong></div>`;
+  Object.keys(visualSyncState.syncSegments).forEach(angle => {
+    visualSyncState.syncSegments[angle][period] = [];
+  });
+
+  document.getElementById('syncStatus').innerHTML = `<div class="status-box warning">⚠ Reset period ${period}</div>`;
+  renderTimeline();
+}
+
+function resetAllSegments() {
+  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
+
+  Object.keys(visualSyncState.syncSegments).forEach(angle => {
+    visualSyncState.syncSegments[angle] = { '1H': [], '2H': [], 'ET1': [], 'ET2': [] };
+  });
+
+  document.getElementById('syncStatus').innerHTML = '<div class="status-box warning">⚠ Reset all segments</div>';
+  renderTimeline();
+}
+
+// ============ VALIDATION & SAVE ============
+
+function validateSegments() {
+  const validation = [];
+
+  // Check: Must have at least one synced segment
+  let totalSegments = 0;
+  Object.values(visualSyncState.syncSegments).forEach(angles => {
+    Object.values(angles).forEach(periodSegments => {
+      totalSegments += periodSegments.length;
     });
   });
 
-  summaryHTML += '</div>';
-  summaryDiv.innerHTML = summaryHTML;
-}
+  if (totalSegments === 0) {
+    validation.push({ ok: false, msg: 'No sync segments created' });
+  } else {
+    validation.push({ ok: true, msg: `${totalSegments} sync segment(s) created` });
+  }
 
-function continueSyncAnother() {
-  // Reset event and period selection
-  visualSyncState.selectedEventIdx = null;
-  visualSyncState.selectedPeriod = null;
+  // Check: All events have applicable offset
+  let unsynced = 0;
+  visualSyncState.parsedEvents.forEach(evt => {
+    const hasOffset = visualSyncState.syncSegments[visualSyncState.selectedAngle] &&
+                      visualSyncState.syncSegments[visualSyncState.selectedAngle][evt.period] &&
+                      visualSyncState.syncSegments[visualSyncState.selectedAngle][evt.period].length > 0;
+    if (!hasOffset) unsynced++;
+  });
 
-  // Clear UI
-  document.getElementById('selectedEventInfo').style.display = 'none';
-  document.querySelectorAll('.event-card').forEach(c => c.classList.remove('selected'));
-  document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('selected'));
-  document.getElementById('syncStatus').innerHTML = '';
-  document.getElementById('continueOptions').style.display = 'none';
+  if (unsynced > 0) {
+    validation.push({ ok: false, msg: `${unsynced} event(s) without offset` });
+  } else {
+    validation.push({ ok: true, msg: 'All events have applicable offsets' });
+  }
 
-  // Scroll to event selection
-  document.getElementById('eventSelectionStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function updateAngleStatus() {
-  // Show which periods are synced for each angle
-  const angleStatusGrid = document.getElementById('angleStatusGrid');
-  const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
-  const periods = ['1H', '2H', 'ET1', 'ET2'];
-
-  const grid = angles.map(angle => {
-    const status = periods.map(period => {
-      const isSynced = visualSyncState.syncOffsets[period] && visualSyncState.syncOffsets[period][angle];
-      return `<div class="val-item ${isSynced ? 'ok' : 'pending'}">
-        <span class="val-icon">${isSynced ? '✓' : '○'}</span>
-        <span>${period}</span>
-      </div>`;
-    }).join('');
-
-    return `<div class="angle-item">
-      <div class="angle-item-label">${angle === 'main' ? '🎬 Main Angle' : angle}</div>
-      <div class="angle-item-status">${status}</div>
-    </div>`;
-  }).join('');
-
-  angleStatusGrid.innerHTML = grid;
-}
-
-// ============ VALIDATION ============
-
-function validateSync() {
+  // Check: Game metadata complete
   const game = visualSyncState.selectedGame;
-  const validation = [];
-
-  // Check: Must have at least one synced offset
-  const totalOffsets = Object.values(visualSyncState.syncOffsets)
-    .reduce((sum, periods) => sum + Object.keys(periods).length, 0);
-
-  if (totalOffsets === 0) {
-    validation.push({ ok: false, msg: 'No synced offsets. Must sync at least one period.' });
-  } else {
-    validation.push({ ok: true, msg: `${totalOffsets} offset(s) synced` });
-  }
-
-  // Check: Main angle must have required periods
-  const mainAngleSynced = visualSyncState.syncOffsets['1H']?.main !== undefined ||
-                          visualSyncState.syncOffsets['2H']?.main !== undefined;
-
-  if (mainAngleSynced) {
-    validation.push({ ok: true, msg: 'Main angle has required sync' });
-  } else {
-    validation.push({ ok: false, msg: 'Main angle needs at least one synced period' });
-  }
-
-  // Check: Game has required metadata
   if (game.homeTeam && game.awayTeam) {
     validation.push({ ok: true, msg: 'Game metadata complete' });
   } else {
     validation.push({ ok: false, msg: 'Game metadata incomplete' });
   }
 
-  // Check: Events exist
-  if (visualSyncState.parsedEvents.length > 0) {
-    validation.push({ ok: true, msg: `${visualSyncState.parsedEvents.length} events parsed` });
-  } else {
-    validation.push({ ok: false, msg: 'No events in XML' });
-  }
-
   return validation;
 }
 
-function displayValidation() {
-  const validation = validateSync();
+function showReview() {
+  document.getElementById('timelineStep').classList.remove('active');
+  document.getElementById('reviewStep').classList.add('active');
+
+  const validation = validateSegments();
   const list = document.getElementById('validationList');
 
   list.innerHTML = validation.map(v =>
@@ -1106,35 +1122,31 @@ function displayValidation() {
     saveBtn.style.display = 'block';
     saveBtn.disabled = false;
   } else {
+    saveBtn.style.display = 'block';
     saveBtn.disabled = true;
   }
 
-  return allOk;
+  populatePreviewTable();
+  document.getElementById('reviewStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function populatePreviewTable() {
   const tbody = document.getElementById('previewTableBody');
   const rows = [];
 
-  // For each synced period and angle
-  const allPeriods = Object.keys(visualSyncState.syncOffsets).sort();
-  const game = visualSyncState.selectedGame;
-
-  allPeriods.forEach(period => {
-    const angles = visualSyncState.syncOffsets[period];
-    Object.entries(angles).forEach(([angle, offset]) => {
-      // Find a sample event from this period to show timing
-      const sampleEvent = visualSyncState.parsedEvents.find(e => e.period === period);
-      if (sampleEvent) {
-        const syncedStart = sampleEvent.start + offset;
+  Object.entries(visualSyncState.syncSegments).forEach(([angle, periods]) => {
+    Object.entries(periods).forEach(([period, segments]) => {
+      segments.forEach(seg => {
         rows.push({
-          event: `${sampleEvent.code} (${sampleEvent.team})`,
           period: period,
-          originalStart: sampleEvent.start,
-          offset: offset,
-          syncedStart: syncedStart
+          angle: angle === 'main' ? '🎬 Main' : angle,
+          type: seg.type.toUpperCase(),
+          startXmlTime: seg.startXmlTime,
+          anchorXmlTime: seg.anchorXmlTime,
+          anchorVideoTime: seg.anchorVideoTime,
+          offset: seg.offset
         });
-      }
+      });
     });
   });
 
@@ -1145,34 +1157,21 @@ function populatePreviewTable() {
 
   tbody.innerHTML = rows.map(row =>
     `<tr>
-      <td>${row.event}</td>
       <td>${row.period}</td>
-      <td>${row.originalStart.toFixed(1)}</td>
-      <td>${row.offset > 0 ? '+' : ''}${row.offset.toFixed(1)}</td>
-      <td>${row.syncedStart.toFixed(1)}</td>
+      <td>${row.angle}</td>
+      <td>${row.type}</td>
+      <td>${row.startXmlTime.toFixed(1)}s</td>
+      <td>XML: ${secsToHHMMSS(row.anchorXmlTime)} → Video: ${secsToHHMMSS(row.anchorVideoTime)}</td>
+      <td>${formatOffset(row.offset)}</td>
     </tr>`
   ).join('');
 
   document.getElementById('previewTableContainer').style.display = 'block';
 }
 
-function moveToReview() {
-  showReview();
-}
-
-function showReview() {
-  document.getElementById('reviewStep').style.display = 'block';
-  updateAngleStatus();
-  populatePreviewTable();
-  displayValidation();
-  document.getElementById('reviewStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// ============ SAVE ============
-
 async function saveSync() {
   const saveStatus = document.getElementById('saveStatus');
-  saveStatus.innerHTML = '<div class="status-box info">⏳ Saving sync offsets…</div>';
+  saveStatus.innerHTML = '<div class="status-box info">⏳ Saving sync segments…</div>';
 
   try {
     const game = visualSyncState.selectedGame;
@@ -1181,17 +1180,15 @@ async function saveSync() {
       return;
     }
 
-    // Add visual sync metadata to game
     const updatedMeta = { ...game };
     updatedMeta.visualSync = {
-      offsets: visualSyncState.syncOffsets,
+      syncSegments: visualSyncState.syncSegments,
       format: visualSyncState.xmlFormat,
       eventCount: visualSyncState.parsedEvents.length,
       syncedAt: new Date().toISOString(),
-      syncedPeriods: Object.keys(visualSyncState.syncOffsets).sort()
+      savedPeriods: Object.keys(visualSyncState.selectedPeriod)
     };
 
-    // Save to Supabase
     const { error } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', game.id);
 
     if (error) {
@@ -1199,24 +1196,43 @@ async function saveSync() {
       return;
     }
 
-    saveStatus.innerHTML = `<div class="status-box success">✅ Saved! Visual sync offsets stored for <strong>${game.id}</strong><br/>Periods: ${Object.keys(visualSyncState.syncOffsets).join(', ')}</div>`;
+    saveStatus.innerHTML = `<div class="status-box success">✅ Saved! Sync segments stored for <strong>${game.id}</strong></div>`;
 
-    // Reset form after delay
     setTimeout(() => {
       location.reload();
-    }, 2500);
+    }, 2000);
 
   } catch (e) {
     saveStatus.innerHTML = `<div class="status-box error">❌ Error: ${e.message}</div>`;
   }
 }
 
+// ============ NAVIGATION ============
+
+function backToTimeline() {
+  document.getElementById('reviewStep').classList.remove('active');
+  document.getElementById('timelineStep').classList.add('active');
+  document.getElementById('timelineStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function backToSetup() {
+  document.getElementById('timelineStep').classList.remove('active');
+  document.getElementById('setupStep').classList.add('active');
+  document.getElementById('setupStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // ============ UTILITIES ============
 
-function secsToMMSS(secs) {
-  const m = Math.floor(secs / 60);
+function secsToHHMMSS(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
   const s = Math.floor(secs % 60);
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatOffset(offset) {
+  if (offset === undefined || offset === null) return '—';
+  return offset > 0 ? `+${offset.toFixed(1)}s` : `${offset.toFixed(1)}s`;
 }
 
 function showStatus(stepId, type, msg) {
@@ -1227,27 +1243,33 @@ function showStatus(stepId, type, msg) {
                       step.appendChild(div);
                       return div;
                     })();
-
   statusDiv.innerHTML = `<div class="status-box ${type}">${msg}</div>`;
 }
 
 // ============ INIT ============
 
 async function initPage() {
-  // Initialize theme
   const theme = localStorage.getItem('cohesion_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
   updateThemeToggle();
 
-  // Initialize Supabase
   initSupabase();
-
-  // Load games
   await loadGames();
+
+  // Load YouTube API
+  const script = document.createElement('script');
+  script.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(script);
+
+  // Change period selector to trigger timeline re-render
+  document.getElementById('periodSelect').onchange = () => {
+    visualSyncState.selectedPeriod = document.getElementById('periodSelect').value;
+    renderTimeline();
+  };
 }
 
-// Auto-initialize on page load
 document.addEventListener('DOMContentLoaded', initPage);
+
 </script>
 
 </body>
