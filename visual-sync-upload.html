@@ -60,9 +60,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:border-color .2s;}
 select:focus{outline:none;border-color:var(--accent);}
 
-.timeline-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;display:flex;flex-direction:column;position:relative;}
+.timeline-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
 
-.time-ruler{display:flex;align-items:flex-end;height:55px;background:var(--card);border-bottom:2px solid var(--border);position:sticky;top:54px;z-index:60;padding:0 0 8px 210px;width:100%;flex-shrink:0;overflow-x:auto;overflow-y:hidden;}
+.time-ruler{display:flex;align-items:flex-end;height:55px;background:var(--card);border-bottom:2px solid var(--border);position:sticky;top:54px;z-index:60;padding:0 0 8px 210px;width:100%;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:auto;}
 .time-tick{flex:1;border-right:1px solid var(--border);padding:0 8px;text-align:left;font:700 9px 'Barlow Condensed',sans-serif;color:var(--t3);white-space:nowrap;}
 .time-tick:last-child{border-right:none;}
 
@@ -781,7 +781,8 @@ function renderTimeRuler() {
   // Width scales with zoom and video duration (wider base for better spacing)
   const timelineWidth = Math.max(3000, (videoDuration / 60) * 30) * visualSyncState.zoomLevel;
 
-  ruler.style.width = timelineWidth + 'px';
+  // Don't set explicit width on ruler - let it stay within bounds, but ticks will show relative scale
+  // The timeline-wrapper will handle the horizontal scrolling
   ruler.innerHTML = ticks.map(t => {
     const percent = (t / videoDuration) * 100;
     const width = (tickInterval / videoDuration) * 100;
@@ -840,6 +841,21 @@ function renderTimeline() {
 
   document.getElementById('timelineTracks').innerHTML = tracksHTML;
   updatePlayheadDisplay();
+
+  // Sync ruler horizontal scroll with timeline tracks scroll
+  const timelineWrapper = document.querySelector('.timeline-wrapper');
+  const timeRuler = document.getElementById('timeRuler');
+  if (timelineWrapper && timeRuler) {
+    // When tracks scroll horizontally, sync the ruler
+    timelineWrapper.addEventListener('scroll', (e) => {
+      timeRuler.scrollLeft = e.target.scrollLeft;
+    }, { passive: true });
+
+    // Also sync the other direction (ruler scroll -> tracks)
+    timeRuler.addEventListener('scroll', (e) => {
+      timelineWrapper.scrollLeft = e.target.scrollLeft;
+    }, { passive: true });
+  }
 }
 
 function groupEventsByTypeAndTeam(events) {
