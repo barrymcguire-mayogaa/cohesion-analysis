@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>COHESION — Visual Sync Upload</title>
+<title>COHESION — Visual Sync Timeline</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -11,8 +11,7 @@
   --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
   --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
   --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
-  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
-  --orange:#ff9800;
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--orange:#ff9800;--logo-color:#ffffff;
 }
 [data-theme="light"]{
   --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
@@ -23,89 +22,96 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
-header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
 .logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
 .hdr-s{flex:1;}
 .hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
 .hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
 
-.page{max-width:1400px;margin:0 auto;padding:20px;}
+.page{max-width:100%;margin:0;padding:16px;}
 
-.page-header{margin-bottom:20px;}
-.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
-.page-sub{font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.6;}
+.page-header{margin-bottom:16px;}
+.page-title{font:800 24px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:4px;}
+.page-sub{font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6;}
 
-.game-details{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;}
+.game-details{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
 .detail-field{display:flex;flex-direction:column;}
-.detail-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:4px;}
-.detail-value{font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);}
-.detail-value.sub{font:400 12px 'Barlow',sans-serif;color:var(--t2);margin-top:2px;}
+.detail-label{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:3px;}
+.detail-value{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t1);}
+.detail-value.sub{font:400 11px 'Barlow',sans-serif;color:var(--t2);margin-top:1px;}
 
-.video-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;margin-bottom:20px;}
+.video-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;margin-bottom:12px;}
 .video-embed{width:100%;aspect-ratio:16/9;background:var(--card);}
 .video-embed iframe{width:100%;height:100%;border:none;}
 
-.sync-toolbar{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.period-selector{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.period-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-right:4px;}
+.period-btn{padding:8px 16px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
+.period-btn:hover{border-color:var(--accent);color:var(--accent);}
+.period-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+.period-btn.synced::after{content:" ✓";color:var(--green);font-weight:900;}
+
+.et-toggle{display:flex;align-items:center;gap:6px;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);cursor:pointer;margin-left:auto;}
+.et-toggle input{cursor:pointer;}
+
+.toolbar{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
 .toolbar-group{display:flex;gap:8px;align-items:center;}
-.toolbar-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin-right:4px;}
-.toolbar-btn{padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
-.toolbar-btn:hover{border-color:var(--accent);color:var(--accent);}
-.toolbar-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.toolbar-btn:disabled{opacity:.4;cursor:not-allowed;}
-
-select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:border-color .2s;}
+.toolbar-label{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
+select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;cursor:pointer;transition:border-color .2s;}
 select:focus{outline:none;border-color:var(--accent);}
-select option{background:var(--card);}
 
-.timeline-container{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;overflow:auto;}
-.timeline-wrapper{position:relative;height:auto;}
-.timeline-rows{display:flex;flex-direction:column;gap:4px;margin-bottom:20px;}
-.timeline-row{display:flex;align-items:center;height:24px;gap:12px;}
-.timeline-row-label{width:200px;flex-shrink:0;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;border-right:1px solid var(--border);}
-.timeline-row-track{flex:1;position:relative;height:100%;background:var(--card);border-radius:4px;cursor:pointer;overflow:visible;}
-.timeline-marker{position:absolute;width:8px;height:100%;border-radius:2px;cursor:pointer;transition:all .1s;}
-.timeline-marker:hover{filter:brightness(1.2);}
-.timeline-marker.whistle{background:var(--orange);}
+.timeline-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;overflow:hidden;}
 
-.timeline-playhead{position:absolute;width:2px;height:100%;background:var(--accent);top:0;cursor:col-resize;z-index:10;}
-.timeline-playhead-label{position:absolute;top:-24px;left:-30px;width:60px;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:4px;padding:4px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--accent);white-space:nowrap;}
+.time-ruler{display:flex;align-items:flex-end;height:40px;background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:54px;z-index:40;padding:0 0 8px 210px;}
+.time-tick{flex:1;border-right:1px solid var(--border);padding:0 8px;text-align:left;font:700 9px 'Barlow Condensed',sans-serif;color:var(--t3);}
+.time-tick:last-child{border-right:none;}
 
-.status-box{padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin-bottom:16px;}
+.timeline-wrapper{display:flex;position:relative;}
+
+.timeline-rows-label{width:210px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);padding:0;}
+.timeline-row-label{height:32px;display:flex;align-items:center;padding:0 12px;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);border-bottom:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.timeline-row-label:last-child{border-bottom:none;}
+
+.timeline-tracks{flex:1;position:relative;overflow-x:auto;}
+.timeline-track{height:32px;position:relative;border-bottom:1px solid var(--border);background:var(--card);}
+.timeline-track:last-child{border-bottom:none;}
+
+.event-marker{position:absolute;width:6px;height:100%;cursor:pointer;border-radius:2px;transition:all .1s;top:0;}
+.event-marker:hover{filter:brightness(1.3);width:8px;}
+
+.playhead{position:absolute;width:3px;height:100%;background:var(--red);cursor:col-resize;z-index:20;top:0;box-shadow:0 0 8px rgba(244,67,54,0.6);}
+.playhead-label{position:absolute;top:-28px;left:-40px;width:80px;text-align:center;background:var(--red);border-radius:4px;padding:4px;font:700 10px 'Barlow Condensed',sans-serif;color:#fff;white-space:nowrap;z-index:21;}
+
+.event-tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;pointer-events:none;z-index:50;bottom:100%;margin-bottom:4px;left:-40px;box-shadow:0 4px 12px var(--shadow);}
+.event-tooltip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--card);}
+
+.zoom-slider-section{background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:12px;align-items:center;}
+.zoom-slider-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
+.zoom-slider{flex:1;max-width:200px;}
+input[type="range"]{width:100%;cursor:pointer;height:4px;border-radius:2px;background:var(--border);outline:none;-webkit-appearance:none;}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;}
+.zoom-percent{font:700 11px 'Barlow Condensed',sans-serif;color:var(--t3);min-width:40px;text-align:right;}
+
+.sync-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+.sync-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.sync-row-label{width:150px;font-size:11px;color:var(--t2);}
+.sync-row-value{flex:1;font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);}
+
+.status-box{padding:12px;border-radius:8px;font-size:12px;line-height:1.5;margin-bottom:12px;}
 .status-box.info{background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);}
 .status-box.success{background:var(--green-bg);border:1px solid var(--green);color:var(--green);}
 .status-box.error{background:var(--red-bg);border:1px solid var(--red);color:var(--red);}
 .status-box.warning{background:rgba(255,152,0,0.12);border:1px solid var(--orange);color:var(--orange);}
 
-.sync-panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;}
-.sync-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.sync-row-label{width:150px;font-size:12px;color:var(--t2);}
-.sync-row-value{flex:1;font:700 13px 'Barlow Condensed',sans-serif;color:var(--accent);}
-
+.button-group{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
 .process-btn{padding:10px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
 .process-btn:hover{opacity:.9;transform:translateY(-1px);}
 .process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.process-btn.secondary{background:var(--card);color:var(--t2);border:1px solid var(--border);}
 
-.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;display:none;}
+.step{display:none;}
 .step.active{display:block;}
-.step-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
-.step-num{width:28px;height:28px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 12px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
-.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
-.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
-
-.field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;}
-input[type=text],input[type=date],input[type=url]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;transition:border-color .2s;width:100%;}
-input::placeholder{color:var(--t3);}
-input:focus{border-color:var(--accent);}
-
-.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);}
-.drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--accent-bg);}
-.drop-zone.ready{border-color:var(--green);background:var(--green-bg);}
-.dz-icon{font-size:28px;opacity:.4;margin-bottom:8px;}
-.dz-title{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);margin-bottom:4px;}
-.dz-sub{font-size:12px;color:var(--t3);}
-.dz-file{font:700 13px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;}
-input[type=file]{display:none;}
 
 .validation-list{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;}
 .val-item{display:flex;align-items:center;gap:8px;padding:6px 0;color:var(--t2);}
@@ -113,17 +119,23 @@ input[type=file]{display:none;}
 .val-item.error{color:var(--red);}
 .val-icon{font-size:14px;min-width:16px;}
 
-.preview-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
-.preview-table th{background:var(--card);border:1px solid var(--border);padding:8px;text-align:left;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);}
+.preview-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px;}
+.preview-table th{background:var(--card);border:1px solid var(--border);padding:8px;text-align:left;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);}
 .preview-table td{border:1px solid var(--border);padding:8px;}
 .preview-table tr:nth-child(even){background:var(--hover);}
 
+@media(max-width:1024px){
+  .game-details{grid-template-columns:repeat(2,1fr);}
+  .period-selector{flex-direction:column;align-items:flex-start;}
+  .et-toggle{margin-left:0;margin-top:8px;}
+}
+
 @media(max-width:768px){
-  .game-details{grid-template-columns:1fr;}
-  .sync-toolbar{flex-direction:column;align-items:flex-start;}
-  .toolbar-group{width:100%;}
-  .timeline-row-label{width:100px;font-size:10px;}
   .page{padding:12px;}
+  .game-details{grid-template-columns:1fr;}
+  .time-ruler{padding-left:120px;}
+  .timeline-rows-label{width:120px;}
+  .timeline-row-label{font-size:10px;padding:0 6px;}
 }
 </style>
 </head>
@@ -139,100 +151,101 @@ input[type=file]{display:none;}
 
 <div class="page">
 
-  <!-- STEP 1: Select & Upload -->
+  <!-- STEP 1: SETUP -->
   <div class="step active" id="setupStep">
-    <div class="step-header">
-      <div class="step-num">1</div>
-      <div>
-        <div class="step-title">Select Game & Upload XML</div>
-        <div class="step-sub">Choose a game and upload an XML sync file to begin</div>
-      </div>
+    <div class="page-header">
+      <div class="page-title">🎬 Visual Sync Timeline</div>
+      <div class="page-sub">Select a game and upload XML to begin syncing</div>
     </div>
 
-    <div class="field">
-      <label>Search or Select Game</label>
-      <input type="text" id="gameSearch" placeholder="Search by team, date, or game ID…" oninput="filterGameList()">
-      <div id="gameDropdown" style="border:1px solid var(--border);border-radius:7px;background:var(--card);max-height:300px;overflow-y:auto;margin-top:-8px;border-top:none;border-top-left-radius:0;border-top-right-radius:0;display:none;">
-        <!-- Populated by JavaScript -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:500px;margin:0 auto;">
+      <div style="margin-bottom:16px;">
+        <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Search or Select Game</label>
+        <input type="text" id="gameSearch" placeholder="Search by team, date, or game ID…" oninput="filterGameList()" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+        <div id="gameDropdown" style="border:1px solid var(--border);border-radius:0 0 7px 7px;background:var(--card);max-height:250px;overflow-y:auto;margin-top:-8px;border-top:none;display:none;">
+          <!-- Populated by JavaScript -->
+        </div>
       </div>
-    </div>
 
-    <div id="setupStatus"></div>
+      <div id="setupStatus" style="margin-bottom:16px;"></div>
 
-    <div class="field" style="margin-top:20px;">
-      <label>Upload XML File</label>
-      <div class="drop-zone" id="xmlDropZone"
-           onclick="document.getElementById('xmlFile').click()"
-           ondragover="e=>{e.preventDefault();this.classList.add('over')}"
-           ondragleave="this.classList.remove('over')"
-           ondrop="handleXmlDrop(event)">
-        <div class="dz-icon">📁</div>
-        <div class="dz-title">Drop XML file or click to browse</div>
-        <div class="dz-sub">Gaelic Insights, GIU, or Sportscode</div>
-        <div class="dz-file" id="xmlFileName"></div>
+      <div style="margin-bottom:16px;">
+        <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Upload XML File</label>
+        <div id="xmlDropZone" style="border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);"
+             onclick="document.getElementById('xmlFile').click()"
+             ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+             ondragleave="this.classList.remove('over')"
+             ondrop="handleXmlDrop(event)">
+          <div style="font-size:28px;opacity:.4;margin-bottom:8px;">📁</div>
+          <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t2);margin-bottom:4px;">Drop XML file or click to browse</div>
+          <div style="font-size:11px;color:var(--t3);">Gaelic Insights, GIU, or Sportscode</div>
+          <div style="font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;" id="xmlFileName"></div>
+        </div>
+        <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)" style="display:none;">
       </div>
-      <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)">
-    </div>
 
-    <button class="process-btn" onclick="proceedToTimeline()" id="proceedBtn" style="display:none;width:100%;">→ Load Timeline</button>
+      <button class="process-btn" onclick="proceedToTimeline()" id="proceedBtn" style="display:none;width:100%;">→ Load Timeline</button>
+    </div>
   </div>
 
-  <!-- STEP 2: Visual Timeline Sync -->
+  <!-- STEP 2: TIMELINE -->
   <div class="step" id="timelineStep">
-
     <div class="page-header">
       <div class="page-title">🎬 Visual Sync Timeline</div>
       <div class="page-sub" id="gameSubtitle"></div>
     </div>
 
-    <div class="game-details" id="gameDetails">
-      <!-- Populated by JavaScript -->
-    </div>
+    <div class="game-details" id="gameDetails"></div>
 
-    <div class="video-section" id="videoSection">
+    <div class="video-section">
       <div class="video-embed" id="videoContainer">
-        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px;">
-          No YouTube video found for this game
-        </div>
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video found</div>
       </div>
     </div>
 
-    <div class="sync-toolbar">
+    <div class="period-selector">
+      <span class="period-label">Period Select</span>
+      <button class="period-btn selected" data-period="1H" onclick="selectPeriod('1H')">1st Half</button>
+      <button class="period-btn" data-period="2H" onclick="selectPeriod('2H')">2nd Half</button>
+      <div id="etButtonsContainer" style="display:none;display:flex;gap:8px;">
+        <button class="period-btn" data-period="ET1" onclick="selectPeriod('ET1')">ET 1st</button>
+        <button class="period-btn" data-period="ET2" onclick="selectPeriod('ET2')">ET 2nd</button>
+      </div>
+      <label class="et-toggle">
+        <input type="checkbox" id="hasET" onchange="toggleET()">
+        This game went to Extra Time
+      </label>
+    </div>
+
+    <div class="toolbar">
       <div class="toolbar-group">
-        <label class="toolbar-label">XML Type</label>
-        <select id="xmlTypeSelect" disabled style="width:120px;">
+        <span class="toolbar-label">XML Type</span>
+        <select id="xmlTypeSelect" disabled>
           <option value="">Auto-detected</option>
         </select>
       </div>
       <div class="toolbar-group">
-        <label class="toolbar-label">Period</label>
-        <select id="periodSelect">
-          <option value="1H">1st Half</option>
-          <option value="2H">2nd Half</option>
-          <option value="ET1">ET 1st</option>
-          <option value="ET2">ET 2nd</option>
+        <span class="toolbar-label">XML Select</span>
+        <select id="xmlSelectDropdown" disabled>
+          <option value="">Game data loaded</option>
         </select>
       </div>
-      <div class="toolbar-group">
-        <label class="toolbar-label">Angle</label>
-        <select id="angleSelect">
-          <option value="main">Main Angle</option>
-        </select>
-      </div>
-      <div style="flex:1;"></div>
-      <button class="toolbar-btn" onclick="zoomTimeline(-0.2)" title="Zoom out">−</button>
-      <button class="toolbar-btn" onclick="zoomTimeline(0.2)" title="Zoom in">+</button>
-      <span style="font-size:11px;color:var(--t3);" id="zoomLabel">100%</span>
     </div>
 
     <div id="syncStatus"></div>
 
-    <div class="timeline-container">
-      <div class="timeline-wrapper" id="timelineWrapper">
-        <div class="timeline-rows" id="timelineRows">
-          <!-- Populated by JavaScript -->
+    <div class="timeline-section">
+      <div class="time-ruler" id="timeRuler"></div>
+      <div class="timeline-wrapper">
+        <div class="timeline-rows-label" id="rowLabels"></div>
+        <div class="timeline-tracks" id="timelineTracks"></div>
+      </div>
+      <div class="zoom-slider-section">
+        <span class="zoom-slider-label">Zoom</span>
+        <div class="zoom-slider">
+          <input type="range" id="zoomSlider" min="50" max="300" value="100" oninput="updateZoom(this.value)">
         </div>
-        <div style="height:40px;"></div>
+        <span class="zoom-percent" id="zoomPercent">100%</span>
       </div>
     </div>
 
@@ -256,49 +269,44 @@ input[type=file]{display:none;}
         <div class="sync-row-value" id="calculatedOffset">—</div>
       </div>
 
-      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="process-btn" onclick="syncPointClick()" style="flex:1;">🔗 Sync Point</button>
-        <button class="process-btn" onclick="undoLastSync()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">↶ Undo</button>
-        <button class="process-btn" onclick="resetCurrentPeriod()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">Reset Period</button>
-        <button class="process-btn" onclick="resetAllSegments()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">Reset All</button>
+      <div class="button-group">
+        <button class="process-btn" onclick="syncPointClick()">🔗 Sync Point</button>
+        <button class="process-btn secondary" onclick="undoLastSync()">↶ Undo</button>
+        <button class="process-btn secondary" onclick="resetCurrentPeriod()">Reset Period</button>
+        <button class="process-btn secondary" onclick="resetAllSegments()">Reset All</button>
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:20px;">
+    <div class="button-group">
       <button class="process-btn" onclick="showReview()" style="flex:1;">→ Review & Save</button>
-      <button class="process-btn" onclick="backToSetup()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">← Back</button>
+      <button class="process-btn secondary" onclick="backToSetup()" style="flex:1;">← Back</button>
     </div>
   </div>
 
-  <!-- STEP 3: Review & Save -->
+  <!-- STEP 3: REVIEW & SAVE -->
   <div class="step" id="reviewStep">
-    <div class="step-header">
-      <div class="step-num">3</div>
-      <div>
-        <div class="step-title">Review & Save</div>
-        <div class="step-sub">Verify sync segments and save to database</div>
-      </div>
+    <div class="page-header">
+      <div class="page-title">Review & Save</div>
+      <div class="page-sub">Verify sync segments and save to database</div>
     </div>
 
     <div id="reviewStatus"></div>
 
     <div style="margin-bottom:20px;">
       <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Validation Checklist:</div>
-      <div class="validation-list" id="validationList">
-        <!-- Populated by JavaScript -->
-      </div>
+      <div class="validation-list" id="validationList"></div>
     </div>
 
-    <div id="previewTableContainer" style="margin-bottom:20px;overflow-x:auto;display:none;">
-      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Synced Segments Preview:</div>
+    <div id="previewTableContainer" style="display:none;">
+      <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);margin-bottom:8px;">Synced Segments:</div>
       <table class="preview-table" id="previewTable">
         <thead>
           <tr>
             <th>Period</th>
             <th>Angle</th>
             <th>Type</th>
-            <th>Start XML Time</th>
-            <th>Anchor Times</th>
+            <th>XML Anchor Time</th>
+            <th>Video Anchor Time</th>
             <th>Offset</th>
           </tr>
         </thead>
@@ -306,9 +314,9 @@ input[type=file]{display:none;}
       </table>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:20px;">
-      <button class="process-btn" id="saveBtn" onclick="saveSync()" style="flex:1;display:none;">💾 Save to Database</button>
-      <button class="process-btn" onclick="backToTimeline()" style="flex:1;background:var(--card);color:var(--t2);border:1px solid var(--border);">← Back to Sync</button>
+    <div class="button-group">
+      <button class="process-btn" id="saveBtn" onclick="saveSync()" style="display:none;flex:1;">💾 Save to Database</button>
+      <button class="process-btn secondary" onclick="backToTimeline()" style="flex:1;">← Back to Sync</button>
     </div>
 
     <div id="saveStatus"></div>
@@ -320,7 +328,7 @@ input[type=file]{display:none;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 
-// ============ STATE MANAGEMENT ============
+// ============ STATE ============
 
 const visualSyncState = {
   selectedGame: null,
@@ -330,30 +338,18 @@ const visualSyncState = {
   parsedEvents: [],
   selectedPeriod: '1H',
   selectedAngle: 'main',
-
-  // Sync segments: organized by angle -> period -> [segments]
   syncSegments: {},
-
-  // Timeline playhead position (XML time in seconds)
   playheadXmlTime: 0,
-
-  // Video current time (seconds)
   videoCurrentTime: 0,
-
-  // Timeline zoom level (0.5 = 50%, 1.0 = 100%, 2.0 = 200%)
+  videoDuration: 0,
   zoomLevel: 1.0,
-
-  // Event filter for timeline display
-  eventFilter: 'all',
-
-  // Video IDs by angle
   videoIds: {},
-
-  // Segment undo stack
-  undoStack: []
+  undoStack: [],
+  syncedPeriods: {},
+  hasExtraTime: false
 };
 
-// ============ THEME TOGGLE ============
+// ============ THEME ============
 
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
@@ -371,12 +367,8 @@ function updateThemeToggle() {
 // ============ AUTH ============
 
 const auth = sessionStorage.getItem('cohesion_auth');
-if (!auth) {
-  window.location.href = 'index.html';
-}
-if (auth !== 'admin') {
-  window.location.href = 'library.html';
-}
+if (!auth) window.location.href = 'index.html';
+if (auth !== 'admin') window.location.href = 'library.html';
 
 function logout() {
   netlifyIdentity.logout();
@@ -384,7 +376,7 @@ function logout() {
   window.location.href = 'index.html';
 }
 
-// ============ SUPABASE SETUP ============
+// ============ SUPABASE ============
 
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -394,40 +386,28 @@ function initSupabase() {
   _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
 
-// ============ GAME SELECTION ============
+// ============ GAME LOADING ============
 
 async function loadGames() {
   try {
     const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
     if (error) throw error;
-
-    visualSyncState.gamesMeta = (data || [])
-      .map(r => {
-        let meta = r.meta;
-        if (typeof meta === 'string') {
-          try {
-            meta = JSON.parse(meta);
-          } catch (e) {
-            return null;
-          }
-        }
-        return meta;
-      })
-      .filter(g => g && typeof g === 'object');
+    visualSyncState.gamesMeta = (data || []).map(r => {
+      let meta = r.meta;
+      if (typeof meta === 'string') {
+        try { meta = JSON.parse(meta); } catch (e) { return null; }
+      }
+      return meta;
+    }).filter(g => g && typeof g === 'object');
   } catch (e) {
     console.error('Failed to load games:', e);
-    showStatus('setupStep', 'error', `❌ Failed to load games: ${e.message}`);
   }
 }
 
 function filterGameList() {
   const query = document.getElementById('gameSearch').value.toLowerCase();
   const dropdown = document.getElementById('gameDropdown');
-
-  if (!query) {
-    dropdown.style.display = 'none';
-    return;
-  }
+  if (!query) { dropdown.style.display = 'none'; return; }
 
   const filtered = visualSyncState.gamesMeta.filter(g =>
     (g.id && g.id.toLowerCase().includes(query)) ||
@@ -455,7 +435,6 @@ function selectGameFromDropdown(gameId) {
 function selectGame() {
   const query = document.getElementById('gameSearch').value;
   const game = visualSyncState.gamesMeta.find(g => g.id === query);
-
   if (!game) {
     showStatus('setupStep', 'error', '❌ Game not found');
     return;
@@ -463,17 +442,12 @@ function selectGame() {
 
   visualSyncState.selectedGame = game;
   showStatus('setupStep', 'success', `✅ Game selected: ${game.title}`);
-
-  // Store video IDs from game
   visualSyncState.videoIds.main = game.youtubeId || null;
   if (game.angles) {
     game.angles.forEach((angle, idx) => {
       visualSyncState.videoIds[`angle${idx+2}`] = angle.youtubeId || null;
     });
   }
-
-  // Update angle selector
-  updateAngleSelector();
 }
 
 // ============ XML PARSING ============
@@ -488,7 +462,6 @@ function handleXmlDrop(e) {
 function handleXmlFileSelect(input) {
   const files = input.files || input.target?.files;
   if (!files || files.length === 0) return;
-
   const file = files[0];
   const reader = new FileReader();
   reader.onload = (evt) => {
@@ -502,11 +475,9 @@ function handleXmlFileSelect(input) {
 
 function parseXml() {
   showStatus('setupStep', 'info', '⏳ Parsing XML...');
-
   visualSyncState.xmlFormat = autoDetectFormat(visualSyncState.xmlText);
-
   if (!visualSyncState.xmlFormat) {
-    showStatus('setupStep', 'error', '❌ Could not detect XML format. Supports: Gaelic Insights, GIU, Sportscode');
+    showStatus('setupStep', 'error', '❌ Could not detect XML format');
     return;
   }
 
@@ -518,7 +489,7 @@ function parseXml() {
   } else if (visualSyncState.xmlFormat === 'instances') {
     parseResult = parseInstancesXml(visualSyncState.xmlText);
   } else {
-    showStatus('setupStep', 'error', '❌ Format not yet supported');
+    showStatus('setupStep', 'error', '❌ Format not supported');
     return;
   }
 
@@ -528,8 +499,7 @@ function parseXml() {
   }
 
   visualSyncState.parsedEvents = parseResult.events;
-  showStatus('setupStep', 'success', `✅ Parsed ${visualSyncState.parsedEvents.length} events from ${visualSyncState.xmlFormat}`);
-
+  showStatus('setupStep', 'success', `✅ Parsed ${visualSyncState.parsedEvents.length} events`);
   document.getElementById('proceedBtn').style.display = 'block';
 }
 
@@ -538,7 +508,6 @@ function autoDetectFormat(xmlText) {
   if (xmlText.includes('<ALL_INSTANCES>')) return 'instances';
   if (xmlText.includes('GaelicInsights') || xmlText.includes('EventCode')) return 'gaelic-insights';
   if (xmlText.includes('GIU') || xmlText.includes('P1 START')) return 'giu';
-  if (xmlText.includes('SportsCode')) return 'sportscode';
   return null;
 }
 
@@ -553,16 +522,13 @@ function parseGaelicInsightsXml(xmlText) {
     }
 
     const events = [];
-    const eventElements = xmlDoc.getElementsByTagName('Event');
-
-    for (let elem of eventElements) {
+    for (let elem of xmlDoc.getElementsByTagName('Event')) {
       const code = elem.getAttribute('EventCode') || '';
       const startStr = elem.getAttribute('EventTime') || '';
       const start = parseEventTime(startStr);
       if (start === null) continue;
 
       const team = elem.getAttribute('Team') || '';
-      const player = elem.getAttribute('Player') || '';
       const period = elem.getAttribute('Period') || guessPeriodFromTime(start);
 
       events.push({
@@ -571,16 +537,11 @@ function parseGaelicInsightsXml(xmlText) {
         start,
         end: start + 1,
         team,
-        player,
-        period,
-        labels: [code, team || '', player || ''].filter(Boolean)
+        period
       });
     }
 
-    if (events.length === 0) {
-      return { success: false, error: 'No events found in XML' };
-    }
-
+    if (events.length === 0) return { success: false, error: 'No events found' };
     return { success: true, events };
   } catch (e) {
     return { success: false, error: e.message };
@@ -596,46 +557,27 @@ function parseInstancesXml(xmlText) {
     }
 
     const events = [];
-    const instanceElements = xmlDoc.getElementsByTagName('instance');
     const seenIds = new Set();
-
-    for (let elem of instanceElements) {
+    for (let elem of xmlDoc.getElementsByTagName('instance')) {
       const id = elem.querySelector('ID')?.textContent || '';
       if (seenIds.has(id)) continue;
       seenIds.add(id);
 
-      const startStr = elem.querySelector('start')?.textContent || '';
-      const endStr = elem.querySelector('end')?.textContent || '';
       const code = elem.querySelector('code')?.textContent || '';
-      const start = parseFloat(startStr) || 0;
-      const end = parseFloat(endStr) || 0;
-
-      if (!code || (start === 0 && end === 0)) continue;
-
-      const period = guessPeriodFromTime(start);
-      const labels = [code];
-      const labelTexts = elem.querySelectorAll('label text');
-      if (labelTexts.length > 0) {
-        const text = labelTexts[0]?.textContent?.trim();
-        if (text) labels.push(text);
-      }
+      const start = parseFloat(elem.querySelector('start')?.textContent || 0) || 0;
+      if (!code || start === 0) continue;
 
       events.push({
         id: `INST-${id}`,
         code,
         start,
-        end,
+        end: start + 1,
         team: code.split(' ')[0] || '',
-        player: '',
-        period: period,
-        labels: labels
+        period: guessPeriodFromTime(start)
       });
     }
 
-    if (events.length === 0) {
-      return { success: false, error: 'No events found in XML' };
-    }
-
+    if (events.length === 0) return { success: false, error: 'No events found' };
     return { success: true, events };
   } catch (e) {
     return { success: false, error: e.message };
@@ -651,44 +593,28 @@ function parseGiuXml(xmlText) {
     }
 
     const events = [];
-    const matchElements = xmlDoc.getElementsByTagName('Match');
-
-    for (let match of matchElements) {
-      const periodElements = match.getElementsByTagName('Period');
-      for (let period of periodElements) {
+    for (let match of xmlDoc.getElementsByTagName('Match')) {
+      for (let period of match.getElementsByTagName('Period')) {
         const periodNum = period.getAttribute('Number') || '';
-        let periodLabel = `${periodNum}`;
-        if (periodNum === '1') periodLabel = '1H';
-        else if (periodNum === '2') periodLabel = '2H';
-        else if (periodNum === '3') periodLabel = 'ET1';
-        else if (periodNum === '4') periodLabel = 'ET2';
+        let periodLabel = periodNum === '1' ? '1H' : periodNum === '2' ? '2H' : periodNum === '3' ? 'ET1' : 'ET2';
 
-        const eventElements = period.getElementsByTagName('Event');
-        for (let elem of eventElements) {
+        for (let elem of period.getElementsByTagName('Event')) {
           const code = elem.getAttribute('EventType') || '';
-          const timeStr = elem.getAttribute('EventTime') || '';
-          const start = parseInt(timeStr) || 0;
-          const team = elem.getAttribute('Team') || '';
-          const player = elem.getAttribute('Player') || '';
+          const start = parseInt(elem.getAttribute('EventTime') || 0) || 0;
 
           events.push({
-            id: `GIU-${code}-${start}-${periodNum}`,
+            id: `GIU-${code}-${start}`,
             code,
             start,
             end: start + 1,
-            team,
-            player,
-            period: periodLabel,
-            labels: [code, team || '', player || ''].filter(Boolean)
+            team: elem.getAttribute('Team') || '',
+            period: periodLabel
           });
         }
       }
     }
 
-    if (events.length === 0) {
-      return { success: false, error: 'No events found in GIU XML' };
-    }
-
+    if (events.length === 0) return { success: false, error: 'No events found' };
     return { success: true, events };
   } catch (e) {
     return { success: false, error: e.message };
@@ -709,7 +635,7 @@ function guessPeriodFromTime(secs) {
   return 'ET2';
 }
 
-// ============ TIMELINE RENDERING ============
+// ============ TIMELINE INITIALIZATION ============
 
 function proceedToTimeline() {
   if (!visualSyncState.selectedGame || !visualSyncState.parsedEvents.length) {
@@ -717,7 +643,6 @@ function proceedToTimeline() {
     return;
   }
 
-  // Initialize sync segments structure
   const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
   angles.forEach(angle => {
     visualSyncState.syncSegments[angle] = {
@@ -726,43 +651,35 @@ function proceedToTimeline() {
       'ET1': [],
       'ET2': []
     };
+    visualSyncState.syncedPeriods[angle] = {};
   });
 
-  // Switch steps
   document.getElementById('setupStep').classList.remove('active');
   document.getElementById('timelineStep').classList.add('active');
 
-  // Load game details
   loadGameDetails();
-
-  // Load video
   loadVideoEmbed();
-
-  // Render timeline
   renderTimeline();
 }
 
 function loadGameDetails() {
   const game = visualSyncState.selectedGame;
-  const subtitle = document.getElementById('gameSubtitle');
-  const details = document.getElementById('gameDetails');
-
-  subtitle.textContent = `${game.homeTeam} v ${game.awayTeam} • ${game.date}`;
+  document.getElementById('gameSubtitle').textContent = `${game.homeTeam} v ${game.awayTeam} • ${game.date}`;
 
   const detailsHTML = `
     <div class="detail-field">
       <div class="detail-label">Home Team</div>
       <div class="detail-value">${game.homeTeam}</div>
-      <div class="detail-value sub">${game.homeColor || 'Color TBD'}</div>
+      <div class="detail-value sub">${game.homeColor || '—'}</div>
     </div>
     <div class="detail-field">
       <div class="detail-label">Away Team</div>
       <div class="detail-value">${game.awayTeam}</div>
-      <div class="detail-value sub">${game.awayColor || 'Color TBD'}</div>
+      <div class="detail-value sub">${game.awayColor || '—'}</div>
     </div>
     <div class="detail-field">
       <div class="detail-label">XML Format</div>
-      <div class="detail-value">${visualSyncState.xmlFormat}</div>
+      <div class="detail-value">${visualSyncState.xmlFormat.toUpperCase()}</div>
       <div class="detail-value sub">${visualSyncState.parsedEvents.length} events</div>
     </div>
     <div class="detail-field">
@@ -770,56 +687,159 @@ function loadGameDetails() {
       <div class="detail-value">${game.id}</div>
     </div>
   `;
+  document.getElementById('gameDetails').innerHTML = detailsHTML;
+}
 
-  details.innerHTML = detailsHTML;
+function loadVideoEmbed() {
+  const videoId = visualSyncState.videoIds.main;
+  if (!videoId) {
+    document.getElementById('videoContainer').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video found</div>';
+    return;
+  }
+
+  document.getElementById('videoContainer').innerHTML = `<iframe id="youtubePlayer" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen></iframe>`;
+  window.onYouTubeIframeAPIReady = initYouTubePlayer;
+  if (window.YT && window.YT.Player) {
+    initYouTubePlayer();
+  }
+}
+
+function initYouTubePlayer() {
+  const iframe = document.getElementById('youtubePlayer');
+  if (!iframe || window.player) return;
+
+  window.player = new YT.Player(iframe, {
+    events: { 'onReady': onPlayerReady }
+  });
+}
+
+function onPlayerReady(event) {
+  if (window.videoTimeInterval) clearInterval(window.videoTimeInterval);
+
+  // Get video duration
+  try {
+    visualSyncState.videoDuration = window.player.getDuration();
+  } catch (e) {
+    visualSyncState.videoDuration = 2700; // Default 45 min
+  }
+
+  renderTimeRuler();
+  renderTimeline();
+
+  window.videoTimeInterval = setInterval(() => {
+    if (window.player && window.player.getCurrentTime) {
+      try {
+        const time = window.player.getCurrentTime();
+        visualSyncState.videoCurrentTime = time;
+        document.getElementById('videoCurrentTime').textContent = secsToHHMMSS(time);
+        updatePlayheadDisplay();
+      } catch (e) {}
+    }
+  }, 100);
+}
+
+// ============ TIMELINE RENDERING ============
+
+function selectPeriod(period) {
+  visualSyncState.selectedPeriod = period;
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.period === period);
+  });
+  renderTimeline();
+}
+
+function toggleET() {
+  visualSyncState.hasExtraTime = document.getElementById('hasET').checked;
+  const etContainer = document.getElementById('etButtonsContainer');
+  etContainer.style.display = visualSyncState.hasExtraTime ? 'flex' : 'none';
+}
+
+function updateZoom(value) {
+  visualSyncState.zoomLevel = value / 100;
+  document.getElementById('zoomPercent').textContent = value + '%';
+  renderTimeline();
+  renderTimeRuler();
+}
+
+function renderTimeRuler() {
+  const ruler = document.getElementById('timeRuler');
+  const period = visualSyncState.selectedPeriod;
+  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+
+  if (periodEvents.length === 0) {
+    ruler.innerHTML = '';
+    return;
+  }
+
+  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
+  const timeSpan = periodEnd - periodStart;
+
+  // Calculate tick interval (every 10 sec, 30 sec, or 1 min depending on zoom)
+  let tickInterval = 600; // 10 min
+  if (visualSyncState.zoomLevel < 1) tickInterval = 300; // 5 min
+  if (visualSyncState.zoomLevel > 1.5) tickInterval = 60; // 1 min
+
+  const ticks = [];
+  for (let t = 0; t <= periodEnd; t += tickInterval) {
+    ticks.push(t);
+  }
+
+  const timelineWidth = 1200 * visualSyncState.zoomLevel;
+
+  ruler.innerHTML = ticks.map(t => {
+    const percent = ((t - periodStart) / timeSpan) * 100;
+    return `<div class="time-tick" style="flex:${(tickInterval / timeSpan) * 100};">${secsToHHMMSS(t)}</div>`;
+  }).join('');
 }
 
 function renderTimeline() {
-  const rows = document.getElementById('timelineRows');
   const period = visualSyncState.selectedPeriod;
-  const angle = visualSyncState.selectedAngle;
-
-  // Get events for current period
   const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+
+  if (periodEvents.length === 0) {
+    document.getElementById('rowLabels').innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);">No events in this period</div>';
+    document.getElementById('timelineTracks').innerHTML = '';
+    return;
+  }
 
   // Group events by type/team
   const eventRows = groupEventsByTypeAndTeam(periodEvents);
 
-  if (eventRows.length === 0) {
-    rows.innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);">No events in this period</div>';
-    return;
-  }
-
-  // Calculate timeline bounds
+  // Calculate bounds
   const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
   const timeSpan = periodEnd - periodStart;
 
-  // Render each row
-  rows.innerHTML = eventRows.map(rowGroup => {
-    const timelineWidth = 1200; // pixels for base 100% zoom
-    const scaledWidth = timelineWidth * visualSyncState.zoomLevel;
+  const timelineWidth = 1200 * visualSyncState.zoomLevel;
 
+  // Render row labels (fixed/sticky)
+  const labelsHTML = eventRows.map(rowGroup => {
+    return `<div class="timeline-row-label">${rowGroup.label}</div>`;
+  }).join('');
+  document.getElementById('rowLabels').innerHTML = labelsHTML;
+
+  // Render timeline tracks
+  const tracksHTML = eventRows.map(rowGroup => {
     const eventMarkersHTML = rowGroup.events.map(evt => {
       const markerColor = getEventColor(evt);
       const position = ((evt.start - periodStart) / timeSpan) * 100;
       const width = Math.max(2, ((evt.end - evt.start) / timeSpan) * 100);
 
-      return `<div class="timeline-marker" style="left:${position}%;width:${width}%;background:${markerColor};" title="${evt.code}" onclick="selectTimelineEvent(${evt.start}, event)"></div>`;
+      return `<div class="event-marker" style="left:${position}%;width:${width}%;background:${markerColor};" title="${evt.code}" onclick="selectTimelineEvent(${evt.start}, event)">
+        <div class="event-tooltip">${evt.code}<br/>${secsToHHMMSS(evt.start)}</div>
+      </div>`;
     }).join('');
 
-    return `
-      <div class="timeline-row">
-        <div class="timeline-row-label" title="${rowGroup.label}">${rowGroup.label}</div>
-        <div class="timeline-row-track" style="width:${scaledWidth}px;" onclick="setPlayheadFromClick(this, event)">
-          ${eventMarkersHTML}
-          <div class="timeline-playhead" id="playhead" style="left:0;"></div>
-          <div class="timeline-playhead-label" id="playheadLabel">00:00:00</div>
-        </div>
+    return `<div class="timeline-track" style="width:${timelineWidth}px;" onclick="setPlayheadFromClick(this, event)">
+      ${eventMarkersHTML}
+      <div class="playhead" id="playhead" style="left:0;">
+        <div class="playhead-label" id="playheadLabel">00:00:00</div>
       </div>
-    `;
+    </div>`;
   }).join('');
 
+  document.getElementById('timelineTracks').innerHTML = tracksHTML;
   updatePlayheadDisplay();
 }
 
@@ -827,26 +847,24 @@ function groupEventsByTypeAndTeam(events) {
   const game = visualSyncState.selectedGame;
   const groups = {};
 
-  // Add NA Whistle first
   const whistles = events.filter(e => e.code && e.code.toLowerCase().includes('whistle'));
   if (whistles.length > 0) {
     groups['🎺 NA Whistle'] = { label: '🎺 NA Whistle', events: whistles };
   }
 
-  // Group by team
   const homeTeamEvents = events.filter(e => e.team === game.homeTeam && !e.code.includes('Whistle'));
   if (homeTeamEvents.length > 0) {
-    groups[`${game.homeTeam} Events`] = { label: `${game.homeTeam} Events`, events: homeTeamEvents };
+    groups[`${game.homeTeam} Events`] = { label: `${game.homeTeam}`, events: homeTeamEvents };
   }
 
   const awayTeamEvents = events.filter(e => e.team === game.awayTeam && !e.code.includes('Whistle'));
   if (awayTeamEvents.length > 0) {
-    groups[`${game.awayTeam} Events`] = { label: `${game.awayTeam} Events`, events: awayTeamEvents };
+    groups[`${game.awayTeam} Events`] = { label: `${game.awayTeam}`, events: awayTeamEvents };
   }
 
   const otherEvents = events.filter(e => !e.team && !e.code.includes('Whistle'));
   if (otherEvents.length > 0) {
-    groups['Other Events'] = { label: 'Other Events', events: otherEvents };
+    groups['Other Events'] = { label: 'Other', events: otherEvents };
   }
 
   return Object.values(groups);
@@ -876,7 +894,7 @@ function setPlayheadFromClick(track, event) {
   const period = visualSyncState.selectedPeriod;
   const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
   const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
   const timeSpan = periodEnd - periodStart;
 
   const clickX = event.clientX - rect.left;
@@ -897,7 +915,7 @@ function updatePlayheadDisplay() {
   const period = visualSyncState.selectedPeriod;
   const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
   const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 3000);
+  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
   const timeSpan = periodEnd - periodStart;
 
   if (playhead && label) {
@@ -907,79 +925,9 @@ function updatePlayheadDisplay() {
   }
 
   document.getElementById('xmlPlayheadTime').textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
-  document.getElementById('calculatedOffset').textContent = formatOffset(visualSyncState.videoCurrentTime - visualSyncState.playheadXmlTime);
-}
 
-function zoomTimeline(delta) {
-  visualSyncState.zoomLevel = Math.max(0.5, Math.min(3.0, visualSyncState.zoomLevel + delta));
-  document.getElementById('zoomLabel').textContent = Math.round(visualSyncState.zoomLevel * 100) + '%';
-  renderTimeline();
-}
-
-function updateAngleSelector() {
-  const select = document.getElementById('angleSelect');
-  const angles = Object.keys(visualSyncState.videoIds).filter(a => visualSyncState.videoIds[a]);
-
-  select.innerHTML = angles.map(angle => {
-    const label = angle === 'main' ? '🎬 Main Angle' : angle;
-    return `<option value="${angle}">${label}</option>`;
-  }).join('');
-
-  if (angles.length > 0) {
-    visualSyncState.selectedAngle = angles[0];
-    select.value = visualSyncState.selectedAngle;
-  }
-
-  select.onchange = () => {
-    visualSyncState.selectedAngle = select.value;
-    renderTimeline();
-  };
-}
-
-// ============ VIDEO EMBED ============
-
-function loadVideoEmbed() {
-  const videoId = visualSyncState.videoIds.main;
-  if (!videoId) {
-    document.getElementById('videoContainer').innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--t3);">No YouTube video URL found for this game</div>';
-    return;
-  }
-
-  document.getElementById('videoContainer').innerHTML = `<iframe id="youtubePlayer" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" allowfullscreen></iframe>`;
-
-  window.onYouTubeIframeAPIReady = initYouTubePlayer;
-
-  if (window.YT && window.YT.Player) {
-    initYouTubePlayer();
-  }
-}
-
-function initYouTubePlayer() {
-  const iframe = document.getElementById('youtubePlayer');
-  if (!iframe || window.player) return;
-
-  window.player = new YT.Player(iframe, {
-    events: {
-      'onReady': onPlayerReady
-    }
-  });
-}
-
-function onPlayerReady(event) {
-  if (window.videoTimeInterval) clearInterval(window.videoTimeInterval);
-
-  window.videoTimeInterval = setInterval(() => {
-    if (window.player && window.player.getCurrentTime) {
-      try {
-        const time = window.player.getCurrentTime();
-        visualSyncState.videoCurrentTime = time;
-        document.getElementById('videoCurrentTime').textContent = secsToHHMMSS(time);
-        updatePlayheadDisplay();
-      } catch (e) {
-        // Silently ignore
-      }
-    }
-  }, 100);
+  const offset = visualSyncState.videoCurrentTime - visualSyncState.playheadXmlTime;
+  document.getElementById('calculatedOffset').textContent = formatOffset(offset);
 }
 
 // ============ SYNC LOGIC ============
@@ -997,13 +945,12 @@ function syncPointClick() {
 
   const offset = videoTime - xmlTime;
 
-  // Create sync point segment
   const segment = {
     id: crypto.randomUUID(),
     type: 'sync-point',
     period: period,
     angleKey: angle,
-    startXmlTime: 0,  // Sync point applies from start of period
+    startXmlTime: 0,
     endXmlTime: null,
     anchorXmlTime: xmlTime,
     anchorVideoTime: videoTime,
@@ -1011,14 +958,19 @@ function syncPointClick() {
     createdAt: new Date().toISOString()
   };
 
-  // Save to undo stack
   visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
-
-  // Add segment
   visualSyncState.syncSegments[angle][period].push(segment);
+  visualSyncState.syncedPeriods[angle][period] = true;
 
   const offsetStr = formatOffset(offset);
-  document.getElementById('syncStatus').innerHTML = `<div class="status-box success">✅ Sync Point anchored! Offset: <strong>${offsetStr}</strong></div>`;
+  document.getElementById('syncStatus').innerHTML = `<div class="status-box success">✅ ${period} synced! Offset: <strong>${offsetStr}</strong></div>`;
+
+  // Update period button with checkmark
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    if (btn.dataset.period === period && visualSyncState.syncedPeriods[angle][period]) {
+      btn.classList.add('synced');
+    }
+  });
 
   renderTimeline();
 }
@@ -1031,6 +983,18 @@ function undoLastSync() {
 
   visualSyncState.syncSegments = visualSyncState.undoStack.pop();
   document.getElementById('syncStatus').innerHTML = '<div class="status-box info">↶ Undo successful</div>';
+
+  // Update period buttons
+  const angle = visualSyncState.selectedAngle;
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    const period = btn.dataset.period;
+    if (visualSyncState.syncSegments[angle][period].length > 0) {
+      btn.classList.add('synced');
+    } else {
+      btn.classList.remove('synced');
+    }
+  });
+
   renderTimeline();
 }
 
@@ -1040,9 +1004,17 @@ function resetCurrentPeriod() {
 
   Object.keys(visualSyncState.syncSegments).forEach(angle => {
     visualSyncState.syncSegments[angle][period] = [];
+    visualSyncState.syncedPeriods[angle][period] = false;
   });
 
-  document.getElementById('syncStatus').innerHTML = `<div class="status-box warning">⚠ Reset period ${period}</div>`;
+  document.getElementById('syncStatus').innerHTML = `<div class="status-box warning">⚠ Reset ${period}</div>`;
+
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    if (btn.dataset.period === period) {
+      btn.classList.remove('synced');
+    }
+  });
+
   renderTimeline();
 }
 
@@ -1051,9 +1023,15 @@ function resetAllSegments() {
 
   Object.keys(visualSyncState.syncSegments).forEach(angle => {
     visualSyncState.syncSegments[angle] = { '1H': [], '2H': [], 'ET1': [], 'ET2': [] };
+    visualSyncState.syncedPeriods[angle] = {};
   });
 
   document.getElementById('syncStatus').innerHTML = '<div class="status-box warning">⚠ Reset all segments</div>';
+
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.remove('synced');
+  });
+
   renderTimeline();
 }
 
@@ -1062,7 +1040,6 @@ function resetAllSegments() {
 function validateSegments() {
   const validation = [];
 
-  // Check: Must have at least one synced segment
   let totalSegments = 0;
   Object.values(visualSyncState.syncSegments).forEach(angles => {
     Object.values(angles).forEach(periodSegments => {
@@ -1076,22 +1053,6 @@ function validateSegments() {
     validation.push({ ok: true, msg: `${totalSegments} sync segment(s) created` });
   }
 
-  // Check: All events have applicable offset
-  let unsynced = 0;
-  visualSyncState.parsedEvents.forEach(evt => {
-    const hasOffset = visualSyncState.syncSegments[visualSyncState.selectedAngle] &&
-                      visualSyncState.syncSegments[visualSyncState.selectedAngle][evt.period] &&
-                      visualSyncState.syncSegments[visualSyncState.selectedAngle][evt.period].length > 0;
-    if (!hasOffset) unsynced++;
-  });
-
-  if (unsynced > 0) {
-    validation.push({ ok: false, msg: `${unsynced} event(s) without offset` });
-  } else {
-    validation.push({ ok: true, msg: 'All events have applicable offsets' });
-  }
-
-  // Check: Game metadata complete
   const game = visualSyncState.selectedGame;
   if (game.homeTeam && game.awayTeam) {
     validation.push({ ok: true, msg: 'Game metadata complete' });
@@ -1127,7 +1088,6 @@ function showReview() {
   }
 
   populatePreviewTable();
-  document.getElementById('reviewStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function populatePreviewTable() {
@@ -1138,10 +1098,9 @@ function populatePreviewTable() {
     Object.entries(periods).forEach(([period, segments]) => {
       segments.forEach(seg => {
         rows.push({
-          period: period,
+          period,
           angle: angle === 'main' ? '🎬 Main' : angle,
           type: seg.type.toUpperCase(),
-          startXmlTime: seg.startXmlTime,
           anchorXmlTime: seg.anchorXmlTime,
           anchorVideoTime: seg.anchorVideoTime,
           offset: seg.offset
@@ -1160,8 +1119,8 @@ function populatePreviewTable() {
       <td>${row.period}</td>
       <td>${row.angle}</td>
       <td>${row.type}</td>
-      <td>${row.startXmlTime.toFixed(1)}s</td>
-      <td>XML: ${secsToHHMMSS(row.anchorXmlTime)} → Video: ${secsToHHMMSS(row.anchorVideoTime)}</td>
+      <td>${secsToHHMMSS(row.anchorXmlTime)}</td>
+      <td>${secsToHHMMSS(row.anchorVideoTime)}</td>
       <td>${formatOffset(row.offset)}</td>
     </tr>`
   ).join('');
@@ -1171,7 +1130,7 @@ function populatePreviewTable() {
 
 async function saveSync() {
   const saveStatus = document.getElementById('saveStatus');
-  saveStatus.innerHTML = '<div class="status-box info">⏳ Saving sync segments…</div>';
+  saveStatus.innerHTML = '<div class="status-box info">⏳ Saving…</div>';
 
   try {
     const game = visualSyncState.selectedGame;
@@ -1185,8 +1144,7 @@ async function saveSync() {
       syncSegments: visualSyncState.syncSegments,
       format: visualSyncState.xmlFormat,
       eventCount: visualSyncState.parsedEvents.length,
-      syncedAt: new Date().toISOString(),
-      savedPeriods: Object.keys(visualSyncState.selectedPeriod)
+      syncedAt: new Date().toISOString()
     };
 
     const { error } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', game.id);
@@ -1212,13 +1170,11 @@ async function saveSync() {
 function backToTimeline() {
   document.getElementById('reviewStep').classList.remove('active');
   document.getElementById('timelineStep').classList.add('active');
-  document.getElementById('timelineStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function backToSetup() {
   document.getElementById('timelineStep').classList.remove('active');
   document.getElementById('setupStep').classList.add('active');
-  document.getElementById('setupStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============ UTILITIES ============
@@ -1256,16 +1212,11 @@ async function initPage() {
   initSupabase();
   await loadGames();
 
-  // Load YouTube API
   const script = document.createElement('script');
   script.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(script);
 
-  // Change period selector to trigger timeline re-render
-  document.getElementById('periodSelect').onchange = () => {
-    visualSyncState.selectedPeriod = document.getElementById('periodSelect').value;
-    renderTimeline();
-  };
+  document.getElementById('xmlTypeSelect').value = visualSyncState.xmlFormat || '';
 }
 
 document.addEventListener('DOMContentLoaded', initPage);
