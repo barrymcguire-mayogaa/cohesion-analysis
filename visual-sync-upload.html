@@ -82,8 +82,9 @@ select:focus{outline:none;border-color:var(--accent);}
 .playhead{position:absolute;width:3px;height:100%;background:var(--red);cursor:col-resize;z-index:20;top:0;box-shadow:0 0 8px rgba(244,67,54,0.6);}
 .playhead-label{position:absolute;top:-28px;left:-40px;width:80px;text-align:center;background:var(--red);border-radius:4px;padding:4px;font:700 10px 'Barlow Condensed',sans-serif;color:#fff;white-space:nowrap;z-index:21;}
 
-.event-tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;pointer-events:none;z-index:50;bottom:100%;margin-bottom:4px;left:-40px;box-shadow:0 4px 12px var(--shadow);}
+.event-tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;pointer-events:none;z-index:50;bottom:100%;margin-bottom:4px;left:-40px;box-shadow:0 4px 12px var(--shadow);display:none;}
 .event-tooltip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--card);}
+.event-marker:hover .event-tooltip{display:block;}
 
 .zoom-slider-section{background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:12px;align-items:center;}
 .zoom-slider-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;}
@@ -787,6 +788,7 @@ function renderTimeRuler() {
 
   const timelineWidth = 1200 * visualSyncState.zoomLevel;
 
+  ruler.style.width = timelineWidth + 'px';
   ruler.innerHTML = ticks.map(t => {
     const percent = ((t - periodStart) / timeSpan) * 100;
     return `<div class="time-tick" style="flex:${(tickInterval / timeSpan) * 100};">${secsToHHMMSS(t)}</div>`;
