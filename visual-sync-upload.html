@@ -764,34 +764,27 @@ function updateZoom(value) {
 
 function renderTimeRuler() {
   const ruler = document.getElementById('timeRuler');
-  const period = visualSyncState.selectedPeriod;
-  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
 
-  if (periodEvents.length === 0) {
-    ruler.innerHTML = '';
-    return;
-  }
+  // Use full video duration (0 to end of video), not just event bounds
+  const videoDuration = visualSyncState.videoDuration || 2700;
 
-  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
-  const timeSpan = periodEnd - periodStart;
-
-  // Calculate tick interval (every 10 sec, 30 sec, or 1 min depending on zoom)
-  let tickInterval = 600; // 10 min
-  if (visualSyncState.zoomLevel < 1) tickInterval = 300; // 5 min
-  if (visualSyncState.zoomLevel > 1.5) tickInterval = 60; // 1 min
+  // Time ticks every 10 minutes for full video timeline
+  let tickInterval = 600; // 10 minutes default
+  if (videoDuration > 7200) tickInterval = 900; // 15 min for longer videos
 
   const ticks = [];
-  for (let t = 0; t <= periodEnd; t += tickInterval) {
+  for (let t = 0; t <= videoDuration; t += tickInterval) {
     ticks.push(t);
   }
 
-  const timelineWidth = 1200 * visualSyncState.zoomLevel;
+  // Width scales with zoom and video duration (wider base for better spacing)
+  const timelineWidth = Math.max(3000, (videoDuration / 60) * 30) * visualSyncState.zoomLevel;
 
   ruler.style.width = timelineWidth + 'px';
   ruler.innerHTML = ticks.map(t => {
-    const percent = ((t - periodStart) / timeSpan) * 100;
-    return `<div class="time-tick" style="flex:${(tickInterval / timeSpan) * 100};">${secsToHHMMSS(t)}</div>`;
+    const percent = (t / videoDuration) * 100;
+    const width = (tickInterval / videoDuration) * 100;
+    return `<div class="time-tick" style="flex:${width};">${secsToHHMMSS(t)}</div>`;
   }).join('');
 }
 
@@ -808,12 +801,11 @@ function renderTimeline() {
   // Group events by type/team
   const eventRows = groupEventsByTypeAndTeam(periodEvents);
 
-  // Calculate bounds
-  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
-  const timeSpan = periodEnd - periodStart;
+  // Use FULL video duration (0 to end) for proper proportional spacing
+  const videoDuration = visualSyncState.videoDuration || 2700;
 
-  const timelineWidth = 1200 * visualSyncState.zoomLevel;
+  // Width scales with zoom and video duration for much better readability
+  const timelineWidth = Math.max(3000, (videoDuration / 60) * 30) * visualSyncState.zoomLevel;
 
   // Render row labels (fixed/sticky)
   const labelsHTML = eventRows.map(rowGroup => {
@@ -825,11 +817,13 @@ function renderTimeline() {
   const tracksHTML = eventRows.map(rowGroup => {
     const eventMarkersHTML = rowGroup.events.map(evt => {
       const markerColor = getEventColor(evt);
-      const position = ((evt.start - periodStart) / timeSpan) * 100;
-      const width = Math.max(2, ((evt.end - evt.start) / timeSpan) * 100);
+      // Position based on start time / total video duration
+      const position = (evt.start / videoDuration) * 100;
+      // Width based on event duration (minimum 1px visible)
+      const width = Math.max(0.5, ((evt.end - evt.start) / videoDuration) * 100);
 
       return `<div class="event-marker" style="left:${position}%;width:${width}%;background:${markerColor};" title="${evt.code}" onclick="selectTimelineEvent(${evt.start}, event)">
-        <div class="event-tooltip">${evt.code}<br/>${secsToHHMMSS(evt.start)}</div>
+        <div class="event-tooltip"><strong>${evt.code}</strong><br/>${secsToHHMMSS(evt.start)}<br/><span style="font-size:9px;color:var(--t2);">${evt.team || 'Event'}</span></div>
       </div>`;
     }).join('');
 
@@ -849,27 +843,76 @@ function groupEventsByTypeAndTeam(events) {
   const game = visualSyncState.selectedGame;
   const groups = {};
 
+  // Whistles first (always)
   const whistles = events.filter(e => e.code && e.code.toLowerCase().includes('whistle'));
   if (whistles.length > 0) {
-    groups['🎺 NA Whistle'] = { label: '🎺 NA Whistle', events: whistles };
+    groups['🎺_Whistle'] = { label: '🎺 NA Whistle', events: whistles };
   }
 
-  const homeTeamEvents = events.filter(e => e.team === game.homeTeam && !e.code.includes('Whistle'));
-  if (homeTeamEvents.length > 0) {
-    groups[`${game.homeTeam} Events`] = { label: `${game.homeTeam}`, events: homeTeamEvents };
-  }
+  // Group by team and event type for clearer visualization
+  const eventTypes = {};
 
-  const awayTeamEvents = events.filter(e => e.team === game.awayTeam && !e.code.includes('Whistle'));
-  if (awayTeamEvents.length > 0) {
-    groups[`${game.awayTeam} Events`] = { label: `${game.awayTeam}`, events: awayTeamEvents };
-  }
+  // Collect all unique event types
+  events.forEach(evt => {
+    if (evt.code && !evt.code.toLowerCase().includes('whistle')) {
+      const type = evt.code.replace(/^[A-Za-z\s]+\s/, '').split(' ').slice(-1)[0] || 'Other';
+      if (!eventTypes[type]) eventTypes[type] = [];
+      eventTypes[type].push(evt);
+    }
+  });
 
+  // Create rows for home team events by type
+  const homeTeamEventsByType = {};
+  events.filter(e => e.team === game.homeTeam && !e.code.includes('Whistle')).forEach(evt => {
+    const type = extractEventType(evt.code);
+    if (!homeTeamEventsByType[type]) homeTeamEventsByType[type] = [];
+    homeTeamEventsByType[type].push(evt);
+  });
+
+  Object.entries(homeTeamEventsByType).forEach(([type, evts]) => {
+    const key = `${game.homeTeam}_${type}`;
+    groups[key] = { label: `${game.homeTeam} ${type}`, events: evts };
+  });
+
+  // Create rows for away team events by type
+  const awayTeamEventsByType = {};
+  events.filter(e => e.team === game.awayTeam && !e.code.includes('Whistle')).forEach(evt => {
+    const type = extractEventType(evt.code);
+    if (!awayTeamEventsByType[type]) awayTeamEventsByType[type] = [];
+    awayTeamEventsByType[type].push(evt);
+  });
+
+  Object.entries(awayTeamEventsByType).forEach(([type, evts]) => {
+    const key = `${game.awayTeam}_${type}`;
+    groups[key] = { label: `${game.awayTeam} ${type}`, events: evts };
+  });
+
+  // Other events
   const otherEvents = events.filter(e => !e.team && !e.code.includes('Whistle'));
   if (otherEvents.length > 0) {
-    groups['Other Events'] = { label: 'Other', events: otherEvents };
+    groups['Other'] = { label: 'Other Events', events: otherEvents };
   }
 
   return Object.values(groups);
+}
+
+function extractEventType(code) {
+  // Extract event type from code (e.g., "Cork SHOT ON TARGET" -> "Shot")
+  if (!code) return 'Other';
+  const parts = code.split(' ');
+  if (parts.length > 1) {
+    const type = parts.slice(1).join(' ').toLowerCase();
+    if (type.includes('kickout')) return 'Kickout';
+    if (type.includes('shot')) return 'Shot';
+    if (type.includes('pass')) return 'Pass';
+    if (type.includes('turnover')) return 'Turnover Won';
+    if (type.includes('foul')) return 'Foul';
+    if (type.includes('free')) return 'Free';
+    if (type.includes('goal')) return 'Goal';
+    if (type.includes('point')) return 'Point';
+    return type.split(' ')[0];
+  }
+  return 'Other';
 }
 
 function getEventColor(evt) {
@@ -893,15 +936,11 @@ function selectTimelineEvent(xmlTime, event) {
 
 function setPlayheadFromClick(track, event) {
   const rect = track.getBoundingClientRect();
-  const period = visualSyncState.selectedPeriod;
-  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
-  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
-  const timeSpan = periodEnd - periodStart;
+  const videoDuration = visualSyncState.videoDuration || 2700;
 
   const clickX = event.clientX - rect.left;
   const percent = clickX / track.offsetWidth;
-  const xmlTime = periodStart + (percent * timeSpan);
+  const xmlTime = percent * videoDuration;
 
   setPlayhead(Math.max(0, xmlTime));
 }
@@ -914,14 +953,11 @@ function setPlayhead(xmlTime) {
 function updatePlayheadDisplay() {
   const playhead = document.getElementById('playhead');
   const label = document.getElementById('playheadLabel');
-  const period = visualSyncState.selectedPeriod;
-  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
-  const periodStart = Math.min(...periodEvents.map(e => e.start), 0);
-  const periodEnd = Math.max(...periodEvents.map(e => e.end), 2700);
-  const timeSpan = periodEnd - periodStart;
+  const videoDuration = visualSyncState.videoDuration || 2700;
 
   if (playhead && label) {
-    const percent = ((visualSyncState.playheadXmlTime - periodStart) / timeSpan) * 100;
+    // Position playhead based on full video duration
+    const percent = (visualSyncState.playheadXmlTime / videoDuration) * 100;
     playhead.style.left = percent + '%';
     label.textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
   }
