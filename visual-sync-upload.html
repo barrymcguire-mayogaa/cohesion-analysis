@@ -166,36 +166,107 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
   <div class="step active" id="setupStep">
     <div class="page-header">
       <div class="page-title">🎬 Visual Sync Timeline</div>
-      <div class="page-sub">Select a game and upload XML to begin syncing</div>
+      <div class="page-sub" id="setupSubtitle">Select a game and upload XML to begin syncing</div>
     </div>
 
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:500px;margin:0 auto;">
-      <div style="margin-bottom:16px;">
-        <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Search or Select Game</label>
+      <!-- MODE TOGGLE: Select Existing vs Create New -->
+      <div style="display:flex;gap:12px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);">
+          <input type="radio" name="gameMode" value="existing" checked onchange="setGameMode('existing')" style="cursor:pointer;">
+          Select Existing Game
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;color:var(--t2);">
+          <input type="radio" name="gameMode" value="new" onchange="setGameMode('new')" style="cursor:pointer;">
+          Create New Game
+        </label>
+      </div>
+
+      <!-- EXISTING GAME MODE -->
+      <div id="existingGameSection" style="display:block;">
+        <div style="margin-bottom:16px;">
+          <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Search or Select Game</label>
         <input type="text" id="gameSearch" placeholder="Search by team, date, or game ID…" oninput="filterGameList()" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
         <div id="gameDropdown" style="border:1px solid var(--border);border-radius:0 0 7px 7px;background:var(--card);max-height:250px;overflow-y:auto;margin-top:-8px;border-top:none;display:none;">
           <!-- Populated by JavaScript -->
         </div>
       </div>
 
-      <div id="setupStatus" style="margin-bottom:16px;"></div>
+        <div id="setupStatus" style="margin-bottom:16px;"></div>
 
-      <div style="margin-bottom:16px;">
-        <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Upload XML File</label>
-        <div id="xmlDropZone" style="border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);"
-             onclick="document.getElementById('xmlFile').click()"
-             ondragover="e=>{e.preventDefault();this.classList.add('over')}"
-             ondragleave="this.classList.remove('over')"
-             ondrop="handleXmlDrop(event)">
-          <div style="font-size:28px;opacity:.4;margin-bottom:8px;">📁</div>
-          <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t2);margin-bottom:4px;">Drop XML file or click to browse</div>
-          <div style="font-size:11px;color:var(--t3);">Gaelic Insights, GIU, or Sportscode</div>
-          <div style="font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;" id="xmlFileName"></div>
+        <div style="margin-bottom:16px;">
+          <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Upload XML File</label>
+          <div id="xmlDropZone" style="border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);"
+               onclick="document.getElementById('xmlFile').click()"
+               ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+               ondragleave="this.classList.remove('over')"
+               ondrop="handleXmlDrop(event)">
+            <div style="font-size:28px;opacity:.4;margin-bottom:8px;">📁</div>
+            <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t2);margin-bottom:4px;">Drop XML file or click to browse</div>
+            <div style="font-size:11px;color:var(--t3);">Gaelic Insights, GIU, or Sportscode</div>
+            <div style="font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;" id="xmlFileName"></div>
+          </div>
+          <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)" style="display:none;">
         </div>
-        <input type="file" id="xmlFile" accept=".xml" onchange="handleXmlFileSelect(this)" style="display:none;">
+
+        <button class="process-btn" onclick="proceedToTimeline()" id="proceedBtn" style="display:none;width:100%;">→ Load Timeline</button>
       </div>
 
-      <button class="process-btn" onclick="proceedToTimeline()" id="proceedBtn" style="display:none;width:100%;">→ Load Timeline</button>
+      <!-- CREATE NEW GAME MODE -->
+      <div id="newGameSection" style="display:none;">
+        <div style="margin-bottom:16px;">
+          <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Game Details</label>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">Home Team *</label>
+            <input type="text" id="newGameHomeTeam" placeholder="e.g., Mayo" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">Away Team *</label>
+            <input type="text" id="newGameAwayTeam" placeholder="e.g., Dublin" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">Competition *</label>
+            <input type="text" id="newGameCompetition" placeholder="e.g., National Football League" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">Round/Stage *</label>
+            <input type="text" id="newGameRound" placeholder="e.g., Division 1, Round 5" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">Date *</label>
+            <input type="date" id="newGameDate" style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);display:block;margin-bottom:4px;">YouTube URL (optional)</label>
+            <input type="text" id="newGameYoutubeUrl" placeholder="https://youtube.com/watch?v=..." style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div id="newGameStatus" style="margin-bottom:16px;"></div>
+
+        <div style="margin-bottom:16px;">
+          <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;">Upload XML File</label>
+          <div id="xmlDropZoneNew" style="border:2px dashed var(--border);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);"
+               onclick="document.getElementById('xmlFileNew').click()"
+               ondragover="e=>{e.preventDefault();this.classList.add('over')}"
+               ondragleave="this.classList.remove('over')"
+               ondrop="handleXmlDropNew(event)">
+            <div style="font-size:28px;opacity:.4;margin-bottom:8px;">📁</div>
+            <div style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t2);margin-bottom:4px;">Drop XML file or click to browse</div>
+            <div style="font-size:11px;color:var(--t3);">Gaelic Insights, GIU, or Sportscode</div>
+            <div style="font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);margin-top:6px;" id="xmlFileNameNew"></div>
+          </div>
+          <input type="file" id="xmlFileNew" accept=".xml" onchange="handleXmlFileSelectNew(this)" style="display:none;">
+        </div>
+
+        <button class="process-btn" onclick="createNewGameAndProceed()" id="createGameBtn" style="display:none;width:100%;">→ Create Game & Load Timeline</button>
+      </div>
     </div>
   </div>
 
@@ -699,6 +770,190 @@ function proceedToTimeline() {
   loadGameDetails();
   loadVideoEmbed();
   renderTimeline();
+}
+
+// ============ CREATE NEW GAME MODE ============
+
+function setGameMode(mode) {
+  if (mode === 'existing') {
+    document.getElementById('existingGameSection').style.display = 'block';
+    document.getElementById('newGameSection').style.display = 'none';
+    document.getElementById('setupSubtitle').textContent = 'Select a game and upload XML to begin syncing';
+    // Reset new game form
+    resetNewGameForm();
+  } else {
+    document.getElementById('existingGameSection').style.display = 'none';
+    document.getElementById('newGameSection').style.display = 'block';
+    document.getElementById('setupSubtitle').textContent = 'Create a new game and upload XML to begin syncing';
+    // Clear selected game
+    visualSyncState.selectedGame = null;
+  }
+}
+
+function resetNewGameForm() {
+  document.getElementById('newGameHomeTeam').value = '';
+  document.getElementById('newGameAwayTeam').value = '';
+  document.getElementById('newGameCompetition').value = '';
+  document.getElementById('newGameRound').value = '';
+  document.getElementById('newGameDate').value = '';
+  document.getElementById('newGameYoutubeUrl').value = '';
+  document.getElementById('xmlFileNameNew').textContent = '';
+  document.getElementById('newGameStatus').innerHTML = '';
+  document.getElementById('createGameBtn').style.display = 'none';
+  visualSyncState.xmlText = null;
+}
+
+function handleXmlDropNew(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleXmlFileSelectNew({ files: files });
+}
+
+function handleXmlFileSelectNew(input) {
+  const files = input.files || input.target?.files;
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    visualSyncState.xmlText = evt.target.result;
+    document.getElementById('xmlFileNameNew').textContent = file.name;
+    document.getElementById('xmlDropZoneNew').classList.add('ready');
+    parseXmlNew();
+  };
+  reader.readAsText(file);
+}
+
+function parseXmlNew() {
+  document.getElementById('newGameStatus').innerHTML = '<div class="status-box info">⏳ Parsing XML...</div>';
+  visualSyncState.xmlFormat = autoDetectFormat(visualSyncState.xmlText);
+  if (!visualSyncState.xmlFormat) {
+    document.getElementById('newGameStatus').innerHTML = '<div class="status-box error">❌ Could not detect XML format</div>';
+    return;
+  }
+
+  let parseResult;
+  if (visualSyncState.xmlFormat === 'gaelic-insights') {
+    parseResult = parseGaelicInsightsXml(visualSyncState.xmlText);
+  } else if (visualSyncState.xmlFormat === 'giu') {
+    parseResult = parseGiuXml(visualSyncState.xmlText);
+  } else if (visualSyncState.xmlFormat === 'instances') {
+    parseResult = parseInstancesXml(visualSyncState.xmlText);
+  } else {
+    document.getElementById('newGameStatus').innerHTML = '<div class="status-box error">❌ Format not supported</div>';
+    return;
+  }
+
+  if (!parseResult.success) {
+    document.getElementById('newGameStatus').innerHTML = `<div class="status-box error">❌ Parse error: ${parseResult.error}</div>`;
+    return;
+  }
+
+  visualSyncState.parsedEvents = parseResult.events;
+  document.getElementById('newGameStatus').innerHTML = `<div class="status-box success">✅ Parsed ${visualSyncState.parsedEvents.length} events</div>`;
+
+  // Auto-populate team names from XML if available
+  const teams = extractTeamsFromEvents(visualSyncState.parsedEvents);
+  if (teams.home) document.getElementById('newGameHomeTeam').value = teams.home;
+  if (teams.away) document.getElementById('newGameAwayTeam').value = teams.away;
+
+  document.getElementById('createGameBtn').style.display = 'block';
+}
+
+function extractTeamsFromEvents(events) {
+  const teams = { home: null, away: null };
+
+  // Try to find home and away team from events
+  const teamCounts = {};
+
+  for (const evt of events) {
+    if (evt.team && evt.team.trim()) {
+      teamCounts[evt.team] = (teamCounts[evt.team] || 0) + 1;
+    }
+  }
+
+  // Get the two teams with most events
+  const sortedTeams = Object.entries(teamCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(entry => entry[0]);
+
+  if (sortedTeams.length >= 2) {
+    teams.home = sortedTeams[0];
+    teams.away = sortedTeams[1];
+  } else if (sortedTeams.length === 1) {
+    teams.home = sortedTeams[0];
+  }
+
+  return teams;
+}
+
+async function createNewGameAndProceed() {
+  // Validate required fields
+  const homeTeam = document.getElementById('newGameHomeTeam').value.trim();
+  const awayTeam = document.getElementById('newGameAwayTeam').value.trim();
+  const competition = document.getElementById('newGameCompetition').value.trim();
+  const round = document.getElementById('newGameRound').value.trim();
+  const dateStr = document.getElementById('newGameDate').value.trim();
+  const youtubeUrl = document.getElementById('newGameYoutubeUrl').value.trim();
+
+  if (!homeTeam || !awayTeam || !competition || !round || !dateStr) {
+    document.getElementById('newGameStatus').innerHTML = '<div class="status-box error">❌ All fields marked * are required</div>';
+    return;
+  }
+
+  if (!visualSyncState.parsedEvents || visualSyncState.parsedEvents.length === 0) {
+    document.getElementById('newGameStatus').innerHTML = '<div class="status-box error">❌ Please upload and parse an XML file first</div>';
+    return;
+  }
+
+  document.getElementById('newGameStatus').innerHTML = '<div class="status-box info">⏳ Creating game...</div>';
+
+  try {
+    // Create game metadata object
+    const gameId = `${homeTeam.toLowerCase().replace(/\s+/g, '-')}-${awayTeam.toLowerCase().replace(/\s+/g, '-')}-${dateStr.replace(/-/g, '')}`;
+
+    const gameMeta = {
+      id: gameId,
+      homeTeam: homeTeam,
+      awayTeam: awayTeam,
+      title: `${homeTeam} v ${awayTeam}`,
+      competition: competition,
+      round: round,
+      date: dateStr,
+      videoUrls: youtubeUrl ? { main: youtubeUrl } : {},
+      created_at: new Date().toISOString(),
+      visualSync: {
+        syncSegments: {},
+        format: visualSyncState.xmlFormat,
+        eventCount: visualSyncState.parsedEvents.length,
+        syncedAt: null
+      }
+    };
+
+    // Insert game into database
+    const { error } = await _sb.from('games').insert([{
+      id: gameMeta.id,
+      meta: gameMeta
+    }]);
+
+    if (error) {
+      document.getElementById('newGameStatus').innerHTML = `<div class="status-box error">❌ Failed to create game: ${error.message}</div>`;
+      return;
+    }
+
+    // Set as selected game and proceed to timeline
+    visualSyncState.selectedGame = gameMeta;
+    visualSyncState.videoIds = { main: youtubeUrl || '' };
+
+    document.getElementById('newGameStatus').innerHTML = '<div class="status-box success">✅ Game created! Loading timeline...</div>';
+
+    setTimeout(() => {
+      proceedToTimeline();
+    }, 1000);
+
+  } catch (e) {
+    document.getElementById('newGameStatus').innerHTML = `<div class="status-box error">❌ Error: ${e.message}</div>`;
+  }
 }
 
 function loadGameDetails() {
