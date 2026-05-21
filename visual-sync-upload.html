@@ -956,6 +956,45 @@ function toggleEventSelection(eventId, event) {
   } else {
     visualSyncState.selectedEvents.add(eventId);
   }
+
+  // Also seek video to this event's position for verification (even in individual mode)
+  // Extract the XML time from the eventId (format: evt-{code}-{time})
+  const parts = eventId.split('-');
+  const xmlTime = parseFloat(parts[parts.length - 1]);
+
+  if (!isNaN(xmlTime) && window.player && window.player.seekTo) {
+    // Find the event to get its period and calculate effective offset
+    const evt = visualSyncState.parsedEvents.find(e => {
+      const id = `evt-${e.id || e.code}-${e.start}`;
+      return id === eventId;
+    });
+
+    if (evt) {
+      const angle = visualSyncState.selectedAngle;
+      const period = evt.period;
+      const syncSegments = visualSyncState.syncSegments[angle]?.[period] || [];
+
+      // Calculate effective offset (period + individual)
+      let periodOffset = 0;
+      if (syncSegments.length > 0) {
+        const lastSyncPoint = syncSegments[syncSegments.length - 1];
+        periodOffset = lastSyncPoint.offset;
+      }
+
+      const individualOffset = visualSyncState.individualEventOffsets[eventId] || 0;
+      const effectiveOffset = periodOffset + individualOffset;
+      const videoTime = xmlTime + effectiveOffset;
+
+      if (videoTime >= 0) {
+        try {
+          window.player.seekTo(videoTime);
+        } catch (e) {
+          console.log('Could not seek video:', e.message);
+        }
+      }
+    }
+  }
+
   renderTimeline();
 }
 
@@ -1127,10 +1166,12 @@ function selectTimelineEvent(xmlTime, event) {
     // Effective offset = period offset + individual offset (stacking)
     const effectiveOffset = periodOffset + individualOffset;
 
-    // Calculate video time: XML time + effective offset
+    // Calculate video time: XML time + effective offset (or just XML time if no offset)
     const videoTime = xmlTime + effectiveOffset;
 
-    if (videoTime >= 0 && (periodOffset !== 0 || individualOffset !== 0)) {
+    // Seek to video position regardless of offset - user can see where event is in video
+    // This allows them to quickly assess if sync is needed before/after syncing
+    if (videoTime >= 0) {
       try {
         window.player.seekTo(videoTime);
       } catch (e) {
