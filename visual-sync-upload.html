@@ -1318,6 +1318,17 @@ function resetCurrentPeriod() {
     visualSyncState.syncedPeriods[angle][period] = false;
   });
 
+  // Also clear individual event offsets for events in this period
+  Object.keys(visualSyncState.individualEventOffsets).forEach(eventId => {
+    const evt = visualSyncState.parsedEvents.find(e => {
+      const id = `evt-${e.id || e.code}-${e.start}`;
+      return id === eventId;
+    });
+    if (evt && evt.period === period) {
+      delete visualSyncState.individualEventOffsets[eventId];
+    }
+  });
+
   document.getElementById('syncStatus').innerHTML = `<div class="status-box warning">⚠ Reset ${period}</div>`;
 
   document.querySelectorAll('.period-btn').forEach(btn => {
@@ -1336,6 +1347,9 @@ function resetAllSegments() {
     visualSyncState.syncSegments[angle] = { '1H': [], '2H': [], 'ET1': [], 'ET2': [] };
     visualSyncState.syncedPeriods[angle] = {};
   });
+
+  // Clear all individual event offsets
+  visualSyncState.individualEventOffsets = {};
 
   document.getElementById('syncStatus').innerHTML = '<div class="status-box warning">⚠ Reset all segments</div>';
 
