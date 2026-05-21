@@ -62,7 +62,7 @@ select:focus{outline:none;border-color:var(--accent);}
 
 .timeline-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
 
-.time-ruler{display:flex;align-items:flex-end;height:55px;background:var(--card);border-bottom:2px solid var(--border);position:sticky;top:54px;z-index:60;padding:0 0 8px 210px;width:100%;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:auto;}
+.time-ruler{display:flex;align-items:flex-end;height:55px;background:var(--card);border-bottom:2px solid var(--border);position:relative;z-index:60;padding:0 0 8px 210px;width:100%;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:auto;}
 .time-tick{flex:1;border-right:1px solid var(--border);padding:0 8px;text-align:left;font:700 9px 'Barlow Condensed',sans-serif;color:var(--t3);white-space:nowrap;}
 .time-tick:last-child{border-right:none;}
 
@@ -951,6 +951,28 @@ function getEventColor(evt) {
 function selectTimelineEvent(xmlTime, event) {
   event.stopPropagation();
   setPlayhead(xmlTime);
+
+  // If synced, seek YouTube video to the corresponding time
+  const angle = visualSyncState.selectedAngle;
+  const period = visualSyncState.selectedPeriod;
+  const syncSegments = visualSyncState.syncSegments[angle]?.[period] || [];
+
+  if (syncSegments.length > 0 && window.player && window.player.seekTo) {
+    // Get the most recent sync point offset
+    const lastSyncPoint = syncSegments[syncSegments.length - 1];
+    const offset = lastSyncPoint.offset;
+
+    // Calculate video time: XML time + offset
+    const videoTime = xmlTime + offset;
+
+    if (videoTime >= 0) {
+      try {
+        window.player.seekTo(videoTime);
+      } catch (e) {
+        console.log('Could not seek video:', e.message);
+      }
+    }
+  }
 }
 
 function setPlayheadFromClick(track, event) {
