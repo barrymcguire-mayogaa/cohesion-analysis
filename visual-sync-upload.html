@@ -290,7 +290,8 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
       </div>
 
       <div class="button-group">
-        <button class="process-btn" onclick="syncPointClick()">🔗 Sync Point</button>
+        <button class="process-btn" id="syncPeriodBtn" onclick="syncPointClick()">🔗 Sync Period</button>
+        <button class="process-btn" id="syncSelectedBtn" style="display:none;" onclick="syncSelectedEvents()">🔗 Sync Selected (<span id="selectedCount">0</span>)</button>
         <button class="process-btn secondary" onclick="undoLastSync()">↶ Undo</button>
         <button class="process-btn secondary" onclick="resetCurrentPeriod()">Reset Period</button>
         <button class="process-btn secondary" onclick="resetAllSegments()">Reset All</button>
@@ -779,6 +780,7 @@ function setSyncMode(mode) {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
   renderTimeline();
+  updateSyncUIForIndividualMode();
 }
 
 function toggleET() {
@@ -883,6 +885,7 @@ function renderTimeline() {
 
   document.getElementById('timelineTracks').innerHTML = tracksHTML;
   updatePlayheadDisplay();
+  updateSyncUIForIndividualMode();
 
   // Sync ruler horizontal scroll with timeline tracks scroll
   const timelineWrapper = document.querySelector('.timeline-wrapper');
@@ -975,15 +978,19 @@ function selectEventRow(rowLabel, event) {
 }
 
 function updateSyncUIForIndividualMode() {
-  // Update UI to show Sync Selected button when events are selected
-  // This will be implemented in the sync panel
-  if (visualSyncState.selectedEvents.size > 0) {
-    // Show sync button in UI
-    const syncPanel = document.querySelector('.sync-panel');
-    if (syncPanel && visualSyncState.syncMode === 'individual') {
-      // Add/show sync selected button
-      // (Implementation depends on where we want to place it)
-    }
+  const syncPeriodBtn = document.getElementById('syncPeriodBtn');
+  const syncSelectedBtn = document.getElementById('syncSelectedBtn');
+  const selectedCount = document.getElementById('selectedCount');
+
+  if (visualSyncState.syncMode === 'individual') {
+    // Hide period sync button, show individual sync button if events selected
+    syncPeriodBtn.style.display = 'none';
+    syncSelectedBtn.style.display = visualSyncState.selectedEvents.size > 0 ? 'inline-block' : 'none';
+    selectedCount.textContent = visualSyncState.selectedEvents.size;
+  } else {
+    // Show period sync button, hide individual sync button
+    syncPeriodBtn.style.display = 'inline-block';
+    syncSelectedBtn.style.display = 'none';
   }
 }
 
@@ -1081,20 +1088,35 @@ function selectTimelineEvent(xmlTime, event) {
   event.stopPropagation();
   setPlayhead(xmlTime);
 
-  // If synced, seek YouTube video to the corresponding time
+  // If synced, seek YouTube video to the corresponding time using effective offset
   const angle = visualSyncState.selectedAngle;
-  const period = visualSyncState.selectedPeriod;
+
+  // Find the event to get its period
+  const evt = visualSyncState.parsedEvents.find(e => e.start === xmlTime);
+  if (!evt) return;
+
+  const period = evt.period;
   const syncSegments = visualSyncState.syncSegments[angle]?.[period] || [];
 
-  if (syncSegments.length > 0 && window.player && window.player.seekTo) {
-    // Get the most recent sync point offset
-    const lastSyncPoint = syncSegments[syncSegments.length - 1];
-    const offset = lastSyncPoint.offset;
+  if (window.player && window.player.seekTo) {
+    // Calculate effective offset (period + individual)
+    let periodOffset = 0;
+    if (syncSegments.length > 0) {
+      const lastSyncPoint = syncSegments[syncSegments.length - 1];
+      periodOffset = lastSyncPoint.offset;
+    }
 
-    // Calculate video time: XML time + offset
-    const videoTime = xmlTime + offset;
+    // Get individual event offset if it exists
+    const eventId = `evt-${evt.id || evt.code}-${evt.start}`;
+    const individualOffset = visualSyncState.individualEventOffsets[eventId] || 0;
 
-    if (videoTime >= 0) {
+    // Effective offset = period offset + individual offset (stacking)
+    const effectiveOffset = periodOffset + individualOffset;
+
+    // Calculate video time: XML time + effective offset
+    const videoTime = xmlTime + effectiveOffset;
+
+    if (videoTime >= 0 && (periodOffset !== 0 || individualOffset !== 0)) {
       try {
         window.player.seekTo(videoTime);
       } catch (e) {
@@ -1124,15 +1146,11 @@ function updatePlayheadDisplay() {
   const playheads = document.querySelectorAll('.playhead');
   const videoDuration = visualSyncState.videoDuration || 2700;
 
-  // Update all playheads to show current video position (not XML position)
+  // Update all playheads to show current video position (smooth tracking)
   playheads.forEach(playhead => {
-    const label = playhead.querySelector('.playhead-label');
-    if (label) {
-      // Position playhead based on current video time
-      const percent = (visualSyncState.videoCurrentTime / videoDuration) * 100;
-      playhead.style.left = percent + '%';
-      label.textContent = secsToHHMMSS(visualSyncState.videoCurrentTime);
-    }
+    // Position playhead based on current video time
+    const percent = (visualSyncState.videoCurrentTime / videoDuration) * 100;
+    playhead.style.left = percent + '%';
   });
 
   document.getElementById('xmlPlayheadTime').textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
@@ -1216,6 +1234,56 @@ function syncPointClick() {
 
   // Animate events to their synced positions
   animateEventShift(offset);
+  renderTimeline();
+}
+
+function syncSelectedEvents() {
+  if (visualSyncState.selectedEvents.size === 0) {
+    alert('No events selected');
+    return;
+  }
+
+  const videoTime = visualSyncState.videoCurrentTime;
+
+  if (videoTime === undefined) {
+    document.getElementById('syncStatus').innerHTML = '<div class="status-box error">❌ Scrub video to sync position first</div>';
+    return;
+  }
+
+  // Calculate offset for first selected event (all selected events get this offset together)
+  const firstEventId = visualSyncState.selectedEvents.values().next().value;
+  const firstEvent = visualSyncState.parsedEvents.find(e => {
+    const eventId = `evt-${e.id || e.code}-${e.start}`;
+    return eventId === firstEventId;
+  });
+
+  if (!firstEvent) {
+    alert('Could not find selected event');
+    return;
+  }
+
+  const xmlTime = firstEvent.start;
+  const individualOffset = videoTime - xmlTime;
+
+  // Store individual offset for all selected events
+  visualSyncState.selectedEvents.forEach(eventId => {
+    visualSyncState.individualEventOffsets[eventId] = individualOffset;
+  });
+
+  // Show confirmation
+  const count = visualSyncState.selectedEvents.size;
+  const offsetStr = formatOffset(individualOffset);
+  document.getElementById('syncStatus').innerHTML =
+    `<div class="status-box success">✅ ${count} event${count > 1 ? 's' : ''} synced individually! Individual offset: <strong>${offsetStr}</strong></div>`;
+
+  // Clear selection
+  visualSyncState.selectedEvents.clear();
+
+  // Re-render timeline
+  renderTimeline();
+
+  // Animate event shift
+  animateEventShift(individualOffset);
 }
 
 function undoLastSync() {
