@@ -41,8 +41,13 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .detail-value.sub{font:400 11px 'Barlow',sans-serif;color:var(--t2);margin-top:1px;}
 
 .video-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;overflow:hidden;margin-bottom:12px;}
-.video-embed{width:100%;aspect-ratio:16/9;background:var(--card);}
+.video-embed{width:50%;aspect-ratio:16/9;background:var(--card);margin:0 auto;}
 .video-embed iframe{width:100%;height:100%;border:none;}
+
+.sync-mode-toggle{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-left:auto;}
+.sync-mode-btn{padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--t2);font:700 10px 'Barlow Condensed',sans-serif;cursor:pointer;transition:all .15s;}
+.sync-mode-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.sync-mode-btn:hover{border-color:var(--accent);color:var(--accent);}
 
 .period-selector{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
 .period-label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-right:4px;}
@@ -62,6 +67,9 @@ select:focus{outline:none;border-color:var(--accent);}
 
 .timeline-section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:12px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
 
+.event-details-line{height:32px;background:var(--card);border-bottom:1px solid var(--border);padding:0 0 0 210px;display:flex;align-items:center;color:var(--t2);font-size:11px;padding-left:12px;overflow-x:auto;overflow-y:hidden;}
+.event-details-line-content{display:flex;gap:20px;white-space:nowrap;font:700 10px 'Barlow Condensed',sans-serif;color:var(--accent);}
+
 .time-ruler{display:flex;align-items:flex-end;height:55px;background:var(--card);border-bottom:2px solid var(--border);position:relative;z-index:60;padding:0 0 8px 210px;width:100%;flex-shrink:0;overflow-x:auto;overflow-y:hidden;scroll-behavior:auto;}
 .time-tick{flex:1;border-right:1px solid var(--border);padding:0 8px;text-align:left;font:700 9px 'Barlow Condensed',sans-serif;color:var(--t3);white-space:nowrap;}
 .time-tick:last-child{border-right:none;}
@@ -76,12 +84,13 @@ select:focus{outline:none;border-color:var(--accent);}
 .timeline-track{height:32px;position:relative;border-bottom:1px solid var(--border);background:var(--card);}
 .timeline-track:last-child{border-bottom:none;}
 
-.event-marker{position:absolute;width:6px;height:100%;cursor:pointer;border-radius:2px;transition:all 0.1s ease;top:0;}
-.event-marker:hover{filter:brightness(1.3);width:8px;}
+.event-marker{position:absolute;width:3px;height:100%;cursor:pointer;border-radius:1px;transition:all 0.1s ease;top:0;}
+.event-marker:hover{filter:brightness(1.3);}
 .event-marker.syncing{transition:left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);}
+.event-marker.selected{filter:brightness(1.5);box-shadow:0 0 8px rgba(79,195,247,0.6);}
 
 .playhead{position:absolute;width:2px;height:100%;background:var(--red);cursor:col-resize;z-index:19;top:0;opacity:0.7;box-shadow:0 0 6px rgba(244,67,54,0.4);}
-.playhead-label{position:absolute;top:-28px;left:-40px;width:80px;text-align:center;background:var(--red);border-radius:4px;padding:4px;font:700 10px 'Barlow Condensed',sans-serif;color:#fff;white-space:nowrap;z-index:21;opacity:0.85;}
+.playhead-label{display:none;}
 
 .event-tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;pointer-events:none;z-index:50;bottom:100%;margin-bottom:4px;left:-40px;box-shadow:0 4px 12px var(--shadow);display:none;}
 .event-tooltip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--card);}
@@ -217,6 +226,12 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
         <input type="checkbox" id="hasET" onchange="toggleET()">
         This game went to Extra Time
       </label>
+
+      <div class="sync-mode-toggle">
+        <span style="font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;">Sync Mode:</span>
+        <button class="sync-mode-btn active" data-mode="period" onclick="setSyncMode('period')">Period</button>
+        <button class="sync-mode-btn" data-mode="individual" onclick="setSyncMode('individual')">Individual</button>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -237,6 +252,9 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
     <div id="syncStatus"></div>
 
     <div class="timeline-section">
+      <div class="event-details-line" id="eventDetailsLine">
+        <div class="event-details-line-content" id="eventDetailsLineContent">—</div>
+      </div>
       <div class="time-ruler" id="timeRuler"></div>
       <div class="timeline-wrapper">
         <div class="timeline-rows-label" id="rowLabels"></div>
@@ -348,7 +366,11 @@ const visualSyncState = {
   videoIds: {},
   undoStack: [],
   syncedPeriods: {},
-  hasExtraTime: false
+  hasExtraTime: false,
+  syncMode: 'period', // 'period' or 'individual'
+  selectedEvents: new Set(), // For individual event selection
+  individualEventOffsets: {}, // Store individual event offsets by eventId
+  hoveredEvent: null // Currently hovered event for details line
 };
 
 // ============ THEME ============
@@ -750,6 +772,15 @@ function selectPeriod(period) {
   renderTimeline();
 }
 
+function setSyncMode(mode) {
+  visualSyncState.syncMode = mode;
+  visualSyncState.selectedEvents.clear(); // Clear selection when switching modes
+  document.querySelectorAll('.sync-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  renderTimeline();
+}
+
 function toggleET() {
   visualSyncState.hasExtraTime = document.getElementById('hasET').checked;
   const etContainer = document.getElementById('etButtonsContainer');
@@ -791,17 +822,18 @@ function renderTimeRuler() {
 }
 
 function renderTimeline() {
-  const period = visualSyncState.selectedPeriod;
-  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+  // Show ALL events from ALL periods (not filtered by selected period)
+  // Selected period is only for sync focus, not for filtering display
+  const allEvents = visualSyncState.parsedEvents;
 
-  if (periodEvents.length === 0) {
-    document.getElementById('rowLabels').innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);">No events in this period</div>';
+  if (allEvents.length === 0) {
+    document.getElementById('rowLabels').innerHTML = '<div style="padding:20px;text-align:center;color:var(--t3);">No events found</div>';
     document.getElementById('timelineTracks').innerHTML = '';
     return;
   }
 
   // Group events by type/team
-  const eventRows = groupEventsByTypeAndTeam(periodEvents);
+  const eventRows = groupEventsByTypeAndTeam(allEvents);
 
   // Use FULL video duration (0 to end) for proper proportional spacing
   const videoDuration = visualSyncState.videoDuration || 2700;
@@ -809,9 +841,12 @@ function renderTimeline() {
   // Width scales with zoom and video duration for much better readability
   const timelineWidth = Math.max(3000, (videoDuration / 60) * 30) * visualSyncState.zoomLevel;
 
-  // Render row labels (fixed/sticky)
-  const labelsHTML = eventRows.map(rowGroup => {
-    return `<div class="timeline-row-label">${rowGroup.label}</div>`;
+  // Render row labels (fixed/sticky) - add click handler for individual sync mode
+  const labelsHTML = eventRows.map((rowGroup, idx) => {
+    const rowClickHandler = visualSyncState.syncMode === 'individual' ?
+      `onclick="selectEventRow('${rowGroup.label}', event)"` : '';
+    const style = visualSyncState.syncMode === 'individual' ? 'cursor:pointer;' : '';
+    return `<div class="timeline-row-label" style="${style}" ${rowClickHandler}>${rowGroup.label}</div>`;
   }).join('');
   document.getElementById('rowLabels').innerHTML = labelsHTML;
 
@@ -821,13 +856,20 @@ function renderTimeline() {
       const markerColor = getEventColor(evt);
       // Position based on start time / total video duration
       const position = (evt.start / videoDuration) * 100;
-      // Calculate width with better visibility: ensure minimum width of ~10px at base zoom
-      const eventDuration = evt.end - evt.start;
-      const baseWidth = Math.max(1.2, (eventDuration / videoDuration) * 100); // Minimum 1.2% of timeline width
-      const width = baseWidth; // Scales automatically with timeline zoom
 
-      return `<div class="event-marker" style="left:${position}%;width:${width}%;background:${markerColor};" title="${evt.code}" onclick="selectTimelineEvent(${evt.start}, event)">
-        <div class="event-tooltip"><strong>${evt.code}</strong><br/>${secsToHHMMSS(evt.start)}<br/><span style="font-size:9px;color:var(--t2);">${evt.team || 'Event'}</span></div>
+      // THIN VERTICAL LINES: Fixed 3px width
+      const eventId = `evt-${evt.id || evt.code}-${evt.start}`;
+      const isSelected = visualSyncState.selectedEvents.has(eventId);
+      const selectedClass = isSelected ? 'selected' : '';
+
+      const clickHandler = visualSyncState.syncMode === 'individual' ?
+        `onclick="toggleEventSelection('${eventId}', event)"` :
+        `onclick="selectTimelineEvent(${evt.start}, event)"`;
+
+      const effectiveOffset = calculateEffectiveOffset(evt);
+      const offsetText = effectiveOffset !== undefined ? `${formatOffset(effectiveOffset)}` : '—';
+
+      return `<div class="event-marker ${selectedClass}" data-event-id="${eventId}" style="left:${position}%;background:${markerColor};" ${clickHandler} onmouseenter="showEventDetails(event, '${evt.code}', ${evt.start}, '${evt.period}', '${offsetText}')" onmouseleave="clearEventDetails()">
       </div>`;
     }).join('');
 
@@ -855,6 +897,93 @@ function renderTimeline() {
     timeRuler.addEventListener('scroll', (e) => {
       timelineWrapper.scrollLeft = e.target.scrollLeft;
     }, { passive: true });
+  }
+}
+
+// ============ EVENT DETAILS & SELECTION ============
+
+function showEventDetails(event, code, time, period, offset) {
+  event.stopPropagation();
+  visualSyncState.hoveredEvent = { code, time, period, offset };
+  const detailsContent = document.getElementById('eventDetailsLineContent');
+  detailsContent.innerHTML = `<span>${code}</span> <span>| ${secsToHHMMSS(time)}</span> <span>| ${period}</span> <span>| Offset: ${offset}</span>`;
+}
+
+function clearEventDetails() {
+  visualSyncState.hoveredEvent = null;
+  const detailsContent = document.getElementById('eventDetailsLineContent');
+  detailsContent.innerHTML = '—';
+}
+
+function calculateEffectiveOffset(evt) {
+  const angle = visualSyncState.selectedAngle;
+  const period = evt.period;
+
+  // Get period offset
+  const periodSegments = visualSyncState.syncSegments[angle]?.[period] || [];
+  const periodOffset = periodSegments.length > 0 ? periodSegments[periodSegments.length - 1].offset : 0;
+
+  // Get individual event offset
+  const eventId = `evt-${evt.id || evt.code}-${evt.start}`;
+  const individualOffset = visualSyncState.individualEventOffsets[eventId] || 0;
+
+  // Return effective offset (stacking: period + individual)
+  const effectiveOffset = periodOffset + individualOffset;
+  return effectiveOffset !== 0 ? effectiveOffset : undefined;
+}
+
+function toggleEventSelection(eventId, event) {
+  event.stopPropagation();
+  if (visualSyncState.selectedEvents.has(eventId)) {
+    visualSyncState.selectedEvents.delete(eventId);
+  } else {
+    visualSyncState.selectedEvents.add(eventId);
+  }
+  renderTimeline();
+}
+
+function selectEventRow(rowLabel, event) {
+  event.stopPropagation();
+  // Find all events in this row for the selected period
+  const period = visualSyncState.selectedPeriod;
+  const allEvents = visualSyncState.parsedEvents.filter(e => {
+    const type = extractEventType(e.code);
+    const game = visualSyncState.selectedGame;
+    const rowName = e.code.includes('Whistle') ? '🎺 NA Whistle' : `${e.team} ${type}`;
+    return rowName === rowLabel && e.period === period;
+  });
+
+  if (allEvents.length === 0) {
+    alert(`No ${rowLabel} events found in ${period}`);
+    return;
+  }
+
+  // Show confirmation
+  const eventTimes = allEvents.map(e => secsToHHMMSS(e.start)).join(', ');
+  const confirmed = confirm(`Sync ${allEvents.length} ${rowLabel} in ${period}?\n\nEvents at: ${eventTimes}`);
+
+  if (confirmed) {
+    // Select all these events
+    allEvents.forEach(evt => {
+      const eventId = `evt-${evt.id || evt.code}-${evt.start}`;
+      visualSyncState.selectedEvents.add(eventId);
+    });
+    renderTimeline();
+    // Show "Sync Selected" button
+    updateSyncUIForIndividualMode();
+  }
+}
+
+function updateSyncUIForIndividualMode() {
+  // Update UI to show Sync Selected button when events are selected
+  // This will be implemented in the sync panel
+  if (visualSyncState.selectedEvents.size > 0) {
+    // Show sync button in UI
+    const syncPanel = document.querySelector('.sync-panel');
+    if (syncPanel && visualSyncState.syncMode === 'individual') {
+      // Add/show sync selected button
+      // (Implementation depends on where we want to place it)
+    }
   }
 }
 
