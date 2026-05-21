@@ -296,6 +296,20 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
         <button class="process-btn secondary" onclick="resetCurrentPeriod()">Reset Period</button>
         <button class="process-btn secondary" onclick="resetAllSegments()">Reset All</button>
       </div>
+
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="font:700 11px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;margin-bottom:10px;">Batch Adjust Offsets</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="number" id="batchAdjustDelta" placeholder="+2" step="0.1" style="flex:0.8;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;color:var(--t1);font:600 12px 'Barlow',sans-serif;min-width:80px;" />
+          <select id="batchAdjustScope" style="flex:1.2;min-width:140px;">
+            <option value="all-period-syncs">All Period Syncs</option>
+            <option value="all-individual-syncs">All Individual Syncs</option>
+            <option value="current-period-all">Current Period (All)</option>
+          </select>
+          <button class="process-btn secondary" onclick="applyBatchAdjustment()" style="flex:0.6;">Apply</button>
+        </div>
+        <div id="batchAdjustStatus" style="font-size:11px;color:var(--t2);"></div>
+      </div>
     </div>
 
     <div class="button-group">
@@ -1218,7 +1232,12 @@ function syncPointClick() {
     createdAt: new Date().toISOString()
   };
 
-  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
+  // Store both period syncs and individual offsets in undo stack
+  visualSyncState.undoStack.push({
+    syncSegments: JSON.parse(JSON.stringify(visualSyncState.syncSegments)),
+    individualEventOffsets: JSON.parse(JSON.stringify(visualSyncState.individualEventOffsets))
+  });
+
   visualSyncState.syncSegments[angle][period].push(segment);
   visualSyncState.syncedPeriods[angle][period] = true;
 
@@ -1265,6 +1284,12 @@ function syncSelectedEvents() {
   const xmlTime = firstEvent.start;
   const individualOffset = videoTime - xmlTime;
 
+  // Store both period syncs and individual offsets in undo stack BEFORE modifying state
+  visualSyncState.undoStack.push({
+    syncSegments: JSON.parse(JSON.stringify(visualSyncState.syncSegments)),
+    individualEventOffsets: JSON.parse(JSON.stringify(visualSyncState.individualEventOffsets))
+  });
+
   // Store individual offset for all selected events
   visualSyncState.selectedEvents.forEach(eventId => {
     visualSyncState.individualEventOffsets[eventId] = individualOffset;
@@ -1292,7 +1317,13 @@ function undoLastSync() {
     return;
   }
 
-  visualSyncState.syncSegments = visualSyncState.undoStack.pop();
+  // Pop the last state from undo stack (now contains both syncSegments and individualEventOffsets)
+  const previousState = visualSyncState.undoStack.pop();
+
+  // Restore both period syncs and individual event offsets
+  visualSyncState.syncSegments = previousState.syncSegments;
+  visualSyncState.individualEventOffsets = previousState.individualEventOffsets;
+
   document.getElementById('syncStatus').innerHTML = '<div class="status-box info">↶ Undo successful</div>';
 
   // Update period buttons
@@ -1311,7 +1342,12 @@ function undoLastSync() {
 
 function resetCurrentPeriod() {
   const period = visualSyncState.selectedPeriod;
-  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
+
+  // Store both period syncs and individual offsets in undo stack BEFORE resetting
+  visualSyncState.undoStack.push({
+    syncSegments: JSON.parse(JSON.stringify(visualSyncState.syncSegments)),
+    individualEventOffsets: JSON.parse(JSON.stringify(visualSyncState.individualEventOffsets))
+  });
 
   Object.keys(visualSyncState.syncSegments).forEach(angle => {
     visualSyncState.syncSegments[angle][period] = [];
@@ -1341,7 +1377,11 @@ function resetCurrentPeriod() {
 }
 
 function resetAllSegments() {
-  visualSyncState.undoStack.push(JSON.parse(JSON.stringify(visualSyncState.syncSegments)));
+  // Store both period syncs and individual offsets in undo stack BEFORE resetting
+  visualSyncState.undoStack.push({
+    syncSegments: JSON.parse(JSON.stringify(visualSyncState.syncSegments)),
+    individualEventOffsets: JSON.parse(JSON.stringify(visualSyncState.individualEventOffsets))
+  });
 
   Object.keys(visualSyncState.syncSegments).forEach(angle => {
     visualSyncState.syncSegments[angle] = { '1H': [], '2H': [], 'ET1': [], 'ET2': [] };
@@ -1356,6 +1396,82 @@ function resetAllSegments() {
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.classList.remove('synced');
   });
+
+  renderTimeline();
+}
+
+function applyBatchAdjustment() {
+  const deltaInput = document.getElementById('batchAdjustDelta').value;
+  const scope = document.getElementById('batchAdjustScope').value;
+  const statusEl = document.getElementById('batchAdjustStatus');
+
+  // Validate delta input
+  if (!deltaInput || isNaN(deltaInput)) {
+    statusEl.innerHTML = '<span style="color:var(--red);">❌ Enter a valid offset value (e.g., +2, -1, +0.5)</span>';
+    return;
+  }
+
+  const delta = parseFloat(deltaInput);
+  if (delta === 0) {
+    statusEl.innerHTML = '<span style="color:var(--orange);">⚠ Delta is 0, no change needed</span>';
+    return;
+  }
+
+  // Store current state to undo stack BEFORE making changes
+  visualSyncState.undoStack.push({
+    syncSegments: JSON.parse(JSON.stringify(visualSyncState.syncSegments)),
+    individualEventOffsets: JSON.parse(JSON.stringify(visualSyncState.individualEventOffsets))
+  });
+
+  let adjustCount = 0;
+
+  if (scope === 'all-period-syncs') {
+    // Apply delta to all period sync offsets
+    const angle = visualSyncState.selectedAngle;
+    Object.keys(visualSyncState.syncSegments[angle]).forEach(period => {
+      visualSyncState.syncSegments[angle][period].forEach(segment => {
+        segment.offset += delta;
+        adjustCount++;
+      });
+    });
+  } else if (scope === 'all-individual-syncs') {
+    // Apply delta to all individual event offsets
+    Object.keys(visualSyncState.individualEventOffsets).forEach(eventId => {
+      visualSyncState.individualEventOffsets[eventId] += delta;
+      adjustCount++;
+    });
+  } else if (scope === 'current-period-all') {
+    // Apply delta to all individual event offsets for events in current period
+    const period = visualSyncState.selectedPeriod;
+    Object.keys(visualSyncState.individualEventOffsets).forEach(eventId => {
+      const evt = visualSyncState.parsedEvents.find(e => {
+        const id = `evt-${e.id || e.code}-${e.start}`;
+        return id === eventId;
+      });
+      if (evt && evt.period === period) {
+        visualSyncState.individualEventOffsets[eventId] += delta;
+        adjustCount++;
+      }
+    });
+  }
+
+  if (adjustCount === 0) {
+    statusEl.innerHTML = '<span style="color:var(--orange);">⚠ No items to adjust in selected scope</span>';
+    // Remove the undo entry since we didn't actually make any changes
+    visualSyncState.undoStack.pop();
+    return;
+  }
+
+  const deltaSign = delta > 0 ? '+' : '';
+  const deltaStr = deltaSign + delta.toFixed(2).replace(/\.?0+$/, '');
+  const scopeLabel = scope === 'all-period-syncs' ? 'period syncs' :
+                     scope === 'all-individual-syncs' ? 'individual syncs' :
+                     'events in period';
+
+  statusEl.innerHTML = `<span style="color:var(--green);">✅ Applied ${deltaStr}s to ${adjustCount} ${scopeLabel}</span>`;
+
+  // Clear input for next adjustment
+  document.getElementById('batchAdjustDelta').value = '';
 
   renderTimeline();
 }
