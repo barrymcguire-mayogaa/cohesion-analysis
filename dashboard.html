@@ -221,16 +221,39 @@ function normalizeAngles(){
     GAME.angles=[{label:'Main',youtubeId:GAME.youtubeId,half1Start:GAME.half1Start||0,half2Start:GAME.half2Start||0,et1Start:GAME.et1Start||null,et2Start:GAME.et2Start||null}];
   }
 }
+// Maps an angle index to the key Visual Sync uses in games.meta.visualSync.syncSegments
+// (visual-sync-upload.html: 0='main', 1='angle2', 2='angle3', ...)
+function visualSyncAngleKey(idx){ return idx===0 ? 'main' : 'angle'+(idx+1); }
+// Looks up the saved period offset from Visual Sync for a given angle+period.
+// This is a correction ON TOP OF the admin-entered per-angle start times below —
+// it's what actually makes a Visual Sync save show up when watching the game.
+function getVisualSyncOffset(idx,periodKey){
+  const segs=GAME.visualSync?.syncSegments?.[visualSyncAngleKey(idx)]?.[periodKey];
+  if(!segs||!segs.length)return 0;
+  return segs[segs.length-1].offset||0;
+}
 function driveToAngle(driveT,idx){
-  if(idx===0||!GAME.angles)return driveT;
-  const m=GAME.angles[0],t=GAME.angles[idx];
-  let period,gck;
-  if(m.et2Start&&driveT>=m.et2Start){period='et2';gck=driveT-m.et2Start;}
-  else if(m.et1Start&&driveT>=m.et1Start){period='et1';gck=driveT-m.et1Start;}
-  else if(driveT>=(m.half2Start||0)){period='2h';gck=driveT-(m.half2Start||0);}
-  else{period='1h';gck=driveT-(m.half1Start||0);}
-  const ts=period==='et2'?(t.et2Start??t.half2Start):period==='et1'?(t.et1Start??t.half2Start):period==='2h'?t.half2Start:t.half1Start;
-  return Math.max(0,(ts||0)+gck);
+  const m=GAME.angles?GAME.angles[0]:null;
+  let period='1h';
+  if(m){
+    if(m.et2Start&&driveT>=m.et2Start)period='et2';
+    else if(m.et1Start&&driveT>=m.et1Start)period='et1';
+    else if(driveT>=(m.half2Start||0))period='2h';
+    else period='1h';
+  }
+  let baseT=driveT;
+  if(idx!==0&&GAME.angles){
+    const t=GAME.angles[idx];
+    let gck;
+    if(period==='et2')gck=driveT-m.et2Start;
+    else if(period==='et1')gck=driveT-m.et1Start;
+    else if(period==='2h')gck=driveT-(m.half2Start||0);
+    else gck=driveT-(m.half1Start||0);
+    const ts=period==='et2'?(t.et2Start??t.half2Start):period==='et1'?(t.et1Start??t.half2Start):period==='2h'?t.half2Start:t.half1Start;
+    baseT=Math.max(0,(ts||0)+gck);
+  }
+  const periodKey={'1h':'1H','2h':'2H','et1':'ET1','et2':'ET2'}[period];
+  return Math.max(0, baseT+getVisualSyncOffset(idx,periodKey));
 }
 function videoTimeToDrive(vt,idx){
   if(idx===0||!GAME.angles)return vt;

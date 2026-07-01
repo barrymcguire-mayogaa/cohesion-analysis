@@ -554,7 +554,12 @@ function selectGame() {
   showStatus('setupStep', 'success', `✅ Game selected: ${game.title}`);
   visualSyncState.videoIds.main = game.youtubeId || null;
   if (game.angles) {
-    game.angles.forEach((angle, idx) => {
+    // game.angles[0] is always the Main entry itself (mirrors game.youtubeId
+    // above) — skip it. Only real alternate angles (index 1+) get their own
+    // videoIds key. Previously this started at index 0, which duplicated
+    // Main under the 'angle2' key and shifted every real alt angle one slot
+    // too far (angle2 became angle3, etc.), silently syncing the wrong video.
+    game.angles.slice(1).forEach((angle, idx) => {
       visualSyncState.videoIds[`angle${idx+2}`] = angle.youtubeId || null;
     });
   }
@@ -763,6 +768,40 @@ function proceedToTimeline() {
     };
     visualSyncState.syncedPeriods[angle] = {};
   });
+  visualSyncState.individualEventOffsets = {};
+
+  // Restore any previously saved sync data for this game — without this,
+  // reopening a game that was already synced always started from a blank
+  // slate, indistinguishable from nothing having saved at all.
+  const savedSync = visualSyncState.selectedGame.visualSync;
+  if (savedSync) {
+    if (savedSync.syncSegments) {
+      Object.keys(savedSync.syncSegments).forEach(angle => {
+        if (!visualSyncState.syncSegments[angle]) return;
+        Object.keys(savedSync.syncSegments[angle]).forEach(period => {
+          const segments = savedSync.syncSegments[angle][period] || [];
+          visualSyncState.syncSegments[angle][period] = segments;
+          if (segments.length > 0) {
+            visualSyncState.syncedPeriods[angle][period] = true;
+          }
+        });
+      });
+    }
+    if (savedSync.individualEventOffsets) {
+      visualSyncState.individualEventOffsets = { ...savedSync.individualEventOffsets };
+    }
+  }
+
+  // Auto-detect Extra Time from the game's own saved data instead of relying
+  // on the admin remembering to tick the checkbox — this game may already
+  // have et1Start/et2Start from upload, in which case ET1/ET2 should just
+  // be available immediately.
+  const game = visualSyncState.selectedGame;
+  if (game.et1Start != null || game.et2Start != null) {
+    visualSyncState.hasExtraTime = true;
+    document.getElementById('hasET').checked = true;
+    document.getElementById('etButtonsContainer').style.display = 'flex';
+  }
 
   document.getElementById('setupStep').classList.remove('active');
   document.getElementById('timelineStep').classList.add('active');
@@ -770,6 +809,15 @@ function proceedToTimeline() {
   loadGameDetails();
   loadVideoEmbed();
   renderTimeline();
+
+  // Reflect restored period syncs on the period buttons themselves
+  const activeAngle = visualSyncState.selectedAngle;
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    const period = btn.dataset.period;
+    if (period && visualSyncState.syncedPeriods[activeAngle]?.[period]) {
+      btn.classList.add('synced');
+    }
+  });
 }
 
 // ============ CREATE NEW GAME MODE ============
@@ -1125,8 +1173,13 @@ function renderTimeline() {
   const tracksHTML = eventRows.map(rowGroup => {
     const eventMarkersHTML = rowGroup.events.map(evt => {
       const markerColor = getEventColor(evt);
-      // Position based on start time / total video duration
-      const position = (evt.start / videoDuration) * 100;
+
+      // Position must reflect the SYNCED time, not the raw XML time — this is
+      // the actual sync being visualized. Previously this used evt.start alone,
+      // which meant the timeline never visibly changed no matter what was synced.
+      const effectiveOffset = calculateEffectiveOffset(evt);
+      const syncedStart = evt.start + (effectiveOffset || 0);
+      const position = Math.max(0, Math.min(100, (syncedStart / videoDuration) * 100));
 
       // THIN VERTICAL LINES: Fixed 3px width
       const eventId = `evt-${evt.id || evt.code}-${evt.start}`;
@@ -1137,7 +1190,6 @@ function renderTimeline() {
         `onclick="toggleEventSelection('${eventId}', event)"` :
         `onclick="selectTimelineEvent(${evt.start}, event)"`;
 
-      const effectiveOffset = calculateEffectiveOffset(evt);
       const offsetText = effectiveOffset !== undefined ? `${formatOffset(effectiveOffset)}` : '—';
 
       return `<div class="event-marker ${selectedClass}" data-event-id="${eventId}" style="left:${position}%;background:${markerColor};" ${clickHandler} onmouseenter="showEventDetails(event, '${evt.code}', ${evt.start}, '${evt.period}', '${offsetText}')" onmouseleave="clearEventDetails()">
@@ -1472,36 +1524,6 @@ function updatePlayheadDisplay() {
 
 // ============ SYNC LOGIC ============
 
-function animateEventShift(offset) {
-  // Animate events to their synced positions
-  const videoDuration = visualSyncState.videoDuration || 2700;
-  const eventMarkers = document.querySelectorAll('.event-marker');
-
-  eventMarkers.forEach(marker => {
-    // Get current position
-    const currentLeft = parseFloat(marker.style.left) || 0;
-
-    // Calculate new position with offset
-    // offset in seconds, convert to percentage
-    const offsetPercent = (offset / videoDuration) * 100;
-    const newLeft = currentLeft + offsetPercent;
-
-    // Clamp to valid range
-    const clampedLeft = Math.max(0, Math.min(100, newLeft));
-
-    // Animate to new position
-    marker.style.transition = 'left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    marker.style.left = clampedLeft + '%';
-  });
-
-  // Remove transition after animation completes
-  setTimeout(() => {
-    eventMarkers.forEach(marker => {
-      marker.style.transition = 'all 0.1s';
-    });
-  }, 600);
-}
-
 function syncPointClick() {
   const period = visualSyncState.selectedPeriod;
   const angle = visualSyncState.selectedAngle;
@@ -1547,8 +1569,6 @@ function syncPointClick() {
     }
   });
 
-  // Animate events to their synced positions
-  animateEventShift(offset);
   renderTimeline();
 }
 
@@ -1602,9 +1622,6 @@ function syncSelectedEvents() {
 
   // Re-render timeline
   renderTimeline();
-
-  // Animate event shift
-  animateEventShift(individualOffset);
 }
 
 function undoLastSync() {
@@ -1879,6 +1896,7 @@ async function saveSync() {
     const updatedMeta = { ...game };
     updatedMeta.visualSync = {
       syncSegments: visualSyncState.syncSegments,
+      individualEventOffsets: visualSyncState.individualEventOffsets,
       format: visualSyncState.xmlFormat,
       eventCount: visualSyncState.parsedEvents.length,
       syncedAt: new Date().toISOString()
