@@ -91,6 +91,12 @@ select:focus{outline:none;border-color:var(--accent);}
 
 .playhead{position:absolute;width:2px;height:100%;background:var(--red);cursor:col-resize;z-index:19;top:0;opacity:0.7;box-shadow:0 0 6px rgba(244,67,54,0.4);}
 .playhead-label{display:none;}
+.xml-playhead{position:absolute;width:2px;height:100%;background:var(--accent);z-index:18;top:0;opacity:0.85;box-shadow:0 0 6px rgba(79,195,247,0.5);pointer-events:none;}
+.xml-playhead::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid var(--accent);}
+
+.playhead-legend{display:flex;gap:16px;align-items:center;padding:6px 12px;background:var(--card);border-bottom:1px solid var(--border);font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);}
+.playhead-legend-item{display:flex;align-items:center;gap:6px;}
+.playhead-legend-swatch{width:10px;height:2px;border-radius:1px;}
 
 .event-tooltip{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;pointer-events:none;z-index:50;bottom:100%;margin-bottom:4px;left:-40px;box-shadow:0 4px 12px var(--shadow);display:none;}
 .event-tooltip::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--card);}
@@ -323,6 +329,10 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
     <div id="syncStatus"></div>
 
     <div class="timeline-section">
+      <div class="playhead-legend">
+        <div class="playhead-legend-item"><div class="playhead-legend-swatch" style="background:var(--red);"></div>Video position (where the video currently is)</div>
+        <div class="playhead-legend-item"><div class="playhead-legend-swatch" style="background:var(--accent);"></div>XML sync point (what you're about to sync to)</div>
+      </div>
       <div class="event-details-line" id="eventDetailsLine">
         <div class="event-details-line-content" id="eventDetailsLineContent">—</div>
       </div>
@@ -1212,6 +1222,7 @@ function renderTimeline() {
       <div class="playhead" id="playhead" style="left:0;">
         <div class="playhead-label" id="playheadLabel">00:00:00</div>
       </div>
+      <div class="xml-playhead" style="left:0;"></div>
     </div>`;
   }).join('');
 
@@ -1517,13 +1528,22 @@ function setPlayhead(xmlTime) {
 
 function updatePlayheadDisplay() {
   const playheads = document.querySelectorAll('.playhead');
+  const xmlPlayheads = document.querySelectorAll('.xml-playhead');
   const videoDuration = visualSyncState.videoDuration || 2700;
 
-  // Update all playheads to show current video position (smooth tracking)
+  // Red playhead: current VIDEO playback position (smooth tracking)
   playheads.forEach(playhead => {
-    // Position playhead based on current video time
     const percent = (visualSyncState.videoCurrentTime / videoDuration) * 100;
     playhead.style.left = percent + '%';
+  });
+
+  // Cyan playhead: the XML sync reference point — this is what actually
+  // gets used in the offset calculation. Without a visible marker for this,
+  // switching periods or clicking an event had no visible effect on screen
+  // even though the underlying sync target had changed.
+  xmlPlayheads.forEach(xmlPlayhead => {
+    const percent = Math.max(0, Math.min(100, (visualSyncState.playheadXmlTime / videoDuration) * 100));
+    xmlPlayhead.style.left = percent + '%';
   });
 
   document.getElementById('xmlPlayheadTime').textContent = secsToHHMMSS(visualSyncState.playheadXmlTime);
