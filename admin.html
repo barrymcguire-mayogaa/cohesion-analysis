@@ -1955,6 +1955,40 @@ async function processGame(){
       setProgress(80, 'Generating files…');
     }
 
+    // Offer to re-apply a previously saved player roster after a genuine XML
+    // re-parse. Skip-XML mode doesn't touch events at all, so there's nothing
+    // to reapply there — the events (and any names already on them) are
+    // simply left untouched.
+    if(isReparse && !skipXml){
+      const rIdx = parseInt(document.getElementById('reparseGame').value);
+      const savedRoster = (!isNaN(rIdx) && reparseGames[rIdx]) ? reparseGames[rIdx].playerRoster : null;
+      const hasSavedNames = savedRoster && (
+        Object.values(savedRoster.teamA || {}).some(v => v) ||
+        Object.values(savedRoster.teamB || {}).some(v => v)
+      );
+      if(hasSavedNames){
+        const applyRoster = confirm('We found a saved player roster for this game — apply it?');
+        if(applyRoster){
+          const teamAName = homeTeam.toUpperCase();
+          const teamBName = awayTeam.toUpperCase();
+          let appliedCount = 0;
+          events.forEach(ev => {
+            const tag = ev.player || '';
+            if(/^P\d+$/.test(tag)){
+              if(ev.team === teamAName && savedRoster.teamA && savedRoster.teamA[tag]){
+                ev.player = savedRoster.teamA[tag];
+                appliedCount++;
+              } else if(ev.team === teamBName && savedRoster.teamB && savedRoster.teamB[tag]){
+                ev.player = savedRoster.teamB[tag];
+                appliedCount++;
+              }
+            }
+          });
+          console.log(`✓ Reapplied saved roster to ${appliedCount} events`);
+        }
+      }
+    }
+
     // Build game ID — in re-parse mode reuse the existing game's ID
     let gameId;
     if(isReparse){
@@ -2012,6 +2046,15 @@ async function processGame(){
     }
 
     // Game metadata entry
+    // Carry forward a previously saved player roster — gameMeta below is
+    // rebuilt from scratch on every save, so without this a re-parse would
+    // silently wipe out roster data saved via "Manage Players".
+    let existingPlayerRoster;
+    if(isReparse){
+      const rIdxForRoster = parseInt(document.getElementById('reparseGame').value);
+      existingPlayerRoster = (!isNaN(rIdxForRoster) && reparseGames[rIdxForRoster]) ? reparseGames[rIdxForRoster].playerRoster : undefined;
+    }
+
     const gameMeta = {
       id: gameId,
       title: `${homeTeam} v ${awayTeam}`,
@@ -2031,6 +2074,7 @@ async function processGame(){
       thumbnail: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
       eventCount: events.length,
       ...(anglesField ? {angles: anglesField} : {}),
+      ...(existingPlayerRoster ? {playerRoster: existingPlayerRoster} : {}),
     };
 
     setProgress(90, 'Saving to database…');
@@ -2072,6 +2116,7 @@ async function processGame(){
 // ── MANAGE PLAYERS MODE ───────────────────────────────────────
 let manageGames = [];
 let currentManageGameId = null;
+let currentManageGameMeta = null;
 let currentRosters = { teamA: {}, teamB: {} };
 let currentTeamNames = { teamA: '', teamB: '' };
 
@@ -2212,6 +2257,7 @@ async function loadAndRenderRosters(game){
     if(evErr) throw evErr;
 
     currentManageGameId = game.id;
+    currentManageGameMeta = game.meta;
     currentTeamNames.teamA = (game.meta.homeTeam || '').toUpperCase();
     currentTeamNames.teamB = (game.meta.awayTeam || '').toUpperCase();
 
@@ -2233,6 +2279,15 @@ async function loadAndRenderRosters(game){
       const pTag = `P${i}`;
       if(!currentRosters.teamA[pTag]) currentRosters.teamA[pTag] = '';
       if(!currentRosters.teamB[pTag]) currentRosters.teamB[pTag] = '';
+    }
+
+    // Overlay any previously saved roster — this is the source of truth for
+    // names already applied (events no longer carry the raw P-tag once renamed,
+    // so the block above alone can't reconstruct assigned names on reopen).
+    const savedRoster = game.meta.playerRoster;
+    if(savedRoster){
+      if(savedRoster.teamA) Object.assign(currentRosters.teamA, savedRoster.teamA);
+      if(savedRoster.teamB) Object.assign(currentRosters.teamB, savedRoster.teamB);
     }
 
     renderRosterInputs();
@@ -2360,6 +2415,20 @@ async function savePlayerRosters(){
         const { error: insErr } = await _sb.from('events').insert(chunk);
         if(insErr) throw insErr;
       }
+    }
+
+    // Persist the roster into games.meta so it survives a future XML re-upload
+    // (see selectReparseGame / processGame — this is read back and offered as
+    // an auto-apply option on the next reparse of this game).
+    document.getElementById('rosterProgMsg').textContent = `Saving roster for future re-parses…`;
+    if(currentManageGameMeta){
+      const updatedMeta = {
+        ...currentManageGameMeta,
+        playerRoster: { teamA: { ...currentRosters.teamA }, teamB: { ...currentRosters.teamB } }
+      };
+      const { error: metaErr } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', currentManageGameId);
+      if(metaErr) throw metaErr;
+      currentManageGameMeta = updatedMeta;
     }
 
     // SAFEGUARD 2: Verify that no P-tags remain in the database
