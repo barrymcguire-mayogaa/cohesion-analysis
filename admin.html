@@ -1759,70 +1759,40 @@ async function processGame(){
             return;
           }
 
-          // Find first gameplay event for each period. Whistles define boundaries;
-          // first gameplay events define video alignment to the user's entered times.
-          // IMPORTANT: search in chronological order, not raw XML document order.
-          // <instance> elements are not guaranteed to be listed in time order (a
-          // coder can tag events out of sequence, add retroactive corrections,
-          // etc.) — searching in document order and taking "the first one
-          // encountered" silently anchors the whole period's video offset to
-          // whichever event happens to appear earliest in the file, not the one
-          // that actually happened first. This produces a systematic, constant
-          // drift between gameTime (whistle-relative) and the actual video
-          // position for every event in that period.
-          let giGameplayP1 = null, giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
+          // Anchor each period's video offset DIRECTLY to its whistle.
+          // The Step 2 times are defined in the UI as "when does each period
+          // begin in the video" — i.e. the throw-in whistle — so the whistle
+          // is the exact moment those times describe.
+          //
+          // A previous strategy anchored to the first coded gameplay event
+          // instead, mapping IT onto the user's throw-in time. But the first
+          // coded event (a kickout, shot, etc.) can happen minutes after the
+          // throw-in, so that mapping shifted every event in the period early
+          // by exactly the whistle-to-first-event gap — a constant, per-period
+          // drift that varied from game to game depending on how long play ran
+          // before the first coded event. Verified against real footage:
+          // whistle-relative game time matches the video; first-event
+          // anchoring does not.
           giHalfEnd = giXmlP2 !== null
             ? [...giWhistleRaw].filter(w => w.t < giXmlP2).sort((a,b)=>b.t-a.t)[0]?.t ?? null
             : null;
-          const giGameplayTimesSorted = instances
-            .filter(inst => (inst.querySelector('code')?.textContent||'').trim() !== 'NA Whistle')
-            .map(inst => parseFloat(inst.querySelector('start')?.textContent||0))
-            .sort((a,b) => a-b);
-          for(const t of giGameplayTimesSorted){
-            if(giXmlP1 !== null && giGameplayP1 === null && (giXmlP2 === null || t < giXmlP2) && t >= giXmlP1){
-              giGameplayP1 = t;
-            }
-            if(giXmlP2 !== null && giGameplayP2 === null && t >= giXmlP2 - GI_PERIOD_TOLERANCE && (giHalfEnd === null || t > giHalfEnd)){
-              giGameplayP2 = t;
-            }
-            if(giXmlET1 !== null && giGameplayET1 === null && t > giXmlET1){
-              giGameplayET1 = t;
-            }
-            if(giXmlET2 !== null && giGameplayET2 === null && t > giXmlET2){
-              giGameplayET2 = t;
-            }
-          }
 
-          giVideoAnchor1H = giGameplayP1 !== null ? giGameplayP1 : giXmlP1;
-          console.log(`✓ 1H timing anchor: ${giGameplayP1 !== null ? 'First gameplay event' : 'Whistle'} @ ${giVideoAnchor1H.toFixed(2)}s → maps to ${half1Video}s video`);
+          giVideoAnchor1H = giXmlP1;
+          console.log(`✓ 1H timing anchor: Whistle @ ${giVideoAnchor1H.toFixed(2)}s → maps to ${half1Video}s video`);
 
-          // Keep whistle as period boundary; use first gameplay as timing anchor.
-          if(giGameplayP2 !== null){
-            giVideoAnchor2H = giGameplayP2;
-            console.log(`✓ 2H timing anchor: First gameplay event @ ${giVideoAnchor2H.toFixed(2)}s → maps to ${half2Video}s video`);
-          } else if(giXmlP2 !== null){
+          if(giXmlP2 !== null){
             giVideoAnchor2H = giXmlP2;
             console.log(`✓ 2H timing anchor: Whistle @ ${giVideoAnchor2H.toFixed(2)}s → maps to ${half2Video}s video`);
           }
 
-          if(et1Video !== null){
-            if(giGameplayET1 !== null){
-              giVideoAnchorET1 = giGameplayET1;
-              console.log(`✓ ET1 timing anchor: First gameplay event @ ${giVideoAnchorET1.toFixed(2)}s → maps to ${et1Video}s video`);
-            } else if(giXmlET1 !== null){
-              giVideoAnchorET1 = giXmlET1;
-              console.log(`✓ ET1 timing anchor: Whistle @ ${giVideoAnchorET1.toFixed(2)}s → maps to ${et1Video}s video`);
-            }
+          if(et1Video !== null && giXmlET1 !== null){
+            giVideoAnchorET1 = giXmlET1;
+            console.log(`✓ ET1 timing anchor: Whistle @ ${giVideoAnchorET1.toFixed(2)}s → maps to ${et1Video}s video`);
           }
 
-          if(et2Video !== null){
-            if(giGameplayET2 !== null){
-              giVideoAnchorET2 = giGameplayET2;
-              console.log(`✓ ET2 timing anchor: First gameplay event @ ${giVideoAnchorET2.toFixed(2)}s → maps to ${et2Video}s video`);
-            } else if(giXmlET2 !== null){
-              giVideoAnchorET2 = giXmlET2;
-              console.log(`✓ ET2 timing anchor: Whistle @ ${giVideoAnchorET2.toFixed(2)}s → maps to ${et2Video}s video`);
-            }
+          if(et2Video !== null && giXmlET2 !== null){
+            giVideoAnchorET2 = giXmlET2;
+            console.log(`✓ ET2 timing anchor: Whistle @ ${giVideoAnchorET2.toFixed(2)}s → maps to ${et2Video}s video`);
           }
         }
 
@@ -1838,7 +1808,7 @@ async function processGame(){
           return `${marker}#${i+1} @ ${w.t.toFixed(1)}s${idStr}${lStr}${role}`;
         }).join('\n');
 
-        const anchorNote = `🎯 GAELIC INSIGHTS TIMING:\n• Whistles define period boundaries and game clocks\n• First gameplay events define video alignment\n• 1H boundary: ${giXmlP1?.toFixed(1)}s; timing anchor: ${giVideoAnchor1H?.toFixed(1)}s\n• 2H boundary: ${giXmlP2?.toFixed(1)}s; timing anchor: ${giVideoAnchor2H?.toFixed(1)}s\n• No drift correction - each period uses an independent offset\n\nWhistles:\n${diagLines}`;
+        const anchorNote = `🎯 GAELIC INSIGHTS TIMING:\n• Whistles define period boundaries, game clocks AND video alignment\n• Each period's whistle maps directly to the video start time you entered in Step 2\n• 1H whistle: ${giXmlP1?.toFixed(1)}s → ${half1Video}s video\n• 2H whistle: ${giXmlP2?.toFixed(1)}s → ${half2Video}s video\n• No drift correction - each period uses an independent offset\n\nWhistles:\n${diagLines}`;
         document.getElementById('wiDiagContent').innerHTML = anchorNote;
         document.getElementById('wiDiagBlock').style.display = giWhistleRaw.length ? '' : 'none';
 
