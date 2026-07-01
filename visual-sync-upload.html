@@ -698,15 +698,57 @@ function parseInstancesXml(xmlText) {
         start,
         end: start + 1,
         team: code.split(' ')[0] || '',
-        period: guessPeriodFromTime(start)
+        period: '1H' // reassigned below by gap detection
       });
     }
 
     if (events.length === 0) return { success: false, error: 'No events found' };
+    assignPeriodsByGaps(events);
     return { success: true, events };
   } catch (e) {
     return { success: false, error: e.message };
   }
+}
+
+// Assign periods from the structure of the data itself: the breaks between
+// periods are the biggest dead gaps in the raw XML clock. The old approach
+// (guessPeriodFromTime's hardcoded thresholds: <45min = 1H, <90min = 2H,
+// 90min+ = ET1) breaks whenever the recording clock ran through the halftime
+// break — late 2nd-half events drift past the 90-minute raw mark and get
+// silently bucketed as ET1, so a "2H" period sync never touches them and
+// they sit stranded at the far right of the timeline.
+function assignPeriodsByGaps(events) {
+  const game = visualSyncState.selectedGame || {};
+  const hasET = game.et1Start != null || game.et2Start != null;
+  const numPeriods = hasET ? 4 : 2;
+
+  const sorted = [...events].sort((a, b) => a.start - b.start);
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    gaps.push({ at: sorted[i].start, size: sorted[i].start - sorted[i - 1].start });
+  }
+  gaps.sort((a, b) => b.size - a.size);
+
+  // A real period break is minutes long; ignore ordinary in-play pauses.
+  const MIN_BREAK_SECS = 120;
+  const boundaries = gaps
+    .slice(0, numPeriods - 1)
+    .filter(g => g.size >= MIN_BREAK_SECS)
+    .map(g => g.at)
+    .sort((a, b) => a - b);
+
+  if (boundaries.length === 0) {
+    // No clear break structure — fall back to the old threshold guess.
+    events.forEach(e => { e.period = guessPeriodFromTime(e.start); });
+    return;
+  }
+
+  const names = ['1H', '2H', 'ET1', 'ET2'];
+  events.forEach(e => {
+    let p = 0;
+    for (const b of boundaries) if (e.start >= b) p++;
+    e.period = names[Math.min(p, names.length - 1)];
+  });
 }
 
 function parseGiuXml(xmlText) {

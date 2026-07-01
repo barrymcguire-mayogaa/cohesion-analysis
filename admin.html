@@ -1674,28 +1674,60 @@ async function processGame(){
           setProgress(65, 'Processing events with selected whistles…');
 
           // ── DETERMINE PERIOD ANCHORS: USER SELECTION OR AUTOMATIC ──────────────────────
-          // 2H: Use user selection if available, otherwise use automatic detection
+          // Gameplay-gap helpers for telling a PERIOD-START whistle apart from
+          // an end-of-half whistle. A period-start whistle has a long stretch
+          // of no coded gameplay BEFORE it (the break) and gameplay shortly
+          // AFTER it (play resumes). An end-of-half whistle is the opposite:
+          // gameplay right before, then a long dead gap. The old heuristic —
+          // "whistle #3 is always the 2H start" — breaks whenever a file
+          // double-tags halftime (W2 AND W3 both at the break), silently
+          // anchoring the entire 2nd half to the halftime whistle.
+          const giGameplaySorted = instances
+            .filter(i=>(i.querySelector('code')?.textContent||'').trim() !== 'NA Whistle')
+            .map(i=>parseFloat(i.querySelector('start')?.textContent||0))
+            .sort((a,b)=>a-b);
+          const giFirstAfter = (t)=>{ for(const g of giGameplaySorted){ if(g >= t) return g; } return null; };
+          const giGapBefore  = (t)=>{ let p=null; for(const g of giGameplaySorted){ if(g < t) p=g; else break; } return p===null ? Infinity : t-p; };
+          const GI_RESTART_TOLERANCE = 300; // play should resume within 5 min of a period-start whistle
+
+          // 2H: Use user selection if available, otherwise auto-detect the
+          // whistle with the biggest dead gap before it AND play soon after —
+          // that's the throw-in after the longest break (halftime).
           if(userWhistleSelections['2H'] !== null){
             giXmlP2 = userWhistleSelections['2H'];
             console.log(`✓ 2H anchor: User selected @ ${giXmlP2.toFixed(2)}s`);
-          } else if(giWhistleRaw.length >= 3){
-            giXmlP2 = giWhistleRaw[2].t;
-            console.log(`✓ 2H boundary: Auto-selected Whistle #3 @ ${giXmlP2.toFixed(2)}s`);
           } else {
-            let closestP2 = null, minDistP2 = Infinity;
+            let bestP2 = null, bestGapP2 = -1;
             for(const w of giWhistleRaw){
-              if(w.t > giXmlP1){
-                const dist = Math.abs((w.t + giEstOffset) - half2Video);
-                if(dist < minDistP2){
-                  minDistP2 = dist;
-                  closestP2 = w;
+              if(w.t <= giXmlP1) continue;
+              const fa = giFirstAfter(w.t);
+              if(fa === null || fa - w.t > GI_RESTART_TOLERANCE) continue;
+              const gb = giGapBefore(w.t);
+              if(gb > bestGapP2){ bestGapP2 = gb; bestP2 = w; }
+            }
+            if(bestP2){
+              giXmlP2 = bestP2.t;
+              console.log(`✓ 2H boundary: Auto-detected @ ${giXmlP2.toFixed(2)}s (${Math.round(bestGapP2/60)} min dead gap before it, play resumes after)`);
+            } else if(giWhistleRaw.length >= 3){
+              giXmlP2 = giWhistleRaw[2].t;
+              console.log(`✓ 2H boundary: Fallback to Whistle #3 @ ${giXmlP2.toFixed(2)}s`);
+            } else {
+              let closestP2 = null, minDistP2 = Infinity;
+              for(const w of giWhistleRaw){
+                if(w.t > giXmlP1){
+                  const dist = Math.abs((w.t + giEstOffset) - half2Video);
+                  if(dist < minDistP2){ minDistP2 = dist; closestP2 = w; }
                 }
               }
+              if(closestP2) giXmlP2 = closestP2.t;
             }
-            if(closestP2) giXmlP2 = closestP2.t;
           }
 
-          // ET1: Use user selection if available, otherwise use automatic detection
+          // ET1: Use user selection if available, otherwise auto-detect.
+          // Estimate the XML→video offset from the 2H anchor (not 1H): if the
+          // video has breaks edited out that the XML clock recorded, the most
+          // recent period's offset is the only trustworthy estimate.
+          const giEstOffset2H = giXmlP2 !== null ? (half2Video - giXmlP2) : giEstOffset;
           if(et1Video !== null){
             if(userWhistleSelections['ET1'] !== null){
               giXmlET1 = userWhistleSelections['ET1'];
@@ -1705,11 +1737,10 @@ async function processGame(){
               let minDistET1 = Infinity;
               for(const w of giWhistleRaw){
                 if(w.t > giXmlP2){
-                  const dist = Math.abs((w.t + giEstOffset) - et1Video);
-                  if(dist < minDistET1){
-                    minDistET1 = dist;
-                    closestET1 = w;
-                  }
+                  const fa = giFirstAfter(w.t);
+                  if(fa === null || fa - w.t > GI_RESTART_TOLERANCE) continue;
+                  const dist = Math.abs((w.t + giEstOffset2H) - et1Video);
+                  if(dist < minDistET1){ minDistET1 = dist; closestET1 = w; }
                 }
               }
               if(closestET1) giXmlET1 = closestET1.t;
@@ -1717,6 +1748,7 @@ async function processGame(){
           }
 
           // ET2: Use user selection if available, otherwise use automatic detection
+          const giEstOffsetET1 = giXmlET1 !== null && et1Video !== null ? (et1Video - giXmlET1) : giEstOffset2H;
           if(et2Video !== null){
             if(userWhistleSelections['ET2'] !== null){
               giXmlET2 = userWhistleSelections['ET2'];
@@ -1726,11 +1758,10 @@ async function processGame(){
               let minDistET2 = Infinity;
               for(const w of giWhistleRaw){
                 if(w.t > giXmlET1){
-                  const dist = Math.abs((w.t + giEstOffset) - et2Video);
-                  if(dist < minDistET2){
-                    minDistET2 = dist;
-                    closestET2 = w;
-                  }
+                  const fa = giFirstAfter(w.t);
+                  if(fa === null || fa - w.t > GI_RESTART_TOLERANCE) continue;
+                  const dist = Math.abs((w.t + giEstOffsetET1) - et2Video);
+                  if(dist < minDistET2){ minDistET2 = dist; closestET2 = w; }
                 }
               }
               if(closestET2) giXmlET2 = closestET2.t;
@@ -1766,6 +1797,37 @@ async function processGame(){
               `checking each one against the video before confirming.`
             );
             return;
+          }
+
+          // ── START-OF-PERIOD SANITY CHECK ────────────────────────────────────
+          // A period-start whistle must have coded gameplay shortly after it.
+          // If it doesn't, it's almost certainly an END-of-half whistle (or a
+          // stray tag) — using it would shift every event in the period by the
+          // length of the break. Catches both bad auto-detection and manual
+          // selection mistakes.
+          const startIssues = [];
+          const giCheckPeriodStart = (label, t) => {
+            if(t === null) return;
+            const fa = giFirstAfter(t);
+            if(fa === null){
+              startIssues.push(`${label} whistle @ ${secsToMMSS(t)} has NO coded events after it at all`);
+            } else if(fa - t > GI_RESTART_TOLERANCE){
+              startIssues.push(`${label} whistle @ ${secsToMMSS(t)} is followed by ${Math.round((fa-t)/60)} minutes with no coded events — it looks like an END-of-half whistle, not the ${label} throw-in`);
+            }
+          };
+          giCheckPeriodStart('1H', giXmlP1);
+          giCheckPeriodStart('2H', giXmlP2);
+          giCheckPeriodStart('ET1', giXmlET1);
+          giCheckPeriodStart('ET2', giXmlET2);
+          if(startIssues.length > 0){
+            const proceed = confirm(
+              `⚠ Suspicious whistle selection:\n\n${startIssues.join('\n\n')}\n\nProceed anyway?`
+            );
+            if(!proceed){
+              document.getElementById('whistleSelectorBlock').style.display = 'none';
+              showError('Upload cancelled — click "Generate Game Files" again and select the correct period-start whistles (a period-start whistle has play resuming right after it).');
+              return;
+            }
           }
 
           // Anchor each period's video offset DIRECTLY to its whistle.
