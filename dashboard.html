@@ -196,6 +196,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+const isAdmin = sessionStorage.getItem('cohesion_auth') === 'admin';
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -289,12 +290,12 @@ async function loadGame(){
   try{
     const [gameRes, eventsRes] = await Promise.all([
       _sb.from('games').select('meta').eq('id', gameId).single(),
-      _sb.from('events').select('data').eq('game_id', gameId)
+      _sb.from('events').select('id, data').eq('game_id', gameId)
     ]);
     if(gameRes.error) throw gameRes.error;
     if(eventsRes.error) throw eventsRes.error;
     GAME = gameRes.data.meta || {};
-    ALL  = (eventsRes.data || []).map(r => r.data);
+    ALL  = (eventsRes.data || []).map(r => ({ ...r.data, _rowId: r.id }));
     buildPTM();init();
   }catch(e){
     document.getElementById('MA').innerHTML='<div class="load-st" style="text-align:center;padding:60px;color:var(--t3)"><div style="font-size:16px;color:var(--t2);margin-bottom:8px">Could not load match data</div><div style="font-size:12px">'+e.message+'</div></div>';
@@ -402,7 +403,7 @@ function buildHTML(H,A){
       </div>
       <canvas id="tlC" height="70"></canvas>
     </div>
-    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div></div>
+    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div>${isAdmin?`<div class="np-tag-btn" id="NPTagBtn" style="display:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-top:6px;" onclick="openPlayerTagEditor()">✏️ Assign Player</div>`:''}</div>
     <div class="idle" id="IB"><div class="idle-icon">▶</div><div class="idle-text">Click any event to jump to that moment.<br><br><strong>S M L Xl</strong> — resize player<br><strong>Drag handle</strong> — custom resize<br><strong>Timeline</strong> — click to seek · scroll to zoom</div></div>
     <div class="nearby" id="NB" style="display:none"><div class="nb-lbl">Nearby Events</div><div id="NBI"></div></div>
   </div>`;
@@ -622,9 +623,33 @@ function pickI(id){
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
   document.getElementById('IB').style.display='none';
   document.getElementById('NB').style.display='block';
+  if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block';}
   const ai=ALL.findIndex(e=>e.id===id);
   const nb=ALL.slice(Math.max(0,ai-6),ai+7).filter(e=>e.id!==id);
   document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player?' · '+r.player:''}</div></div>`).join('');
+  renderP();
+}
+function openPlayerTagEditor(){
+  if(!isAdmin||!activeId)return;
+  const ev=ALL.find(e=>e.id===activeId);if(!ev)return;
+  const currentName=ev.player||'';
+  if(currentName){
+    if(!confirm(`This event is already tagged as "${currentName}" — replace it?`))return;
+  }
+  const newName=prompt(`Assign player for this event (${tc(ev.code)} @ ${ev.gameTime}):`,currentName);
+  if(newName===null)return;
+  const trimmed=newName.trim();
+  if(!trimmed||trimmed===currentName)return;
+  savePlayerTag(ev,trimmed);
+}
+async function savePlayerTag(ev,name){
+  if(!ev._rowId){alert('Could not save — missing event reference.');return;}
+  const updatedData={...ev,player:name};
+  delete updatedData._rowId;
+  const{error}=await _sb.from('events').update({data:updatedData}).eq('id',ev._rowId);
+  if(error){alert('Failed to save player name: '+error.message);return;}
+  ev.player=name;
+  document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
   renderP();
 }
 const HH=[315,400,520,700];
