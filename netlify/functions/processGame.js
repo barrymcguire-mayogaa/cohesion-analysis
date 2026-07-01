@@ -155,7 +155,9 @@ exports.handler = async (event) => {
     }
 
     // ========================================================================
-    // STEP 6: Delete old events (if not in skipXml reparse mode)
+    // STEP 6+7: Replace events (skipped entirely in skipXml reparse mode —
+    // existing events are already correct and must be left untouched, not
+    // re-inserted on top of themselves)
     // ========================================================================
     if (!(skipXml && isReparse)) {
       const { error: delErr } = await supabase
@@ -166,20 +168,17 @@ exports.handler = async (event) => {
       if (delErr) {
         throw new Error(`Failed to delete old events: ${delErr.message}`);
       }
-    }
 
-    // ========================================================================
-    // STEP 7: Insert new events in chunks (avoid timeout with large datasets)
-    // ========================================================================
-    const chunkSize = 50;
-    for (let i = 0; i < eventRows.length; i += chunkSize) {
-      const chunk = eventRows.slice(i, i + chunkSize);
-      const { error: insErr } = await supabase
-        .from('events')
-        .insert(chunk);
+      const chunkSize = 50;
+      for (let i = 0; i < eventRows.length; i += chunkSize) {
+        const chunk = eventRows.slice(i, i + chunkSize);
+        const { error: insErr } = await supabase
+          .from('events')
+          .insert(chunk);
 
-      if (insErr) {
-        throw new Error(`Failed to insert events chunk ${i / chunkSize + 1}: ${insErr.message}`);
+        if (insErr) {
+          throw new Error(`Failed to insert events chunk ${i / chunkSize + 1}: ${insErr.message}`);
+        }
       }
     }
 
