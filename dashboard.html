@@ -326,6 +326,11 @@ async function loadGame(){
     GAME = gameRes.data.meta || {};
     ALL  = (eventsRes.data || []).map(r => ({ ...r.data, _rowId: r.id }));
     applyVisualSyncCorrections(ALL);
+    // The query has no ORDER BY, so rows arrive in physical table order —
+    // which is only chronological by coincidence until any delete/reinsert
+    // (re-parse, roster save, dedup) scrambles it. Sort into watch order
+    // explicitly; nearby-event navigation in pickI() also relies on this.
+    ALL.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     buildPTM();init();
   }catch(e){
     document.getElementById('MA').innerHTML='<div class="load-st" style="text-align:center;padding:60px;color:var(--t3)"><div style="font-size:16px;color:var(--t2);margin-bottom:8px">Could not load match data</div><div style="font-size:12px">'+e.message+'</div></div>';
