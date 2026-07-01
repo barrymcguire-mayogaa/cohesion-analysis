@@ -2111,8 +2111,21 @@ async function processGame(){
       // Build angles array from the editable angle list.
       // Existing alternate angles are pre-filled into adminAngles, so do not append them again.
       anglesField = [mainAngle, ...validAdminAngles];
+    } else if(isReparse && validAdminAngles.length === 0){
+      // Genuine XML re-parse (e.g. fixing a whistle/period bug) where the
+      // alternate-angle fields weren't filled in this session. gameMeta is
+      // rebuilt from scratch below, so without this fallback any existing
+      // alternate angles (Hi-Behind, Broadcast, etc.) would be silently
+      // wiped by a reparse that has nothing to do with camera angles at all.
+      const rIdxForAngles = parseInt(document.getElementById('reparseGame').value);
+      const existingAngles = (!isNaN(rIdxForAngles) && reparseGames[rIdxForAngles]) ? reparseGames[rIdxForAngles].angles : null;
+      const existingAltAngles = (existingAngles && existingAngles.length > 1) ? existingAngles.slice(1) : [];
+      anglesField = existingAltAngles.length > 0 ? [
+        {label:'Main',youtubeId:ytId,half1Start:half1Video,half2Start:half2Video,et1Start:et1Video,et2Start:et2Video},
+        ...existingAltAngles
+      ] : undefined;
     } else {
-      // New game or XML re-processing: build angles from scratch
+      // New game or XML re-processing with alternate angles actually entered
       anglesField = validAdminAngles.length > 0 ? [
         {label:'Main',youtubeId:ytId,half1Start:half1Video,half2Start:half2Video,et1Start:et1Video,et2Start:et2Video},
         ...validAdminAngles
