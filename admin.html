@@ -453,18 +453,18 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="step-num">2</div>
       <div>
         <div class="step-title">Video Start Times</div>
-        <div class="step-sub">When does each period begin in the video? (MM:SS format)</div>
+        <div class="step-sub">When does each period begin in the video? (HH:MM:SS format)</div>
       </div>
     </div>
 
     <div class="time-grid">
       <div class="field">
         <label>1st Half Start</label>
-        <input type="text" id="t1" placeholder="01:43" maxlength="6">
+        <input type="text" id="t1" placeholder="00:01:43" maxlength="9">
       </div>
       <div class="field">
         <label>2nd Half Start</label>
-        <input type="text" id="t2" placeholder="38:09" maxlength="6">
+        <input type="text" id="t2" placeholder="00:38:09" maxlength="9">
       </div>
     </div>
 
@@ -476,15 +476,15 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="time-grid">
         <div class="field">
           <label>ET 1st Half Start</label>
-          <input type="text" id="tet1" placeholder="MM:SS" maxlength="6">
+          <input type="text" id="tet1" placeholder="HH:MM:SS" maxlength="9">
         </div>
         <div class="field">
           <label>ET 2nd Half Start</label>
-          <input type="text" id="tet2" placeholder="MM:SS" maxlength="6">
+          <input type="text" id="tet2" placeholder="HH:MM:SS" maxlength="9">
         </div>
       </div>
     </div>
-    <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period. If footage is missing from the start of the video, enter a <strong>negative 1st half time</strong> — e.g. if 50 seconds of game are missing, enter <code>-00:50</code>. Events before that point will clamp to the video start; everything after will align correctly.</div>
+    <div class="help">Find these times by opening the video in YouTube and noting when the referee throws in the ball at the start of each period. If footage is missing from the start of the video, enter a <strong>negative 1st half time</strong> — e.g. if 50 seconds of game are missing, enter <code>-00:00:50</code>. Events before that point will clamp to the video start; everything after will align correctly.</div>
   </div>
 
   <!-- STEP 2.5: Additional Camera Angles -->
@@ -636,7 +636,8 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <!-- WHISTLE SELECTOR FOR GAELIC INSIGHTS XML -->
     <div id="whistleSelectorBlock" style="display:none;background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:16px;">
       <div style="font-weight:700;color:var(--accent);margin-bottom:12px;font-size:13px;letter-spacing:.5px;">⚙️ MANUAL WHISTLE SELECTION (Gaelic Insights XML)</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">Click on a period assignment below, then click a whistle to assign it. Times shown in MM:SS format from the XML.</div>
+      <div id="whistleAngleContext" style="font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:12px;color:var(--t2);"></div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">Click on a period assignment below, then click a whistle to assign it. Times shown in HH:MM:SS format from the XML.</div>
 
       <div id="whistleGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;"></div>
 
@@ -976,11 +977,10 @@ function selectReparseGame(idx){
   // Pre-fill YouTube URL from youtubeId
   if(g.youtubeId) document.getElementById('youtubeUrl').value = `https://www.youtube.com/watch?v=${g.youtubeId}`;
   // Pre-fill half times
-  const toMM = s => { const neg=s<0; const a=Math.abs(s); return (neg?'-':'')+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0'); };
-  if(g.half1Start!=null) document.getElementById('t1').value = toMM(g.half1Start);
-  if(g.half2Start!=null) document.getElementById('t2').value = toMM(g.half2Start);
-  if(g.et1Start)  { document.getElementById('etCheck').checked=true; document.getElementById('etFields').classList.add('show'); document.getElementById('tet1').value=toMM(g.et1Start); }
-  if(g.et2Start)  { document.getElementById('tet2').value=toMM(g.et2Start); }
+  if(g.half1Start!=null) document.getElementById('t1').value = secsToHHMMSSInput(g.half1Start);
+  if(g.half2Start!=null) document.getElementById('t2').value = secsToHHMMSSInput(g.half2Start);
+  if(g.et1Start)  { document.getElementById('etCheck').checked=true; document.getElementById('etFields').classList.add('show'); document.getElementById('tet1').value=secsToHHMMSSInput(g.et1Start); }
+  if(g.et2Start)  { document.getElementById('tet2').value=secsToHHMMSSInput(g.et2Start); }
   // Pre-fill camera angles (skip index 0 which is the main angle)
   if(g.angles && g.angles.length > 1){
     adminAngles = g.angles.slice(1).map(a=>({
@@ -1037,8 +1037,7 @@ function toggleET(){
 let adminAngles = [];
 function fmtAdminTime(secs){
   if(secs===null||secs===undefined)return'';
-  const neg=secs<0,abs=Math.abs(Math.round(secs));
-  return(neg?'-':'')+String(Math.floor(abs/60)).padStart(2,'0')+':'+String(abs%60).padStart(2,'0');
+  return secsToHHMMSSInput(secs);
 }
 function addAdminAngle(){
   adminAngles.push({label:'',youtubeId:'',half1Start:null,half2Start:null,et1Start:null,et2Start:null});
@@ -1071,20 +1070,20 @@ function renderAdminAngles(){
           <input type="url" value="${(a.youtubeId||'').replace(/"/g,'&quot;')}" placeholder="https://youtu.be/..." oninput="adminAngles[${i}].youtubeId=extractYtId(this.value)||this.value.trim()">
         </div>
         <div class="field">
-          <label>1st Half Start (MM:SS)</label>
-          <input type="text" value="${fmtAdminTime(a.half1Start)}" placeholder="01:43" maxlength="6" oninput="adminAngles[${i}].half1Start=parseTime(this.value)">
+          <label>1st Half Start (HH:MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.half1Start)}" placeholder="00:01:43" maxlength="9" oninput="adminAngles[${i}].half1Start=parseTime(this.value)">
         </div>
         <div class="field">
-          <label>2nd Half Start (MM:SS)</label>
-          <input type="text" value="${fmtAdminTime(a.half2Start)}" placeholder="38:09" maxlength="6" oninput="adminAngles[${i}].half2Start=parseTime(this.value)">
+          <label>2nd Half Start (HH:MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.half2Start)}" placeholder="00:38:09" maxlength="9" oninput="adminAngles[${i}].half2Start=parseTime(this.value)">
         </div>
         <div class="field" style="display:${showET ? 'block' : 'none'}">
-          <label>ET 1st Half Start (MM:SS)</label>
-          <input type="text" value="${fmtAdminTime(a.et1Start)}" placeholder="MM:SS" maxlength="6" oninput="adminAngles[${i}].et1Start=parseTime(this.value)">
+          <label>ET 1st Half Start (HH:MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.et1Start)}" placeholder="HH:MM:SS" maxlength="9" oninput="adminAngles[${i}].et1Start=parseTime(this.value)">
         </div>
         <div class="field" style="display:${showET ? 'block' : 'none'}">
-          <label>ET 2nd Half Start (MM:SS)</label>
-          <input type="text" value="${fmtAdminTime(a.et2Start)}" placeholder="MM:SS" maxlength="6" oninput="adminAngles[${i}].et2Start=parseTime(this.value)">
+          <label>ET 2nd Half Start (HH:MM:SS)</label>
+          <input type="text" value="${fmtAdminTime(a.et2Start)}" placeholder="HH:MM:SS" maxlength="9" oninput="adminAngles[${i}].et2Start=parseTime(this.value)">
         </div>
       </div>
     </div>`).join('');
@@ -1163,15 +1162,34 @@ function prefillFromGT(d){
 }
 
 // ── Time parsing ──────────────────────────────────────────────
-// Accepts MM:SS or -MM:SS (negative = game started before video)
+// Accepts HH:MM:SS, MM:SS, or their negative forms (negative = game
+// started before video). HH:MM:SS is preferred going forward since large
+// MM values (e.g. "157:42" for a late ET2 start) invite manual-addition
+// mistakes when reading a timestamp off the video.
 function parseTime(str){
   if(!str || !str.trim()) return null;
   const neg = str.trim().startsWith('-');
   const parts = str.trim().replace(/^-/,'').split(':');
-  if(parts.length !== 2) return null;
-  const m = parseInt(parts[0]), s = parseInt(parts[1]);
-  if(isNaN(m)||isNaN(s)) return null;
-  return (neg ? -1 : 1) * (m*60+s);
+  if(parts.length === 3){
+    const h = parseInt(parts[0]), m = parseInt(parts[1]), s = parseInt(parts[2]);
+    if(isNaN(h)||isNaN(m)||isNaN(s)) return null;
+    return (neg ? -1 : 1) * (h*3600+m*60+s);
+  }
+  if(parts.length === 2){
+    const m = parseInt(parts[0]), s = parseInt(parts[1]);
+    if(isNaN(m)||isNaN(s)) return null;
+    return (neg ? -1 : 1) * (m*60+s);
+  }
+  return null;
+}
+
+// Formats seconds as HH:MM:SS for pre-filling time inputs when editing an
+// existing game (e.g. re-parse mode).
+function secsToHHMMSSInput(secs){
+  const neg = secs < 0;
+  const a = Math.abs(Math.round(secs));
+  const h = Math.floor(a/3600), m = Math.floor((a%3600)/60), s = a%60;
+  return (neg?'-':'') + String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
 }
 
 // ── YouTube ID extraction ─────────────────────────────────────
@@ -1333,7 +1351,7 @@ async function processGame(){
 
   const half1Video = parseTime(t1Str);
   const half2Video = parseTime(t2Str);
-  if(half1Video === null || half2Video === null){ showError('Please enter valid start times in MM:SS format (e.g. 01:43).'); return; }
+  if(half1Video === null || half2Video === null){ showError('Please enter valid start times in HH:MM:SS format (e.g. 00:01:43).'); return; }
 
   const et1Video = hasET ? parseTime(tet1Str) : null;
   const et2Video = hasET ? parseTime(tet2Str) : null;
@@ -1548,11 +1566,12 @@ async function processGame(){
           .filter((w,idx,arr)=>arr.findIndex(x=>x.t===w.t)===idx)
           .sort((a,b)=>a.t-b.t);
 
-        // ── HELPER: Convert seconds to MM:SS format ──
+        // ── HELPER: Convert seconds to HH:MM:SS format ──
         const secsToMMSS = (secs) => {
-          const mins = Math.floor(secs / 60);
+          const h = Math.floor(secs / 3600);
+          const mins = Math.floor((secs % 3600) / 60);
           const s = Math.floor(secs % 60);
-          return `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          return `${String(h).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         };
 
         // Track user's manual whistle selections (overrides automatic detection).
@@ -1597,6 +1616,22 @@ async function processGame(){
           }).join('');
 
           whistleSelectorBlock.style.display = '';
+
+          // Clarify which video these whistle assignments will sync against —
+          // this always sets period boundaries for the Main video (the primary
+          // YouTube URL / Step 2 times), never an alternate camera angle.
+          // Alternate angles use their own manually-entered times with no
+          // whistle assistance, so this had no equivalent indicator before.
+          const contextEl = document.getElementById('whistleAngleContext');
+          if(contextEl){
+            const timesEntered = [
+              `1H: ${secsToHHMMSSInput(half1Video)}`,
+              `2H: ${secsToHHMMSSInput(half2Video)}`,
+              et1Video !== null ? `ET1: ${secsToHHMMSSInput(et1Video)}` : null,
+              et2Video !== null ? `ET2: ${secsToHHMMSSInput(et2Video)}` : null,
+            ].filter(Boolean).join(' · ');
+            contextEl.innerHTML = `🎥 Syncing to: <strong style="color:var(--t1);">Main Video</strong> (times entered in Step 2 — ${timesEntered}). Camera Angle 2/3 use their own manually-entered times and are not affected by this selection — verify those separately in Visual Sync after upload.`;
+          }
 
           // Show/hide ET selectors based on user input
           if(et1Video !== null) document.getElementById('etSelector1').style.display = '';
@@ -2668,9 +2703,10 @@ function assignWhistleToSelectedPeriod(whistleTimeSecs, whistleIndex){
 
   const period = whistleSelectionMode;
   const secsToMMSS = (secs) => {
-    const mins = Math.floor(secs / 60);
+    const h = Math.floor(secs / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
     const s = Math.floor(secs % 60);
-    return `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${String(h).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   };
 
   // Store the selection
