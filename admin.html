@@ -947,12 +947,16 @@ function selectReparseGame(idx){
   const skipToggle = document.getElementById('skipXmlToggle');
   const dropZone = document.getElementById('dropZone');
 
-  // Show message and toggle if game has angles
+  // Show message and toggle if game has angles. Default the skip checkbox to
+  // CHECKED (safest: leaves existing events untouched) and let toggleSkipXml()
+  // drive ALL of the drop-zone/button state from that one place — previously
+  // this block disabled the drop zone directly without setting the checkbox,
+  // so the zone stayed dead no matter what the checkbox showed.
   if(hasAngles){
     msgEl.style.display = '';
     skipToggle.style.display = '';
-    dropZone.style.opacity = '0.6';
-    dropZone.style.pointerEvents = 'none';
+    document.getElementById('skipXmlCheck').checked = true;
+    toggleSkipXml();
   } else {
     msgEl.style.display = 'none';
     skipToggle.style.display = 'none';
