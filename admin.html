@@ -1761,15 +1761,24 @@ async function processGame(){
 
           // Find first gameplay event for each period. Whistles define boundaries;
           // first gameplay events define video alignment to the user's entered times.
+          // IMPORTANT: search in chronological order, not raw XML document order.
+          // <instance> elements are not guaranteed to be listed in time order (a
+          // coder can tag events out of sequence, add retroactive corrections,
+          // etc.) — searching in document order and taking "the first one
+          // encountered" silently anchors the whole period's video offset to
+          // whichever event happens to appear earliest in the file, not the one
+          // that actually happened first. This produces a systematic, constant
+          // drift between gameTime (whistle-relative) and the actual video
+          // position for every event in that period.
           let giGameplayP1 = null, giGameplayP2 = null, giGameplayET1 = null, giGameplayET2 = null;
           giHalfEnd = giXmlP2 !== null
             ? [...giWhistleRaw].filter(w => w.t < giXmlP2).sort((a,b)=>b.t-a.t)[0]?.t ?? null
             : null;
-          instances.forEach(inst=>{
-            const code = (inst.querySelector('code')?.textContent||'').trim();
-            if(code === 'NA Whistle') return;
-            const t = parseFloat(inst.querySelector('start')?.textContent||0);
-
+          const giGameplayTimesSorted = instances
+            .filter(inst => (inst.querySelector('code')?.textContent||'').trim() !== 'NA Whistle')
+            .map(inst => parseFloat(inst.querySelector('start')?.textContent||0))
+            .sort((a,b) => a-b);
+          for(const t of giGameplayTimesSorted){
             if(giXmlP1 !== null && giGameplayP1 === null && (giXmlP2 === null || t < giXmlP2) && t >= giXmlP1){
               giGameplayP1 = t;
             }
@@ -1782,7 +1791,7 @@ async function processGame(){
             if(giXmlET2 !== null && giGameplayET2 === null && t > giXmlET2){
               giGameplayET2 = t;
             }
-          });
+          }
 
           giVideoAnchor1H = giGameplayP1 !== null ? giGameplayP1 : giXmlP1;
           console.log(`✓ 1H timing anchor: ${giGameplayP1 !== null ? 'First gameplay event' : 'Whistle'} @ ${giVideoAnchor1H.toFixed(2)}s → maps to ${half1Video}s video`);
