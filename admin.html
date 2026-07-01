@@ -1001,9 +1001,14 @@ function toggleSkipXml(){
   const checked = document.getElementById('skipXmlCheck').checked;
   const dropZone = document.getElementById('dropZone');
   const processBtn = document.getElementById('processBtn');
-  dropZone.style.opacity = checked ? '0.4' : '0.6';
-  dropZone.style.pointerEvents = checked ? 'none' : 'none';
-  // Enable process button when using existing data, disable when re-enabling XML selection
+  dropZone.style.opacity = checked ? '0.4' : '1';
+  // Unticking must genuinely re-enable the drop zone so a corrected XML can
+  // be uploaded for a full re-parse. (This previously set 'none' in BOTH
+  // branches, which made it impossible to ever re-upload an XML for a game
+  // that had camera angles — the zone stayed dead after unticking.)
+  dropZone.style.pointerEvents = checked ? 'none' : 'auto';
+  // Skip mode: ready to save immediately. Re-process mode: wait for a file
+  // (setFile() re-enables the button once one is chosen).
   processBtn.disabled = !checked;
   if(checked) {
     document.getElementById('dzFileName').textContent = '';
