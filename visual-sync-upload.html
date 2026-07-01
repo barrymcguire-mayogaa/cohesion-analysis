@@ -1087,6 +1087,17 @@ function selectPeriod(period) {
   document.querySelectorAll('.period-btn').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.period === period);
   });
+
+  // Move the XML playhead to this period's first event. Without this, the
+  // playhead stays wherever it was last left — often 0 — and syncing a
+  // period like ET1/ET2 (whose raw XML times can be over an hour in) against
+  // a playhead sitting at 0 produces a wildly wrong offset with no warning.
+  const periodEvents = visualSyncState.parsedEvents.filter(e => e.period === period);
+  if (periodEvents.length > 0) {
+    const firstEvent = periodEvents.reduce((a, b) => (a.start < b.start ? a : b));
+    setPlayhead(firstEvent.start);
+  }
+
   renderTimeline();
 }
 
@@ -1533,6 +1544,31 @@ function syncPointClick() {
   if (xmlTime === undefined || videoTime === undefined) {
     document.getElementById('syncStatus').innerHTML = '<div class="status-box error">❌ Position playhead and video first</div>';
     return;
+  }
+
+  // Sanity check: the XML playhead should actually sit somewhere near this
+  // period's real events. If it's way outside that range — most often
+  // because it was left at its default position (0) instead of being moved
+  // to an event in this period — the resulting offset will be nonsense and
+  // push every event in this period off the end of the video with no
+  // visible warning. ET1/ET2 are especially exposed to this since their raw
+  // XML times can be over an hour in.
+  const periodEventsForCheck = visualSyncState.parsedEvents.filter(e => e.period === period);
+  if (periodEventsForCheck.length > 0) {
+    const starts = periodEventsForCheck.map(e => e.start);
+    const minStart = Math.min(...starts);
+    const maxStart = Math.max(...starts);
+    const tolerance = 300; // 5 min slack either side for pre/post-period buffer
+    if (xmlTime < minStart - tolerance || xmlTime > maxStart + tolerance) {
+      const proceed = confirm(
+        `⚠ The XML playhead (${secsToHHMMSS(xmlTime)}) doesn't look like it's within ${period}'s events ` +
+        `(they run roughly ${secsToHHMMSS(minStart)}–${secsToHHMMSS(maxStart)}).\n\n` +
+        `This usually means the playhead wasn't moved to an event in this period before syncing, ` +
+        `which will push every ${period} event off the end of the video.\n\n` +
+        `Click an event in the ${period} row first, then Sync Point. Proceed anyway?`
+      );
+      if (!proceed) return;
+    }
   }
 
   const offset = videoTime - xmlTime;
