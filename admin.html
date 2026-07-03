@@ -637,7 +637,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <div id="whistleSelectorBlock" style="display:none;background:var(--card);border:2px solid var(--accent);border-radius:8px;padding:16px;margin-bottom:16px;">
       <div style="font-weight:700;color:var(--accent);margin-bottom:12px;font-size:13px;letter-spacing:.5px;">⚙️ MANUAL WHISTLE SELECTION (Gaelic Insights XML)</div>
       <div id="whistleAngleContext" style="font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:12px;color:var(--t2);"></div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">Click on a period assignment below, then click a whistle to assign it. Times shown in HH:MM:SS format from the XML.</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">The likely period-start whistles have been <strong style="color:var(--green);">pre-selected</strong> from the pattern of play — if the Assignments below look right, just click Confirm. To change one: click a period assignment, then click a whistle. <strong style="color:var(--t2);">Note:</strong> times shown are the XML's own clock, NOT video time — a "▶ period start" label matters more than a familiar-looking number.</div>
 
       <div id="whistleGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;"></div>
 
@@ -1607,9 +1607,40 @@ async function processGame(){
           const whistleSelectorBlock = document.getElementById('whistleSelectorBlock');
           const whistleGrid = document.getElementById('whistleGrid');
 
-          // Populate whistle grid with clickable options
+          // Gameplay-gap helpers, needed both to label the whistles below and
+          // for the auto-detection/validation after the user confirms. A
+          // period-START whistle has a long dead gap before it (the break)
+          // and play resuming right after; an END-of-half whistle is the
+          // opposite. Raw XML clock numbers can coincidentally resemble video
+          // times (e.g. an end-of-1H whistle at raw 35:34 vs a video 2H start
+          // of 35:39), which actively misleads users — so every whistle gets
+          // a plain-English role label instead of just a raw timestamp.
+          const giGameplaySorted = instances
+            .filter(i=>(i.querySelector('code')?.textContent||'').trim() !== 'NA Whistle')
+            .map(i=>parseFloat(i.querySelector('start')?.textContent||0))
+            .sort((a,b)=>a-b);
+          const giFirstAfter = (t)=>{ for(const g of giGameplaySorted){ if(g >= t) return g; } return null; };
+          const giGapBefore  = (t)=>{ let p=null; for(const g of giGameplaySorted){ if(g < t) p=g; else break; } return p===null ? Infinity : t-p; };
+          const GI_RESTART_TOLERANCE = 300; // play should resume within 5 min of a period-start whistle
+          const GI_MIN_BREAK = 240;         // a period break is at least ~4 min of no coded events
+
+          const giWhistleRoles = giWhistleRaw.map((w, i) => {
+            const fa = giFirstAfter(w.t);
+            const playSoonAfter = fa !== null && fa - w.t <= GI_RESTART_TOLERANCE;
+            const gapB = giGapBefore(w.t);
+            if(i === 0) return { type:'start', label:'1st half throw-in' };
+            if(playSoonAfter && gapB >= GI_MIN_BREAK) return { type:'start', label:`period start — play resumes after a ${Math.round(gapB/60)}-min break` };
+            if(!playSoonAfter) return { type:'end', label: fa === null ? 'end of game — no events after' : `end of half — ${Math.round((fa-w.t)/60)} min of no events after` };
+            return { type:'mid', label:'in-play whistle' };
+          });
+
+          // Populate whistle grid with clickable options, each labelled with
+          // its inferred role so users pick by meaning, not by raw timestamp
           whistleGrid.innerHTML = giWhistleRaw.map((w, i) => {
             const mmss = secsToMMSS(w.t);
+            const role = giWhistleRoles[i];
+            const roleColor = role.type === 'start' ? 'var(--green)' : role.type === 'end' ? 'var(--orange)' : 'var(--t3)';
+            const roleIcon  = role.type === 'start' ? '▶ ' : role.type === 'end' ? '■ ' : '';
             return `
               <div class="whistle-btn"
                    data-time="${w.t}"
@@ -1620,6 +1651,7 @@ async function processGame(){
                    onclick="assignWhistleToSelectedPeriod(${w.t}, ${i})">
                 <div style="font-weight:700;color:var(--accent);font-size:14px;">${mmss}</div>
                 <div style="font-size:11px;color:var(--t3);margin-top:4px;">Whistle #${i+1}</div>
+                <div style="font-size:10px;color:${roleColor};margin-top:4px;font-weight:600;">${roleIcon}${role.label}</div>
               </div>
             `;
           }).join('');
@@ -1663,6 +1695,24 @@ async function processGame(){
           // different clocks that have no reason to be numerically close.
           const giEstOffset = half1Video - giXmlP1;
 
+          // Pre-select the remaining period starts so "just click Confirm" is
+          // the correct action for a normal file. Period-start candidates are
+          // whistles with a real break before them and play resuming after,
+          // taken in chronological order: first = 2H, then ET1/ET2 if those
+          // video times were entered. The user can still click any assignment
+          // to override, and the post-confirm sanity checks still run.
+          const giStartCandidates = giWhistleRaw.filter((w, i) => i > 0 && giWhistleRoles[i].type === 'start');
+          const giPreAssign = (period, selElId, w, desc) => {
+            userWhistleSelections[period] = w.t;
+            const idx = giWhistleRaw.indexOf(w);
+            const el = document.getElementById(selElId);
+            if(el) el.textContent = `W${idx+1} @ ${secsToMMSS(w.t)} (auto-detected — ${desc})`;
+            console.log(`✓ ${period} pre-selected: Whistle #${idx+1} @ ${secsToMMSS(w.t)} (${desc})`);
+          };
+          if(giStartCandidates.length > 0) giPreAssign('2H', 'sel2H', giStartCandidates[0], '2nd half throw-in');
+          if(et1Video !== null && giStartCandidates.length > 1) giPreAssign('ET1', 'selET1', giStartCandidates[1], 'ET1 throw-in');
+          if(et2Video !== null && giStartCandidates.length > 2) giPreAssign('ET2', 'selET2', giStartCandidates[2], 'ET2 throw-in');
+
           // ── PAUSE HERE FOR USER WHISTLE SELECTION ──────────────────────────────────────
           setProgress(60, 'Waiting for whistle selection confirmation…');
 
@@ -1674,21 +1724,11 @@ async function processGame(){
           setProgress(65, 'Processing events with selected whistles…');
 
           // ── DETERMINE PERIOD ANCHORS: USER SELECTION OR AUTOMATIC ──────────────────────
-          // Gameplay-gap helpers for telling a PERIOD-START whistle apart from
-          // an end-of-half whistle. A period-start whistle has a long stretch
-          // of no coded gameplay BEFORE it (the break) and gameplay shortly
-          // AFTER it (play resumes). An end-of-half whistle is the opposite:
-          // gameplay right before, then a long dead gap. The old heuristic —
-          // "whistle #3 is always the 2H start" — breaks whenever a file
-          // double-tags halftime (W2 AND W3 both at the break), silently
-          // anchoring the entire 2nd half to the halftime whistle.
-          const giGameplaySorted = instances
-            .filter(i=>(i.querySelector('code')?.textContent||'').trim() !== 'NA Whistle')
-            .map(i=>parseFloat(i.querySelector('start')?.textContent||0))
-            .sort((a,b)=>a-b);
-          const giFirstAfter = (t)=>{ for(const g of giGameplaySorted){ if(g >= t) return g; } return null; };
-          const giGapBefore  = (t)=>{ let p=null; for(const g of giGameplaySorted){ if(g < t) p=g; else break; } return p===null ? Infinity : t-p; };
-          const GI_RESTART_TOLERANCE = 300; // play should resume within 5 min of a period-start whistle
+          // (Gameplay-gap helpers — giGameplaySorted / giFirstAfter /
+          // giGapBefore / GI_RESTART_TOLERANCE — are defined above, before the
+          // whistle grid, since they also drive the role labels and the
+          // pre-selection. The branches below are fallbacks for the rare case
+          // where nothing was pre-selected and the user didn't pick manually.)
 
           // 2H: Use user selection if available, otherwise auto-detect the
           // whistle with the biggest dead gap before it AND play soon after —
