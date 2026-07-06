@@ -75,10 +75,19 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .setnow{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;flex:1;}
 .ep-times{display:flex;gap:16px;font:700 12px 'Barlow Condensed',sans-serif;margin:8px 0;}
 .ep-times b{color:var(--accent);}
+.epanel input,.epanel select{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;margin-bottom:4px;box-sizing:border-box;}
+.epanel input:focus{border-color:var(--accent);}
+.lblrow{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.lblrow .g{min-width:118px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;}
+.lblrow input{flex:1;margin:0;}
+.lblrow .x{cursor:pointer;color:var(--red);font-weight:700;padding:0 6px;user-select:none;}
+.addg{background:none;border:1px dashed var(--border);color:var(--t3);border-radius:6px;padding:7px;font:600 11px 'Barlow Condensed',sans-serif;cursor:pointer;width:100%;margin-top:2px;}
+.addg:hover{border-color:var(--accent);color:var(--accent);}
 .bar{display:flex;gap:8px;margin-top:14px;}
 .bar button{flex:1;padding:9px;border-radius:7px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);}
 .save{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;}
 .save:disabled{opacity:.4;cursor:default;}
+.del{background:var(--red-bg)!important;border-color:var(--red)!important;color:var(--red)!important;}
 .status{font-size:12px;margin-top:10px;min-height:16px;}
 .status.ok{color:var(--green);} .status.err{color:var(--red);}
 .load-st{text-align:center;padding:60px;color:var(--t3);}
@@ -126,10 +135,26 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" onclick="vseek(5)">5s »</button>
             <button class="vbtn" onclick="vrate(0.5)">0.5×</button>
             <button class="vbtn" onclick="vrate(1)">1×</button>
+            <button class="vbtn" style="border-color:var(--green);color:var(--green)" onclick="openAdd()">＋ Add event here</button>
             <span class="vtime" id="vtime">0:00</span>
           </div>
         </div>
-        <div class="epanel empty" id="epanel">Select an event from the list to edit its timing.</div>
+        <div class="epanel" id="addPanel" style="display:none;">
+          <div class="ep-code">Add event</div>
+          <div class="ep-meta">At current video moment: <b id="addAt" style="color:var(--accent)">0:00</b></div>
+          <div class="ep-lbl">Event code</div>
+          <input list="codeList" id="addCode" placeholder="e.g. DUBLIN SHOT OPEN PLAY" autocomplete="off">
+          <div class="ep-lbl">Player (optional)</div>
+          <input list="playerList" id="addPlayer" placeholder="Player name" autocomplete="off">
+          <div class="bar">
+            <button class="save" onclick="confirmAdd()">Add event</button>
+            <button onclick="closeAdd()">Cancel</button>
+          </div>
+          <div class="status" id="addStatus"></div>
+        </div>
+        <datalist id="codeList"></datalist>
+        <datalist id="playerList"></datalist>
+        <div class="epanel empty" id="epanel">Select an event to edit its timing, code, player or labels — or use ＋ Add event here.</div>
       </div>
 
       <div class="list">
@@ -195,8 +220,15 @@ async function openGame(id){
   const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))];
   const sel=document.getElementById('eperiod');
   sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join('');
+  refreshDatalists();
   buildPlayer();
   renderList();
+}
+function refreshDatalists(){
+  const codes=[...new Set(EVENTS.map(e=>e.code).filter(Boolean))].sort();
+  document.getElementById('codeList').innerHTML=codes.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+  const players=[...new Set(EVENTS.map(e=>e.player).filter(Boolean))].sort();
+  document.getElementById('playerList').innerHTML=players.map(p=>`<option value="${p.replace(/"/g,'&quot;')}">`).join('');
 }
 
 // ── video ─────────────────────────────────────────────────────
@@ -231,80 +263,214 @@ function renderList(){
   }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
 }
 
+// ── derivation helpers (keep promoted fields consistent) ──────
+const OUT_KEYS=['Shot Outcomes','Game Involvement Outcomes','Kickout Outcomes','Turnover Outcomes','Tackle Outcomes','ShotOutcome','KickoutOutcome','Score Source Outcomes'];
+const SUB_KEYS=['Deadball Shot Type','Shot Zones','Kickout Locations','KODistance','PitchArea'];
+function firstOf(labels,keys){ for(const k of keys){ if(labels[k]) return labels[k]; } return ''; }
+function catOf(code){
+  const c=(code||'').toUpperCase();
+  if(/SHOT|1 POINT|2 POINT|WIDE|GOAL|SAVE|BLOCKED|SHORT|WOODWORK/.test(c)) return 'Shots & Scores';
+  if(/KO|KICKOUT/.test(c) && !/SCORE|ATTACK/.test(c)) return 'Kickouts';
+  if(/FOUL|CARD|TECHNICAL/.test(c)) return 'Fouls';
+  if(/TOs|TURNOVER/.test(c)) return 'Turnovers';
+  if(/TACKLE/.test(c)) return 'Tackles';
+  if(/ATTACKS|ENTRY|POSSESSION|SCORE SOURCE|SCORE ASSIST|SHOT SOURCE|SHOT ASSIST/.test(c)) return 'Possession & Attack';
+  return '';
+}
+function teamFor(code,labels){
+  if(labels && labels['Team Name']) return labels['Team Name'];
+  const H=(GAME.homeTeam||'').toUpperCase(), A=(GAME.awayTeam||'').toUpperCase();
+  const c=(code||'').toUpperCase();
+  if(H && c.includes(H)) return H;
+  if(A && c.includes(A)) return A;
+  return '';
+}
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+// ── draft model ───────────────────────────────────────────────
+// draft holds the in-progress edits for the selected event. Player has its
+// own field; every OTHER label group is an editable row. On save the labels
+// object is rebuilt and the player is written into "<TEAM> Player Labels".
+let draft=null;
+const isPlayerGroup=g=>/player labels$/i.test(g);
+
 function pick(rowId){
   const e=EVENTS.find(x=>x._rowId===rowId); if(!e)return;
+  closeAdd();
   activeId=rowId;
-  if(YTP&&YTP.seekTo){ YTP.seekTo(Math.max(0,(e.driveT||0)),true); YTP.playVideo(); }
+  draft={
+    code:e.code||'', player:e.player||'', driveT:e.driveT||0,
+    groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v}))
+  };
+  if(YTP&&YTP.seekTo){ YTP.seekTo(Math.max(0,draft.driveT),true); YTP.playVideo(); }
   renderList(); renderPanel();
+}
+
+function isDirty(){
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||!draft)return false;
+  if(draft.code!==(e.code||'')) return true;
+  if(draft.player!==(e.player||'')) return true;
+  if(draft.driveT!==(e.driveT||0)) return true;
+  const orig=Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name');
+  if(orig.length!==draft.groups.length) return true;
+  const om={}; orig.forEach(([g,v])=>om[g]=v);
+  for(const {g,v} of draft.groups){ if(om[g]!==v) return true; }
+  return false;
 }
 
 function renderPanel(){
   const e=EVENTS.find(x=>x._rowId===activeId);
   const p=document.getElementById('epanel');
-  if(!e){ p.className='epanel empty'; p.textContent='Select an event.'; return; }
-  p.className='epanel';
-  const meta=[e.half,e.team,e.outcome].filter(Boolean).join(' · ');
+  if(!e||!draft){ p.className='epanel empty'; p.textContent='Select an event.'; return; }
+  p.className='epanel'; p.style.display='';
+  document.getElementById('addPanel').style.display='none';
+  const drift=draft.driveT!==(e.driveT||0)?` <span style="color:var(--orange)">(was ${fmt(e.driveT||0)})</span>`:'';
+  const labelRows=draft.groups.map((row,i)=>`
+    <div class="lblrow">
+      <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
+      <input value="${esc(row.v)}" oninput="setLabelIdx(${i},this.value)">
+      <span class="x" onclick="removeLabelIdx(${i})" title="Remove label">✕</span>
+    </div>`).join('');
   p.innerHTML=`
-    <div class="ep-code">${e.code||'—'}</div>
-    <div class="ep-meta">${meta||''}${e.player?` · <b style="color:var(--accent)">${e.player}</b>`:''}</div>
-    <div class="ep-times">
-      <div>Video position: <b id="epNow">${fmt(e.driveT||0)}</b></div>
-      <div>Game clock: ${e.gameTime||'—'}</div>
-    </div>
-    <div class="ep-lbl">Nudge timing</div>
+    <div class="ep-meta">${e.half||''} · Game clock ${e.gameTime||'—'}</div>
+    <div class="ep-lbl">Event code</div>
+    <input list="codeList" value="${esc(draft.code)}" oninput="setDraftCode(this.value)" autocomplete="off">
+    <div class="ep-lbl">Player</div>
+    <input list="playerList" value="${esc(draft.player)}" oninput="setDraftPlayer(this.value)" placeholder="(none)" autocomplete="off">
+    <div class="ep-lbl">Video position — <b id="epNow" style="color:var(--accent)">${fmt(draft.driveT)}</b>${drift}</div>
     <div class="nudge">
-      <button onclick="nudge(-5)">−5s</button>
-      <button onclick="nudge(-1)">−1s</button>
-      <button onclick="nudge(1)">+1s</button>
-      <button onclick="nudge(5)">+5s</button>
+      <button onclick="nudge(-5)">−5s</button><button onclick="nudge(-1)">−1s</button>
+      <button onclick="nudge(1)">+1s</button><button onclick="nudge(5)">+5s</button>
     </div>
-    <div class="ep-lbl">Or align to the video</div>
-    <div class="nudge"><button class="setnow" onclick="setNow()">⏱ Set to current video moment</button></div>
+    <div class="nudge" style="margin-top:6px;"><button class="setnow" onclick="setNow()">⏱ Set to current video moment</button></div>
+    <div class="ep-lbl">Labels</div>
+    ${labelRows||'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>'}
+    <button class="addg" onclick="addLabelGroup()">＋ Add label group</button>
     <div class="bar">
-      <button class="save" id="saveBtn" onclick="saveEvent()" disabled>Save</button>
+      <button class="save" id="saveBtn" onclick="saveEvent()">Save changes</button>
       <button onclick="undo()" ${undoStack.length?'':'disabled'}>↶ Undo</button>
+    </div>
+    <div class="bar" style="margin-top:8px;">
+      <button class="del" onclick="deleteEvent()">🗑 Delete event</button>
     </div>
     <div class="status" id="epStatus"></div>`;
   refreshSave();
 }
 
-let pendingDriveT=null;
-function nudge(d){ const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return; pendingDriveT=Math.max(0,(pendingDriveT??e.driveT??0)+d); previewSet(); }
-function setNow(){ if(!YTP||!YTP.getCurrentTime)return; pendingDriveT=Math.max(0,Math.round(YTP.getCurrentTime())); previewSet(); }
-function previewSet(){
-  const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return;
-  document.getElementById('epNow').innerHTML=`${fmt(pendingDriveT)} <span style="color:var(--orange)">(was ${fmt(e.driveT||0)})</span>`;
-  if(YTP&&YTP.seekTo) YTP.seekTo(pendingDriveT,true);
-  refreshSave();
-}
-function refreshSave(){
-  const e=EVENTS.find(x=>x._rowId===activeId); const btn=document.getElementById('saveBtn');
-  if(btn) btn.disabled=(pendingDriveT===null||pendingDriveT===(e&&e.driveT));
+function nudge(d){ if(!draft)return; draft.driveT=Math.max(0,draft.driveT+d); if(YTP&&YTP.seekTo)YTP.seekTo(draft.driveT,true); const el=document.getElementById('epNow'); if(el)el.textContent=fmt(draft.driveT); refreshSave(); renderPanel(); }
+function setNow(){ if(!draft||!YTP||!YTP.getCurrentTime)return; draft.driveT=Math.max(0,Math.round(YTP.getCurrentTime())); renderPanel(); }
+function setDraftCode(v){ if(draft){ draft.code=v; refreshSave(); } }
+function setDraftPlayer(v){ if(draft){ draft.player=v; refreshSave(); } }
+function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
+function removeLabelIdx(i){ if(draft){ draft.groups.splice(i,1); renderPanel(); } }
+function addLabelGroup(){ const name=(prompt('Label group name (e.g. Shooting Leg):')||'').trim(); if(!name||!draft)return; draft.groups.push({g:name,v:''}); renderPanel(); }
+function refreshSave(){ const b=document.getElementById('saveBtn'); if(b) b.disabled=!isDirty(); }
+
+function buildData(e){
+  const labels={};
+  // keep Team Name if it existed
+  if(e.labels&&e.labels['Team Name']) labels['Team Name']=e.labels['Team Name'];
+  draft.groups.forEach(({g,v})=>{ const gg=(g||'').trim(); if(gg&&v!=='') labels[gg]=v; });
+  const team=teamFor(draft.code,labels)||e.team||'';
+  if(draft.player) labels[`${team||'Unassigned'} Player Labels`]=draft.player;
+  const out=firstOf(labels,OUT_KEYS)||e.outcome||'';
+  const sub=firstOf(labels,SUB_KEYS)||e.subtype||'';
+  const cat=catOf(draft.code)||e.category||'Other';
+  const d={...e,code:draft.code,team,player:draft.player,driveT:draft.driveT,outcome:out,subtype:sub,category:cat,labels};
+  delete d._rowId; delete d._edited; return d;
 }
 
 async function saveEvent(){
-  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||pendingDriveT===null)return;
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||!isDirty())return;
   const st=document.getElementById('epStatus'); st.className='status'; st.textContent='Saving…';
-  const prev=e.driveT;
-  const updated={...e,driveT:pendingDriveT}; delete updated._rowId; delete updated._edited;
-  const {error}=await _sb.from('events').update({data:updated}).eq('id',e._rowId);
+  const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
+  const data=buildData(e);
+  const {error}=await _sb.from('events').update({data}).eq('id',e._rowId);
   if(error){ st.className='status err'; st.textContent='Save failed: '+error.message; return; }
-  undoStack.push({rowId:e._rowId,driveT:prev});
-  e.driveT=pendingDriveT; e._edited=true; pendingDriveT=null;
+  undoStack.push({op:'restore',rowId:e._rowId,data:before});
+  Object.assign(e,data); e._edited=true;
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists();
   st.className='status ok'; st.textContent='Saved ✓';
+  draft=null; pick(e._rowId);
+}
+
+async function deleteEvent(){
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return;
+  if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this.`)) return;
+  const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
+  const {error}=await _sb.from('events').delete().eq('id',e._rowId);
+  if(error){ alert('Delete failed: '+error.message); return; }
+  undoStack.push({op:'reinsert',data:before});
+  EVENTS=EVENTS.filter(x=>x._rowId!==e._rowId);
+  activeId=null; draft=null;
+  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
   renderList(); renderPanel();
 }
 
-async function undo(){
-  const last=undoStack.pop(); if(!last)return;
-  const e=EVENTS.find(x=>x._rowId===last.rowId); if(!e)return;
-  const updated={...e,driveT:last.driveT}; delete updated._rowId; delete updated._edited;
-  const {error}=await _sb.from('events').update({data:updated}).eq('id',e._rowId);
-  if(error){ alert('Undo failed: '+error.message); undoStack.push(last); return; }
-  e.driveT=last.driveT; pendingDriveT=null; activeId=e._rowId;
+// ── add event ─────────────────────────────────────────────────
+function openAdd(){
+  document.getElementById('epanel').style.display='none';
+  const ap=document.getElementById('addPanel'); ap.style.display='';
+  const t=YTP&&YTP.getCurrentTime?Math.round(YTP.getCurrentTime()):0;
+  document.getElementById('addAt').textContent=fmt(t);
+  document.getElementById('addCode').value=''; document.getElementById('addPlayer').value='';
+  document.getElementById('addStatus').textContent='';
+  activeId=null; renderList();
+}
+function closeAdd(){ document.getElementById('addPanel').style.display='none'; document.getElementById('epanel').style.display=''; }
+
+async function confirmAdd(){
+  const code=document.getElementById('addCode').value.trim();
+  const player=document.getElementById('addPlayer').value.trim();
+  const st=document.getElementById('addStatus');
+  if(!code){ st.className='status err'; st.textContent='Enter an event code.'; return; }
+  st.className='status'; st.textContent='Adding…';
+  const driveT=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
+  // Inherit the period of the nearest existing event by video position.
+  let half=''; let best=Infinity;
+  EVENTS.forEach(e=>{ const dd=Math.abs((e.driveT||0)-driveT); if(dd<best){best=dd;half=e.half||'';} });
+  const labels={};
+  const team=teamFor(code,labels);
+  if(player) labels[`${team||'Unassigned'} Player Labels`]=player;
+  const data={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
+               player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
+               category:catOf(code)||'Other', driveT, labels, _manual:true };
+  const {data:ins,error}=await _sb.from('events').insert({game_id:GAME.id,data}).select('id').single();
+  if(error){ st.className='status err'; st.textContent='Add failed: '+error.message; return; }
+  const row={...data,_rowId:ins.id,_edited:true};
+  EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  renderList(); renderPanel();
+  undoStack.push({op:'removeAdded',rowId:ins.id});
+  refreshDatalists();
+  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  closeAdd(); pick(ins.id);
+}
+
+// ── unified undo ──────────────────────────────────────────────
+async function undo(){
+  const op=undoStack.pop(); if(!op)return;
+  try{
+    if(op.op==='restore'){
+      const {error}=await _sb.from('events').update({data:op.data}).eq('id',op.rowId);
+      if(error) throw error;
+      const e=EVENTS.find(x=>x._rowId===op.rowId); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,op.data); }
+      activeId=op.rowId; draft=null;
+    } else if(op.op==='reinsert'){
+      const {data:ins,error}=await _sb.from('events').insert({game_id:GAME.id,data:op.data}).select('id').single();
+      if(error) throw error;
+      EVENTS.push({...op.data,_rowId:ins.id,_edited:true}); activeId=ins.id; draft=null;
+    } else if(op.op==='removeAdded'){
+      const {error}=await _sb.from('events').delete().eq('id',op.rowId);
+      if(error) throw error;
+      EVENTS=EVENTS.filter(x=>x._rowId!==op.rowId); activeId=null; draft=null;
+    }
+  }catch(e){ alert('Undo failed: '+e.message); undoStack.push(op); return; }
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists();
+  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  renderList();
+  if(activeId) pick(activeId); else renderPanel();
 }
 
 loadGames();
