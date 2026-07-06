@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Code Room</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--orange:#ff9800;--logo-color:#ffffff;
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);--orange:#d97706;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.tag{font:800 10px 'Barlow Condensed',sans-serif;letter-spacing:2px;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:2px 7px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.page{padding:16px;max-width:1500px;margin:0 auto;}
+.title{font:800 24px 'Barlow Condensed',sans-serif;letter-spacing:1px;}
+.sub{font-size:12px;color:var(--t2);margin-bottom:14px;}
+
+/* setup */
+.setup{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:520px;margin:24px auto;}
+.setup label{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;}
+.setup input{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;}
+.drop{border:1px solid var(--border);border-radius:0 0 7px 7px;background:var(--card);max-height:280px;overflow-y:auto;margin-top:-8px;border-top:none;display:none;}
+.drop .row{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;}
+.drop .row:hover{background:var(--hover);}
+
+/* editor */
+.grid{display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start;}
+.vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.vid{width:100%;aspect-ratio:16/9;background:#000;}
+.vid iframe{width:100%;height:100%;border:none;}
+.vbar{display:flex;gap:6px;align-items:center;padding:8px 10px;flex-wrap:wrap;border-top:1px solid var(--border);}
+.vbtn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;padding:6px 9px;cursor:pointer;}
+.vbtn:hover{border-color:var(--accent);color:var(--accent);}
+.vtime{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;color:var(--t2);}
+
+.list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:78vh;}
+.lfilter{padding:8px;border-bottom:1px solid var(--border);display:flex;gap:6px;}
+.lfilter input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
+.lfilter select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px;color:var(--t1);font:12px 'Barlow',sans-serif;}
+.levents{overflow-y:auto;flex:1;}
+.ev{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:10px;align-items:baseline;}
+.ev:hover{background:var(--hover);}
+.ev.on{background:var(--accent-bg);border-left:3px solid var(--accent);}
+.ev.edited::after{content:"●";color:var(--orange);margin-left:auto;font-size:10px;}
+.ev-t{font:700 11px 'Barlow Condensed',sans-serif;color:var(--accent);min-width:74px;}
+.ev-c{font:600 12px 'Barlow',sans-serif;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ev-p{font-size:11px;color:var(--t2);}
+
+/* editor panel */
+.epanel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:14px;}
+.epanel.empty{color:var(--t3);font-size:13px;text-align:center;padding:26px;}
+.ep-code{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.ep-meta{font-size:12px;color:var(--t2);margin:3px 0 12px;}
+.ep-lbl{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin:10px 0 6px;}
+.nudge{display:flex;gap:6px;flex-wrap:wrap;}
+.nudge button{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;padding:8px 10px;cursor:pointer;}
+.nudge button:hover{border-color:var(--accent);color:var(--accent);}
+.setnow{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;flex:1;}
+.ep-times{display:flex;gap:16px;font:700 12px 'Barlow Condensed',sans-serif;margin:8px 0;}
+.ep-times b{color:var(--accent);}
+.bar{display:flex;gap:8px;margin-top:14px;}
+.bar button{flex:1;padding:9px;border-radius:7px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);}
+.save{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;}
+.save:disabled{opacity:.4;cursor:default;}
+.status{font-size:12px;margin-top:10px;min-height:16px;}
+.status.ok{color:var(--green);} .status.err{color:var(--red);}
+.load-st{text-align:center;padding:60px;color:var(--t3);}
+.spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">COHESION</a>
+  <span class="tag">CODE ROOM</span>
+  <div class="hdr-s"></div>
+  <a href="library.html" class="hdr-btn">← Library</a>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="title">Code Room <span style="font-size:13px;color:var(--t3);">· Edit Mode</span></div>
+  <div class="sub">Fix event timing against the video. Select an event, scrub to the true moment, and set it. Every change is a single save you can undo.</div>
+
+  <!-- SETUP -->
+  <div class="setup" id="setup">
+    <label>Select a game to edit</label>
+    <input type="text" id="gsearch" placeholder="Search by team, date, competition…" oninput="filterGames()" autocomplete="off">
+    <div class="drop" id="gdrop"></div>
+    <div class="status" id="setupStatus"></div>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editor" style="display:none;">
+    <div class="sub" id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);"></div>
+    <div class="grid">
+      <div>
+        <div class="vwrap">
+          <div class="vid" id="vid"></div>
+          <div class="vbar">
+            <button class="vbtn" onclick="vseek(-5)">« 5s</button>
+            <button class="vbtn" onclick="vseek(-1)">‹ 1s</button>
+            <button class="vbtn" onclick="vtoggle()" id="playBtn">Play</button>
+            <button class="vbtn" onclick="vseek(1)">1s ›</button>
+            <button class="vbtn" onclick="vseek(5)">5s »</button>
+            <button class="vbtn" onclick="vrate(0.5)">0.5×</button>
+            <button class="vbtn" onclick="vrate(1)">1×</button>
+            <span class="vtime" id="vtime">0:00</span>
+          </div>
+        </div>
+        <div class="epanel empty" id="epanel">Select an event from the list to edit its timing.</div>
+      </div>
+
+      <div class="list">
+        <div class="lfilter">
+          <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
+          <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
+        </div>
+        <div class="levents" id="levents"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading" class="load-st" style="display:none;"><div class="spin"></div>Loading game…</div>
+</div>
+
+<script>
+if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+if(sessionStorage.getItem('cohesion_auth') !== 'admin'){ document.body.innerHTML='<div style="padding:60px;text-align:center;font-family:Barlow,sans-serif;">Code Room is for admins/analysts only.</div>'; }
+function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
+const SUPABASE_URL='https://uycptgjngtoxuawnsdzi.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
+const _sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+function initTheme(){const t=localStorage.getItem('cohesion_theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.getElementById('themeToggle').textContent=t==='dark'?'☀️':'🌙';}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme'),n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('cohesion_theme',n);document.getElementById('themeToggle').textContent=n==='dark'?'☀️':'🌙';}
+initTheme();
+
+let GAMES=[], GAME=null, EVENTS=[], YTP=null, activeId=null, undoStack=[], rafId=null;
+
+// ── game picker ───────────────────────────────────────────────
+async function loadGames(){
+  try{
+    const {data,error}=await _sb.from('games').select('id, meta').order('created_at',{ascending:false});
+    if(error) throw error;
+    GAMES=(data||[]).map(r=>{let m=r.meta; if(typeof m==='string'){try{m=JSON.parse(m);}catch(_){return null;}} return m;}).filter(g=>g&&g.id);
+  }catch(e){ document.getElementById('setupStatus').innerHTML='<span class="err">Could not load games: '+e.message+'</span>'; }
+}
+function filterGames(){
+  const q=document.getElementById('gsearch').value.toLowerCase().trim();
+  const drop=document.getElementById('gdrop');
+  if(!q){drop.style.display='none';return;}
+  const hits=GAMES.filter(g=>[g.id,g.title,g.homeTeam,g.awayTeam,g.competition,g.date].filter(Boolean).join(' ').toLowerCase().includes(q)).slice(0,12);
+  drop.innerHTML=hits.map(g=>`<div class="row" onclick="openGame('${g.id.replace(/'/g,"\\'")}')">${(g.title||g.id)} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></div>`).join('')||'<div class="row" style="color:var(--t3);cursor:default">No matches</div>';
+  drop.style.display='';
+}
+
+async function openGame(id){
+  const g=GAMES.find(x=>x.id===id); if(!g) return;
+  GAME=g;
+  document.getElementById('setup').style.display='none';
+  document.getElementById('loading').style.display='';
+  try{
+    const {data,error}=await _sb.from('events').select('id, data').eq('game_id',id);
+    if(error) throw error;
+    EVENTS=(data||[]).map(r=>({...r.data,_rowId:r.id}));
+    EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  }catch(e){
+    document.getElementById('loading').innerHTML='Could not load events: '+e.message; return;
+  }
+  document.getElementById('loading').style.display='none';
+  document.getElementById('editor').style.display='';
+  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  // period filter options
+  const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))];
+  const sel=document.getElementById('eperiod');
+  sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join('');
+  buildPlayer();
+  renderList();
+}
+
+// ── video ─────────────────────────────────────────────────────
+function ytId(){ const u=GAME.youtubeId||''; return u; }
+function buildPlayer(){
+  const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock}}); };
+  if(window.YT&&window.YT.Player) boot();
+  else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
+}
+function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=YTP.getCurrentTime()||0; document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
+function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
+function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
+function vrate(r){ if(YTP&&YTP.setPlaybackRate) YTP.setPlaybackRate(r); }
+function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; }
+
+// ── event list ────────────────────────────────────────────────
+function renderList(){
+  const q=document.getElementById('efilter').value.toLowerCase().trim();
+  const per=document.getElementById('eperiod').value;
+  const wrap=document.getElementById('levents');
+  const rows=EVENTS.filter(e=>{
+    if(per&&e.half!==per) return false;
+    if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  wrap.innerHTML=rows.map(e=>{
+    const cls=[e._rowId===activeId?'on':'', e._edited?'edited':''].filter(Boolean).join(' ');
+    return `<div class="ev ${cls}" onclick="pick(${e._rowId})">
+      <span class="ev-t">${fmt(e.driveT||0)}</span>
+      <span class="ev-c">${e.code||'—'}${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
+    </div>`;
+  }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
+}
+
+function pick(rowId){
+  const e=EVENTS.find(x=>x._rowId===rowId); if(!e)return;
+  activeId=rowId;
+  if(YTP&&YTP.seekTo){ YTP.seekTo(Math.max(0,(e.driveT||0)),true); YTP.playVideo(); }
+  renderList(); renderPanel();
+}
+
+function renderPanel(){
+  const e=EVENTS.find(x=>x._rowId===activeId);
+  const p=document.getElementById('epanel');
+  if(!e){ p.className='epanel empty'; p.textContent='Select an event.'; return; }
+  p.className='epanel';
+  const meta=[e.half,e.team,e.outcome].filter(Boolean).join(' · ');
+  p.innerHTML=`
+    <div class="ep-code">${e.code||'—'}</div>
+    <div class="ep-meta">${meta||''}${e.player?` · <b style="color:var(--accent)">${e.player}</b>`:''}</div>
+    <div class="ep-times">
+      <div>Video position: <b id="epNow">${fmt(e.driveT||0)}</b></div>
+      <div>Game clock: ${e.gameTime||'—'}</div>
+    </div>
+    <div class="ep-lbl">Nudge timing</div>
+    <div class="nudge">
+      <button onclick="nudge(-5)">−5s</button>
+      <button onclick="nudge(-1)">−1s</button>
+      <button onclick="nudge(1)">+1s</button>
+      <button onclick="nudge(5)">+5s</button>
+    </div>
+    <div class="ep-lbl">Or align to the video</div>
+    <div class="nudge"><button class="setnow" onclick="setNow()">⏱ Set to current video moment</button></div>
+    <div class="bar">
+      <button class="save" id="saveBtn" onclick="saveEvent()" disabled>Save</button>
+      <button onclick="undo()" ${undoStack.length?'':'disabled'}>↶ Undo</button>
+    </div>
+    <div class="status" id="epStatus"></div>`;
+  refreshSave();
+}
+
+let pendingDriveT=null;
+function nudge(d){ const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return; pendingDriveT=Math.max(0,(pendingDriveT??e.driveT??0)+d); previewSet(); }
+function setNow(){ if(!YTP||!YTP.getCurrentTime)return; pendingDriveT=Math.max(0,Math.round(YTP.getCurrentTime())); previewSet(); }
+function previewSet(){
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return;
+  document.getElementById('epNow').innerHTML=`${fmt(pendingDriveT)} <span style="color:var(--orange)">(was ${fmt(e.driveT||0)})</span>`;
+  if(YTP&&YTP.seekTo) YTP.seekTo(pendingDriveT,true);
+  refreshSave();
+}
+function refreshSave(){
+  const e=EVENTS.find(x=>x._rowId===activeId); const btn=document.getElementById('saveBtn');
+  if(btn) btn.disabled=(pendingDriveT===null||pendingDriveT===(e&&e.driveT));
+}
+
+async function saveEvent(){
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||pendingDriveT===null)return;
+  const st=document.getElementById('epStatus'); st.className='status'; st.textContent='Saving…';
+  const prev=e.driveT;
+  const updated={...e,driveT:pendingDriveT}; delete updated._rowId; delete updated._edited;
+  const {error}=await _sb.from('events').update({data:updated}).eq('id',e._rowId);
+  if(error){ st.className='status err'; st.textContent='Save failed: '+error.message; return; }
+  undoStack.push({rowId:e._rowId,driveT:prev});
+  e.driveT=pendingDriveT; e._edited=true; pendingDriveT=null;
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  st.className='status ok'; st.textContent='Saved ✓';
+  renderList(); renderPanel();
+}
+
+async function undo(){
+  const last=undoStack.pop(); if(!last)return;
+  const e=EVENTS.find(x=>x._rowId===last.rowId); if(!e)return;
+  const updated={...e,driveT:last.driveT}; delete updated._rowId; delete updated._edited;
+  const {error}=await _sb.from('events').update({data:updated}).eq('id',e._rowId);
+  if(error){ alert('Undo failed: '+error.message); undoStack.push(last); return; }
+  e.driveT=last.driveT; pendingDriveT=null; activeId=e._rowId;
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  renderList(); renderPanel();
+}
+
+loadGames();
+</script>
+</body>
+</html>
