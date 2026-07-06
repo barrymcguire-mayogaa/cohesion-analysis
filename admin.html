@@ -457,14 +457,27 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
     </div>
 
+    <!-- GUIDED SYNC: scrub the video to each throw-in and click Set — fills
+         the time fields below automatically, no typing or clock-reading. -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;">
+      <div style="font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--accent);margin-bottom:6px;">🎯 GUIDED SYNC (RECOMMENDED)</div>
+      <div class="help" style="margin-bottom:10px;">Load the video, scrub to the moment each period throws in, and click <strong>Set</strong>. The fields below fill in automatically — you never need to type a time. Upload your XML first (Step 3) to unlock jump-to-estimate and spot-checks.</div>
+      <button type="button" class="angle-add-btn" id="gsLoadBtn" onclick="gsLoadVideo()">▶ Load video for guided sync</button>
+      <div id="gsPlayerWrap" style="display:none;">
+        <div id="gsPlayer" style="width:100%;max-width:640px;aspect-ratio:16/9;background:#000;border-radius:8px;margin:0 auto 12px;"></div>
+        <div id="gsRows"></div>
+        <div id="gsCheckMsg" style="display:none;font:700 12px 'Barlow Condensed',sans-serif;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);border-radius:7px;padding:8px 12px;margin-top:10px;"></div>
+      </div>
+    </div>
+
     <div class="time-grid">
       <div class="field">
         <label>1st Half Start</label>
-        <input type="text" id="t1" placeholder="00:01:43" maxlength="9">
+        <input type="text" id="t1" oninput="gsRenderRows()" placeholder="00:01:43" maxlength="9">
       </div>
       <div class="field">
         <label>2nd Half Start</label>
-        <input type="text" id="t2" placeholder="00:38:09" maxlength="9">
+        <input type="text" id="t2" oninput="gsRenderRows()" placeholder="00:38:09" maxlength="9">
       </div>
     </div>
 
@@ -476,11 +489,11 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="time-grid">
         <div class="field">
           <label>ET 1st Half Start</label>
-          <input type="text" id="tet1" placeholder="HH:MM:SS" maxlength="9">
+          <input type="text" id="tet1" oninput="gsRenderRows()" placeholder="HH:MM:SS" maxlength="9">
         </div>
         <div class="field">
           <label>ET 2nd Half Start</label>
-          <input type="text" id="tet2" placeholder="HH:MM:SS" maxlength="9">
+          <input type="text" id="tet2" oninput="gsRenderRows()" placeholder="HH:MM:SS" maxlength="9">
         </div>
       </div>
     </div>
@@ -1020,6 +1033,149 @@ function toggleSkipXml(){
   }
 }
 
+// ── GUIDED SYNC ───────────────────────────────────────────────
+// Fills the Step 2 time fields by capturing the embedded player's current
+// time — the user scrubs to each throw-in and clicks Set, never typing a
+// time or reading the XML's clock. processGame() and all validation are
+// untouched: this is purely a front-end for the existing fields.
+let gsYT = null;
+let gsPre = null; // light pre-scan of the selected XML (anchors + samples)
+
+function gsLoadVideo(){
+  const url = document.getElementById('youtubeUrl').value.trim();
+  const id = extractYtId(url);
+  if(!id){ showError('Enter a valid YouTube URL in Step 1 first, then load the video.'); return; }
+  hideError();
+  document.getElementById('gsLoadBtn').style.display = 'none';
+  document.getElementById('gsPlayerWrap').style.display = '';
+  const boot = () => {
+    gsYT = new YT.Player('gsPlayer', {
+      videoId: id,
+      playerVars: { rel:0, modestbranding:1, enablejsapi:1, origin: window.location.origin },
+      events: { onReady: gsRenderRows }
+    });
+  };
+  if(window.YT && window.YT.Player){ boot(); }
+  else {
+    window.onYouTubeIframeAPIReady = boot;
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+  }
+}
+
+// Pre-scan the selected XML so the wizard can estimate where the 2nd half
+// starts on tape and offer per-period spot-checks. Handles ALL_INSTANCES
+// files: Gaelic Insights (NA Whistle role detection — a period-start
+// whistle has a long dead gap before it and play soon after) and
+// GIU/Sportscode (explicit P1 START / "1st Half" markers).
+function gsPreScan(xmlText){
+  gsPre = null;
+  try{
+    if(!xmlText || !xmlText.includes('<ALL_INSTANCES>')) return;
+    const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+    if(doc.querySelector('parsererror')) return;
+    const rows = [];
+    doc.querySelectorAll('instance').forEach(inst=>{
+      const code = (inst.querySelector('code')?.textContent||'').trim();
+      const t = parseFloat(inst.querySelector('start')?.textContent||0);
+      if(code && !isNaN(t)) rows.push({t, code});
+    });
+    rows.sort((a,b)=>a.t-b.t);
+    if(!rows.length) return;
+    const isMarker = c => c==='NA Whistle' || /^P\d START$/.test(c) || /^(?:ET\s)?[12](?:st|nd)\sHalf$/.test(c) || c==='THROW-IN' || c==='Count';
+    const gameplay = rows.filter(r=>!isMarker(r.code));
+    const anchors = {};
+    const p1 = rows.find(r=>r.code==='P1 START'||r.code==='1st Half');
+    const p2 = rows.find(r=>r.code==='P2 START'||r.code==='2nd Half');
+    if(p1) anchors['1H'] = p1.t;
+    if(p2) anchors['2H'] = p2.t;
+    const whistles = [...new Set(rows.filter(r=>r.code==='NA Whistle').map(r=>r.t))].sort((a,b)=>a-b);
+    if(whistles.length && anchors['1H']===undefined){
+      anchors['1H'] = whistles[0];
+      const firstAfter = t => { const g = gameplay.find(x=>x.t>=t); return g?g.t:null; };
+      const gapBefore = t => { let p=null; for(const g of gameplay){ if(g.t<t)p=g.t; else break; } return p===null?Infinity:t-p; };
+      const starts = whistles.slice(1).filter(w=>{ const fa=firstAfter(w); return fa!==null && fa-w<=300 && gapBefore(w)>=240; });
+      if(starts[0]!==undefined) anchors['2H'] = starts[0];
+      if(starts[1]!==undefined) anchors['ET1'] = starts[1];
+      if(starts[2]!==undefined) anchors['ET2'] = starts[2];
+    }
+    if(anchors['1H']===undefined) return;
+    // Last activity before the 2H anchor = end of 1H play. Drives the 2H
+    // estimate correctly even when the video has halftime edited out.
+    let endOf1H = null;
+    if(anchors['2H']!==undefined){
+      for(const r of rows){ if(r.t < anchors['2H']) endOf1H = r.t; else break; }
+    }
+    const samples = {};
+    Object.entries(anchors).forEach(([p, a])=>{
+      const s = gameplay.find(g=>g.t >= a+45);
+      if(s) samples[p] = s;
+    });
+    gsPre = { anchors, endOf1H, samples };
+  }catch(e){ gsPre = null; }
+}
+
+const GS_PERIODS = [
+  { key:'1H',  label:'1st Half', inputId:'t1' },
+  { key:'2H',  label:'2nd Half', inputId:'t2' },
+  { key:'ET1', label:'ET 1st',   inputId:'tet1', et:true },
+  { key:'ET2', label:'ET 2nd',   inputId:'tet2', et:true },
+];
+
+function gsRenderRows(){
+  const wrap = document.getElementById('gsRows');
+  if(!wrap || document.getElementById('gsPlayerWrap').style.display==='none') return;
+  const hasET = document.getElementById('etCheck').checked;
+  wrap.innerHTML = GS_PERIODS.filter(p=>!p.et||hasET).map(p=>{
+    const val = document.getElementById(p.inputId)?.value.trim() || '';
+    const captured = val ? `<span style="color:var(--green);font-weight:700;">${val} ✓</span>` : `<span style="color:var(--t3);">not set</span>`;
+    const canEstimate = p.key==='2H' && gsPre && gsPre.endOf1H!==null && (document.getElementById('t1')?.value.trim()||'') !== '';
+    const canCheck = gsPre && gsPre.samples[p.key] && gsPre.anchors[p.key]!==undefined && val !== '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <div style="font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;min-width:64px;">${p.label}</div>
+      <div style="min-width:110px;font-size:12px;">${captured}</div>
+      ${canEstimate?`<button type="button" class="angle-add-btn" style="width:auto;margin:0;padding:6px 10px;" onclick="gsJumpEstimate()">↷ Jump near 2H start</button>`:''}
+      <button type="button" class="angle-add-btn" style="width:auto;margin:0;padding:6px 10px;border-color:var(--accent);color:var(--accent);" onclick="gsSet('${p.inputId}')">⏱ Set to current video moment</button>
+      ${canCheck?`<button type="button" class="angle-add-btn" style="width:auto;margin:0;padding:6px 10px;" onclick="gsCheck('${p.key}','${p.inputId}')">✓ Spot-check an event</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function gsSet(inputId){
+  if(!gsYT || !gsYT.getCurrentTime){ showError('Load the video first.'); return; }
+  hideError();
+  const input = document.getElementById(inputId);
+  if(input) input.value = secsToHHMMSSInput(gsYT.getCurrentTime());
+  gsRenderRows();
+}
+
+function gsJumpEstimate(){
+  if(!gsYT || !gsPre || gsPre.endOf1H===null) return;
+  const t1 = parseTime(document.getElementById('t1').value.trim());
+  if(t1===null){ showError('Set the 1st Half start first.'); return; }
+  hideError();
+  // If the video has the halftime break edited out, the 2nd half begins
+  // right where 1st-half play ends on tape — land just after that point
+  // and let the user nudge to the exact throw-in.
+  const est = t1 + (gsPre.endOf1H - gsPre.anchors['1H']) + 15;
+  gsYT.seekTo(Math.max(0, est), true);
+  gsYT.playVideo();
+}
+
+function gsCheck(periodKey, inputId){
+  if(!gsYT || !gsPre) return;
+  const captured = parseTime(document.getElementById(inputId).value.trim());
+  const sample = gsPre.samples[periodKey];
+  const anchor = gsPre.anchors[periodKey];
+  if(captured===null || !sample || anchor===undefined) return;
+  gsYT.seekTo(Math.max(0, captured + (sample.t - anchor) - 2), true);
+  gsYT.playVideo();
+  const msg = document.getElementById('gsCheckMsg');
+  msg.style.display = '';
+  msg.textContent = `You should now be watching: ${sample.code}. If the video shows something else, re-set this period's start time.`;
+}
+
 // ── Theme ─────────────────────────────────────────────────────
 function initTheme(){
   const t = localStorage.getItem('cohesion_theme')||'dark';
@@ -1040,6 +1196,7 @@ function toggleET(){
   const show = document.getElementById('etCheck').checked;
   document.getElementById('etFields').classList.toggle('show', show);
   renderAdminAngles();
+  gsRenderRows();
 }
 
 // ── Admin angle management ────────────────────────────────────
@@ -1140,6 +1297,10 @@ async function setFile(f){
     badge.textContent = '🎬 Sportscode / GIU / Gaelic Insights XML';
     badge.style.display = 'inline-flex';
     gtData = null;
+    // Pre-scan the XML for the Guided Sync wizard (period anchors,
+    // 2H-start estimate, spot-check samples). Failure is harmless — the
+    // wizard simply works without assists.
+    try { gsPreScan(await f.text()); gsRenderRows(); } catch(_){ gsPre = null; }
   }
 }
 
