@@ -97,6 +97,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-config.js"></script>
 </head>
 <body>
 <header>
@@ -325,12 +326,23 @@ function renderPanel(){
   p.className='epanel'; p.style.display='';
   document.getElementById('addPanel').style.display='none';
   const drift=draft.driveT!==(e.driveT||0)?` <span style="color:var(--orange)">(was ${fmt(e.driveT||0)})</span>`:'';
-  const labelRows=draft.groups.map((row,i)=>`
+  // Defined custom groups (from cohesion-config.js) applicable to this code
+  // render as dropdowns of valid options; everything else stays free-text.
+  const defined=(window.cohesionGroupsFor?window.cohesionGroupsFor(draft.code):[]);
+  const definedNames=new Set(defined.map(d=>d.name.toLowerCase()));
+  const curMap={}; draft.groups.forEach(({g,v})=>{curMap[g.toLowerCase()]=v;});
+  const definedRows=defined.map(d=>{
+    const val=curMap[d.name.toLowerCase()]||'';
+    const opts=['<option value="">— select —</option>'].concat(d.options.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
+    return `<div class="lblrow"><span class="g" title="${esc(d.name)}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`;
+  }).join('');
+  const freeRows=draft.groups.map((row,i)=>({row,i})).filter(o=>!definedNames.has(o.row.g.toLowerCase())).map(({row,i})=>`
     <div class="lblrow">
       <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
       <input value="${esc(row.v)}" oninput="setLabelIdx(${i},this.value)">
       <span class="x" onclick="removeLabelIdx(${i})" title="Remove label">✕</span>
     </div>`).join('');
+  const labelRows=definedRows+freeRows;
   p.innerHTML=`
     <div class="ep-meta">${e.half||''} · Game clock ${e.gameTime||'—'}</div>
     <div class="ep-lbl">Event code</div>
@@ -362,6 +374,14 @@ function setNow(){ if(!draft||!YTP||!YTP.getCurrentTime)return; draft.driveT=Mat
 function setDraftCode(v){ if(draft){ draft.code=v; refreshSave(); } }
 function setDraftPlayer(v){ if(draft){ draft.player=v; refreshSave(); } }
 function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
+function setDefinedLabel(name,value){
+  if(!draft)return;
+  const idx=draft.groups.findIndex(x=>x.g.toLowerCase()===name.toLowerCase());
+  if(value===''){ if(idx>=0) draft.groups.splice(idx,1); }
+  else if(idx>=0) draft.groups[idx].v=value;
+  else draft.groups.push({g:name,v:value});
+  refreshSave(); renderPanel();
+}
 function removeLabelIdx(i){ if(draft){ draft.groups.splice(i,1); renderPanel(); } }
 function addLabelGroup(){ const name=(prompt('Label group name (e.g. Shooting Leg):')||'').trim(); if(!name||!draft)return; draft.groups.push({g:name,v:''}); renderPanel(); }
 function refreshSave(){ const b=document.getElementById('saveBtn'); if(b) b.disabled=!isDirty(); }

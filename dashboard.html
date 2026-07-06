@@ -183,6 +183,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-config.js"></script>
 </head>
 <body>
 <header>
@@ -438,7 +439,7 @@ function buildHTML(H,A){
       </div>
       <canvas id="tlC" height="70"></canvas>
     </div>
-    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div>${isAdmin?`<div class="np-tag-btn" id="NPTagBtn" style="display:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-top:6px;" onclick="openPlayerTagEditor()">✏️ Assign Player</div>`:''}</div>
+    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div>${isAdmin?`<div class="np-tag-btn" id="NPTagBtn" style="display:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-top:6px;" onclick="openPlayerTagEditor()">✏️ Assign Player</div><div id="NPCustom" style="display:none;margin-top:8px;"></div>`:''}</div>
     <div class="idle" id="IB"><div class="idle-icon">▶</div><div class="idle-text">Click any event to jump to that moment.<br><br><strong>S M L Xl</strong> — resize player<br><strong>Drag handle</strong> — custom resize<br><strong>Timeline</strong> — click to seek · scroll to zoom</div></div>
     <div class="nearby" id="NB" style="display:none"><div class="nb-lbl">Nearby Events</div><div id="NBI"></div></div>
   </div>`;
@@ -658,7 +659,7 @@ function pickI(id){
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
   document.getElementById('IB').style.display='none';
   document.getElementById('NB').style.display='block';
-  if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block';}
+  if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block'; renderCustomTags(ev);}
   const ai=ALL.findIndex(e=>e.id===id);
   const nb=ALL.slice(Math.max(0,ai-6),ai+7).filter(e=>e.id!==id);
   document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player?' · '+r.player:''}</div></div>`).join('');
@@ -693,6 +694,34 @@ async function savePlayerTag(ev,name){
   ev.labels=updatedLabels;
   document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
   renderP();
+}
+
+// Quick-tag custom label groups (Shooting Leg, Shot Side, …) beside Assign
+// Player. Admin only. Options come from cohesion-config.js; the values write
+// into the event's own labels, so they immediately become filters in the
+// LABELS tab (which builds its groups dynamically from ev.labels).
+function renderCustomTags(ev){
+  const wrap=document.getElementById('NPCustom'); if(!wrap)return;
+  const groups=(window.cohesionGroupsFor?window.cohesionGroupsFor(ev.code):[]);
+  if(!groups.length){ wrap.style.display='none'; wrap.innerHTML=''; return; }
+  wrap.style.display='block';
+  wrap.innerHTML=groups.map(g=>{
+    const val=(ev.labels&&ev.labels[g.name])||'';
+    const opts=[`<option value="">${g.name}…</option>`].concat(g.options.map(o=>`<option${o===val?' selected':''}>${o}</option>`)).join('');
+    return `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
+      <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;min-width:82px;">${g.name}</span>
+      <select data-group="${g.name}" onchange="saveCustomTag(${ev._rowId},this.dataset.group,this.value)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
+    </div>`;
+  }).join('');
+}
+async function saveCustomTag(rowId,group,value){
+  const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
+  const labels={...(ev.labels||{})};
+  if(value==='') delete labels[group]; else labels[group]=value;
+  const updated={...ev,labels}; delete updated._rowId;
+  const{error}=await _sb.from('events').update({data:updated}).eq('id',ev._rowId);
+  if(error){ alert('Failed to save '+group+': '+error.message); return; }
+  ev.labels=labels;
 }
 const HH=[315,400,520,700];
 function setH(h){
