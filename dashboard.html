@@ -679,11 +679,18 @@ function openPlayerTagEditor(){
 }
 async function savePlayerTag(ev,name){
   if(!ev._rowId){alert('Could not save — missing event reference.');return;}
-  const updatedData={...ev,player:name};
+  // Player assignments live in their own dedicated label group
+  // ("<TEAM> Player Labels") as well as the display field — never sharing
+  // a slot with any other label, so assigning a player can't destroy
+  // existing event information.
+  const playerGroup=`${(ev.team||'').trim()||'Unassigned'} Player Labels`;
+  const updatedLabels={...(ev.labels||{}),[playerGroup]:name};
+  const updatedData={...ev,player:name,labels:updatedLabels};
   delete updatedData._rowId;
   const{error}=await _sb.from('events').update({data:updatedData}).eq('id',ev._rowId);
   if(error){alert('Failed to save player name: '+error.message);return;}
   ev.player=name;
+  ev.labels=updatedLabels;
   document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
   renderP();
 }

@@ -2104,15 +2104,29 @@ async function processGame(){
           const offset = offsets[half]||0;
           const driveT = Math.max(0, Math.round(start+offset)-2);
           const team = labels['Team Name'] || (code.includes(homeTeam.toUpperCase())?homeTeam.toUpperCase(): code.includes(awayTeam.toUpperCase())?awayTeam.toUpperCase():'');
-          const player = labels['Mayo Player Labels'] || labels['NO_GROUP'] || '';
+          // Player must come ONLY from a dedicated "<Team> Player Labels"
+          // group. Previously this fell back to NO_GROUP, which shoved any
+          // ungrouped label (e.g. "Armagh Clean") into the player field —
+          // and assigning a real player later overwrote it, permanently
+          // losing the original label since it was stored nowhere else.
+          const playerGroupKey = Object.keys(labels).find(k => /player labels$/i.test(k));
+          const player = playerGroupKey ? labels[playerGroupKey] : '';
           const outcome = labels['Shot Outcomes']||labels['Game Involvement Outcomes']||labels['Kickout Outcomes']||labels['Turnover Outcomes']||labels['Tackle Outcomes']||'';
           const subtype = labels['Deadball Shot Type']||labels['Shot Zones']||labels['Kickout Locations']||'';
+          // Keep EVERY label group on the event (ungrouped values under
+          // 'General') so nothing is lost and the dashboard LABELS tab can
+          // filter on all of them. Team Name is excluded (promoted to team).
+          const keptLabels = {};
+          Object.entries(labels).forEach(([g, v]) => {
+            if(g === 'Team Name') return;
+            keptLabels[g === 'NO_GROUP' ? 'General' : g] = v;
+          });
           events.push({
             id: inst.querySelector('ID')?.textContent?.trim()||String(events.length+1),
             start:Math.round(start), end:Math.round(end),
             half, gameTime:getGameTime(half,start,xmlRefs),
             code, team, player, outcome, subtype,
-            category:getCategory(code), driveT,
+            category:getCategory(code), driveT, labels: keptLabels,
           });
         });
       }
