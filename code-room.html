@@ -346,7 +346,7 @@ function renderPanel(){
   p.innerHTML=`
     <div class="ep-meta">${e.half||''} · Game clock ${e.gameTime||'—'}</div>
     <div class="ep-lbl">Event code</div>
-    <input list="codeList" value="${esc(draft.code)}" oninput="setDraftCode(this.value)" autocomplete="off">
+    <input list="codeList" value="${esc(draft.code)}" oninput="setDraftCode(this.value)" onchange="renderPanel()" autocomplete="off">
     <div class="ep-lbl">Player</div>
     <input list="playerList" value="${esc(draft.player)}" oninput="setDraftPlayer(this.value)" placeholder="(none)" autocomplete="off">
     <div class="ep-lbl">Video position — <b id="epNow" style="color:var(--accent)">${fmt(draft.driveT)}</b>${drift}</div>
