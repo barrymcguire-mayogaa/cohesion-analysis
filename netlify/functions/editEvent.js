@@ -56,7 +56,40 @@ exports.handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
     }
 
-    // ── Perform the operation (service role bypasses RLS) ────────────────
+    // ── Batch: apply many ops in one authenticated call ─────────────────
+    // Each op echoes back a `ref` (the caller's temp id / index) so the
+    // client can reconcile inserts (temp id -> real new id). Ops are applied
+    // independently; a failed op is reported without aborting the rest.
+    if (Array.isArray(body.ops)) {
+      const results = [];
+      for (const op of body.ops) {
+        try {
+          if (op.action === 'update') {
+            if (op.id == null || typeof op.data !== 'object') throw new Error('update needs id and data');
+            const { error } = await supabase.from('events').update({ data: op.data }).eq('id', op.id);
+            if (error) throw new Error(error.message);
+            results.push({ ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id });
+          } else if (op.action === 'insert') {
+            if (!op.game_id || typeof op.data !== 'object') throw new Error('insert needs game_id and data');
+            const { data: row, error } = await supabase.from('events').insert({ game_id: op.game_id, data: op.data }).select('id').single();
+            if (error) throw new Error(error.message);
+            results.push({ ref: op.ref, ok: true, id: row.id });
+          } else if (op.action === 'delete') {
+            if (op.id == null) throw new Error('delete needs id');
+            const { error } = await supabase.from('events').delete().eq('id', op.id);
+            if (error) throw new Error(error.message);
+            results.push({ ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id });
+          } else {
+            throw new Error('bad action: ' + op.action);
+          }
+        } catch (e) {
+          results.push({ ref: op.ref, ok: false, error: e.message });
+        }
+      }
+      return { statusCode: 200, body: JSON.stringify({ ok: results.every(r => r.ok), results }) };
+    }
+
+    // ── Single op (service role bypasses RLS) ───────────────────────────
     if (action === 'update') {
       if (id == null || typeof data !== 'object') {
         return { statusCode: 400, body: JSON.stringify({ error: 'update needs id and data' }) };

@@ -101,15 +101,16 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="cohesion-edit.js"></script>
 </head>
 <body>
 <header>
-  <a href="library.html" class="logo">COHESION</a>
+  <a href="library.html" class="logo" onclick="return cohGo('library.html')">COHESION</a>
   <span class="tag">CODE ROOM</span>
   <div class="hdr-s"></div>
-  <a href="library.html" class="hdr-btn">← Library</a>
+  <a href="library.html" class="hdr-btn" onclick="return cohGo('library.html')">← Library</a>
   <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
-  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+  <div class="hdr-btn" onclick="cohGo(logout)">Sign Out</div>
 </header>
 
 <div class="page">
@@ -126,7 +127,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
   <!-- EDITOR -->
   <div id="editor" style="display:none;">
-    <div class="sub" id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+      <div id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);flex:1;"></div>
+      <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
+    </div>
     <div class="grid">
       <div>
         <div class="vwrap" id="vwrap">
@@ -187,24 +191,11 @@ function toggleTheme(){const c=document.documentElement.getAttribute('data-theme
 initTheme();
 
 let GAMES=[], GAME=null, EVENTS=[], YTP=null, activeId=null, undoStack=[], rafId=null;
+let crDeleted=[], crTmpCounter=0;   // queued deletes (existing rows) + temp-id counter for new events
 
-// Event writes go through the service-role Netlify function — the events
-// table's RLS blocks anon browser writes silently (0 rows, no error), so
-// direct _sb writes never persisted. Same admin-token model as uploads.
-async function _authToken(){
-  const cu=(window.netlifyIdentity&&((netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser&&netlifyIdentity.gotrue.currentUser())||(netlifyIdentity.currentUser&&netlifyIdentity.currentUser())))||null;
-  let token=cu&&cu.token&&cu.token.access_token;
-  if(!token&&window.netlifyIdentity&&netlifyIdentity.refresh){ try{ await netlifyIdentity.refresh(); const u2=netlifyIdentity.gotrue.currentUser(); token=u2&&u2.token&&u2.token.access_token; }catch(_){ } }
-  return token;
-}
-async function eventWrite(payload){
-  const token=await _authToken();
-  if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
-  const res=await fetch('/.netlify/functions/editEvent',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
-  const j=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
-  return j;
-}
+// Writes go through cohesion-edit.js (cohesionEventBatch → service-role
+// editEvent) — RLS blocks anon browser writes silently, so all persistence
+// is batched through the admin-authenticated function.
 
 // ── game picker ───────────────────────────────────────────────
 async function loadGames(){
@@ -229,6 +220,7 @@ function filterGames(){
 async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -241,7 +233,8 @@ async function openGame(id){
   }
   document.getElementById('loading').style.display='none';
   document.getElementById('editor').style.display='';
-  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  // Offer to restore any unsaved changes from a previous session on this game.
+  await crRestoreBackup();
   // period filter options
   const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))];
   const sel=document.getElementById('eperiod');
@@ -249,6 +242,7 @@ async function openGame(id){
   refreshDatalists();
   buildPlayer();
   initVResize();
+  crUpdatePending();
   renderList();
 }
 // Drag the right edge of the video to make it bigger or smaller. The iframe
@@ -292,8 +286,8 @@ function renderList(){
     return true;
   });
   wrap.innerHTML=rows.map(e=>{
-    const cls=[e._rowId===activeId?'on':'', e._edited?'edited':''].filter(Boolean).join(' ');
-    return `<div class="ev ${cls}" onclick="pick(${e._rowId})">
+    const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
+    return `<div class="ev ${cls}" onclick="pick('${e._rowId}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
       <span class="ev-c">${e.code||'—'}${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
     </div>`;
@@ -332,9 +326,9 @@ let draft=null;
 const isPlayerGroup=g=>/player labels$/i.test(g);
 
 function pick(rowId){
-  const e=EVENTS.find(x=>x._rowId===rowId); if(!e)return;
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId)); if(!e)return;
   closeAdd();
-  activeId=rowId;
+  activeId=e._rowId;
   draft={
     code:e.code||'', player:e.player||'', driveT:e.driveT||0,
     groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v}))
@@ -422,9 +416,9 @@ function removeLabelIdx(i){ if(draft){ draft.groups.splice(i,1); renderPanel(); 
 function addLabelGroup(){ const name=(prompt('Label group name (e.g. Shooting Leg):')||'').trim(); if(!name||!draft)return; draft.groups.push({g:name,v:''}); renderPanel(); }
 function refreshSave(){ const b=document.getElementById('saveBtn'); if(b) b.disabled=!isDirty(); }
 
+// Builds the persistable data for the ACTIVE event from its draft.
 function buildData(e){
   const labels={};
-  // keep Team Name if it existed
   if(e.labels&&e.labels['Team Name']) labels['Team Name']=e.labels['Team Name'];
   draft.groups.forEach(({g,v})=>{ const gg=(g||'').trim(); if(gg&&v!=='') labels[gg]=v; });
   const team=teamFor(draft.code,labels)||e.team||'';
@@ -433,34 +427,106 @@ function buildData(e){
   const sub=firstOf(labels,SUB_KEYS)||e.subtype||'';
   const cat=catOf(draft.code)||e.category||'Other';
   const d={...e,code:draft.code,team,player:draft.player,driveT:draft.driveT,outcome:out,subtype:sub,category:cat,labels};
-  delete d._rowId; delete d._edited; return d;
+  delete d._rowId; delete d._edited; delete d._new; delete d._dirty; return d;
 }
+// Strip client-only flags from any event to get the data to persist.
+function crCleanData(e){ const d={...e}; delete d._rowId; delete d._edited; delete d._new; delete d._dirty; return d; }
+function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 
-async function saveEvent(){
-  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||!isDirty())return;
-  const st=document.getElementById('epStatus'); st.className='status'; st.textContent='Saving…';
-  const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
-  const data=buildData(e);
-  try{ await eventWrite({action:'update',id:e._rowId,data}); }
-  catch(err){ st.className='status err'; st.textContent='Save failed: '+err.message; return; }
-  undoStack.push({op:'restore',rowId:e._rowId,data:before});
-  Object.assign(e,data); e._edited=true;
+// ── Queued editing: changes live in memory + a localStorage backup and are
+//    pushed to the database in ONE call by the persistent save button (or the
+//    leave prompt). Existing rows edited get _dirty; new rows get _new and a
+//    temp _rowId; deleted existing rows go to crDeleted. Nothing hits the DB
+//    until save. ─────────────────────────────────────────────────────────────
+function crHasPending(){ return crDeleted.length>0 || EVENTS.some(e=>e._new||e._dirty); }
+function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length; }
+function crUpdatePending(){
+  const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  const btn=document.getElementById('crSaveBtn'); if(!btn) return;
+  const n=crPendingCount();
+  if(n){ btn.textContent='💾 Close session & save all ('+n+')'; btn.style.background='var(--green)'; btn.style.borderColor='var(--green)'; btn.style.color='#fff'; }
+  else { btn.textContent='← Back to Library'; btn.style.background='var(--card)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--t1)'; }
+}
+function crBackupKey(){ return 'coh_cr_'+(GAME&&GAME.id); }
+function crBackup(){
+  try{
+    const payload={
+      updates: EVENTS.filter(e=>e._dirty&&!e._new).map(e=>({id:e._rowId,data:crCleanData(e)})),
+      inserts: EVENTS.filter(e=>e._new).map(e=>({tmp:e._rowId,data:crCleanData(e)})),
+      deletes: crDeleted.map(d=>d.id)
+    };
+    if(payload.updates.length||payload.inserts.length||payload.deletes.length) localStorage.setItem(crBackupKey(),JSON.stringify(payload));
+    else localStorage.removeItem(crBackupKey());
+  }catch(_){}
+}
+function crClearBackup(){ try{ localStorage.removeItem(crBackupKey()); }catch(_){} }
+async function crRestoreBackup(){
+  let raw; try{ raw=localStorage.getItem(crBackupKey()); }catch(_){ return; }
+  if(!raw) return;
+  let bk; try{ bk=JSON.parse(raw); }catch(_){ crClearBackup(); return; }
+  const n=((bk.updates&&bk.updates.length)||0)+((bk.inserts&&bk.inserts.length)||0)+((bk.deletes&&bk.deletes.length)||0);
+  if(!n){ crClearBackup(); return; }
+  const c=await cohesionModal({title:'Unsaved changes found', message:'You have '+n+' unsaved change(s) from a previous Code Room session on this game. Restore them?', buttons:[{label:'Restore',value:'restore',primary:true},{label:'Discard',value:'discard',danger:true}]});
+  if(c!=='restore'){ crClearBackup(); return; }
+  (bk.updates||[]).forEach(u=>{ const e=EVENTS.find(x=>String(x._rowId)===String(u.id)); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,u.data); e._dirty=true; } });
+  (bk.deletes||[]).forEach(id=>{ const idx=EVENTS.findIndex(x=>String(x._rowId)===String(id)); if(idx>=0){ crDeleted.push({id:EVENTS[idx]._rowId}); EVENTS.splice(idx,1); } });
+  (bk.inserts||[]).forEach(ins=>{ EVENTS.push({...ins.data,_rowId:ins.tmp,_new:true}); });
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  refreshDatalists();
-  st.className='status ok'; st.textContent='Saved ✓';
-  draft=null; pick(e._rowId);
+  crUpdatePending();
 }
 
-async function deleteEvent(){
-  const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return;
-  if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this.`)) return;
-  const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
-  try{ await eventWrite({action:'delete',id:e._rowId}); }
-  catch(err){ alert('Delete failed: '+err.message); return; }
-  undoStack.push({op:'reinsert',data:before});
-  EVENTS=EVENTS.filter(x=>x._rowId!==e._rowId);
+// Push all pending changes in one batch. Throws on any failure (keeps the
+// failed ones queued). No navigation.
+async function crSaveAll(){
+  const ops=[];
+  EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
+  EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
+  crDeleted.forEach(d=>ops.push({action:'delete', id:d.id, ref:'del-'+d.id}));
+  if(!ops.length){ crClearBackup(); return; }
+  const {results}=await cohesionEventBatch(ops);
+  const failed=[];
+  results.forEach(r=>{
+    if(!r.ok){ failed.push(r); return; }
+    if(typeof r.ref==='string' && r.ref.indexOf('del-')===0) return;   // delete: reconciled below
+    const e=EVENTS.find(x=>String(x._rowId)===String(r.ref));
+    if(e){ if(e._new){ e._rowId=r.id; e._new=false; } e._dirty=false; }
+  });
+  crDeleted=crDeleted.filter(d=>{ const r=results.find(x=>x.ref==='del-'+d.id); return !(r&&r.ok); });
+  crBackup(); crUpdatePending();
+  if(failed.length) throw new Error(failed.length+' change(s) failed: '+failed.map(f=>f.error).join('; '));
+  crClearBackup();
+}
+async function saveAllAndClose(){
+  const btn=document.getElementById('crSaveBtn');
+  if(!crHasPending()){ crClearBackup(); window.location.href='library.html'; return; }
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{ await crSaveAll(); }
+  catch(e){ if(btn){ btn.disabled=false; } crUpdatePending(); alert('Some changes could not be saved: '+e.message+'\nYou remain in Code Room; nothing was lost.'); return; }
+  window.location.href='library.html';
+}
+function cohGo(t){ cohesionGuardedGo(t); return false; }
+cohesionSetGuard(crHasPending, crSaveAll);
+
+function saveEvent(){
+  const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!isDirty())return;
+  undoStack.push({type:'edit', snapshot: crClone(e)});
+  const data=buildData(e);
+  Object.assign(e,data);
+  if(!e._new) e._dirty=true;
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending();
+  draft=null; pick(e._rowId);
+  const st=document.getElementById('epStatus'); if(st){ st.className='status ok'; st.textContent='Queued ✓ — saved to Cohesion when you close the session'; }
+}
+
+function deleteEvent(){
+  const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e)return;
+  if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this before closing the session.`)) return;
+  undoStack.push({type:'delete', snapshot: crClone(e), wasNew: !!e._new});
+  if(!e._new) crDeleted.push({id:e._rowId});
+  EVENTS=EVENTS.filter(x=>String(x._rowId)!==String(e._rowId));
   activeId=null; draft=null;
-  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  crBackup(); crUpdatePending();
   renderList(); renderPanel();
 }
 
@@ -476,12 +542,11 @@ function openAdd(){
 }
 function closeAdd(){ document.getElementById('addPanel').style.display='none'; document.getElementById('epanel').style.display=''; }
 
-async function confirmAdd(){
+function confirmAdd(){
   const code=document.getElementById('addCode').value.trim();
   const player=document.getElementById('addPlayer').value.trim();
   const st=document.getElementById('addStatus');
   if(!code){ st.className='status err'; st.textContent='Enter an event code.'; return; }
-  st.className='status'; st.textContent='Adding…';
   const driveT=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
   // Inherit the period of the nearest existing event by video position.
   let half=''; let best=Infinity;
@@ -489,40 +554,33 @@ async function confirmAdd(){
   const labels={};
   const team=teamFor(code,labels);
   if(player) labels[`${team||'Unassigned'} Player Labels`]=player;
-  const data={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
-               player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
-               category:catOf(code)||'Other', driveT, labels, _manual:true };
-  let ins;
-  try{ ins=await eventWrite({action:'insert',game_id:GAME.id,data}); }
-  catch(err){ st.className='status err'; st.textContent='Add failed: '+err.message; return; }
-  const row={...data,_rowId:ins.id,_edited:true};
+  const tmpId='tmp-'+(++crTmpCounter);
+  const row={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
+              player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
+              category:catOf(code)||'Other', driveT, labels, _manual:true, _rowId:tmpId, _new:true };
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  undoStack.push({op:'removeAdded',rowId:ins.id});
-  refreshDatalists();
-  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
-  closeAdd(); pick(ins.id);
+  undoStack.push({type:'add', rowId:tmpId});
+  refreshDatalists(); crBackup(); crUpdatePending();
+  closeAdd(); pick(tmpId);
 }
 
-// ── unified undo ──────────────────────────────────────────────
-async function undo(){
+// ── in-memory undo (no DB write until save) ───────────────────
+function undo(){
   const op=undoStack.pop(); if(!op)return;
-  try{
-    if(op.op==='restore'){
-      await eventWrite({action:'update',id:op.rowId,data:op.data});
-      const e=EVENTS.find(x=>x._rowId===op.rowId); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,op.data); }
-      activeId=op.rowId; draft=null;
-    } else if(op.op==='reinsert'){
-      const ins=await eventWrite({action:'insert',game_id:GAME.id,data:op.data});
-      EVENTS.push({...op.data,_rowId:ins.id,_edited:true}); activeId=ins.id; draft=null;
-    } else if(op.op==='removeAdded'){
-      await eventWrite({action:'delete',id:op.rowId});
-      EVENTS=EVENTS.filter(x=>x._rowId!==op.rowId); activeId=null; draft=null;
-    }
-  }catch(e){ alert('Undo failed: '+e.message); undoStack.push(op); return; }
+  if(op.type==='edit'){
+    const e=EVENTS.find(x=>String(x._rowId)===String(op.snapshot._rowId));
+    if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,op.snapshot); }
+    activeId=op.snapshot._rowId; draft=null;
+  } else if(op.type==='add'){
+    EVENTS=EVENTS.filter(x=>String(x._rowId)!==String(op.rowId)); activeId=null; draft=null;
+  } else if(op.type==='delete'){
+    EVENTS.push(op.snapshot);
+    if(!op.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(op.snapshot._rowId));
+    activeId=op.snapshot._rowId; draft=null;
+  }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  refreshDatalists();
-  document.getElementById('gameLine').textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
+  refreshDatalists(); crBackup(); crUpdatePending();
   renderList();
   if(activeId) pick(activeId); else renderPanel();
 }

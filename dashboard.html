@@ -184,14 +184,16 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="cohesion-edit.js"></script>
 </head>
 <body>
 <header>
-  <a href="library.html" class="back-btn">← Library</a>
+  <a href="library.html" class="back-btn" onclick="return cohGo('library.html')">← Library</a>
   <div class="game-title" id="GT">Loading…</div>
   <div class="hdr-actions">
+    <span id="dashUnsaved" style="display:none;font:700 11px 'Barlow Condensed',sans-serif;color:var(--orange,#ff9800);letter-spacing:.5px;align-self:center;"></span>
     <div class="hdr-btn round" onclick="toggleTheme()" id="TH">☀️</div>
-    <div class="hdr-btn" onclick="logout()">Sign Out</div>
+    <div class="hdr-btn" onclick="cohGo(logout)">Sign Out</div>
   </div>
 </header>
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
@@ -332,6 +334,7 @@ async function loadGame(){
     // (re-parse, roster save, dedup) scrambles it. Sort into watch order
     // explicitly; nearby-event navigation in pickI() also relies on this.
     ALL.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+    if(typeof dashRestoreBackup==='function'){ try{ await dashRestoreBackup(); }catch(_){} }
     buildPTM();init();
   }catch(e){
     document.getElementById('MA').innerHTML='<div class="load-st" style="text-align:center;padding:60px;color:var(--t3)"><div style="font-size:16px;color:var(--t2);margin-bottom:8px">Could not load match data</div><div style="font-size:12px">'+e.message+'</div></div>';
@@ -678,48 +681,63 @@ function openPlayerTagEditor(){
   if(!trimmed||trimmed===currentName)return;
   savePlayerTag(ev,trimmed);
 }
-// Event writes MUST go through the service-role Netlify function: the
-// events table has RLS enabled and blocks anon browser writes SILENTLY
-// (update returns 0 rows, no error), so direct _sb writes looked like they
-// saved but never persisted. This routes through editEvent with the admin
-// Netlify Identity token, matching how uploads already persist.
-async function _authToken(){
-  const cu=(window.netlifyIdentity&&((netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser&&netlifyIdentity.gotrue.currentUser())||(netlifyIdentity.currentUser&&netlifyIdentity.currentUser())))||null;
-  let token=cu&&cu.token&&cu.token.access_token;
-  if(!token&&window.netlifyIdentity&&netlifyIdentity.refresh){ try{ await netlifyIdentity.refresh(); const u2=netlifyIdentity.gotrue.currentUser(); token=u2&&u2.token&&u2.token.access_token; }catch(_){ } }
-  return token;
+// Dashboard tag edits are BATCHED: each change updates the event in memory
+// and a localStorage backup, then all changes push to the database in ONE
+// authenticated call when the user leaves (the Save & leave prompt). Nothing
+// is written per-keystroke. (Direct browser writes are blocked by RLS and
+// fail silently anyway; batching goes through the service-role editEvent.)
+let dashPending = new Map();               // rowId -> full event data to persist
+function dashBackupKey(){ return 'coh_dash_'+gameId; }
+function dashCleanEv(ev){ const d={...ev}; delete d._rowId; return d; }
+function dashPersistBackup(){
+  try{
+    if(dashPending.size) localStorage.setItem(dashBackupKey(), JSON.stringify(Object.fromEntries(dashPending)));
+    else localStorage.removeItem(dashBackupKey());
+  }catch(_){}
 }
-async function eventWrite(payload){
-  const token=await _authToken();
-  if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
-  const res=await fetch('/.netlify/functions/editEvent',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
-  const j=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
-  return j;
+function updateDashUnsaved(){
+  const el=document.getElementById('dashUnsaved'); if(!el) return;
+  const n=dashPending.size;
+  el.style.display = n ? '' : 'none';
+  el.textContent = n ? ('● '+n+' unsaved') : '';
 }
-function flashSaved(msg){
-  let el=document.getElementById('cohSaved');
-  if(!el){ el=document.createElement('div'); el.id='cohSaved'; el.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2a9d54;color:#fff;padding:9px 18px;border-radius:9px;font:700 12px Barlow,sans-serif;letter-spacing:.3px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .3s;'; document.body.appendChild(el); }
-  el.textContent='✓ '+msg; el.style.opacity='1';
-  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity='0';},1500);
+function queueEventEdit(ev){ dashPending.set(ev._rowId, dashCleanEv(ev)); dashPersistBackup(); updateDashUnsaved(); }
+async function saveAllDash(){
+  if(!dashPending.size) return;
+  const ops=[...dashPending.entries()].map(([id,data])=>({action:'update',id,data,ref:id}));
+  const { results } = await cohesionEventBatch(ops);
+  results.filter(r=>r.ok).forEach(r=>dashPending.delete(r.ref));
+  const failed=results.filter(r=>!r.ok);
+  dashPersistBackup(); updateDashUnsaved();
+  if(failed.length) throw new Error(failed.length+' change(s) failed: '+failed.map(f=>f.error).join('; '));
+}
+function cohGo(t){ cohesionGuardedGo(t); return false; }
+cohesionSetGuard(()=>dashPending.size>0, saveAllDash);
+async function dashRestoreBackup(){
+  let raw; try{ raw=localStorage.getItem(dashBackupKey()); }catch(_){ return; }
+  if(!raw) return;
+  let bk; try{ bk=JSON.parse(raw); }catch(_){ try{localStorage.removeItem(dashBackupKey());}catch(__){} return; }
+  const entries=Object.entries(bk||{});
+  if(!entries.length){ try{localStorage.removeItem(dashBackupKey());}catch(__){} return; }
+  const c=await cohesionModal({title:'Unsaved changes found', message:'You have '+entries.length+' unsaved tag change(s) from a previous session on this game. Restore them?', buttons:[{label:'Restore',value:'restore',primary:true},{label:'Discard',value:'discard',danger:true}]});
+  if(c!=='restore'){ try{localStorage.removeItem(dashBackupKey());}catch(__){} return; }
+  entries.forEach(([id,data])=>{
+    const ev=ALL.find(e=>String(e._rowId)===String(id));
+    if(ev){ if('player' in data) ev.player=data.player; if('labels' in data) ev.labels=data.labels; if('outcome' in data) ev.outcome=data.outcome; dashPending.set(ev._rowId, data); }
+  });
+  updateDashUnsaved();
 }
 
 async function savePlayerTag(ev,name){
   if(!ev._rowId){alert('Could not save — missing event reference.');return;}
-  // Player assignments live in their own dedicated label group
-  // ("<TEAM> Player Labels") as well as the display field — never sharing
-  // a slot with any other label, so assigning a player can't destroy
-  // existing event information.
+  // Player assignments live in their own dedicated "<TEAM> Player Labels"
+  // group plus the display field — never sharing a slot with another label.
+  // Queued in memory, not written until the batch save.
   const playerGroup=`${(ev.team||'').trim()||'Unassigned'} Player Labels`;
-  const updatedLabels={...(ev.labels||{}),[playerGroup]:name};
-  const updatedData={...ev,player:name,labels:updatedLabels};
-  delete updatedData._rowId;
-  try{ await eventWrite({action:'update',id:ev._rowId,data:updatedData}); }
-  catch(e){ alert('Failed to save player name: '+e.message); return; }
   ev.player=name;
-  ev.labels=updatedLabels;
+  ev.labels={...(ev.labels||{}),[playerGroup]:name};
+  queueEventEdit(ev);
   document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
-  flashSaved('Player saved');
   renderP();
 }
 
@@ -741,15 +759,12 @@ function renderCustomTags(ev){
     </div>`;
   }).join('');
 }
-async function saveCustomTag(rowId,group,value){
+function saveCustomTag(rowId,group,value){
   const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
   const labels={...(ev.labels||{})};
   if(value==='') delete labels[group]; else labels[group]=value;
-  const updated={...ev,labels}; delete updated._rowId;
-  try{ await eventWrite({action:'update',id:ev._rowId,data:updated}); }
-  catch(e){ alert('Failed to save '+group+': '+e.message); return; }
   ev.labels=labels;
-  flashSaved(group+(value?': '+value:' cleared'));
+  queueEventEdit(ev);
 }
 const HH=[315,400,520,700];
 function setH(h){
