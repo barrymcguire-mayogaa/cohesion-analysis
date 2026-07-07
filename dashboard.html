@@ -678,6 +678,32 @@ function openPlayerTagEditor(){
   if(!trimmed||trimmed===currentName)return;
   savePlayerTag(ev,trimmed);
 }
+// Event writes MUST go through the service-role Netlify function: the
+// events table has RLS enabled and blocks anon browser writes SILENTLY
+// (update returns 0 rows, no error), so direct _sb writes looked like they
+// saved but never persisted. This routes through editEvent with the admin
+// Netlify Identity token, matching how uploads already persist.
+async function _authToken(){
+  const cu=(window.netlifyIdentity&&((netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser&&netlifyIdentity.gotrue.currentUser())||(netlifyIdentity.currentUser&&netlifyIdentity.currentUser())))||null;
+  let token=cu&&cu.token&&cu.token.access_token;
+  if(!token&&window.netlifyIdentity&&netlifyIdentity.refresh){ try{ await netlifyIdentity.refresh(); const u2=netlifyIdentity.gotrue.currentUser(); token=u2&&u2.token&&u2.token.access_token; }catch(_){ } }
+  return token;
+}
+async function eventWrite(payload){
+  const token=await _authToken();
+  if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res=await fetch('/.netlify/functions/editEvent',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
+function flashSaved(msg){
+  let el=document.getElementById('cohSaved');
+  if(!el){ el=document.createElement('div'); el.id='cohSaved'; el.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#2a9d54;color:#fff;padding:9px 18px;border-radius:9px;font:700 12px Barlow,sans-serif;letter-spacing:.3px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .3s;'; document.body.appendChild(el); }
+  el.textContent='✓ '+msg; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity='0';},1500);
+}
+
 async function savePlayerTag(ev,name){
   if(!ev._rowId){alert('Could not save — missing event reference.');return;}
   // Player assignments live in their own dedicated label group
@@ -688,11 +714,12 @@ async function savePlayerTag(ev,name){
   const updatedLabels={...(ev.labels||{}),[playerGroup]:name};
   const updatedData={...ev,player:name,labels:updatedLabels};
   delete updatedData._rowId;
-  const{error}=await _sb.from('events').update({data:updatedData}).eq('id',ev._rowId);
-  if(error){alert('Failed to save player name: '+error.message);return;}
+  try{ await eventWrite({action:'update',id:ev._rowId,data:updatedData}); }
+  catch(e){ alert('Failed to save player name: '+e.message); return; }
   ev.player=name;
   ev.labels=updatedLabels;
   document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome)].filter(Boolean).join(' · ');
+  flashSaved('Player saved');
   renderP();
 }
 
@@ -719,9 +746,10 @@ async function saveCustomTag(rowId,group,value){
   const labels={...(ev.labels||{})};
   if(value==='') delete labels[group]; else labels[group]=value;
   const updated={...ev,labels}; delete updated._rowId;
-  const{error}=await _sb.from('events').update({data:updated}).eq('id',ev._rowId);
-  if(error){ alert('Failed to save '+group+': '+error.message); return; }
+  try{ await eventWrite({action:'update',id:ev._rowId,data:updated}); }
+  catch(e){ alert('Failed to save '+group+': '+e.message); return; }
   ev.labels=labels;
+  flashSaved(group+(value?': '+value:' cleared'));
 }
 const HH=[315,400,520,700];
 function setH(h){

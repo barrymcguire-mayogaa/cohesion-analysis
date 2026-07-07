@@ -42,7 +42,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
 /* editor */
 .grid{display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start;}
-.vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;margin:0 auto;}
+.vresize{position:absolute;top:0;right:0;width:12px;height:100%;cursor:ew-resize;z-index:6;display:flex;align-items:center;justify-content:center;}
+.vresize::before{content:'';width:3px;height:38px;border-radius:2px;background:var(--border);}
+.vresize:hover::before{background:var(--accent);}
 .vid{width:100%;aspect-ratio:16/9;background:#000;}
 .vid iframe{width:100%;height:100%;border:none;}
 .vbar{display:flex;gap:6px;align-items:center;padding:8px 10px;flex-wrap:wrap;border-top:1px solid var(--border);}
@@ -126,7 +129,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
     <div class="sub" id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);"></div>
     <div class="grid">
       <div>
-        <div class="vwrap">
+        <div class="vwrap" id="vwrap">
+          <div class="vresize" id="vresize" title="Drag to resize video"></div>
           <div class="vid" id="vid"></div>
           <div class="vbar">
             <button class="vbtn" onclick="vseek(-5)">« 5s</button>
@@ -184,6 +188,24 @@ initTheme();
 
 let GAMES=[], GAME=null, EVENTS=[], YTP=null, activeId=null, undoStack=[], rafId=null;
 
+// Event writes go through the service-role Netlify function — the events
+// table's RLS blocks anon browser writes silently (0 rows, no error), so
+// direct _sb writes never persisted. Same admin-token model as uploads.
+async function _authToken(){
+  const cu=(window.netlifyIdentity&&((netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser&&netlifyIdentity.gotrue.currentUser())||(netlifyIdentity.currentUser&&netlifyIdentity.currentUser())))||null;
+  let token=cu&&cu.token&&cu.token.access_token;
+  if(!token&&window.netlifyIdentity&&netlifyIdentity.refresh){ try{ await netlifyIdentity.refresh(); const u2=netlifyIdentity.gotrue.currentUser(); token=u2&&u2.token&&u2.token.access_token; }catch(_){ } }
+  return token;
+}
+async function eventWrite(payload){
+  const token=await _authToken();
+  if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res=await fetch('/.netlify/functions/editEvent',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
+
 // ── game picker ───────────────────────────────────────────────
 async function loadGames(){
   try{
@@ -226,7 +248,18 @@ async function openGame(id){
   sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join('');
   refreshDatalists();
   buildPlayer();
+  initVResize();
   renderList();
+}
+// Drag the right edge of the video to make it bigger or smaller. The iframe
+// swallows mouse events, so pointer-events are disabled on it during a drag.
+function initVResize(){
+  const h=document.getElementById('vresize'), w=document.getElementById('vwrap'), vid=document.getElementById('vid');
+  if(!h||!w||h._init) return; h._init=true;
+  let sx=0, sw=0, drag=false;
+  h.addEventListener('mousedown',e=>{ drag=true; sx=e.clientX; sw=w.getBoundingClientRect().width; vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
+  window.addEventListener('mousemove',e=>{ if(!drag)return; const max=(w.parentElement&&w.parentElement.clientWidth)||sw; const nw=Math.max(360,Math.min(max,sw+(e.clientX-sx))); w.style.width=nw+'px'; });
+  window.addEventListener('mouseup',()=>{ if(!drag)return; drag=false; vid.style.pointerEvents=''; document.body.style.userSelect=''; });
 }
 function refreshDatalists(){
   const codes=[...new Set(EVENTS.map(e=>e.code).filter(Boolean))].sort();
@@ -408,8 +441,8 @@ async function saveEvent(){
   const st=document.getElementById('epStatus'); st.className='status'; st.textContent='Saving…';
   const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
   const data=buildData(e);
-  const {error}=await _sb.from('events').update({data}).eq('id',e._rowId);
-  if(error){ st.className='status err'; st.textContent='Save failed: '+error.message; return; }
+  try{ await eventWrite({action:'update',id:e._rowId,data}); }
+  catch(err){ st.className='status err'; st.textContent='Save failed: '+err.message; return; }
   undoStack.push({op:'restore',rowId:e._rowId,data:before});
   Object.assign(e,data); e._edited=true;
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -422,8 +455,8 @@ async function deleteEvent(){
   const e=EVENTS.find(x=>x._rowId===activeId); if(!e)return;
   if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this.`)) return;
   const before=JSON.parse(JSON.stringify(e)); delete before._rowId; delete before._edited;
-  const {error}=await _sb.from('events').delete().eq('id',e._rowId);
-  if(error){ alert('Delete failed: '+error.message); return; }
+  try{ await eventWrite({action:'delete',id:e._rowId}); }
+  catch(err){ alert('Delete failed: '+err.message); return; }
   undoStack.push({op:'reinsert',data:before});
   EVENTS=EVENTS.filter(x=>x._rowId!==e._rowId);
   activeId=null; draft=null;
@@ -459,8 +492,9 @@ async function confirmAdd(){
   const data={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
                player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
                category:catOf(code)||'Other', driveT, labels, _manual:true };
-  const {data:ins,error}=await _sb.from('events').insert({game_id:GAME.id,data}).select('id').single();
-  if(error){ st.className='status err'; st.textContent='Add failed: '+error.message; return; }
+  let ins;
+  try{ ins=await eventWrite({action:'insert',game_id:GAME.id,data}); }
+  catch(err){ st.className='status err'; st.textContent='Add failed: '+err.message; return; }
   const row={...data,_rowId:ins.id,_edited:true};
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -475,17 +509,14 @@ async function undo(){
   const op=undoStack.pop(); if(!op)return;
   try{
     if(op.op==='restore'){
-      const {error}=await _sb.from('events').update({data:op.data}).eq('id',op.rowId);
-      if(error) throw error;
+      await eventWrite({action:'update',id:op.rowId,data:op.data});
       const e=EVENTS.find(x=>x._rowId===op.rowId); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,op.data); }
       activeId=op.rowId; draft=null;
     } else if(op.op==='reinsert'){
-      const {data:ins,error}=await _sb.from('events').insert({game_id:GAME.id,data:op.data}).select('id').single();
-      if(error) throw error;
+      const ins=await eventWrite({action:'insert',game_id:GAME.id,data:op.data});
       EVENTS.push({...op.data,_rowId:ins.id,_edited:true}); activeId=ins.id; draft=null;
     } else if(op.op==='removeAdded'){
-      const {error}=await _sb.from('events').delete().eq('id',op.rowId);
-      if(error) throw error;
+      await eventWrite({action:'delete',id:op.rowId});
       EVENTS=EVENTS.filter(x=>x._rowId!==op.rowId); activeId=null; draft=null;
     }
   }catch(e){ alert('Undo failed: '+e.message); undoStack.push(op); return; }
