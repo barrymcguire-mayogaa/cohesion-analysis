@@ -35,7 +35,9 @@ exports.handler = async (event) => {
     catch (e) { return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) }; }
 
     const { action, id, game_id, data } = body;
-    if (!['update', 'insert', 'delete'].includes(action)) {
+    // A batch request ({ops:[...]}) has no top-level `action`; only validate
+    // `action` for single-op requests, otherwise the batch is wrongly rejected.
+    if (!Array.isArray(body.ops) && !['update', 'insert', 'delete'].includes(action)) {
       return { statusCode: 400, body: JSON.stringify({ error: 'action must be update, insert or delete' }) };
     }
 
