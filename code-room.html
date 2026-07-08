@@ -102,6 +102,11 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cbtn.evt{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
 .cbtn.evt:hover{background:var(--accent);color:#fff;}
 .cbtn .hk{opacity:.55;font-size:10px;margin-left:5px;}
+.cbtn.mini{padding:6px 9px;font-size:11px;}
+.clblrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;}
+.clbl-g{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);min-width:84px;text-transform:uppercase;}
+.clipwin{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);display:flex;align-items:center;gap:6px;}
+.clipwin input{width:52px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:6px;font:600 12px 'Barlow',sans-serif;text-align:center;}
 .status{font-size:12px;margin-top:10px;min-height:16px;}
 .status.ok{color:var(--green);} .status.err{color:var(--red);}
 .load-st{text-align:center;padding:60px;color:var(--t3);}
@@ -193,6 +198,16 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <div id="codeEvents" class="codebtns"></div>
           <div class="ep-lbl">Player <span style="color:var(--t3);font-weight:400;">— optional, stays selected</span></div>
           <div id="codePlayers" class="codebtns"></div>
+          <div id="codeLabelsSection" style="display:none;">
+            <div class="ep-lbl">Detail labels <span style="color:var(--t3);font-weight:400;">— stay selected; applied only to matching events</span></div>
+            <div id="codeLabels"></div>
+          </div>
+          <div class="ep-lbl">Clip window <span style="color:var(--t3);font-weight:400;">— seconds captured before/after each tag</span></div>
+          <div class="codebtns" style="align-items:center;gap:14px;">
+            <label class="clipwin">Lead <input id="codeLead" type="number" min="0" max="60" step="1" value="5" oninput="codeSetWindow()"> s</label>
+            <label class="clipwin">Lag <input id="codeLag" type="number" min="0" max="60" step="1" value="3" oninput="codeSetWindow()"> s</label>
+            <span id="codeWinReadout" style="font-size:11px;color:var(--t3);"></span>
+          </div>
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
           <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
@@ -546,9 +561,13 @@ cohesionSetGuard(crHasPending, crSaveAll);
 // the SAME queued model as Edit mode (temp id, _new), so they save via the
 // persistent button / leave prompt and export identically. Event codes are
 // built as "<TEAM> <base>" so output flows through the existing parser.
-let codeMode={on:false,team:'home',period:'1st Half',player:''};
+let codeMode={on:false,team:'home',period:'1st Half',player:'',labels:{},lead:5,lag:3};
+// Restore the coder's preferred clip window (lead/lag) across sessions.
+try{ const L=+localStorage.getItem('cr_codeLead'); if(L===0||L>0) codeMode.lead=L; const G=+localStorage.getItem('cr_codeLag'); if(G===0||G>0) codeMode.lag=G; }catch(_){}
 let codeEvtList=[];
 const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
+// Escape a string for use inside a single-quoted inline onclick attribute.
+function _cq(s){ return esc(String(s==null?'':s)).replace(/'/g,"&#39;"); }
 
 function setMode(m){
   codeMode.on=(m==='code');
@@ -577,6 +596,43 @@ function buildCodePanel(){
   codeEvtList=bases.length?bases:CODE_DEFAULT_EVENTS.slice();
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${esc(b)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
   buildCodePlayers();
+  buildCodeLabels();
+  codeSyncWindow();
+}
+// Armed detail-label groups (from cohesion-config.js). Selections stay set
+// so a run of the same event type codes fast; on tag they are applied ONLY to
+// events whose code the group's appliesTo matches (a KO never gets "Shooting
+// Leg"). All defined groups are shown, since the coder tags mixed codes here.
+function buildCodeLabels(){
+  const groups=(window.COHESION_LABEL_GROUPS||[]);
+  const sec=document.getElementById('codeLabelsSection');
+  if(!groups.length){ if(sec) sec.style.display='none'; return; }
+  sec.style.display='';
+  document.getElementById('codeLabels').innerHTML=groups.map(g=>{
+    const cur=(codeMode.labels||{})[g.name]||'';
+    const opts=g.options.map(o=>`<button class="cbtn mini ${cur===o?'on':''}" onclick="codeSetLabel('${_cq(g.name)}','${_cq(o)}')">${esc(o)}</button>`).join('');
+    const clr=cur?`<button class="cbtn mini" onclick="codeSetLabel('${_cq(g.name)}','')" title="Clear ${_cq(g.name)}">✕</button>`:'';
+    return `<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>${opts}${clr}</div>`;
+  }).join('');
+}
+function codeSetLabel(g,v){
+  codeMode.labels=codeMode.labels||{};
+  if(!v || codeMode.labels[g]===v) delete codeMode.labels[g]; else codeMode.labels[g]=v;
+  buildCodeLabels();
+}
+// Clip window: read the lead/lag inputs, clamp, persist, refresh readout.
+function codeSetWindow(){
+  const rd=v=>{ let n=Math.round(+v); if(!isFinite(n)||n<0) n=0; if(n>60) n=60; return n; };
+  codeMode.lead=rd((document.getElementById('codeLead')||{}).value);
+  codeMode.lag=rd((document.getElementById('codeLag')||{}).value);
+  try{ localStorage.setItem('cr_codeLead',codeMode.lead); localStorage.setItem('cr_codeLag',codeMode.lag); }catch(_){}
+  codeSyncWindow();
+}
+function codeSyncWindow(){
+  const li=document.getElementById('codeLead'), gi=document.getElementById('codeLag');
+  if(li) li.value=codeMode.lead; if(gi) gi.value=codeMode.lag;
+  const r=document.getElementById('codeWinReadout');
+  if(r) r.textContent=(codeMode.lead+codeMode.lag>0)?`each tag captures a ${codeMode.lead+codeMode.lag}s clip`:'point marker (no clip)';
 }
 function buildCodePlayers(){
   const teamUC=codeTeamName();
@@ -594,20 +650,32 @@ function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ co
 function codeTag(baseCode){
   const teamName=codeTeamName();
   const code=(teamName?teamName+' ':'')+baseCode;
-  const driveT=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
+  const now=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  // Clip window: start lead-seconds before the tag (reaction pre-roll), end
+  // lag-seconds after (follow-through). driveT anchors to the clip start so
+  // review/seek and XML export both begin at the pre-roll point.
+  const lead=codeMode.lead||0, lag=codeMode.lag||0;
+  const clipStart=Math.max(0, now-lead), clipEnd=now+lag;
   const labels={};
+  // Armed detail labels, filtered to those applicable to this event's code.
+  const applies=new Set((window.cohesionGroupsFor?window.cohesionGroupsFor(code):[]).map(g=>g.name));
+  Object.entries(codeMode.labels||{}).forEach(([g,v])=>{ if(v && applies.has(g)) labels[g]=v; });
   if(codeMode.player) labels[`${teamName||'Unassigned'} Player Labels`]=codeMode.player;
   const tmpId='tmp-'+(++crTmpCounter);
-  const row={ id:'manual-'+Date.now(), start:null, end:null, half:codeMode.period, code, team:teamName,
+  const row={ id:'manual-'+Date.now(), start:clipStart, end:clipEnd, half:codeMode.period, code, team:teamName,
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
-              driveT, labels, _manual:true, _rowId:tmpId, _new:true };
+              driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
   refreshDatalists(); crBackup(); crUpdatePending(); renderList();
   const f=document.getElementById('codeFlash');
-  if(f) f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+' @ '+fmt(driveT)+'  — paused; press Space to resume';
+  if(f){
+    const det=Object.entries(labels).filter(([k])=>!/player labels$/i.test(k)).map(([,v])=>v);
+    const win=(lead+lag>0)?'  ·  clip '+fmt(clipStart)+'–'+fmt(clipEnd):'';
+    f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+'  — paused; press Space to resume';
+  }
 }
 
 // Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
