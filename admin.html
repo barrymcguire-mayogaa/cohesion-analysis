@@ -773,6 +773,24 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
   }
 }
 
+// Generic admin-authenticated call to a Netlify function. Used for writes
+// that must go through the service role (the events/games RLS blocks anon
+// browser writes and fails silently). Same token model as processGameSecure.
+async function adminFetch(fn, payload){
+  let user = netlifyIdentity.gotrue.currentUser();
+  let token = user && user.token && user.token.access_token;
+  if(!token){ try{ await netlifyIdentity.refresh(); user = netlifyIdentity.gotrue.currentUser(); token = user && user.token && user.token.access_token; }catch(_){} }
+  if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res = await fetch('/.netlify/functions/'+fn, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+    body: JSON.stringify(payload)
+  });
+  const j = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error || ('HTTP '+res.status));
+  return j;
+}
+
 // ── DEBUG: Inspect JWT token structure ────────────────────────────────────
 // Call from browser console: debugJWT() to see token contents
 function debugJWT(){
@@ -2751,22 +2769,14 @@ async function savePlayerRosters(){
     });
 
     if(updates.length > 0){
-      // Delete the rows that need updating
+      // Update in place through the service-role function (keeps row ids;
+      // direct anon writes are blocked by RLS and fail silently).
       document.getElementById('rosterProgBar').style.width = '50%';
-      document.getElementById('rosterProgMsg').textContent = `Deleting old entries…`;
-      const { error: delErr } = await _sb.from('events').delete().in('id', updateIds);
-      if(delErr) throw delErr;
-
-      // Insert fresh rows with updated player names
-      const chunkSize = 100;
-      for(let i = 0; i < updates.length; i += chunkSize){
-        const chunk = updates.slice(i, i + chunkSize);
-        document.getElementById('rosterProgBar').style.width = (50 + Math.round((i / updates.length) * 50)) + '%';
-        document.getElementById('rosterProgMsg').textContent = `Saving updates (${Math.min(i + chunkSize, updates.length)}/${updates.length})…`;
-
-        const { error: insErr } = await _sb.from('events').insert(chunk);
-        if(insErr) throw insErr;
-      }
+      document.getElementById('rosterProgMsg').textContent = `Saving ${updates.length} updated events…`;
+      const ops = updates.map((u, i) => ({ action:'update', id: updateIds[i], data: u.data }));
+      const { results } = await adminFetch('editEvent', { ops });
+      const failed = (results || []).filter(r => !r.ok);
+      if(failed.length) throw new Error(failed.length + ' event update(s) failed: ' + failed.map(f=>f.error).join('; '));
     }
 
     // Persist the roster into games.meta so it survives a future XML re-upload
@@ -2778,8 +2788,7 @@ async function savePlayerRosters(){
         ...currentManageGameMeta,
         playerRoster: { teamA: { ...currentRosters.teamA }, teamB: { ...currentRosters.teamB } }
       };
-      const { error: metaErr } = await _sb.from('games').update({ meta: updatedMeta }).eq('id', currentManageGameId);
-      if(metaErr) throw metaErr;
+      await adminFetch('gameAdmin', { action:'updateMeta', gameId: currentManageGameId, meta: updatedMeta });
       currentManageGameMeta = updatedMeta;
     }
 
@@ -3072,15 +3081,12 @@ async function confirmDeleteGame(){
     document.getElementById('deleteProgBar').style.width = '33%';
     document.getElementById('deleteProgMsg').textContent = 'Deleting events…';
 
-    const { error: evErr } = await _sb.from('events').delete().eq('game_id', selectedDeleteGameId);
-    if(evErr) throw evErr;
-
-    // Delete the game itself
+    // Service-role delete (events + game row). Direct anon deletes are
+    // blocked by RLS and fail silently — the game would appear deleted but
+    // still be in the database.
+    await adminFetch('gameAdmin', { action:'deleteGame', gameId: selectedDeleteGameId });
     document.getElementById('deleteProgBar').style.width = '66%';
-    document.getElementById('deleteProgMsg').textContent = 'Deleting game record…';
-
-    const { error: gameErr } = await _sb.from('games').delete().eq('id', selectedDeleteGameId);
-    if(gameErr) throw gameErr;
+    document.getElementById('deleteProgMsg').textContent = 'Removing game record…';
 
     document.getElementById('deleteProgBar').style.width = '100%';
     document.getElementById('deleteProgMsg').textContent = 'Complete!';
