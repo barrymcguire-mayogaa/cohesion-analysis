@@ -192,6 +192,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
   <div class="game-title" id="GT">Loading…</div>
   <div class="hdr-actions">
     <span id="dashUnsaved" style="display:none;font:700 11px 'Barlow Condensed',sans-serif;color:var(--orange,#ff9800);letter-spacing:.5px;align-self:center;"></span>
+    <button id="dashSaveBtn" onclick="dashSaveNow()" style="display:none;background:var(--green,#2a9d54);border:1px solid var(--green,#2a9d54);color:#fff;border-radius:7px;padding:6px 13px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;align-self:center;">💾 Save</button>
     <div class="hdr-btn round" onclick="toggleTheme()" id="TH">☀️</div>
     <div class="hdr-btn" onclick="cohGo(logout)">Sign Out</div>
   </div>
@@ -696,10 +697,11 @@ function dashPersistBackup(){
   }catch(_){}
 }
 function updateDashUnsaved(){
-  const el=document.getElementById('dashUnsaved'); if(!el) return;
+  const el=document.getElementById('dashUnsaved');
+  const btn=document.getElementById('dashSaveBtn');
   const n=dashPending.size;
-  el.style.display = n ? '' : 'none';
-  el.textContent = n ? ('● '+n+' unsaved') : '';
+  if(el){ el.style.display = n ? '' : 'none'; el.style.color='var(--orange,#ff9800)'; el.textContent = n ? ('● '+n+' unsaved') : ''; }
+  if(btn){ btn.style.display = n ? '' : 'none'; btn.disabled=false; btn.textContent='💾 Save ('+n+')'; }
 }
 function queueEventEdit(ev){ dashPending.set(ev._rowId, dashCleanEv(ev)); dashPersistBackup(); updateDashUnsaved(); }
 async function saveAllDash(){
@@ -710,6 +712,20 @@ async function saveAllDash(){
   const failed=results.filter(r=>!r.ok);
   dashPersistBackup(); updateDashUnsaved();
   if(failed.length) throw new Error(failed.length+' change(s) failed: '+failed.map(f=>f.error).join('; '));
+}
+// Explicit Save button — save deliberately without leaving the page. This is
+// the reliable save path; the leave-prompt and localStorage backup remain
+// as safety nets (and a hard refresh can only ever show the browser's own
+// warning, never a custom dialog, so an explicit button is essential).
+async function dashSaveNow(){
+  if(!dashPending.size) return;
+  const btn=document.getElementById('dashSaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{ await saveAllDash(); }
+  catch(e){ updateDashUnsaved(); alert('Some changes could not be saved: '+e.message); return; }
+  updateDashUnsaved();
+  const el=document.getElementById('dashUnsaved');
+  if(el){ el.style.display=''; el.style.color='var(--green,#2a9d54)'; el.textContent='✓ Saved'; setTimeout(()=>updateDashUnsaved(),1600); }
 }
 function cohGo(t){ cohesionGuardedGo(t); return false; }
 cohesionSetGuard(()=>dashPending.size>0, saveAllDash);
