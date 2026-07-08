@@ -54,11 +54,15 @@
   // Leave-guard. Pages register hasPending() and saveAll(). In-app navigation
   // should call cohesionGuardedGo(urlOrFn); browser back/close/refresh gets the
   // generic beforeunload warning (custom dialogs aren't allowed there).
-  let hasPending = ()=>false, saveAll = async()=>{};
+  let hasPending = ()=>false, saveAll = async()=>{}, leaving = false;
   window.cohesionSetGuard = function(hp, sa){ hasPending = hp || (()=>false); saveAll = sa || (async()=>{}); };
-  window.addEventListener('beforeunload', function(e){ if(hasPending()){ e.preventDefault(); e.returnValue = ''; } });
+  // Only nag on a browser-initiated unload (back/close/refresh). When WE
+  // navigate after the custom dialog, `leaving` is set so this handler stays
+  // quiet — otherwise programmatic navigation re-triggers it and the user
+  // gets a second, generic browser prompt on top of the custom one.
+  window.addEventListener('beforeunload', function(e){ if(!leaving && hasPending()){ e.preventDefault(); e.returnValue = ''; } });
   window.cohesionGuardedGo = async function(target){
-    const go = ()=>{ if(typeof target === 'function') target(); else window.location.href = target; };
+    const go = ()=>{ leaving = true; if(typeof target === 'function') target(); else window.location.href = target; };
     if(!hasPending()){ go(); return; }
     const c = await cohesionModal({
       title:'Unsaved changes',
