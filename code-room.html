@@ -129,6 +129,11 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
   <div id="editor" style="display:none;">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
       <div id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);flex:1;"></div>
+      <select id="crXmlBase" title="Time base for exported instance start/end times" style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);padding:8px;font:600 11px 'Barlow',sans-serif;">
+        <option value="video">Video time</option>
+        <option value="raw">Original coder time</option>
+      </select>
+      <button onclick="crExportXml()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
       <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
     </div>
     <div class="grid">
@@ -506,6 +511,47 @@ async function saveAllAndClose(){
 }
 function cohGo(t){ cohesionGuardedGo(t); return false; }
 cohesionSetGuard(crHasPending, crSaveAll);
+
+// ── XML export ────────────────────────────────────────────────
+// Writes the current events (including any queued edits, custom labels and
+// player tags) as a Sportscode-shaped ALL_INSTANCES file. Synthesised period
+// markers ("1st Half" etc.) are included so the file re-imports into COHESION
+// (and other Sportscode-style tools) with correct period detection.
+// Time base: "video" uses the corrected video positions (driveT) — reflecting
+// timing edits; "raw" uses the original coder-clock start/end for a true
+// re-import round-trip.
+function _xesc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function crExportXml(){
+  if(!EVENTS.length){ alert('No events to export.'); return; }
+  const base=(document.getElementById('crXmlBase')||{}).value||'video';
+  const tOf=e=> base==='raw' ? (e.start!=null?e.start:(e.driveT||0)) : (e.driveT!=null?e.driveT:(e.start||0));
+  const endOf=(e,s)=>{ if(base==='raw'&&e.end!=null) return e.end; const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):4; return s+dur; };
+  const evs=[...EVENTS].sort((a,b)=>tOf(a)-tOf(b));
+  const lines=['<?xml version="1.0" encoding="UTF-8"?>','<file>','<ALL_INSTANCES>'];
+  let idc=0;
+  // Period boundary markers, positioned at each period's event span.
+  const pMap={'1st Half':'1st Half','2nd Half':'2nd Half','ET 1st Half':'ET 1st Half','ET 2nd Half':'ET 2nd Half'};
+  const spans={};
+  evs.forEach(e=>{ const h=e.half; if(!h||!pMap[h])return; const s=tOf(e), en=endOf(e,s); if(!spans[h]) spans[h]={min:s,max:en}; else { spans[h].min=Math.min(spans[h].min,s); spans[h].max=Math.max(spans[h].max,en); } });
+  ['1st Half','2nd Half','ET 1st Half','ET 2nd Half'].forEach(h=>{ if(spans[h]){ lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+spans[h].min.toFixed(4)+'</start>','    <end>'+spans[h].max.toFixed(4)+'</end>','    <code>'+pMap[h]+'</code>','  </instance>'); } });
+  // Events
+  evs.forEach(e=>{
+    const s=tOf(e), en=endOf(e,s);
+    lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+(+s).toFixed(4)+'</start>','    <end>'+(+en).toFixed(4)+'</end>','    <code>'+_xesc(e.code||'')+'</code>');
+    const labels={...(e.labels||{})};
+    if(e.team && !labels['Team Name']) labels['Team Name']=e.team;
+    if(e.player){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[`${(e.team||'').trim()||'Unassigned'} Player Labels`]=e.player; }
+    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(v)+'</text>','    </label>'); });
+    lines.push('  </instance>');
+  });
+  lines.push('</ALL_INSTANCES>','</file>');
+  const blob=new Blob([lines.join('\n')],{type:'application/xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safe=(GAME.title||GAME.id||'game').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'');
+  a.href=url; a.download=safe+'.xml'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 function saveEvent(){
   const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!isDirty())return;
