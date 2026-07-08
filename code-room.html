@@ -91,6 +91,17 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .save{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;}
 .save:disabled{opacity:.4;cursor:default;}
 .del{background:var(--red-bg)!important;border-color:var(--red)!important;color:var(--red)!important;}
+/* code mode */
+.modetoggle{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.modetoggle button{background:var(--card);border:none;color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;padding:9px 14px;cursor:pointer;}
+.modetoggle button.on{background:var(--accent);color:#fff;}
+.codebtns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+.cbtn{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;padding:8px 12px;cursor:pointer;}
+.cbtn:hover{border-color:var(--accent);color:var(--accent);}
+.cbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.cbtn.evt{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
+.cbtn.evt:hover{background:var(--accent);color:#fff;}
+.cbtn .hk{opacity:.55;font-size:10px;margin-left:5px;}
 .status{font-size:12px;margin-top:10px;min-height:16px;}
 .status.ok{color:var(--green);} .status.err{color:var(--red);}
 .load-st{text-align:center;padding:60px;color:var(--t3);}
@@ -129,6 +140,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
   <div id="editor" style="display:none;">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
       <div id="gameLine" style="font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1);flex:1;"></div>
+      <div class="modetoggle">
+        <button id="modeEditBtn" class="on" onclick="setMode('edit')">✎ Edit</button>
+        <button id="modeCodeBtn" onclick="setMode('code')">⌨ Code</button>
+      </div>
       <select id="crXmlBase" title="Time base for exported instance start/end times" style="background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);padding:8px;font:600 11px 'Barlow',sans-serif;">
         <option value="video">Video time</option>
         <option value="raw">Original coder time</option>
@@ -169,6 +184,18 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
         <datalist id="codeList"></datalist>
         <datalist id="playerList"></datalist>
         <div class="epanel empty" id="epanel">Select an event to edit its timing, code, player or labels — or use ＋ Add event here.</div>
+        <div class="epanel" id="codePanel" style="display:none;">
+          <div class="ep-lbl">Period</div>
+          <div id="codePeriods" class="codebtns"></div>
+          <div class="ep-lbl">Team</div>
+          <div id="codeTeams" class="codebtns"></div>
+          <div class="ep-lbl">Event <span style="color:var(--t3);font-weight:400;">— click (or press 1–9) to tag at the current video moment</span></div>
+          <div id="codeEvents" class="codebtns"></div>
+          <div class="ep-lbl">Player <span style="color:var(--t3);font-weight:400;">— optional, stays selected</span></div>
+          <div id="codePlayers" class="codebtns"></div>
+          <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
+        </div>
       </div>
 
       <div class="list">
@@ -511,6 +538,86 @@ async function saveAllAndClose(){
 }
 function cohGo(t){ cohesionGuardedGo(t); return false; }
 cohesionSetGuard(crHasPending, crSaveAll);
+
+// ── CODE MODE ─────────────────────────────────────────────────
+// Code a game from scratch (or add to one) against the video: pick period +
+// team + optional player, then click an event button (or press 1–9) to tag
+// it at the current video moment. Tagging pauses the video. New events use
+// the SAME queued model as Edit mode (temp id, _new), so they save via the
+// persistent button / leave prompt and export identically. Event codes are
+// built as "<TEAM> <base>" so output flows through the existing parser.
+let codeMode={on:false,team:'home',period:'1st Half',player:''};
+let codeEvtList=[];
+const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
+
+function setMode(m){
+  codeMode.on=(m==='code');
+  document.getElementById('modeEditBtn').classList.toggle('on',!codeMode.on);
+  document.getElementById('modeCodeBtn').classList.toggle('on',codeMode.on);
+  document.getElementById('codePanel').style.display=codeMode.on?'':'none';
+  document.getElementById('epanel').style.display=codeMode.on?'none':'';
+  document.getElementById('addPanel').style.display='none';
+  if(codeMode.on){ activeId=null; draft=null; renderList(); buildCodePanel(); }
+  else { renderPanel(); }
+}
+function codeTeamName(){ return ((codeMode.team==='home'?(GAME.homeTeam||''):(GAME.awayTeam||''))||'').toUpperCase(); }
+function baseCodeOf(code){
+  let c=(code||'').trim();
+  [ (GAME.homeTeam||'').toUpperCase(), (GAME.awayTeam||'').toUpperCase() ].forEach(t=>{ if(t && c.toUpperCase().startsWith(t+' ')) c=c.slice(t.length+1); });
+  return c.trim();
+}
+function buildCodePanel(){
+  const home=GAME.homeTeam||'Home', away=GAME.awayTeam||'Away';
+  const periods=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
+  document.getElementById('codePeriods').innerHTML=periods.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${p}')">${p}</button>`).join('');
+  document.getElementById('codeTeams').innerHTML=
+    `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
+    `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`;
+  const bases=[...new Set(EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean))].sort();
+  codeEvtList=bases.length?bases:CODE_DEFAULT_EVENTS.slice();
+  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${esc(b)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
+  buildCodePlayers();
+}
+function buildCodePlayers(){
+  const teamUC=codeTeamName();
+  const players=[...new Set(EVENTS.filter(e=>(e.team||'').toUpperCase()===teamUC && e.player).map(e=>e.player))].sort();
+  document.getElementById('codePlayers').innerHTML=
+    `<button class="cbtn ${!codeMode.player?'on':''}" onclick="codeSetPlayer('')">No player</button>`+
+    players.map(p=>`<button class="cbtn ${codeMode.player===p?'on':''}" onclick="codeSetPlayer('${esc(p).replace(/'/g,"&#39;")}')">${esc(p)}</button>`).join('')+
+    `<button class="cbtn" onclick="codeAddPlayer()">+ Player…</button>`;
+}
+function codeSetPeriod(p){ codeMode.period=p; buildCodePanel(); }
+function codeSetTeam(t){ codeMode.team=t; codeMode.player=''; buildCodePanel(); }
+function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
+function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
+
+function codeTag(baseCode){
+  const teamName=codeTeamName();
+  const code=(teamName?teamName+' ':'')+baseCode;
+  const driveT=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
+  if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  const labels={};
+  if(codeMode.player) labels[`${teamName||'Unassigned'} Player Labels`]=codeMode.player;
+  const tmpId='tmp-'+(++crTmpCounter);
+  const row={ id:'manual-'+Date.now(), start:null, end:null, half:codeMode.period, code, team:teamName,
+              player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
+              driveT, labels, _manual:true, _rowId:tmpId, _new:true };
+  EVENTS.push(row);
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  undoStack.push({type:'add', rowId:tmpId});
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const f=document.getElementById('codeFlash');
+  if(f) f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+' @ '+fmt(driveT)+'  — paused; press Space to resume';
+}
+
+// Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
+document.addEventListener('keydown', e=>{
+  if(!codeMode.on) return;
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(e.code==='Space'){ e.preventDefault(); vtoggle(); return; }
+  if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
+});
 
 // ── XML export ────────────────────────────────────────────────
 // Writes the current events (including any queued edits, custom labels and
