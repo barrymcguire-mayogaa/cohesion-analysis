@@ -17,6 +17,7 @@
 window.COHESION_LABEL_GROUPS = [
   { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT/ },
   { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT/ },
+  { name: 'Shot Pressure', options: ['Low Pressure', 'Medium Pressure', 'High Pressure'], appliesTo: /SHOT/ },
 ];
 
 // Return the label groups that apply to a given event code.
