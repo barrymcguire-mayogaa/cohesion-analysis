@@ -107,6 +107,11 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .clbl-g{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);min-width:84px;text-transform:uppercase;}
 .clipwin{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);display:flex;align-items:center;gap:6px;}
 .clipwin input{width:52px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:6px;font:600 12px 'Barlow',sans-serif;text-align:center;}
+#codeKeysEditor{margin:4px 0 8px;padding:10px;border:1px dashed var(--border);border-radius:9px;}
+.keyhelp{font-size:11px;color:var(--t3);margin-bottom:8px;}
+.keyrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.keynum{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;font:700 12px 'Barlow Condensed',sans-serif;flex:none;}
+.keyrow select{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:7px;font:600 12px 'Barlow',sans-serif;}
 .codelink{margin-top:8px;padding:10px;border:1px solid var(--accent);border-radius:9px;background:var(--accent-bg);}
 .codelink .cl-h{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;}
 .codelink .cl-opts{display:flex;flex-wrap:wrap;gap:6px;}
@@ -197,7 +202,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <div id="codePeriods" class="codebtns"></div>
           <div class="ep-lbl">Team</div>
           <div id="codeTeams" class="codebtns"></div>
-          <div class="ep-lbl">Event <span style="color:var(--t3);font-weight:400;">— click (or press 1–9) to tag at the current video moment</span></div>
+          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button></div>
+          <div id="codeKeysEditor" style="display:none;"></div>
           <div id="codeEvents" class="codebtns"></div>
           <div class="ep-lbl">Player <span style="color:var(--t3);font-weight:400;">— optional, stays selected</span></div>
           <div id="codePlayers" class="codebtns"></div>
@@ -568,6 +574,9 @@ cohesionSetGuard(crHasPending, crSaveAll);
 let codeMode={on:false,team:'home',period:'1st Half',player:'',labels:{},lead:5,lag:3,pendingLink:null};
 // Restore the coder's preferred clip window (lead/lag) across sessions.
 try{ const L=+localStorage.getItem('cr_codeLead'); if(L===0||L>0) codeMode.lead=L; const G=+localStorage.getItem('cr_codeLag'); if(G===0||G>0) codeMode.lag=G; }catch(_){}
+// Restore the coder's saved key→code assignments (by code name, cross-game).
+let codeKeyPref=[];
+try{ const s=JSON.parse(localStorage.getItem('cr_codeKeys')||'null'); if(Array.isArray(s)) codeKeyPref=s.filter(x=>typeof x==='string'); }catch(_){}
 let codeEvtList=[];
 const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
 // Escape a string for use inside a single-quoted inline onclick attribute.
@@ -597,13 +606,48 @@ function buildCodePanel(){
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`;
-  const bases=[...new Set(EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean))].sort();
-  codeEvtList=bases.length?bases:CODE_DEFAULT_EVENTS.slice();
+  let bases=[...new Set(EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean))];
+  if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
+  codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${esc(b)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
   buildCodePlayers();
   buildCodeLabels();
+  buildCodeKeysEditor();
   codeSyncWindow();
 }
+// ── Hotkey editor ─────────────────────────────────────────────
+// Keys 1–9 map to the first 9 entries of codeEvtList. The coder can choose
+// which base code sits on each key; the preference is stored by code name
+// (localStorage) so it carries across games with the same taxonomy. Codes
+// past key 9 stay clickable without a shortcut.
+let codeKeysOpen=false;
+function orderBases(bases){
+  const inPref=(codeKeyPref||[]).filter(c=>bases.includes(c));
+  const rest=bases.filter(c=>!inPref.includes(c)).sort();
+  return [...inPref, ...rest];
+}
+function saveCodeKeys(){ try{ localStorage.setItem('cr_codeKeys', JSON.stringify(codeKeyPref)); }catch(_){} }
+function toggleCodeKeys(){ codeKeysOpen=!codeKeysOpen; buildCodeKeysEditor(); }
+function buildCodeKeysEditor(){
+  const box=document.getElementById('codeKeysEditor'); if(!box) return;
+  if(!codeKeysOpen){ box.style.display='none'; box.innerHTML=''; return; }
+  const all=codeEvtList, n=Math.min(9, all.length);
+  let rows='';
+  for(let i=0;i<n;i++){
+    const cur=all[i];
+    const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
+    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select></div>`;
+  }
+  box.style.display='';
+  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games.</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
+}
+function setCodeKey(slot, code){
+  if(!code) return;
+  const arr=codeEvtList.filter(c=>c!==code);
+  arr.splice(Math.max(0,Math.min(slot,arr.length)), 0, code);
+  codeKeyPref=arr; saveCodeKeys(); buildCodePanel();
+}
+function resetCodeKeys(){ codeKeyPref=[]; saveCodeKeys(); buildCodePanel(); }
 // Armed detail-label groups (from cohesion-config.js). Selections stay set
 // so a run of the same event type codes fast; on tag they are applied ONLY to
 // events whose code the group's appliesTo matches (a KO never gets "Shooting
