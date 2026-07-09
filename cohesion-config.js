@@ -15,7 +15,7 @@
  * edit this file (or ask an admin) to add a group for the whole team.
  */
 window.COHESION_LABEL_GROUPS = [
-  { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg'],            appliesTo: /SHOT/ },
+  { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT/ },
   { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT/ },
 ];
 
