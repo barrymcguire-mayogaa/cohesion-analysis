@@ -45,10 +45,13 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
 .editcol{position:sticky;top:12px;align-self:start;}
 .editcol .epanel{margin-top:0;}
-.vresize{position:absolute;top:0;right:0;width:12px;height:100%;cursor:ew-resize;z-index:6;display:flex;align-items:center;justify-content:center;}
-.vresize::before{content:'';width:3px;height:38px;border-radius:2px;background:var(--border);}
-.vresize:hover::before{background:var(--accent);}
-.vid{width:100%;aspect-ratio:16/9;background:#000;}
+.vid{width:100%;height:480px;background:#000;}
+.crsz{padding:4px 9px;border-radius:5px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.crsz:hover{border-color:var(--accent);color:var(--accent);}
+.crsz.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.crdh{height:11px;margin-top:6px;background:var(--card);border:1px solid var(--border);border-radius:6px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;}
+.crdh::before{content:'';width:34px;height:3px;border-radius:2px;background:var(--t3);}
+.crdh:hover::before,.crdh.act::before{background:var(--accent);}
 .vid iframe{width:100%;height:100%;border:none;}
 .vbar{display:flex;gap:6px;align-items:center;padding:8px 10px;flex-wrap:wrap;border-top:1px solid var(--border);}
 .vbtn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;padding:6px 9px;cursor:pointer;}
@@ -169,7 +172,6 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
     <div class="grid">
       <div>
         <div class="vwrap" id="vwrap">
-          <div class="vresize" id="vresize" title="Drag to resize video"></div>
           <div class="vid" id="vid"></div>
           <div class="vbar">
             <button class="vbtn" onclick="vseek(-5)">« 5s</button>
@@ -180,9 +182,16 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" onclick="vrate(0.5)">0.5×</button>
             <button class="vbtn" onclick="vrate(1)">1×</button>
             <button class="vbtn" style="border-color:var(--green);color:var(--green)" onclick="openAdd()">＋ Add event here</button>
+            <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
+            <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
+            <div class="crsz" onclick="crSetH(340)">S</div>
+            <div class="crsz" onclick="crSetH(480)">M</div>
+            <div class="crsz" onclick="crSetH(620)">L</div>
+            <div class="crsz" onclick="crSetH(760)">Xl</div>
             <span class="vtime" id="vtime">0:00</span>
           </div>
         </div>
+        <div class="crdh" id="crdh" title="Drag up or down to resize the video"></div>
         <div class="list">
           <div class="lfilter">
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
@@ -302,19 +311,32 @@ async function openGame(id){
   sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join('');
   refreshDatalists();
   buildPlayer();
-  initVResize();
+  initVH();
   crUpdatePending();
   renderList();
 }
-// Drag the right edge of the video to make it bigger or smaller. The iframe
-// swallows mouse events, so pointer-events are disabled on it during a drag.
-function initVResize(){
-  const h=document.getElementById('vresize'), w=document.getElementById('vwrap'), vid=document.getElementById('vid');
-  if(!h||!w||h._init) return; h._init=true;
-  let sx=0, sw=0, drag=false;
-  h.addEventListener('mousedown',e=>{ drag=true; sx=e.clientX; sw=w.getBoundingClientRect().width; vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
-  window.addEventListener('mousemove',e=>{ if(!drag)return; const max=(w.parentElement&&w.parentElement.clientWidth)||sw; const nw=Math.max(360,Math.min(max,sw+(e.clientX-sx))); w.style.width=nw+'px'; });
-  window.addEventListener('mouseup',()=>{ if(!drag)return; drag=false; vid.style.pointerEvents=''; document.body.style.userSelect=''; });
+// Resize the video by HEIGHT (like the dashboard): S/M/L/Xl presets plus a
+// drag handle below the player. Choice is remembered across sessions.
+const CR_HS=[340,480,620,760];
+function crVidMaxH(){ return Math.max(220, window.innerHeight-140); }
+function crSetH(px, skipSave){
+  const vid=document.getElementById('vid'); if(!vid) return;
+  px=Math.max(180, Math.min(crVidMaxH(), Math.round(px)));
+  vid.style.height=px+'px';
+  if(!skipSave){ try{ localStorage.setItem('cr_vidH', px); }catch(_){} }
+  document.querySelectorAll('.crsz').forEach((b,i)=>b.classList.toggle('on', CR_HS[i]===px));
+}
+function initVH(){
+  const vid=document.getElementById('vid'), h=document.getElementById('crdh');
+  if(!vid) return;
+  let saved=0; try{ saved=+localStorage.getItem('cr_vidH')||0; }catch(_){}
+  crSetH(saved>=180 ? saved : 480, true);
+  if(h && !h._init){ h._init=true;
+    let drag=false, sy=0, sh=0;
+    h.addEventListener('mousedown',e=>{ drag=true; sy=e.clientY; sh=vid.offsetHeight; h.classList.add('act'); vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
+    window.addEventListener('mousemove',e=>{ if(!drag)return; const nh=Math.max(180, Math.min(crVidMaxH(), sh+(e.clientY-sy))); vid.style.height=nh+'px'; document.querySelectorAll('.crsz').forEach(b=>b.classList.remove('on')); });
+    window.addEventListener('mouseup',()=>{ if(!drag)return; drag=false; h.classList.remove('act'); vid.style.pointerEvents=''; document.body.style.userSelect=''; try{ localStorage.setItem('cr_vidH', vid.offsetHeight); }catch(_){} });
+  }
 }
 function refreshDatalists(){
   const codes=[...new Set(EVENTS.map(e=>e.code).filter(Boolean))].sort();
