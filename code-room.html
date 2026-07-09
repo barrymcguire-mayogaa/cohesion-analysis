@@ -107,6 +107,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .clbl-g{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);min-width:84px;text-transform:uppercase;}
 .clipwin{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);display:flex;align-items:center;gap:6px;}
 .clipwin input{width:52px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:6px;font:600 12px 'Barlow',sans-serif;text-align:center;}
+.codelink{margin-top:8px;padding:10px;border:1px solid var(--accent);border-radius:9px;background:var(--accent-bg);}
+.codelink .cl-h{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;}
+.codelink .cl-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .status{font-size:12px;margin-top:10px;min-height:16px;}
 .status.ok{color:var(--green);} .status.err{color:var(--red);}
 .load-st{text-align:center;padding:60px;color:var(--t3);}
@@ -209,6 +212,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <span id="codeWinReadout" style="font-size:11px;color:var(--t3);"></span>
           </div>
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
+          <div id="codeLink" class="codelink" style="display:none;"></div>
           <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
       </div>
@@ -561,7 +565,7 @@ cohesionSetGuard(crHasPending, crSaveAll);
 // the SAME queued model as Edit mode (temp id, _new), so they save via the
 // persistent button / leave prompt and export identically. Event codes are
 // built as "<TEAM> <base>" so output flows through the existing parser.
-let codeMode={on:false,team:'home',period:'1st Half',player:'',labels:{},lead:5,lag:3};
+let codeMode={on:false,team:'home',period:'1st Half',player:'',labels:{},lead:5,lag:3,pendingLink:null};
 // Restore the coder's preferred clip window (lead/lag) across sessions.
 try{ const L=+localStorage.getItem('cr_codeLead'); if(L===0||L>0) codeMode.lead=L; const G=+localStorage.getItem('cr_codeLag'); if(G===0||G>0) codeMode.lag=G; }catch(_){}
 let codeEvtList=[];
@@ -576,7 +580,8 @@ function setMode(m){
   document.getElementById('codePanel').style.display=codeMode.on?'':'none';
   document.getElementById('epanel').style.display=codeMode.on?'none':'';
   document.getElementById('addPanel').style.display='none';
-  if(codeMode.on){ activeId=null; draft=null; renderList(); buildCodePanel(); }
+  codeMode.pendingLink=null;
+  if(codeMode.on){ activeId=null; draft=null; renderList(); buildCodePanel(); renderCodeLink(); }
   else { renderPanel(); }
 }
 function codeTeamName(){ return ((codeMode.team==='home'?(GAME.homeTeam||''):(GAME.awayTeam||''))||'').toUpperCase(); }
@@ -648,6 +653,8 @@ function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
 function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
 
 function codeTag(baseCode){
+  // Tagging a fresh event moves past any outcome prompt still awaiting an answer.
+  if(codeMode.pendingLink) codeSkipLink(true);
   const teamName=codeTeamName();
   const code=(teamName?teamName+' ':'')+baseCode;
   const now=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
@@ -676,6 +683,39 @@ function codeTag(baseCode){
     const win=(lead+lag>0)?'  ·  clip '+fmt(clipStart)+'–'+fmt(clipEnd):'';
     f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+'  — paused; press Space to resume';
   }
+  // Event link: if this code has a follow-up outcome, prompt for it now.
+  const link=window.cohesionLinkFor?window.cohesionLinkFor(code):null;
+  if(link){ codeMode.pendingLink={rowId:tmpId, link}; renderCodeLink(); }
+  else { codeMode.pendingLink=null; renderCodeLink(); }
+}
+
+// ── Event links (tag → qualify outcome) ───────────────────────
+function renderCodeLink(){
+  const box=document.getElementById('codeLink');
+  if(!box) return;
+  const pl=codeMode.pendingLink;
+  if(!pl){ box.style.display='none'; box.innerHTML=''; return; }
+  const opts=pl.link.options.map((o,i)=>`<button class="cbtn mini" onclick="codeApplyOutcome('${_cq(o)}')">${esc(o)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
+  box.style.display='';
+  box.innerHTML=`<div class="cl-h">${esc(pl.link.prompt)} <span style="color:var(--t3);font-weight:400;text-transform:none;">— press 1–${Math.min(9,pl.link.options.length)} or click · Esc to skip</span></div>`+
+                `<div class="cl-opts">${opts}<button class="cbtn mini" onclick="codeSkipLink()" title="Skip (Esc)">Skip</button></div>`;
+}
+function codeApplyOutcome(value){
+  const pl=codeMode.pendingLink; if(!pl) return;
+  const row=EVENTS.find(e=>e._rowId===pl.rowId);
+  if(row){
+    row.labels=row.labels||{};
+    row.labels[pl.link.group]=value;   // exact DB group name → flows through parser + filters
+    row.outcome=value;                 // denormalised convenience field
+    crBackup(); crUpdatePending(); renderList();
+    const f=document.getElementById('codeFlash');
+    if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
+  }
+  codeMode.pendingLink=null; renderCodeLink();
+}
+function codeSkipLink(silent){
+  codeMode.pendingLink=null; renderCodeLink();
+  if(!silent){ const f=document.getElementById('codeFlash'); if(f && f.textContent) f.textContent=f.textContent.replace(/ — paused.*/,'')+' — outcome skipped'; }
 }
 
 // Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
@@ -684,6 +724,13 @@ document.addEventListener('keydown', e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
   if(e.code==='Space'){ e.preventDefault(); vtoggle(); return; }
+  // While an outcome prompt is up, 1–N pick the outcome and Esc skips it;
+  // number keys are captured here so they don't tag a new event mid-qualify.
+  if(codeMode.pendingLink){
+    if(e.key==='Escape'){ e.preventDefault(); codeSkipLink(); return; }
+    if(e.key>='1'&&e.key<='9'){ const opts=codeMode.pendingLink.link.options; const i=+e.key-1; if(opts[i]){ e.preventDefault(); codeApplyOutcome(opts[i]); } return; }
+    return;
+  }
   if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
 });
 

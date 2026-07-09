@@ -24,3 +24,36 @@ window.cohesionGroupsFor = function(code){
   const c = (code || '').toUpperCase();
   return (window.COHESION_LABEL_GROUPS || []).filter(g => !g.appliesTo || g.appliesTo.test(c));
 };
+
+/* EVENT LINKS — the "tag, then qualify" follow-up.
+ *
+ * When you code certain events (a shot, a kickout…) the very next thing you
+ * know is how it turned out. An event link makes Code Room pop a quick
+ * outcome prompt straight after you tag a matching event, so you record it in
+ * the same beat instead of going back in Edit mode.
+ *
+ *   appliesTo — RegExp tested against the (uppercased) event CODE.
+ *   group     — the label group the chosen outcome is written to. Use the
+ *               EXACT DB group name so it flows through the parser, the
+ *               dashboard filters, and Edit mode's outcome derivation.
+ *   prompt    — heading shown on the prompt.
+ *   options   — the outcome choices (also 1..N keyboard shortcuts).
+ *
+ * The first matching link wins. Values below mirror the real data.
+ */
+window.COHESION_EVENT_LINKS = [
+  { appliesTo: /SHOT/,             group: 'Shot Outcomes',    prompt: 'Shot outcome',
+    options: ['1 POINT','2 POINT','GOAL','WIDE','SHORT','SAVE','BLOCKED','WOODWORK'] },
+  { appliesTo: /\bKO\b|KICKOUT/,   group: 'Kickout Outcomes', prompt: 'Kickout outcome',
+    options: ['KO WON CLEAN','KO BREAK WON','KO BREAK LOST','KO LOST CLEAN','KO FREE WON','KO FREE LOST'] },
+  { appliesTo: /\bTOS?\b|TURNOVER/,group: 'Turnover Outcomes',prompt: 'Turnover outcome',
+    options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING'] },
+  { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
+    options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION'] },
+];
+
+// Return the first event link whose appliesTo matches the code, or null.
+window.cohesionLinkFor = function(code){
+  const c = (code || '').toUpperCase();
+  return (window.COHESION_EVENT_LINKS || []).find(l => l.appliesTo && l.appliesTo.test(c)) || null;
+};
