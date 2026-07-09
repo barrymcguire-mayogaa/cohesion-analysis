@@ -41,8 +41,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .drop .row:hover{background:var(--hover);}
 
 /* editor */
-.grid{display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start;}
-.vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;margin:0 auto;}
+.grid{display:grid;grid-template-columns:1fr 400px;gap:14px;align-items:start;}
+.vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+.editcol{position:sticky;top:12px;align-self:start;}
+.editcol .epanel{margin-top:0;}
 .vresize{position:absolute;top:0;right:0;width:12px;height:100%;cursor:ew-resize;z-index:6;display:flex;align-items:center;justify-content:center;}
 .vresize::before{content:'';width:3px;height:38px;border-radius:2px;background:var(--border);}
 .vresize:hover::before{background:var(--accent);}
@@ -53,7 +55,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vbtn:hover{border-color:var(--accent);color:var(--accent);}
 .vtime{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;color:var(--t2);}
 
-.list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:78vh;}
+.list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:48vh;margin-top:14px;}
 .lfilter{padding:8px;border-bottom:1px solid var(--border);display:flex;gap:6px;}
 .lfilter input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
 .lfilter select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px;color:var(--t1);font:12px 'Barlow',sans-serif;}
@@ -120,7 +122,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .load-st{text-align:center;padding:60px;color:var(--t3);}
 .spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;}
 @keyframes spin{to{transform:rotate(360deg);}}
-@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}.editcol{position:static;}.list{max-height:60vh;}}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -181,6 +183,16 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <span class="vtime" id="vtime">0:00</span>
           </div>
         </div>
+        <div class="list">
+          <div class="lfilter">
+            <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
+            <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
+          </div>
+          <div class="levents" id="levents"></div>
+        </div>
+      </div>
+
+      <div class="editcol">
         <div class="epanel" id="addPanel" style="display:none;">
           <div class="ep-code">Add event</div>
           <div class="ep-meta">At current video moment: <b id="addAt" style="color:var(--accent)">0:00</b></div>
@@ -221,14 +233,6 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <div id="codeLink" class="codelink" style="display:none;"></div>
           <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
-      </div>
-
-      <div class="list">
-        <div class="lfilter">
-          <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
-          <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
-        </div>
-        <div class="levents" id="levents"></div>
       </div>
     </div>
   </div>
