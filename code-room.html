@@ -73,6 +73,11 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .tlrb{height:26px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:2px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);white-space:nowrap;}
 .tlrb:hover{border-color:var(--accent);color:var(--accent);}
 .tlrb.del:hover{border-color:#dc2626;color:#dc2626;}
+.tlrb.sync.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.syncbar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 0;padding:8px 10px;border:1px solid var(--accent);border-radius:9px;background:var(--accent-bg);}
+.syncbar .sb-info{font:600 11px 'Barlow',sans-serif;color:var(--t1);flex:1;min-width:180px;}
+.syncbar .sb-delta{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t3);}
+.syncbar .sb-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .tlsep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
 .tlscroll{overflow:hidden auto;flex:1;}
 .tlinner{position:relative;}
@@ -218,12 +223,23 @@ canvas#crTL{display:block;cursor:crosshair;}
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
+              <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
+              <div class="tlsep"></div>
               <div class="tlrb" onclick="crAddRow(-1)" title="Add an empty row above the selected row">Row ↑</div>
               <div class="tlrb" onclick="crAddRow(1)" title="Add an empty row below the selected row">Row ↓</div>
               <div class="tlrb del" onclick="crRemoveRow()" title="Remove the selected empty row">Del</div>
               <div class="tlsep"></div>
               <div class="tlzb" onclick="crZoom(-1)" title="Zoom out">−</div>
               <div class="tlzb" onclick="crZoom(1)" title="Zoom in">+</div>
+            </div>
+          </div>
+          <div class="syncbar" id="syncBar" style="display:none;">
+            <div class="sb-info" id="syncInfo"></div>
+            <div class="sb-actions">
+              <span class="sb-delta" id="syncDelta"></span>
+              <button class="tlrb" onclick="crSyncApply('event')" title="Shift only the reference event to the video position">Sync event</button>
+              <button class="tlrb" onclick="crSyncApply('half')" title="Shift the reference and all later events in its half">Sync half →</button>
+              <button class="tlrb" onclick="crSyncApply('all')" title="Shift the reference and all later events">Sync all →</button>
             </div>
           </div>
           <div class="levents" id="levents"></div>
@@ -419,7 +435,7 @@ function renderList(){
 // A multi-row timeline (one row per code) under the video, sharing the same
 // filter/period controls as the list. Click a bar to select+seek; click empty
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
-let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0;
+let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0, crSyncOn=false;
 let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false;
 const CR_LW=124, CR_ROWH=24, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
@@ -473,6 +489,7 @@ function setView(v){
   document.getElementById('tlscroll').style.display=v==='tl'?'':'none';
   document.getElementById('tlZoomWrap').style.display=v==='tl'?'':'none';
   document.getElementById('tlsb').style.display=v==='tl'?'':'none';
+  document.getElementById('syncBar').style.display=(v==='tl'&&crSyncOn)?'':'none';
   document.getElementById('listWrap').classList.toggle('tlon',v==='tl');
   if(v==='tl'){ if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; } crInitTL(); crInitSB(); crDrawTL(); }
 }
@@ -557,6 +574,7 @@ function crInitTL(){
       crActiveRow=(ri>=0&&ri<rows.length)?rows[ri]:null; crDrawTL(); return;
     }
     const hit=crHitAt(x,y);
+    if(hit && crSyncOn){ pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click = set reference (no drag)
     if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
     else crDown={x};
   });
@@ -602,6 +620,7 @@ function crInitTL(){
   },{passive:false});
   // Double-click empty track space → create a new event of that row's code there.
   c.addEventListener('dblclick',e=>{
+    if(crSyncOn) return;   // no create while syncing
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(x<CR_LW||y<CR_RULER) return;
     if(crHitAt(x,y)) return;              // on an existing bar → don't create
@@ -670,6 +689,7 @@ function crDrawTL(){
     ctx.fillStyle='#ff4b4b'; ctx.beginPath(); ctx.moveTo(px-4,0); ctx.lineTo(px+4,0); ctx.lineTo(px,7); ctx.fill();
   }
   crUpdateSB(dur,vD);
+  if(crSyncOn) crSyncUpdate();
 }
 // Horizontal scrollbar: thumb reflects the visible window (crTLO..crTLO+vD) of the full duration.
 function crUpdateSB(dur,vD){
@@ -687,6 +707,45 @@ function crInitSB(){
 }
 // Scrub the video while dragging a bar, throttled so YouTube isn't hammered.
 function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,t),true); }
+
+// ── SYNC MODE (Phase 3) ───────────────────────────────────────
+// Pick a reference event, scrub the video to where it truly happens, then
+// apply the resulting shift (Δ = videoTime − event.driveT) to a scope of
+// events at or after the reference. Writes driveT (queued → DB on save).
+function crSyncToggle(){
+  crSyncOn=!crSyncOn;
+  document.getElementById('syncToggle').classList.toggle('on',crSyncOn);
+  document.getElementById('syncBar').style.display=(crView==='tl'&&crSyncOn)?'':'none';
+  crSyncUpdate(); crDrawTL();
+}
+function crSyncUpdate(){
+  if(!crSyncOn) return;
+  const info=document.getElementById('syncInfo'), dl=document.getElementById('syncDelta'); if(!info||!dl) return;
+  const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
+  const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0;
+  if(!R){ info.textContent='Click an event to set it as the reference, then scrub the video to where it truly happens.'; dl.textContent=''; return; }
+  const delta=T-(R.driveT||0);
+  info.innerHTML='Ref: <b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
+  dl.textContent='Δ '+(delta>=0?'+':'')+delta.toFixed(1)+'s';
+  dl.style.color = Math.abs(delta)<0.5 ? 'var(--t3)' : (delta>0?'#4fc3f7':'#f59e0b');
+}
+function crSyncApply(scope){
+  const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
+  if(!R){ alert('Click an event on the timeline first to set the reference.'); return; }
+  const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0, ref=R.driveT||0, delta=T-ref;
+  if(Math.abs(delta)<0.05){ alert('The video is already at this event — scrub to where it truly happens first.'); return; }
+  let set;
+  if(scope==='event') set=[R];
+  else { set=EVENTS.filter(e=>(e.driveT||0)>=ref-0.001); if(scope==='half') set=set.filter(e=>e.half===R.half); }
+  if(!set.length) return;
+  const n=set.length;
+  if(scope!=='event' && !confirm('Shift '+n+' event'+(n>1?'s':'')+' by '+(delta>=0?'+':'')+delta.toFixed(1)+'s?\n\nThis moves the reference and every later event'+(scope==='half'?' in this half':'')+'. You can Undo before saving.')) return;
+  undoStack.push({type:'syncshift', snaps:set.map(e=>({id:e._rowId, driveT:e.driveT, start:e.start, end:e.end, dirty:!!e._dirty}))});
+  set.forEach(e=>{ e.driveT=Math.max(0,(e.driveT||0)+delta); if(e.start!=null) e.start=e.start+delta; if(e.end!=null) e.end=e.end+delta; if(!e._new) e._dirty=true; });
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); crSyncDraft(R);
+  crSyncUpdate(); renderList();
+}
 
 // ── derivation helpers (keep promoted fields consistent) ──────
 const OUT_KEYS=['Shot Outcomes','Game Involvement Outcomes','Kickout Outcomes','Turnover Outcomes','Tackle Outcomes','ShotOutcome','KickoutOutcome','Score Source Outcomes'];
@@ -1227,6 +1286,9 @@ function undo(){
     EVENTS.push(op.snapshot);
     if(!op.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(op.snapshot._rowId));
     activeId=op.snapshot._rowId; draft=null;
+  } else if(op.type==='syncshift'){
+    op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ e.driveT=s.driveT; e.start=s.start; e.end=s.end; if(s.dirty) e._dirty=true; else delete e._dirty; } });
+    draft=null;
   }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
