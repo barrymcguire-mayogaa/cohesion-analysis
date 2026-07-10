@@ -214,6 +214,10 @@ canvas#crTL{display:block;cursor:crosshair;}
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
+              <div class="tlzb" onclick="crAddRow(-1)" title="Add an empty row above the selected row">＋▲</div>
+              <div class="tlzb" onclick="crAddRow(1)" title="Add an empty row below the selected row">＋▼</div>
+              <div class="tlzb" onclick="crRemoveRow()" title="Remove the selected empty row">🗑</div>
+              <div class="tlzb" style="width:1px;padding:0;border:none;background:var(--border);"></div>
               <div class="tlzb" onclick="crZoom(-1)" title="Zoom out">−</div>
               <div class="tlzb" onclick="crZoom(1)" title="Zoom in">+</div>
             </div>
@@ -318,6 +322,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false;
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -411,6 +416,7 @@ function renderList(){
 // filter/period controls as the list. Click a bar to select+seek; click empty
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
 let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0;
+let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false;
 const CR_LW=124, CR_ROWH=24, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
 function crFiltered(){
@@ -422,7 +428,39 @@ function crFiltered(){
     return true;
   });
 }
-function crRows(evs){ return [...new Set(evs.map(e=>e.code||'—'))].sort(); }
+// Rows = codes present in the (filtered) events plus any manually-added empty
+// rows, ordered by the user's saved order first, then the rest alphabetically.
+function crRows(evs){
+  const present=new Set(evs.map(e=>e.code||'—'));
+  crExtraRows.forEach(c=>present.add(c));
+  const inOrder=crRowOrder.filter(c=>present.has(c));
+  const rest=[...present].filter(c=>!inOrder.includes(c)).sort();
+  return [...inOrder, ...rest];
+}
+function crRowsKey(){ return 'coh_crrows_'+(GAME&&GAME.id); }
+function crRowsSave(){ try{ localStorage.setItem(crRowsKey(), JSON.stringify({order:crRowOrder, extra:crExtraRows})); }catch(_){} }
+function crRowsLoad(){ try{ const j=JSON.parse(localStorage.getItem(crRowsKey())||'null'); crRowOrder=(j&&Array.isArray(j.order))?j.order:[]; crExtraRows=(j&&Array.isArray(j.extra))?j.extra:[]; }catch(_){ crRowOrder=[]; crExtraRows=[]; } }
+// Add an empty row above (dir<0) or below (dir>0) the selected row.
+function crAddRow(dir){
+  const code=(prompt('New row — event code (e.g. '+((GAME.homeTeam||'TEAM').toUpperCase())+' SHORT):')||'').trim();
+  if(!code) return;
+  const rows=crRows(crFiltered());
+  if(rows.includes(code)){ crActiveRow=code; crDrawTL(); return; }   // already a row → just select it
+  crRowOrder=rows.slice();                                           // freeze current order
+  let idx = crActiveRow!=null ? crRowOrder.indexOf(crActiveRow) : -1;
+  const insertAt = idx<0 ? (dir<0?0:crRowOrder.length) : (dir<0?idx:idx+1);
+  crRowOrder.splice(insertAt,0,code);
+  if(!crExtraRows.includes(code)) crExtraRows.push(code);
+  crActiveRow=code; crRowsSave(); crDrawTL();
+}
+// Remove the selected row — only allowed when it holds no events.
+function crRemoveRow(){
+  if(crActiveRow==null){ alert('Click a row label on the left to select it first.'); return; }
+  if(EVENTS.some(e=>(e.code||'—')===crActiveRow)){ alert('That row has events — move or delete them first.'); return; }
+  crExtraRows=crExtraRows.filter(c=>c!==crActiveRow);
+  crRowOrder=crRowOrder.filter(c=>c!==crActiveRow);
+  crActiveRow=null; crRowsSave(); crDrawTL();
+}
 function setView(v){
   crView=v;
   document.getElementById('vwList').classList.toggle('on',v==='list');
@@ -432,7 +470,7 @@ function setView(v){
   document.getElementById('tlZoomWrap').style.display=v==='tl'?'':'none';
   document.getElementById('tlsb').style.display=v==='tl'?'':'none';
   document.getElementById('listWrap').classList.toggle('tlon',v==='tl');
-  if(v==='tl'){ crInitTL(); crInitSB(); crDrawTL(); }
+  if(v==='tl'){ if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; } crInitTL(); crInitSB(); crDrawTL(); }
 }
 function crZoom(d){
   const dur=crDur(), vD=dur/crTLZ, center=crTLO+vD/2;
@@ -509,7 +547,11 @@ function crInitTL(){
   const relX=ev=>ev.clientX-c.getBoundingClientRect().left;
   c.addEventListener('mousedown',e=>{
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
-    if(x<CR_LW||y<CR_RULER){ crDown={x}; return; }
+    if(y<CR_RULER){ crDown={x}; return; }                       // ruler → seek on release
+    if(x<CR_LW){                                                 // label gutter → select that row
+      const rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
+      crActiveRow=(ri>=0&&ri<rows.length)?rows[ri]:null; crDrawTL(); return;
+    }
     const hit=crHitAt(x,y);
     if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
     else crDown={x};
@@ -582,11 +624,13 @@ function crDrawTL(){
   const plotW=cssW-CR_LW, dur=crDur(), vD=dur/crTLZ, vE=crTLO+vD, xF=t=>CR_LW+((t-crTLO)/vD)*plotW;
   ctx.fillStyle=dark?'#15151c':'#f4f3f1'; ctx.fillRect(0,0,cssW,cssH);
   rows.forEach((code,i)=>{
-    const y=CR_RULER+i*CR_ROWH;
+    const y=CR_RULER+i*CR_ROWH, isActive=code===crActiveRow;
     if(i%2){ ctx.fillStyle=dark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)'; ctx.fillRect(CR_LW,y,plotW,CR_ROWH); }
-    ctx.fillStyle=dark?'#101018':'#ecebe9'; ctx.fillRect(0,y,CR_LW,CR_ROWH);
-    ctx.fillStyle=dark?'rgba(255,255,255,0.62)':'rgba(0,0,0,0.62)'; ctx.font="600 10px 'Barlow Condensed',sans-serif";
-    ctx.fillText(code.length>19?code.slice(0,18)+'…':code, 6, y+15);
+    if(isActive){ ctx.fillStyle=dark?'rgba(79,195,247,0.10)':'rgba(3,105,161,0.08)'; ctx.fillRect(CR_LW,y,plotW,CR_ROWH); }
+    ctx.fillStyle=isActive?(dark?'#143240':'#dbeafe'):(dark?'#101018':'#ecebe9'); ctx.fillRect(0,y,CR_LW,CR_ROWH);
+    if(isActive){ ctx.fillStyle='#4fc3f7'; ctx.fillRect(0,y,3,CR_ROWH); }
+    ctx.fillStyle=isActive?'#4fc3f7':(dark?'rgba(255,255,255,0.62)':'rgba(0,0,0,0.62)'); ctx.font="600 10px 'Barlow Condensed',sans-serif";
+    ctx.fillText(code.length>19?code.slice(0,18)+'…':code, isActive?9:6, y+15);
     ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(CR_LW,y+CR_ROWH-0.5); ctx.lineTo(cssW,y+CR_ROWH-0.5); ctx.stroke();
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
