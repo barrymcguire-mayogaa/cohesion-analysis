@@ -68,8 +68,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .viewtog button{background:var(--card);border:none;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;padding:7px 10px;cursor:pointer;}
 .viewtog button.on{background:var(--accent);color:#fff;}
 .tlzwrap{display:flex;gap:3px;margin-left:auto;}
-.tlzb{width:24px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:700 14px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.tlzb{width:24px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:700 14px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);overflow:hidden;line-height:1;}
 .tlzb:hover{border-color:var(--accent);color:var(--accent);}
+.tlrb{height:26px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:2px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);white-space:nowrap;}
+.tlrb:hover{border-color:var(--accent);color:var(--accent);}
+.tlrb.del:hover{border-color:#dc2626;color:#dc2626;}
+.tlsep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
 .tlscroll{overflow:hidden auto;flex:1;}
 .tlinner{position:relative;}
 canvas#crTL{display:block;cursor:crosshair;}
@@ -214,10 +218,10 @@ canvas#crTL{display:block;cursor:crosshair;}
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
-              <div class="tlzb" onclick="crAddRow(-1)" title="Add an empty row above the selected row">＋▲</div>
-              <div class="tlzb" onclick="crAddRow(1)" title="Add an empty row below the selected row">＋▼</div>
-              <div class="tlzb" onclick="crRemoveRow()" title="Remove the selected empty row">🗑</div>
-              <div class="tlzb" style="width:1px;padding:0;border:none;background:var(--border);"></div>
+              <div class="tlrb" onclick="crAddRow(-1)" title="Add an empty row above the selected row">Row ↑</div>
+              <div class="tlrb" onclick="crAddRow(1)" title="Add an empty row below the selected row">Row ↓</div>
+              <div class="tlrb del" onclick="crRemoveRow()" title="Remove the selected empty row">Del</div>
+              <div class="tlsep"></div>
               <div class="tlzb" onclick="crZoom(-1)" title="Zoom out">−</div>
               <div class="tlzb" onclick="crZoom(1)" title="Zoom in">+</div>
             </div>
@@ -641,11 +645,15 @@ function crDrawTL(){
     const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId)||e===dragging;
-    const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx);
-    ctx.fillStyle=sel?'#fff':((e.team||'').toUpperCase()===H?hC:aC); ctx.globalAlpha=sel?1:0.85;
-    ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
+    const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx), col=((e.team||'').toUpperCase()===H?hC:aC);
+    // Selected keeps its team colour (so you can still tell teams apart) but
+    // gets an accent glow + outline instead of turning white.
+    ctx.globalAlpha=sel?1:0.85;
+    if(sel){ ctx.save(); ctx.shadowColor='#4fc3f7'; ctx.shadowBlur=9; }
+    ctx.fillStyle=col; ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
+    if(sel){ ctx.restore(); ctx.lineWidth=1.5; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.75,y+3.75,Math.max(1,bw-1.5),CR_ROWH-7.5); }
     // edge handles (only when wide enough to grab)
-    if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=dark?'#fff':'#000'; ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
+    if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=sel?'#4fc3f7':(dark?'#fff':'#000'); ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
     ctx.globalAlpha=1;
   });
   // ruler
