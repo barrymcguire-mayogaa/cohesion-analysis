@@ -70,10 +70,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .tlzwrap{display:flex;gap:3px;margin-left:auto;}
 .tlzb{width:24px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:700 14px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
 .tlzb:hover{border-color:var(--accent);color:var(--accent);}
-.tlscroll{overflow:auto;flex:1;}
+.tlscroll{overflow:hidden auto;flex:1;}
 .tlinner{position:relative;}
 canvas#crTL{display:block;cursor:crosshair;}
-#crPH{position:absolute;top:0;width:2px;background:var(--accent);pointer-events:none;display:none;box-shadow:0 0 4px var(--accent);}
+.tlsb{flex:none;height:12px;margin:5px 8px 2px;background:var(--card);border:1px solid var(--border);border-radius:6px;position:relative;}
+.tlsb-thumb{position:absolute;top:1px;bottom:1px;min-width:20px;background:var(--t3);border-radius:5px;cursor:grab;}
+.tlsb-thumb:hover{background:var(--accent);}
 .ev{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;gap:10px;align-items:baseline;}
 .ev:hover{background:var(--hover);}
 .ev.on{background:var(--accent-bg);border-left:3px solid var(--accent);}
@@ -220,9 +222,9 @@ canvas#crTL{display:block;cursor:crosshair;}
           <div class="tlscroll" id="tlscroll" style="display:none;">
             <div class="tlinner" id="tlinner">
               <canvas id="crTL"></canvas>
-              <div id="crPH"></div>
             </div>
           </div>
+          <div class="tlsb" id="tlsb" style="display:none;"><div class="tlsb-thumb" id="tlsbThumb"></div></div>
         </div>
       </div>
 
@@ -377,7 +379,7 @@ function buildPlayer(){
   if(window.YT&&window.YT.Player) boot();
   else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
 }
-function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=YTP.getCurrentTime()||0; document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl') crTLPlayhead(); } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
+function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=YTP.getCurrentTime()||0; document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
 function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
 function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
@@ -408,7 +410,7 @@ function renderList(){
 // A multi-row timeline (one row per code) under the video, sharing the same
 // filter/period controls as the list. Click a bar to select+seek; click empty
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
-let crView='list', crTLZ=1, crTLO=0, crTLInit=false;
+let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0;
 const CR_LW=124, CR_ROWH=24, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
 function crFiltered(){
@@ -428,8 +430,9 @@ function setView(v){
   document.getElementById('levents').style.display=v==='list'?'':'none';
   document.getElementById('tlscroll').style.display=v==='tl'?'':'none';
   document.getElementById('tlZoomWrap').style.display=v==='tl'?'':'none';
+  document.getElementById('tlsb').style.display=v==='tl'?'':'none';
   document.getElementById('listWrap').classList.toggle('tlon',v==='tl');
-  if(v==='tl'){ crInitTL(); crDrawTL(); }
+  if(v==='tl'){ crInitTL(); crInitSB(); crDrawTL(); }
 }
 function crZoom(d){
   const dur=crDur(), vD=dur/crTLZ, center=crTLO+vD/2;
@@ -485,6 +488,7 @@ function crCommitDrag(d){
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   if(draft && String(e._rowId)===String(activeId)){ draft.driveT=e.driveT; renderPanel(); }
+  if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0, d.mode==='resizeR'?(e.end||0):(e.driveT||0)), true);  // land on the exact edge
   renderList();   // also redraws the timeline
 }
 let crDrag=null, crDown=null;
@@ -495,7 +499,7 @@ function crInitTL(){
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(x<CR_LW||y<CR_RULER){ crDown={x}; return; }
     const hit=crHitAt(x,y);
-    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; document.body.style.userSelect='none'; e.preventDefault(); }
+    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
     else crDown={x};
   });
   c.addEventListener('mousemove',e=>{
@@ -508,19 +512,27 @@ function crInitTL(){
     if(!crDrag) return;
     const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
     if(Math.abs(x-crDrag.startX)>3) crDrag.moved=true;
-    crApplyDrag(crDrag, dt); crDrawTL();
+    crApplyDrag(crDrag, dt);
+    // scrub the video to the edge being dragged so you see where the clip lands
+    if(crDrag.moved) crSeekThrottled(crDrag.mode==='resizeR' ? crDrag.ev.end : crDrag.ev.driveT);
+    crDrawTL();
   });
   window.addEventListener('mouseup',e=>{
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
     if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW && YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,g.tOf(crDown.x)),true); crDown=null; }
   });
+  // Trackpad: vertical scroll = zoom (around cursor), horizontal scroll = pan.
   c.addEventListener('wheel',e=>{
     e.preventDefault();
-    const r=c.getBoundingClientRect(), x=e.clientX-r.left; if(x<CR_LW) return;
-    const dur=crDur(), plotW=(parseFloat(c.style.width)||c.clientWidth)-CR_LW;
-    const tm=crTLO+((x-CR_LW)/plotW)*(dur/crTLZ);
-    crTLZ = e.deltaY<0 ? Math.min(20,crTLZ*1.4) : Math.max(1,crTLZ/1.4);
-    const nvD=dur/crTLZ; crTLO=Math.max(0,Math.min(Math.max(0,dur-nvD), tm-((x-CR_LW)/plotW)*nvD));
+    const g=crGeom(), r=c.getBoundingClientRect(), x=Math.max(CR_LW,e.clientX-r.left);
+    if(Math.abs(e.deltaX)>Math.abs(e.deltaY)){
+      const dt=(e.deltaX/g.plotW)*g.vD;
+      crTLO=Math.max(0,Math.min(Math.max(0,g.dur-g.vD), crTLO+dt));
+    } else {
+      const tm=g.tOf(x), factor=Math.exp(e.deltaY*0.0015);
+      crTLZ=Math.max(1,Math.min(30,crTLZ/factor));
+      const nvD=g.dur/crTLZ; crTLO=Math.max(0,Math.min(Math.max(0,g.dur-nvD), tm-((x-CR_LW)/g.plotW)*nvD));
+    }
     crDrawTL();
   },{passive:false});
 }
@@ -528,8 +540,8 @@ function crDrawTL(){
   const c=document.getElementById('crTL'), scroll=document.getElementById('tlscroll'); if(!c||!scroll) return;
   const evs=crFiltered(), rows=crRows(evs), rowOf={}; rows.forEach((cd,i)=>rowOf[cd]=i);
   const cssW=Math.max(320,scroll.clientWidth||700), cssH=CR_RULER+Math.max(1,rows.length)*CR_ROWH;
-  const dpr=window.devicePixelRatio||1;
-  c.style.width=cssW+'px'; c.style.height=cssH+'px'; c.width=Math.round(cssW*dpr); c.height=Math.round(cssH*dpr);
+  const dpr=window.devicePixelRatio||1, nw=Math.round(cssW*dpr), nh=Math.round(cssH*dpr);
+  if(c.width!==nw||c.height!==nh){ c.style.width=cssW+'px'; c.style.height=cssH+'px'; c.width=nw; c.height=nh; }
   const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   const plotW=cssW-CR_LW, dur=crDur(), vD=dur/crTLZ, vE=crTLO+vD, xF=t=>CR_LW+((t-crTLO)/vD)*plotW;
@@ -545,7 +557,7 @@ function crDrawTL(){
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
   evs.forEach(e=>{
     const i=rowOf[e.code||'—']; if(i==null) return;
-    const x=xF(e.driveT||0), w=Math.max(3,(crBarD(e)/vD)*plotW);
+    const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId);
     const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx);
@@ -562,17 +574,30 @@ function crDrawTL(){
   ctx.fillStyle=dark?'rgba(255,255,255,0.4)':'rgba(0,0,0,0.45)'; ctx.font='9px sans-serif';
   for(let t=fl;t<vE;t+=li){ const x=xF(t); if(x>CR_LW+8&&x<cssW-8){ ctx.fillText(fmt(t),x-10,15); ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)'; ctx.beginPath(); ctx.moveTo(x,CR_RULER); ctx.lineTo(x,cssH); ctx.stroke(); } }
   ctx.strokeStyle=dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.moveTo(CR_LW+0.5,0); ctx.lineTo(CR_LW+0.5,cssH); ctx.stroke();
-  crTLPlayhead();
+  // playhead (current video position) — red line across all rows
+  const vt=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0, px=xF(vt);
+  if(px>=CR_LW&&px<=cssW){
+    ctx.strokeStyle='#ff4b4b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,cssH); ctx.stroke();
+    ctx.fillStyle='#ff4b4b'; ctx.beginPath(); ctx.moveTo(px-4,0); ctx.lineTo(px+4,0); ctx.lineTo(px,7); ctx.fill();
+  }
+  crUpdateSB(dur,vD);
 }
-function crTLPlayhead(){
-  if(crView!=='tl') return;
-  const ph=document.getElementById('crPH'), c=document.getElementById('crTL'); if(!ph||!c) return;
-  const t=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0;
-  const cssW=parseFloat(c.style.width)||c.clientWidth, plotW=cssW-CR_LW, dur=crDur(), vD=dur/crTLZ;
-  const x=CR_LW+((t-crTLO)/vD)*plotW;
-  if(x<CR_LW||x>cssW){ ph.style.display='none'; return; }
-  ph.style.display=''; ph.style.left=x+'px'; ph.style.height=(parseFloat(c.style.height)||0)+'px';
+// Horizontal scrollbar: thumb reflects the visible window (crTLO..crTLO+vD) of the full duration.
+function crUpdateSB(dur,vD){
+  const sb=document.getElementById('tlsb'), thumb=document.getElementById('tlsbThumb'); if(!sb||!thumb) return;
+  const wpct=Math.min(1,vD/dur), lpct=dur>0?Math.min(1-wpct,crTLO/dur):0;
+  thumb.style.left=(lpct*100)+'%'; thumb.style.width=(wpct*100)+'%';
 }
+function crInitSB(){
+  const sb=document.getElementById('tlsb'), thumb=document.getElementById('tlsbThumb'); if(!sb||sb._init) return; sb._init=true;
+  let drag=false, sx=0, sO=0;
+  thumb.addEventListener('mousedown',e=>{ drag=true; sx=e.clientX; sO=crTLO; document.body.style.userSelect='none'; e.preventDefault(); e.stopPropagation(); });
+  window.addEventListener('mousemove',e=>{ if(!drag)return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), sO+((e.clientX-sx)/w)*dur)); crDrawTL(); });
+  window.addEventListener('mouseup',()=>{ if(drag){ drag=false; document.body.style.userSelect=''; } });
+  sb.addEventListener('mousedown',e=>{ if(e.target!==sb) return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1, cx=e.clientX-sb.getBoundingClientRect().left; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), (cx/w)*dur-vD/2)); crDrawTL(); });
+}
+// Scrub the video while dragging a bar, throttled so YouTube isn't hammered.
+function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,t),true); }
 
 // ── derivation helpers (keep promoted fields consistent) ──────
 const OUT_KEYS=['Shot Outcomes','Game Involvement Outcomes','Kickout Outcomes','Turnover Outcomes','Tackle Outcomes','ShotOutcome','KickoutOutcome','Score Source Outcomes'];
