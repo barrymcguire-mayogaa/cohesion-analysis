@@ -484,12 +484,24 @@ function crCommitDrag(d){
   const e=d.ev;
   if(!d.moved){ pick(e._rowId); return; }        // no movement → treat as a select
   undoStack.push({type:'edit', snapshot:d.snapshot});
+  // vertical reassign: dropped on a different row → change the event's code/type
+  if(d.mode==='move' && d.targetRow!=null){
+    const rows=crRows(crFiltered()), nc=rows[d.targetRow];
+    if(nc && nc!==e.code){ e.code=nc; e.team=teamFor(nc,e.labels||{}); e.category=catOf(nc)||e.category; }
+  }
   if(!e._new) e._dirty=true;
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
-  if(draft && String(e._rowId)===String(activeId)){ draft.driveT=e.driveT; renderPanel(); }
+  crSyncDraft(e);   // keep the editor in step if this event is selected
   if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0, d.mode==='resizeR'?(e.end||0):(e.driveT||0)), true);  // land on the exact edge
   renderList();   // also redraws the timeline
+}
+// Rebuild the editor's draft from an event (without seeking) when it's selected.
+function crSyncDraft(e){
+  if(String(e._rowId)!==String(activeId)) return;
+  draft={ code:e.code||'', player:e.player||'', driveT:e.driveT||0,
+    groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v})) };
+  renderPanel();
 }
 let crDrag=null, crDown=null;
 function crInitTL(){
@@ -499,7 +511,7 @@ function crInitTL(){
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(x<CR_LW||y<CR_RULER){ crDown={x}; return; }
     const hit=crHitAt(x,y);
-    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
+    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
     else crDown={x};
   });
   c.addEventListener('mousemove',e=>{
@@ -513,6 +525,13 @@ function crInitTL(){
     const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
     if(Math.abs(x-crDrag.startX)>3) crDrag.moved=true;
     crApplyDrag(crDrag, dt);
+    // moving vertically onto another row targets a type reassign
+    if(crDrag.mode==='move'){
+      const y=e.clientY-c.getBoundingClientRect().top, rows=crRows(crFiltered());
+      const ri=Math.floor((y-CR_RULER)/CR_ROWH);
+      crDrag.targetRow=Math.max(0,Math.min(rows.length-1,ri));
+      if(ri!==crDrag.origRow) crDrag.moved=true;
+    }
     // scrub the video to the edge being dragged so you see where the clip lands
     if(crDrag.moved) crSeekThrottled(crDrag.mode==='resizeR' ? crDrag.ev.end : crDrag.ev.driveT);
     crDrawTL();
@@ -535,6 +554,22 @@ function crInitTL(){
     }
     crDrawTL();
   },{passive:false});
+  // Double-click empty track space → create a new event of that row's code there.
+  c.addEventListener('dblclick',e=>{
+    const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    if(x<CR_LW||y<CR_RULER) return;
+    if(crHitAt(x,y)) return;              // on an existing bar → don't create
+    const g=crGeom(), rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
+    if(ri<0||ri>=rows.length) return;
+    const code=rows[ri], t=Math.max(0,Math.round(g.tOf(x))), labels={}, team=teamFor(code,labels);
+    let half=document.getElementById('eperiod').value;
+    if(!half){ let best=Infinity; EVENTS.forEach(ev=>{ const dd=Math.abs((ev.driveT||0)-t); if(dd<best){best=dd;half=ev.half||'';} }); }
+    const tmpId='tmp-'+(++crTmpCounter);
+    EVENTS.push({ id:'manual-'+Date.now(), start:t, end:t+4, half, code, team, player:'', outcome:'', subtype:'', category:catOf(code)||'Other', driveT:t, labels, _manual:true, _rowId:tmpId, _new:true });
+    EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+    undoStack.push({type:'add', rowId:tmpId});
+    refreshDatalists(); crBackup(); crUpdatePending(); pick(tmpId);
+  });
 }
 function crDrawTL(){
   const c=document.getElementById('crTL'), scroll=document.getElementById('tlscroll'); if(!c||!scroll) return;
@@ -555,11 +590,13 @@ function crDrawTL(){
     ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(CR_LW,y+CR_ROWH-0.5); ctx.lineTo(cssW,y+CR_ROWH-0.5); ctx.stroke();
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
+  const dragging=crDrag&&crDrag.mode==='move'&&crDrag.targetRow!=null?crDrag.ev:null;
   evs.forEach(e=>{
-    const i=rowOf[e.code||'—']; if(i==null) return;
+    let i=rowOf[e.code||'—']; if(i==null) return;
+    if(e===dragging) i=crDrag.targetRow;   // show the grabbed bar on the row under the cursor
     const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
-    const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId);
+    const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId)||e===dragging;
     const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx);
     ctx.fillStyle=sel?'#fff':((e.team||'').toUpperCase()===H?hC:aC); ctx.globalAlpha=sel?1:0.85;
     ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
