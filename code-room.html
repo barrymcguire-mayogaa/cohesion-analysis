@@ -237,6 +237,7 @@ canvas#crTL{display:block;cursor:crosshair;}
             <div class="sb-info" id="syncInfo"></div>
             <div class="sb-actions">
               <span class="sb-delta" id="syncDelta"></span>
+              <button class="tlrb" id="syncGroupBtn" onclick="crSyncApply('group')" style="display:none;" title="Shift the box-selected group of events">Sync group</button>
               <button class="tlrb" onclick="crSyncApply('event')" title="Shift only the reference event to the video position">Sync event</button>
               <button class="tlrb" onclick="crSyncApply('half')" title="Shift the reference and all later events in its half">Sync half →</button>
               <button class="tlrb" onclick="crSyncApply('all')" title="Shift the reference and all later events">Sync all →</button>
@@ -342,7 +343,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSyncSel=[]; crBox=null;
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -436,7 +437,7 @@ function renderList(){
 // filter/period controls as the list. Click a bar to select+seek; click empty
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
 let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0, crSyncOn=false;
-let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false;
+let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false, crSyncSel=[], crBox=null;
 const CR_LW=124, CR_ROWH=24, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
 function crFiltered(){
@@ -574,8 +575,9 @@ function crInitTL(){
       crActiveRow=(ri>=0&&ri<rows.length)?rows[ri]:null; crDrawTL(); return;
     }
     const hit=crHitAt(x,y);
-    if(hit && crSyncOn){ pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click = set reference (no drag)
+    if(hit && crSyncOn){ crSyncSel=[]; pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click a bar = set reference (clears any group)
     if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
+    else if(crSyncOn){ crBox={x0:x,y0:y,x1:x,y1:y,moved:false}; document.body.style.userSelect='none'; e.preventDefault(); }  // Sync Mode: drag on empty = box-select a group
     else crDown={x};
   });
   c.addEventListener('mousemove',e=>{
@@ -585,6 +587,7 @@ function crInitTL(){
     c.style.cursor = !hit ? 'crosshair' : (hit.mode==='move'?'grab':'ew-resize');
   });
   window.addEventListener('mousemove',e=>{
+    if(crBox){ const rr=c.getBoundingClientRect(); crBox.x1=e.clientX-rr.left; crBox.y1=e.clientY-rr.top; if(Math.abs(crBox.x1-crBox.x0)>3||Math.abs(crBox.y1-crBox.y0)>3) crBox.moved=true; crDrawTL(); return; }
     if(!crDrag) return;
     const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
     if(Math.abs(x-crDrag.startX)>3) crDrag.moved=true;
@@ -602,6 +605,11 @@ function crInitTL(){
   });
   window.addEventListener('mouseup',e=>{
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
+    if(crBox){ const box=crBox; crBox=null; document.body.style.userSelect='';
+      if(box.moved) crSelectBox(box);
+      else if(YTP&&YTP.seekTo){ const g=crGeom(); YTP.seekTo(Math.max(0,g.tOf(box.x0)),true); }
+      crDrawTL(); return;
+    }
     if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW && YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,g.tOf(crDown.x)),true); crDown=null; }
   });
   // Trackpad: vertical scroll = zoom (around cursor), horizontal scroll = pan.
@@ -658,6 +666,7 @@ function crDrawTL(){
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
   const dragging=crDrag&&crDrag.mode==='move'&&crDrag.targetRow!=null?crDrag.ev:null;
+  const groupSet=crSyncSel.length?new Set(crSyncSel.map(String)):null;
   evs.forEach(e=>{
     let i=rowOf[e.code||'—']; if(i==null) return;
     if(e===dragging) i=crDrag.targetRow;   // show the grabbed bar on the row under the cursor
@@ -671,6 +680,7 @@ function crDrawTL(){
     if(sel){ ctx.save(); ctx.shadowColor='#4fc3f7'; ctx.shadowBlur=9; }
     ctx.fillStyle=col; ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
     if(sel){ ctx.restore(); ctx.lineWidth=1.5; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.75,y+3.75,Math.max(1,bw-1.5),CR_ROWH-7.5); }
+    else if(groupSet&&groupSet.has(String(e._rowId))){ ctx.lineWidth=1; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.5,y+3.5,Math.max(1,bw-1),CR_ROWH-7); }
     // edge handles (only when wide enough to grab)
     if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=sel?'#4fc3f7':(dark?'#fff':'#000'); ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
     ctx.globalAlpha=1;
@@ -687,6 +697,12 @@ function crDrawTL(){
   if(px>=CR_LW&&px<=cssW){
     ctx.strokeStyle='#ff4b4b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,cssH); ctx.stroke();
     ctx.fillStyle='#ff4b4b'; ctx.beginPath(); ctx.moveTo(px-4,0); ctx.lineTo(px+4,0); ctx.lineTo(px,7); ctx.fill();
+  }
+  // rubber-band selection box
+  if(crBox){
+    const xa=Math.min(crBox.x0,crBox.x1), xb=Math.max(crBox.x0,crBox.x1), ya=Math.min(crBox.y0,crBox.y1), yb=Math.max(crBox.y0,crBox.y1);
+    ctx.save(); ctx.fillStyle='rgba(79,195,247,0.10)'; ctx.strokeStyle='#4fc3f7'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.fillRect(xa,ya,xb-xa,yb-ya); ctx.strokeRect(xa,ya,xb-xa,yb-ya); ctx.setLineDash([]); ctx.restore();
   }
   crUpdateSB(dur,vD);
   if(crSyncOn) crSyncUpdate();
@@ -714,18 +730,20 @@ function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return;
 // events at or after the reference. Writes driveT (queued → DB on save).
 function crSyncToggle(){
   crSyncOn=!crSyncOn;
+  if(!crSyncOn){ crSyncSel=[]; crBox=null; }
   document.getElementById('syncToggle').classList.toggle('on',crSyncOn);
   document.getElementById('syncBar').style.display=(crView==='tl'&&crSyncOn)?'':'none';
   crSyncUpdate(); crDrawTL();
 }
 function crSyncUpdate(){
   if(!crSyncOn) return;
-  const info=document.getElementById('syncInfo'), dl=document.getElementById('syncDelta'); if(!info||!dl) return;
+  const info=document.getElementById('syncInfo'), dl=document.getElementById('syncDelta'), gb=document.getElementById('syncGroupBtn'); if(!info||!dl) return;
+  if(gb){ if(crSyncSel.length){ gb.style.display=''; gb.textContent='Sync group ('+crSyncSel.length+')'; } else gb.style.display='none'; }
   const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
   const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0;
-  if(!R){ info.textContent='Click an event to set it as the reference, then scrub the video to where it truly happens.'; dl.textContent=''; return; }
+  if(!R){ info.textContent='Click an event to set the reference (or drag a box to select a group), then scrub the video to where it truly happens.'; dl.textContent=''; return; }
   const delta=T-(R.driveT||0);
-  info.innerHTML='Ref: <b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
+  info.innerHTML=(crSyncSel.length?'Group of <b>'+crSyncSel.length+'</b> · ref ':'Ref: ')+'<b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
   dl.textContent='Δ '+(delta>=0?'+':'')+delta.toFixed(1)+'s';
   dl.style.color = Math.abs(delta)<0.5 ? 'var(--t3)' : (delta>0?'#4fc3f7':'#f59e0b');
 }
@@ -736,14 +754,28 @@ function crSyncApply(scope){
   if(Math.abs(delta)<0.05){ alert('The video is already at this event — scrub to where it truly happens first.'); return; }
   let set;
   if(scope==='event') set=[R];
+  else if(scope==='group'){ const ids=new Set(crSyncSel.map(String)); set=EVENTS.filter(e=>ids.has(String(e._rowId))); }
   else { set=EVENTS.filter(e=>(e.driveT||0)>=ref-0.001); if(scope==='half') set=set.filter(e=>e.half===R.half); }
   if(!set.length) return;
   const n=set.length;
-  if(scope!=='event' && !confirm('Shift '+n+' event'+(n>1?'s':'')+' by '+(delta>=0?'+':'')+delta.toFixed(1)+'s?\n\nThis moves the reference and every later event'+(scope==='half'?' in this half':'')+'. You can Undo before saving.')) return;
+  const scopeMsg = scope==='group' ? 'the '+n+' selected event'+(n>1?'s':'') : 'the reference and every later event'+(scope==='half'?' in this half':'');
+  if(scope!=='event' && !confirm('Shift '+n+' event'+(n>1?'s':'')+' by '+(delta>=0?'+':'')+delta.toFixed(1)+'s?\n\nThis moves '+scopeMsg+'. You can Undo before saving.')) return;
   undoStack.push({type:'syncshift', snaps:set.map(e=>({id:e._rowId, driveT:e.driveT, start:e.start, end:e.end, dirty:!!e._dirty}))});
   set.forEach(e=>{ e.driveT=Math.max(0,(e.driveT||0)+delta); if(e.start!=null) e.start=e.start+delta; if(e.end!=null) e.end=e.end+delta; if(!e._new) e._dirty=true; });
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending(); crSyncDraft(R);
+  crSyncUpdate(); renderList();
+}
+// Box-select: pick every event whose bar intersects the rectangle. The group's
+// earliest event becomes the reference (so scrubbing aligns the group's start).
+function crSelectBox(box){
+  const g=crGeom(), evs=crFiltered(), rows=crRows(evs), rowOf={}; rows.forEach((cd,i)=>rowOf[cd]=i);
+  const xa=Math.min(box.x0,box.x1), xb=Math.max(box.x0,box.x1), ya=Math.min(box.y0,box.y1), yb=Math.max(box.y0,box.y1);
+  const sel=[];
+  evs.forEach(e=>{ const i=rowOf[e.code||'—']; if(i==null) return; const ry=CR_RULER+i*CR_ROWH; if(ry+CR_ROWH<ya||ry>yb) return;
+    const bx=g.xF(e.driveT||0), bw=Math.max(2,(crBarD(e)/g.vD)*g.plotW); if(bx+bw<xa||bx>xb) return; sel.push(e); });
+  crSyncSel=sel.map(e=>e._rowId);
+  if(sel.length){ const ref=sel.reduce((a,b)=>((a.driveT||0)<=(b.driveT||0)?a:b)); activeId=ref._rowId; crSyncDraft(ref); }
   crSyncUpdate(); renderList();
 }
 
