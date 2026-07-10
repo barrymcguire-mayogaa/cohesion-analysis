@@ -437,31 +437,88 @@ function crZoom(d){
   const nvD=dur/crTLZ; crTLO=Math.max(0,Math.min(Math.max(0,dur-nvD), center-nvD/2));
   crDrawTL();
 }
+// Visible duration (seconds) of an event's bar on the timeline.
+function crBarD(e){ return (e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):3; }
+// Current view geometry + time<->x mappers.
+function crGeom(){
+  const c=document.getElementById('crTL');
+  const cssW=parseFloat(c.style.width)||c.clientWidth, plotW=Math.max(1,cssW-CR_LW);
+  const dur=crDur(), vD=dur/crTLZ;
+  return {c,cssW,plotW,dur,vD, xF:t=>CR_LW+((t-crTLO)/vD)*plotW, tOf:x=>crTLO+((x-CR_LW)/plotW)*vD};
+}
+// What's under the cursor: an event bar (with move / resizeL / resizeR mode) or null.
+function crHitAt(x,y){
+  const g=crGeom(), evs=crFiltered(), rows=crRows(evs), ri=Math.floor((y-CR_RULER)/CR_ROWH);
+  if(ri<0||ri>=rows.length) return null;
+  const code=rows[ri];
+  for(const e of evs){ if((e.code||'—')!==code) continue;
+    const bx=g.xF(e.driveT||0), bw=Math.max(3,(crBarD(e)/g.vD)*g.plotW);
+    if(x>=bx-4&&x<=bx+bw+4){
+      let mode='move'; const EDGE=6;
+      if(bw>=16){ if(x<=bx+EDGE) mode='resizeL'; else if(x>=bx+bw-EDGE) mode='resizeR'; }
+      return {ev:e, mode, ri};
+    }
+  }
+  return null;
+}
+// Apply a drag of dt seconds from the drag's original values (d.o).
+function crApplyDrag(d, dt){
+  const e=d.ev, o=d.o;
+  if(d.mode==='move'){
+    e.driveT=Math.max(0, o.driveT+dt);
+    if(o.start!=null) e.start=o.start+dt;
+    if(o.end!=null) e.end=o.end+dt;
+  } else {
+    const os=(o.start!=null?o.start:o.driveT), oe=(o.end!=null?o.end:o.driveT+3), D=oe-os;
+    if(d.mode==='resizeR'){ e.driveT=o.driveT; e.start=os; e.end=Math.max(os+1, oe+dt); }
+    else { // resizeL: move the left edge; right edge stays fixed
+      const maxLeft=o.driveT+D-1, nLeft=Math.max(0, Math.min(maxLeft, o.driveT+dt));
+      e.driveT=nLeft; e.start=os+(nLeft-o.driveT); e.end=oe;
+    }
+  }
+}
+function crCommitDrag(d){
+  const e=d.ev;
+  if(!d.moved){ pick(e._rowId); return; }        // no movement → treat as a select
+  undoStack.push({type:'edit', snapshot:d.snapshot});
+  if(!e._new) e._dirty=true;
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending();
+  if(draft && String(e._rowId)===String(activeId)){ draft.driveT=e.driveT; renderPanel(); }
+  renderList();   // also redraws the timeline
+}
+let crDrag=null, crDown=null;
 function crInitTL(){
   if(crTLInit) return; const c=document.getElementById('crTL'); if(!c) return; crTLInit=true;
-  c.addEventListener('click',e=>{
+  const relX=ev=>ev.clientX-c.getBoundingClientRect().left;
+  c.addEventListener('mousedown',e=>{
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
-    if(x<CR_LW) return;
-    const dur=crDur(), vD=dur/crTLZ, plotW=(parseFloat(c.style.width)||c.clientWidth)-CR_LW;
-    const t=crTLO+((x-CR_LW)/plotW)*vD;
-    const evs=crFiltered(), rows=crRows(evs), ri=Math.floor((y-CR_RULER)/CR_ROWH);
-    let hit=null;
-    if(ri>=0&&ri<rows.length){
-      const code=rows[ri];
-      for(const ev of evs){ if((ev.code||'—')!==code) continue;
-        const bx=CR_LW+(((ev.driveT||0)-crTLO)/vD)*plotW;
-        const de=(ev.end!=null&&ev.start!=null)?Math.max(1,ev.end-ev.start):3;
-        const bw=Math.max(6,(de/vD)*plotW);
-        if(x>=bx-3&&x<=bx+bw+3){ hit=ev; break; } }
-    }
-    if(hit) pick(hit._rowId);
-    else if(YTP&&YTP.seekTo){ YTP.seekTo(Math.max(0,t),true); }
+    if(x<CR_LW||y<CR_RULER){ crDown={x}; return; }
+    const hit=crHitAt(x,y);
+    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; document.body.style.userSelect='none'; e.preventDefault(); }
+    else crDown={x};
+  });
+  c.addEventListener('mousemove',e=>{
+    if(crDrag) return;   // active-drag handled on window
+    const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    const hit=(x>=CR_LW&&y>=CR_RULER)?crHitAt(x,y):null;
+    c.style.cursor = !hit ? 'crosshair' : (hit.mode==='move'?'grab':'ew-resize');
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!crDrag) return;
+    const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
+    if(Math.abs(x-crDrag.startX)>3) crDrag.moved=true;
+    crApplyDrag(crDrag, dt); crDrawTL();
+  });
+  window.addEventListener('mouseup',e=>{
+    if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
+    if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW && YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,g.tOf(crDown.x)),true); crDown=null; }
   });
   c.addEventListener('wheel',e=>{
     e.preventDefault();
     const r=c.getBoundingClientRect(), x=e.clientX-r.left; if(x<CR_LW) return;
     const dur=crDur(), plotW=(parseFloat(c.style.width)||c.clientWidth)-CR_LW;
-    const tm=crTLO+((x-CR_LW)/(dur/crTLZ===0?1:plotW))*(dur/crTLZ);
+    const tm=crTLO+((x-CR_LW)/plotW)*(dur/crTLZ);
     crTLZ = e.deltaY<0 ? Math.min(20,crTLZ*1.4) : Math.max(1,crTLZ/1.4);
     const nvD=dur/crTLZ; crTLO=Math.max(0,Math.min(Math.max(0,dur-nvD), tm-((x-CR_LW)/plotW)*nvD));
     crDrawTL();
@@ -488,11 +545,15 @@ function crDrawTL(){
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
   evs.forEach(e=>{
     const i=rowOf[e.code||'—']; if(i==null) return;
-    const x=xF(e.driveT||0), de=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):3, w=Math.max(3,(de/vD)*plotW);
+    const x=xF(e.driveT||0), w=Math.max(3,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId);
+    const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx);
     ctx.fillStyle=sel?'#fff':((e.team||'').toUpperCase()===H?hC:aC); ctx.globalAlpha=sel?1:0.85;
-    const bx=Math.max(CR_LW,x); ctx.fillRect(bx,y+3,Math.min(w,cssW-bx),CR_ROWH-6); ctx.globalAlpha=1;
+    ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
+    // edge handles (only when wide enough to grab)
+    if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=dark?'#fff':'#000'; ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
+    ctx.globalAlpha=1;
   });
   // ruler
   ctx.fillStyle=dark?'#1a1a24':'#e8e7e4'; ctx.fillRect(CR_LW,0,plotW,CR_RULER);
