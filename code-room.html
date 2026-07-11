@@ -110,10 +110,15 @@ canvas#crTL{display:block;cursor:crosshair;}
 .acdrop div{padding:9px 12px;font:600 14px 'Barlow',sans-serif;color:var(--t1);cursor:pointer;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .acdrop div:last-child{border-bottom:none;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
-.swatches{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
-.swatch{width:26px;height:26px;border-radius:6px;cursor:pointer;border:2px solid transparent;box-sizing:border-box;}
-.swatch.on{border-color:var(--t1);box-shadow:0 0 0 2px var(--accent);}
-.swatch.def{display:flex;align-items:center;justify-content:center;font:700 9px 'Barlow Condensed',sans-serif;color:var(--t2);background:var(--card);border:1px dashed var(--border);}
+.tltip{position:fixed;z-index:10003;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;font:600 12px 'Barlow',sans-serif;color:var(--t1);box-shadow:0 12px 32px rgba(0,0,0,.55);pointer-events:none;display:none;max-width:300px;line-height:1.5;}
+.tltip .tt-code{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:4px;color:var(--accent);}
+.tltip .tg{display:inline-block;min-width:104px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;}
+.tltip .tt-none{color:var(--t3);font-style:italic;}
+.colorrow{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
+.colorrow input[type=color]{width:44px;height:38px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;flex:none;margin:0;}
+.colorrow input[type=text]{flex:1;width:auto;margin:0;}
+.colorrow .teambtn{flex:none;padding:9px 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.colorrow .teambtn:hover{border-color:var(--accent);color:var(--accent);}
 .epanel input:focus{border-color:var(--accent);}
 .lblrow{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
 .lblrow .g{min-width:118px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;}
@@ -308,6 +313,7 @@ canvas#crTL{display:block;cursor:crosshair;}
 
   <div id="loading" class="load-st" style="display:none;"><div class="spin"></div>Loading game…</div>
   <div id="acDrop" class="acdrop"></div>
+  <div id="tlTip" class="tltip"></div>
 </div>
 
 <script>
@@ -590,11 +596,13 @@ function crInitTL(){
     else crDown={x};
   });
   c.addEventListener('mousemove',e=>{
-    if(crDrag) return;   // active-drag handled on window
+    if(crDrag||crBox){ crTipHide(); return; }   // active-drag handled on window
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     const hit=(x>=CR_LW&&y>=CR_RULER)?crHitAt(x,y):null;
     c.style.cursor = !hit ? 'crosshair' : (hit.mode==='move'?'grab':'ew-resize');
+    if(hit) crTipShow(hit.ev, e.clientX, e.clientY); else crTipHide();
   });
+  c.addEventListener('mouseleave', crTipHide);
   window.addEventListener('mousemove',e=>{
     if(crBox){ const rr=c.getBoundingClientRect(); crBox.x1=e.clientX-rr.left; crBox.y1=e.clientY-rr.top; if(Math.abs(crBox.x1-crBox.x0)>3||Math.abs(crBox.y1-crBox.y0)>3) crBox.moved=true; crDrawTL(); return; }
     if(!crDrag) return;
@@ -732,6 +740,22 @@ function crInitSB(){
 }
 // Scrub the video while dragging a bar, throttled so YouTube isn't hammered.
 function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,t),true); }
+
+// Hover tooltip: shows the hovered event's label groups + labels.
+function crTipHide(){ const tip=document.getElementById('tlTip'); if(tip) tip.style.display='none'; }
+function crTipShow(ev, cx, cy){
+  const tip=document.getElementById('tlTip'); if(!tip) return;
+  const rows=Object.entries(ev.labels||{}).filter(([g])=>g!=='Team Name')
+    .map(([g,v])=>`<div><span class="tg">${esc(g)}</span> ${esc(v)}</div>`).join('');
+  tip.innerHTML=`<div class="tt-code">${esc(ev.code||'')}</div>`
+    +(ev.player?`<div><span class="tg">Player</span> ${esc(ev.player)}</div>`:'')
+    +(rows||'<div class="tt-none">No labels on this event</div>');
+  tip.style.display='block';
+  const pad=14, w=tip.offsetWidth, h=tip.offsetHeight, vw=window.innerWidth, vh=window.innerHeight;
+  let left=cx+pad, top=cy+pad;
+  if(left+w>vw-8) left=cx-w-pad; if(top+h>vh-8) top=cy-h-pad;
+  tip.style.left=Math.max(8,left)+'px'; tip.style.top=Math.max(8,top)+'px';
+}
 
 // ── SYNC MODE (Phase 3) ───────────────────────────────────────
 // Pick a reference event, scrub the video to where it truly happens, then
@@ -874,8 +898,12 @@ function renderPanel(){
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
     <div class="ep-lbl">Player</div>
     <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
-    <div class="ep-lbl">Colour</div>
-    <div class="swatches">${crSwatchRow()}</div>
+    <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = team default</span></div>
+    <div class="colorrow">
+      <input type="color" id="evColor" value="${esc(draft.color||crTeamColor(e))}" oninput="setDraftColor(this.value); document.getElementById('evColorHex').value=this.value">
+      <input type="text" id="evColorHex" value="${esc(draft.color||'')}" placeholder="Team default" oninput="setDraftColorHex(this.value)">
+      <button type="button" class="teambtn" onclick="crResetColor()" title="Use the team default colour">Team</button>
+    </div>
     <div class="ep-lbl">Video position — <b id="epNow" style="color:var(--accent)">${fmt(draft.driveT)}</b>${drift}</div>
     <div class="nudge">
       <button onclick="nudge(-5)">−5s</button><button onclick="nudge(-1)">−1s</button>
@@ -932,16 +960,12 @@ function acKey(ev){ const d=document.getElementById('acDrop'); if(!acInput||!d||
 function acHi(){ const d=document.getElementById('acDrop'); if(!d)return; d.querySelectorAll('div').forEach((el,i)=>el.classList.toggle('on',i===acIdx)); const on=d.querySelector('div.on'); if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest'}); }
 window.addEventListener('scroll', acHide, true);
 
-// ── Per-event colour ──────────────────────────────────────────
+// ── Per-event colour (native picker + hex, as elsewhere in COHESION) ──
 // An event can override its timeline colour; blank = team default.
-const CR_SWATCHES=['#4fc3f7','#22c55e','#e0245e','#f59e0b','#a855f7','#eab308','#14b8a6','#f97316','#ffffff'];
-function crSwatchRow(){
-  const cur=((draft&&draft.color)||'').toLowerCase();
-  let html='<div class="swatch def '+(!cur?'on':'')+'" onclick="setDraftColor(\'\')" title="Use the team default colour">TEAM</div>';
-  html+=CR_SWATCHES.map(c=>`<div class="swatch ${cur===c?'on':''}" style="background:${c}" onclick="setDraftColor('${c}')" title="${c}"></div>`).join('');
-  return html;
-}
-function setDraftColor(v){ if(draft){ draft.color=v; refreshSave(); renderPanel(); } }
+function crTeamColor(e){ const H=(GAME.homeTeam||'').toUpperCase(); return ((e&&e.team||'').toUpperCase()===H)?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
+function setDraftColor(v){ if(!draft)return; draft.color=v||''; refreshSave(); if(crView==='tl') crDrawTL(); }
+function setDraftColorHex(v){ v=(v||'').trim(); if(!v){ setDraftColor(''); return; } if(/^#?[0-9a-fA-F]{6}$/.test(v)){ if(v[0]!=='#') v='#'+v; setDraftColor(v); const ci=document.getElementById('evColor'); if(ci) ci.value=v; } }
+function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); const def=crTeamColor(e); const ci=document.getElementById('evColor'); if(ci) ci.value=def; const hx=document.getElementById('evColorHex'); if(hx) hx.value=''; }
 function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
 function setDefinedLabel(name,value){
   if(!draft)return;
