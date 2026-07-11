@@ -242,6 +242,8 @@ canvas#crTL{display:block;cursor:crosshair;}
               <div class="tlrb" onclick="crAddRow(1)" title="Add an empty row below the selected row">Row ↓</div>
               <div class="tlrb del" onclick="crRemoveRow()" title="Remove the selected empty row">Del</div>
               <div class="tlsep"></div>
+              <div class="tlrb" onclick="crSelectAll()" title="Select all visible events for bulk edit">Sel all</div>
+              <div class="tlsep"></div>
               <div class="tlzb" onclick="crZoom(-1)" title="Zoom out">−</div>
               <div class="tlzb" onclick="crZoom(1)" title="Zoom in">+</div>
             </div>
@@ -358,7 +360,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSyncSel=[]; crBox=null;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null;
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -452,7 +454,7 @@ function renderList(){
 // filter/period controls as the list. Click a bar to select+seek; click empty
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
 let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0, crSyncOn=false;
-let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false, crSyncSel=[], crBox=null;
+let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false, crSel=[], crBox=null;
 const CR_LW=124, CR_ROWH=24, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
 function crFiltered(){
@@ -585,15 +587,16 @@ function crInitTL(){
   c.addEventListener('mousedown',e=>{
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(y<CR_RULER){ crDown={x}; return; }                       // ruler → seek on release
-    if(x<CR_LW){                                                 // label gutter → select that row
+    if(x<CR_LW){                                                 // label gutter → select that row + all its events
       const rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
-      crActiveRow=(ri>=0&&ri<rows.length)?rows[ri]:null; crDrawTL(); return;
+      if(ri>=0&&ri<rows.length){ crActiveRow=rows[ri]; crSelectRow(rows[ri]); } else { crActiveRow=null; crDrawTL(); }
+      return;
     }
     const hit=crHitAt(x,y);
-    if(hit && crSyncOn){ crSyncSel=[]; pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click a bar = set reference (clears any group)
-    if(hit){ const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
-    else if(crSyncOn){ crBox={x0:x,y0:y,x1:x,y1:y,moved:false}; document.body.style.userSelect='none'; e.preventDefault(); }  // Sync Mode: drag on empty = box-select a group
-    else crDown={x};
+    if(hit && e.shiftKey){ crToggleSel(hit.ev._rowId); return; }                // shift-click = add/remove from selection
+    if(hit && crSyncOn){ crSel=[]; pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click a bar = set reference (clears any group)
+    if(hit){ crSel=[]; const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
+    else { crBox={x0:x,y0:y,x1:x,y1:y,moved:false}; document.body.style.userSelect='none'; e.preventDefault(); }  // drag on empty = box-select
   });
   c.addEventListener('mousemove',e=>{
     if(crDrag||crBox){ crTipHide(); return; }   // active-drag handled on window
@@ -683,7 +686,7 @@ function crDrawTL(){
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
   const dragging=crDrag&&crDrag.mode==='move'&&crDrag.targetRow!=null?crDrag.ev:null;
-  const groupSet=crSyncSel.length?new Set(crSyncSel.map(String)):null;
+  const groupSet=crSel.length?new Set(crSel.map(String)):null;
   evs.forEach(e=>{
     let i=rowOf[e.code||'—']; if(i==null) return;
     if(e===dragging) i=crDrag.targetRow;   // show the grabbed bar on the row under the cursor
@@ -763,7 +766,7 @@ function crTipShow(ev, cx, cy){
 // events at or after the reference. Writes driveT (queued → DB on save).
 function crSyncToggle(){
   crSyncOn=!crSyncOn;
-  if(!crSyncOn){ crSyncSel=[]; crBox=null; }
+  if(!crSyncOn){ crSel=[]; crBox=null; }
   document.getElementById('syncToggle').classList.toggle('on',crSyncOn);
   document.getElementById('syncBar').style.display=(crView==='tl'&&crSyncOn)?'':'none';
   crSyncUpdate(); crDrawTL();
@@ -771,12 +774,12 @@ function crSyncToggle(){
 function crSyncUpdate(){
   if(!crSyncOn) return;
   const info=document.getElementById('syncInfo'), dl=document.getElementById('syncDelta'), gb=document.getElementById('syncGroupBtn'); if(!info||!dl) return;
-  if(gb){ if(crSyncSel.length){ gb.style.display=''; gb.textContent='Sync group ('+crSyncSel.length+')'; } else gb.style.display='none'; }
+  if(gb){ if(crSel.length){ gb.style.display=''; gb.textContent='Sync group ('+crSel.length+')'; } else gb.style.display='none'; }
   const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
   const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0;
   if(!R){ info.textContent='Click an event to set the reference (or drag a box to select a group), then scrub the video to where it truly happens.'; dl.textContent=''; return; }
   const delta=T-(R.driveT||0);
-  info.innerHTML=(crSyncSel.length?'Group of <b>'+crSyncSel.length+'</b> · ref ':'Ref: ')+'<b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
+  info.innerHTML=(crSel.length?'Group of <b>'+crSel.length+'</b> · ref ':'Ref: ')+'<b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
   dl.textContent='Δ '+(delta>=0?'+':'')+delta.toFixed(1)+'s';
   dl.style.color = Math.abs(delta)<0.5 ? 'var(--t3)' : (delta>0?'#4fc3f7':'#f59e0b');
 }
@@ -787,7 +790,7 @@ function crSyncApply(scope){
   if(Math.abs(delta)<0.05){ alert('The video is already at this event — scrub to where it truly happens first.'); return; }
   let set;
   if(scope==='event') set=[R];
-  else if(scope==='group'){ const ids=new Set(crSyncSel.map(String)); set=EVENTS.filter(e=>ids.has(String(e._rowId))); }
+  else if(scope==='group'){ const ids=new Set(crSel.map(String)); set=EVENTS.filter(e=>ids.has(String(e._rowId))); }
   else { set=EVENTS.filter(e=>(e.driveT||0)>=ref-0.001); if(scope==='half') set=set.filter(e=>e.half===R.half); }
   if(!set.length) return;
   const n=set.length;
@@ -807,9 +810,79 @@ function crSelectBox(box){
   const sel=[];
   evs.forEach(e=>{ const i=rowOf[e.code||'—']; if(i==null) return; const ry=CR_RULER+i*CR_ROWH; if(ry+CR_ROWH<ya||ry>yb) return;
     const bx=g.xF(e.driveT||0), bw=Math.max(2,(crBarD(e)/g.vD)*g.plotW); if(bx+bw<xa||bx>xb) return; sel.push(e); });
-  crSyncSel=sel.map(e=>e._rowId);
-  if(sel.length){ const ref=sel.reduce((a,b)=>((a.driveT||0)<=(b.driveT||0)?a:b)); activeId=ref._rowId; crSyncDraft(ref); }
-  crSyncUpdate(); renderList();
+  crSel=sel.map(e=>e._rowId);
+  crAfterSelect();
+}
+function crSelectRow(code){ crSel=crFiltered().filter(e=>(e.code||'—')===code).map(e=>e._rowId); crAfterSelect(); }
+function crSelectAll(){ crSel=crFiltered().map(e=>e._rowId); crAfterSelect(); }
+function crToggleSel(id){ id=String(id); const i=crSel.findIndex(x=>String(x)===id); if(i>=0) crSel.splice(i,1); else crSel.push(id); crAfterSelect(); }
+function crClearSel(){ crSel=[]; if(!codeMode.on) renderPanel(); renderList(); }
+// Decide what to show after a selection changes.
+function crAfterSelect(){
+  if(crSyncOn){                                    // Sync Mode: earliest = reference
+    if(crSel.length){ const evs=EVENTS.filter(e=>crSel.map(String).includes(String(e._rowId))); const ref=evs.reduce((a,b)=>((a.driveT||0)<=(b.driveT||0)?a:b)); activeId=ref._rowId; crSyncDraft(ref); }
+    crSyncUpdate(); renderList(); return;
+  }
+  if(codeMode.on){ renderList(); return; }         // code mode keeps its tagging panel
+  if(crSel.length>1) { renderBulk(); renderList(); }
+  else if(crSel.length===1){ pick(crSel[0]); }     // single → normal editor
+  else { renderPanel(); renderList(); }
+}
+// ── Bulk edit (multiple selected events) ──────────────────────
+function crLabelGroups(){ const s=new Set(); EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(g!=='Team Name'&&!/player labels$/i.test(g)) s.add(g); })); (window.COHESION_LABEL_GROUPS||[]).forEach(g=>s.add(g.name)); return [...s].sort(); }
+function renderBulk(){
+  const p=document.getElementById('epanel'); if(!p) return;
+  document.getElementById('addPanel').style.display='none';
+  const cp=document.getElementById('codePanel'); if(cp) cp.style.display='none';
+  p.style.display=''; p.className='epanel';
+  const n=crSel.length;
+  p.innerHTML=`
+    <div class="ep-code">${n} events selected</div>
+    <div class="ep-meta">Bulk-edit them together — each change is one Save you can undo.</div>
+    <div class="ep-lbl">Set player</div>
+    <input id="bulkPlayer" placeholder="Player name" autocomplete="off" oninput="acShow(this,crPlayers(),acNoop)" onfocus="acShow(this,crPlayers(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
+    <button class="addg" onclick="crBulkPlayer()">Apply player to ${n}</button>
+    <div class="ep-lbl">Add / set label</div>
+    <div style="display:flex;gap:6px;">
+      <input id="bulkLblG" placeholder="Label group" autocomplete="off" style="flex:1;margin:0;" oninput="acShow(this,crLabelGroups(),acNoop)" onfocus="acShow(this,crLabelGroups(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
+      <input id="bulkLblV" placeholder="Value" style="flex:1;margin:0;">
+    </div>
+    <button class="addg" onclick="crBulkLabel()">Apply label to ${n}</button>
+    <div class="ep-lbl">Set colour</div>
+    <div class="colorrow">
+      <input type="color" id="bulkColor" value="#4fc3f7">
+      <button type="button" class="teambtn" onclick="crBulkColor(document.getElementById('bulkColor').value)">Apply</button>
+      <button type="button" class="teambtn" onclick="crBulkColor('')">Team default</button>
+    </div>
+    <div class="bar" style="margin-top:12px;">
+      <button class="del" onclick="crBulkDelete()">🗑 Delete ${n}</button>
+      <button onclick="crClearSel()">Clear</button>
+    </div>
+    <div class="status" id="bulkStatus"></div>`;
+}
+function crBulkApply(mutator){
+  const evs=crSel.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
+  if(!evs.length) return;
+  undoStack.push({type:'bulkedit', snaps: evs.map(e=>({id:e._rowId, data:crClone(e)}))});
+  evs.forEach(e=>{ mutator(e); if(!e._new) e._dirty=true; });
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); renderBulk();
+  const st=document.getElementById('bulkStatus'); if(st){ st.className='status ok'; st.textContent='Applied to '+evs.length+' — saved to Cohesion when you close the session.'; }
+}
+function crBulkPlayer(){ const v=((document.getElementById('bulkPlayer')||{}).value||'').trim();
+  crBulkApply(e=>{ e.player=v; e.labels=e.labels||{}; const grp=`${(e.team||'Unassigned')} Player Labels`; if(v) e.labels[grp]=v; else delete e.labels[grp]; }); }
+function crBulkLabel(){ const g=((document.getElementById('bulkLblG')||{}).value||'').trim(), v=((document.getElementById('bulkLblV')||{}).value||'').trim(); if(!g) return;
+  crBulkApply(e=>{ e.labels=e.labels||{}; if(v) e.labels[g]=v; else delete e.labels[g]; e.outcome=firstOf(e.labels,OUT_KEYS)||e.outcome||''; }); }
+function crBulkColor(v){ crBulkApply(e=>{ if(v) e.color=v; else delete e.color; }); }
+function crBulkDelete(){
+  const evs=crSel.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
+  if(!evs.length) return;
+  if(!confirm('Delete '+evs.length+' selected events?\n\nYou can Undo before saving.')) return;
+  undoStack.push({type:'bulkdelete', snaps: evs.map(e=>({data:crClone(e), wasNew:!!e._new}))});
+  evs.forEach(e=>{ if(!e._new) crDeleted.push({id:e._rowId}); });
+  const ids=new Set(crSel.map(String)); EVENTS=EVENTS.filter(e=>!ids.has(String(e._rowId)));
+  crSel=[]; activeId=null; draft=null;
+  crBackup(); crUpdatePending(); renderList(); renderPanel();
 }
 
 // ── derivation helpers (keep promoted fields consistent) ──────
@@ -1399,6 +1472,12 @@ function undo(){
     activeId=op.snapshot._rowId; draft=null;
   } else if(op.type==='syncshift'){
     op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ e.driveT=s.driveT; e.start=s.start; e.end=s.end; if(s.dirty) e._dirty=true; else delete e._dirty; } });
+    draft=null;
+  } else if(op.type==='bulkedit'){
+    op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
+    draft=null;
+  } else if(op.type==='bulkdelete'){
+    op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
     draft=null;
   }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
