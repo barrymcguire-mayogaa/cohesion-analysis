@@ -309,6 +309,12 @@ canvas#crTL{display:block;cursor:crosshair;}
         <datalist id="playerList"></datalist>
         <div class="epanel empty" id="epanel">Select an event to edit its timing, code, player or labels — or use ＋ Add event here.</div>
         <div class="epanel" id="codePanel" style="display:none;">
+          <div class="ep-lbl" style="display:flex;align-items:center;gap:6px;">Template
+            <select id="tplSelect" style="flex:1;margin:0;padding:6px 8px;font:600 12px 'Barlow',sans-serif;text-transform:none;letter-spacing:0;"><option value="">— template —</option></select>
+            <button class="cbtn mini" onclick="applyTemplate()" title="Apply the selected template's codes, keys, rows, colours and clip window">Apply</button>
+            <button class="cbtn mini" onclick="saveTemplate()" title="Save the current setup as a template">Save as…</button>
+            <button class="cbtn mini" onclick="deleteTemplate()" title="Delete the selected template">✕</button>
+          </div>
           <div class="ep-lbl">Period</div>
           <div id="codePeriods" class="codebtns"></div>
           <div class="ep-lbl">Team</div>
@@ -1269,10 +1275,84 @@ try{ const L=+localStorage.getItem('cr_codeLead'); if(L===0||L>0) codeMode.lead=
 // Restore the coder's saved key→code assignments (by code name, cross-game).
 let codeKeyPref=[];
 try{ const s=JSON.parse(localStorage.getItem('cr_codeKeys')||'null'); if(Array.isArray(s)) codeKeyPref=s.filter(x=>typeof x==='string'); }catch(_){}
+// Per-code default colours (applied to events tagged in Code Mode).
+let codeColorPref={};
+try{ const s=JSON.parse(localStorage.getItem('cr_codeColors')||'null'); if(s&&typeof s==='object') codeColorPref=s; }catch(_){}
+// Coding templates (club-wide + this analyst's personal), loaded from the DB.
+let crTemplates=[], crTplCodes=[];
 let codeEvtList=[];
 const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
 // Escape a string for use inside a single-quoted inline onclick attribute.
 function _cq(s){ return esc(String(s==null?'':s)).replace(/'/g,"&#39;"); }
+
+// ── Coding templates ──────────────────────────────────────────
+// A template bundles the Code Mode setup — event codes, hotkey order, row
+// layout, per-code colours, clip window — stored in the DB via the templates
+// function (club-wide, or personal to this analyst).
+async function crAuthFetch(fn,payload){
+  const ni=window.netlifyIdentity;
+  const cu=ni&&((ni.gotrue&&ni.gotrue.currentUser&&ni.gotrue.currentUser())||(ni.currentUser&&ni.currentUser()));
+  let t=cu&&cu.token&&cu.token.access_token;
+  if(!t&&ni&&ni.refresh){ try{ await ni.refresh(); const u=ni.gotrue.currentUser(); t=u&&u.token&&u.token.access_token; }catch(_){} }
+  if(!t) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res=await fetch('/.netlify/functions/'+fn,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify(payload)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
+async function loadTemplates(){
+  try{ const j=await crAuthFetch('templates',{action:'list'}); crTemplates=j.templates||[]; }
+  catch(_){ crTemplates=[]; }   // table not created yet / offline — templates just unavailable
+  fillTplSelect();
+}
+function fillTplSelect(){
+  const sel=document.getElementById('tplSelect'); if(!sel) return;
+  const keep=sel.value;
+  sel.innerHTML='<option value="">— template —</option>'+crTemplates.map(t=>`<option value="${t.id}">${esc(t.name)}${t.scope==='personal'?' (mine)':''}</option>`).join('');
+  sel.value=keep;
+}
+// Capture the current Code Mode setup as a template payload.
+function crTplCapture(){
+  return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref},
+           rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
+}
+async function saveTemplate(){
+  const name=(prompt('Template name (e.g. NFL 2026, U-14 Championship):')||'').trim();
+  if(!name) return;
+  const scope=await cohesionModal({ title:'Who can use this template?',
+    message:'Club-wide templates are shared with every analyst; personal templates are only visible to you.',
+    buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}] });
+  if(scope==='cancel') return;
+  const existing=crTemplates.find(t=>t.name.toLowerCase()===name.toLowerCase()&&t.scope===scope);
+  try{
+    await crAuthFetch('templates',{action:'save', id:existing?existing.id:undefined, name, scope, data:crTplCapture()});
+    await loadTemplates();
+    const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Template "'+name+'" saved ('+(scope==='club'?'club-wide':'personal')+')';
+  }catch(e){ alert('Could not save template: '+e.message); }
+}
+function applyTemplate(){
+  const sel=document.getElementById('tplSelect'); if(!sel||!sel.value) return;
+  const t=crTemplates.find(x=>String(x.id)===String(sel.value)); if(!t) return;
+  const d=t.data||{};
+  crTplCodes=Array.isArray(d.codes)?d.codes.filter(c=>typeof c==='string'):[];
+  if(Array.isArray(d.keys)){ codeKeyPref=d.keys.slice(); saveCodeKeys(); }
+  if(d.colors&&typeof d.colors==='object'){ codeColorPref={...d.colors}; saveCodeColors(); }
+  if(d.rows){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
+  if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
+  if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
+  buildCodePanel();
+  if(crView==='tl') crDrawTL();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Applied template "'+t.name+'"';
+}
+async function deleteTemplate(){
+  const sel=document.getElementById('tplSelect'); if(!sel||!sel.value) return;
+  const t=crTemplates.find(x=>String(x.id)===String(sel.value)); if(!t) return;
+  if(!confirm('Delete template "'+t.name+'"'+(t.scope==='club'?' (club-wide)':'')+'?')) return;
+  try{ await crAuthFetch('templates',{action:'delete', id:t.id}); await loadTemplates(); }
+  catch(e){ alert('Could not delete template: '+e.message); }
+}
+function saveCodeColors(){ try{ localStorage.setItem('cr_codeColors', JSON.stringify(codeColorPref)); }catch(_){} }
+function setCodeColor(code,color){ if(color) codeColorPref[code]=color; else delete codeColorPref[code]; saveCodeColors(); }
 
 function setMode(m){
   codeMode.on=(m==='code');
@@ -1298,9 +1378,10 @@ function buildCodePanel(){
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`;
-  let bases=[...new Set(EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean))];
+  let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes])];
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
+  fillTplSelect();
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${esc(b)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
   buildCodePlayers();
   buildCodeLabels();
@@ -1328,10 +1409,11 @@ function buildCodeKeysEditor(){
   for(let i=0;i<n;i++){
     const cur=all[i];
     const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
-    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select></div>`;
+    const col=codeColorPref[cur]||'';
+    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
   }
   box.style.display='';
-  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games.</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
+  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. The colour is applied to events of that code tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
 }
 function setCodeKey(slot, code){
   if(!code) return;
@@ -1409,6 +1491,7 @@ function codeTag(baseCode){
   const row={ id:'manual-'+Date.now(), start:clipStart, end:clipEnd, half:codeMode.period, code, team:teamName,
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
+  if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
@@ -1599,6 +1682,7 @@ function undo(){
 }
 
 loadGames();
+loadTemplates();
 </script>
 </body>
 </html>
