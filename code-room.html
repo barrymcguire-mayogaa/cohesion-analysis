@@ -954,10 +954,49 @@ function renderBulk(){
       <button type="button" class="teambtn" onclick="crBulkColor('')">Team default</button>
     </div>
     <div class="bar" style="margin-top:12px;">
+      <button onclick="crAddToPlaylist(crSel)">🎞 Add ${n} to playlist</button>
+    </div>
+    <div class="bar" style="margin-top:8px;">
       <button class="del" onclick="crBulkDelete()">🗑 Delete ${n}</button>
       <button onclick="crClearSel()">Clear</button>
     </div>
     <div class="status" id="bulkStatus"></div>`;
+}
+// ── Add events to a playlist (clips watchable on playlists.html) ──
+function crClipOf(e){
+  const s=(e.start!=null?e.start:(e.driveT||0)), en=(e.end!=null?e.end:s+6);
+  return { videoId:GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'',
+           start:Math.max(0,s), end:Math.max(s+1,en),
+           label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+}
+async function crAddToPlaylist(ids){
+  if(GAME&&GAME._local){ alert('Local sessions have no shareable video link yet — upload the game first, then build playlists from it.'); return; }
+  if(!GAME.youtubeId){ alert('This game has no video link.'); return; }
+  const evs=(ids||[]).map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
+  if(!evs.length) return;
+  let lists=[];
+  try{ const j=await crAuthFetch('playlists',{action:'list'}); lists=j.playlists||[]; }
+  catch(e){ alert('Could not load playlists: '+e.message); return; }
+  const btns=lists.slice(0,7).map(p=>({label:p.name+' ('+(((p.data||{}).items)||[]).length+')', value:'pl-'+p.id}));
+  btns.push({label:'＋ New playlist…', value:'new', primary:true});
+  btns.push({label:'Cancel', value:'cancel'});
+  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Clips keep the event name — rename or reorder them any time on the Playlists page.', buttons:btns});
+  if(c==='cancel'||c==null) return;
+  let target=null, name='', scope='club';
+  if(c==='new'){
+    name=(prompt('New playlist name:')||'').trim(); if(!name) return;
+    const sc=await cohesionModal({title:'Who can see this playlist?', message:'Club-wide is visible to every analyst, coach and player; personal is only you.', buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
+    if(sc==='cancel') return; scope=sc;
+  } else {
+    target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
+    name=target.name; scope=target.scope;
+  }
+  const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(crClipOf));
+  try{
+    await crAuthFetch('playlists',{action:'save', id:target?target.id:undefined, name, scope, data:{items}});
+    const f=document.getElementById('bulkStatus')||document.getElementById('epStatus');
+    if(f){ f.className='status ok'; f.textContent='✓ Added to "'+name+'" — view on the Playlists page.'; }
+  }catch(e){ alert('Could not add to playlist: '+e.message); }
 }
 function crBulkApply(mutator){
   const evs=crSel.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
@@ -1090,6 +1129,7 @@ function renderPanel(){
       <button onclick="undo()" ${undoStack.length?'':'disabled'}>↶ Undo</button>
     </div>
     <div class="bar" style="margin-top:8px;">
+      <button onclick="crAddToPlaylist([activeId])">🎞 Add to playlist</button>
       <button class="del" onclick="deleteEvent()">🗑 Delete event</button>
     </div>
     <div class="status" id="epStatus"></div>`;
