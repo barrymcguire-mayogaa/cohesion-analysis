@@ -35,7 +35,13 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 /* setup */
 .setup{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;max-width:520px;margin:24px auto;}
 .setup label{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;display:block;margin-bottom:8px;}
-.setup input{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;}
+.setup input,.setup select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;box-sizing:border-box;}
+.setup .frow{display:flex;gap:8px;margin-bottom:8px;}
+.setup .frow select{flex:1;width:auto;}
+.setup .divider{display:flex;align-items:center;gap:10px;margin:18px 0 14px;color:var(--t3);font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;}
+.setup .divider::before,.setup .divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.setup .startbtn{width:100%;margin-top:8px;padding:11px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.setup .startbtn:disabled{opacity:.45;cursor:default;}
 .drop{border:1px solid var(--border);border-radius:0 0 7px 7px;background:var(--card);max-height:280px;overflow-y:auto;margin-top:-8px;border-top:none;display:none;}
 .drop .row{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;}
 .drop .row:hover{background:var(--hover);}
@@ -184,9 +190,26 @@ canvas#crTL{display:block;cursor:crosshair;}
   <!-- SETUP -->
   <div class="setup" id="setup">
     <label>Select a game to edit</label>
+    <div class="frow">
+      <select id="gfTeam" onchange="filterGames()"><option value="">All teams</option></select>
+      <select id="gfComp" onchange="filterGames()"><option value="">All competitions</option></select>
+      <select id="gfYear" onchange="filterGames()"><option value="">All years</option></select>
+    </div>
     <input type="text" id="gsearch" placeholder="Search by team, date, competition…" oninput="filterGames()" autocomplete="off">
     <div class="drop" id="gdrop"></div>
     <div class="status" id="setupStatus"></div>
+    <div class="divider">or code a new game from a local video</div>
+    <div class="frow">
+      <input type="text" id="lvHome" placeholder="Home team (e.g. MAYO)" autocomplete="off" style="flex:1;width:auto;">
+      <input type="text" id="lvAway" placeholder="Away team" autocomplete="off" style="flex:1;width:auto;">
+    </div>
+    <div class="frow">
+      <input type="text" id="lvComp" placeholder="Competition (optional)" autocomplete="off" style="flex:1;width:auto;">
+      <input type="date" id="lvDate" style="flex:1;width:auto;">
+    </div>
+    <input type="file" id="lvFile" accept="video/*" style="margin-bottom:4px;">
+    <button class="startbtn" onclick="startLocalSession()">▶ Start coding session</button>
+    <div style="margin-top:8px;font-size:11px;color:var(--t3);line-height:1.5;">The video stays on your computer — nothing is uploaded. Code the game, then <b>Export XML</b> and upload it with the video link through the normal New Game flow.</div>
   </div>
 
   <!-- EDITOR -->
@@ -342,13 +365,29 @@ async function loadGames(){
     const {data,error}=await _sb.from('games').select('id, meta').order('created_at',{ascending:false});
     if(error) throw error;
     GAMES=(data||[]).map(r=>{let m=r.meta; if(typeof m==='string'){try{m=JSON.parse(m);}catch(_){return null;}} return m;}).filter(g=>g&&g.id);
+    buildGameFilters();
   }catch(e){ document.getElementById('setupStatus').innerHTML='<span class="err">Could not load games: '+e.message+'</span>'; }
+}
+// Populate the team / competition / year dropdowns from the loaded games.
+function buildGameFilters(){
+  const opt=(sel,vals)=>{ const el=document.getElementById(sel); if(!el) return; const keep=el.value;
+    el.innerHTML=el.options[0].outerHTML+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); el.value=keep; };
+  opt('gfTeam',[...new Set(GAMES.flatMap(g=>[g.homeTeam,g.awayTeam]).filter(Boolean))].sort());
+  opt('gfComp',[...new Set(GAMES.map(g=>g.competition).filter(Boolean))].sort());
+  opt('gfYear',[...new Set(GAMES.map(g=>String(g.date||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse());
 }
 function filterGames(){
   const q=document.getElementById('gsearch').value.toLowerCase().trim();
+  const fT=(document.getElementById('gfTeam')||{}).value||'', fC=(document.getElementById('gfComp')||{}).value||'', fY=(document.getElementById('gfYear')||{}).value||'';
   const drop=document.getElementById('gdrop');
-  if(!q){drop.style.display='none';return;}
-  const hits=GAMES.filter(g=>[g.id,g.title,g.homeTeam,g.awayTeam,g.competition,g.date].filter(Boolean).join(' ').toLowerCase().includes(q)).slice(0,12);
+  if(!q && !fT && !fC && !fY){drop.style.display='none';return;}
+  const hits=GAMES.filter(g=>{
+    if(fT && g.homeTeam!==fT && g.awayTeam!==fT) return false;
+    if(fC && g.competition!==fC) return false;
+    if(fY && String(g.date||'').slice(0,4)!==fY) return false;
+    if(q && ![g.id,g.title,g.homeTeam,g.awayTeam,g.competition,g.date].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).slice(0,20);
   drop.innerHTML=hits.map(g=>`<div class="row" onclick="openGame('${g.id.replace(/'/g,"\\'")}')">${(g.title||g.id)} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></div>`).join('')||'<div class="row" style="color:var(--t3);cursor:default">No matches</div>';
   // Must be an explicit 'block': the .drop class sets display:none in the
   // stylesheet, and clearing the inline style ('') would just fall back to
@@ -385,6 +424,37 @@ async function openGame(id){
   crUpdatePending();
   renderList();
 }
+
+// ── Local-video session: code a brand-new game against a file on this
+// machine. Nothing is uploaded and nothing touches the database — the output
+// is Export XML, which then goes through the normal New Game upload flow.
+async function startLocalSession(){
+  const home=(document.getElementById('lvHome').value||'').trim().toUpperCase();
+  const away=(document.getElementById('lvAway').value||'').trim().toUpperCase();
+  const file=(document.getElementById('lvFile').files||[])[0];
+  const st=document.getElementById('setupStatus');
+  if(!home||!away){ st.innerHTML='<span class="err">Enter both team names.</span>'; return; }
+  if(!file){ st.innerHTML='<span class="err">Choose a video file.</span>'; return; }
+  GAME={ id:'local-session', _local:true, homeTeam:home, awayTeam:away,
+         competition:(document.getElementById('lvComp').value||'').trim(),
+         date:document.getElementById('lvDate').value||'',
+         title:home+' v '+away+' (local video)',
+         localUrl:URL.createObjectURL(file) };
+  EVENTS=[];
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null;
+  document.getElementById('setup').style.display='none';
+  document.getElementById('editor').style.display='';
+  await crRestoreBackup();   // recover events from a crashed local session
+  const sel=document.getElementById('eperiod');
+  sel.innerHTML='<option value="">All periods</option>';
+  refreshDatalists();
+  buildPlayer();
+  initVH();
+  crUpdatePending();
+  renderList();
+  setMode('code');   // a new game starts in Code mode — there's nothing to edit yet
+}
 // Resize the video by HEIGHT (like the dashboard): S/M/L/Xl presets plus a
 // drag handle below the player. Choice is remembered across sessions.
 const CR_HS=[340,480,620,760];
@@ -418,9 +488,32 @@ function refreshDatalists(){
 // ── video ─────────────────────────────────────────────────────
 function ytId(){ const u=GAME.youtubeId||''; return u; }
 function buildPlayer(){
+  if(GAME._local){ buildLocalPlayer(); return; }
   const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock}}); };
   if(window.YT&&window.YT.Player) boot();
   else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
+}
+// Local file playback: a native <video> element wrapped in a YT-Player-shaped
+// adapter, so every existing control (seek, clock, timeline, Code Mode,
+// Sync Mode) works unchanged. Native seeking is frame-accurate and lag-free.
+function buildLocalPlayer(){
+  const mount=document.getElementById('vid');
+  mount.innerHTML='';
+  const v=document.createElement('video');
+  v.src=GAME.localUrl; v.controls=false; v.preload='auto';
+  v.style.cssText='width:100%;height:100%;background:#000;object-fit:contain;';
+  v.addEventListener('click',()=>{ if(v.paused) v.play(); else v.pause(); });
+  mount.appendChild(v);
+  YTP={
+    getCurrentTime:()=>v.currentTime||0,
+    getDuration:()=>v.duration||0,
+    seekTo:t=>{ try{ v.currentTime=Math.max(0,t); }catch(_){}} ,
+    playVideo:()=>{ v.play().catch(()=>{}); },
+    pauseVideo:()=>v.pause(),
+    getPlayerState:()=>v.paused?2:1,
+    setPlaybackRate:r=>{ v.playbackRate=r; }
+  };
+  startClock();
 }
 function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=YTP.getCurrentTime()||0; document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
@@ -1080,6 +1173,12 @@ function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e.
 function crUpdatePending(){
   const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
   const btn=document.getElementById('crSaveBtn'); if(!btn) return;
+  if(GAME&&GAME._local){
+    const n=EVENTS.length;
+    if(n){ btn.textContent='⬇ Export XML & close ('+n+')'; btn.style.background='var(--green)'; btn.style.borderColor='var(--green)'; btn.style.color='#fff'; }
+    else { btn.textContent='← Back to Library'; btn.style.background='var(--card)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--t1)'; }
+    return;
+  }
   const n=crPendingCount();
   if(n){ btn.textContent='💾 Close session & save all ('+n+')'; btn.style.background='var(--green)'; btn.style.borderColor='var(--green)'; btn.style.color='#fff'; }
   else { btn.textContent='← Back to Library'; btn.style.background='var(--card)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--t1)'; }
@@ -1115,6 +1214,9 @@ async function crRestoreBackup(){
 // Push all pending changes in one batch. Throws on any failure (keeps the
 // failed ones queued). No navigation.
 async function crSaveAll(){
+  // Local session: there is no database game — "saving" means exporting the
+  // XML for the normal upload flow.
+  if(GAME&&GAME._local){ crExportXml(); crClearBackup(); EVENTS.forEach(e=>{ delete e._dirty; }); crUpdatePending(); return; }
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
@@ -1135,6 +1237,16 @@ async function crSaveAll(){
 }
 async function saveAllAndClose(){
   const btn=document.getElementById('crSaveBtn');
+  if(GAME&&GAME._local){
+    if(EVENTS.length){
+      const c=await cohesionModal({ title:'Export before closing?',
+        message:'This is a local coding session — your '+EVENTS.length+' event(s) exist only here. Export the XML now, then upload it with the video link via New Game.',
+        buttons:[{label:'⬇ Export XML & close',value:'export',primary:true},{label:'Discard & close',value:'discard',danger:true},{label:'Cancel',value:'cancel'}] });
+      if(c==='cancel') return;
+      if(c==='export') crExportXml();
+    }
+    crClearBackup(); window.location.href='library.html'; return;
+  }
   if(!crHasPending()){ crClearBackup(); window.location.href='library.html'; return; }
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   try{ await crSaveAll(); }
