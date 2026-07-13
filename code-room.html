@@ -963,10 +963,14 @@ function renderBulk(){
     <div class="status" id="bulkStatus"></div>`;
 }
 // ── Add events to a playlist (clips watchable on playlists.html) ──
+// Clips are anchored to driveT — the VIDEO position. start/end on stored
+// events carry the raw coder clock (a different reference frame), so they
+// only contribute the clip's duration, never its position.
 function crClipOf(e){
-  const s=(e.start!=null?e.start:(e.driveT||0)), en=(e.end!=null?e.end:s+6);
+  const s=Math.max(0,e.driveT||0);
+  const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):6;
   return { videoId:GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'',
-           start:Math.max(0,s), end:Math.max(s+1,en),
+           start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
 }
 async function crAddToPlaylist(ids){

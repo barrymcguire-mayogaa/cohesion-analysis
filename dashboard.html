@@ -378,7 +378,7 @@ function buildHTML(H,A){
       </div>
       <div class="chips-row" id="catChips"></div>
       <div class="chips-row" id="subChips" style="display:none"></div>
-      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div></div>
+      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div>${isAdmin?`<div class="sp" id="plAddBtn" onclick="dashAddToPlaylist()" style="cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;" title="Add every event in the current filter to a playlist">🎞 Playlist</div>`:''}</div>
     </div>
     <div class="lbl-active-bar" id="LAB"><span id="LAT"></span><div class="lbl-clear" onclick="clearLF()">✕ Clear</div></div>
     <div class="event-scroller" id="ES"></div>
@@ -729,6 +729,59 @@ async function dashSaveNow(){
 }
 function cohGo(t){ cohesionGuardedGo(t); return false; }
 cohesionSetGuard(()=>dashPending.size>0, saveAllDash);
+
+// ── Add the current filter to a playlist ──────────────────────
+// Turns every event in `filtered` into a clip (anchored to driveT, the main
+// angle's video position; start/end carry only the duration) and appends
+// them to a chosen playlist — the dashboard's "filter → watch" loop.
+async function dashAuthFetchPL(payload){
+  const ni=window.netlifyIdentity;
+  const cu=ni&&((ni.gotrue&&ni.gotrue.currentUser&&ni.gotrue.currentUser())||(ni.currentUser&&ni.currentUser()));
+  let t=cu&&cu.token&&cu.token.access_token;
+  if(!t&&ni&&ni.refresh){ try{ await ni.refresh(); const u=ni.gotrue.currentUser(); t=u&&u.token&&u.token.access_token; }catch(_){} }
+  if(!t) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res=await fetch('/.netlify/functions/playlists',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify(payload)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
+function dashClipOf(e){
+  const vid=(GAME.angles&&GAME.angles[0]&&GAME.angles[0].youtubeId)||GAME.youtubeId||'';
+  const s=Math.max(0,e.driveT||0);
+  const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):6;
+  return { videoId:vid, gameId:GAME.id, gameTitle:GAME.title||'',
+           start:s, end:s+dur,
+           label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+}
+async function dashAddToPlaylist(){
+  const vid=(GAME.angles&&GAME.angles[0]&&GAME.angles[0].youtubeId)||GAME.youtubeId||'';
+  if(!vid){ alert('This game has no video link.'); return; }
+  const evs=filtered.slice();
+  if(!evs.length){ alert('No events in the current filter.'); return; }
+  if(evs.length>60 && !confirm('Add all '+evs.length+' filtered events as clips? That is a long playlist — consider narrowing the filter first.')) return;
+  let lists=[];
+  try{ const j=await dashAuthFetchPL({action:'list'}); lists=j.playlists||[]; }
+  catch(e){ alert('Could not load playlists: '+e.message); return; }
+  const btns=lists.slice(0,7).map(p=>({label:p.name+' ('+(((p.data||{}).items)||[]).length+')', value:'pl-'+p.id}));
+  btns.push({label:'＋ New playlist…', value:'new', primary:true});
+  btns.push({label:'Cancel', value:'cancel'});
+  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip. Rename or reorder them any time on the Playlists page.', buttons:btns});
+  if(c==='cancel'||c==null) return;
+  let target=null, name='', scope='club';
+  if(c==='new'){
+    name=(prompt('New playlist name:')||'').trim(); if(!name) return;
+    const sc=await cohesionModal({title:'Who can see this playlist?', message:'Club-wide is visible to every analyst, coach and player; personal is only you.', buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
+    if(sc==='cancel') return; scope=sc;
+  } else {
+    target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
+    name=target.name; scope=target.scope;
+  }
+  const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(dashClipOf));
+  try{
+    await dashAuthFetchPL({action:'save', id:target?target.id:undefined, name, scope, data:{items}});
+    await cohesionModal({title:'Added ✓', message:evs.length+' clip'+(evs.length>1?'s':'')+' added to "'+name+'". Watch it on the Playlists page.', buttons:[{label:'OK',value:true,primary:true}]});
+  }catch(e){ alert('Could not add to playlist: '+e.message); }
+}
 async function dashRestoreBackup(){
   let raw; try{ raw=localStorage.getItem(dashBackupKey()); }catch(_){ return; }
   if(!raw) return;
