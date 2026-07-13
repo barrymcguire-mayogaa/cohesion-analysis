@@ -252,7 +252,7 @@ function renderClips(){
         <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
         ${noteLine}
       </span>
-      <span class="meta">${esc(it.gameTitle||'')} · ${fmt(it.start)}–${fmt(it.end)}</span>
+      <span class="meta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}</span>
       <button class="cbt" onclick="playClip(${i})" title="Play this clip">▶</button>
       ${isAdmin?`<button class="cbt" onclick="moveClip(${i},-1)" title="Move up">▲</button>
       <button class="cbt" onclick="moveClip(${i},1)" title="Move down">▼</button>
@@ -356,9 +356,9 @@ function playClip(i){
     const it=ITEMS[i];
     YTP.loadVideoById({videoId:it.videoId, startSeconds:Math.max(0,Math.floor(it.start||0)), endSeconds:Math.max(1,Math.ceil(it.end||((it.start||0)+8)))});
     curVideoId=it.videoId;
-    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.note?' — 💬 '+it.note:'');
+    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.angle?' · 🎥 '+it.angle:'')+(it.note?' — 💬 '+it.note:'');
     // present-mode overlay
-    document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'');
+    document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+(it.angle?'  ·  '+it.angle.toUpperCase():'');
     document.getElementById('poLbl').textContent=it.label||it.code||'Clip '+(i+1);
     document.getElementById('poNote').textContent=it.note||'';
   });

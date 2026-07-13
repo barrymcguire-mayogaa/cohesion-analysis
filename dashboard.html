@@ -874,12 +874,20 @@ async function dashAuthFetchPL(payload){
   return j;
 }
 function dashClipOf(e){
-  const vid=(GAME.angles&&GAME.angles[0]&&GAME.angles[0].youtubeId)||GAME.youtubeId||'';
-  const s=Math.max(0,e.driveT||0);
+  // Capture from the angle the user is CURRENTLY watching: that angle's
+  // video id, with times converted into its timeline. driveT (main-angle
+  // reference) is kept on the clip so a future player can re-derive other
+  // angles for the same moment.
+  const idx=(GAME.angles&&GAME.angles[currentAngleIdx])?currentAngleIdx:0;
+  const ang=(GAME.angles&&GAME.angles[idx])||null;
+  const vid=(ang&&ang.youtubeId)||GAME.youtubeId||'';
+  const s=Math.max(0,driveToAngle(e.driveT||0,idx));
   const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):6;
-  return { videoId:vid, gameId:GAME.id, gameTitle:GAME.title||'',
+  const clip={ videoId:vid, gameId:GAME.id, gameTitle:GAME.title||'', driveT:e.driveT||0,
            start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+  if(idx>0) clip.angle=(ang&&ang.label)||('Cam '+(idx+1));
+  return clip;
 }
 async function dashAddToPlaylist(){
   const vid=(GAME.angles&&GAME.angles[0]&&GAME.angles[0].youtubeId)||GAME.youtubeId||'';
@@ -893,7 +901,8 @@ async function dashAddToPlaylist(){
   const btns=lists.slice(0,7).map(p=>({label:p.name+' ('+(((p.data||{}).items)||[]).length+')', value:'pl-'+p.id}));
   btns.push({label:'＋ New playlist…', value:'new', primary:true});
   btns.push({label:'Cancel', value:'cancel'});
-  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip. Rename or reorder them any time on the Playlists page.', buttons:btns});
+  const angNote=(GAME.angles&&currentAngleIdx>0&&GAME.angles[currentAngleIdx])?' Clips use the camera you are watching now ('+((GAME.angles[currentAngleIdx].label)||('Cam '+(currentAngleIdx+1)))+').':'';
+  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip.'+angNote+' Rename or reorder them any time on the Playlists page.', buttons:btns});
   if(c==='cancel'||c==null) return;
   let target=null, name='', scope='club';
   if(c==='new'){
