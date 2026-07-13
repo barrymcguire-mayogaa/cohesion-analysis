@@ -55,6 +55,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vbtn:hover{border-color:var(--accent);color:var(--accent);}
 .vbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .nowp{font:600 12px 'Barlow',sans-serif;color:var(--t2);flex:1;min-width:160px;}
+.angbtn{padding:5px 9px;border-radius:6px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.angbtn:hover{border-color:var(--accent);color:var(--accent);}
+.angbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 
 .clips{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .clips .hd{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
@@ -128,6 +131,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <button class="vbtn" onclick="nextClip()">Next ⏭</button>
           <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
           <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ to move, Esc to exit">⛶ Present</button>
+          <span id="plAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
           <span class="nowp" id="nowPlaying">Select a clip to start.</span>
         </div>
       </div>
@@ -361,6 +365,9 @@ function playClip(i){
     document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+(it.angle?'  ·  '+it.angle.toUpperCase():'');
     document.getElementById('poLbl').textContent=it.label||it.code||'Clip '+(i+1);
     document.getElementById('poNote').textContent=it.note||'';
+    // per-clip angle buttons (each clip resets to its captured angle)
+    plAngleIdx=null;
+    loadGamesMeta().then(()=>{ if(playIdx===i) renderAngleBtns(); });
   });
   renderClips();
 }
@@ -397,6 +404,62 @@ function togglePlayAll(){
 function nextClip(){ if(playIdx+1<ITEMS.length) playClip(playIdx+1); else if(loop&&ITEMS.length) playClip(0); }
 function prevClip(){ if(playIdx>0) playClip(playIdx-1); else if(loop&&ITEMS.length) playClip(ITEMS.length-1); }
 function toggleLoop(){ loop=!loop; document.getElementById('loopBtn').classList.toggle('on',loop); }
+
+// ── Per-clip angle switching ──────────────────────────────────
+// A clip stores its main-reference moment (driveT) and game id, so when its
+// game has several camera angles the same moment can be re-derived on any of
+// them. Switching is view-time only — the stored clip keeps its captured
+// angle. Games' angle tables are read once from the games table and cached.
+let GAMESMETA=null, plAngleIdx=null;   // plAngleIdx = view override for the CURRENT clip
+async function loadGamesMeta(){
+  if(GAMESMETA) return GAMESMETA;
+  GAMESMETA={};
+  try{
+    const {data,error}=await _sb.from('games').select('meta');
+    if(error) throw error;
+    (data||[]).forEach(r=>{ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return; } } if(m&&m.id) GAMESMETA[m.id]=m; });
+  }catch(_){}
+  return GAMESMETA;
+}
+function plDriveToAngle(angles,driveT,idx){
+  const m=angles[0],t=angles[idx]; if(!t||idx===0) return driveT;
+  let period,gck;
+  if(m.et2Start&&driveT>=m.et2Start){period='et2';gck=driveT-m.et2Start;}
+  else if(m.et1Start&&driveT>=m.et1Start){period='et1';gck=driveT-m.et1Start;}
+  else if(driveT>=(m.half2Start||0)){period='2h';gck=driveT-(m.half2Start||0);}
+  else{period='1h';gck=driveT-(m.half1Start||0);}
+  const ts=period==='et2'?(t.et2Start??t.half2Start):period==='et1'?(t.et1Start??t.half2Start):period==='2h'?t.half2Start:t.half1Start;
+  return Math.max(0,(ts||0)+gck);
+}
+// Angle table for a clip's game — only if switching is possible (2+ angled
+// videos AND the clip carries a main-ref driveT to re-derive from).
+function plAnglesFor(it){
+  if(it==null||it.driveT==null||!it.gameId||!GAMESMETA) return null;
+  const g=GAMESMETA[it.gameId]; if(!g) return null;
+  const A=(Array.isArray(g.angles)&&g.angles.length)?g.angles:[{label:'Main',youtubeId:g.youtubeId,half1Start:g.half1Start||0,half2Start:g.half2Start||0,et1Start:g.et1Start||null,et2Start:g.et2Start||null}];
+  return A.filter(a=>a&&a.youtubeId).length>=2 ? A : null;
+}
+function renderAngleBtns(){
+  const grp=document.getElementById('plAngleGrp'); if(!grp) return;
+  const it=ITEMS[playIdx], A=plAnglesFor(it);
+  if(!A){ grp.style.display='none'; grp.innerHTML=''; return; }
+  const cur=plAngleIdx!=null?plAngleIdx:Math.max(0,A.findIndex(a=>a.youtubeId===it.videoId));
+  grp.style.display='flex';
+  grp.innerHTML=A.map((a,i)=>`<span class="angbtn${i===cur?' on':''}" onclick="plSwitchAngle(${i})" title="View this clip from ${esc(a.label||('Cam '+(i+1)))}">${esc(a.label||('Cam '+(i+1)))}</span>`).join('');
+}
+function plSwitchAngle(i){
+  const it=ITEMS[playIdx], A=plAnglesFor(it); if(!A||!A[i]||!A[i].youtubeId) return;
+  const cur=plAngleIdx!=null?plAngleIdx:Math.max(0,A.findIndex(a=>a.youtubeId===it.videoId));
+  if(i===cur) return;
+  plAngleIdx=i;
+  const dur=Math.max(1,(it.end||0)-(it.start||0));
+  const vs=plDriveToAngle(A,it.driveT,i);
+  YTP.loadVideoById({videoId:A[i].youtubeId, startSeconds:Math.max(0,Math.floor(vs)), endSeconds:Math.max(1,Math.ceil(vs+dur))});
+  const nm=A[i].label||('Cam '+(i+1));
+  document.getElementById('nowPlaying').textContent=(playIdx+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+' · 🎥 '+nm+(it.note?' — 💬 '+it.note:'');
+  document.getElementById('poIdx').textContent=(playIdx+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+'  ·  '+nm.toUpperCase();
+  renderAngleBtns();
+}
 
 // ── leave guard (unsaved playlist edits) ──────────────────────
 cohesionSetGuard(()=>dirty, savePlaylist);
