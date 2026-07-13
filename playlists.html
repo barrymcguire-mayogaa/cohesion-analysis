@@ -69,6 +69,20 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .clip .lbl{font:600 14px 'Barlow',sans-serif;flex:1;min-width:120px;cursor:text;}
 .clip .lbl:hover{color:var(--accent);}
 .clip .lbl input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:5px 8px;color:var(--t1);font:600 14px 'Barlow',sans-serif;outline:none;}
+.clip .lblwrap{flex:1;min-width:120px;}
+.clip .nt{font-size:11.5px;color:var(--t2);margin-top:2px;line-height:1.4;}
+.clip .nt.ghost{color:var(--t3);font-style:italic;cursor:pointer;}
+.clip .nt.ghost:hover{color:var(--accent);}
+.clip .nt input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;color:var(--t1);font:400 12px 'Barlow',sans-serif;outline:none;}
+/* present mode (fullscreen) */
+.stage:fullscreen{display:flex;flex-direction:column;background:#000;border:none;border-radius:0;}
+.stage:fullscreen .vid{flex:1;height:auto;}
+.stage:fullscreen .vbar{background:rgba(10,10,16,.92);border-top:1px solid rgba(255,255,255,.1);}
+.presover{display:none;}
+.stage:fullscreen .presover{display:block;position:absolute;left:0;right:0;bottom:64px;padding:14px 26px;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none;}
+.presover .po-lbl{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8);}
+.presover .po-note{font:400 16px 'Barlow',sans-serif;color:rgba(255,255,255,.85);margin-top:4px;max-width:900px;line-height:1.5;text-shadow:0 1px 6px rgba(0,0,0,.8);}
+.presover .po-idx{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:rgba(255,255,255,.55);margin-bottom:4px;}
 .clip .meta{font-size:11px;color:var(--t3);white-space:nowrap;}
 .clip .cbt{background:none;border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:11px;padding:4px 8px;cursor:pointer;flex:none;}
 .clip .cbt:hover{border-color:var(--accent);color:var(--accent);}
@@ -101,13 +115,19 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
     </div>
 
     <div>
-      <div class="stage" id="stage" style="display:none;">
+      <div class="stage" id="stage" style="display:none;position:relative;">
         <div class="vid"><div id="ytMount"></div></div>
+        <div class="presover" id="presOver">
+          <div class="po-idx" id="poIdx"></div>
+          <div class="po-lbl" id="poLbl"></div>
+          <div class="po-note" id="poNote"></div>
+        </div>
         <div class="vbar">
           <button class="vbtn" onclick="prevClip()">⏮ Prev</button>
           <button class="vbtn" id="playAllBtn" onclick="togglePlayAll()">▶ Play all</button>
           <button class="vbtn" onclick="nextClip()">Next ⏭</button>
           <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
+          <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ to move, Esc to exit">⛶ Present</button>
           <span class="nowp" id="nowPlaying">Select a clip to start.</span>
         </div>
       </div>
@@ -220,17 +240,24 @@ function renderClips(){
   document.getElementById('plName').onclick=isAdmin?renamePlaylist:null;
   document.getElementById('plMeta').textContent=ITEMS.length+' clips'+(CUR.scope==='personal'?' · personal':' · club-wide');
   if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them from Code Room: select events on the timeline, then “Add to playlist”.</div>'; renderSaveBar(); return; }
-  w.innerHTML=ITEMS.map((it,i)=>`
+  w.innerHTML=ITEMS.map((it,i)=>{
+    const noteLine = it.note
+      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="editNote(${i})" title="Click to edit the note"`:''}>💬 ${esc(it.note)}</div>`
+      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="editNote(${i})">＋ add coach note…</div>`:'');
+    return `
     <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${isAdmin?'draggable="true"':''} ondblclick="playClip(${i})">
       <span class="idx">${i+1}</span>
       ${isAdmin?'<span class="grip" title="Drag to reorder">⠿</span>':''}
-      <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
+      <span class="lblwrap">
+        <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
+        ${noteLine}
+      </span>
       <span class="meta">${esc(it.gameTitle||'')} · ${fmt(it.start)}–${fmt(it.end)}</span>
       <button class="cbt" onclick="playClip(${i})" title="Play this clip">▶</button>
       ${isAdmin?`<button class="cbt" onclick="moveClip(${i},-1)" title="Move up">▲</button>
       <button class="cbt" onclick="moveClip(${i},1)" title="Move down">▼</button>
       <button class="cbt x" onclick="removeClip(${i})" title="Remove from playlist">✕</button>`:''}
-    </div>`).join('');
+    </div>`;}).join('');
   if(isAdmin) initDrag();
   renderSaveBar();
 }
@@ -242,6 +269,19 @@ function renameClip(i){
 }
 function commitRename(i,v){
   if(v!=null && v.trim()!=='' && v.trim()!==(ITEMS[i].label||'')){ ITEMS[i].label=v.trim(); markDirty(); }
+  renderClips();
+}
+// Per-clip coach note: click to edit inline; empty note removes it.
+function editNote(i){
+  const el=document.getElementById('nt'+i); if(!el||el.querySelector('input')) return;
+  const cur=ITEMS[i].note||'';
+  el.className='nt';
+  el.innerHTML=`<input value="${esc(cur)}" placeholder="e.g. Watch the run off the shoulder here" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.value=${esc(JSON.stringify(cur))};this.blur();}" onblur="commitNote(${i},this.value)">`;
+  const inp=el.querySelector('input'); inp.focus(); inp.select();
+}
+function commitNote(i,v){
+  const nv=(v||'').trim();
+  if(nv!==(ITEMS[i].note||'')){ if(nv) ITEMS[i].note=nv; else delete ITEMS[i].note; markDirty(); }
   renderClips();
 }
 function renamePlaylist(){
@@ -316,10 +356,30 @@ function playClip(i){
     const it=ITEMS[i];
     YTP.loadVideoById({videoId:it.videoId, startSeconds:Math.max(0,Math.floor(it.start||0)), endSeconds:Math.max(1,Math.ceil(it.end||((it.start||0)+8)))});
     curVideoId=it.videoId;
-    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'');
+    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.note?' — 💬 '+it.note:'');
+    // present-mode overlay
+    document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'');
+    document.getElementById('poLbl').textContent=it.label||it.code||'Clip '+(i+1);
+    document.getElementById('poNote').textContent=it.note||'';
   });
   renderClips();
 }
+
+// ── Present mode: fullscreen playback with name + note overlaid ──
+function togglePresent(){
+  const st=document.getElementById('stage');
+  if(document.fullscreenElement){ (document.exitFullscreen||function(){}).call(document); return; }
+  const rf=st.requestFullscreen||st.webkitRequestFullscreen;
+  if(rf) rf.call(st);
+  if(playIdx<0 && ITEMS.length){ playAll=true; const b=document.getElementById('playAllBtn'); b.classList.add('on'); b.textContent='⏸ Playing…'; playClip(0); }
+}
+document.addEventListener('keydown',e=>{
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+  if(!CUR) return;
+  if(e.key==='ArrowRight'){ e.preventDefault(); nextClip(); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); prevClip(); }
+});
 function onState(e){
   if(e.data===0 && playAll){        // segment ended → next
     if(playIdx+1<ITEMS.length) playClip(playIdx+1);
