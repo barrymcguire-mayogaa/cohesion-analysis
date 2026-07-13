@@ -239,6 +239,7 @@ canvas#crTL{display:block;cursor:crosshair;}
             <button class="vbtn" onclick="vseek(5)">5s »</button>
             <button class="vbtn" onclick="vrate(0.5)">0.5×</button>
             <button class="vbtn" onclick="vrate(1)">1×</button>
+            <span id="crAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
             <button class="vbtn" style="border-color:var(--green);color:var(--green)" onclick="openAdd()">＋ Add event here</button>
             <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
             <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
@@ -405,7 +406,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0;
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -426,6 +427,7 @@ async function openGame(id){
   sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join('');
   refreshDatalists();
   buildPlayer();
+  buildAngleBtns();
   initVH();
   crUpdatePending();
   renderList();
@@ -448,7 +450,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0;
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup();   // recover events from a crashed local session
@@ -456,6 +458,7 @@ async function startLocalSession(){
   sel.innerHTML='<option value="">All periods</option>';
   refreshDatalists();
   buildPlayer();
+  buildAngleBtns();
   initVH();
   crUpdatePending();
   renderList();
@@ -493,6 +496,58 @@ function refreshDatalists(){
 
 // ── video ─────────────────────────────────────────────────────
 function ytId(){ const u=GAME.youtubeId||''; return u; }
+
+// ── camera angles ─────────────────────────────────────────────
+// Events store driveT in the MAIN angle's reference frame. When another
+// angle is on screen, reads convert video→drive (videoTimeToDrive) and
+// seeks convert drive→video (driveToAngle), so edits stay angle-agnostic.
+let crAngleIdx=0;
+function crAngles(){
+  if(GAME._local) return [{label:'Main'}];
+  if(Array.isArray(GAME.angles)&&GAME.angles.length) return GAME.angles;
+  return [{label:'Main',youtubeId:GAME.youtubeId,half1Start:GAME.half1Start||0,half2Start:GAME.half2Start||0,et1Start:GAME.et1Start||null,et2Start:GAME.et2Start||null}];
+}
+function driveToAngle(driveT,idx){
+  const A=crAngles(); if(idx===0||!A[idx])return driveT;
+  const m=A[0],t=A[idx];
+  let period,gck;
+  if(m.et2Start&&driveT>=m.et2Start){period='et2';gck=driveT-m.et2Start;}
+  else if(m.et1Start&&driveT>=m.et1Start){period='et1';gck=driveT-m.et1Start;}
+  else if(driveT>=(m.half2Start||0)){period='2h';gck=driveT-(m.half2Start||0);}
+  else{period='1h';gck=driveT-(m.half1Start||0);}
+  const ts=period==='et2'?(t.et2Start??t.half2Start):period==='et1'?(t.et1Start??t.half2Start):period==='2h'?t.half2Start:t.half1Start;
+  return Math.max(0,(ts||0)+gck);
+}
+function videoTimeToDrive(vt,idx){
+  const A=crAngles(); if(idx===0||!A[idx])return vt;
+  const m=A[0],t=A[idx];
+  let period,gck;
+  if(t.et2Start&&vt>=t.et2Start){period='et2';gck=vt-t.et2Start;}
+  else if(t.et1Start&&vt>=t.et1Start){period='et1';gck=vt-t.et1Start;}
+  else if(vt>=(t.half2Start||0)){period='2h';gck=vt-(t.half2Start||0);}
+  else{period='1h';gck=vt-(t.half1Start||0);}
+  const ms=period==='et2'?(m.et2Start??m.half2Start):period==='et1'?(m.et1Start??m.half2Start):period==='2h'?m.half2Start:m.half1Start;
+  return Math.max(0,(ms||0)+gck);
+}
+// Current video position in DRIVE (main-angle) reference.
+function vNow(){ return videoTimeToDrive((YTP&&YTP.getCurrentTime?YTP.getCurrentTime():0)||0, crAngleIdx); }
+// Seek to a drive-reference time on whichever angle is showing.
+function vSeekDrive(t){ if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,driveToAngle(t,crAngleIdx)),true); }
+function buildAngleBtns(){
+  const grp=document.getElementById('crAngleGrp'); if(!grp) return;
+  const A=crAngles().filter(a=>a&&a.youtubeId);
+  if(GAME._local||A.length<2){ grp.innerHTML=''; grp.style.display='none'; return; }
+  grp.style.display='flex';
+  grp.innerHTML=A.map((a,i)=>`<div class="crsz${i===crAngleIdx?' on':''}" onclick="crSwitchAngle(${i})" title="Switch camera — your position is kept">${esc(a.label||('Cam '+(i+1)))}</div>`).join('');
+}
+function crSwitchAngle(i){
+  const A=crAngles();
+  if(i===crAngleIdx||!A[i]||!A[i].youtubeId) return;
+  const drive=vNow();                                   // hold the moment (old angle's frame)
+  crAngleIdx=i;
+  if(YTP&&YTP.loadVideoById) YTP.loadVideoById({videoId:A[i].youtubeId, startSeconds:Math.max(0,driveToAngle(drive,i))});
+  buildAngleBtns();
+}
 function buildPlayer(){
   if(GAME._local){ buildLocalPlayer(); return; }
   const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock}}); };
@@ -521,7 +576,7 @@ function buildLocalPlayer(){
   };
   startClock();
 }
-function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=YTP.getCurrentTime()||0; document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
+function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNow(); document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
 function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
 function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
@@ -669,7 +724,7 @@ function crCommitDrag(d){
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   crSyncDraft(e);   // keep the editor in step if this event is selected
-  if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0, d.mode==='resizeR'?(e.end||0):(e.driveT||0)), true);  // land on the exact edge
+  vSeekDrive(d.mode==='resizeR'?((e.driveT||0)+crBarD(e)):(e.driveT||0));  // land on the exact edge
   renderList();   // also redraws the timeline
 }
 // Rebuild the editor's draft from an event (without seeking) when it's selected.
@@ -719,17 +774,17 @@ function crInitTL(){
       if(ri!==crDrag.origRow) crDrag.moved=true;
     }
     // scrub the video to the edge being dragged so you see where the clip lands
-    if(crDrag.moved) crSeekThrottled(crDrag.mode==='resizeR' ? crDrag.ev.end : crDrag.ev.driveT);
+    if(crDrag.moved) crSeekThrottled(crDrag.mode==='resizeR' ? (crDrag.ev.driveT||0)+crBarD(crDrag.ev) : crDrag.ev.driveT);
     crDrawTL();
   });
   window.addEventListener('mouseup',e=>{
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
     if(crBox){ const box=crBox; crBox=null; document.body.style.userSelect='';
       if(box.moved) crSelectBox(box);
-      else if(YTP&&YTP.seekTo){ const g=crGeom(); YTP.seekTo(Math.max(0,g.tOf(box.x0)),true); }
+      else { const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
       crDrawTL(); return;
     }
-    if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW && YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,g.tOf(crDown.x)),true); crDown=null; }
+    if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW) vSeekDrive(g.tOf(crDown.x)); crDown=null; }
   });
   // Trackpad: vertical scroll = zoom (around cursor), horizontal scroll = pan.
   c.addEventListener('wheel',e=>{
@@ -812,7 +867,7 @@ function crDrawTL(){
   for(let t=fl;t<vE;t+=li){ const x=xF(t); if(x>CR_LW+8&&x<cssW-8){ ctx.fillText(fmt(t),x-10,15); ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)'; ctx.beginPath(); ctx.moveTo(x,CR_RULER); ctx.lineTo(x,cssH); ctx.stroke(); } }
   ctx.strokeStyle=dark?'rgba(255,255,255,0.12)':'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.moveTo(CR_LW+0.5,0); ctx.lineTo(CR_LW+0.5,cssH); ctx.stroke();
   // playhead (current video position) — red line across all rows
-  const vt=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0, px=xF(vt);
+  const vt=vNow(), px=xF(vt);
   if(px>=CR_LW&&px<=cssW){
     ctx.strokeStyle='#ff4b4b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,cssH); ctx.stroke();
     ctx.fillStyle='#ff4b4b'; ctx.beginPath(); ctx.moveTo(px-4,0); ctx.lineTo(px+4,0); ctx.lineTo(px,7); ctx.fill();
@@ -841,7 +896,7 @@ function crInitSB(){
   sb.addEventListener('mousedown',e=>{ if(e.target!==sb) return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1, cx=e.clientX-sb.getBoundingClientRect().left; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), (cx/w)*dur-vD/2)); crDrawTL(); });
 }
 // Scrub the video while dragging a bar, throttled so YouTube isn't hammered.
-function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; if(YTP&&YTP.seekTo) YTP.seekTo(Math.max(0,t),true); }
+function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; vSeekDrive(t); }
 
 // Hover tooltip: shows the hovered event's label groups + labels.
 function crTipHide(){ const tip=document.getElementById('tlTip'); if(tip) tip.style.display='none'; }
@@ -875,7 +930,7 @@ function crSyncUpdate(){
   const info=document.getElementById('syncInfo'), dl=document.getElementById('syncDelta'), gb=document.getElementById('syncGroupBtn'); if(!info||!dl) return;
   if(gb){ if(crSel.length){ gb.style.display=''; gb.textContent='Sync group ('+crSel.length+')'; } else gb.style.display='none'; }
   const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
-  const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0;
+  const T=vNow();
   if(!R){ info.textContent='Click an event to set the reference (or drag a box to select a group), then scrub the video to where it truly happens.'; dl.textContent=''; return; }
   const delta=T-(R.driveT||0);
   info.innerHTML=(crSel.length?'Group of <b>'+crSel.length+'</b> · ref ':'Ref: ')+'<b>'+esc(R.code||'')+'</b> @ '+fmt(R.driveT||0)+' &nbsp;·&nbsp; video @ '+fmt(T);
@@ -885,7 +940,7 @@ function crSyncUpdate(){
 function crSyncApply(scope){
   const R=EVENTS.find(x=>String(x._rowId)===String(activeId));
   if(!R){ alert('Click an event on the timeline first to set the reference.'); return; }
-  const T=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():0, ref=R.driveT||0, delta=T-ref;
+  const T=vNow(), ref=R.driveT||0, delta=T-ref;
   if(Math.abs(delta)<0.05){ alert('The video is already at this event — scrub to where it truly happens first.'); return; }
   let set;
   if(scope==='event') set=[R];
@@ -967,11 +1022,16 @@ function renderBulk(){
 // events carry the raw coder clock (a different reference frame), so they
 // only contribute the clip's duration, never its position.
 function crClipOf(e){
-  const s=Math.max(0,e.driveT||0);
+  // Capture from the angle being watched (times converted into its timeline);
+  // driveT stays main-reference on the clip for future angle re-derivation.
+  const A=crAngles(), idx=A[crAngleIdx]?crAngleIdx:0, ang=A[idx]||{};
+  const s=Math.max(0,driveToAngle(e.driveT||0,idx));
   const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):6;
-  return { videoId:GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'',
+  const clip={ videoId:ang.youtubeId||GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'', driveT:e.driveT||0,
            start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+  if(idx>0) clip.angle=ang.label||('Cam '+(idx+1));
+  return clip;
 }
 async function crAddToPlaylist(ids){
   if(GAME&&GAME._local){ alert('Local sessions have no shareable video link yet — upload the game first, then build playlists from it.'); return; }
@@ -1066,7 +1126,7 @@ function pick(rowId){
     code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
     groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v}))
   };
-  if(YTP&&YTP.seekTo){ YTP.seekTo(Math.max(0,draft.driveT),true); YTP.playVideo(); }
+  if(YTP&&YTP.seekTo){ vSeekDrive(draft.driveT); YTP.playVideo(); }
   renderList(); renderPanel();
 }
 
@@ -1140,8 +1200,8 @@ function renderPanel(){
   refreshSave();
 }
 
-function nudge(d){ if(!draft)return; draft.driveT=Math.max(0,draft.driveT+d); if(YTP&&YTP.seekTo)YTP.seekTo(draft.driveT,true); const el=document.getElementById('epNow'); if(el)el.textContent=fmt(draft.driveT); refreshSave(); renderPanel(); }
-function setNow(){ if(!draft||!YTP||!YTP.getCurrentTime)return; draft.driveT=Math.max(0,Math.round(YTP.getCurrentTime())); renderPanel(); }
+function nudge(d){ if(!draft)return; draft.driveT=Math.max(0,draft.driveT+d); if(YTP&&YTP.seekTo)vSeekDrive(draft.driveT); const el=document.getElementById('epNow'); if(el)el.textContent=fmt(draft.driveT); refreshSave(); renderPanel(); }
+function setNow(){ if(!draft||!YTP||!YTP.getCurrentTime)return; draft.driveT=Math.max(0,Math.round(vNow())); renderPanel(); }
 function setDraftCode(v){ if(draft){ draft.code=v; refreshSave(); } }
 function setDraftPlayer(v){ if(draft){ draft.player=v; refreshSave(); } }
 
@@ -1519,7 +1579,7 @@ function codeTag(baseCode){
   if(codeMode.pendingLink) codeSkipLink(true);
   const teamName=codeTeamName();
   const code=(teamName?teamName+' ':'')+baseCode;
-  const now=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
+  const now=Math.max(0,Math.round(vNow()));
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
   // Clip window: start lead-seconds before the tag (reaction pre-roll), end
   // lag-seconds after (follow-through). driveT anchors to the clip start so
@@ -1665,7 +1725,7 @@ function deleteEvent(){
 function openAdd(){
   document.getElementById('epanel').style.display='none';
   const ap=document.getElementById('addPanel'); ap.style.display='';
-  const t=YTP&&YTP.getCurrentTime?Math.round(YTP.getCurrentTime()):0;
+  const t=Math.round(vNow());
   document.getElementById('addAt').textContent=fmt(t);
   document.getElementById('addCode').value=''; document.getElementById('addPlayer').value='';
   document.getElementById('addStatus').textContent='';
@@ -1678,7 +1738,7 @@ function confirmAdd(){
   const player=document.getElementById('addPlayer').value.trim();
   const st=document.getElementById('addStatus');
   if(!code){ st.className='status err'; st.textContent='Enter an event code.'; return; }
-  const driveT=YTP&&YTP.getCurrentTime?Math.max(0,Math.round(YTP.getCurrentTime())):0;
+  const driveT=Math.max(0,Math.round(vNow()));
   // Inherit the period of the nearest existing event by video position.
   let half=''; let best=Infinity;
   EVENTS.forEach(e=>{ const dd=Math.abs((e.driveT||0)-driveT); if(dd<best){best=dd;half=e.half||'';} });
