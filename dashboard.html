@@ -1110,7 +1110,7 @@ function drawTL(){
     const iH=ev.team.toUpperCase()===(GAME.homeTeam||'').toUpperCase(),y=iH?hY:aY;
     ctx.fillStyle=ev.id===activeId?'#fff':(iH?hC:aC);
     ctx.globalAlpha=ev.id===activeId?1:0.82;
-    ctx.fillRect(Math.max(LW,x),y+2,Math.min(w,W-Math.max(LW,x)),RH-4);
+    const bx=Math.max(LW,x),bw=Math.max(1,Math.min(x+w,W)-bx);ctx.fillRect(bx,y+2,bw,RH-4);
     ctx.globalAlpha=1;
   });
   // Markers

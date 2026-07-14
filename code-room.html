@@ -1040,7 +1040,7 @@ function crDrawTL(){
     const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId)||e===dragging;
-    const bx=Math.max(CR_LW,x), bw=Math.min(w,cssW-bx), col=e.color||((e.team||'').toUpperCase()===H?hC:aC);
+    const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||((e.team||'').toUpperCase()===H?hC:aC);
     // Selected keeps its team colour (so you can still tell teams apart) but
     // gets an accent glow + outline instead of turning white.
     ctx.globalAlpha=sel?1:0.85;
