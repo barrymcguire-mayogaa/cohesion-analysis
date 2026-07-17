@@ -813,21 +813,29 @@ function crShotMap(){
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:420px;width:calc(100% - 40px);font-family:Barlow,sans-serif;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Shot location</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the shot was taken from — goal at the top. <b id="smZone" style="color:var(--accent);">${px!=null?crZoneOf(px,py):''}</b></div>
-    <svg id="smSvg" viewBox="0 0 100 100" style="width:100%;aspect-ratio:1/1;background:#14361f;border-radius:10px;cursor:crosshair;display:block;">
-      <rect x="1" y="1" width="98" height="98" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1"/>
-      <rect x="42" y="1" width="16" height="4" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1"/>
-      <rect x="36" y="1" width="28" height="10" fill="none" stroke="rgba(255,255,255,.6)" stroke-width=".7"/>
-      <line x1="1" y1="15" x2="99" y2="15" stroke="rgba(255,255,255,.55)" stroke-width=".7"/>
-      <line x1="1" y1="23" x2="99" y2="23" stroke="rgba(255,255,255,.55)" stroke-width=".7"/>
-      <path d="M 30 23 A 22 22 0 0 0 70 23" fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".7"/>
-      <line x1="1" y1="51" x2="99" y2="51" stroke="rgba(255,255,255,.55)" stroke-width=".7"/>
-      <line x1="33" y1="1" x2="33" y2="60" stroke="rgba(79,195,247,.4)" stroke-width=".6" stroke-dasharray="2,2"/>
-      <line x1="66" y1="1" x2="66" y2="60" stroke="rgba(79,195,247,.4)" stroke-width=".6" stroke-dasharray="2,2"/>
-      <line x1="1" y1="30" x2="99" y2="30" stroke="rgba(79,195,247,.4)" stroke-width=".6" stroke-dasharray="2,2"/>
-      <line x1="1" y1="60" x2="99" y2="60" stroke="rgba(79,195,247,.4)" stroke-width=".6" stroke-dasharray="2,2"/>
-      <line x1="50" y1="60" x2="50" y2="99" stroke="rgba(79,195,247,.4)" stroke-width=".6" stroke-dasharray="2,2"/>
-      <g fill="rgba(79,195,247,.55)" font-size="5" font-family="Barlow Condensed,sans-serif" font-weight="700" text-anchor="middle">
-        <text x="16" y="20">Z1</text><text x="50" y="20">Z2</text><text x="84" y="20">Z3</text>
+    <svg id="smSvg" viewBox="0 0 100 100" style="width:100%;aspect-ratio:1/1;background:#1e6f14;border-radius:10px;cursor:crosshair;display:block;">
+      <!-- attacking half, goal at top: goalposts, small/large rectangles, 13m+20m band, D, 40m two-point arc, 45m + 65m lines, dashed halfway (matches COHESION Match Tracker) -->
+      <rect x="1.5" y="4" width="97" height="95" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
+      <line x1="46.5" y1="4" x2="46.5" y2="0.5" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
+      <line x1="53.5" y1="4" x2="53.5" y2="0.5" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
+      <line x1="46.5" y1="1.8" x2="53.5" y2="1.8" stroke="rgba(255,255,255,.9)" stroke-width=".8"/>
+      <rect x="42.2" y="4" width="15.6" height="4.9" fill="none" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <rect x="39.4" y="4" width="21.2" height="14.2" fill="none" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <line x1="1.5" y1="18.2" x2="98.5" y2="18.2" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <line x1="1.5" y1="25.8" x2="98.5" y2="25.8" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <path d="M 39 25.8 A 12.5 12.5 0 0 0 61 25.8" fill="none" stroke="rgba(255,255,255,.8)" stroke-width=".7"/>
+      <path d="M 3 25.8 A 61 61 0 0 0 97 25.8" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
+      <line x1="1.5" y1="53.1" x2="98.5" y2="53.1" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <line x1="1.5" y1="74.9" x2="98.5" y2="74.9" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
+      <line x1="1.5" y1="99" x2="98.5" y2="99" stroke="rgba(255,255,255,.85)" stroke-width="1" stroke-dasharray="3,2.2"/>
+      <!-- zone overlay (derives the Shot Zones label) -->
+      <line x1="33" y1="4" x2="33" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <line x1="66" y1="4" x2="66" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <line x1="1.5" y1="30" x2="98.5" y2="30" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <line x1="1.5" y1="60" x2="98.5" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <line x1="50" y1="60" x2="50" y2="99" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <g fill="rgba(79,195,247,.5)" font-size="4.5" font-family="Barlow Condensed,sans-serif" font-weight="700" text-anchor="middle">
+        <text x="16" y="24">Z1</text><text x="50" y="15">Z2</text><text x="84" y="24">Z3</text>
         <text x="16" y="47">Z4</text><text x="50" y="47">Z5</text><text x="84" y="47">Z6</text>
         <text x="25" y="82">Z7</text><text x="75" y="82">Z8</text>
       </g>
