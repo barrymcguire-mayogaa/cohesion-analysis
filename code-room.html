@@ -162,6 +162,12 @@ canvas#crTL{display:block;cursor:crosshair;}
 .codelink .cl-h{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;}
 .codelink .cl-opts{display:flex;flex-wrap:wrap;gap:6px;}
 .status{font-size:12px;margin-top:10px;min-height:16px;}
+/* The Netlify Identity widget injects a full-viewport iframe with a dark
+   backdrop; it sometimes sticks visible on load, dimming the whole page
+   until a click closes it. Code Room never shows the widget UI (sign-in
+   happens on index.html; only the token is read here), so keep its iframe
+   out of the way entirely. */
+iframe#netlify-identity-widget{display:none !important;pointer-events:none !important;}
 .status.ok{color:var(--green);} .status.err{color:var(--red);}
 .load-st{text-align:center;padding:60px;color:var(--t3);}
 .spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;}
@@ -2061,6 +2067,9 @@ function undo(){
   if(activeId) pick(activeId); else renderPanel();
 }
 
+// The identity widget can auto-open (dim backdrop) on load; we never use
+// its UI here, so close it the moment it initialises.
+try{ netlifyIdentity.on('init',()=>{ try{ netlifyIdentity.close(); }catch(_){} }); netlifyIdentity.close(); }catch(_){}
 loadGames();
 loadTemplates();
 </script>
