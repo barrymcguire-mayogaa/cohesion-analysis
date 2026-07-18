@@ -246,21 +246,21 @@ function renderClips(){
   if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them from Code Room: select events on the timeline, then “Add to playlist”.</div>'; renderSaveBar(); return; }
   w.innerHTML=ITEMS.map((it,i)=>{
     const noteLine = it.note
-      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="editNote(${i})" title="Click to edit the note"`:''}>💬 ${esc(it.note)}</div>`
-      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="editNote(${i})">＋ add coach note…</div>`:'');
+      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="event.stopPropagation();editNote(${i})" title="Click to edit the note"`:''}>💬 ${esc(it.note)}</div>`
+      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="event.stopPropagation();editNote(${i})">＋ add coach note…</div>`:'');
     return `
-    <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${isAdmin?'draggable="true"':''} ondblclick="playClip(${i})">
+    <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${isAdmin?'draggable="true"':''} onclick="playClip(${i})" title="Click to play this clip">
       <span class="idx">${i+1}</span>
-      ${isAdmin?'<span class="grip" title="Drag to reorder">⠿</span>':''}
+      ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
-        <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
+        <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
         ${noteLine}
       </span>
       <span class="meta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}</span>
-      <button class="cbt" onclick="playClip(${i})" title="Play this clip">▶</button>
-      ${isAdmin?`<button class="cbt" onclick="moveClip(${i},-1)" title="Move up">▲</button>
-      <button class="cbt" onclick="moveClip(${i},1)" title="Move down">▼</button>
-      <button class="cbt x" onclick="removeClip(${i})" title="Remove from playlist">✕</button>`:''}
+      <button class="cbt" onclick="event.stopPropagation();playClip(${i})" title="Play this clip">▶</button>
+      ${isAdmin?`<button class="cbt" onclick="event.stopPropagation();moveClip(${i},-1)" title="Move up">▲</button>
+      <button class="cbt" onclick="event.stopPropagation();moveClip(${i},1)" title="Move down">▼</button>
+      <button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
     </div>`;}).join('');
   if(isAdmin) initDrag();
   renderSaveBar();
