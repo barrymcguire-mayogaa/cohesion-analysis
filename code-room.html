@@ -819,6 +819,33 @@ function crKoZoneOf(x,y){
   const row = y<33?0 : y<58.4?1 : 2;
   return { zone:'Zone '+(row*3+col+1), loc:row===0?'KO SHORT':row===1?'KO MEDIUM':'KO LONG' };
 }
+// Marker style for a shot: circle = open play, square = dead ball
+// (free/45/penalty/mark); colour by result — 1pt white, 2pt orange, goal
+// yellow, any other outcome (wide/short/saved/blocked/woodwork) red,
+// penalty purple; grey until an outcome is set.
+function crShotGlyph(){
+  const code=((draft&&draft.code)||'').toUpperCase();
+  const lbls={}; ((draft&&draft.groups)||[]).forEach(r=>lbls[r.g]=r.v);
+  const ev=EVENTS.find(x=>String(x._rowId)===String(activeId))||{};
+  const out=String(lbls['Shot Outcomes']||ev.outcome||'').toUpperCase();
+  const all=(code+' '+out+' '+Object.values(lbls).join(' ')).toUpperCase();
+  const shape=/DEADBALL|FREE|PENALTY|\b45\b|MARK/.test(code)?'square':'circle';
+  let color='#c4c4c4';
+  if(/PENALTY/.test(all)) color='#a855f7';
+  else if(/GOAL/.test(out)) color='#ffd700';
+  else if(/2 POINT/.test(out)) color='#f97316';
+  else if(/1 POINT/.test(out)) color='#ffffff';
+  else if(out) color='#ef4444';
+  return {shape,color};
+}
+function smApplyGlyph(ov,x,y){
+  const g=crShotGlyph(), dot=ov.querySelector('#smDot'), sq=ov.querySelector('#smSq');
+  if(!dot||!sq) return;
+  dot.style.display=g.shape==='circle'?'':'none';
+  sq.style.display=g.shape==='square'?'':'none';
+  dot.setAttribute('cx',x); dot.setAttribute('cy',y*0.75); dot.setAttribute('fill',g.color);
+  sq.setAttribute('x',x-1.7); sq.setAttribute('y',y*0.75-1.7); sq.setAttribute('fill',g.color);
+}
 function crShotMap(){
   if(!draft) return;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
@@ -832,7 +859,7 @@ function crShotMap(){
       <!-- Match Tracker attacking half, drawn to the reference chart's measured
            proportions: 13m 19.7%, 20m 29.9%, D to 52.1%, 40m arc apex 64.8%,
            45m 70.0%, 65m 90.4%, halfway = bottom edge. Do not restyle. -->
-      <rect x="1.2" y="1.20" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="9.26" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="17.32" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="25.38" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="33.44" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="41.50" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="49.56" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="57.62" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="65.68" width="97.6" height="8.06" fill="#35862a"/>
+      <rect x="1.2" y="1.20" width="97.6" height="7.15" fill="#35862a"/><rect x="1.2" y="8.35" width="97.6" height="7.15" fill="#2e7a24"/><rect x="1.2" y="15.50" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="22.90" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="30.17" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="37.45" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="44.73" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.40" fill="#2e7a24"/><rect x="1.2" y="59.40" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="3.50" fill="#2e7a24"/><rect x="1.2" y="70.30" width="97.6" height="3.50" fill="#35862a"/>
       <rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
       <line x1="37.6" y1="1.2" x2="37.6" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
       <line x1="62.2" y1="1.2" x2="62.2" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
@@ -844,7 +871,7 @@ function crShotMap(){
       <path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
       <line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
       <line x1="1.2" y1="66.8" x2="98.8" y2="66.8" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <g id="smMark" style="display:${px!=null?'':'none'};"><circle id="smDot" cx="${px||0}" cy="${(py||0)*0.75}" r="1.8" fill="#ffd700" stroke="#000" stroke-width=".4"/></g>
+      <g id="smMark" style="display:${px!=null?'':'none'};"><circle id="smDot" cx="${px||0}" cy="${(py||0)*0.75}" r="1.8" fill="#c4c4c4" stroke="#000" stroke-width=".4"/><rect id="smSq" x="${(px||0)-1.7}" y="${(py||0)*0.75-1.7}" width="3.4" height="3.4" fill="#c4c4c4" stroke="#000" stroke-width=".4" style="display:none;"/></g>
     </svg>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button id="smGo" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;" ${px==null?'disabled':''}>Save location</button>
@@ -852,13 +879,14 @@ function crShotMap(){
       <button id="smX" style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">Cancel</button>
     </div></div>`;
   document.body.appendChild(ov);
+  if(px!=null) smApplyGlyph(ov,px,py);
   const close=()=>{ if(ov.parentNode) document.body.removeChild(ov); };
   const svg=ov.querySelector('#smSvg');
   svg.addEventListener('click',e=>{
     const r=svg.getBoundingClientRect();
     px=Math.max(0,Math.min(100,((e.clientX-r.left)/r.width)*100));
     py=Math.max(0,Math.min(100,((e.clientY-r.top)/r.height)*100));
-    const dot=ov.querySelector('#smDot'); dot.setAttribute('cx',px); dot.setAttribute('cy',py*0.75);
+    smApplyGlyph(ov,px,py);
     ov.querySelector('#smMark').style.display='';
     ov.querySelector('#smZone').textContent=crZoneOf(px,py)+' · '+Math.round(px)+','+Math.round(py);
     ov.querySelector('#smGo').disabled=false;
@@ -894,7 +922,7 @@ function crKoMap(){
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Kickout landing</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the kickout landed — the kicking goal is above the top edge. <b id="koZone" style="color:var(--accent);">${px!=null?(crKoZoneOf(px,py).zone+' · '+crKoZoneOf(px,py).loc):''}</b></div>
     <svg id="koSvg" viewBox="0 0 100 89" style="width:100%;aspect-ratio:100/89;background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
-      <rect x="1.2" y="1.20" width="97.6" height="10.83" fill="#35862a"/><rect x="1.2" y="12.03" width="97.6" height="10.83" fill="#2e7a24"/><rect x="1.2" y="22.86" width="97.6" height="10.83" fill="#35862a"/><rect x="1.2" y="33.69" width="97.6" height="10.83" fill="#2e7a24"/><rect x="1.2" y="44.52" width="97.6" height="10.83" fill="#35862a"/><rect x="1.2" y="55.35" width="97.6" height="10.83" fill="#2e7a24"/><rect x="1.2" y="66.18" width="97.6" height="10.83" fill="#35862a"/><rect x="1.2" y="77.01" width="97.6" height="10.83" fill="#2e7a24"/>
+      <rect x="1.2" y="1.20" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="8.25" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="15.30" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="22.35" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="29.40" width="97.6" height="11.30" fill="#35862a"/><rect x="1.2" y="40.70" width="97.6" height="11.30" fill="#2e7a24"/><rect x="1.2" y="52.00" width="97.6" height="7.20" fill="#35862a"/><rect x="1.2" y="59.20" width="97.6" height="7.60" fill="#2e7a24"/><rect x="1.2" y="66.80" width="97.6" height="10.50" fill="#35862a"/><rect x="1.2" y="77.30" width="97.6" height="10.50" fill="#2e7a24"/>
       <rect x="1.2" y="1.2" width="97.6" height="86.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
       <path d="M 34 1.2 A 16 15.6 0 0 0 66 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
       <path d="M 10 1.2 A 45 34 0 0 0 90 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>

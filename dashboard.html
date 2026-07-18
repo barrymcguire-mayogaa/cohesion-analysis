@@ -687,6 +687,73 @@ function statRows(tal, group){
 }
 function pct(n,d){ return d?Math.round((n/d)*100)+'%':'—'; }
 function sumKeys(tal,side,keys){ const b=side==='h'?tal.h:tal.a; return Object.entries(b).filter(([k])=>keys.some(t=>k.toUpperCase().includes(t))).reduce((s,[,v])=>s+v,0); }
+
+// ── Location maps (shots + kickouts plotted on the pitch) ─────
+function locPitchSvg(kind){
+  if(kind==='shot') return `<svg id="locSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;display:block;"><rect x="1.2" y="1.20" width="97.6" height="7.15" fill="#35862a"/><rect x="1.2" y="8.35" width="97.6" height="7.15" fill="#2e7a24"/><rect x="1.2" y="15.50" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="22.90" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="30.17" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="37.45" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="44.73" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.40" fill="#2e7a24"/><rect x="1.2" y="59.40" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="3.50" fill="#2e7a24"/><rect x="1.2" y="70.30" width="97.6" height="3.50" fill="#35862a"/><rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="37.6" y1="1.2" x2="37.6" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="62.2" y1="1.2" x2="62.2" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><rect x="42.4" y="1.2" width="14.8" height="4.5" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><circle cx="49.8" cy="12.7" r=".7" fill="rgba(255,255,255,.92)"/><line x1="1.2" y1="15.5" x2="98.8" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 34.3 22.9 A 15.7 16.1 0 0 0 65.7 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/><path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="66.8" x2="98.8" y2="66.8" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><g id="mapMarks"></g></svg>`;
+  return `<svg id="locSvg" viewBox="0 0 100 89" style="width:100%;aspect-ratio:100/89;background:#256e17;border-radius:10px;display:block;"><rect x="1.2" y="1.20" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="8.25" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="15.30" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="22.35" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="29.40" width="97.6" height="11.30" fill="#35862a"/><rect x="1.2" y="40.70" width="97.6" height="11.30" fill="#2e7a24"/><rect x="1.2" y="52.00" width="97.6" height="7.20" fill="#35862a"/><rect x="1.2" y="59.20" width="97.6" height="7.60" fill="#2e7a24"/><rect x="1.2" y="66.80" width="97.6" height="10.50" fill="#35862a"/><rect x="1.2" y="77.30" width="97.6" height="10.50" fill="#2e7a24"/><rect x="1.2" y="1.2" width="97.6" height="86.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><path d="M 34 1.2 A 16 15.6 0 0 0 66 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/><path d="M 10 1.2 A 45 34 0 0 0 90 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="29.4" x2="98.8" y2="29.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="59.2" x2="98.8" y2="59.2" stroke="rgba(255,255,255,.92)" stroke-width="1" stroke-dasharray="3.2,2.4"/><line x1="1.2" y1="66.8" x2="98.8" y2="66.8" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><g id="mapMarks"></g></svg>`;
+}
+// Marker style: circle = open play, square = dead ball; colour by result
+// (1pt white / 2pt orange / goal yellow / other outcome red / penalty purple).
+function locShotGlyph(e){
+  const code=(e.code||'').toUpperCase();
+  const out=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
+  const all=(code+' '+out+' '+Object.values(e.labels||{}).join(' ')).toUpperCase();
+  const shape=/DEADBALL|FREE|PENALTY|\b45\b|MARK/.test(code)?'square':'circle';
+  let color='#c4c4c4';
+  if(/PENALTY/.test(all)) color='#a855f7';
+  else if(/GOAL/.test(out)) color='#ffd700';
+  else if(/2 POINT/.test(out)) color='#f97316';
+  else if(/1 POINT/.test(out)) color='#ffffff';
+  else if(out) color='#ef4444';
+  return {shape,color};
+}
+let locMap={kind:'shot',team:'h'};
+function locEvents(kind){
+  return ALL.filter(e=>e.x!=null && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
+}
+function openLocMap(kind){
+  locMap={kind,team:'h'};
+  const ov=document.createElement('div'); ov.id='locOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10005;';
+  ov.addEventListener('click',e=>{ if(e.target===ov) closeLocMap(); });
+  ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:460px;max-width:calc(100vw - 40px);max-height:calc(100vh - 60px);overflow-y:auto;font-family:Barlow,sans-serif;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;flex:1;">${kind==='shot'?'Shot map':'Kickout map'}</div>
+      <div id="locTeamBtns" style="display:flex;gap:4px;"></div>
+      <button onclick="closeLocMap()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">✕</button>
+    </div>
+    ${locPitchSvg(kind)}
+    <div id="locLegend" style="margin-top:10px;font-size:11px;color:var(--t2);line-height:1.7;"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  renderLocMap();
+}
+function closeLocMap(){ const ov=document.getElementById('locOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); }
+function locSetTeam(t){ locMap.team=t; renderLocMap(); }
+function renderLocMap(){
+  const btns=document.getElementById('locTeamBtns'), marks=document.getElementById('mapMarks'), leg=document.getElementById('locLegend');
+  if(!btns||!marks) return;
+  const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
+  btns.innerHTML=`<div class="tl-pb ${locMap.team==='h'?'on':''}" onclick="locSetTeam('h')" style="cursor:pointer;">${H}</div><div class="tl-pb ${locMap.team==='a'?'on':''}" onclick="locSetTeam('a')" style="cursor:pointer;">${A}</div>`;
+  const yf=locMap.kind==='shot'?0.75:0.89;
+  const evs=locEvents(locMap.kind).filter(e=>statSide(e)===locMap.team);
+  marks.innerHTML=evs.map(e=>{
+    if(locMap.kind==='shot'){
+      const g=locShotGlyph(e);
+      return g.shape==='square'
+        ? `<rect x="${e.x-1.7}" y="${e.y*yf-1.7}" width="3.4" height="3.4" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></rect>`
+        : `<circle cx="${e.x}" cy="${e.y*yf}" r="1.8" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></circle>`;
+    }
+    const out=String((e.labels||{})['Kickout Outcomes']||e.outcome||'').toUpperCase();
+    const col=/WON/.test(out)?'#4ade80':/LOST/.test(out)?'#ef4444':'#e5e5e5';
+    return `<circle cx="${e.x}" cy="${e.y*yf}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${out?' — '+tc(out):''}</title></circle>`;
+  }).join('');
+  if(leg) leg.innerHTML=locMap.kind==='shot'
+    ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty`
+    : `${evs.length} located kickouts — <span style="color:#4ade80">●</span> won · <span style="color:#ef4444">●</span> lost`;
+}
+
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
@@ -725,6 +792,14 @@ function renderSV(){
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};
   h+=statSection('Score Assists', `${asH.length} &nbsp;|&nbsp; ${asA.length}`, pRows(topP(asH),topP(asA)));
 
+  const nShots=locEvents('shot').length, nKos=locEvents('ko').length;
+  if(nShots||nKos){
+    h+=statSection('Location Maps','',
+      '<div style="display:flex;gap:8px;padding:2px 0 8px;">'
+      +(nShots?'<button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="openLocMap(\'shot\')">📍 Shot map ('+nShots+')</button>':'')
+      +(nKos?'<button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="openLocMap(\'ko\')">📍 Kickout map ('+nKos+')</button>':'')
+      +'</div>');
+  }
   h+=`<div class="stt-note">Click any number or outcome to see those events. Quarters split each half at 18:00 on the game clock.</div>`;
   sc.innerHTML=h;
 }
