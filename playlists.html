@@ -45,6 +45,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .pl-row .nm{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
 .pl-row .mt{font-size:11px;color:var(--t3);}
 .pl-empty{padding:18px 12px;color:var(--t3);font-size:12px;line-height:1.5;}
+.pl-thumb{width:42px;height:42px;border-radius:8px;flex:none;object-fit:cover;background:var(--card);}
+.pl-thumb.ph{display:flex;align-items:center;justify-content:center;font:800 15px 'Barlow Condensed',sans-serif;color:#fff;}
+.pl-rowin{display:flex;gap:10px;align-items:center;}
 
 /* player + clips */
 .stage{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
@@ -139,8 +142,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
       <div class="clips" id="clipsWrap" style="display:none;">
         <div class="hd">
+          <img id="plCover" style="display:none;width:34px;height:34px;border-radius:7px;object-fit:cover;flex:none;" alt="">
           <span class="pname" id="plName" title="Click to rename the playlist"></span>
           <span style="font-size:11px;color:var(--t3);" id="plMeta"></span>
+          <button id="coverBtn" class="cbt" style="display:none;" title="Set a square cover image for this playlist" onclick="document.getElementById('coverFile').click()">📷</button>
+          <button id="coverRm" class="cbt x" style="display:none;" title="Remove cover image" onclick="plRemoveCover()">✕</button>
+          <input type="file" id="coverFile" accept="image/*" style="display:none;" onchange="plPickCover(this)">
         </div>
         <div id="clipRows"></div>
         <div class="savebar" id="saveBar" style="display:none;">
@@ -170,7 +177,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
 
 // ── state ─────────────────────────────────────────────────────
-let PLAYLISTS=[], CUR=null, ITEMS=[], dirty=false;
+let PLAYLISTS=[], CUR=null, ITEMS=[], COVER=null, dirty=false;
 let YTP=null, playIdx=-1, playAll=false, loop=false, curVideoId=null;
 
 // ── auth'd writes (admin JWT → playlists function) ────────────
@@ -203,10 +210,15 @@ function renderPlRows(){
   const w=document.getElementById('plRows');
   document.getElementById('newBtn').style.display=isAdmin?'':'none';
   if(!PLAYLISTS.length){ w.innerHTML='<div class="pl-empty">No playlists yet.'+(isAdmin?' Create one with ＋ New, or select events in Code Room and “Add to playlist”.':'')+'</div>'; return; }
-  w.innerHTML=PLAYLISTS.map(p=>`<div class="pl-row ${CUR&&String(CUR.id)===String(p.id)?'on':''}" onclick="openPlaylist(${p.id})">
+  w.innerHTML=PLAYLISTS.map(p=>{
+    const cov=(CUR&&String(CUR.id)===String(p.id))?COVER:((p.data&&p.data.cover)||null);
+    const thumb=cov?`<img class="pl-thumb" src="${cov}" alt="">`
+      :`<div class="pl-thumb ph" style="background:hsl(${plHue(p.name)} 45% 38%)">${esc(plInitials(p.name))}</div>`;
+    return `<div class="pl-row ${CUR&&String(CUR.id)===String(p.id)?'on':''}" onclick="openPlaylist(${p.id})">
+    <div class="pl-rowin">${thumb}<div style="min-width:0;">
     <div class="nm">${esc(p.name)}${p.scope==='personal'?' <span style="color:var(--t3);font-weight:400;">(mine)</span>':''}</div>
     <div class="mt">${((p.data&&p.data.items)||[]).length} clips</div>
-  </div>`).join('');
+    </div></div></div>`;}).join('');
 }
 async function newPlaylist(){
   const name=(prompt('Playlist name (e.g. Kickout wins v Kerry, Best scores 2026):')||'').trim();
@@ -223,6 +235,7 @@ function openPlaylist(id){
   if(dirty && !confirm('You have unsaved changes on the current playlist. Discard them?')) return;
   CUR=PLAYLISTS.find(p=>String(p.id)===String(id)); if(!CUR) return;
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
+  COVER=(CUR.data&&CUR.data.cover)||null;
   dirty=false; playIdx=-1; playAll=false;
   document.getElementById('emptyStage').style.display='none';
   document.getElementById('stage').style.display='';
@@ -243,6 +256,9 @@ function renderClips(){
   document.getElementById('plName').textContent=CUR.name;
   document.getElementById('plName').onclick=isAdmin?renamePlaylist:null;
   document.getElementById('plMeta').textContent=ITEMS.length+' clips'+(CUR.scope==='personal'?' · personal':' · club-wide');
+  const cv=document.getElementById('plCover'); if(cv){ if(COVER){ cv.src=COVER; cv.style.display=''; } else cv.style.display='none'; }
+  const cb=document.getElementById('coverBtn'); if(cb) cb.style.display=isAdmin?'':'none';
+  const cx=document.getElementById('coverRm'); if(cx) cx.style.display=(isAdmin&&COVER)?'':'none';
   if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them from Code Room: select events on the timeline, then “Add to playlist”.</div>'; renderSaveBar(); return; }
   w.innerHTML=ITEMS.map((it,i)=>{
     const noteLine = it.note
@@ -288,6 +304,32 @@ function commitNote(i,v){
   if(nv!==(ITEMS[i].note||'')){ if(nv) ITEMS[i].note=nv; else delete ITEMS[i].note; markDirty(); }
   renderClips();
 }
+// ── cover image: any picture becomes a centre-cropped 256px square JPEG
+// (~20-40KB), stored inside the playlist itself — no file server needed.
+function plInitials(name){ return String(name||'?').split(/\s+/).map(w=>w[0]).filter(Boolean).slice(0,2).join('').toUpperCase()||'?'; }
+function plHue(name){ let h=0; for(const ch of String(name||'')) h=(h*31+ch.charCodeAt(0))%360; return h; }
+function plCompressImage(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{ try{
+      const S=256, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+      const side=Math.min(img.width,img.height);
+      cv.getContext('2d').drawImage(img,(img.width-side)/2,(img.height-side)/2,side,side,0,0,S,S);
+      URL.revokeObjectURL(url);
+      const out=cv.toDataURL('image/jpeg',0.82);
+      if(out.length>200000) rej(new Error('Image could not be compressed enough.')); else res(out);
+    }catch(e){ rej(e); } };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('Could not read that image.')); };
+    img.src=url;
+  });
+}
+async function plPickCover(input){
+  const f=(input.files||[])[0]; input.value='';
+  if(!f||!CUR) return;
+  try{ COVER=await plCompressImage(f); markDirty(); renderClips(); renderPlRows(); }
+  catch(e){ alert(e.message||'Could not use that image.'); }
+}
+function plRemoveCover(){ if(!CUR) return; COVER=null; markDirty(); renderClips(); renderPlRows(); }
 function renamePlaylist(){
   const name=(prompt('Rename playlist:',CUR.name)||'').trim();
   if(!name||name===CUR.name) return;
@@ -325,8 +367,9 @@ async function savePlaylist(){
   if(!CUR) return;
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='Saving…';
   try{
-    await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, scope:CUR.scope, data:{items:ITEMS}});
-    CUR.data={items:ITEMS.map(x=>({...x}))}; dirty=false;
+    const payload={items:ITEMS}; if(COVER) payload.cover=COVER;
+    await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, scope:CUR.scope, data:payload});
+    CUR.data={items:ITEMS.map(x=>({...x}))}; if(COVER) CUR.data.cover=COVER; dirty=false;
     const st=document.getElementById('plStatus'); st.textContent='Saved ✓'; st.style.color='var(--green)';
     renderPlRows();
   }catch(e){ alert('Could not save: '+e.message); }
