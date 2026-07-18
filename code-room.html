@@ -294,6 +294,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           <div class="levents" id="levents"></div>
           <div class="tlscroll" id="tlscroll" style="display:none;">
             <div class="tlinner" id="tlinner">
+              <canvas id="crTLRuler" style="position:sticky;top:0;z-index:5;display:block;margin-bottom:-22px;"></canvas>
               <canvas id="crTL"></canvas>
             </div>
           </div>
@@ -740,7 +741,7 @@ function crCommitDrag(d){
 function crSyncDraft(e){
   if(String(e._rowId)!==String(activeId)) return;
   draft={ code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
-    x:(e.x!=null?e.x:null), y:(e.y!=null?e.y:null),
+    x:(crCoordOf(e)||{}).x??null, y:(crCoordOf(e)||{}).y??null,
     groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v})) };
   renderPanel();
 }
@@ -823,6 +824,38 @@ function crKoZoneOf(x,y){
 // (free/45/penalty/mark); colour by result — 1pt white, 2pt orange, goal
 // yellow, any other outcome (wide/short/saved/blocked/woodwork) red,
 // penalty purple; grey until an outcome is set.
+// Coordinates can arrive from Match Tracker XMLs as label pairs
+// (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...). Maps read native e.x/e.y first
+// and fall back to the first label pair; saving updates BOTH so nothing is
+// duplicated and the XML round-trip stays intact.
+function crCoordPairs(labels){
+  const out=[], keys=Object.keys(labels||{});
+  keys.forEach(k=>{ const m=/^x([-_ ].*)$/i.exec(k); if(!m) return;
+    const yk=keys.find(k2=>/^y/i.test(k2)&&k2.slice(1).toLowerCase()===m[1].toLowerCase());
+    if(!yk) return;
+    const x=parseFloat(labels[k]), y=parseFloat(labels[yk]);
+    if(isFinite(x)&&isFinite(y)) out.push({xg:k,yg:yk,x,y});
+  });
+  return out;
+}
+function crCoordOf(e){
+  if(e&&e.x!=null&&e.y!=null) return {x:e.x,y:e.y};
+  const p=crCoordPairs(e&&e.labels)[0];
+  return p?{x:Math.max(0,Math.min(100,p.x)),y:Math.max(0,Math.min(100,p.y))}:null;
+}
+// After placing on a map: update existing X-/Y- label rows in the draft, or
+// create the Match Tracker-named pair if the event has none.
+function crSyncCoordGroups(kind){
+  const xs=String(Math.round(draft.x)), ys=String(Math.round(draft.y));
+  if(draft.groups.some(r=>/^x[-_ ]/i.test(r.g))){
+    draft.groups.forEach(r=>{ if(/^x[-_ ]/i.test(r.g)) r.v=xs; else if(/^y[-_ ]/i.test(r.g)) r.v=ys; });
+    return;
+  }
+  const e=EVENTS.find(x=>String(x._rowId)===String(activeId))||{};
+  const suf=((e.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
+  const base=kind==='ko'?'KOs':'Shot';
+  draft.groups.push({g:'X-'+base+suf,v:xs},{g:'Y-'+base+suf,v:ys});
+}
 function crShotGlyph(){
   const code=((draft&&draft.code)||'').toUpperCase();
   const lbls={}; ((draft&&draft.groups)||[]).forEach(r=>lbls[r.g]=r.v);
@@ -895,6 +928,7 @@ function crShotMap(){
   ov.querySelector('#smClear').onclick=()=>{
     draft.x=null; draft.y=null;
     const i=draft.groups.findIndex(r=>r.g==='Shot Zones'); if(i>=0) draft.groups.splice(i,1);
+    draft.groups=draft.groups.filter(r=>!/^[xy][-_ ]/i.test(r.g));
     close(); refreshSave(); renderPanel();
   };
   ov.querySelector('#smGo').onclick=()=>{
@@ -903,6 +937,7 @@ function crShotMap(){
     const zone=crZoneOf(px,py);
     const i=draft.groups.findIndex(r=>r.g==='Shot Zones');
     if(i>=0) draft.groups[i].v=zone; else draft.groups.push({g:'Shot Zones',v:zone});
+    crSyncCoordGroups('shot');
     close(); refreshSave(); renderPanel();
   };
 }
@@ -954,6 +989,7 @@ function crKoMap(){
   ov.querySelector('#koClear').onclick=()=>{
     draft.x=null; draft.y=null;
     ['Kickout Zones','Kickout Locations'].forEach(g=>{ const i=draft.groups.findIndex(r=>r.g===g); if(i>=0) draft.groups.splice(i,1); });
+    draft.groups=draft.groups.filter(r=>!/^[xy][-_ ]/i.test(r.g));
     close(); refreshSave(); renderPanel();
   };
   ov.querySelector('#koGo').onclick=()=>{
@@ -964,6 +1000,7 @@ function crKoMap(){
       const i=draft.groups.findIndex(r=>r.g===g);
       if(i>=0) draft.groups[i].v=v; else draft.groups.push({g,v});
     });
+    crSyncCoordGroups('ko');
     close(); refreshSave(); renderPanel();
   };
 }
@@ -1082,6 +1119,8 @@ function crInitTL(){
     }
     if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW) vSeekDrive(g.tOf(crDown.x)); crDown=null; }
   });
+  const rl=document.getElementById('crTLRuler');
+  if(rl&&!rl._init){ rl._init=true; rl.addEventListener('click',e=>{ const r=rl.getBoundingClientRect(), x=e.clientX-r.left; if(x>=CR_LW){ const g=crGeom(); vSeekDrive(g.tOf(x)); } }); }
   // Trackpad: pinch (ctrl+wheel) = zoom around the cursor, horizontal scroll
   // = move through the game, vertical scroll = native row scrolling.
   c.addEventListener('wheel',e=>{
@@ -1179,7 +1218,28 @@ function crDrawTL(){
     ctx.fillRect(xa,ya,xb-xa,yb-ya); ctx.strokeRect(xa,ya,xb-xa,yb-ya); ctx.setLineDash([]); ctx.restore();
   }
   crUpdateSB(dur,vD);
+  crDrawTLRuler(cssW,dark,dur,vD,vt);
   if(crSyncOn) crSyncUpdate();
+}
+// Sticky ruler: stays pinned while the rows scroll; the gutter cell shows a
+// live video timer (drive reference, matching the axis), and the playhead
+// triangle rides along it.
+function crDrawTLRuler(cssW,dark,dur,vD,vt){
+  const rc=document.getElementById('crTLRuler'); if(!rc) return;
+  const dpr=window.devicePixelRatio||1, nw=Math.round(cssW*dpr), nh=Math.round(CR_RULER*dpr);
+  if(rc.width!==nw||rc.height!==nh){ rc.style.width=cssW+'px'; rc.style.height=CR_RULER+'px'; rc.width=nw; rc.height=nh; }
+  const ctx=rc.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  const plotW=cssW-CR_LW, xF=t=>CR_LW+((t-crTLO)/vD)*plotW, vE=crTLO+vD;
+  ctx.fillStyle=dark?'#1a1a24':'#e8e7e4'; ctx.fillRect(0,0,cssW,CR_RULER);
+  ctx.fillStyle=dark?'#101018':'#ecebe9'; ctx.fillRect(0,0,CR_LW,CR_RULER);
+  ctx.fillStyle='#ff4b4b'; ctx.font="700 13px 'Barlow Condensed',sans-serif";
+  ctx.fillText('▶ '+fmt(vt), 8, 16);
+  const li=vD>3600?600:vD>1800?300:vD>900?120:60, fl=Math.ceil(crTLO/li)*li;
+  ctx.fillStyle=dark?'rgba(255,255,255,0.5)':'rgba(0,0,0,0.55)'; ctx.font='9px sans-serif';
+  for(let t=fl;t<vE;t+=li){ const x=xF(t); if(x>CR_LW+8&&x<cssW-8) ctx.fillText(fmt(t),x-10,14); }
+  const px=xF(vt);
+  if(px>=CR_LW&&px<=cssW){ ctx.fillStyle='#ff4b4b'; ctx.fillRect(px-1,0,2,CR_RULER); ctx.beginPath(); ctx.moveTo(px-4,0); ctx.lineTo(px+4,0); ctx.lineTo(px,7); ctx.fill(); }
+  ctx.strokeStyle=dark?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.moveTo(0,CR_RULER-0.5); ctx.lineTo(cssW,CR_RULER-0.5); ctx.stroke();
 }
 // Horizontal scrollbar: thumb reflects the visible window (crTLO..crTLO+vD) of the full duration.
 function crUpdateSB(dur,vD){
@@ -1424,7 +1484,7 @@ function pick(rowId){
   activeId=e._rowId;
   draft={
     code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
-    x:(e.x!=null?e.x:null), y:(e.y!=null?e.y:null),
+    x:(crCoordOf(e)||{}).x??null, y:(crCoordOf(e)||{}).y??null,
     groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v}))
   };
   if(YTP&&YTP.seekTo){ vSeekDrive(draft.driveT); YTP.playVideo(); }
@@ -1437,7 +1497,7 @@ function isDirty(){
   if(draft.player!==(e.player||'')) return true;
   if(draft.driveT!==(e.driveT||0)) return true;
   if((draft.color||'')!==(e.color||'')) return true;
-  if((draft.x??null)!==(e.x??null)||(draft.y??null)!==(e.y??null)) return true;
+  { const co=crCoordOf(e)||{}; if((draft.x??null)!==(co.x??null)||(draft.y??null)!==(co.y??null)) return true; }
   const orig=Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name');
   if(orig.length!==draft.groups.length) return true;
   const om={}; orig.forEach(([g,v])=>om[g]=v);

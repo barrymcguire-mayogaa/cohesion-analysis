@@ -709,8 +709,22 @@ function locShotGlyph(e){
   return {shape,color};
 }
 let locMap={kind:'shot',team:'h'};
+// Coordinates: native e.x/e.y first, else Match Tracker label pairs
+// (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...), 0-100 scale.
+function dashCoordOf(e){
+  if(e&&e.x!=null&&e.y!=null) return {x:e.x,y:e.y};
+  const keys=Object.keys(e&&e.labels||{});
+  for(const k of keys){
+    const m=/^x([-_ ].*)$/i.exec(k); if(!m) continue;
+    const yk=keys.find(k2=>/^y/i.test(k2)&&k2.slice(1).toLowerCase()===m[1].toLowerCase());
+    if(!yk) continue;
+    const x=parseFloat(e.labels[k]), y=parseFloat(e.labels[yk]);
+    if(isFinite(x)&&isFinite(y)) return {x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};
+  }
+  return null;
+}
 function locEvents(kind){
-  return ALL.filter(e=>e.x!=null && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
+  return ALL.filter(e=>dashCoordOf(e) && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
 }
 function openLocMap(kind){
   locMap={kind,team:'h'};
@@ -739,15 +753,16 @@ function renderLocMap(){
   const yf=locMap.kind==='shot'?0.75:0.89;
   const evs=locEvents(locMap.kind).filter(e=>statSide(e)===locMap.team);
   marks.innerHTML=evs.map(e=>{
+    const co=dashCoordOf(e); if(!co) return '';
     if(locMap.kind==='shot'){
       const g=locShotGlyph(e);
       return g.shape==='square'
-        ? `<rect x="${e.x-1.7}" y="${e.y*yf-1.7}" width="3.4" height="3.4" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></rect>`
-        : `<circle cx="${e.x}" cy="${e.y*yf}" r="1.8" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></circle>`;
+        ? `<rect x="${co.x-1.7}" y="${co.y*yf-1.7}" width="3.4" height="3.4" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></rect>`
+        : `<circle cx="${co.x}" cy="${co.y*yf}" r="1.8" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></circle>`;
     }
     const out=String((e.labels||{})['Kickout Outcomes']||e.outcome||'').toUpperCase();
     const col=/WON/.test(out)?'#4ade80':/LOST/.test(out)?'#ef4444':'#e5e5e5';
-    return `<circle cx="${e.x}" cy="${e.y*yf}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${out?' — '+tc(out):''}</title></circle>`;
+    return `<circle cx="${co.x}" cy="${co.y*yf}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${out?' — '+tc(out):''}</title></circle>`;
   }).join('');
   if(leg) leg.innerHTML=locMap.kind==='shot'
     ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty`
