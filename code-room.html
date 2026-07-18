@@ -403,7 +403,7 @@ function filterGames(){
     if(fY && String(g.date||'').slice(0,4)!==fY) return false;
     if(q && ![g.id,g.title,g.homeTeam,g.awayTeam,g.competition,g.date].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     return true;
-  }).slice(0,20);
+  }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,20);   // newest first (undated last)
   drop.innerHTML=hits.map(g=>`<div class="row" onclick="openGame('${g.id.replace(/'/g,"\\'")}')">${(g.title||g.id)} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></div>`).join('')||'<div class="row" style="color:var(--t3);cursor:default">No matches</div>';
   // Must be an explicit 'block': the .drop class sets display:none in the
   // stylesheet, and clearing the inline style ('') would just fall back to
