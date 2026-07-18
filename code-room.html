@@ -801,9 +801,9 @@ function crCreatePrompt(code,t,half){
 // and derives a Shot Zones label from a default 3-3-2 grid (zones drawn on
 // the map so the analyst sees exactly what a click means).
 function crZoneOf(x,y){
-  if(y<30) return x<33?'Zone 1':x<66?'Zone 2':'Zone 3';
-  if(y<60) return x<33?'Zone 4':x<66?'Zone 5':'Zone 6';
-  return x<50?'Zone 7':'Zone 8';
+  const col = x<33.34?0 : x<66.67?1 : 2;
+  const row = y<31.2?0 : y<68.7?1 : 2;   // 20m line / 45m line
+  return 'Zone '+(row*3+col+1);
 }
 function crShotMap(){
   if(!draft) return;
@@ -813,33 +813,21 @@ function crShotMap(){
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:420px;width:calc(100% - 40px);font-family:Barlow,sans-serif;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Shot location</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the shot was taken from — goal at the top. <b id="smZone" style="color:var(--accent);">${px!=null?crZoneOf(px,py):''}</b></div>
-    <svg id="smSvg" viewBox="0 0 100 100" style="width:100%;aspect-ratio:1/1;background:#1e6f14;border-radius:10px;cursor:crosshair;display:block;">
-      <!-- attacking half, goal at top: goalposts, small/large rectangles, 13m+20m band, D, 40m two-point arc, 45m + 65m lines, dashed halfway (matches COHESION Match Tracker) -->
-      <rect x="1.5" y="4" width="97" height="95" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
-      <line x1="46.5" y1="4" x2="46.5" y2="0.5" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
-      <line x1="53.5" y1="4" x2="53.5" y2="0.5" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
-      <line x1="46.5" y1="1.8" x2="53.5" y2="1.8" stroke="rgba(255,255,255,.9)" stroke-width=".8"/>
-      <rect x="42.2" y="4" width="15.6" height="4.9" fill="none" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <rect x="39.4" y="4" width="21.2" height="14.2" fill="none" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <line x1="1.5" y1="18.2" x2="98.5" y2="18.2" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <line x1="1.5" y1="25.8" x2="98.5" y2="25.8" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <path d="M 39 25.8 A 12.5 12.5 0 0 0 61 25.8" fill="none" stroke="rgba(255,255,255,.8)" stroke-width=".7"/>
-      <path d="M 3 25.8 A 61 61 0 0 0 97 25.8" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1"/>
-      <line x1="1.5" y1="53.1" x2="98.5" y2="53.1" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <line x1="1.5" y1="74.9" x2="98.5" y2="74.9" stroke="rgba(255,255,255,.85)" stroke-width=".7"/>
-      <line x1="1.5" y1="99" x2="98.5" y2="99" stroke="rgba(255,255,255,.85)" stroke-width="1" stroke-dasharray="3,2.2"/>
-      <!-- zone overlay (derives the Shot Zones label) -->
-      <line x1="33" y1="4" x2="33" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
-      <line x1="66" y1="4" x2="66" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
-      <line x1="1.5" y1="30" x2="98.5" y2="30" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
-      <line x1="1.5" y1="60" x2="98.5" y2="60" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
-      <line x1="50" y1="60" x2="50" y2="99" stroke="rgba(79,195,247,.35)" stroke-width=".5" stroke-dasharray="2,2"/>
-      <g fill="rgba(79,195,247,.5)" font-size="4.5" font-family="Barlow Condensed,sans-serif" font-weight="700" text-anchor="middle">
-        <text x="16" y="24">Z1</text><text x="50" y="15">Z2</text><text x="84" y="24">Z3</text>
-        <text x="16" y="47">Z4</text><text x="50" y="47">Z5</text><text x="84" y="47">Z6</text>
-        <text x="25" y="82">Z7</text><text x="75" y="82">Z8</text>
-      </g>
-      <g id="smMark" style="display:${px!=null?'':'none'};"><circle id="smDot" cx="${px||0}" cy="${py||0}" r="2.2" fill="#ffd700" stroke="#000" stroke-width=".5"/></g>
+    <svg id="smSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
+      <!-- Match Tracker attacking half (goal at top). Zones 1-9 are derived
+           from the click position but are NOT drawn — pitch shown as-is. -->
+      <rect x="1.2" y="1.20" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="9.26" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="17.32" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="25.38" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="33.44" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="41.50" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="49.56" width="97.6" height="8.06" fill="#35862a"/><rect x="1.2" y="57.62" width="97.6" height="8.06" fill="#2e7a24"/><rect x="1.2" y="65.68" width="97.6" height="8.06" fill="#35862a"/>
+      <rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <line x1="37.6" y1="1.2" x2="37.6" y2="16.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="62.4" y1="1.2" x2="62.4" y2="16.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <rect x="42.4" y="1.2" width="15.2" height="5.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <circle cx="50" cy="13.5" r=".7" fill="rgba(255,255,255,.92)"/>
+      <line x1="1.2" y1="16.4" x2="98.8" y2="16.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="1.2" y1="23.4" x2="98.8" y2="23.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <path d="M 34 23.4 A 16 15.6 0 0 0 66 23.4" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
+      <path d="M 8.4 23.4 A 41 31 0 0 0 89.6 23.4" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <line x1="1.2" y1="51.5" x2="98.8" y2="51.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <g id="smMark" style="display:${px!=null?'':'none'};"><circle id="smDot" cx="${px||0}" cy="${(py||0)*0.75}" r="1.8" fill="#ffd700" stroke="#000" stroke-width=".4"/></g>
     </svg>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button id="smGo" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;" ${px==null?'disabled':''}>Save location</button>
@@ -853,7 +841,7 @@ function crShotMap(){
     const r=svg.getBoundingClientRect();
     px=Math.max(0,Math.min(100,((e.clientX-r.left)/r.width)*100));
     py=Math.max(0,Math.min(100,((e.clientY-r.top)/r.height)*100));
-    const dot=ov.querySelector('#smDot'); dot.setAttribute('cx',px); dot.setAttribute('cy',py);
+    const dot=ov.querySelector('#smDot'); dot.setAttribute('cx',px); dot.setAttribute('cy',py*0.75);
     ov.querySelector('#smMark').style.display='';
     ov.querySelector('#smZone').textContent=crZoneOf(px,py)+' · '+Math.round(px)+','+Math.round(py);
     ov.querySelector('#smGo').disabled=false;
