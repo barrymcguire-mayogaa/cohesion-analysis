@@ -145,6 +145,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <img id="plCover" style="display:none;width:34px;height:34px;border-radius:7px;object-fit:cover;flex:none;" alt="">
           <span class="pname" id="plName" title="Click to rename the playlist"></span>
           <span style="font-size:11px;color:var(--t3);" id="plMeta"></span>
+          <button id="shareBtn" class="cbt" title="Copy a link that opens this exact playlist" onclick="sharePlaylist()">🔗 Share</button>
           <button id="coverBtn" class="cbt" style="display:none;" title="Set a square cover image for this playlist" onclick="document.getElementById('coverFile').click()">📷</button>
           <button id="coverRm" class="cbt x" style="display:none;" title="Remove cover image" onclick="plRemoveCover()">✕</button>
           <input type="file" id="coverFile" accept="image/*" style="display:none;" onchange="plPickCover(this)">
@@ -202,6 +203,7 @@ async function loadPlaylists(){
     const em=myEmail();
     PLAYLISTS=(data||[]).filter(p=>p.scope==='club'||(p.scope==='personal'&&p.owner===em));
     renderPlRows();
+    applyDeepLink();
   }catch(e){
     document.getElementById('plRows').innerHTML='<div class="pl-empty">Could not load playlists: '+esc(e.message)+'<br><br>If this is the first use, the playlists table may not be created yet.</div>';
   }
@@ -237,6 +239,7 @@ function openPlaylist(id){
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
   COVER=(CUR.data&&CUR.data.cover)||null;
   dirty=false; playIdx=-1; playAll=false;
+  try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id); }catch(_){}
   document.getElementById('emptyStage').style.display='none';
   document.getElementById('stage').style.display='';
   document.getElementById('clipsWrap').style.display='';
@@ -330,6 +333,28 @@ async function plPickCover(input){
   catch(e){ alert(e.message||'Could not use that image.'); }
 }
 function plRemoveCover(){ if(!CUR) return; COVER=null; markDirty(); renderClips(); renderPlRows(); }
+// ── Share link: playlists.html?pl=<id>[&clip=<n>] ─────────────
+// Recipients sign in with the normal club login and land straight on the
+// playlist (personal playlists stay invisible to anyone but their owner).
+function sharePlaylist(){
+  if(!CUR) return;
+  const url=location.origin+location.pathname+'?pl='+CUR.id;
+  const done=()=>{ const b=document.getElementById('shareBtn'); if(b){ b.textContent='✓ Copied'; setTimeout(()=>{ b.textContent='🔗 Share'; },1600); } };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,()=>prompt('Copy this link:',url));
+  else prompt('Copy this link:',url);
+}
+let deepLinked=false;
+function applyDeepLink(){
+  if(deepLinked||!PLAYLISTS.length) return;
+  deepLinked=true;
+  const p=new URLSearchParams(location.search);
+  const id=p.get('pl'); if(!id) return;
+  const found=PLAYLISTS.find(x=>String(x.id)===String(id));
+  if(!found){ alert("That playlist isn't available to this account."); return; }
+  openPlaylist(found.id);
+  const ci=parseInt(p.get('clip'),10);
+  if(ci>=1&&ci<=ITEMS.length) setTimeout(()=>playClip(ci-1),400);
+}
 function renamePlaylist(){
   const name=(prompt('Rename playlist:',CUR.name)||'').trim();
   if(!name||name===CUR.name) return;
