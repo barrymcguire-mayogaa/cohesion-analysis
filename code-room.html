@@ -727,6 +727,16 @@ function crApplyDrag(d, dt){
     }
   }
 }
+// Deselect the active event: clears the editor. In Code Mode the editor
+// panel hides entirely so the tagging controls return to the top.
+function crDeselect(){
+  if(activeId==null&&!draft) return;
+  activeId=null; draft=null;
+  const p=document.getElementById('epanel');
+  if(codeMode.on){ if(p) p.style.display='none'; }
+  else renderPanel();
+  renderList();
+}
 function crCommitDrag(d){
   const e=d.ev;
   if(!d.moved){ pick(e._rowId); return; }        // no movement → treat as a select
@@ -1119,7 +1129,7 @@ function crInitTL(){
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
     if(crBox){ const box=crBox; crBox=null; document.body.style.userSelect='';
       if(box.moved) crSelectBox(box);
-      else { const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
+      else { crDeselect(); const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
       crDrawTL(); return;
     }
     if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW) vSeekDrive(g.tOf(crDown.x)); crDown=null; }
@@ -2110,6 +2120,16 @@ function codeSkipLink(silent){
   if(!silent){ const f=document.getElementById('codeFlash'); if(f && f.textContent) f.textContent=f.textContent.replace(/ — paused.*/,'')+' — outcome skipped'; }
 }
 
+// Esc anywhere (outside inputs): deselect the active event. The Code Mode
+// handler below still takes priority for skipping an outcome prompt.
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape') return;
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(codeMode.on&&codeMode.pendingLink) return;   // Esc = skip prompt first
+  if(crDrag||crBox||crRowDrag) return;
+  crDeselect();
+});
 // Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
 document.addEventListener('keydown', e=>{
   if(!codeMode.on) return;
