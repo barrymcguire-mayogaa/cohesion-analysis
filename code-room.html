@@ -149,6 +149,11 @@ canvas#crTL{display:block;cursor:crosshair;}
 .cbtn.evt:hover{background:var(--accent);color:#fff;}
 .cbtn .hk{opacity:.55;font-size:10px;margin-left:5px;}
 .cbtn.mini{padding:6px 9px;font-size:11px;}
+.cbtn.evt.rec{background:#dc2626;border-color:#dc2626;color:#fff;animation:crpulse 1.1s infinite;}
+@keyframes crpulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+.recchip{display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.14);border:1px solid #dc2626;color:#f87171;border-radius:7px;padding:5px 10px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;animation:crpulse 1.1s infinite;}
+.recchip .x{cursor:pointer;color:var(--t3);font-style:normal;}
+.recchip .x:hover{color:#f87171;}
 .clblrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;}
 .clbl-g{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);min-width:84px;text-transform:uppercase;}
 .clipwin{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);display:flex;align-items:center;gap:6px;}
@@ -346,6 +351,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="codeWinReadout" style="font-size:11px;color:var(--t3);"></span>
           </div>
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
+          <div id="codeRecs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           <div id="codeLink" class="codelink" style="display:none;"></div>
           <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
@@ -416,7 +422,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -460,7 +466,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0;
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup();   // recover events from a crashed local session
@@ -586,7 +592,7 @@ function buildLocalPlayer(){
   };
   startClock();
 }
-function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNow(); document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
+function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNow(); document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } if(codeMode.on&&Object.keys(crRec).length) crTickRecs(); } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
 function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
 function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
@@ -1757,6 +1763,18 @@ let codeColorPref={};
 try{ const s=JSON.parse(localStorage.getItem('cr_codeColors')||'null'); if(s&&typeof s==='object') codeColorPref=s; }catch(_){}
 // Coding templates (club-wide + this analyst's personal), loaded from the DB.
 let crTemplates=[], crTplCodes=[];
+// Codes added by hand this game (persisted per game; captured into templates).
+let crSessionCodes=[];
+function crCodesKey(){ return 'coh_crcodes_'+(GAME&&GAME.id); }
+function crCodesSave(){ try{ localStorage.setItem(crCodesKey(), JSON.stringify(crSessionCodes)); }catch(_){} }
+function crCodesLoad(){ try{ const s=JSON.parse(localStorage.getItem(crCodesKey())||'null'); crSessionCodes=Array.isArray(s)?s.filter(x=>typeof x==='string'):[]; }catch(_){ crSessionCodes=[]; } }
+// Per-code duration mode: press starts, press again stops (vs instant lead/lag).
+let codeDurPref={};
+try{ const s=JSON.parse(localStorage.getItem('cr_codeDur')||'null'); if(s&&typeof s==='object') codeDurPref=s; }catch(_){}
+function saveCodeDur(){ try{ localStorage.setItem('cr_codeDur', JSON.stringify(codeDurPref)); }catch(_){} }
+function setCodeDur(code,on){ if(on) codeDurPref[code]=true; else delete codeDurPref[code]; saveCodeDur(); buildCodeKeysEditor(); }
+// Live recordings: base code -> {start} (several can run at once).
+let crRec={};
 let codeEvtList=[];
 const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
 // Escape a string for use inside a single-quoted inline onclick attribute.
@@ -1790,7 +1808,7 @@ function fillTplSelect(){
 }
 // Capture the current Code Mode setup as a template payload.
 function crTplCapture(){
-  return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref},
+  return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref}, dur:{...codeDurPref},
            rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
 }
 async function saveTemplate(){
@@ -1814,6 +1832,7 @@ function applyTemplate(){
   crTplCodes=Array.isArray(d.codes)?d.codes.filter(c=>typeof c==='string'):[];
   if(Array.isArray(d.keys)){ codeKeyPref=d.keys.slice(); saveCodeKeys(); }
   if(d.colors&&typeof d.colors==='object'){ codeColorPref={...d.colors}; saveCodeColors(); }
+  if(d.dur&&typeof d.dur==='object'){ codeDurPref={...d.dur}; saveCodeDur(); }
   if(d.rows){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
   if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
   if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
@@ -1855,11 +1874,12 @@ function buildCodePanel(){
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`;
-  let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes])];
+  let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes, ...crSessionCodes])];
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
   fillTplSelect();
-  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${esc(b)}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('');
+  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('')
+    +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`;
   buildCodePlayers();
   buildCodeLabels();
   buildCodeKeysEditor();
@@ -1887,10 +1907,10 @@ function buildCodeKeysEditor(){
     const cur=all[i];
     const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const col=codeColorPref[cur]||'';
-    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
+    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${codeDurPref[cur]?' on':''}" title="${codeDurPref[cur]?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${codeDurPref[cur]?'false':'true'})">⏱</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
   }
   box.style.display='';
-  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. The colour is applied to events of that code tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
+  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. ⏱ makes a code a DURATION event (press starts, press again stops); the colour is applied to events tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
 }
 function setCodeKey(slot, code){
   if(!code) return;
@@ -1942,6 +1962,12 @@ function buildCodePlayers(){
     players.map(p=>`<button class="cbtn ${codeMode.player===p?'on':''}" onclick="codeSetPlayer('${esc(p).replace(/'/g,"&#39;")}')">${esc(p)}</button>`).join('')+
     `<button class="cbtn" onclick="codeAddPlayer()">+ Player…</button>`;
 }
+function codeAddCode(){
+  const n=(prompt('New event code (e.g. SCORE SOURCE, ATTACKS):')||'').trim().toUpperCase();
+  if(!n) return;
+  if(!codeEvtList.includes(n)&&!crSessionCodes.includes(n)){ crSessionCodes.push(n); crCodesSave(); }
+  buildCodePanel();
+}
 function codeSetPeriod(p){ codeMode.period=p; buildCodePanel(); }
 function codeSetTeam(t){ codeMode.team=t; codeMode.player=''; buildCodePanel(); }
 function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
@@ -1950,6 +1976,8 @@ function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ co
 function codeTag(baseCode){
   // Tagging a fresh event moves past any outcome prompt still awaiting an answer.
   if(codeMode.pendingLink) codeSkipLink(true);
+  // Duration codes: first press starts recording, next press stops it.
+  if(codeDurPref[baseCode]){ crDurToggle(baseCode); return; }
   const teamName=codeTeamName();
   const code=(teamName?teamName+' ':'')+baseCode;
   const now=Math.max(0,Math.round(vNow()));
@@ -1980,9 +2008,66 @@ function codeTag(baseCode){
     f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+'  — paused; press Space to resume';
   }
   // Event link: if this code has a follow-up outcome, prompt for it now.
-  const link=window.cohesionLinkFor?window.cohesionLinkFor(code):null;
+  const link=crAutoLinkFor(code);
   if(link){ codeMode.pendingLink={rowId:tmpId, link}; renderCodeLink(); }
   else { codeMode.pendingLink=null; renderCodeLink(); }
+}
+
+// ── Duration recording (press to start, press again to stop) ──
+function crDurToggle(baseCode){
+  if(!crRec[baseCode]){
+    crRec[baseCode]={start:Math.max(0,Math.round(vNow()))};
+    const f=document.getElementById('codeFlash');
+    if(f) f.textContent='⏺ '+baseCode+' recording — press again (or click the chip) to stop; ✕ cancels.';
+  } else {
+    const rec=crRec[baseCode]; delete crRec[baseCode];
+    const start=rec.start, end=Math.max(start+1, Math.round(vNow()));
+    const teamName=codeTeamName();
+    const code=(teamName?teamName+' ':'')+baseCode;
+    const labels={};
+    const applies=new Set((window.cohesionGroupsFor?cohesionGroupsFor(code):[]).map(g=>g.name));
+    Object.entries(codeMode.labels||{}).forEach(([g,v])=>{ if(v&&applies.has(g)) labels[g]=v; });
+    if(codeMode.player) labels[`${teamName||'Unassigned'} Player Labels`]=codeMode.player;
+    const tmpId='tmp-'+(++crTmpCounter);
+    const row={ id:'manual-'+Date.now(), start, end, half:codeMode.period, code, team:teamName,
+                player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
+                driveT:start, labels, _manual:true, _rowId:tmpId, _new:true };
+    if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
+    EVENTS.push(row);
+    EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+    undoStack.push({type:'add', rowId:tmpId});
+    refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+    const f=document.getElementById('codeFlash');
+    if(f) f.textContent='✓ '+code+' · '+fmt(start)+'–'+fmt(end)+' ('+(end-start)+'s)';
+    const link=crAutoLinkFor(code);                 // outcome prompt ON STOP
+    codeMode.pendingLink=link?{rowId:tmpId, link}:null;
+    renderCodeLink();
+  }
+  renderCodeRecs(); buildCodePanel();
+}
+function crCancelRec(baseCode){ delete crRec[baseCode]; renderCodeRecs(); buildCodePanel(); }
+function renderCodeRecs(){
+  const box=document.getElementById('codeRecs'); if(!box) return;
+  box.innerHTML=Object.entries(crRec).map(([b,r])=>
+    `<span class="recchip" onclick="crDurToggle('${_cq(b)}')" title="Click to stop ${_cq(b)} at the current video moment">⏺ ${esc(b)} <span data-rec="${_cq(b)}">0:00</span><span class="x" onclick="event.stopPropagation();crCancelRec('${_cq(b)}')" title="Cancel — discard this recording">✕</span></span>`).join('');
+  crTickRecs();
+}
+function crTickRecs(){
+  const t=vNow();
+  document.querySelectorAll('[data-rec]').forEach(el=>{
+    const r=crRec[el.getAttribute('data-rec')]; if(r) el.textContent=fmt(Math.max(0,t-r.start));
+  });
+}
+// Outcome prompt source: the configured event link, else derived from the
+// label groups this code already uses in the data (e.g. an added SCORE
+// SOURCE code finds 'Score Source Outcomes' and its values automatically).
+function crAutoLinkFor(code){
+  const cfg=window.cohesionLinkFor?window.cohesionLinkFor(code):null;
+  if(cfg) return cfg;
+  const gs=crGroupsUsedFor(code).filter(g=>g.options.length&&g.options.length<=12);
+  if(!gs.length) return null;
+  const pick=gs.find(g=>/outcome|source/i.test(g.g))||gs[0];
+  return { group:pick.g, prompt:pick.g, options:pick.options.slice(0,9) };
 }
 
 // ── Event links (tag → qualify outcome) ───────────────────────

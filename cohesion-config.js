@@ -51,6 +51,8 @@ window.COHESION_EVENT_LINKS = [
     options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
     options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION'] },
+  { appliesTo: /SCORE SOURCE/,     group: 'Score Source Outcomes', prompt: 'Score source',
+    options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','BALL RECOVERED'] },
 ];
 
 // Return the first event link whose appliesTo matches the code, or null.
