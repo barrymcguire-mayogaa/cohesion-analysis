@@ -459,7 +459,8 @@ async function startLocalSession(){
   const st=document.getElementById('setupStatus');
   if(!home||!away){ st.innerHTML='<span class="err">Enter both team names.</span>'; return; }
   if(!file){ st.innerHTML='<span class="err">Choose a video file.</span>'; return; }
-  GAME={ id:'local-session', _local:true, homeTeam:home, awayTeam:away,
+  const lid='local-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_');
+  GAME={ id:lid, _local:true, homeTeam:home, awayTeam:away,
          competition:(document.getElementById('lvComp').value||'').trim(),
          date:document.getElementById('lvDate').value||'',
          title:home+' v '+away+' (local video)',
@@ -566,7 +567,7 @@ function crSwitchAngle(i){
 }
 function buildPlayer(){
   if(GAME._local){ buildLocalPlayer(); return; }
-  const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock}}); };
+  const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock,onError:crYtError}}); };
   if(window.YT&&window.YT.Player) boot();
   else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
 }
@@ -580,6 +581,7 @@ function buildLocalPlayer(){
   v.src=GAME.localUrl; v.controls=false; v.preload='auto';
   v.style.cssText='width:100%;height:100%;background:#000;object-fit:contain;';
   v.addEventListener('click',()=>{ if(v.paused) v.play(); else v.pause(); });
+  v.addEventListener('error',()=>alert('Could not play that video file — the format may not be supported by this browser (MP4/H.264 is safest).'));
   mount.appendChild(v);
   YTP={
     getCurrentTime:()=>v.currentTime||0,
@@ -591,6 +593,20 @@ function buildLocalPlayer(){
     setPlaybackRate:r=>{ v.playbackRate=r; }
   };
   startClock();
+}
+// YouTube refused to play (removed video, auth wall, embed disabled...):
+// show guidance instead of a silent black box.
+function crYtError(e){
+  const w=document.getElementById('vwrap'); if(!w||document.getElementById('crYtFail')) return;
+  const code=(e&&e.data)||'';
+  const why=code===101||code===150?'The video owner has disabled embedding.':code===100?'This video has been removed or is private.':'YouTube is blocking playback in this session.';
+  const d=document.createElement('div'); d.id='crYtFail';
+  d.style.cssText='position:absolute;inset:0;z-index:8;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;';
+  d.innerHTML='<div style="font:800 16px \'Barlow Condensed\',sans-serif;color:var(--t1);">⚠ Video won\'t play</div>'
+    +'<div style="font-size:12px;color:var(--t2);max-width:420px;line-height:1.6;">'+why+' Try opening it on YouTube, signing in there, then refreshing this page. Event editing still works without the video.</div>'
+    +'<a href="https://www.youtube.com/watch?v='+encodeURIComponent(GAME.youtubeId||'')+'" target="_blank" rel="noopener" style="padding:9px 16px;border-radius:8px;background:var(--accent);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;text-decoration:none;">Open in YouTube</a>'
+    +'<div onclick="this.parentNode.remove()" style="font-size:11px;color:var(--t3);cursor:pointer;">Dismiss</div>';
+  w.appendChild(d);
 }
 function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNow(); document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } if(codeMode.on&&Object.keys(crRec).length) crTickRecs(); } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
@@ -1667,7 +1683,7 @@ function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 //    leave prompt). Existing rows edited get _dirty; new rows get _new and a
 //    temp _rowId; deleted existing rows go to crDeleted. Nothing hits the DB
 //    until save. ─────────────────────────────────────────────────────────────
-function crHasPending(){ return crDeleted.length>0 || EVENTS.some(e=>e._new||e._dirty); }
+function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty); }
 function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length; }
 function crUpdatePending(){
   const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
@@ -1911,13 +1927,13 @@ function toggleCodeKeys(){ codeKeysOpen=!codeKeysOpen; buildCodeKeysEditor(); }
 function buildCodeKeysEditor(){
   const box=document.getElementById('codeKeysEditor'); if(!box) return;
   if(!codeKeysOpen){ box.style.display='none'; box.innerHTML=''; return; }
-  const all=codeEvtList, n=Math.min(9, all.length);
+  const all=codeEvtList, n=all.length;   // every code gets ⏱/colour; only the first 9 get number keys
   let rows='';
   for(let i=0;i<n;i++){
     const cur=all[i];
     const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const col=codeColorPref[cur]||'';
-    rows+=`<div class="keyrow"><span class="keynum">${i+1}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${codeDurPref[cur]?' on':''}" title="${codeDurPref[cur]?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${codeDurPref[cur]?'false':'true'})">⏱</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
+    rows+=`<div class="keyrow"><span class="keynum"${i>=9?' style="background:var(--card);color:var(--t3);"':''}>${i<9?i+1:'—'}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${codeDurPref[cur]?' on':''}" title="${codeDurPref[cur]?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${codeDurPref[cur]?'false':'true'})">⏱</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
   }
   box.style.display='';
   box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. ⏱ makes a code a DURATION event (press starts, press again stops); the colour is applied to events tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
