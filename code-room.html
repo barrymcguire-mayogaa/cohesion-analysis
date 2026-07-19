@@ -892,14 +892,14 @@ function crShotGlyph(){
   const code=((draft&&draft.code)||'').toUpperCase();
   const lbls={}; ((draft&&draft.groups)||[]).forEach(r=>lbls[r.g]=r.v);
   const ev=EVENTS.find(x=>String(x._rowId)===String(activeId))||{};
-  const out=String(lbls['Shot Outcomes']||ev.outcome||'').toUpperCase();
+  const out=String(lbls['Shot Outcomes']||lbls['ShotOutcome']||lbls['Outcome']||ev.outcome||'').toUpperCase();
   const all=(code+' '+out+' '+Object.values(lbls).join(' ')).toUpperCase();
   const shape=/DEADBALL|FREE|PENALTY|\b45\b|MARK/.test(code)?'square':'circle';
   let color='#c4c4c4';
   if(/PENALTY/.test(all)) color='#a855f7';
   else if(/GOAL/.test(out)) color='#ffd700';
-  else if(/2 POINT/.test(out)) color='#f97316';
-  else if(/1 POINT/.test(out)) color='#ffffff';
+  else if(/2 POINT|TWO POINT/.test(out)) color='#f97316';
+  else if(/POINT/.test(out)) color='#ffffff';
   else if(out) color='#ef4444';
   return {shape,color};
 }

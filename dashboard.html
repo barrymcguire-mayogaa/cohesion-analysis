@@ -645,12 +645,29 @@ function statPred(e){
   }
 }
 function setStatPeriod(p){ statPeriod=p; renderSV(); }
-function tallyLabel(group){
-  const out={h:{},a:{},totH:0,totA:0};
-  ALL.forEach(e=>{ const s=statSide(e); if(!s)return; if(!statPred(e))return; const v=(e.labels||{})[group]; if(!v)return;
+// Different coding systems name their label groups differently (Sportscode
+// family: "Shot Outcomes"; Gaelic Insights: "Outcome"/"PO_Result"/...).
+// Each stat filters by event code and tries the group aliases in order.
+function tallyOutcome(pred, groups){
+  const out={h:{},a:{},totH:0,totA:0,group:''};
+  ALL.forEach(e=>{ const s=statSide(e); if(!s)return; if(!statPred(e))return;
+    if(pred&&!pred(e))return;
+    let v=null,g=null;
+    for(const cand of groups){ const val=(e.labels||{})[cand]; if(val){ v=val; g=cand; break; } }
+    if(!v)return; if(!out.group) out.group=g;
     const b=s==='h'?out.h:out.a; b[v]=(b[v]||0)+1; if(s==='h')out.totH++; else out.totA++; });
   return out;
 }
+// Kickout retention across vocabularies: "KT Won ..." = kicking team kept it,
+// "RT Won ..." = receiver won it (lost); otherwise plain WON-without-LOST.
+function koWonCount(tal,side){
+  const b=side==='h'?tal.h:tal.a;
+  return Object.entries(b).reduce((s,[k,v])=>{
+    const K=k.toUpperCase();
+    const won=K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST'));
+    return s+(won?v:0); },0);
+}
+function codeCount(pred,side){ return ALL.filter(e=>statSide(e)===side&&statPred(e)&&pred(e)).length; }
 // Click a stat row → jump to the Events tab filtered to those events.
 // side: ''=both teams, 'h'/'a'=that team only. Quarters filter to the parent half.
 function statNav(side, group, value){
@@ -697,14 +714,15 @@ function locPitchSvg(kind){
 // (1pt white / 2pt orange / goal yellow / other outcome red / penalty purple).
 function locShotGlyph(e){
   const code=(e.code||'').toUpperCase();
-  const out=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
+  const L=e.labels||{};
+  const out=String(L['Shot Outcomes']||L['ShotOutcome']||L['Outcome']||e.outcome||'').toUpperCase();
   const all=(code+' '+out+' '+Object.values(e.labels||{}).join(' ')).toUpperCase();
   const shape=/DEADBALL|FREE|PENALTY|\b45\b|MARK/.test(code)?'square':'circle';
   let color='#c4c4c4';
   if(/PENALTY/.test(all)) color='#a855f7';
   else if(/GOAL/.test(out)) color='#ffd700';
-  else if(/2 POINT/.test(out)) color='#f97316';
-  else if(/1 POINT/.test(out)) color='#ffffff';
+  else if(/2 POINT|TWO POINT/.test(out)) color='#f97316';
+  else if(/POINT/.test(out)) color='#ffffff';
   else if(out) color='#ef4444';
   return {shape,color};
 }
@@ -782,28 +800,32 @@ function renderSV(){
   if(halves.has('ET 2nd Half')) chips.push(['et2','ET2']);
   h+=`<div class="stt-per">${chips.map(([v,l])=>`<div class="stt-pc${statPeriod===v?' on':''}" onclick="setStatPeriod('${v}')">${l}</div>`).join('')}</div>`;
 
-  const shots=tallyLabel('Shot Outcomes');
+  const isShot=e=>/SHOT/i.test(e.code||'')||e.category==='Shots & Scores';
+  const shots=tallyOutcome(isShot, ['Shot Outcomes','ShotOutcome','Outcome']);
   const scH=sumKeys(shots,'h',['POINT','GOAL']), scA=sumKeys(shots,'a',['POINT','GOAL']);
   h+=statSection('Shooting',
     `${shots.totH} shots · <b>${pct(scH,shots.totH)}</b> conversion &nbsp;|&nbsp; <b>${pct(scA,shots.totA)}</b> conversion · ${shots.totA} shots`,
-    statRows(shots,'Shot Outcomes'));
+    statRows(shots, shots.group||'Shot Outcomes'));
 
-  const kos=tallyLabel('Kickout Outcomes');
-  const wonH=sumKeys(kos,'h',['WON']), wonA=sumKeys(kos,'a',['WON']);
+  const kos=tallyOutcome(e=>/KICKOUT|\bKO\b/i.test(e.code||'')||e.category==='Kickouts', ['Kickout Outcomes','KickoutOutcome','PO_Result']);
+  const wonH=koWonCount(kos,'h'), wonA=koWonCount(kos,'a');
   h+=statSection('Kickouts',
     `${kos.totH} kickouts · <b>${pct(wonH,kos.totH)}</b> retained &nbsp;|&nbsp; <b>${pct(wonA,kos.totA)}</b> retained · ${kos.totA} kickouts`,
-    statRows(kos,'Kickout Outcomes'));
+    statRows(kos, kos.group||'Kickout Outcomes'));
 
-  const tos=tallyLabel('Turnover Outcomes');
-  h+=statSection('Turnovers', `${tos.totH} won &nbsp;|&nbsp; ${tos.totA} won`, statRows(tos,'Turnover Outcomes'));
+  const toRe=e=>/TURNOVER|\bTOS?\b/i.test(e.code||'')||e.category==='Turnovers';
+  const tos=tallyOutcome(toRe, ['Turnover Outcomes','TurnoverOutcome','turnover_zone','Turnover Location']);
+  h+=statSection('Turnovers', `${codeCount(toRe,'h')} won &nbsp;|&nbsp; ${codeCount(toRe,'a')} won`, statRows(tos, tos.group||'Turnover Outcomes'));
 
-  const src=tallyLabel('Score Source Outcomes');
-  h+=statSection('Score Source', '', statRows(src,'Score Source Outcomes'));
+  const src=tallyOutcome(e=>isShot(e)||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source']);
+  h+=statSection('Score Source', '', statRows(src, src.group||'Score Source Outcomes'));
 
-  // Score assists: label group or code; top players per team (period-aware)
-  const assists=ALL.filter(e=>statPred(e)&&(((e.labels||{})['Score Assist Outcomes'])||/SCORE ASSIST/i.test(e.code||'')));
+  // Score assists: dedicated codes/groups, or the GI 'Assist' label whose
+  // VALUE is the assisting player's name.
+  const assistName=e=>{ const a=(e.labels||{})['Assist']; if(a) return a; if(((e.labels||{})['Score Assist Outcomes'])||/SCORE ASSIST/i.test(e.code||'')) return e.player||'—'; return null; };
+  const assists=ALL.filter(e=>statPred(e)&&assistName(e));
   const asH=assists.filter(e=>statSide(e)==='h'), asA=assists.filter(e=>statSide(e)==='a');
-  const topP=list=>{const m={};list.forEach(e=>{if(e.player)m[e.player]=(m[e.player]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
+  const topP=list=>{const m={};list.forEach(e=>{const n=assistName(e);if(n&&n!=='—')m[n]=(m[n]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};
   h+=statSection('Score Assists', `${asH.length} &nbsp;|&nbsp; ${asA.length}`, pRows(topP(asH),topP(asA)));
 
