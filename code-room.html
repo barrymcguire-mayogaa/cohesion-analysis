@@ -1772,7 +1772,7 @@ function crCodesLoad(){ try{ const s=JSON.parse(localStorage.getItem(crCodesKey(
 let codeDurPref={};
 try{ const s=JSON.parse(localStorage.getItem('cr_codeDur')||'null'); if(s&&typeof s==='object') codeDurPref=s; }catch(_){}
 function saveCodeDur(){ try{ localStorage.setItem('cr_codeDur', JSON.stringify(codeDurPref)); }catch(_){} }
-function setCodeDur(code,on){ if(on) codeDurPref[code]=true; else delete codeDurPref[code]; saveCodeDur(); buildCodeKeysEditor(); }
+function setCodeDur(code,on){ if(on) codeDurPref[code]=true; else delete codeDurPref[code]; saveCodeDur(); buildCodePanel(); }
 // Live recordings: base code -> {start} (several can run at once).
 let crRec={};
 let codeEvtList=[];
@@ -1962,11 +1962,22 @@ function buildCodePlayers(){
     players.map(p=>`<button class="cbtn ${codeMode.player===p?'on':''}" onclick="codeSetPlayer('${esc(p).replace(/'/g,"&#39;")}')">${esc(p)}</button>`).join('')+
     `<button class="cbtn" onclick="codeAddPlayer()">+ Player…</button>`;
 }
-function codeAddCode(){
+async function codeAddCode(){
   const n=(prompt('New event code (e.g. SCORE SOURCE, ATTACKS):')||'').trim().toUpperCase();
   if(!n) return;
+  const kind=await cohesionModal({ title:'How is '+n+' tagged?',
+    message:'<b>Instant</b> captures a clip around the moment you press (current lead/lag window).<br><b>Duration</b> records like a stopwatch: first press STARTS the event — play or scrub freely — pressing again STOPS it at that exact point.',
+    buttons:[ {label:'⏱ Duration (start/stop)', value:'dur', primary:true},
+              {label:'Instant', value:'instant'},
+              {label:'Cancel', value:'cancel'} ] });
+  if(kind==='cancel'||kind==null) return;
   if(!codeEvtList.includes(n)&&!crSessionCodes.includes(n)){ crSessionCodes.push(n); crCodesSave(); }
+  if(kind==='dur'){ codeDurPref[n]=true; saveCodeDur(); } else { delete codeDurPref[n]; saveCodeDur(); }
   buildCodePanel();
+  const f=document.getElementById('codeFlash');
+  if(f) f.textContent = kind==='dur'
+    ? '✓ '+n+' added as a DURATION event — press to start, press again to stop.'
+    : '✓ '+n+' added — each press tags an instant clip.';
 }
 function codeSetPeriod(p){ codeMode.period=p; buildCodePanel(); }
 function codeSetTeam(t){ codeMode.team=t; codeMode.player=''; buildCodePanel(); }
