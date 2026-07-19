@@ -895,8 +895,7 @@ function closeModal(){
 async function confirmDelete(){
   if(!pendingDeleteId) return;
   try{
-    const { error } = await _sb.from('games').delete().eq('id', pendingDeleteId);
-    if(error) throw error;
+    await libAdminFetch('gameAdmin', { action:'deleteGame', gameId: pendingDeleteId });
     allGames = allGames.filter(g=>g.id!==pendingDeleteId);
     closeModal();
     const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
@@ -927,6 +926,20 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeE
 
 // ── Edit / Modal ──────────────────────────────────────────────
 let pendingEditId = null;
+// Writes to games must go through the service-role function: direct anon
+// writes are blocked SILENTLY by RLS (0 rows, no error) — edits/deletes
+// appeared to succeed here but never persisted.
+async function libAdminFetch(fn, payload){
+  const ni=window.netlifyIdentity;
+  const cu=ni&&((ni.gotrue&&ni.gotrue.currentUser&&ni.gotrue.currentUser())||(ni.currentUser&&ni.currentUser()));
+  let t=cu&&cu.token&&cu.token.access_token;
+  if(!t&&ni&&ni.refresh){ try{ await ni.refresh(); const u=ni.gotrue.currentUser(); t=u&&u.token&&u.token.access_token; }catch(_){} }
+  if(!t) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  const res=await fetch('/.netlify/functions/'+fn,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify(payload)});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  return j;
+}
 let editAngles = []; // alternate angles only (index 1+ from g.angles)
 
 function parseTimeVal(str){
@@ -1053,8 +1066,7 @@ async function confirmEdit(){
     if(g.angles&&g.angles.length<=1) delete g.angles;
   }
   try{
-    const { error } = await _sb.from('games').update({ meta: g }).eq('id', pendingEditId);
-    if(error) throw error;
+    await libAdminFetch('gameAdmin', { action:'updateMeta', gameId: pendingEditId, meta: g });
     closeEditModal();
     const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
     fTeam.innerHTML='<option value="">All Teams</option>';
