@@ -65,7 +65,14 @@ exports.handler = async (event) => {
       if (action === 'comment') {
         const text = String(body.text || '').trim().slice(0, 1000);
         if (!text) return { statusCode: 400, body: JSON.stringify({ error: 'Empty comment' }) };
-        it.comments.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), author, email, text, ts: new Date().toISOString() });
+        const cmObj = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), author, email, text, ts: new Date().toISOString() };
+        // optional pin: video-second the comment was left at (playback pauses there)
+        const t = Number(body.t);
+        if (Number.isFinite(t) && t >= 0) {
+          cmObj.t = Math.round(t * 10) / 10;
+          if (typeof body.vid === 'string' && body.vid) cmObj.vid = body.vid.slice(0, 20);
+        }
+        it.comments.push(cmObj);
       } else {
         const cm = it.comments.find(x => x.id === body.commentId);
         if (!cm) return { statusCode: 400, body: JSON.stringify({ error: 'Comment not found' }) };

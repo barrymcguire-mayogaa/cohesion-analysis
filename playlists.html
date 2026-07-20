@@ -167,6 +167,15 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .dbtn.no:hover{border-color:var(--red);color:var(--red);}
 .drawgo{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:7;display:none;align-items:center;gap:10px;background:rgba(12,12,18,.92);border:1px solid var(--accent);border-radius:10px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
 .drawgo .dg-t{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:#fff;}
+.cmgo{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:7;display:none;flex-direction:column;gap:8px;max-width:72%;min-width:260px;background:rgba(12,12,18,.94);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
+.cmgo .ci{font-size:12.5px;color:#fff;line-height:1.45;}
+.cmgo .ci b{color:var(--accent);margin-right:6px;font-weight:700;}
+.cmgo .dbtn{align-self:flex-end;}
+.cmchip{display:none;align-items:center;gap:6px;flex:none;background:rgba(255,215,0,.12);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:4px 8px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;white-space:nowrap;}
+.cmchip i{font-style:normal;cursor:pointer;opacity:.75;}
+.cmchip i:hover{opacity:1;}
+.cmjump{color:var(--accent);cursor:pointer;font-size:10.5px;margin-left:6px;}
+.cmjump:hover{text-decoration:underline;}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
@@ -255,6 +264,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
               <span class="dg-t" id="dgT">✏ Coach's drawing</span>
               <button class="dbtn go" onclick="continueDrawing()">▶ Continue</button>
             </div>
+            <div class="cmgo" id="cmGo">
+              <div id="cmGoList"></div>
+              <button class="dbtn go" onclick="continueComments()">▶ Continue</button>
+            </div>
           </div>
           <div class="presover" id="presOver">
             <div class="po-idx" id="poIdx"></div>
@@ -286,7 +299,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <div class="cmhd" id="cmHd">Comments</div>
           <div id="cmList"></div>
           <div class="cmrow">
-            <input id="cmInput" placeholder="Add a comment…" onkeydown="if(event.key==='Enter')postComment()">
+            <span class="cmchip" id="cmAt" title="This comment is pinned to this moment — playback will pause here so everyone reads it. Press ✕ to post without a timestamp."><b></b><i onclick="cmDisarm()">✕</i></span>
+            <input id="cmInput" placeholder="Add a comment…" onfocus="cmArm()" onkeydown="if(event.key==='Enter')postComment()">
             <button class="vbtn" onclick="postComment()">Post</button>
           </div>
         </div>
@@ -596,6 +610,8 @@ function playClip(i){
   if(drawMode) cancelDraw();
   hideSavedDrawing();
   shownDraws=new Set();
+  hideCmStop();
+  shownCms=new Set();
   playIdx=i;
   ensurePlayer(()=>{
     const it=ITEMS[i];
@@ -664,6 +680,7 @@ function onState(e){
   if(e.data===1){                                   // playback resumed by ANY means
     if(drawMode){ if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); return; }  // hold the authoring frame
     if(dispShapes) hideSavedDrawing();              // pressing play dismisses the drawing too
+    if(cmStopOn) hideCmStop();                      // …and a comment stop
   }
   if(e.data===0 && playAll){        // segment ended → next
     if(playIdx+1<ITEMS.length) playClip(playIdx+1);
@@ -705,6 +722,22 @@ setInterval(()=>{
           YTP.seekTo&&YTP.seekTo(d.t,true);              // exact frame, every play
           showSavedDrawing(d); return;
         }
+      }
+    }
+  }
+  // comment stops: pause where a timed comment was pinned (once per play-through)
+  if(!drawMode && !dispShapes){
+    const cms=Array.isArray(it.comments)?it.comments:[];
+    const cst=YTP.getPlayerState?YTP.getPlayerState():-1, ct=YTP.getCurrentTime()||0;
+    if(cst===1) for(const cm of cms){
+      if(cm.t==null||shownCms.has(cm.id)) continue;
+      if(cm.vid&&curVideoId&&cm.vid!==curVideoId) continue;   // pinned on another camera
+      if(ct>=cm.t-0.3 && ct<=Math.ceil(it.end)+0.4){
+        const group=cms.filter(x=>x.t!=null&&!shownCms.has(x.id)&&Math.abs(x.t-cm.t)<=0.75&&(!x.vid||!curVideoId||x.vid===curVideoId));
+        group.forEach(x=>shownCms.add(x.id));
+        YTP.pauseVideo&&YTP.pauseVideo();
+        YTP.seekTo&&YTP.seekTo(cm.t,true);                    // exact frame, every play
+        showCmStop(group); return;
       }
     }
   }
@@ -781,7 +814,39 @@ function plSwitchAngle(i){
 // comes from the server (JWT), so names can't be faked. The panel is BOUND
 // to the clip it was opened on — auto-advance never steals a half-typed
 // comment (it only rebinds when the composer is idle).
-let cmIdx=null;
+let cmIdx=null, cmAnchor=null, shownCms=new Set(), cmStopOn=false;
+function cmFmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2); }
+// Clicking into the composer pauses the clip and pins the comment to that
+// exact moment — on playback the clip pauses there so everyone reads it.
+function cmArm(){
+  if(cmAnchor) return;
+  if(cmIdx==null||cmIdx!==playIdx||!YTP||!YTP.getCurrentTime) return;
+  const it=ITEMS[cmIdx]; if(!it) return;
+  if(YTP.pauseVideo) YTP.pauseVideo();
+  const t=Math.max(it.start||0, Math.min(YTP.getCurrentTime()||0, it.end!=null?it.end:1e9));
+  cmAnchor={t:Math.round(t*10)/10, vid:curVideoId||it.videoId};
+  cmShowAnchor();
+}
+function cmShowAnchor(){
+  const chip=document.getElementById('cmAt'); if(!chip) return;
+  if(cmAnchor&&cmIdx!=null&&ITEMS[cmIdx]){
+    chip.querySelector('b').textContent='⏱ '+cmFmt(cmAnchor.t-(ITEMS[cmIdx].start||0))+' — paused here';
+    chip.style.display='inline-flex';
+  } else chip.style.display='none';
+}
+function cmDisarm(){ cmAnchor=null; cmShowAnchor(); }
+function cmSeek(t,vid){
+  if(playIdx<0||playIdx!==cmIdx||!YTP||!YTP.seekTo) return;
+  if(vid&&curVideoId&&vid!==curVideoId) return;   // pinned on another camera angle
+  YTP.seekTo(t,true); YTP.pauseVideo&&YTP.pauseVideo();
+}
+function showCmStop(list){
+  const g=document.getElementById('cmGo'); if(!g||!list.length) return;
+  document.getElementById('cmGoList').innerHTML=list.map(x=>'<div class="ci"><b>'+esc(x.author||'user')+'</b>'+esc(x.text)+'</div>').join('');
+  g.style.display='flex'; cmStopOn=true;
+}
+function hideCmStop(){ const g=document.getElementById('cmGo'); if(g) g.style.display='none'; cmStopOn=false; }
+function continueComments(){ hideCmStop(); if(YTP&&YTP.playVideo) YTP.playVideo(); }
 function myName(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return (u&&u.user_metadata&&u.user_metadata.full_name)||((u&&u.email)||'').split('@')[0]||''; }catch(_){ return ''; } }
 function cmBusy(){
   const inp=document.getElementById('cmInput');
@@ -791,7 +856,8 @@ function cmBusy(){
 }
 function renderComments(idx){
   const w=document.getElementById('cmWrap'); if(!w) return;
-  if(idx==null||!ITEMS[idx]){ w.style.display='none'; cmIdx=null; return; }
+  if(idx==null||!ITEMS[idx]){ w.style.display='none'; cmIdx=null; cmDisarm(); return; }
+  if(idx!==cmIdx) cmDisarm();   // rebinding to another clip drops a stale pin
   cmIdx=idx; w.style.display='';
   const it=ITEMS[idx], cms=Array.isArray(it.comments)?it.comments:[];
   document.getElementById('cmHd').textContent='Comments — '+(it.label||it.code||'Clip '+(idx+1))+(cms.length?' ('+cms.length+')':'');
@@ -803,7 +869,8 @@ function renderComments(idx){
       +((mine||isAdmin)?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span><span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">Delete</span>':'')
       +'</span>';
     const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
-    return '<div class="cmitem"><span class="cma">'+esc(cm.author||'user')+'</span><span class="cmts">'+when+(cm.edited?' · edited':'')+'</span>'+ops
+    const at=(cm.t!=null)?'<span class="cmjump" onclick="cmSeek('+cm.t+',\''+esc(cm.vid||'')+'\')" title="Jump the video to this comment\'s moment">⏱ '+cmFmt(cm.t-(it.start||0))+'</span>':'';
+    return '<div class="cmitem"><span class="cma">'+esc(cm.author||'user')+'</span><span class="cmts">'+when+(cm.edited?' · edited':'')+'</span>'+at+ops
       +'<div class="cmt" id="cmt-'+cm.id+'">'+esc(cm.text)+'</div></div>';
   }).join(''):'<div style="font-size:12px;color:var(--t3);">No comments yet — be the first.</div>';
 }
@@ -819,8 +886,13 @@ async function postComment(){
   if(!text||cmIdx==null||!CUR) return;
   inp.disabled=true;
   try{
-    const j=await plAuthFetch({action:'comment', id:CUR.id, clipIdx:cmIdx, text});
-    inp.value=''; cmSync(j.comments);
+    const pay={action:'comment', id:CUR.id, clipIdx:cmIdx, text};
+    if(cmAnchor){ pay.t=cmAnchor.t; pay.vid=cmAnchor.vid; }
+    const j=await plAuthFetch(pay);
+    inp.value=''; cmDisarm();
+    const last=(j.comments||[])[(j.comments||[]).length-1];
+    if(last&&last.t!=null) shownCms.add(last.id);   // author already read it — no instant re-pause
+    cmSync(j.comments);
   }catch(e){ alert('Could not post: '+e.message); }
   inp.disabled=false; inp.focus();
 }
