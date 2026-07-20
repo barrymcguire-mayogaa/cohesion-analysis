@@ -326,7 +326,7 @@ function openPlaylist(id){
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
   COVER=(CUR.data&&CUR.data.cover)||null;
   dirty=false; playIdx=-1; playAll=false;
-  try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id); }catch(_){}
+  try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id+'&n='+plSlug(CUR.name)); }catch(_){}
   document.getElementById('browse').style.display='none';
   document.getElementById('player').style.display='';
   plInitVH();
@@ -439,9 +439,10 @@ function plRemoveCover(){ if(!CUR) return; COVER=null; markDirty(); renderClips(
 // ── Share link: playlists.html?pl=<id>[&clip=<n>] ─────────────
 // Recipients sign in with the normal club login and land straight on the
 // playlist (personal playlists stay invisible to anyone but their owner).
+function plSlug(name){ return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60); }
 function sharePlaylist(){
   if(!CUR) return;
-  const url=location.origin+location.pathname+'?pl='+CUR.id;
+  const url=location.origin+location.pathname+'?pl='+CUR.id+'&n='+plSlug(CUR.name);
   const done=()=>{ const b=document.getElementById('shareBtn'); if(b){ b.textContent='✓ Copied'; setTimeout(()=>{ b.textContent='🔗 Share'; },1600); } };
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,()=>prompt('Copy this link:',url));
   else prompt('Copy this link:',url);
