@@ -51,7 +51,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
 /* player + clips */
 .stage{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-.stage .vid{width:100%;height:440px;background:#000;}
+.stage .vid{width:100%;height:440px;background:#000;position:relative;}
 .stage .vid iframe{width:100%;height:100%;border:none;}
 .vbar{display:flex;gap:6px;align-items:center;padding:8px 10px;border-top:1px solid var(--border);flex-wrap:wrap;}
 .vbtn{background:var(--card);border:1px solid var(--border);border-radius:7px;color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;padding:8px 13px;cursor:pointer;}
@@ -151,6 +151,22 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cmrow{display:flex;gap:8px;margin-top:10px;}
 .cmrow input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
 .cmrow input:focus{border-color:var(--accent);}
+/* telestration */
+#drawSvg{position:absolute;display:none;z-index:6;}
+#drawSvg.author{cursor:crosshair;}
+.drawbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:7;display:none;align-items:center;gap:6px;background:rgba(12,12,18,.92);border:1px solid var(--border);border-radius:10px;padding:8px 10px;flex-wrap:wrap;max-width:calc(100% - 24px);box-shadow:0 10px 30px rgba(0,0,0,.5);}
+.dtool{width:32px;height:30px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.dtool:hover{border-color:var(--accent);}
+.dtool.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.dsw{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-sizing:border-box;}
+.dsw.on{border-color:#fff;box-shadow:0 0 0 2px var(--accent);}
+.dsep{width:1px;height:22px;background:var(--border);margin:0 2px;}
+.dbtn{padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;}
+.dbtn:hover{border-color:var(--accent);color:var(--accent);}
+.dbtn.go{background:var(--green);border-color:var(--green);color:#fff;}
+.dbtn.no:hover{border-color:var(--red);color:var(--red);}
+.drawgo{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:7;display:none;align-items:center;gap:10px;background:rgba(12,12,18,.92);border:1px solid var(--accent);border-radius:10px;padding:9px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5);}
+.drawgo .dg-t{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:#fff;}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
@@ -200,7 +216,36 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
       <div class="side" id="sideRows"></div>
       <div class="pmain">
         <div class="stage" id="stage" style="position:relative;">
-          <div class="vid"><div id="ytMount"></div></div>
+          <div class="vid"><div id="ytMount"></div>
+            <svg id="drawSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div class="drawbar" id="drawBar">
+              <button class="dtool" data-tool="free" onclick="dSetTool('free')" title="Freehand">✎</button>
+              <button class="dtool" data-tool="line" onclick="dSetTool('line')" title="Line">╱</button>
+              <button class="dtool on" data-tool="arrow" onclick="dSetTool('arrow')" title="Arrow">➤</button>
+              <button class="dtool" data-tool="rect" onclick="dSetTool('rect')" title="Rectangle">▭</button>
+              <button class="dtool" data-tool="ellipse" onclick="dSetTool('ellipse')" title="Ellipse">◯</button>
+              <span class="dsep"></span>
+              <span class="dsw on" style="background:#ffd700" onclick="dSetColor('#ffd700',this)"></span>
+              <span class="dsw" style="background:#ef4444" onclick="dSetColor('#ef4444',this)"></span>
+              <span class="dsw" style="background:#4fc3f7" onclick="dSetColor('#4fc3f7',this)"></span>
+              <span class="dsw" style="background:#4ade80" onclick="dSetColor('#4ade80',this)"></span>
+              <span class="dsw" style="background:#ffffff" onclick="dSetColor('#ffffff',this)"></span>
+              <input type="color" value="#ffd700" onchange="dSetColor(this.value,null)" title="Custom colour" style="width:26px;height:24px;padding:1px;border:1px solid var(--border);border-radius:5px;background:var(--card);cursor:pointer;">
+              <span class="dsep"></span>
+              <button class="dtool" data-w="2" onclick="dSetW(2)" title="Thin"><span style="display:block;width:14px;height:2px;background:currentColor;"></span></button>
+              <button class="dtool on" data-w="4" onclick="dSetW(4)" title="Medium"><span style="display:block;width:14px;height:4px;background:currentColor;"></span></button>
+              <button class="dtool" data-w="7" onclick="dSetW(7)" title="Thick"><span style="display:block;width:14px;height:7px;background:currentColor;"></span></button>
+              <span class="dsep"></span>
+              <button class="dbtn" onclick="dUndo()">↶ Undo</button>
+              <button class="dbtn no" onclick="dClear()">Clear</button>
+              <button class="dbtn go" onclick="saveDraw()">✓ Save drawing</button>
+              <button class="dbtn" onclick="cancelDraw()">Cancel</button>
+            </div>
+            <div class="drawgo" id="drawGo">
+              <span class="dg-t" id="dgT">✏ Coach's drawing</span>
+              <button class="dbtn go" onclick="continueDrawing()">▶ Continue</button>
+            </div>
+          </div>
           <div class="presover" id="presOver">
             <div class="po-idx" id="poIdx"></div>
             <div class="po-lbl" id="poLbl"></div>
@@ -211,6 +256,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" id="playAllBtn" onclick="togglePlayAll()">▶ Play all</button>
             <button class="vbtn" onclick="nextClip()">Next ⏭</button>
             <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
+            <button class="vbtn" id="drawBtn" style="display:none;" onclick="startDraw()" title="Pause and draw on this clip — lines, arrows, shapes; shown to everyone at this moment on playback">✏ Draw</button>
             <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, ↑/↓ = previous/next clip, Esc exits">⛶ Present</button>
             <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
             <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
@@ -330,6 +376,7 @@ function openPlaylist(id){
   document.getElementById('browse').style.display='none';
   document.getElementById('player').style.display='';
   plInitVH();
+  const db=document.getElementById('drawBtn'); if(db) db.style.display=isAdmin?'':'none';
   document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
   const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
   cmIdx=null; const cw=document.getElementById('cmWrap'); if(cw) cw.style.display='none';
@@ -379,7 +426,7 @@ function renderClips(){
       ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
         <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
-        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}</div>
+        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}${it.draw?' · ✏':''}</div>
         ${noteLine}
       </span>
       ${isAdmin?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
@@ -527,6 +574,9 @@ function ensurePlayer(cb){
 }
 function playClip(i){
   if(!ITEMS[i]) return;
+  if(drawMode) cancelDraw();
+  hideSavedDrawing();
+  drawShownFor=null;
   playIdx=i;
   ensurePlayer(()=>{
     const it=ITEMS[i];
@@ -558,6 +608,7 @@ document.addEventListener('keydown',e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
   if(!CUR) return;
+  if(drawMode){ if(e.key==='Escape'){ e.preventDefault(); cancelDraw(); } return; }
   if(e.key==='ArrowRight'){ e.preventDefault(); if(e.shiftKey) nextClip(); else seekRel(5); }
   else if(e.key==='ArrowLeft'){ e.preventDefault(); if(e.shiftKey) prevClip(); else seekRel(-5); }
   else if(e.key==='ArrowDown'){ e.preventDefault(); nextClip(); }
@@ -612,6 +663,13 @@ function seekRel(d){
 setInterval(()=>{
   if(!YTP||!YTP.getCurrentTime||playIdx<0) return;
   const it=ITEMS[playIdx]; if(!it||it.end==null) return;
+  // telestration stop: pause at the drawing's moment (once per clip play)
+  if(it.draw && !drawMode && drawShownFor!==playIdx){
+    const st=YTP.getPlayerState?YTP.getPlayerState():-1, tt=YTP.getCurrentTime()||0;
+    if(st===1 && tt>=it.draw.t-0.3 && tt<=Math.ceil(it.end)+0.4){
+      drawShownFor=playIdx; YTP.pauseVideo&&YTP.pauseVideo(); showSavedDrawing(it.draw); return;
+    }
+  }
   if((YTP.getCurrentTime()||0)>Math.ceil(it.end)+0.4){
     if(playAll){
       if(playIdx+1<ITEMS.length) playClip(playIdx+1);
@@ -751,6 +809,119 @@ async function deleteComment(cid){
   try{ const j=await plAuthFetch({action:'commentDelete', id:CUR.id, clipIdx:cmIdx, commentId:cid}); cmSync(j.comments); }
   catch(e){ alert('Could not delete: '+e.message); }
 }
+
+// ── Telestration (P1): draw on a paused clip; shown to everyone at that
+// moment on playback. Shapes are stored as FRACTIONS of the video's 16:9
+// content rectangle (the letterboxed area inside the box), so drawings stay
+// glued to the pitch at any player size and in Present mode.
+let drawMode=false, dTool='arrow', dColor='#ffd700', dW=4, dShapes=null, dT=0, dCur=null, dispShapes=null, drawShownFor=null;
+function vidRect(){
+  const v=document.querySelector('.stage .vid'); if(!v) return {x:0,y:0,w:16,h:9};
+  const W=v.clientWidth,H=v.clientHeight, ar=16/9;
+  let w=W,h=W/ar; if(h>H){ h=H; w=H*ar; }
+  return {x:(W-w)/2, y:(H-h)/2, w, h};
+}
+function sizeDrawSvg(){
+  const s=document.getElementById('drawSvg'); if(!s||s.style.display==='none') return;
+  const r=vidRect();
+  s.style.left=r.x+'px'; s.style.top=r.y+'px';
+  s.setAttribute('width',r.w); s.setAttribute('height',r.h);
+  s.setAttribute('viewBox','0 0 '+r.w+' '+r.h);
+  dRender();
+}
+function shapeSvg(s,W,H){
+  const X=x=>(x*W).toFixed(1), Y=y=>(y*H).toFixed(1), c=esc(s.color), w=s.w;
+  if(s.type==='free') return '<polyline points="'+s.pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round"/>';
+  if(s.type==='line') return '<line x1="'+X(s.x1)+'" y1="'+Y(s.y1)+'" x2="'+X(s.x2)+'" y2="'+Y(s.y2)+'" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round"/>';
+  if(s.type==='arrow'){
+    const x1=+X(s.x1),y1=+Y(s.y1),x2=+X(s.x2),y2=+Y(s.y2);
+    const a=Math.atan2(y2-y1,x2-x1), hl=8+w*2.2;
+    const p1=(x2-hl*Math.cos(a-0.45))+','+(y2-hl*Math.sin(a-0.45));
+    const p2=(x2-hl*Math.cos(a+0.45))+','+(y2-hl*Math.sin(a+0.45));
+    return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round"/>'
+         +'<polygon points="'+x2+','+y2+' '+p1+' '+p2+'" fill="'+c+'"/>';
+  }
+  if(s.type==='rect'){ const x=Math.min(s.x1,s.x2),y=Math.min(s.y1,s.y2); return '<rect x="'+X(x)+'" y="'+Y(y)+'" width="'+((Math.abs(s.x2-s.x1))*W).toFixed(1)+'" height="'+((Math.abs(s.y2-s.y1))*H).toFixed(1)+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"/>'; }
+  if(s.type==='ellipse'){ return '<ellipse cx="'+X((s.x1+s.x2)/2)+'" cy="'+Y((s.y1+s.y2)/2)+'" rx="'+((Math.abs(s.x2-s.x1)/2)*W).toFixed(1)+'" ry="'+((Math.abs(s.y2-s.y1)/2)*H).toFixed(1)+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"/>'; }
+  return '';
+}
+function dRender(){
+  const s=document.getElementById('drawSvg'); if(!s) return;
+  const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
+  const list=(drawMode?dShapes:dispShapes)||[];
+  s.innerHTML=list.concat(dCur?[dCur]:[]).map(x=>shapeSvg(x,W,H)).join('');
+}
+function dPos(e){
+  const s=document.getElementById('drawSvg'), r=s.getBoundingClientRect();
+  return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))];
+}
+function dInit(){
+  const s=document.getElementById('drawSvg'); if(!s||s._init) return; s._init=true;
+  s.addEventListener('pointerdown',e=>{
+    if(!drawMode) return; e.preventDefault(); s.setPointerCapture&&s.setPointerCapture(e.pointerId);
+    const [x,y]=dPos(e);
+    dCur = dTool==='free' ? {type:'free',pts:[[x,y]],color:dColor,w:dW} : {type:dTool,x1:x,y1:y,x2:x,y2:y,color:dColor,w:dW};
+    dRender();
+  });
+  s.addEventListener('pointermove',e=>{
+    if(!drawMode||!dCur) return;
+    const [x,y]=dPos(e);
+    if(dCur.type==='free') dCur.pts.push([x,y]); else { dCur.x2=x; dCur.y2=y; }
+    dRender();
+  });
+  s.addEventListener('pointerup',()=>{
+    if(!drawMode||!dCur) return;
+    const tiny = dCur.type==='free' ? dCur.pts.length<3 : (Math.abs(dCur.x2-dCur.x1)<0.005&&Math.abs(dCur.y2-dCur.y1)<0.005);
+    if(!tiny) dShapes.push(dCur);
+    dCur=null; dRender();
+  });
+}
+function dSetTool(t){ dTool=t; document.querySelectorAll('.dtool[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t)); }
+function dSetColor(cl,el){ dColor=cl; document.querySelectorAll('.dsw').forEach(b=>b.classList.toggle('on',b===el)); }
+function dSetW(w){ dW=w; document.querySelectorAll('.dtool[data-w]').forEach(b=>b.classList.toggle('on',+b.dataset.w===w)); }
+function dUndo(){ if(drawMode&&dShapes.length){ dShapes.pop(); dRender(); } }
+function dClear(){ if(drawMode){ dShapes=[]; dRender(); } }
+function startDraw(){
+  if(playIdx<0||!ITEMS[playIdx]){ alert('Play or select a clip first, then pause where you want to draw.'); return; }
+  if(!isAdmin) return;
+  if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  const it=ITEMS[playIdx];
+  drawMode=true; dispShapes=null;
+  dShapes=(it.draw&&Array.isArray(it.draw.shapes))?it.draw.shapes.map(x=>JSON.parse(JSON.stringify(x))):[];
+  dT=(it.draw&&it.draw.t!=null)?it.draw.t:((YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():it.start||0);
+  const s=document.getElementById('drawSvg'); s.style.display='block'; s.classList.add('author'); s.style.pointerEvents='auto';
+  document.getElementById('drawBar').style.display='flex';
+  document.getElementById('drawGo').style.display='none';
+  dInit(); sizeDrawSvg();
+}
+function exitDraw(){
+  drawMode=false; dCur=null;
+  const s=document.getElementById('drawSvg'); s.classList.remove('author'); s.style.pointerEvents='none';
+  if(!dispShapes) s.style.display='none';
+  document.getElementById('drawBar').style.display='none';
+}
+function cancelDraw(){ dShapes=null; exitDraw(); }
+function saveDraw(){
+  const it=ITEMS[playIdx]; if(!it){ exitDraw(); return; }
+  if(dShapes&&dShapes.length) it.draw={t:dT, shapes:dShapes};
+  else delete it.draw;
+  markDirty(); exitDraw(); renderClips();
+  const st=document.getElementById('plStatus'); if(st){ st.textContent=it.draw?'Drawing saved — remember 💾 Save':'Drawing removed — remember 💾 Save'; st.style.color='var(--orange)'; }
+}
+function showSavedDrawing(d){
+  dispShapes=d.shapes||[];
+  const s=document.getElementById('drawSvg'); s.style.display='block'; s.style.pointerEvents='none';
+  document.getElementById('drawGo').style.display='flex';
+  sizeDrawSvg();
+}
+function hideSavedDrawing(){
+  dispShapes=null;
+  if(!drawMode){ const s=document.getElementById('drawSvg'); if(s) s.style.display='none'; }
+  const g=document.getElementById('drawGo'); if(g) g.style.display='none';
+}
+function continueDrawing(){ hideSavedDrawing(); if(YTP&&YTP.playVideo) YTP.playVideo(); }
+window.addEventListener('resize',()=>sizeDrawSvg());
+document.addEventListener('fullscreenchange',()=>setTimeout(sizeDrawSvg,80));
 
 // ── leave guard (unsaved playlist edits) ──────────────────────
 cohesionSetGuard(()=>dirty, savePlaylist);
