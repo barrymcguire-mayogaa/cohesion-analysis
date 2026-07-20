@@ -76,7 +76,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .clip .lbl:hover{color:var(--accent);}
 .clip .lbl input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:5px 8px;color:var(--t1);font:600 14px 'Barlow',sans-serif;outline:none;}
 .clip .lblwrap{flex:1;min-width:120px;}
-.clip .nt{font-size:11.5px;color:var(--t2);margin-top:2px;line-height:1.4;}
+.clip .nt{font-size:11.5px;color:var(--t1);margin-top:2px;line-height:1.4;}
 .clip .nt.ghost{color:var(--t3);font-style:italic;cursor:pointer;}
 .clip .nt.ghost:hover{color:var(--accent);}
 .clip .nt input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;color:var(--t1);font:400 12px 'Barlow',sans-serif;outline:none;}
@@ -136,6 +136,21 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .pldh{height:11px;margin-top:6px;background:var(--card);border:1px solid var(--border);border-radius:6px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;}
 .pldh::before{content:'';width:34px;height:3px;border-radius:2px;background:var(--t3);}
 .pldh:hover::before,.pldh.act::before{background:var(--accent);}
+.cmwrap{margin-top:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.cmhd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin-bottom:8px;}
+.cmitem{padding:8px 0;border-top:1px solid var(--border);}
+.cmitem:first-child{border-top:none;}
+.cma{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-right:6px;}
+.cmt{font-size:13px;color:var(--t1);line-height:1.55;margin-top:2px;white-space:pre-wrap;}
+.cmt input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:6px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
+.cmops{display:inline-flex;gap:8px;margin-left:8px;}
+.cmop{font-size:10px;color:var(--t3);cursor:pointer;}
+.cmop:hover{color:var(--accent);}
+.cmop.del:hover{color:var(--red);}
+.cmts{font-size:10px;color:var(--t3);}
+.cmrow{display:flex;gap:8px;margin-top:10px;}
+.cmrow input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
+.cmrow input:focus{border-color:var(--accent);}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
@@ -211,6 +226,14 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <span id="plAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
           <div class="npn" id="npNote"></div>
         </div>
+        <div class="cmwrap" id="cmWrap" style="display:none;">
+          <div class="cmhd" id="cmHd">Comments</div>
+          <div id="cmList"></div>
+          <div class="cmrow">
+            <input id="cmInput" placeholder="Add a comment…" onkeydown="if(event.key==='Enter')postComment()">
+            <button class="vbtn" onclick="postComment()">Post</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -242,7 +265,7 @@ async function plAuthFetch(payload){
   const cu=ni&&((ni.gotrue&&ni.gotrue.currentUser&&ni.gotrue.currentUser())||(ni.currentUser&&ni.currentUser()));
   let t=cu&&cu.token&&cu.token.access_token;
   if(!t&&ni&&ni.refresh){ try{ await ni.refresh(); const u=ni.gotrue.currentUser(); t=u&&u.token&&u.token.access_token; }catch(_){} }
-  if(!t) throw new Error('Not signed in as admin — sign out and back in, then retry.');
+  if(!t) throw new Error('Not signed in — sign out and back in, then retry.');
   const res=await fetch('/.netlify/functions/playlists',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify(payload)});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
@@ -309,6 +332,8 @@ function openPlaylist(id){
   plInitVH();
   document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
   const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
+  cmIdx=null; const cw=document.getElementById('cmWrap'); if(cw) cw.style.display='none';
+  const ci=document.getElementById('cmInput'); if(ci) ci.value='';
   renderClips();
 }
 function closePlayer(){
@@ -328,7 +353,12 @@ function renderSaveBar(){
   sb.style.display=isAdmin&&CUR?'':'none';
   const st=document.getElementById('plStatus'); if(st&&dirty){ st.textContent='Unsaved changes'; st.style.color='var(--orange)'; } else if(st){ st.textContent=''; }
 }
+function sideEditing(){ const el=document.activeElement; return !!(el && el.tagName==='INPUT' && el.closest && el.closest('#sideRows')); }
 function renderClips(){
+  if(sideEditing()){   // someone is typing a note/rename — only refresh highlights
+    document.querySelectorAll('#sideRows .clip').forEach(r=>r.classList.toggle('on', +r.dataset.i===playIdx));
+    renderSaveBar(); return;
+  }
   const w=document.getElementById('sideRows');
   document.getElementById('plName').textContent=CUR.name;
   document.getElementById('plName').className='pname'+(isAdmin?' rn':'');
@@ -341,15 +371,15 @@ function renderClips(){
   if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them from Code Room: select events on the timeline, then “Add to playlist”.</div>'; renderSaveBar(); return; }
   w.innerHTML=ITEMS.map((it,i)=>{
     const noteLine = it.note
-      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="event.stopPropagation();editNote(${i})" title="Click to edit the note"`:''}>💬 ${esc(it.note)}</div>`
-      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="event.stopPropagation();editNote(${i})">＋ add coach note…</div>`:'');
+      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="event.stopPropagation();editNote(${i})" title="Click to edit the note"`:''}>${esc(it.note)}</div>`
+      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="event.stopPropagation();editNote(${i})">add note…</div>`:'');
     return `
     <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${isAdmin?'draggable="true"':''} onclick="playClip(${i})" title="Click to play this clip">
       <span class="idx">${i+1}</span>
       ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
         <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
-        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}</div>
+        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}</div>
         ${noteLine}
       </span>
       ${isAdmin?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
@@ -502,7 +532,7 @@ function playClip(i){
     YTP.loadVideoById({videoId:it.videoId, startSeconds:Math.max(0,Math.floor(it.start||0)), endSeconds:Math.max(1,Math.ceil(it.end||((it.start||0)+8)))});
     curVideoId=it.videoId;
     document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.angle?' · 🎥 '+it.angle:'');
-    const nn=document.getElementById('npNote'); if(nn) nn.textContent=it.note?'💬 '+it.note:'';
+    const nn=document.getElementById('npNote'); if(nn) nn.textContent=it.note||'';
     // present-mode overlay
     document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+(it.angle?'  ·  '+it.angle.toUpperCase():'');
     document.getElementById('poLbl').textContent=it.label||it.code||'Clip '+(i+1);
@@ -510,6 +540,7 @@ function playClip(i){
     // per-clip angle buttons (each clip resets to its captured angle)
     plAngleIdx=null;
     loadGamesMeta().then(()=>{ if(playIdx===i) renderAngleBtns(); });
+    if(!cmBusy()) renderComments(i);   // never steal a half-typed comment
   });
   renderClips();
 }
@@ -646,6 +677,78 @@ function plSwitchAngle(i){
   document.getElementById('nowPlaying').textContent=(playIdx+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+' · 🎥 '+nm;
   document.getElementById('poIdx').textContent=(playIdx+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+'  ·  '+nm.toUpperCase();
   renderAngleBtns();
+}
+
+// ── Comments (per clip): any signed-in club member can post; authorship
+// comes from the server (JWT), so names can't be faked. The panel is BOUND
+// to the clip it was opened on — auto-advance never steals a half-typed
+// comment (it only rebinds when the composer is idle).
+let cmIdx=null;
+function myName(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return (u&&u.user_metadata&&u.user_metadata.full_name)||((u&&u.email)||'').split('@')[0]||''; }catch(_){ return ''; } }
+function cmBusy(){
+  const inp=document.getElementById('cmInput');
+  if(inp && (inp.value.trim()!=='' || document.activeElement===inp)) return true;
+  const list=document.getElementById('cmList');
+  return !!(list && list.querySelector('input'));
+}
+function renderComments(idx){
+  const w=document.getElementById('cmWrap'); if(!w) return;
+  if(idx==null||!ITEMS[idx]){ w.style.display='none'; cmIdx=null; return; }
+  cmIdx=idx; w.style.display='';
+  const it=ITEMS[idx], cms=Array.isArray(it.comments)?it.comments:[];
+  document.getElementById('cmHd').textContent='Comments — '+(it.label||it.code||'Clip '+(idx+1))+(cms.length?' ('+cms.length+')':'');
+  const me=myEmail();
+  document.getElementById('cmList').innerHTML=cms.length?cms.map(cm=>{
+    const mine=cm.email===me;
+    const ops='<span class="cmops">'
+      +'<span class="cmop" onclick="replyTo(\''+esc(cm.author).replace(/'/g,'&#39;')+'\')">Reply</span>'
+      +((mine||isAdmin)?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span><span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">Delete</span>':'')
+      +'</span>';
+    const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
+    return '<div class="cmitem"><span class="cma">'+esc(cm.author||'user')+'</span><span class="cmts">'+when+(cm.edited?' · edited':'')+'</span>'+ops
+      +'<div class="cmt" id="cmt-'+cm.id+'">'+esc(cm.text)+'</div></div>';
+  }).join(''):'<div style="font-size:12px;color:var(--t3);">No comments yet — be the first.</div>';
+}
+function cmSync(comments){
+  if(cmIdx==null) return;
+  ITEMS[cmIdx].comments=comments;
+  if(CUR&&CUR.data&&Array.isArray(CUR.data.items)&&CUR.data.items[cmIdx]) CUR.data.items[cmIdx].comments=comments;
+  renderComments(cmIdx); renderClips();
+}
+async function postComment(){
+  const inp=document.getElementById('cmInput');
+  const text=(inp.value||'').trim();
+  if(!text||cmIdx==null||!CUR) return;
+  inp.disabled=true;
+  try{
+    const j=await plAuthFetch({action:'comment', id:CUR.id, clipIdx:cmIdx, text});
+    inp.value=''; cmSync(j.comments);
+  }catch(e){ alert('Could not post: '+e.message); }
+  inp.disabled=false; inp.focus();
+}
+function replyTo(name){
+  const inp=document.getElementById('cmInput'); if(!inp) return;
+  const tag='@'+name+' ';
+  if(!inp.value.startsWith(tag)) inp.value=tag+inp.value;
+  inp.focus();
+}
+function editComment(cid){
+  const el=document.getElementById('cmt-'+cid); if(!el||el.querySelector('input')) return;
+  const it=ITEMS[cmIdx], cm=(it.comments||[]).find(x=>x.id===cid); if(!cm) return;
+  el.innerHTML='<input value="'+esc(cm.text)+'" onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.dataset.cancel=1;this.blur();}">';
+  const inp=el.querySelector('input'); inp.focus(); inp.select();
+  inp.onblur=async()=>{
+    if(inp.dataset.cancel){ renderComments(cmIdx); return; }
+    const nv=(inp.value||'').trim();
+    if(!nv||nv===cm.text){ renderComments(cmIdx); return; }
+    try{ const j=await plAuthFetch({action:'commentEdit', id:CUR.id, clipIdx:cmIdx, commentId:cid, text:nv}); cmSync(j.comments); }
+    catch(e){ alert('Could not edit: '+e.message); renderComments(cmIdx); }
+  };
+}
+async function deleteComment(cid){
+  if(!confirm('Delete this comment?')) return;
+  try{ const j=await plAuthFetch({action:'commentDelete', id:CUR.id, clipIdx:cmIdx, commentId:cid}); cmSync(j.comments); }
+  catch(e){ alert('Could not delete: '+e.message); }
 }
 
 // ── leave guard (unsaved playlist edits) ──────────────────────
