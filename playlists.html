@@ -98,6 +98,39 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .delbtn{padding:9px 14px;border-radius:8px;border:1px solid var(--red);background:none;color:var(--red);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;margin-left:auto;}
 .status{font-size:12px;color:var(--t2);min-height:16px;}
 .empty-stage{padding:60px 20px;text-align:center;color:var(--t3);font-size:13px;line-height:1.7;}
+/* browse grid (library-style) */
+.pltools{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+.plsearch{flex:1;min-width:220px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
+.plsearch:focus{border-color:var(--accent);}
+.newbtn{padding:9px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.newbtn:hover{background:var(--accent);color:#fff;}
+.plgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;}
+.plcard{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .18s;}
+.plcard:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow);}
+.plcard .art{aspect-ratio:1/1;width:100%;object-fit:cover;display:block;background:var(--card);}
+.plcard .art.ph{display:flex;align-items:center;justify-content:center;font:800 44px 'Barlow Condensed',sans-serif;color:#fff;}
+.plcard .bd{padding:11px 12px;}
+.plcard .nm{font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.plcard .mt{font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:6px;align-items:center;}
+.scopebadge{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--t2);}
+.pl-empty{padding:40px 12px;color:var(--t3);font-size:13px;text-align:center;line-height:1.7;grid-column:1/-1;}
+
+/* player view: sidebar left, video right */
+.ptop{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.ptop .pname{font:800 20px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.ptop .pname.rn{cursor:pointer;}
+.ptop .pname.rn:hover{color:var(--accent);}
+.backbtn{padding:8px 13px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.backbtn:hover{border-color:var(--accent);color:var(--accent);}
+.pview{display:grid;grid-template-columns:310px 1fr;gap:14px;align-items:start;}
+.side{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow-y:auto;max-height:calc(100vh - 150px);position:sticky;top:66px;}
+.clip{cursor:pointer;}
+.clip .smeta{font-size:10.5px;color:var(--t3);margin-top:1px;}
+.npbar{margin-top:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.npbar .npt{font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;flex:1;min-width:180px;}
+.npbar .npn{width:100%;font-size:13px;color:var(--t2);line-height:1.55;}
+.npbar .npn:empty{display:none;}
+@media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
 <body>
@@ -111,50 +144,59 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 </header>
 
 <div class="page">
-  <div class="title">Playlists</div>
-  <div class="sub">Clips from one game or many, played back-to-back. Click a clip's name to rename it; drag (or use ▲▼) to rearrange.</div>
 
-  <div class="grid">
-    <div class="pl-list">
-      <div class="hd">Your playlists <button class="newbtn" id="newBtn" style="display:none;" onclick="newPlaylist()">＋ New</button></div>
-      <div id="plRows"><div class="pl-empty">Loading…</div></div>
+  <!-- BROWSE -->
+  <div id="browse">
+    <div class="title">Playlists</div>
+    <div class="sub">Clips from one game or many, played back-to-back. Pick a playlist to open the player.</div>
+    <div class="pltools">
+      <input type="text" id="plSearch" class="plsearch" placeholder="Search playlists — name, clip, player, game…" oninput="renderPlRows()">
+      <button class="newbtn" id="newBtn" style="display:none;" onclick="newPlaylist()">＋ New playlist</button>
+    </div>
+    <div class="plgrid" id="plRows"><div class="pl-empty">Loading…</div></div>
+  </div>
+
+  <!-- PLAYER -->
+  <div id="player" style="display:none;">
+    <div class="ptop">
+      <button class="backbtn" onclick="closePlayer()">← Playlists</button>
+      <img id="plCover" style="display:none;width:38px;height:38px;border-radius:8px;object-fit:cover;flex:none;" alt="">
+      <span class="pname" id="plName"></span>
+      <span style="font-size:11px;color:var(--t3);" id="plMeta"></span>
+      <span style="flex:1;"></span>
+      <button id="shareBtn" class="backbtn" title="Copy a link that opens this exact playlist" onclick="sharePlaylist()">🔗 Share</button>
+      <button id="coverBtn" class="backbtn" style="display:none;" title="Set a square cover image" onclick="document.getElementById('coverFile').click()">📷</button>
+      <button id="coverRm" class="backbtn" style="display:none;" title="Remove cover image" onclick="plRemoveCover()">✕</button>
+      <input type="file" id="coverFile" accept="image/*" style="display:none;" onchange="plPickCover(this)">
+      <span class="savebar" id="saveBar" style="display:none;padding:0;gap:8px;">
+        <button class="savebtn" id="saveBtn" onclick="savePlaylist()">💾 Save</button>
+        <span class="status" id="plStatus"></span>
+        <button class="delbtn" onclick="deletePlaylist()" style="margin-left:0;">🗑</button>
+      </span>
     </div>
 
-    <div>
-      <div class="stage" id="stage" style="display:none;position:relative;">
-        <div class="vid"><div id="ytMount"></div></div>
-        <div class="presover" id="presOver">
-          <div class="po-idx" id="poIdx"></div>
-          <div class="po-lbl" id="poLbl"></div>
-          <div class="po-note" id="poNote"></div>
+    <div class="pview">
+      <div class="side" id="sideRows"></div>
+      <div class="pmain">
+        <div class="stage" id="stage" style="position:relative;">
+          <div class="vid"><div id="ytMount"></div></div>
+          <div class="presover" id="presOver">
+            <div class="po-idx" id="poIdx"></div>
+            <div class="po-lbl" id="poLbl"></div>
+            <div class="po-note" id="poNote"></div>
+          </div>
+          <div class="vbar">
+            <button class="vbtn" onclick="prevClip()">⏮ Prev</button>
+            <button class="vbtn" id="playAllBtn" onclick="togglePlayAll()">▶ Play all</button>
+            <button class="vbtn" onclick="nextClip()">Next ⏭</button>
+            <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
+            <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, Shift+←/→ = previous/next clip, Esc exits">⛶ Present</button>
+          </div>
         </div>
-        <div class="vbar">
-          <button class="vbtn" onclick="prevClip()">⏮ Prev</button>
-          <button class="vbtn" id="playAllBtn" onclick="togglePlayAll()">▶ Play all</button>
-          <button class="vbtn" onclick="nextClip()">Next ⏭</button>
-          <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
-          <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, Shift+←/→ = previous/next clip, Esc exits">⛶ Present</button>
+        <div class="npbar">
+          <span class="npt" id="nowPlaying">Select a clip on the left to start.</span>
           <span id="plAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
-          <span class="nowp" id="nowPlaying">Select a clip to start.</span>
-        </div>
-      </div>
-      <div class="empty-stage" id="emptyStage">Select a playlist on the left — or build one by selecting events in <b>Code Room</b> (box-drag on the timeline → “Add to playlist”).</div>
-
-      <div class="clips" id="clipsWrap" style="display:none;">
-        <div class="hd">
-          <img id="plCover" style="display:none;width:34px;height:34px;border-radius:7px;object-fit:cover;flex:none;" alt="">
-          <span class="pname" id="plName" title="Click to rename the playlist"></span>
-          <span style="font-size:11px;color:var(--t3);" id="plMeta"></span>
-          <button id="shareBtn" class="cbt" title="Copy a link that opens this exact playlist" onclick="sharePlaylist()">🔗 Share</button>
-          <button id="coverBtn" class="cbt" style="display:none;" title="Set a square cover image for this playlist" onclick="document.getElementById('coverFile').click()">📷</button>
-          <button id="coverRm" class="cbt x" style="display:none;" title="Remove cover image" onclick="plRemoveCover()">✕</button>
-          <input type="file" id="coverFile" accept="image/*" style="display:none;" onchange="plPickCover(this)">
-        </div>
-        <div id="clipRows"></div>
-        <div class="savebar" id="saveBar" style="display:none;">
-          <button class="savebtn" id="saveBtn" onclick="savePlaylist()">💾 Save changes</button>
-          <span class="status" id="plStatus"></span>
-          <button class="delbtn" onclick="deletePlaylist()">🗑 Delete playlist</button>
+          <div class="npn" id="npNote"></div>
         </div>
       </div>
     </div>
@@ -198,7 +240,7 @@ async function plAuthFetch(payload){
 function myEmail(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return ((u&&u.email)||'').toLowerCase(); }catch(_){ return ''; } }
 async function loadPlaylists(){
   try{
-    const {data,error}=await _sb.from('playlists').select('id, scope, owner, name, data, created_at').order('name');
+    const {data,error}=await _sb.from('playlists').select('id, scope, owner, name, data, created_at').order('created_at',{ascending:false});
     if(error) throw error;
     const em=myEmail();
     PLAYLISTS=(data||[]).filter(p=>p.scope==='club'||(p.scope==='personal'&&p.owner===em));
@@ -208,19 +250,28 @@ async function loadPlaylists(){
     document.getElementById('plRows').innerHTML='<div class="pl-empty">Could not load playlists: '+esc(e.message)+'<br><br>If this is the first use, the playlists table may not be created yet.</div>';
   }
 }
+// Search matches the playlist name AND its contents (clip names, players,
+// games, notes) — typing a player finds every playlist containing him.
+function plSearchText(p){
+  const items=(p.data&&p.data.items)||[];
+  return (p.name+' '+items.map(it=>[it.label,it.code,it.player,it.gameTitle,it.note].filter(Boolean).join(' ')).join(' ')).toLowerCase();
+}
 function renderPlRows(){
-  const w=document.getElementById('plRows');
+  const w=document.getElementById('plRows'); if(!w) return;
   document.getElementById('newBtn').style.display=isAdmin?'':'none';
-  if(!PLAYLISTS.length){ w.innerHTML='<div class="pl-empty">No playlists yet.'+(isAdmin?' Create one with ＋ New, or select events in Code Room and “Add to playlist”.':'')+'</div>'; return; }
-  w.innerHTML=PLAYLISTS.map(p=>{
+  const q=((document.getElementById('plSearch')||{}).value||'').toLowerCase().trim();
+  const list=q?PLAYLISTS.filter(p=>plSearchText(p).includes(q)):PLAYLISTS;
+  if(!PLAYLISTS.length){ w.innerHTML='<div class="pl-empty">No playlists yet.'+(isAdmin?' Create one with ＋ New playlist, or select events in Code Room and “Add to playlist”.':'')+'</div>'; return; }
+  if(!list.length){ w.innerHTML='<div class="pl-empty">No playlists match “'+esc(q)+'”.</div>'; return; }
+  w.innerHTML=list.map(p=>{
     const cov=(CUR&&String(CUR.id)===String(p.id))?COVER:((p.data&&p.data.cover)||null);
-    const thumb=cov?`<img class="pl-thumb" src="${cov}" alt="">`
-      :`<div class="pl-thumb ph" style="background:hsl(${plHue(p.name)} 45% 38%)">${esc(plInitials(p.name))}</div>`;
-    return `<div class="pl-row ${CUR&&String(CUR.id)===String(p.id)?'on':''}" onclick="openPlaylist(${p.id})">
-    <div class="pl-rowin">${thumb}<div style="min-width:0;">
-    <div class="nm">${esc(p.name)}${p.scope==='personal'?' <span style="color:var(--t3);font-weight:400;">(mine)</span>':''}</div>
-    <div class="mt">${((p.data&&p.data.items)||[]).length} clips</div>
-    </div></div></div>`;}).join('');
+    const art=cov?`<img class="art" src="${cov}" alt="">`
+      :`<div class="art ph" style="background:hsl(${plHue(p.name)} 45% 38%)">${esc(plInitials(p.name))}</div>`;
+    const n=((p.data&&p.data.items)||[]).length;
+    return `<div class="plcard" onclick="openPlaylist(${p.id})">${art}
+      <div class="bd"><div class="nm">${esc(p.name)}</div>
+      <div class="mt">${n} clip${n===1?'':'s'} <span class="scopebadge">${p.scope==='personal'?'MINE':'CLUB'}</span></div></div>
+    </div>`;}).join('');
 }
 async function newPlaylist(){
   const name=(prompt('Playlist name (e.g. Kickout wins v Kerry, Best scores 2026):')||'').trim();
@@ -240,11 +291,20 @@ function openPlaylist(id){
   COVER=(CUR.data&&CUR.data.cover)||null;
   dirty=false; playIdx=-1; playAll=false;
   try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id); }catch(_){}
-  document.getElementById('emptyStage').style.display='none';
-  document.getElementById('stage').style.display='';
-  document.getElementById('clipsWrap').style.display='';
-  document.getElementById('nowPlaying').textContent='Select a clip to start.';
-  renderPlRows(); renderClips();
+  document.getElementById('browse').style.display='none';
+  document.getElementById('player').style.display='';
+  document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
+  const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
+  renderClips();
+}
+function closePlayer(){
+  if(dirty && !confirm('You have unsaved changes on this playlist. Discard them?')) return;
+  if(YTP&&YTP.pauseVideo) try{ YTP.pauseVideo(); }catch(_){}
+  CUR=null; ITEMS=[]; COVER=null; dirty=false; playIdx=-1; playAll=false;
+  try{ history.replaceState(null,'',location.pathname); }catch(_){}
+  document.getElementById('player').style.display='none';
+  document.getElementById('browse').style.display='';
+  renderPlRows();
 }
 
 // ── clips list: rename inline, reorder (drag + ▲▼), remove ────
@@ -255,8 +315,10 @@ function renderSaveBar(){
   const st=document.getElementById('plStatus'); if(st&&dirty){ st.textContent='Unsaved changes'; st.style.color='var(--orange)'; } else if(st){ st.textContent=''; }
 }
 function renderClips(){
-  const w=document.getElementById('clipRows');
+  const w=document.getElementById('sideRows');
   document.getElementById('plName').textContent=CUR.name;
+  document.getElementById('plName').className='pname'+(isAdmin?' rn':'');
+  document.getElementById('plName').title=isAdmin?'Click to rename the playlist':'';
   document.getElementById('plName').onclick=isAdmin?renamePlaylist:null;
   document.getElementById('plMeta').textContent=ITEMS.length+' clips'+(CUR.scope==='personal'?' · personal':' · club-wide');
   const cv=document.getElementById('plCover'); if(cv){ if(COVER){ cv.src=COVER; cv.style.display=''; } else cv.style.display='none'; }
@@ -273,13 +335,10 @@ function renderClips(){
       ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
         <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
+        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}</div>
         ${noteLine}
       </span>
-      <span class="meta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}</span>
-      <button class="cbt" onclick="event.stopPropagation();playClip(${i})" title="Play this clip">▶</button>
-      ${isAdmin?`<button class="cbt" onclick="event.stopPropagation();moveClip(${i},-1)" title="Move up">▲</button>
-      <button class="cbt" onclick="event.stopPropagation();moveClip(${i},1)" title="Move down">▼</button>
-      <button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
+      ${isAdmin?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
     </div>`;}).join('');
   if(isAdmin) initDrag();
   renderSaveBar();
@@ -406,10 +465,10 @@ async function deletePlaylist(){
   if(!confirm('Delete playlist "'+CUR.name+'" ('+ITEMS.length+' clips)? This cannot be undone.')) return;
   try{
     await plAuthFetch({action:'delete', id:CUR.id});
-    CUR=null; ITEMS=[]; dirty=false;
-    document.getElementById('stage').style.display='none';
-    document.getElementById('clipsWrap').style.display='none';
-    document.getElementById('emptyStage').style.display='';
+    CUR=null; ITEMS=[]; COVER=null; dirty=false;
+    try{ history.replaceState(null,'',location.pathname); }catch(_){}
+    document.getElementById('player').style.display='none';
+    document.getElementById('browse').style.display='';
     await loadPlaylists();
   }catch(e){ alert('Could not delete: '+e.message); }
 }
@@ -428,7 +487,8 @@ function playClip(i){
     const it=ITEMS[i];
     YTP.loadVideoById({videoId:it.videoId, startSeconds:Math.max(0,Math.floor(it.start||0)), endSeconds:Math.max(1,Math.ceil(it.end||((it.start||0)+8)))});
     curVideoId=it.videoId;
-    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.angle?' · 🎥 '+it.angle:'')+(it.note?' — 💬 '+it.note:'');
+    document.getElementById('nowPlaying').textContent=(i+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+(it.angle?' · 🎥 '+it.angle:'');
+    const nn=document.getElementById('npNote'); if(nn) nn.textContent=it.note?'💬 '+it.note:'';
     // present-mode overlay
     document.getElementById('poIdx').textContent=(i+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+(it.angle?'  ·  '+it.angle.toUpperCase():'');
     document.getElementById('poLbl').textContent=it.label||it.code||'Clip '+(i+1);
@@ -545,7 +605,7 @@ function plSwitchAngle(i){
   const vs=plDriveToAngle(A,it.driveT,i);
   YTP.loadVideoById({videoId:A[i].youtubeId, startSeconds:Math.max(0,Math.floor(vs)), endSeconds:Math.max(1,Math.ceil(vs+dur))});
   const nm=A[i].label||('Cam '+(i+1));
-  document.getElementById('nowPlaying').textContent=(playIdx+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+' · 🎥 '+nm+(it.note?' — 💬 '+it.note:'');
+  document.getElementById('nowPlaying').textContent=(playIdx+1)+'/'+ITEMS.length+' — '+(it.label||it.code||'Clip')+(it.gameTitle?' · '+it.gameTitle:'')+' · 🎥 '+nm;
   document.getElementById('poIdx').textContent=(playIdx+1)+' / '+ITEMS.length+(it.gameTitle?'  ·  '+it.gameTitle.toUpperCase():'')+'  ·  '+nm.toUpperCase();
   renderAngleBtns();
 }
