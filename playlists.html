@@ -376,7 +376,7 @@ async function newPlaylist(){
     openPlaylist(j.id);
   }catch(e){ alert('Could not create playlist: '+e.message); }
 }
-function openPlaylist(id){
+function openPlaylist(id, startClip){
   if(dirty && !confirm('You have unsaved changes on the current playlist. Discard them?')) return;
   CUR=PLAYLISTS.find(p=>String(p.id)===String(id)); if(!CUR) return;
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
@@ -392,6 +392,13 @@ function openPlaylist(id){
   cmIdx=null; const cw=document.getElementById('cmWrap'); if(cw) cw.style.display='none';
   const ci=document.getElementById('cmInput'); if(ci) ci.value='';
   renderClips();
+  // start playing straight away (Play-all engaged so it flows through the list)
+  const si=(typeof startClip==='number'&&ITEMS[startClip])?startClip:(ITEMS.length?0:-1);
+  if(si>=0){
+    playAll=true;
+    const b=document.getElementById('playAllBtn'); if(b){ b.classList.add('on'); b.textContent='⏸ Playing…'; }
+    setTimeout(()=>playClip(si),120);
+  }
 }
 function closePlayer(){
   if(dirty && !confirm('You have unsaved changes on this playlist. Discard them?')) return;
@@ -512,9 +519,8 @@ function applyDeepLink(){
   const id=p.get('pl'); if(!id) return;
   const found=PLAYLISTS.find(x=>String(x.id)===String(id));
   if(!found){ alert("That playlist isn't available to this account."); return; }
-  openPlaylist(found.id);
   const ci=parseInt(p.get('clip'),10);
-  if(ci>=1&&ci<=ITEMS.length) setTimeout(()=>playClip(ci-1),400);
+  openPlaylist(found.id, (ci>=1)?ci-1:undefined);
 }
 function renamePlaylist(){
   const name=(prompt('Rename playlist:',CUR.name)||'').trim();
