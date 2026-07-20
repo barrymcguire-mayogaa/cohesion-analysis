@@ -43,6 +43,12 @@ window.cohesionGroupsFor = function(code){
  * The first matching link wins. Values below mirror the real data.
  */
 window.COHESION_EVENT_LINKS = [
+  { appliesTo: /SCORE SOURCE/,     group: 'Score Source Outcomes', prompt: 'Score source',
+    options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','BALL RECOVERED','THROW-IN','FREE WON'] },
+  { appliesTo: /SHOT SOURCE/,      group: 'Shot Source Outcomes', prompt: 'Shot source',
+    options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','THROW-IN','FREE WON'] },
+  // NOTE: keep the specific *SOURCE links ABOVE the generic /SHOT/ one —
+  // the first match wins, and /SHOT/ would otherwise swallow SHOT SOURCE.
   { appliesTo: /SHOT/,             group: 'Shot Outcomes',    prompt: 'Shot outcome',
     options: ['1 POINT','2 POINT','GOAL','WIDE','SHORT','SAVE','BLOCKED','WOODWORK'] },
   { appliesTo: /\bKO\b|KICKOUT/,   group: 'Kickout Outcomes', prompt: 'Kickout outcome',
@@ -51,8 +57,6 @@ window.COHESION_EVENT_LINKS = [
     options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
     options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION'] },
-  { appliesTo: /SCORE SOURCE/,     group: 'Score Source Outcomes', prompt: 'Score source',
-    options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','BALL RECOVERED'] },
 ];
 
 // Return the first event link whose appliesTo matches the code, or null.
