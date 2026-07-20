@@ -82,7 +82,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .clip .nt input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:4px 8px;color:var(--t1);font:400 12px 'Barlow',sans-serif;outline:none;}
 /* present mode (fullscreen) */
 .stage:fullscreen{display:flex;flex-direction:column;background:#000;border:none;border-radius:0;}
-.stage:fullscreen .vid{flex:1;height:auto;}
+.stage:fullscreen .vid{flex:1;height:auto !important;}
 .stage:fullscreen .vbar{background:rgba(10,10,16,.92);border-top:1px solid rgba(255,255,255,.1);}
 .presover{display:none;}
 .stage:fullscreen .presover{display:block;position:absolute;left:0;right:0;bottom:64px;padding:14px 26px;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none;}
@@ -130,6 +130,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .npbar .npt{font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;flex:1;min-width:180px;}
 .npbar .npn{width:100%;font-size:13px;color:var(--t2);line-height:1.55;}
 .npbar .npn:empty{display:none;}
+.szbtn{padding:4px 9px;border-radius:5px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.szbtn:hover{border-color:var(--accent);color:var(--accent);}
+.szbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.pldh{height:11px;margin-top:6px;background:var(--card);border:1px solid var(--border);border-radius:6px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;}
+.pldh::before{content:'';width:34px;height:3px;border-radius:2px;background:var(--t3);}
+.pldh:hover::before,.pldh.act::before{background:var(--accent);}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
@@ -190,9 +196,16 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" id="playAllBtn" onclick="togglePlayAll()">▶ Play all</button>
             <button class="vbtn" onclick="nextClip()">Next ⏭</button>
             <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
-            <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, Shift+←/→ = previous/next clip, Esc exits">⛶ Present</button>
+            <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, ↑/↓ = previous/next clip, Esc exits">⛶ Present</button>
+            <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
+            <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
+            <div class="szbtn" onclick="plSetH(300)">S</div>
+            <div class="szbtn" onclick="plSetH(440)">M</div>
+            <div class="szbtn" onclick="plSetH(580)">L</div>
+            <div class="szbtn" onclick="plSetH(720)">Xl</div>
           </div>
         </div>
+        <div class="pldh" id="pldh" title="Drag up or down to resize the video"></div>
         <div class="npbar">
           <span class="npt" id="nowPlaying">Select a clip on the left to start.</span>
           <span id="plAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
@@ -293,6 +306,7 @@ function openPlaylist(id){
   try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id); }catch(_){}
   document.getElementById('browse').style.display='none';
   document.getElementById('player').style.display='';
+  plInitVH();
   document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
   const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
   renderClips();
@@ -514,7 +528,31 @@ document.addEventListener('keydown',e=>{
   if(!CUR) return;
   if(e.key==='ArrowRight'){ e.preventDefault(); if(e.shiftKey) nextClip(); else seekRel(5); }
   else if(e.key==='ArrowLeft'){ e.preventDefault(); if(e.shiftKey) prevClip(); else seekRel(-5); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); nextClip(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); prevClip(); }
 });
+
+// ── video size: S/M/L/Xl presets + drag handle (same as the dashboard) ──
+const PL_HS=[300,440,580,720];
+function plVidMaxH(){ return Math.max(220, window.innerHeight-180); }
+function plSetH(px, skipSave){
+  const v=document.querySelector('.stage .vid'); if(!v) return;
+  px=Math.max(200, Math.min(plVidMaxH(), Math.round(px)));
+  v.style.height=px+'px';
+  if(!skipSave){ try{ localStorage.setItem('pl_vidH', px); }catch(_){} }
+  document.querySelectorAll('.szbtn').forEach((b,i)=>b.classList.toggle('on', PL_HS[i]===px));
+}
+function plInitVH(){
+  let saved=0; try{ saved=+localStorage.getItem('pl_vidH')||0; }catch(_){}
+  plSetH(saved>=200 ? saved : 440, true);
+  const h=document.getElementById('pldh');
+  if(h && !h._init){ h._init=true;
+    let drag=false, sy=0, sh=0;
+    h.addEventListener('mousedown',e=>{ const v=document.querySelector('.stage .vid'); if(!v) return; drag=true; sy=e.clientY; sh=v.offsetHeight; h.classList.add('act'); v.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
+    window.addEventListener('mousemove',e=>{ if(!drag) return; const v=document.querySelector('.stage .vid'); if(!v) return; const nh=Math.max(200, Math.min(plVidMaxH(), sh+(e.clientY-sy))); v.style.height=nh+'px'; document.querySelectorAll('.szbtn').forEach(b=>b.classList.remove('on')); });
+    window.addEventListener('mouseup',()=>{ if(!drag) return; drag=false; h.classList.remove('act'); const v=document.querySelector('.stage .vid'); if(v){ v.style.pointerEvents=''; try{ localStorage.setItem('pl_vidH', v.offsetHeight); }catch(_){} } document.body.style.userSelect=''; });
+  }
+}
 function onState(e){
   if(e.data===0 && playAll){        // segment ended → next
     if(playIdx+1<ITEMS.length) playClip(playIdx+1);
