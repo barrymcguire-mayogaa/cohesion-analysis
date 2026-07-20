@@ -219,6 +219,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
           <div class="vid"><div id="ytMount"></div>
             <svg id="drawSvg" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="drawbar" id="drawBar">
+              <button class="dtool" data-tool="select" onclick="dSetTool('select')" title="Select — click a shape, drag to move, drag its handles to resize">⇖</button>
+              <span class="dsep"></span>
               <button class="dtool" data-tool="free" onclick="dSetTool('free')" title="Freehand">✎</button>
               <button class="dtool" data-tool="line" onclick="dSetTool('line')" title="Line">╱</button>
               <button class="dtool on" data-tool="arrow" onclick="dSetTool('arrow')" title="Arrow">➤</button>
@@ -236,6 +238,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
               <button class="dtool on" data-w="4" onclick="dSetW(4)" title="Medium"><span style="display:block;width:14px;height:4px;background:currentColor;"></span></button>
               <button class="dtool" data-w="7" onclick="dSetW(7)" title="Thick"><span style="display:block;width:14px;height:7px;background:currentColor;"></span></button>
               <span class="dsep"></span>
+              <button class="dtool" id="dFillBtn" onclick="dToggleFill()" title="Fill shapes (rectangle/ellipse)">◧</button>
+              <input type="range" id="dAlphaR" min="20" max="100" value="100" oninput="dSetAlpha(this.value/100)" title="Transparency" style="width:70px;">
+              <span class="dsep"></span>
+              <input type="text" id="dCap" placeholder="Caption (optional)…" style="width:150px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;">
+              <span class="dsep"></span>
+              <button class="dbtn no" onclick="dDelSel()" title="Delete the selected shape (Delete key)">🗑 Shape</button>
               <button class="dbtn" onclick="dUndo()">↶ Undo</button>
               <button class="dbtn no" onclick="dClear()">Clear</button>
               <button class="dbtn go" onclick="saveDraw()">✓ Save drawing</button>
@@ -426,7 +434,7 @@ function renderClips(){
       ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
         <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
-        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}${it.draw?' · ✏':''}</div>
+        <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}${(()=>{const nd=Array.isArray(it.draws)?it.draws.length:(it.draw?1:0);return nd?' · ✏'+(nd>1?'×'+nd:''):'';})()}</div>
         ${noteLine}
       </span>
       ${isAdmin?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
@@ -576,7 +584,7 @@ function playClip(i){
   if(!ITEMS[i]) return;
   if(drawMode) cancelDraw();
   hideSavedDrawing();
-  drawShownFor=null;
+  shownDraws=new Set();
   playIdx=i;
   ensurePlayer(()=>{
     const it=ITEMS[i];
@@ -608,7 +616,11 @@ document.addEventListener('keydown',e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
   if(!CUR) return;
-  if(drawMode){ if(e.key==='Escape'){ e.preventDefault(); cancelDraw(); } return; }
+  if(drawMode){
+    if(e.key==='Escape'){ e.preventDefault(); cancelDraw(); }
+    else if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault(); dDelSel(); }
+    return;
+  }
   if(e.key==='ArrowRight'){ e.preventDefault(); if(e.shiftKey) nextClip(); else seekRel(5); }
   else if(e.key==='ArrowLeft'){ e.preventDefault(); if(e.shiftKey) prevClip(); else seekRel(-5); }
   else if(e.key==='ArrowDown'){ e.preventDefault(); nextClip(); }
@@ -663,11 +675,16 @@ function seekRel(d){
 setInterval(()=>{
   if(!YTP||!YTP.getCurrentTime||playIdx<0) return;
   const it=ITEMS[playIdx]; if(!it||it.end==null) return;
-  // telestration stop: pause at the drawing's moment (once per clip play)
-  if(it.draw && !drawMode && drawShownFor!==playIdx){
-    const st=YTP.getPlayerState?YTP.getPlayerState():-1, tt=YTP.getCurrentTime()||0;
-    if(st===1 && tt>=it.draw.t-0.3 && tt<=Math.ceil(it.end)+0.4){
-      drawShownFor=playIdx; YTP.pauseVideo&&YTP.pauseVideo(); showSavedDrawing(it.draw); return;
+  // telestration stops: pause at each drawing's moment (once per play-through)
+  if(!drawMode){
+    const draws=getDraws(it);
+    if(draws.length){
+      const st=YTP.getPlayerState?YTP.getPlayerState():-1, tt=YTP.getCurrentTime()||0;
+      if(st===1) for(let di=0;di<draws.length;di++){
+        if(!shownDraws.has(di) && tt>=draws[di].t-0.3 && tt<=Math.ceil(it.end)+0.4){
+          shownDraws.add(di); YTP.pauseVideo&&YTP.pauseVideo(); showSavedDrawing(draws[di]); return;
+        }
+      }
     }
   }
   if((YTP.getCurrentTime()||0)>Math.ceil(it.end)+0.4){
@@ -810,11 +827,14 @@ async function deleteComment(cid){
   catch(e){ alert('Could not delete: '+e.message); }
 }
 
-// ── Telestration (P1): draw on a paused clip; shown to everyone at that
-// moment on playback. Shapes are stored as FRACTIONS of the video's 16:9
-// content rectangle (the letterboxed area inside the box), so drawings stay
-// glued to the pitch at any player size and in Present mode.
-let drawMode=false, dTool='arrow', dColor='#ffd700', dW=4, dShapes=null, dT=0, dCur=null, dispShapes=null, drawShownFor=null;
+// ── Telestration (P2): draw, select/move/resize, fill+alpha, captions,
+// multiple stops per clip. Shapes are fractions of the video's 16:9 content
+// rectangle so drawings stay glued to the pitch at any size / fullscreen.
+// Saved drawings are ADMIN-authored (coach's voice); viewers watch them.
+let drawMode=false, dTool='arrow', dColor='#ffd700', dW=4, dFill=false, dAlpha=1;
+let dShapes=null, dT=0, dCur=null, dSel=null, dDrag=null, editIdx=null;
+let dispShapes=null, shownDraws=new Set();
+function getDraws(it){ return Array.isArray(it&&it.draws)?it.draws:(it&&it.draw?[it.draw]:[]); }
 function vidRect(){
   const v=document.querySelector('.stage .vid'); if(!v) return {x:0,y:0,w:16,h:9};
   const W=v.clientWidth,H=v.clientHeight, ar=16/9;
@@ -830,72 +850,178 @@ function sizeDrawSvg(){
   dRender();
 }
 function shapeSvg(s,W,H){
-  const X=x=>(x*W).toFixed(1), Y=y=>(y*H).toFixed(1), c=esc(s.color), w=s.w;
-  if(s.type==='free') return '<polyline points="'+s.pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round"/>';
-  if(s.type==='line') return '<line x1="'+X(s.x1)+'" y1="'+Y(s.y1)+'" x2="'+X(s.x2)+'" y2="'+Y(s.y2)+'" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round"/>';
-  if(s.type==='arrow'){
+  const X=x=>(x*W).toFixed(1), Y=y=>(y*H).toFixed(1), col=esc(s.color), w=s.w;
+  const fill=s.fill?col:'none', fo=s.fill?' fill-opacity="0.35"':'';
+  let inner='';
+  if(s.type==='free') inner='<polyline points="'+s.pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round"/>';
+  else if(s.type==='line') inner='<line x1="'+X(s.x1)+'" y1="'+Y(s.y1)+'" x2="'+X(s.x2)+'" y2="'+Y(s.y2)+'" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round"/>';
+  else if(s.type==='arrow'){
     const x1=+X(s.x1),y1=+Y(s.y1),x2=+X(s.x2),y2=+Y(s.y2);
     const a=Math.atan2(y2-y1,x2-x1), hl=8+w*2.2;
-    const p1=(x2-hl*Math.cos(a-0.45))+','+(y2-hl*Math.sin(a-0.45));
-    const p2=(x2-hl*Math.cos(a+0.45))+','+(y2-hl*Math.sin(a+0.45));
-    return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round"/>'
-         +'<polygon points="'+x2+','+y2+' '+p1+' '+p2+'" fill="'+c+'"/>';
+    const p1=(x2-hl*Math.cos(a-0.45)).toFixed(1)+','+(y2-hl*Math.sin(a-0.45)).toFixed(1);
+    const p2=(x2-hl*Math.cos(a+0.45)).toFixed(1)+','+(y2-hl*Math.sin(a+0.45)).toFixed(1);
+    inner='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+col+'" stroke-width="'+w+'" stroke-linecap="round"/>'
+        +'<polygon points="'+x2+','+y2+' '+p1+' '+p2+'" fill="'+col+'"/>';
   }
-  if(s.type==='rect'){ const x=Math.min(s.x1,s.x2),y=Math.min(s.y1,s.y2); return '<rect x="'+X(x)+'" y="'+Y(y)+'" width="'+((Math.abs(s.x2-s.x1))*W).toFixed(1)+'" height="'+((Math.abs(s.y2-s.y1))*H).toFixed(1)+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"/>'; }
-  if(s.type==='ellipse'){ return '<ellipse cx="'+X((s.x1+s.x2)/2)+'" cy="'+Y((s.y1+s.y2)/2)+'" rx="'+((Math.abs(s.x2-s.x1)/2)*W).toFixed(1)+'" ry="'+((Math.abs(s.y2-s.y1)/2)*H).toFixed(1)+'" fill="none" stroke="'+c+'" stroke-width="'+w+'"/>'; }
-  return '';
+  else if(s.type==='rect'){ const x=Math.min(s.x1,s.x2),y=Math.min(s.y1,s.y2); inner='<rect x="'+X(x)+'" y="'+Y(y)+'" width="'+((Math.abs(s.x2-s.x1))*W).toFixed(1)+'" height="'+((Math.abs(s.y2-s.y1))*H).toFixed(1)+'" fill="'+fill+'"'+fo+' stroke="'+col+'" stroke-width="'+w+'"/>'; }
+  else if(s.type==='ellipse'){ inner='<ellipse cx="'+X((s.x1+s.x2)/2)+'" cy="'+Y((s.y1+s.y2)/2)+'" rx="'+((Math.abs(s.x2-s.x1)/2)*W).toFixed(1)+'" ry="'+((Math.abs(s.y2-s.y1)/2)*H).toFixed(1)+'" fill="'+fill+'"'+fo+' stroke="'+col+'" stroke-width="'+w+'"/>'; }
+  return '<g opacity="'+(s.alpha!=null?s.alpha:1)+'">'+inner+'</g>';
+}
+// Resize handles: endpoints for lines/arrows, four corners for rect/ellipse.
+function dHandlePts(s){
+  if(!s) return [];
+  if(s.type==='line'||s.type==='arrow') return [{x:s.x1,y:s.y1,id:'p1'},{x:s.x2,y:s.y2,id:'p2'}];
+  if(s.type==='rect'||s.type==='ellipse') return [
+    {x:s.x1,y:s.y1,id:'c11'},{x:s.x2,y:s.y1,id:'c21'},{x:s.x1,y:s.y2,id:'c12'},{x:s.x2,y:s.y2,id:'c22'}];
+  return [];   // freehand: move only
+}
+function dApplyHandle(s,id,x,y){
+  if(id==='p1'){ s.x1=x; s.y1=y; }
+  else if(id==='p2'){ s.x2=x; s.y2=y; }
+  else if(id==='c11'){ s.x1=x; s.y1=y; }
+  else if(id==='c21'){ s.x2=x; s.y1=y; }
+  else if(id==='c12'){ s.x1=x; s.y2=y; }
+  else if(id==='c22'){ s.x2=x; s.y2=y; }
+}
+function dMoveShape(s,dx,dy){
+  if(s.type==='free') s.pts=s.pts.map(p=>[p[0]+dx,p[1]+dy]);
+  else { s.x1+=dx; s.y1+=dy; s.x2+=dx; s.y2+=dy; }
 }
 function dRender(){
   const s=document.getElementById('drawSvg'); if(!s) return;
   const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
   const list=(drawMode?dShapes:dispShapes)||[];
-  s.innerHTML=list.concat(dCur?[dCur]:[]).map(x=>shapeSvg(x,W,H)).join('');
+  let out=list.concat(dCur?[dCur]:[]).map(x=>shapeSvg(x,W,H)).join('');
+  if(drawMode&&dSel!=null&&dShapes[dSel]){
+    const sh=dShapes[dSel];
+    if(sh.type==='free'){
+      const xs=sh.pts.map(p=>p[0]), ys=sh.pts.map(p=>p[1]);
+      out+='<rect x="'+(Math.min(...xs)*W-4)+'" y="'+(Math.min(...ys)*H-4)+'" width="'+((Math.max(...xs)-Math.min(...xs))*W+8)+'" height="'+((Math.max(...ys)-Math.min(...ys))*H+8)+'" fill="none" stroke="#fff" stroke-width="1" stroke-dasharray="4,3"/>';
+    }
+    dHandlePts(sh).forEach(h=>{
+      out+='<rect x="'+(h.x*W-5)+'" y="'+(h.y*H-5)+'" width="10" height="10" fill="#fff" stroke="#000" stroke-width="1.2" style="cursor:nwse-resize"/>';
+    });
+  }
+  s.innerHTML=out;
 }
 function dPos(e){
   const s=document.getElementById('drawSvg'), r=s.getBoundingClientRect();
   return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)), Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))];
+}
+// hit-testing in pixel space (tolerance in px)
+function segDistPx(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy;
+  const t=L2?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2)):0;
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy));
+}
+function dHitShape(s,x,y,W,H,tol){
+  const px=x*W, py=y*H;
+  if(s.type==='line'||s.type==='arrow') return segDistPx(px,py,s.x1*W,s.y1*H,s.x2*W,s.y2*H)<=tol;
+  if(s.type==='rect'){
+    const x1=Math.min(s.x1,s.x2)*W,x2=Math.max(s.x1,s.x2)*W,y1=Math.min(s.y1,s.y2)*H,y2=Math.max(s.y1,s.y2)*H;
+    if(s.fill&&px>=x1&&px<=x2&&py>=y1&&py<=y2) return true;
+    return Math.min(segDistPx(px,py,x1,y1,x2,y1),segDistPx(px,py,x2,y1,x2,y2),segDistPx(px,py,x2,y2,x1,y2),segDistPx(px,py,x1,y2,x1,y1))<=tol;
+  }
+  if(s.type==='ellipse'){
+    const cx=(s.x1+s.x2)/2*W, cy=(s.y1+s.y2)/2*H, rx=Math.max(1,Math.abs(s.x2-s.x1)/2*W), ry=Math.max(1,Math.abs(s.y2-s.y1)/2*H);
+    const v=Math.pow((px-cx)/rx,2)+Math.pow((py-cy)/ry,2);
+    if(s.fill&&v<=1) return true;
+    return Math.abs(Math.sqrt(v)-1)*Math.min(rx,ry)<=tol;
+  }
+  if(s.type==='free'){
+    for(let i=1;i<s.pts.length;i++) if(segDistPx(px,py,s.pts[i-1][0]*W,s.pts[i-1][1]*H,s.pts[i][0]*W,s.pts[i][1]*H)<=tol) return true;
+  }
+  return false;
+}
+function dHitAt(x,y){
+  const s=document.getElementById('drawSvg');
+  const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
+  for(let i=dShapes.length-1;i>=0;i--) if(dHitShape(dShapes[i],x,y,W,H,9)) return i;
+  return null;
+}
+function dHitHandle(x,y){
+  if(dSel==null||!dShapes[dSel]) return null;
+  const s=document.getElementById('drawSvg');
+  const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
+  for(const h of dHandlePts(dShapes[dSel])) if(Math.hypot((x-h.x)*W,(y-h.y)*H)<=10) return h.id;
+  return null;
 }
 function dInit(){
   const s=document.getElementById('drawSvg'); if(!s||s._init) return; s._init=true;
   s.addEventListener('pointerdown',e=>{
     if(!drawMode) return; e.preventDefault(); s.setPointerCapture&&s.setPointerCapture(e.pointerId);
     const [x,y]=dPos(e);
-    dCur = dTool==='free' ? {type:'free',pts:[[x,y]],color:dColor,w:dW} : {type:dTool,x1:x,y1:y,x2:x,y2:y,color:dColor,w:dW};
+    if(dTool==='select'){
+      const h=dHitHandle(x,y);
+      if(h){ dDrag={mode:'resize',h}; return; }
+      const idx=dHitAt(x,y);
+      if(idx!=null){ dSel=idx; dSyncToolbar(); dDrag={mode:'move',lx:x,ly:y}; }
+      else dSel=null;
+      dRender(); return;
+    }
+    dSel=null;
+    dCur = dTool==='free' ? {type:'free',pts:[[x,y]],color:dColor,w:dW,alpha:dAlpha}
+         : {type:dTool,x1:x,y1:y,x2:x,y2:y,color:dColor,w:dW,alpha:dAlpha,fill:(dTool==='rect'||dTool==='ellipse')?dFill:undefined};
     dRender();
   });
   s.addEventListener('pointermove',e=>{
-    if(!drawMode||!dCur) return;
+    if(!drawMode) return;
     const [x,y]=dPos(e);
+    if(dDrag&&dSel!=null&&dShapes[dSel]){
+      if(dDrag.mode==='resize') dApplyHandle(dShapes[dSel],dDrag.h,x,y);
+      else { dMoveShape(dShapes[dSel],x-dDrag.lx,y-dDrag.ly); dDrag.lx=x; dDrag.ly=y; }
+      dRender(); return;
+    }
+    if(!dCur) return;
     if(dCur.type==='free') dCur.pts.push([x,y]); else { dCur.x2=x; dCur.y2=y; }
     dRender();
   });
   s.addEventListener('pointerup',()=>{
-    if(!drawMode||!dCur) return;
+    if(!drawMode) return;
+    if(dDrag){ dDrag=null; return; }
+    if(!dCur) return;
     const tiny = dCur.type==='free' ? dCur.pts.length<3 : (Math.abs(dCur.x2-dCur.x1)<0.005&&Math.abs(dCur.y2-dCur.y1)<0.005);
     if(!tiny) dShapes.push(dCur);
     dCur=null; dRender();
   });
 }
-function dSetTool(t){ dTool=t; document.querySelectorAll('.dtool[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t)); }
-function dSetColor(cl,el){ dColor=cl; document.querySelectorAll('.dsw').forEach(b=>b.classList.toggle('on',b===el)); }
-function dSetW(w){ dW=w; document.querySelectorAll('.dtool[data-w]').forEach(b=>b.classList.toggle('on',+b.dataset.w===w)); }
-function dUndo(){ if(drawMode&&dShapes.length){ dShapes.pop(); dRender(); } }
-function dClear(){ if(drawMode){ dShapes=[]; dRender(); } }
+function dSetTool(t){ dTool=t; if(t!=='select'){ dSel=null; dRender(); } document.querySelectorAll('.dtool[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t)); }
+function dApplySel(mut){ if(drawMode&&dSel!=null&&dShapes[dSel]){ mut(dShapes[dSel]); dRender(); } }
+function dSetColor(cl,el){ dColor=cl; document.querySelectorAll('.dsw').forEach(b=>b.classList.toggle('on',b===el)); dApplySel(s=>s.color=cl); }
+function dSetW(w){ dW=w; document.querySelectorAll('.dtool[data-w]').forEach(b=>b.classList.toggle('on',+b.dataset.w===w)); dApplySel(s=>s.w=w); }
+function dToggleFill(){ dFill=!dFill; document.getElementById('dFillBtn').classList.toggle('on',dFill); dApplySel(s=>{ if(s.type==='rect'||s.type==='ellipse') s.fill=dFill; }); }
+function dSetAlpha(a){ dAlpha=a; dApplySel(s=>s.alpha=a); }
+function dSyncToolbar(){
+  const s=dShapes[dSel]; if(!s) return;
+  dColor=s.color; dW=s.w; dAlpha=s.alpha!=null?s.alpha:1; dFill=!!s.fill;
+  document.querySelectorAll('.dtool[data-w]').forEach(b=>b.classList.toggle('on',+b.dataset.w===dW));
+  document.getElementById('dFillBtn').classList.toggle('on',dFill);
+  const r=document.getElementById('dAlphaR'); if(r) r.value=Math.round(dAlpha*100);
+  document.querySelectorAll('.dsw').forEach(b=>b.classList.remove('on'));
+}
+function dUndo(){ if(drawMode&&dShapes.length){ dShapes.pop(); if(dSel!=null&&dSel>=dShapes.length) dSel=null; dRender(); } }
+function dClear(){ if(drawMode){ dShapes=[]; dSel=null; dRender(); } }
+function dDelSel(){ if(drawMode&&dSel!=null&&dShapes[dSel]){ dShapes.splice(dSel,1); dSel=null; dRender(); } }
 function startDraw(){
   if(playIdx<0||!ITEMS[playIdx]){ alert('Play or select a clip first, then pause where you want to draw.'); return; }
   if(!isAdmin) return;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
-  const it=ITEMS[playIdx];
-  drawMode=true; dispShapes=null;
-  dShapes=(it.draw&&Array.isArray(it.draw.shapes))?it.draw.shapes.map(x=>JSON.parse(JSON.stringify(x))):[];
-  dT=(it.draw&&it.draw.t!=null)?it.draw.t:((YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():it.start||0);
+  const it=ITEMS[playIdx], draws=getDraws(it);
+  const cur=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():(it.start||0);
+  editIdx=null;
+  for(let i=0;i<draws.length;i++) if(Math.abs(draws[i].t-cur)<1.5){ editIdx=i; break; }
+  const stop=editIdx!=null?draws[editIdx]:null;
+  drawMode=true; dispShapes=null; dSel=null; dDrag=null;
+  dShapes=stop?stop.shapes.map(x=>JSON.parse(JSON.stringify(x))):[];
+  dT=stop?stop.t:cur;
+  const cap=document.getElementById('dCap'); if(cap) cap.value=(stop&&stop.caption)||'';
   const s=document.getElementById('drawSvg'); s.style.display='block'; s.classList.add('author'); s.style.pointerEvents='auto';
   document.getElementById('drawBar').style.display='flex';
   document.getElementById('drawGo').style.display='none';
   dInit(); sizeDrawSvg();
 }
 function exitDraw(){
-  drawMode=false; dCur=null;
+  drawMode=false; dCur=null; dSel=null; dDrag=null;
   const s=document.getElementById('drawSvg'); s.classList.remove('author'); s.style.pointerEvents='none';
   if(!dispShapes) s.style.display='none';
   document.getElementById('drawBar').style.display='none';
@@ -903,13 +1029,21 @@ function exitDraw(){
 function cancelDraw(){ dShapes=null; exitDraw(); }
 function saveDraw(){
   const it=ITEMS[playIdx]; if(!it){ exitDraw(); return; }
-  if(dShapes&&dShapes.length) it.draw={t:dT, shapes:dShapes};
-  else delete it.draw;
+  const caption=((document.getElementById('dCap')||{}).value||'').trim();
+  const draws=getDraws(it).map(x=>JSON.parse(JSON.stringify(x)));
+  const stop={t:dT, shapes:dShapes};
+  if(caption) stop.caption=caption;
+  if(editIdx!=null){ if(dShapes.length) draws[editIdx]=stop; else draws.splice(editIdx,1); }
+  else if(dShapes.length) draws.push(stop);
+  draws.sort((a,b)=>a.t-b.t);
+  if(draws.length) it.draws=draws; else delete it.draws;
+  delete it.draw;
   markDirty(); exitDraw(); renderClips();
-  const st=document.getElementById('plStatus'); if(st){ st.textContent=it.draw?'Drawing saved — remember 💾 Save':'Drawing removed — remember 💾 Save'; st.style.color='var(--orange)'; }
+  const st=document.getElementById('plStatus'); if(st){ st.textContent=draws.length?'Drawing saved — remember 💾 Save':'Drawing removed — remember 💾 Save'; st.style.color='var(--orange)'; }
 }
 function showSavedDrawing(d){
   dispShapes=d.shapes||[];
+  const t=document.getElementById('dgT'); if(t) t.textContent=d.caption||"✏ Coach's drawing";
   const s=document.getElementById('drawSvg'); s.style.display='block'; s.style.pointerEvents='none';
   document.getElementById('drawGo').style.display='flex';
   sizeDrawSvg();
