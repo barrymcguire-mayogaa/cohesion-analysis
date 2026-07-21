@@ -176,6 +176,14 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cmchip i:hover{opacity:1;}
 .cmjump{color:var(--accent);cursor:pointer;font-size:10.5px;margin-left:6px;}
 .cmjump:hover{text-decoration:underline;}
+.trimbar{display:none;flex-direction:column;gap:7px;background:#101018;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:6px;}
+.trimbar .trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.trimbar .tlab{font:700 12.5px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:#ffd700;}
+.trimbar .track{position:relative;height:36px;margin:6px 8px 0;border-radius:8px;cursor:ew-resize;touch-action:none;border:1px solid var(--border);background:repeating-linear-gradient(90deg,#1c1c27 0 26px,#242430 26px 52px);}
+.trimbar .tsel{position:absolute;top:0;bottom:0;background:rgba(255,215,0,.13);border-top:2px solid #ffd700;border-bottom:2px solid #ffd700;pointer-events:none;}
+.trimbar .thandle{position:absolute;top:-4px;bottom:-4px;width:14px;background:#ffd700;border-radius:5px;pointer-events:none;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.45);}
+.trimbar .thandle span{width:2px;height:14px;background:rgba(0,0,0,.55);border-radius:1px;}
+.trimbar .tends{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);padding:0 8px;}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
 </style>
 </head>
@@ -280,6 +288,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" onclick="nextClip()">Next ⏭</button>
             <button class="vbtn" id="loopBtn" onclick="toggleLoop()">⟳ Loop</button>
             <button class="vbtn" id="drawBtn" style="display:none;" onclick="startDraw()" title="Pause and draw on this clip — lines, arrows, shapes; shown to everyone at this moment on playback">✏ Draw</button>
+            <button class="vbtn" id="trimBtn" style="display:none;" onclick="startTrim()" title="Change this clip's length — drag the yellow handles like a video trimmer; ⊖ widens the window 30s each side">✂ Trim</button>
             <button class="vbtn" onclick="togglePresent()" title="Fullscreen presentation — clip name and note overlaid; ←/→ = 5s back/forward, ↑/↓ = previous/next clip, Esc exits">⛶ Present</button>
             <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
             <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
@@ -287,6 +296,22 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <div class="szbtn" onclick="plSetH(440)">M</div>
             <div class="szbtn" onclick="plSetH(580)">L</div>
             <div class="szbtn" onclick="plSetH(720)">Xl</div>
+          </div>
+          <div class="trimbar" id="trimBar">
+            <div class="trow">
+              <button class="dbtn" onclick="trimZoom(30)" title="Zoom out — see 30s more on each side">⊖ 30s</button>
+              <button class="dbtn" onclick="trimZoom(-30)" title="Zoom back in">⊕</button>
+              <span class="tlab" id="trimLab"></span>
+              <span style="flex:1;"></span>
+              <button class="dbtn go" onclick="applyTrim()">✓ Done</button>
+              <button class="dbtn" onclick="cancelTrim()">Cancel</button>
+            </div>
+            <div class="track" id="trimTrack">
+              <div class="tsel" id="trimSel"></div>
+              <div class="thandle" id="trimHL"><span></span></div>
+              <div class="thandle" id="trimHR"><span></span></div>
+            </div>
+            <div class="tends"><span id="trimW0"></span><span id="trimW1"></span></div>
           </div>
         </div>
         <div class="pldh" id="pldh" title="Drag up or down to resize the video"></div>
@@ -401,6 +426,7 @@ function openPlaylist(id, startClip){
   document.getElementById('player').style.display='';
   plInitVH();
   const db=document.getElementById('drawBtn'); if(db) db.style.display=isAdmin?'':'none';
+  const tb=document.getElementById('trimBtn'); if(tb) tb.style.display=isAdmin?'':'none';
   document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
   const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
   cmIdx=null; const cw=document.getElementById('cmWrap'); if(cw) cw.style.display='none';
@@ -608,6 +634,7 @@ function ensurePlayer(cb){
 function playClip(i){
   if(!ITEMS[i]) return;
   if(drawMode) cancelDraw();
+  if(trimMode) endTrim();
   hideSavedDrawing();
   shownDraws=new Set();
   hideCmStop();
@@ -643,6 +670,17 @@ document.addEventListener('keydown',e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
   if(!CUR) return;
+  if(trimMode){
+    if(e.key==='Escape'){ e.preventDefault(); cancelTrim(); }
+    else if(e.key==='Enter'){ e.preventDefault(); applyTrim(); }
+    else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();
+      const d=(e.key==='ArrowLeft'?-1:1)*(e.shiftKey?0.1:0.5);   // Shift = frame-fine nudge
+      trimAct=trimAct||'e';
+      trimDragTo((trimAct==='s'?trimS:trimE)+d);
+    }
+    return;
+  }
   if(drawMode){
     if(e.key==='Escape'){ e.preventDefault(); if(dCur&&dCur.type==='poly'){ dCur=null; dCursor=null; dRender(); } else cancelDraw(); }
     else if(e.key==='Enter'){ e.preventDefault(); dFinishPoly(); }
@@ -716,6 +754,7 @@ setInterval(()=>{
       if(st===1) for(let di=0;di<draws.length;di++){
         const d=draws[di], want=d.videoId||it.videoId;   // locked to the authored camera
         if(curVideoId&&want&&curVideoId!==want) continue;
+        if(d.t<(it.start||0)-1) continue;                // trimmed out of the clip
         if(!shownDraws.has(di) && tt>=d.t-0.3 && tt<=Math.ceil(it.end)+0.4){
           shownDraws.add(di);
           YTP.pauseVideo&&YTP.pauseVideo();
@@ -731,6 +770,7 @@ setInterval(()=>{
     const cst=YTP.getPlayerState?YTP.getPlayerState():-1, ct=YTP.getCurrentTime()||0;
     if(cst===1) for(const cm of cms){
       if(cm.t==null||shownCms.has(cm.id)) continue;
+      if(cm.t<(it.start||0)-1) continue;                   // trimmed out of the clip
       if(cm.vid&&curVideoId&&cm.vid!==curVideoId) continue;   // pinned on another camera
       if(ct>=cm.t-0.3 && ct<=Math.ceil(it.end)+0.4){
         const group=cms.filter(x=>x.t!=null&&!shownCms.has(x.id)&&Math.abs(x.t-cm.t)<=0.75&&(!x.vid||!curVideoId||x.vid===curVideoId));
@@ -752,6 +792,95 @@ setInterval(()=>{
 function nextClip(){ if(playIdx+1<ITEMS.length) playClip(playIdx+1); else if(loop&&ITEMS.length) playClip(0); }
 function prevClip(){ if(playIdx>0) playClip(playIdx-1); else if(loop&&ITEMS.length) playClip(ITEMS.length-1); }
 function toggleLoop(){ loop=!loop; document.getElementById('loopBtn').classList.toggle('on',loop); }
+
+// ── Clip trimmer (admin): Hudl/Apple-style drag handles on a filmstrip
+// track. The window opens at ±30s around the clip and ⊖ widens it another
+// 30s each side (repeatable) when more room is needed. Dragging a handle
+// scrubs the video to that frame; Done marks the playlist dirty (💾 Save).
+// Times belong to the clip's CAPTURED camera, so opening the trimmer snaps
+// back to it, and driveT shifts with the start to keep angle-switch maths.
+let trimMode=false, trimW0=0, trimW1=0, trimS=0, trimE=0, trimAct=null, trimSeekAt=0;
+const TRIM_MIN=1;
+function startTrim(){
+  if(!isAdmin||playIdx<0||!ITEMS[playIdx]) return;
+  if(drawMode) cancelDraw();
+  hideSavedDrawing(); hideCmStop();
+  trimInit();
+  const it=ITEMS[playIdx];
+  if(curVideoId && it.videoId && curVideoId!==it.videoId){   // viewing another camera — snap back
+    plAngleIdx=null; curVideoId=it.videoId;
+    if(YTP&&YTP.loadVideoById) YTP.loadVideoById({videoId:it.videoId, startSeconds:Math.max(0,Math.floor(it.start||0)), endSeconds:Math.max(1,Math.ceil(it.end||1))});
+    renderAngleBtns();
+  }
+  trimMode=true; trimAct=null;
+  trimS=it.start||0; trimE=(it.end!=null)?it.end:trimS+8;
+  trimW0=Math.max(0,trimS-30); trimW1=trimE+30;
+  if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  if(YTP&&YTP.seekTo) YTP.seekTo(trimS,true);
+  document.getElementById('trimBar').style.display='flex';
+  const b=document.getElementById('trimBtn'); if(b) b.classList.add('on');
+  trimRender();
+}
+function trimZoom(d){
+  if(!trimMode) return;
+  if(d>0){ trimW0=Math.max(0,trimW0-d); trimW1+=d; }
+  else { trimW0=Math.min(Math.max(0,trimS-30), trimW0-d); trimW1=Math.max(trimE+30, trimW1+d); }
+  trimRender();
+}
+function trimRender(){
+  const sel=document.getElementById('trimSel'); if(!sel) return;
+  const W=(trimW1-trimW0)||1;
+  const l=(trimS-trimW0)/W*100, r=(trimE-trimW0)/W*100;
+  sel.style.left=l+'%'; sel.style.width=Math.max(0,r-l)+'%';
+  document.getElementById('trimHL').style.left='calc('+l+'% - 7px)';
+  document.getElementById('trimHR').style.left='calc('+r+'% - 7px)';
+  document.getElementById('trimW0').textContent=cmFmt(trimW0);
+  document.getElementById('trimW1').textContent=cmFmt(trimW1);
+  const it=ITEMS[playIdx]||{};
+  const d0=trimS-(it.start||0), d1=trimE-((it.end!=null)?it.end:0);
+  const sgn=v=>(v>0?'+':'−')+Math.abs(v).toFixed(1).replace(/\.0$/,'')+'s';
+  document.getElementById('trimLab').textContent=cmFmt(trimS)+' → '+cmFmt(trimE)+' · '+Math.round(trimE-trimS)+'s'
+    +((Math.abs(d0)>=0.05||Math.abs(d1)>=0.05)?'  (start '+sgn(d0)+' · end '+sgn(d1)+')':'');
+}
+function trimInit(){
+  const tr=document.getElementById('trimTrack'); if(!tr||tr._init) return; tr._init=true;
+  const toT=x=>{ const r=tr.getBoundingClientRect(); return trimW0+Math.max(0,Math.min(1,(x-r.left)/(r.width||1)))*(trimW1-trimW0); };
+  tr.addEventListener('pointerdown',e=>{
+    if(!trimMode) return;
+    const t=toT(e.clientX);
+    trimAct=(Math.abs(t-trimS)<=Math.abs(t-trimE))?'s':'e';   // grab the nearer handle
+    try{ tr.setPointerCapture(e.pointerId); }catch(_){}
+    trimDragTo(t); e.preventDefault();
+  });
+  tr.addEventListener('pointermove',e=>{ if(trimMode&&trimAct) trimDragTo(toT(e.clientX)); });
+  const up=()=>{ if(trimMode&&trimAct&&YTP&&YTP.seekTo) YTP.seekTo(trimAct==='s'?trimS:trimE,true); trimAct=null; };
+  tr.addEventListener('pointerup',up); tr.addEventListener('pointercancel',up);
+}
+function trimDragTo(t){
+  t=Math.round(t*10)/10;
+  if(trimAct==='s') trimS=Math.max(trimW0,Math.min(t,trimE-TRIM_MIN));
+  else trimE=Math.min(trimW1,Math.max(t,trimS+TRIM_MIN));
+  trimRender();
+  const now=Date.now();   // live scrub: show the frame under the handle
+  if(YTP&&YTP.seekTo&&now-trimSeekAt>120){ trimSeekAt=now; YTP.seekTo(trimAct==='s'?trimS:trimE,true); }
+}
+function applyTrim(){
+  const it=ITEMS[playIdx]; if(!it){ endTrim(); return; }
+  const ns=Math.round(trimS*10)/10, ne=Math.round(trimE*10)/10;
+  if(Math.abs(ns-(it.start||0))>=0.05||Math.abs(ne-((it.end!=null)?it.end:0))>=0.05){
+    if(it.driveT!=null) it.driveT=Math.max(0,(it.driveT||0)+(ns-(it.start||0)));   // keep angle re-derivation aligned
+    it.start=ns; it.end=ne;
+    markDirty(); renderClips();
+  }
+  endTrim();
+  playClip(playIdx);   // replay with the new bounds so the change is heard immediately
+}
+function cancelTrim(){ endTrim(); }
+function endTrim(){
+  trimMode=false; trimAct=null;
+  const b=document.getElementById('trimBar'); if(b) b.style.display='none';
+  const t=document.getElementById('trimBtn'); if(t) t.classList.remove('on');
+}
 
 // ── Per-clip angle switching ──────────────────────────────────
 // A clip stores its main-reference moment (driveT) and game id, so when its
@@ -1138,6 +1267,7 @@ function dUndo(){ if(drawMode&&dShapes.length){ dShapes.pop(); if(dSel!=null&&dS
 function dClear(){ if(drawMode){ dShapes=[]; dSel=null; dRender(); } }
 function dDelSel(){ if(drawMode&&dSel!=null&&dShapes[dSel]){ dShapes.splice(dSel,1); dSel=null; dRender(); } }
 function startDraw(){
+  if(trimMode) endTrim();
   if(playIdx<0||!ITEMS[playIdx]){ alert('Play or select a clip first, then pause where you want to draw.'); return; }
   if(!isAdmin) return;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
