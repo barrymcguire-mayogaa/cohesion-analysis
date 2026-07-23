@@ -1424,6 +1424,51 @@ function crClipOf(e){
   if(idx>0) clip.angle=ang.label||('Cam '+(idx+1));
   return clip;
 }
+// Searchable playlist picker — EVERY playlist listed (the old button modal
+// capped at 7), with a filter box for a growing library. Type to filter by
+// name; Enter picks the top match, Esc cancels. Resolves 'pl-<id>'|'new'|'cancel'.
+function crPlaylistPicker(lists, nClips){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10000;';
+    const card=document.createElement('div');
+    card.style.cssText="background:var(--panel,#1e1e28);color:var(--t1,#eee);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:460px;width:calc(100% - 40px);box-shadow:0 24px 64px rgba(0,0,0,.55);font-family:Barlow,sans-serif;display:flex;flex-direction:column;max-height:min(560px,86vh);";
+    card.innerHTML='<div style="font:800 18px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;margin-bottom:8px;">Add '+nClips+' clip'+(nClips>1?'s':'')+' to…</div>'
+      +'<div style="font-size:13px;color:var(--t2,#999);line-height:1.6;margin-bottom:12px;">Clips keep the event name — rename or reorder them any time on the Playlists page.</div>'
+      +'<input id="ppSearch" placeholder="Search playlists…" autocomplete="off" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#333);background:var(--card,#252530);color:var(--t1,#eee);font:600 13px Barlow,sans-serif;outline:none;margin-bottom:10px;">'
+      +'<div id="ppList" style="flex:1;overflow-y:auto;min-height:60px;margin-bottom:14px;border:1px solid var(--border,#333);border-radius:10px;"></div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">'
+      +'<button id="ppNew" style="padding:8px 16px;border-radius:8px;font:700 12px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent,#4fc3f7);background:var(--accent,#4fc3f7);color:#fff;">＋ New playlist…</button>'
+      +'<button id="ppCancel" style="padding:8px 16px;border-radius:8px;font:700 12px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border,#333);background:var(--card,#252530);color:var(--t1,#eee);">Cancel</button></div>';
+    ov.appendChild(card); document.body.appendChild(ov);
+    const done=v=>{ if(ov.parentNode) document.body.removeChild(ov); resolve(v); };
+    const list=card.querySelector('#ppList'), inp=card.querySelector('#ppSearch');
+    let vis=[];
+    const draw=()=>{
+      const q=(inp.value||'').trim().toLowerCase();
+      vis=lists.filter(p=>!q||String(p.name||'').toLowerCase().includes(q));
+      list.innerHTML=vis.length?vis.map((p,i)=>{
+        const n=(((p.data||{}).items)||[]).length;
+        return '<div class="pprow" data-i="'+i+'" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border,#333);">'
+          +'<span style="flex:1;font:700 13px Barlow,sans-serif;">'+esc(p.name||'')+'</span>'
+          +'<span style="font-size:11px;color:var(--t2,#999);white-space:nowrap;">'+n+' clip'+(n===1?'':'s')+'</span>'
+          +'<span style="font:700 9.5px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;padding:2px 7px;border-radius:6px;border:1px solid var(--border,#333);color:var(--t2,#999);">'+(p.scope==='personal'?'PERSONAL':'CLUB')+'</span></div>';
+      }).join('')
+      :'<div style="padding:14px 12px;font-size:12.5px;color:var(--t2,#999);">'+(lists.length?'No playlist matches “'+esc(inp.value.trim())+'”.':'No playlists yet — create the first below.')+'</div>';
+      list.querySelectorAll('.pprow').forEach(r=>{
+        r.onmouseenter=()=>r.style.background='var(--card,#252530)';
+        r.onmouseleave=()=>r.style.background='';
+        r.onclick=()=>done('pl-'+vis[+r.dataset.i].id);
+      });
+    };
+    inp.oninput=draw;
+    inp.onkeydown=e=>{ if(e.key==='Enter'&&vis.length) done('pl-'+vis[0].id); else if(e.key==='Escape') done('cancel'); };
+    card.querySelector('#ppNew').onclick=()=>done('new');
+    card.querySelector('#ppCancel').onclick=()=>done('cancel');
+    ov.onclick=e=>{ if(e.target===ov) done('cancel'); };
+    draw(); setTimeout(()=>inp.focus(),0);
+  });
+}
 async function crAddToPlaylist(ids){
   if(GAME&&GAME._local){ alert('Local sessions have no shareable video link yet — upload the game first, then build playlists from it.'); return; }
   if(!GAME.youtubeId){ alert('This game has no video link.'); return; }
@@ -1432,10 +1477,7 @@ async function crAddToPlaylist(ids){
   let lists=[];
   try{ const j=await crAuthFetch('playlists',{action:'list'}); lists=j.playlists||[]; }
   catch(e){ alert('Could not load playlists: '+e.message); return; }
-  const btns=lists.slice(0,7).map(p=>({label:p.name+' ('+(((p.data||{}).items)||[]).length+')', value:'pl-'+p.id}));
-  btns.push({label:'＋ New playlist…', value:'new', primary:true});
-  btns.push({label:'Cancel', value:'cancel'});
-  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Clips keep the event name — rename or reorder them any time on the Playlists page.', buttons:btns});
+  const c=await crPlaylistPicker(lists, evs.length);
   if(c==='cancel'||c==null) return;
   let target=null, name='', scope='club';
   if(c==='new'){
