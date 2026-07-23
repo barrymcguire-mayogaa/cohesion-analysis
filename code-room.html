@@ -884,7 +884,7 @@ function crSyncCoordGroups(kind){
     return;
   }
   const e=EVENTS.find(x=>String(x._rowId)===String(activeId))||{};
-  const suf=((e.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
+  const suf=(!(e.team||'')||(e.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
   const base=kind==='ko'?'KOs':'Shot';
   draft.groups.push({g:'X-'+base+suf,v:xs},{g:'Y-'+base+suf,v:ys});
 }
@@ -1212,7 +1212,7 @@ function crDrawTL(){
     const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId)||e===dragging;
-    const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||((e.team||'').toUpperCase()===H?hC:aC);
+    const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||(!(e.team||'')?'#9ca3af':(((e.team||'').toUpperCase()===H)?hC:aC));
     // Selected keeps its team colour (so you can still tell teams apart) but
     // gets an accent glow + outline instead of turning white.
     ctx.globalAlpha=sel?1:0.85;
@@ -1639,7 +1639,7 @@ window.addEventListener('scroll', acHide, true);
 
 // ── Per-event colour (native picker + hex, as elsewhere in COHESION) ──
 // An event can override its timeline colour; blank = team default.
-function crTeamColor(e){ const H=(GAME.homeTeam||'').toUpperCase(); return ((e&&e.team||'').toUpperCase()===H)?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
+function crTeamColor(e){ if(!(e&&e.team)) return '#9ca3af'; const H=(GAME.homeTeam||'').toUpperCase(); return ((e.team||'').toUpperCase()===H)?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
 function setDraftColor(v){ if(!draft)return; draft.color=v||''; refreshSave(); if(crView==='tl') crDrawTL(); }
 function setDraftColorHex(v){ v=(v||'').trim(); if(!v){ setDraftColor(''); return; } if(/^#?[0-9a-fA-F]{6}$/.test(v)){ if(v[0]!=='#') v='#'+v; setDraftColor(v); const ci=document.getElementById('evColor'); if(ci) ci.value=v; } }
 function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); const def=crTeamColor(e); const ci=document.getElementById('evColor'); if(ci) ci.value=def; const hx=document.getElementById('evColorHex'); if(hx) hx.value=''; }
@@ -1796,6 +1796,13 @@ let codeDurPref={};
 try{ const s=JSON.parse(localStorage.getItem('cr_codeDur')||'null'); if(s&&typeof s==='object') codeDurPref=s; }catch(_){}
 function saveCodeDur(){ try{ localStorage.setItem('cr_codeDur', JSON.stringify(codeDurPref)); }catch(_){} }
 function setCodeDur(code,on){ if(on) codeDurPref[code]=true; else delete codeDurPref[code]; saveCodeDur(); buildCodePanel(); }
+// Team-neutral codes are tagged with NO team, whichever team is lit (e.g.
+// THROW-IN — neutral out of the box). Explicit true/false overrides the default.
+let codeNeutralPref={};
+try{ const s=JSON.parse(localStorage.getItem('cr_codeNeutral')||'null'); if(s&&typeof s==='object') codeNeutralPref=s; }catch(_){}
+function saveCodeNeutral(){ try{ localStorage.setItem('cr_codeNeutral', JSON.stringify(codeNeutralPref)); }catch(_){} }
+function isNeutralCode(b){ return (b in codeNeutralPref) ? !!codeNeutralPref[b] : /THROW.?IN/i.test(b||''); }
+function setCodeNeutral(code,on){ codeNeutralPref[code]=!!on; saveCodeNeutral(); buildCodePanel(); }
 // Live recordings: base code -> {start} (several can run at once).
 let crRec={};
 let codeEvtList=[];
@@ -1831,7 +1838,7 @@ function fillTplSelect(){
 }
 // Capture the current Code Mode setup as a template payload.
 function crTplCapture(){
-  return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref}, dur:{...codeDurPref},
+  return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref}, dur:{...codeDurPref}, neutral:{...codeNeutralPref},
            rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
 }
 async function saveTemplate(){
@@ -1856,6 +1863,7 @@ function applyTemplate(){
   if(Array.isArray(d.keys)){ codeKeyPref=d.keys.slice(); saveCodeKeys(); }
   if(d.colors&&typeof d.colors==='object'){ codeColorPref={...d.colors}; saveCodeColors(); }
   if(d.dur&&typeof d.dur==='object'){ codeDurPref={...d.dur}; saveCodeDur(); }
+  if(d.neutral&&typeof d.neutral==='object'){ codeNeutralPref={...d.neutral}; saveCodeNeutral(); }
   if(d.rows){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
   if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
   if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
@@ -1901,7 +1909,7 @@ function buildCodePanel(){
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
   fillTplSelect();
-  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('')
+  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('')
     +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`;
   buildCodePlayers();
   buildCodeLabels();
@@ -1930,10 +1938,10 @@ function buildCodeKeysEditor(){
     const cur=all[i];
     const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const col=codeColorPref[cur]||'';
-    rows+=`<div class="keyrow"><span class="keynum"${i>=9?' style="background:var(--card);color:var(--t3);"':''}>${i<9?i+1:'—'}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${codeDurPref[cur]?' on':''}" title="${codeDurPref[cur]?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${codeDurPref[cur]?'false':'true'})">⏱</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
+    rows+=`<div class="keyrow"><span class="keynum"${i>=9?' style="background:var(--card);color:var(--t3);"':''}>${i<9?i+1:'—'}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${codeDurPref[cur]?' on':''}" title="${codeDurPref[cur]?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${codeDurPref[cur]?'false':'true'})">⏱</button><button class="cbtn mini${isNeutralCode(cur)?' on':''}" title="${isNeutralCode(cur)?'TEAM-NEUTRAL: tagged with no team, whichever team is selected (e.g. THROW-IN) — click to tie it to the selected team':'Tagged with the selected team — click to make it team-neutral (saved with no team)'}" onclick="setCodeNeutral('${_cq(cur)}',${isNeutralCode(cur)?'false':'true'})">Ⓝ</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
   }
   box.style.display='';
-  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. ⏱ makes a code a DURATION event (press starts, press again stops); the colour is applied to events tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
+  box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. ⏱ makes a code a DURATION event (press starts, press again stops); Ⓝ makes it TEAM-NEUTRAL (tagged with no team, whichever team is lit — THROW-IN starts that way); the colour is applied to events tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
 }
 function setCodeKey(slot, code){
   if(!code) return;
@@ -2012,7 +2020,7 @@ function codeTag(baseCode){
   if(codeMode.pendingLink) codeSkipLink(true);
   // Duration codes: first press starts recording, next press stops it.
   if(codeDurPref[baseCode]){ crDurToggle(baseCode); return; }
-  const teamName=codeTeamName();
+  const teamName=isNeutralCode(baseCode)?'':codeTeamName();   // neutral: no team, either side
   const code=(teamName?teamName+' ':'')+baseCode;
   const now=Math.max(0,Math.round(vNow()));
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
@@ -2031,6 +2039,7 @@ function codeTag(baseCode){
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
+  else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
@@ -2056,7 +2065,7 @@ function crDurToggle(baseCode){
   } else {
     const rec=crRec[baseCode]; delete crRec[baseCode];
     const start=rec.start, end=Math.max(start+1, Math.round(vNow()));
-    const teamName=codeTeamName();
+    const teamName=isNeutralCode(baseCode)?'':codeTeamName();   // neutral: no team, either side
     const code=(teamName?teamName+' ':'')+baseCode;
     const labels={};
     const applies=new Set((window.cohesionGroupsFor?cohesionGroupsFor(code):[]).map(g=>g.name));
@@ -2067,6 +2076,7 @@ function crDurToggle(baseCode){
                 player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
                 driveT:start, labels, _manual:true, _rowId:tmpId, _new:true };
     if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
+    else if(!teamName) row.color='#9ca3af';                        // team-neutral: grey, not a team colour
     EVENTS.push(row);
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
