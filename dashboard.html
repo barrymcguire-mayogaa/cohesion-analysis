@@ -1010,11 +1010,8 @@ async function dashAddToPlaylist(){
   let lists=[];
   try{ const j=await dashAuthFetchPL({action:'list'}); lists=j.playlists||[]; }
   catch(e){ alert('Could not load playlists: '+e.message); return; }
-  const btns=lists.slice(0,7).map(p=>({label:p.name+' ('+(((p.data||{}).items)||[]).length+')', value:'pl-'+p.id}));
-  btns.push({label:'＋ New playlist…', value:'new', primary:true});
-  btns.push({label:'Cancel', value:'cancel'});
   const angNote=(GAME.angles&&currentAngleIdx>0&&GAME.angles[currentAngleIdx])?' Clips use the camera you are watching now ('+((GAME.angles[currentAngleIdx].label)||('Cam '+(currentAngleIdx+1)))+').':'';
-  const c=await cohesionModal({title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip.'+angNote+' Rename or reorder them any time on the Playlists page.', buttons:btns});
+  const c=await cohesionPlaylistPicker(lists, {title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip.'+angNote+' Rename or reorder them any time on the Playlists page.'});
   if(c==='cancel'||c==null) return;
   let target=null, name='', scope='club';
   if(c==='new'){
