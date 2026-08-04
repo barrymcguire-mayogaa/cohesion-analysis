@@ -372,6 +372,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
           <div id="codeRecs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           <div id="codeLink" class="codelink" style="display:none;"></div>
+          <div id="codePitch" class="codelink" style="display:none;"></div>
           <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
       </div>
@@ -2161,6 +2162,7 @@ function codeTag(baseCode){
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
   refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  codePitchArm(tmpId, code);
   const f=document.getElementById('codeFlash');
   if(f){
     const det=Object.entries(labels).filter(([k])=>!/player labels$/i.test(k)).map(([,v])=>v);
@@ -2199,6 +2201,7 @@ function crDurToggle(baseCode){
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
     refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+    codePitchArm(tmpId, code);
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+code+' · '+fmt(start)+'–'+fmt(end)+' ('+(end-start)+'s)';
     const link=crAutoLinkFor(code);                 // outcome prompt ON STOP
@@ -2233,6 +2236,100 @@ function crAutoLinkFor(code){
 }
 
 // ── Event links (tag → qualify outcome) ───────────────────────
+// ── Pitch X/Y capture at tag time (Nacsport-style) ───────────
+// After tagging a shot or kickout, a mini-pitch appears under the outcome
+// prompt. ONE CLICK stores the location on the tagged event — x/y plus the
+// same zone labels and X-/Y- pairs Edit mode's maps write, so the dashboard
+// maps light up with no extra pass. Click again to adjust; ✕ or the next
+// tag dismisses it. Entirely optional — it never blocks the coding flow.
+let codePitch=null;   // {rowId, kind:'shot'|'ko'}
+const CR_PITCH_SHOT=`      <!-- Match Tracker attacking half, drawn to the reference chart's measured
+           proportions: 13m 19.7%, 20m 29.9%, D to 52.1%, 40m arc apex 64.8%,
+           45m 70.0%, 65m 90.4%, halfway = bottom edge. Do not restyle. -->
+      <rect x="1.2" y="1.20" width="97.6" height="7.15" fill="#35862a"/><rect x="1.2" y="8.35" width="97.6" height="7.15" fill="#2e7a24"/><rect x="1.2" y="15.50" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="22.90" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="30.17" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="37.45" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="44.73" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.40" fill="#2e7a24"/><rect x="1.2" y="59.40" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="3.50" fill="#2e7a24"/><rect x="1.2" y="70.30" width="97.6" height="3.50" fill="#35862a"/>
+      <rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <line x1="37.6" y1="1.2" x2="37.6" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="62.2" y1="1.2" x2="62.2" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <rect x="42.4" y="1.2" width="14.8" height="4.5" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <circle cx="49.8" cy="12.7" r=".7" fill="rgba(255,255,255,.92)"/>
+      <line x1="1.2" y1="15.5" x2="98.8" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <path d="M 34.3 22.9 A 15.7 16.1 0 0 0 65.7 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
+      <path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="1.2" y1="66.8" x2="98.8" y2="66.8" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>`;
+const CR_PITCH_KO=`      <rect x="1.2" y="1.20" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="8.25" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="15.30" width="97.6" height="7.05" fill="#35862a"/><rect x="1.2" y="22.35" width="97.6" height="7.05" fill="#2e7a24"/><rect x="1.2" y="29.40" width="97.6" height="7.53" fill="#35862a"/><rect x="1.2" y="36.93" width="97.6" height="7.53" fill="#2e7a24"/><rect x="1.2" y="44.47" width="97.6" height="7.53" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.20" fill="#2e7a24"/><rect x="1.2" y="59.20" width="97.6" height="7.60" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="7.00" fill="#2e7a24"/><rect x="1.2" y="73.80" width="97.6" height="7.00" fill="#35862a"/><rect x="1.2" y="80.80" width="97.6" height="7.00" fill="#2e7a24"/><rect x="1.2" y="1.2" width="97.6" height="86.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <path d="M 34.3 1.2 A 16.1 16.1 0 0 0 66.4 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
+      <path d="M 10 1.2 A 45.2 45.2 0 0 0 90 1.2" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
+      <line x1="1.2" y1="29.4" x2="98.8" y2="29.4" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
+      <line x1="1.2" y1="59.2" x2="98.8" y2="59.2" stroke="rgba(255,255,255,.92)" stroke-width="1" stroke-dasharray="3.2,2.4"/>
+      <line x1="1.2" y1="66.8" x2="98.8" y2="66.8" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>`;
+function codePitchKind(code){
+  const cc=(code||'').toUpperCase();
+  if(/SOURCE/.test(cc)) return null;              // SHOT/SCORE SOURCE are qualifiers, not shots
+  if(/\bKO\b|KICKOUT/.test(cc)) return 'ko';
+  if(/SHOT/.test(cc)) return 'shot';
+  return null;
+}
+function codePitchArm(rowId, code){
+  const kind=codePitchKind(code);
+  codePitch=kind?{rowId, kind}:null;
+  renderCodePitch();
+}
+function codePitchClear(){ codePitch=null; renderCodePitch(); }
+function renderCodePitch(){
+  const box=document.getElementById('codePitch'); if(!box) return;
+  if(!codePitch){ box.style.display='none'; box.innerHTML=''; return; }
+  const ko=codePitch.kind==='ko';
+  box.style.display='';
+  box.innerHTML='<div class="cl-h">'+(ko?'📍 Kickout landing':'📍 Shot location')
+    +' <span style="color:var(--t3);font-weight:400;text-transform:none;">— one click on the pitch · optional</span>'
+    +'<span style="float:right;cursor:pointer;color:var(--t3);" onclick="codePitchClear()" title="Dismiss — tag stays, just without a location">✕</span></div>'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;">'
+    +'<svg id="cpSvg" viewBox="0 0 100 '+(ko?89:75)+'" style="width:230px;max-width:100%;background:#256e17;border-radius:8px;cursor:crosshair;display:block;flex:none;" onclick="codePitchClick(event)">'
+    +(ko?CR_PITCH_KO:CR_PITCH_SHOT)
+    +'<g id="cpMark" style="display:none;"><circle id="cpDot" r="1.8" fill="#ffffff" stroke="#000" stroke-width=".4"/></g></svg>'
+    +'<div id="cpInfo" style="font-size:11px;color:var(--t2);line-height:1.55;">'+(ko?'Click where it landed — the kicking goal is above the top edge.':'Click where it was struck from — goal at the top.')+'</div></div>';
+}
+function codePitchClick(ev){
+  if(!codePitch) return;
+  const svg=document.getElementById('cpSvg'); if(!svg) return;
+  const r=svg.getBoundingClientRect();
+  const px=Math.max(0,Math.min(100,((ev.clientX-r.left)/r.width)*100));
+  const py=Math.max(0,Math.min(100,((ev.clientY-r.top)/r.height)*100));
+  const row=EVENTS.find(e=>e._rowId===codePitch.rowId);
+  if(!row){ codePitchClear(); return; }                        // tag was undone
+  const desc=crApplyLocToRow(row, codePitch.kind, px, py);
+  const dot=document.getElementById('cpDot');
+  if(dot){ dot.setAttribute('cx',px); dot.setAttribute('cy',py*(codePitch.kind==='ko'?0.89:0.75)); document.getElementById('cpMark').style.display=''; }
+  const info=document.getElementById('cpInfo');
+  if(info) info.innerHTML='<b style="color:var(--green);">✓ '+esc(desc)+'</b><br>Click again to adjust.';
+  crBackup(); crUpdatePending(); renderList();
+  const f=document.getElementById('codeFlash');
+  if(f&&f.textContent) f.textContent=f.textContent.replace(/ · 📍.*$/,'')+' · 📍 '+desc;
+}
+// Write a location onto an EVENT row exactly as Edit mode's maps do: x/y,
+// zone label(s), and the X-/Y- coord pair (updated in place if the event
+// already has one; created with Match Tracker naming + _away/neutral rules).
+function crApplyLocToRow(row, kind, px, py){
+  row.x=Math.round(px*10)/10; row.y=Math.round(py*10)/10;
+  row.labels=row.labels||{};
+  let desc;
+  if(kind==='ko'){ const z=crKoZoneOf(px,py); row.labels['Kickout Zones']=z.zone; row.labels['Kickout Locations']=z.loc; desc=z.zone+' · '+z.loc; }
+  else { const z=crZoneOf(px,py); row.labels['Shot Zones']=z; desc=z; }
+  const keys=Object.keys(row.labels);
+  const xk=keys.find(k=>/^x[-_ ]/i.test(k)), yk=keys.find(k=>/^y[-_ ]/i.test(k));
+  const xs=String(Math.round(row.x)), ys=String(Math.round(row.y));
+  if(xk&&yk){ row.labels[xk]=xs; row.labels[yk]=ys; }
+  else {
+    const suf=(!(row.team||'')||(row.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
+    const base=kind==='ko'?'KOs':'Shot';
+    row.labels['X-'+base+suf]=xs; row.labels['Y-'+base+suf]=ys;
+  }
+  if(!row._new) row._dirty=true;
+  return desc;
+}
 function renderCodeLink(){
   const box=document.getElementById('codeLink');
   if(!box) return;
