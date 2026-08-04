@@ -291,6 +291,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <span id="mxChip"></span>
+            <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
               <div class="tlsep"></div>
@@ -664,13 +665,18 @@ function renderList(){
     if(per&&e.half!==per) return false;
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
+    if(crFlagOnly&&!crIsFlagged(e)) return false;
     return true;
   });
+  const fb=document.getElementById('flagBtn');
+  if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
+    fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
+    fb.style.color=crFlagOnly?'#f59e0b':''; fb.style.borderColor=crFlagOnly?'#f59e0b':''; }
   wrap.innerHTML=rows.map(e=>{
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${e._rowId}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${e.code||'—'}${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${e.code||'—'}${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
     </div>`;
   }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
   if(crView==='tl') crDrawTL();
@@ -692,6 +698,7 @@ function crFiltered(){
     if(per&&e.half!==per) return false;
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
+    if(crFlagOnly&&!crIsFlagged(e)) return false;
     return true;
   });
 }
@@ -700,6 +707,26 @@ function crFiltered(){
 // a number to drill: the list shows ONLY those clips (chip to clear) and
 // they're selected, so bulk actions / add-to-playlist work immediately.
 let crMxDrill=null;   // {base, bucket:'home'|'away'|'neutral'|'other'|'all'}
+// ── Review flags: ? marks an uncertain tag to sweep later. Stored as the
+// label Review=Flag so it persists through the normal save pipeline, XML
+// round-trips, and dashboard filters — no schema change.
+let crFlagOnly=false;
+function crIsFlagged(e){ return !!(e&&e.labels&&e.labels['Review']); }
+function crToggleFlag(row){
+  row.labels=row.labels||{};
+  const on=!row.labels['Review'];
+  if(on) row.labels['Review']='Flag'; else delete row.labels['Review'];
+  if(!row._new) row._dirty=true;
+  if(typeof draft!=='undefined'&&draft&&activeId&&String(activeId)===String(row._rowId)){
+    const i=draft.groups.findIndex(r=>r.g==='Review');   // keep an open editor in step
+    if(on&&i<0) draft.groups.push({g:'Review',v:'Flag'});
+    else if(!on&&i>=0) draft.groups.splice(i,1);
+    renderPanel();
+  }
+  crBackup(); crUpdatePending(); renderList();
+  return on;
+}
+function crFlagToggleFilter(){ crFlagOnly=!crFlagOnly; renderList(); }
 function crMxPass(e){
   if(!crMxDrill) return true;
   return (baseCodeOf(e.code)||'—')===crMxDrill.base && (crMxDrill.bucket==='all'||crTeamBucket(e)===crMxDrill.bucket);
@@ -1379,6 +1406,7 @@ function crDrawTL(){
     else if(groupSet&&groupSet.has(String(e._rowId))){ ctx.lineWidth=1; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.5,y+3.5,Math.max(1,bw-1),CR_ROWH-7); }
     // edge handles (only when wide enough to grab)
     if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=sel?'#4fc3f7':(dark?'#fff':'#000'); ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
+    if(crIsFlagged(e)){ ctx.globalAlpha=1; ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.moveTo(bx,y+3); ctx.lineTo(bx+7,y+3); ctx.lineTo(bx,y+10); ctx.closePath(); ctx.fill(); }
     ctx.globalAlpha=1;
   });
   if(crRowDrag&&crRowDrag.moved){
@@ -2219,7 +2247,7 @@ function codeTag(baseCode){
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
-  crLastTag={start:clipStart, end:clipEnd};                        // for R = replay last tag
+  crLastTag={start:clipStart, end:clipEnd, rowId:tmpId};           // for R = replay · ? = flag
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
@@ -2258,7 +2286,7 @@ function crDurToggle(baseCode){
                 driveT:start, labels, _manual:true, _rowId:tmpId, _new:true };
     if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
     else if(!teamName) row.color='#9ca3af';                        // team-neutral: grey, not a team colour
-    crLastTag={start, end};                                        // for R = replay last tag
+    crLastTag={start, end, rowId:tmpId};                           // for R = replay · ? = flag
     EVENTS.push(row);
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
@@ -2429,6 +2457,20 @@ document.addEventListener('keydown', e=>{
   if(codeMode.on&&codeMode.pendingLink) return;   // Esc = skip prompt first
   if(crDrag||crBox||crRowDrag) return;
   crDeselect();
+});
+// ? = flag/unflag for review: Code Mode → the event just tagged (works
+// mid-outcome-prompt); Edit mode → the selected event. Sweep with ⚑.
+document.addEventListener('keydown', e=>{
+  if(e.key!=='?') return;
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  let row=null;
+  if(codeMode.on) row=crLastTag&&EVENTS.find(x=>String(x._rowId)===String(crLastTag.rowId));
+  else if(activeId) row=EVENTS.find(x=>String(x._rowId)===String(activeId));
+  if(!row){ if(codeMode.on){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Nothing tagged yet to flag.'; } return; }
+  e.preventDefault();
+  const on=crToggleFlag(row);
+  if(codeMode.on){ const f=document.getElementById('codeFlash'); if(f) f.textContent=on?('⚑ '+(row.code||'')+' flagged for review — sweep them later with the ⚑ filter'):((row.code||'')+' — review flag removed'); }
 });
 // Video hotkeys (both modes): , . = frame back/forward, - = = slower/faster.
 document.addEventListener('keydown', e=>{
