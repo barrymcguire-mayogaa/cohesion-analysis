@@ -98,7 +98,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .tlsep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
 .tlscroll{overflow:hidden auto;flex:1;}
 .tlinner{position:relative;}
-canvas#crTL{display:block;cursor:crosshair;}
+canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
+#tlsb{touch-action:none;}
+.crdh{touch-action:none;}
 .tlsb{flex:none;height:12px;margin:5px 8px 2px;background:var(--card);border:1px solid var(--border);border-radius:6px;position:relative;}
 .tlsb-thumb{position:absolute;top:1px;bottom:1px;min-width:20px;background:var(--t3);border-radius:5px;cursor:grab;}
 .tlsb-thumb:hover{background:var(--accent);}
@@ -519,9 +521,10 @@ function initVH(){
   crSetH(saved>=180 ? saved : 480, true);
   if(h && !h._init){ h._init=true;
     let drag=false, sy=0, sh=0;
-    h.addEventListener('mousedown',e=>{ drag=true; sy=e.clientY; sh=vid.offsetHeight; h.classList.add('act'); vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
-    window.addEventListener('mousemove',e=>{ if(!drag)return; const nh=Math.max(180, Math.min(crVidMaxH(), sh+(e.clientY-sy))); vid.style.height=nh+'px'; document.querySelectorAll('.crsz').forEach(b=>b.classList.remove('on')); });
-    window.addEventListener('mouseup',()=>{ if(!drag)return; drag=false; h.classList.remove('act'); vid.style.pointerEvents=''; document.body.style.userSelect=''; try{ localStorage.setItem('cr_vidH', vid.offsetHeight); }catch(_){} });
+    h.addEventListener('pointerdown',e=>{ drag=true; sy=e.clientY; sh=vid.offsetHeight; h.classList.add('act'); vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
+    window.addEventListener('pointermove',e=>{ if(!drag)return; const nh=Math.max(180, Math.min(crVidMaxH(), sh+(e.clientY-sy))); vid.style.height=nh+'px'; document.querySelectorAll('.crsz').forEach(b=>b.classList.remove('on')); });
+    const hUp=()=>{ if(!drag)return; drag=false; h.classList.remove('act'); vid.style.pointerEvents=''; document.body.style.userSelect=''; try{ localStorage.setItem('cr_vidH', vid.offsetHeight); }catch(_){} };
+    window.addEventListener('pointerup',hUp); window.addEventListener('pointercancel',hUp);
   }
 }
 function refreshDatalists(){
@@ -1187,7 +1190,30 @@ function crScrollRows(d){ const sc=document.getElementById('tlscroll'); if(sc) s
 function crInitTL(){
   if(crTLInit) return; const c=document.getElementById('crTL'); if(!c) return; crTLInit=true;
   const relX=ev=>ev.clientX-c.getBoundingClientRect().left;
-  c.addEventListener('mousedown',e=>{
+  // Touch layer: one finger = the same interactions as the mouse (drag bars,
+  // resize edges, box-select, drag rows); TWO fingers = pinch-zoom + pan the
+  // game and scroll the rows; long-press a bar = add/remove from selection
+  // (the shift-click of touch); double-tap empty track = create event there.
+  let crPtrs=new Map(), crPinch=null, crLP=null, crLastTap=null;
+  const crCancelGesture=()=>{
+    if(crDrag){ Object.assign(crDrag.ev, crDrag.snapshot); crDrag=null; }   // pinch aborts a just-started drag
+    crBox=null; crRowDrag=null; crDown=null; document.body.style.userSelect='';
+  };
+  c.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='mouse'){
+      crPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(crPtrs.size===2){
+        if(crLP){ clearTimeout(crLP.timer); crLP=null; }
+        crCancelGesture();
+        const p=[...crPtrs.values()], g=crGeom(), r=c.getBoundingClientRect();
+        const cx=(p[0].x+p[1].x)/2-r.left, cy=(p[0].y+p[1].y)/2;
+        const sc=document.getElementById('tlscroll');
+        crPinch={ d0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1, z0:crTLZ, dur:g.dur, plotW:g.plotW,
+                  tm0:g.tOf(Math.max(CR_LW,cx)), cy0:cy, s0:sc?sc.scrollTop:0 };
+        e.preventDefault(); crDrawTL(); return;
+      }
+      if(crPinch) return;
+    }
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(y<CR_RULER){ crDown={x}; return; }                       // ruler → seek on release
     if(x<CR_LW){                                                 // label gutter → drag to reorder, click to select
@@ -1199,18 +1225,41 @@ function crInitTL(){
     const hit=crHitAt(x,y);
     if(hit && e.shiftKey){ crToggleSel(hit.ev._rowId); return; }                // shift-click = add/remove from selection
     if(hit && crSyncOn){ crSel=[]; pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click a bar = set reference (clears any group)
-    if(hit){ crSel=[]; const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault(); }
+    if(hit){ crSel=[]; const ev=hit.ev; crDrag={ev, mode:hit.mode, startX:x, moved:false, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault();
+      if(e.pointerType!=='mouse'){   // long-press = toggle selection (touch shift-click)
+        const rid=ev._rowId;
+        crLP={id:e.pointerId, timer:setTimeout(()=>{ crLP=null; if(crDrag&&!crDrag.moved&&String(crDrag.ev._rowId)===String(rid)){ Object.assign(crDrag.ev,crDrag.snapshot); crDrag=null; document.body.style.userSelect=''; crToggleSel(rid); if(navigator.vibrate) navigator.vibrate(25); crDrawTL(); } },500)};
+      }
+    }
     else { crBox={x0:x,y0:y,x1:x,y1:y,moved:false}; document.body.style.userSelect='none'; e.preventDefault(); }  // drag on empty = box-select
   });
-  c.addEventListener('mousemove',e=>{
+  c.addEventListener('pointermove',e=>{
+    if(e.pointerType!=='mouse') return;         // hover cursor/tooltip is a mouse thing
     if(crDrag||crBox){ crTipHide(); return; }   // active-drag handled on window
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     const hit=(x>=CR_LW&&y>=CR_RULER)?crHitAt(x,y):null;
     c.style.cursor = !hit ? 'crosshair' : (hit.mode==='move'?'grab':'ew-resize');
     if(hit) crTipShow(hit.ev, e.clientX, e.clientY); else crTipHide();
   });
-  c.addEventListener('mouseleave', crTipHide);
-  window.addEventListener('mousemove',e=>{
+  c.addEventListener('pointerleave', crTipHide);
+  window.addEventListener('pointermove',e=>{
+    if(crPinch){
+      if(!crPtrs.has(e.pointerId)) return;
+      crPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(crPtrs.size<2) return;
+      const p=[...crPtrs.values()], r=c.getBoundingClientRect();
+      const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1;
+      const cx=(p[0].x+p[1].x)/2-r.left, cy=(p[0].y+p[1].y)/2;
+      crTLZ=Math.max(1,Math.min(30,crPinch.z0*(d/crPinch.d0)));
+      const nvD=crPinch.dur/crTLZ;   // keep the time under the fingers' centre fixed
+      crTLO=Math.max(0,Math.min(Math.max(0,crPinch.dur-nvD), crPinch.tm0-((Math.max(CR_LW,cx)-CR_LW)/crPinch.plotW)*nvD));
+      const sc=document.getElementById('tlscroll'); if(sc) sc.scrollTop=crPinch.s0-(cy-crPinch.cy0);
+      crDrawTL(); return;
+    }
+    if(crLP&&crPtrs.has(crLP.id)){
+      const p0=crPtrs.get(crLP.id);
+      if(Math.hypot(e.clientX-p0.x,e.clientY-p0.y)>8){ clearTimeout(crLP.timer); crLP=null; }
+    }
     if(crRowDrag){ const rr=c.getBoundingClientRect(), rows=crRows(crFiltered());
       const ri=Math.max(0,Math.min(rows.length-1,Math.floor(((e.clientY-rr.top)-CR_RULER)/CR_ROWH)));
       if(ri!==crRowDrag.to){ crRowDrag.to=ri; crRowDrag.moved=true; crDrawTL(); }
@@ -1232,7 +1281,12 @@ function crInitTL(){
     if(crDrag.moved) crSeekThrottled(crDrag.mode==='resizeR' ? (crDrag.ev.driveT||0)+crBarD(crDrag.ev) : crDrag.ev.driveT);
     crDrawTL();
   });
-  window.addEventListener('mouseup',e=>{
+  const crPtrUp=e=>{
+    if(e.pointerType!=='mouse'){
+      crPtrs.delete(e.pointerId);
+      if(crLP&&crLP.id===e.pointerId){ clearTimeout(crLP.timer); crLP=null; }
+      if(crPinch){ if(crPtrs.size<2) crPinch=null; return; }
+    }
     if(crRowDrag){ const d=crRowDrag; crRowDrag=null; document.body.style.userSelect='';
       const rows=crRows(crFiltered());
       if(d.moved && d.to!==d.from){ const arr=rows.slice(); const [mv]=arr.splice(d.from,1); arr.splice(d.to,0,mv); crRowOrder=arr; crRowsSave(); }
@@ -1241,11 +1295,17 @@ function crInitTL(){
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
     if(crBox){ const box=crBox; crBox=null; document.body.style.userSelect='';
       if(box.moved) crSelectBox(box);
-      else { crDeselect(); const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
+      else {
+        const now=Date.now();   // double-tap empty track = create event (touch dblclick)
+        if(e.pointerType!=='mouse'&&crLastTap&&now-crLastTap.t<350&&Math.abs(box.x0-crLastTap.x)<25&&Math.abs(box.y0-crLastTap.y)<25){ crLastTap=null; crDblAt(box.x0,box.y0); }
+        else { crLastTap={t:now,x:box.x0,y:box.y0}; crDeselect(); const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
+      }
       crDrawTL(); return;
     }
     if(crDown){ const g=crGeom(); if(crDown.x>=CR_LW) vSeekDrive(g.tOf(crDown.x)); crDown=null; }
-  });
+  };
+  window.addEventListener('pointerup',crPtrUp);
+  window.addEventListener('pointercancel',crPtrUp);
   const rl=document.getElementById('crTLRuler');
   if(rl&&!rl._init){ rl._init=true; rl.addEventListener('click',e=>{ const r=rl.getBoundingClientRect(), x=e.clientX-r.left; if(x>=CR_LW){ const g=crGeom(); vSeekDrive(g.tOf(x)); } }); }
   // Trackpad: pinch (ctrl+wheel) = zoom around the cursor, horizontal scroll
@@ -1265,10 +1325,10 @@ function crInitTL(){
       crDrawTL();
     }                                                 // vertical falls through → rows scroll
   },{passive:false});
-  // Double-click empty track space → create a new event of that row's code there.
-  c.addEventListener('dblclick',e=>{
+  // Double-click (mouse) or double-tap (touch) empty track space → create
+  // a new event of that row's code there. Shared body: crDblAt.
+  function crDblAt(x,y){
     if(crSyncOn) return;   // no create while syncing
-    const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
     if(x<CR_LW||y<CR_RULER) return;
     if(crHitAt(x,y)) return;              // on an existing bar → don't create
     const g=crGeom(), rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
@@ -1277,7 +1337,8 @@ function crInitTL(){
     let half=document.getElementById('eperiod').value;
     if(!half){ let best=Infinity; EVENTS.forEach(ev=>{ const dd=Math.abs((ev.driveT||0)-t); if(dd<best){best=dd;half=ev.half||'';} }); }
     crCreatePrompt(code,t,half);
-  });
+  }
+  c.addEventListener('dblclick',e=>{ const r=c.getBoundingClientRect(); crDblAt(e.clientX-r.left,e.clientY-r.top); });
 }
 function crDrawTL(){
   const c=document.getElementById('crTL'), scroll=document.getElementById('tlscroll'); if(!c||!scroll) return;
@@ -1377,10 +1438,11 @@ function crUpdateSB(dur,vD){
 function crInitSB(){
   const sb=document.getElementById('tlsb'), thumb=document.getElementById('tlsbThumb'); if(!sb||sb._init) return; sb._init=true;
   let drag=false, sx=0, sO=0;
-  thumb.addEventListener('mousedown',e=>{ drag=true; sx=e.clientX; sO=crTLO; document.body.style.userSelect='none'; e.preventDefault(); e.stopPropagation(); });
-  window.addEventListener('mousemove',e=>{ if(!drag)return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), sO+((e.clientX-sx)/w)*dur)); crDrawTL(); });
-  window.addEventListener('mouseup',()=>{ if(drag){ drag=false; document.body.style.userSelect=''; } });
-  sb.addEventListener('mousedown',e=>{ if(e.target!==sb) return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1, cx=e.clientX-sb.getBoundingClientRect().left; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), (cx/w)*dur-vD/2)); crDrawTL(); });
+  thumb.addEventListener('pointerdown',e=>{ drag=true; sx=e.clientX; sO=crTLO; document.body.style.userSelect='none'; e.preventDefault(); e.stopPropagation(); });
+  window.addEventListener('pointermove',e=>{ if(!drag)return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), sO+((e.clientX-sx)/w)*dur)); crDrawTL(); });
+  const sbUp=()=>{ if(drag){ drag=false; document.body.style.userSelect=''; } };
+  window.addEventListener('pointerup',sbUp); window.addEventListener('pointercancel',sbUp);
+  sb.addEventListener('pointerdown',e=>{ if(e.target!==sb) return; const dur=crDur(), vD=dur/crTLZ, w=sb.clientWidth||1, cx=e.clientX-sb.getBoundingClientRect().left; crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), (cx/w)*dur-vD/2)); crDrawTL(); });
 }
 // Scrub the video while dragging a bar, throttled so YouTube isn't hammered.
 function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return; crSeekLast=now; vSeekDrive(t); }
