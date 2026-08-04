@@ -61,6 +61,17 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vid iframe{width:100%;height:100%;border:none;}
 .vbar{display:flex;gap:6px;align-items:center;padding:8px 10px;flex-wrap:wrap;border-top:1px solid var(--border);}
 .vbtn{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);font:700 11px 'Barlow Condensed',sans-serif;padding:6px 9px;cursor:pointer;}
+.vbtn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.crmx{overflow:auto;padding:10px 12px;}
+.crmx table{border-collapse:collapse;min-width:420px;}
+.crmx th,.crmx td{border:1px solid var(--border);padding:7px 14px;font:600 12.5px Barlow,sans-serif;text-align:center;color:var(--t1);}
+.crmx th{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3);background:var(--card);}
+.crmx td.code{text-align:left;font-weight:700;}
+.crmx td.n{cursor:pointer;}
+.crmx td.n:hover{background:var(--card);color:var(--accent);}
+.crmx td.z{color:var(--t3);cursor:default;}
+.crmx tr.tot td{border-top:2px solid var(--border);font-weight:800;}
+#mxChip{display:none;align-items:center;background:rgba(79,195,247,.12);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:4px 9px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;white-space:nowrap;flex:none;}
 .vbtn:hover{border-color:var(--accent);color:var(--accent);}
 .vtime{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;color:var(--t2);}
 
@@ -246,11 +257,16 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           <div class="vbar">
             <button class="vbtn" onclick="vseek(-5)">« 5s</button>
             <button class="vbtn" onclick="vseek(-1)">‹ 1s</button>
+            <button class="vbtn" onclick="vframe(-1)" title="Back one frame — pauses ( , key)">‹ fr</button>
             <button class="vbtn" onclick="vtoggle()" id="playBtn">Play</button>
+            <button class="vbtn" onclick="vframe(1)" title="Forward one frame — pauses ( . key)">fr ›</button>
             <button class="vbtn" onclick="vseek(1)">1s ›</button>
             <button class="vbtn" onclick="vseek(5)">5s »</button>
-            <button class="vbtn" onclick="vrate(0.5)">0.5×</button>
-            <button class="vbtn" onclick="vrate(1)">1×</button>
+            <button class="vbtn" data-rate="0.25" onclick="vrate(0.25)" title="Playback speed ( - slower · = faster )">¼×</button>
+            <button class="vbtn" data-rate="0.5" onclick="vrate(0.5)" title="Playback speed ( - slower · = faster )">½×</button>
+            <button class="vbtn on" data-rate="1" onclick="vrate(1)" title="Playback speed ( - slower · = faster )">1×</button>
+            <button class="vbtn" data-rate="1.5" onclick="vrate(1.5)" title="Playback speed ( - slower · = faster )">1.5×</button>
+            <button class="vbtn" data-rate="2" onclick="vrate(2)" title="Playback speed ( - slower · = faster )">2×</button>
             <span id="crAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
             <button class="vbtn" style="border-color:var(--green);color:var(--green)" onclick="openAdd()">＋ Add event here</button>
             <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
@@ -268,9 +284,11 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="viewtog">
               <button id="vwList" class="on" onclick="setView('list')">☰ List</button>
               <button id="vwTL" onclick="setView('tl')">⁞⁞ Timeline</button>
+              <button id="vwMX" onclick="setView('mx')" title="Code matrix — live counts of every event by team; click a number to open those clips">▦ Matrix</button>
             </div>
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
+            <span id="mxChip"></span>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
               <div class="tlsep"></div>
@@ -297,6 +315,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             </div>
           </div>
           <div class="levents" id="levents"></div>
+          <div class="crmx" id="crMatrix" style="display:none;"></div>
           <div class="tlscroll" id="tlscroll" style="display:none;">
             <div class="tlinner" id="tlinner">
               <canvas id="crTLRuler" style="position:sticky;top:0;z-index:5;display:block;margin-bottom:-22px;"></canvas>
@@ -563,6 +582,7 @@ function crSwitchAngle(i){
   const drive=vNow();                                   // hold the moment (old angle's frame)
   crAngleIdx=i;
   if(YTP&&YTP.loadVideoById) YTP.loadVideoById({videoId:A[i].youtubeId, startSeconds:Math.max(0,driveToAngle(drive,i))});
+  if(crRate!==1) setTimeout(()=>vrate(crRate),500);   // rate survives the source switch
   buildAngleBtns();
 }
 function buildPlayer(){
@@ -612,7 +632,23 @@ function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNo
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
 function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
 function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
-function vrate(r){ if(YTP&&YTP.setPlaybackRate) YTP.setPlaybackRate(r); }
+let crRate=1;
+const CR_RATES=[0.25,0.5,1,1.5,2];
+function vrate(r){
+  crRate=r;
+  if(YTP&&YTP.setPlaybackRate) YTP.setPlaybackRate(r);
+  document.querySelectorAll('[data-rate]').forEach(b=>b.classList.toggle('on',+b.dataset.rate===r));
+}
+function vrateStep(d){
+  const cur=CR_RATES.indexOf(crRate), i=Math.max(0,Math.min(CR_RATES.length-1,(cur<0?2:cur)+d));
+  vrate(CR_RATES[i]);
+}
+// One frame ≈ 0.04s (25fps). Pauses first — frame-stepping is a paused activity.
+function vframe(d){
+  if(!YTP||!YTP.seekTo) return;
+  if(YTP.pauseVideo) YTP.pauseVideo();
+  YTP.seekTo(Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d*0.04),true);
+}
 function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; }
 
 // ── event list ────────────────────────────────────────────────
@@ -623,6 +659,7 @@ function renderList(){
   const rows=EVENTS.filter(e=>{
     if(per&&e.half!==per) return false;
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    if(!crMxPass(e)) return false;
     return true;
   });
   wrap.innerHTML=rows.map(e=>{
@@ -633,6 +670,7 @@ function renderList(){
     </div>`;
   }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
   if(crView==='tl') crDrawTL();
+  else if(crView==='mx') crBuildMatrix();   // live counts while coding
 }
 
 // ── TIMELINE VIEW (Phase 1: read + navigate) ──────────────────
@@ -649,8 +687,62 @@ function crFiltered(){
   return EVENTS.filter(e=>{
     if(per&&e.half!==per) return false;
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    if(!crMxPass(e)) return false;
     return true;
   });
+}
+// ── MATRIX VIEW: base codes × teams with live counts (the Sportscode code
+// matrix). Counts follow the same filter/period controls as the list. Click
+// a number to drill: the list shows ONLY those clips (chip to clear) and
+// they're selected, so bulk actions / add-to-playlist work immediately.
+let crMxDrill=null;   // {base, bucket:'home'|'away'|'neutral'|'other'|'all'}
+function crMxPass(e){
+  if(!crMxDrill) return true;
+  return (baseCodeOf(e.code)||'—')===crMxDrill.base && (crMxDrill.bucket==='all'||crTeamBucket(e)===crMxDrill.bucket);
+}
+function crTeamBucket(e){
+  const t=(e.team||'').toUpperCase();
+  if(!t) return 'neutral';
+  if(t===(GAME.homeTeam||'').toUpperCase()) return 'home';
+  if(t===(GAME.awayTeam||'').toUpperCase()) return 'away';
+  return 'other';
+}
+function crBuildMatrix(){
+  const box=document.getElementById('crMatrix'); if(!box) return;
+  const d=crMxDrill; crMxDrill=null;           // the matrix always shows the full picture
+  const evs=crFiltered(); crMxDrill=d;
+  const M={};
+  evs.forEach(e=>{ const b=baseCodeOf(e.code)||'—', k=crTeamBucket(e); (M[b]=M[b]||{home:0,away:0,neutral:0,other:0,total:0}); M[b][k]++; M[b].total++; });
+  const bases=Object.keys(M).sort((a,b)=>M[b].total-M[a].total||a.localeCompare(b));
+  if(!bases.length){ box.innerHTML='<div style="padding:16px;color:var(--t3);font-size:12px;">No events match the current filter.</div>'; return; }
+  const hasN=bases.some(b=>M[b].neutral), hasO=bases.some(b=>M[b].other);
+  const home=(GAME.homeTeam||'Home').toUpperCase(), away=(GAME.awayTeam||'Away').toUpperCase();
+  const cell=(b,k,n)=> n?('<td class="n" title="Show these '+n+' clips" onclick="crMatrixDrill(\''+_cq(b)+'\',\''+k+'\')">'+n+'</td>'):'<td class="z">·</td>';
+  const tot={home:0,away:0,neutral:0,other:0,total:0};
+  bases.forEach(b=>{ ['home','away','neutral','other','total'].forEach(k=>tot[k]+=M[b][k]); });
+  box.innerHTML='<table><tr><th style="text-align:left;">EVENT</th><th>'+esc(home)+'</th><th>'+esc(away)+'</th>'+(hasN?'<th>NEUTRAL</th>':'')+(hasO?'<th>OTHER</th>':'')+'<th>ALL</th></tr>'
+    +bases.map(b=>'<tr><td class="code">'+esc(b)+'</td>'+cell(b,'home',M[b].home)+cell(b,'away',M[b].away)+(hasN?cell(b,'neutral',M[b].neutral):'')+(hasO?cell(b,'other',M[b].other):'')+cell(b,'all',M[b].total)+'</tr>').join('')
+    +'<tr class="tot"><td class="code">ALL</td><td>'+tot.home+'</td><td>'+tot.away+'</td>'+(hasN?'<td>'+tot.neutral+'</td>':'')+(hasO?'<td>'+tot.other+'</td>':'')+'<td>'+tot.total+'</td></tr></table>'
+    +'<div style="margin-top:8px;font-size:11px;color:var(--t3);">Counts follow the filter and period controls above. Click a number to open those clips in the list, pre-selected for bulk edit or add-to-playlist.</div>';
+}
+function crMatrixDrill(base, bucket){
+  crMxDrill={base, bucket};
+  const evs=crFiltered();
+  if(!evs.length){ crMxDrill=null; return; }
+  const c=document.getElementById('mxChip');
+  if(c){
+    const t=bucket==='home'?(GAME.homeTeam||'Home'):bucket==='away'?(GAME.awayTeam||'Away'):bucket==='neutral'?'Neutral':bucket==='other'?'Other':'Both teams';
+    c.style.display='inline-flex';
+    c.innerHTML='▦ '+esc(base)+' · '+esc(String(t).toUpperCase())+' <b style="margin-left:6px;cursor:pointer;" title="Clear — back to all events">✕</b>';
+    c.querySelector('b').onclick=crMatrixClear;
+  }
+  crSel=evs.map(e=>e._rowId);
+  setView('list'); renderList(); crAfterSelect();
+}
+function crMatrixClear(){
+  crMxDrill=null; crSel=[];
+  const c=document.getElementById('mxChip'); if(c){ c.style.display='none'; c.innerHTML=''; }
+  renderList(); crAfterSelect();
 }
 // Rows = codes present in the (filtered) events plus any manually-added empty
 // rows, ordered by the user's saved order first, then the rest alphabetically.
@@ -689,13 +781,16 @@ function setView(v){
   crView=v;
   document.getElementById('vwList').classList.toggle('on',v==='list');
   document.getElementById('vwTL').classList.toggle('on',v==='tl');
+  document.getElementById('vwMX').classList.toggle('on',v==='mx');
   document.getElementById('levents').style.display=v==='list'?'':'none';
+  document.getElementById('crMatrix').style.display=v==='mx'?'':'none';
   document.getElementById('tlscroll').style.display=v==='tl'?'':'none';
   document.getElementById('tlZoomWrap').style.display=v==='tl'?'':'none';
   document.getElementById('tlsb').style.display=v==='tl'?'':'none';
   document.getElementById('syncBar').style.display=(v==='tl'&&crSyncOn)?'':'none';
   document.getElementById('listWrap').classList.toggle('tlon',v==='tl');
   if(v==='tl'){ if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; } crInitTL(); crInitSB(); crDrawTL(); }
+  if(v==='mx') crBuildMatrix();
 }
 function crZoom(d){
   const dur=crDur(), vD=dur/crTLZ, center=crTLO+vD/2;
@@ -2015,7 +2110,28 @@ function codeSetTeam(t){ codeMode.team=t; codeMode.player=''; buildCodePanel(); 
 function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
 function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
 
+// R = replay the clip just tagged, then jump back to where you were.
+let crLastTag=null, crReplay=null;
+function crReplayLast(){
+  const f=document.getElementById('codeFlash');
+  if(crReplay){ crReplayStop(); return; }               // R again = stop + return now
+  if(!crLastTag){ if(f) f.textContent='Nothing tagged yet to replay.'; return; }
+  crReplay={resume:vNow(), end:crLastTag.end, timer:null};
+  vSeekDrive(crLastTag.start);
+  if(YTP&&YTP.playVideo) YTP.playVideo();
+  if(f) f.textContent='▶ Replaying last tag ('+fmt(crLastTag.start)+'–'+fmt(crLastTag.end)+') — R returns you to '+fmt(crReplay.resume)+'.';
+  crReplay.timer=setInterval(()=>{ if(crReplay&&vNow()>=crReplay.end-0.05) crReplayStop(); },100);
+}
+function crReplayStop(){
+  if(!crReplay) return;
+  clearInterval(crReplay.timer);
+  const r=crReplay; crReplay=null;
+  if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  vSeekDrive(r.resume);
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Back at '+fmt(r.resume)+' — press Space to resume.';
+}
 function codeTag(baseCode){
+  if(crReplay){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Replay running — press R to return first.'; return; }
   // Tagging a fresh event moves past any outcome prompt still awaiting an answer.
   if(codeMode.pendingLink) codeSkipLink(true);
   // Duration codes: first press starts recording, next press stops it.
@@ -2040,6 +2156,7 @@ function codeTag(baseCode){
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
+  crLastTag={start:clipStart, end:clipEnd};                        // for R = replay last tag
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
@@ -2077,6 +2194,7 @@ function crDurToggle(baseCode){
                 driveT:start, labels, _manual:true, _rowId:tmpId, _new:true };
     if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
     else if(!teamName) row.color='#9ca3af';                        // team-neutral: grey, not a team colour
+    crLastTag={start, end};                                        // for R = replay last tag
     EVENTS.push(row);
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
@@ -2153,12 +2271,23 @@ document.addEventListener('keydown', e=>{
   if(crDrag||crBox||crRowDrag) return;
   crDeselect();
 });
+// Video hotkeys (both modes): , . = frame back/forward, - = = slower/faster.
+document.addEventListener('keydown', e=>{
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(!YTP) return;
+  if(e.key===','){ e.preventDefault(); vframe(-1); }
+  else if(e.key==='.'){ e.preventDefault(); vframe(1); }
+  else if(e.key==='-'){ e.preventDefault(); vrateStep(-1); }
+  else if(e.key==='='||e.key==='+'){ e.preventDefault(); vrateStep(1); }
+});
 // Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
 document.addEventListener('keydown', e=>{
   if(!codeMode.on) return;
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
   if(e.code==='Space'){ e.preventDefault(); vtoggle(); return; }
+  if(e.key==='r'||e.key==='R'){ e.preventDefault(); crReplayLast(); return; }   // works mid-prompt: watch it again before answering
   // While an outcome prompt is up, 1–N pick the outcome and Esc skips it;
   // number keys are captured here so they don't tag a new event mid-qualify.
   if(codeMode.pendingLink){
