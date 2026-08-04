@@ -337,6 +337,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-player.js"></script>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
 const isAdmin = sessionStorage.getItem('cohesion_auth')==='admin';
@@ -625,11 +626,15 @@ async function deletePlaylist(){
 }
 
 // ── playback: YouTube segments with auto-advance ──────────────
+let plBootCbs=null;   // callbacks queued while the player constructs
 function ensurePlayer(cb){
   if(YTP){ cb(); return; }
-  const boot=()=>{ YTP=new YT.Player('ytMount',{playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:cb,onStateChange:onState}}); };
-  if(window.YT&&window.YT.Player) boot();
-  else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
+  if(plBootCbs){ plBootCbs.push(cb); return; }   // already constructing — queue, don't double-build
+  plBootCbs=[cb];
+  cohesionCreatePlayer({ mount:'ytMount',
+    playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},
+    onReady:function(p){ YTP=p; const q=plBootCbs||[]; plBootCbs=null; q.forEach(f=>{ try{ f(); }catch(_){} }); },
+    onStateChange:onState });
 }
 function playClip(i){
   if(!ITEMS[i]) return;

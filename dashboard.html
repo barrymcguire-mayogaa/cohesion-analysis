@@ -206,6 +206,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-player.js"></script>
 </head>
 <body>
 <header>
@@ -238,9 +239,8 @@ let CHIP_FN_MAP={},SUB_FN_MAP={};
 let viewMode='events';
 let EG=new Set(),LG=new Set(),LV=new Map();
 let tlZ=1,tlO=0,tlDur=5400,tlPeriod='full',vidT=0;
-let YTP=null,ytReady=false,gdReady=false,pendSeek=null,rafID=null;
+let YTP=null,pendSeek=null,rafID=null;
 let currentAngleIdx=0;
-window.onYouTubeIframeAPIReady=function(){ytReady=true;if(gdReady)makeYTP();};
 function normalizeAngles(){
   if(!GAME.angles||!GAME.angles.length){
     GAME.angles=[{label:'Main',youtubeId:GAME.youtubeId,half1Start:GAME.half1Start||0,half2Start:GAME.half2Start||0,et1Start:GAME.et1Start||null,et2Start:GAME.et2Start||null}];
@@ -317,21 +317,20 @@ function makeYTP(){
   if(!GAME.angles||!document.getElementById('ytPlayerDiv'))return;
   const ang=GAME.angles[currentAngleIdx]||GAME.angles[0];
   if(!ang||!ang.youtubeId)return;
-  YTP=new YT.Player('ytPlayerDiv',{
+  cohesionCreatePlayer({
+    mount:'ytPlayerDiv',
     videoId:ang.youtubeId,
     playerVars:{start:Math.max(0,ang.half1Start||0),rel:0,fs:1,modestbranding:1,enablejsapi:1,origin:window.location.origin},
-    events:{
-      onReady:function(){tlDur=YTP.getDuration()||5400;if(pendSeek!==null){YTP.seekTo(pendSeek,true);YTP.playVideo();pendSeek=null;}drawTL();document.getElementById('ytFallback').style.display='none';},
-      onStateChange:function(e){if(e.data===1)startRAF();else stopRAF();},
-      onError:function(e){
-        console.warn('YT Error:',e.data);
-        // Show fallback on embedding error (error code 150 = blocked embedding)
-        if(e.data===150||e.data===2){
-          document.getElementById('ytPlayerDiv').style.display='none';
-          document.getElementById('ytFallback').style.display='flex';
-          const vid=(GAME.angles&&GAME.angles[currentAngleIdx||0]?.youtubeId)||GAME.youtubeId||'';
-          document.getElementById('ytFallbackLink').href='https://youtu.be/'+vid;
-        }
+    onReady:function(p){YTP=p;tlDur=YTP.getDuration()||5400;if(pendSeek!==null){YTP.seekTo(pendSeek,true);YTP.playVideo();pendSeek=null;}drawTL();document.getElementById('ytFallback').style.display='none';},
+    onStateChange:function(e){if(e.data===1)startRAF();else stopRAF();},
+    onError:function(e){
+      console.warn('YT Error:',e.data);
+      // Show fallback on embedding error (error code 150 = blocked embedding)
+      if(e.data===150||e.data===2){
+        document.getElementById('ytPlayerDiv').style.display='none';
+        document.getElementById('ytFallback').style.display='flex';
+        const vid=(GAME.angles&&GAME.angles[currentAngleIdx||0]?.youtubeId)||GAME.youtubeId||'';
+        document.getElementById('ytFallbackLink').href='https://youtu.be/'+vid;
       }
     }
   });
@@ -380,7 +379,7 @@ function init(){
   if(GAME.et1Start){document.getElementById('etBtn1').style.display='';}
   if(GAME.et2Start){document.getElementById('etBtn2').style.display='';}
   gameFormat=detectFormat(ALL);populatePl();renderChips();applyF();initDH();initTL();setH(240);
-  gdReady=true;if(ytReady)makeYTP();
+  makeYTP();   // the player seam waits for the IFrame API itself
 }
 function buildHTML(H,A){
   return`<div class="left-panel">

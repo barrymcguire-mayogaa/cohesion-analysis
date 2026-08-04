@@ -196,6 +196,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-player.js"></script>
 </head>
 <body>
 <header>
@@ -592,31 +593,16 @@ function crSwitchAngle(i){
 }
 function buildPlayer(){
   if(GAME._local){ buildLocalPlayer(); return; }
-  const boot=()=>{ YTP=new YT.Player('vid',{videoId:GAME.youtubeId,playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},events:{onReady:startClock,onError:crYtError}}); };
-  if(window.YT&&window.YT.Player) boot();
-  else { window.onYouTubeIframeAPIReady=boot; const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
+  cohesionCreatePlayer({ mount:'vid', videoId:GAME.youtubeId,
+    playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},
+    onReady:function(p){ YTP=p; startClock(); },
+    onError:crYtError });
 }
-// Local file playback: a native <video> element wrapped in a YT-Player-shaped
-// adapter, so every existing control (seek, clock, timeline, Code Mode,
-// Sync Mode) works unchanged. Native seeking is frame-accurate and lag-free.
+// Local file playback: the 'file' provider of the player seam — a native
+// <video> wrapped in the same contract, so every control works unchanged.
 function buildLocalPlayer(){
-  const mount=document.getElementById('vid');
-  mount.innerHTML='';
-  const v=document.createElement('video');
-  v.src=GAME.localUrl; v.controls=false; v.preload='auto';
-  v.style.cssText='width:100%;height:100%;background:#000;object-fit:contain;';
-  v.addEventListener('click',()=>{ if(v.paused) v.play(); else v.pause(); });
-  v.addEventListener('error',()=>alert('Could not play that video file — the format may not be supported by this browser (MP4/H.264 is safest).'));
-  mount.appendChild(v);
-  YTP={
-    getCurrentTime:()=>v.currentTime||0,
-    getDuration:()=>v.duration||0,
-    seekTo:t=>{ try{ v.currentTime=Math.max(0,t); }catch(_){}} ,
-    playVideo:()=>{ v.play().catch(()=>{}); },
-    pauseVideo:()=>v.pause(),
-    getPlayerState:()=>v.paused?2:1,
-    setPlaybackRate:r=>{ v.playbackRate=r; }
-  };
+  YTP=cohesionCreatePlayer({ provider:'file', mount:'vid', url:GAME.localUrl,
+    onError:()=>alert('Could not play that video file — the format may not be supported by this browser (MP4/H.264 is safest).') });
   startClock();
 }
 // YouTube refused to play (removed video, auth wall, embed disabled...):
