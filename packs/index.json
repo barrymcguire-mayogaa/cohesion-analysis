@@ -1,4 +1,10 @@
 {
   "format": "gaa-pack-index@1",
-  "packs": []
+  "packs": [
+    {
+      "name": "Mayo Senior",
+      "file": "mayo_senior.json",
+      "teams": 44
+    }
+  ]
 }
