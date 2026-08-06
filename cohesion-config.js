@@ -56,7 +56,7 @@ window.COHESION_EVENT_LINKS = [
   { appliesTo: /\bTOS?\b|TURNOVER/,group: 'Turnover Outcomes',prompt: 'Turnover outcome',
     options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
-    options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION'] },
+    options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION','FOUL CONCEDED'] },
 ];
 
 // Return the first event link whose appliesTo matches the code, or null.
