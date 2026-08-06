@@ -132,8 +132,14 @@ function ssGameTally(meta, events, T){
       g.shots++;
       const v=ssScoreVal(out);
       if(v>0){ g.scores++; g.pts+=v; if(v===2) g.twoPts++; }
+      // A goal chance = an explicit Goal Attempt label, OR any shot that
+      // ENDED as a goal or a save (those are chances by definition, even in
+      // XMLs that carry no attempt labels — fixes phantom 0% conversion).
       const att=(e.labels||{})['Shot Attempts']||(e.labels||{})['Attempt'];
-      if(att){ g.attemptData=true; if(/GOAL/.test(ssUC(att))){ g.goalCh++; if(v===3) g.goalScored++; } }
+      if(att) g.attemptData=true;
+      const attGoal=att&&/GOAL/.test(ssUC(att));
+      const isGoal=v===3, isSave=/SAVE/.test(ssUC(out));
+      if(attGoal||isGoal||isSave){ g.goalCh++; if(isGoal) g.goalScored++; }
     }
     // score sequence for momentum (both teams)
     if(ssIsShot(e)){
@@ -173,6 +179,11 @@ function ssGameTally(meta, events, T){
       else g.possDurOpp+=dur;
     }
   });
+  // possession-derived ratios must only use games that HAVE possession
+  // data — otherwise all-games shots divide by few-games possessions.
+  g.possGames=g.possData?1:0;
+  g.shotsPossG=g.possData?g.shots:0;
+  g.tosPossG=g.possData?g.tosConceded:0;
   // momentum from the chronological score sequence
   g.scoreSeq.sort((x,y)=>x.t-y.t);
   g.runs=0; g.runPts=0; g.runTwoPts=0;
@@ -207,12 +218,12 @@ function ssMetrics(){
     ['SHOOTING','Shots per Game','', a=>per(a.shots,a.games)],
     ['SHOOTING','Total Pts per Game','', a=>per(a.pts,a.games,1)],
     ['SHOOTING','2pt per Game','', a=>per(a.twoPts,a.games,2)],
-    ['SHOOTING','Goal Chances per Game','needs attempt data', a=>a.attemptData?per(a.goalCh,a.games):null],
-    ['SHOOTING','Goal Chance Conversion %','', a=>a.attemptData?pct(a.goalScored,a.goalCh):null],
+    ['SHOOTING','Goal Chances per Game','', a=>(a.attemptData||a.goalCh>0)?per(a.goalCh,a.games):null],
+    ['SHOOTING','Goal Chance Conversion %','', a=>(a.goalCh>0)?pct(a.goalScored,a.goalCh):null],
     ['POSSESSION','Possession %','needs possession instances', a=>(a.possData&&(a.possDur+a.possDurOpp)>0)?pct(a.possDur,a.possDur+a.possDurOpp):null],
-    ['POSSESSION','Possessions per Game','', a=>a.possData?per(a.possCount,a.games):null],
-    ['POSSESSION','Poss → Shot %','', a=>(a.possData&&a.possCount>0)?pct(a.shots,a.possCount):null],
-    ['POSSESSION','Turnover Rate %','turnovers per possession', a=>(a.possData&&a.possCount>0)?pct(a.tosConceded,a.possCount):null],
+    ['POSSESSION','Possessions per Game','possession-tracked games only', a=>a.possGames>0?per(a.possCount,a.possGames):null],
+    ['POSSESSION','Poss → Shot %','possession-tracked games only', a=>(a.possCount>0)?pct(a.shotsPossG,a.possCount):null],
+    ['POSSESSION','Turnover Rate %','turnovers per possession', a=>(a.possCount>0)?pct(a.tosPossG,a.possCount):null],
     ['SCORE ORIGIN','From Own KO %','of sourced scores', a=>a.srcData?pct(a.srcOwnKO,a.srcTotal):null],
     ['SCORE ORIGIN','From Opp KO %','', a=>a.srcData?pct(a.srcOppKO,a.srcTotal):null],
     ['SCORE ORIGIN','From Turnovers %','', a=>a.srcData?pct(a.srcTO,a.srcTotal):null],
