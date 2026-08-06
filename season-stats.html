@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Season Stats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b10;--panel:#14141c;--card:#1b1b25;--border:#2a2a36;--t1:#ececf1;--t2:#a0a0ae;--t3:#6d6d7a;--accent:#4fc3f7;--teal:#2dd4bf;--amber:#f5a623;--green:#22c55e;--red:#ef4444;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:'Barlow',sans-serif;}
+header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);}
+.logo{font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;}
+.logo span{color:var(--accent);}
+.sub{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.2em;color:var(--t3);}
+.hdr-btn{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 22px 60px;}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);}
+select,button.act{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:9px 10px;font-family:'Barlow',sans-serif;}
+button.act{cursor:pointer;font-weight:700;}
+button.act.primary{background:var(--accent);border-color:var(--accent);color:#04222f;}
+button.act:disabled{opacity:.4;cursor:default;}
+.gamespick{margin-top:10px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 14px;}
+.gamespick summary{cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t2);padding:8px 0;}
+.gitem{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--t2);padding:3px 0;}
+#status{font-size:.8rem;color:var(--t3);margin:12px 2px;min-height:18px;}
+.board{display:none;}
+.head2{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:18px 0 6px;}
+.tname{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.04em;}
+.tname.a{color:var(--teal);}
+.tname.b{color:var(--amber);text-align:right;}
+.vs{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t3);padding:0 16px;}
+.gcount{font-size:.72rem;color:var(--t3);}
+.sec{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 18px;margin-bottom:14px;}
+.sec h3{margin:0 0 10px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:var(--amber);text-align:center;}
+.row{display:grid;grid-template-columns:74px 1fr 210px 1fr 74px;gap:10px;align-items:center;padding:5px 0;}
+.val{font:700 14px 'Barlow Condensed',sans-serif;}
+.val.a{color:var(--teal);}
+.val.b{color:var(--amber);text-align:right;}
+.val.na{color:var(--t3);font-weight:400;}
+.lbl{font-size:.8rem;color:var(--t1);text-align:center;font-weight:600;}
+.lbl small{display:block;color:var(--t3);font-weight:400;font-size:.66rem;}
+.track{height:14px;background:var(--card);border-radius:7px;overflow:hidden;position:relative;}
+.track .bar{position:absolute;top:0;bottom:0;border-radius:7px;}
+.track.a .bar{right:0;background:var(--teal);}
+.track.b .bar{left:0;background:var(--amber);}
+.foot{font-size:.7rem;color:var(--t3);text-align:center;margin-top:10px;line-height:1.6;}
+</style>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="sub">SEASON STATS</div>
+  <a href="library.html" class="hdr-btn">← Library</a>
+</header>
+<div class="wrap">
+  <div class="filters">
+    <div class="fg"><label>COMPETITION</label><select id="fComp" onchange="applyFilters()"><option value="">All</option></select></div>
+    <div class="fg"><label>SEASON</label><select id="fYear" onchange="applyFilters()"><option value="">All</option></select></div>
+    <div class="fg"><label>TEAM A</label><select id="fTeamA"></select></div>
+    <div class="fg"><label>TEAM B</label><select id="fTeamB"><option value="__baseline__">— Baseline (all teams avg) —</option></select></div>
+    <div class="fg"><label>&nbsp;</label><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
+  </div>
+  <details class="gamespick"><summary>Games included (<span id="gCount">0</span>) — untick any to exclude</summary><div id="gList"></div></details>
+  <div id="status">Loading games…</div>
+  <div class="board" id="board">
+    <div class="head2">
+      <div class="tname a" id="nameA"></div><div class="vs">HEAD-TO-HEAD<br><span class="gcount" id="gcA"></span></div><div class="tname b" id="nameB"></div>
+    </div>
+    <div id="sections"></div>
+    <div class="foot">Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don't carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.</div>
+  </div>
+</div>
+
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-edit.js"></script>
+<script>
+if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+
+// ═══════════════════════════════════════════════════════════════
+//  METRIC ENGINE — pure functions over (meta, events[]) so the whole
+//  thing is headlessly testable. Vocabulary handling mirrors the
+//  dashboard's bilingual predicates (Sportscode + Gaelic Insights +
+//  GAA Score Tracker exports).
+// ═══════════════════════════════════════════════════════════════
+const SS_SHOT_GROUPS=['Shot Outcomes','ShotOutcome','Outcome'];
+const SS_KO_GROUPS=['Kickout Outcomes','KickoutOutcome','PO_Result'];
+const SS_SRC_GROUPS=['Score Source Outcomes','Source'];
+function ssLbl(e,groups){ const L=e.labels||{}; for(const g of groups){ if(L[g]) return L[g]; } return null; }
+function ssUC(s){ return String(s||'').toUpperCase().trim(); }
+function ssSideOf(e, T){
+  const t=ssUC(e.team); if(t) return t===T;
+  return ssUC(e.code).startsWith(T+' ');
+}
+function ssIsShot(e){ const c=ssUC(e.code); return (/SHOT/.test(c)&&!/SOURCE/.test(c))||e.category==='Shots & Scores'; }
+function ssIsKO(e){ const c=ssUC(e.code); return /KICKOUT|\bKO\b|\bKOS\b/.test(c)&&!/SOURCE|LOST|WON/.test(c)||e.category==='Kickouts'; }
+function ssIsTO(e){ const c=ssUC(e.code); return /\bTOS?\b|TURNOVER/.test(c)&&!/SOURCE/.test(c); }
+function ssIsPoss(e){ return /TEAM POSSESSION/.test(ssUC(e.code)); }
+function ssScoreVal(txt){
+  const K=ssUC(txt);
+  if(!K) return 0;
+  if(/GOAL/.test(K)&&!/ATTEMPT|CHANCE|MISS|DISALLOW/.test(K)) return 3;
+  if(/2 POINT|TWO POINT|2PT/.test(K)&&!/ATTEMPT/.test(K)) return 2;
+  if(/POINT|1PT/.test(K)&&!/ATTEMPT/.test(K)) return 1;
+  return 0;
+}
+function ssKoWon(v){ const K=ssUC(v); return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); }
+
+// Per-game tallies for team T (uppercase). O = opponent name (uppercase).
+function ssGameTally(meta, events, T){
+  const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
+  if(T!==H&&T!==A) return null;
+  const O=(T===H)?A:H;
+  const g={ games:1,
+    shots:0, scores:0, pts:0, twoPts:0,
+    goalCh:0, goalScored:0, attemptData:false,
+    ownKO:0, ownKOWon:0, oppKO:0, oppKOWonByT:0, koData:false,
+    srcData:false, srcOwnKO:0, srcOppKO:0, srcTO:0, srcTotal:0,
+    ptsFromOwnKO:0, ptsConcededOwnKO:0,
+    tosConceded:0,
+    possCount:0, possDur:0, possDurOpp:0, possData:false,
+    scoreSeq:[] };
+  events.forEach(e=>{
+    const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
+    if(!mineT&&!mineO) return;
+    // shots + scores
+    if(ssIsShot(e)&&mineT){
+      const out=ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'';
+      g.shots++;
+      const v=ssScoreVal(out);
+      if(v>0){ g.scores++; g.pts+=v; if(v===2) g.twoPts++; }
+      const att=(e.labels||{})['Shot Attempts']||(e.labels||{})['Attempt'];
+      if(att){ g.attemptData=true; if(/GOAL/.test(ssUC(att))){ g.goalCh++; if(v===3) g.goalScored++; } }
+    }
+    // score sequence for momentum (both teams)
+    if(ssIsShot(e)){
+      const v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(v>0) g.scoreSeq.push({t:(e.driveT!=null?e.driveT:e.start)||0, team:mineT?'T':'O', v});
+    }
+    // kickouts — the event's side is the KICKING team
+    if(ssIsKO(e)){
+      const out=ssLbl(e,SS_KO_GROUPS);
+      if(out){
+        g.koData=true;
+        const kickerWon=ssKoWon(out);
+        if(mineT){ g.ownKO++; if(kickerWon) g.ownKOWon++; }
+        else { g.oppKO++; if(!kickerWon) g.oppKOWonByT++; }
+      }
+    }
+    // score source (attached to shots/scores or SCORE SOURCE instances)
+    const src=ssLbl(e,SS_SRC_GROUPS);
+    if(src){
+      const S=ssUC(src);
+      const val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(mineT&&val>0){
+        g.srcData=true; g.srcTotal++;
+        if(/OWN KICK/.test(S)){ g.srcOwnKO++; g.ptsFromOwnKO+=val; }
+        else if(/OPP KICK/.test(S)){ g.srcOppKO++; }
+        else if(/TURNOVER|F\/TO|U\/TO/.test(S)){ g.srcTO++; }
+      }
+      if(mineO&&val>0&&/OPP KICK/.test(S)){ g.ptsConcededOwnKO+=val; }   // they scored off OUR kickout
+    }
+    // turnovers conceded
+    if(ssIsTO(e)&&mineT) g.tosConceded++;
+    // possession instances
+    if(ssIsPoss(e)){
+      const dur=Math.max(0,((e.end!=null?e.end:0)-(e.start!=null?e.start:0)));
+      g.possData=true;
+      if(mineT){ g.possCount++; g.possDur+=dur; }
+      else g.possDurOpp+=dur;
+    }
+  });
+  // momentum from the chronological score sequence
+  g.scoreSeq.sort((x,y)=>x.t-y.t);
+  g.runs=0; g.runPts=0; g.runTwoPts=0;
+  let cur=0, curPts=0, curTwo=0;
+  const flush=()=>{ if(cur>=3){ g.runs++; g.runPts+=curPts; g.runTwoPts+=curTwo; } cur=0; curPts=0; curTwo=0; };
+  let last=null;
+  g.scoreSeq.forEach(s=>{
+    if(s.team==='T'){ if(last==='T'){ cur++; curPts+=s.v; if(s.v===2)curTwo++; } else { flush(); cur=1; curPts=s.v; curTwo=(s.v===2?1:0); } }
+    else { if(last==='T') flush(); }
+    last=s.team;
+  });
+  flush();
+  return g;
+}
+function ssAggregate(tallies){
+  const a={games:0};
+  tallies.forEach(g=>{ if(!g) return; Object.keys(g).forEach(k=>{ if(typeof g[k]==='number') a[k]=(a[k]||0)+g[k]; else if(typeof g[k]==='boolean') a[k]=(a[k]||false)||g[k]; }); });
+  return a;
+}
+// metric list: [section, label, sub, fn(agg)->{v,txt} | null for n/a, fmt]
+function ssMetrics(){
+  const pct=(n,d)=>d>0?{v:n/d*100, txt:(n/d*100).toFixed(1)+'%'}:null;
+  const per=(n,g,dp)=>g>0?{v:n/g, txt:(n/g).toFixed(dp==null?1:dp)}:null;
+  const num=(n)=>({v:n, txt:String(n)});
+  return [
+    ['KICKOUT','Own KO Win %','', a=>a.koData?pct(a.ownKOWon,a.ownKO):null],
+    ['KICKOUT','Opp KO Won %','', a=>a.koData?pct(a.oppKOWonByT,a.oppKO):null],
+    ['KICKOUT','Net Pts per KO','scored − conceded, per own KO', a=>(a.koData&&a.srcData&&a.ownKO>0)?{v:(a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO, txt:((a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO>=0?'+':'')+((a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO).toFixed(3)}:null],
+    ['KICKOUT','Own KO → Scored','points', a=>a.srcData?num(a.ptsFromOwnKO):null],
+    ['KICKOUT','Own KO → Conceded','points', a=>a.srcData?num(a.ptsConcededOwnKO):null],
+    ['SHOOTING','Shot/Score %','', a=>pct(a.scores,a.shots)],
+    ['SHOOTING','Shots per Game','', a=>per(a.shots,a.games)],
+    ['SHOOTING','Total Pts per Game','', a=>per(a.pts,a.games,1)],
+    ['SHOOTING','2pt per Game','', a=>per(a.twoPts,a.games,2)],
+    ['SHOOTING','Goal Chances per Game','needs attempt data', a=>a.attemptData?per(a.goalCh,a.games):null],
+    ['SHOOTING','Goal Chance Conversion %','', a=>a.attemptData?pct(a.goalScored,a.goalCh):null],
+    ['POSSESSION','Possession %','needs possession instances', a=>(a.possData&&(a.possDur+a.possDurOpp)>0)?pct(a.possDur,a.possDur+a.possDurOpp):null],
+    ['POSSESSION','Possessions per Game','', a=>a.possData?per(a.possCount,a.games):null],
+    ['POSSESSION','Poss → Shot %','', a=>(a.possData&&a.possCount>0)?pct(a.shots,a.possCount):null],
+    ['POSSESSION','Turnover Rate %','turnovers per possession', a=>(a.possData&&a.possCount>0)?pct(a.tosConceded,a.possCount):null],
+    ['SCORE ORIGIN','From Own KO %','of sourced scores', a=>a.srcData?pct(a.srcOwnKO,a.srcTotal):null],
+    ['SCORE ORIGIN','From Opp KO %','', a=>a.srcData?pct(a.srcOppKO,a.srcTotal):null],
+    ['SCORE ORIGIN','From Turnovers %','', a=>a.srcData?pct(a.srcTO,a.srcTotal):null],
+    ['MOMENTUM','Runs of 3+ scores','total', a=>num(a.runs)],
+    ['MOMENTUM','Runs per Game','', a=>per(a.runs,a.games,1)],
+    ['MOMENTUM','Avg Pts per Run','', a=>a.runs>0?per(a.runPts,a.runs,1):null],
+    ['MOMENTUM','2pts in Runs','count', a=>num(a.runTwoPts)],
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PAGE — filters, gateway fetching, mirrored bars
+// ═══════════════════════════════════════════════════════════════
+let GAMES=[], BUNDLES=new Map();
+function metaOf(r){ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return null; } } return (m&&m.id)?m:null; }
+async function boot(){
+  try{
+    const j=await cohesionRead({action:'listGames', section:cohesionSection()});
+    GAMES=(j.games||[]).map(metaOf).filter(Boolean);
+    const comps=[...new Set(GAMES.map(g=>g.competition).filter(Boolean))].sort();
+    const years=[...new Set(GAMES.map(g=>String(g.date||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
+    document.getElementById('fComp').innerHTML='<option value="">All</option>'+comps.map(c=>`<option>${c}</option>`).join('');
+    document.getElementById('fYear').innerHTML='<option value="">All</option>'+years.map(y=>`<option>${y}</option>`).join('');
+    applyFilters();
+    document.getElementById('status').textContent=GAMES.length+' games available in this section.';
+  }catch(e){
+    document.getElementById('status').textContent='Could not load games: '+e.message;
+  }
+}
+function filteredGames(){
+  const comp=document.getElementById('fComp').value, yr=document.getElementById('fYear').value;
+  return GAMES.filter(g=>(!comp||g.competition===comp)&&(!yr||String(g.date||'').slice(0,4)===yr));
+}
+function selectedGames(){
+  return filteredGames().filter(g=>{ const cb=document.getElementById('g_'+g.id); return !cb||cb.checked; });
+}
+function applyFilters(){
+  const fg=filteredGames();
+  document.getElementById('gCount').textContent=fg.length;
+  document.getElementById('gList').innerHTML=fg.map(g=>
+    `<label class="gitem"><input type="checkbox" id="g_${g.id}" checked onchange="refreshTeams()"> ${g.title||g.id} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></label>`).join('')||'<div class="gitem">No games match.</div>';
+  refreshTeams();
+}
+function refreshTeams(){
+  const teams=[...new Set(selectedGames().flatMap(g=>[ssUC(g.homeTeam),ssUC(g.awayTeam)]).filter(Boolean))].sort();
+  const a=document.getElementById('fTeamA'), b=document.getElementById('fTeamB');
+  const pa=a.value, pb=b.value;
+  a.innerHTML=teams.map(t=>`<option>${t}</option>`).join('');
+  b.innerHTML='<option value="__baseline__">— Baseline (all teams avg) —</option>'+teams.map(t=>`<option>${t}</option>`).join('');
+  if(teams.includes(pa)) a.value=pa;
+  if(pb==='__baseline__'||teams.includes(pb)) b.value=pb;
+}
+async function fetchBundle(id){
+  if(BUNDLES.has(id)) return BUNDLES.get(id);
+  const j=await cohesionRead({action:'gameBundle', id});
+  const b={meta:j.meta, events:(j.events||[]).map(r=>r.data)};
+  BUNDLES.set(id,b);
+  return b;
+}
+function teamAgg(bundles, T){
+  const tallies=bundles.map(b=>ssGameTally(b.meta,b.events,T)).filter(Boolean);
+  return {agg:ssAggregate(tallies), games:tallies.length};
+}
+async function runCompare(){
+  const games=selectedGames();
+  if(!games.length){ document.getElementById('status').textContent='No games selected.'; return; }
+  const A=document.getElementById('fTeamA').value, B=document.getElementById('fTeamB').value;
+  if(!A){ document.getElementById('status').textContent='Pick Team A.'; return; }
+  if(A===B){ document.getElementById('status').textContent='Pick two different teams.'; return; }
+  const btn=document.getElementById('goBtn'); btn.disabled=true;
+  const st=document.getElementById('status');
+  try{
+    const bundles=[];
+    for(let i=0;i<games.length;i+=4){
+      st.textContent='Loading events… '+Math.min(i+4,games.length)+'/'+games.length;
+      const chunk=await Promise.all(games.slice(i,i+4).map(g=>fetchBundle(g.id)));
+      bundles.push(...chunk);
+    }
+    const ra=teamAgg(bundles,A);
+    let rb, nameB;
+    if(B==='__baseline__'){
+      const teams=[...new Set(bundles.flatMap(b=>[ssUC(b.meta.homeTeam),ssUC(b.meta.awayTeam)]).filter(Boolean))];
+      // baseline = mean of each metric across teams that support it
+      rb={baseline:teams.map(t=>teamAgg(bundles,t))};
+      nameB='ALL TEAMS AVG';
+    } else { rb=teamAgg(bundles,B); nameB=B; }
+    render(A, ra, nameB, rb);
+    st.textContent='';
+  }catch(e){ st.textContent='Could not compute: '+e.message; }
+  btn.disabled=false;
+}
+function metricFor(res, fn){
+  if(res.baseline){
+    const vals=res.baseline.map(r=>fn(r.agg)).filter(x=>x&&isFinite(x.v));
+    if(!vals.length) return null;
+    const mean=vals.reduce((s,x)=>s+x.v,0)/vals.length;
+    const sample=vals[0].txt;
+    const dec=sample.includes('%')?1:(sample.includes('.')?(sample.split('.')[1]||'').length:0);
+    return {v:mean, txt:(sample.startsWith('+')&&mean>=0?'+':'')+mean.toFixed(dec)+(sample.includes('%')?'%':'')};
+  }
+  return fn(res.agg);
+}
+function render(nameA, ra, nameB, rb){
+  document.getElementById('board').style.display='block';
+  document.getElementById('nameA').textContent=nameA;
+  document.getElementById('nameB').textContent=nameB;
+  document.getElementById('gcA').textContent=(ra.games||0)+' games'+(rb.baseline?'':' v '+(rb.games||0));
+  const secs={};
+  ssMetrics().forEach(([sec,label,sub,fn])=>{
+    const a=metricFor(ra,fn), b=metricFor(rb,fn);
+    const max=Math.max(a&&isFinite(a.v)?Math.abs(a.v):0, b&&isFinite(b.v)?Math.abs(b.v):0)||1;
+    const barW=x=>x?Math.max(3,Math.abs(x.v)/max*100):0;
+    (secs[sec]=secs[sec]||[]).push(
+      `<div class="row">
+        <div class="val a ${a?'':'na'}">${a?a.txt:'n/a'}</div>
+        <div class="track a"><div class="bar" style="width:${barW(a)}%"></div></div>
+        <div class="lbl">${label}${sub?`<small>${sub}</small>`:''}</div>
+        <div class="track b"><div class="bar" style="width:${barW(b)}%"></div></div>
+        <div class="val b ${b?'':'na'}">${b?b.txt:'n/a'}</div>
+      </div>`);
+  });
+  document.getElementById('sections').innerHTML=Object.entries(secs)
+    .map(([s,rows])=>`<div class="sec"><h3>${s}</h3>${rows.join('')}</div>`).join('');
+}
+cohesionIdentityReady().then(boot);
+</script>
+</body>
+</html>
