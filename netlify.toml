@@ -21,12 +21,22 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# JS/CSS are edited IN PLACE (not fingerprinted) — long caching would pin
+# browsers to stale copies of cohesion-edit.js / cohesion-player.js.
 [[headers]]
   for = "/*.js"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# CORS for team packs: the GAA Score Tracker (file:// or packaged app)
+# fetches these static JSON files cross-origin.
+[[headers]]
+  for = "/packs/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
