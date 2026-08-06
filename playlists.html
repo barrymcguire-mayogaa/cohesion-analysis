@@ -897,9 +897,8 @@ async function loadGamesMeta(){
   if(GAMESMETA) return GAMESMETA;
   GAMESMETA={};
   try{
-    const {data,error}=await _sb.from('games').select('meta');
-    if(error) throw error;
-    (data||[]).forEach(r=>{ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return; } } if(m&&m.id) GAMESMETA[m.id]=m; });
+    const j=await cohesionRead({action:'gamesMeta'});
+    (j.metas||[]).forEach(m=>{ if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return; } } if(m&&m.id) GAMESMETA[m.id]=m; });
   }catch(_){}
   return GAMESMETA;
 }

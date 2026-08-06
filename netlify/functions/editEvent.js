@@ -53,8 +53,7 @@ exports.handler = async (event) => {
     } catch (e) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) };
     }
-    const role = decoded.app_metadata?.roles?.[0];
-    if (role !== 'admin') {
+    if (!((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin')) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
     }
 

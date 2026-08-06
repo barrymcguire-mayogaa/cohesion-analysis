@@ -341,14 +341,9 @@ function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
 async function loadGame(){
   try{
-    const [gameRes, eventsRes] = await Promise.all([
-      _sb.from('games').select('meta').eq('id', gameId).single(),
-      _sb.from('events').select('id, data').eq('game_id', gameId)
-    ]);
-    if(gameRes.error) throw gameRes.error;
-    if(eventsRes.error) throw eventsRes.error;
-    GAME = gameRes.data.meta || {};
-    ALL  = (eventsRes.data || []).map(r => ({ ...r.data, _rowId: r.id }));
+    const bundle = await cohesionRead({ action:'gameBundle', id: gameId });
+    GAME = bundle.meta || {};
+    ALL  = (bundle.events || []).map(r => ({ ...r.data, _rowId: r.id }));
     applyVisualSyncCorrections(ALL);
     // The query has no ORDER BY, so rows arrive in physical table order —
     // which is only chronological by coincidence until any delete/reinsert

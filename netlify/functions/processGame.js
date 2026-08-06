@@ -118,7 +118,7 @@ exports.handler = async (event) => {
     // STEP 4: Validate admin role
     // ========================================================================
     // Netlify Identity stores roles in app_metadata.roles array
-    const userRole = decodedToken.app_metadata?.roles?.[0];
+    const userRole = ((decodedToken.app_metadata && decodedToken.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin') ? 'admin' : (decodedToken.app_metadata?.roles?.[0] || 'none');
 
     if (userRole !== 'admin') {
       console.error('Admin role validation failed:', {

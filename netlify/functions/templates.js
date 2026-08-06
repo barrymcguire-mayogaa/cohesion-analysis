@@ -38,7 +38,7 @@ exports.handler = async (event) => {
     let decoded;
     try { decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8')); }
     catch (e) { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) }; }
-    if (decoded.app_metadata?.roles?.[0] !== 'admin') {
+    if (!((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin')) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
     }
     const email = (decoded.email || '').toLowerCase();

@@ -38,7 +38,7 @@ exports.handler = async (event) => {
     let decoded;
     try { decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8')); }
     catch (e) { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) }; }
-    const isAdmin = decoded.app_metadata?.roles?.[0] === 'admin';
+    const isAdmin = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin');
     const email = (decoded.email || '').toLowerCase();
     const author = (decoded.user_metadata && decoded.user_metadata.full_name) || email.split('@')[0] || 'user';
 

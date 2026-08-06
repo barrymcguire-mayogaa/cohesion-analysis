@@ -223,6 +223,7 @@ header{
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-edit.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -262,6 +263,14 @@ header{
   <!-- ACTION BUTTONS -->
   <div class="action-bar" id="actionBar" style="display:none;">
     <button class="btn btn-primary" onclick="validateAndParseAll()">✓ Validate / Parse All Games</button>
+    <div style="margin:10px 0;display:flex;align-items:center;gap:10px;">
+      <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:#888;">SECTION</label>
+      <select id="uploadSection" style="background:#1c1c26;border:1px solid #333;border-radius:8px;color:#eee;font-size:0.85rem;padding:8px 10px;">
+        <option value="county">County (default)</option>
+        <option value="club">Club</option>
+      </select>
+      <span style="font-size:0.68rem;color:#888;">Club games are only visible to users with the CLUB role.</span>
+    </div>
     <button class="btn btn-primary" onclick="uploadReadyGames()">⬆ Upload Ready Games</button>
     <button class="btn btn-secondary" onclick="resetForm()">⟲ Start New Batch</button>
   </div>
@@ -1175,6 +1184,7 @@ async function validateAndParseAll() {
 // BUILD METADATA & UPLOAD
 // ═══════════════════════════════════════════════════════════════
 function buildBatchGameMeta(game) {
+  const _section = cohesionUploadSection();
   const youtubeId = extractYtId(game.youtubeUrl);
   const half1Start = parseTime(game.half1StartText);
   const half2Start = parseTime(game.half2StartText);
@@ -1213,6 +1223,7 @@ function buildBatchGameMeta(game) {
 
   return {
     id: gameId,
+    section: _section,
     title: `${game.homeTeam} v ${game.awayTeam}`,
     date: normalizedDate,
     homeTeam: game.homeTeam,

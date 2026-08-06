@@ -310,6 +310,7 @@ select option{background:var(--card);}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-edit.js"></script>
 </head>
 <body>
 
@@ -317,6 +318,10 @@ select option{background:var(--card);}
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
   <div class="logo-sub">Team Analysis</div>
   <div class="hdr-spacer"></div>
+  <div id="sectionSwitch" style="display:none;gap:0;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;margin-right:10px;">
+    <button id="secBtnCounty" onclick="switchSection('county')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">COUNTY</button>
+    <button id="secBtnClub" onclick="switchSection('club')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">CLUB</button>
+  </div>
   <a href="admin.html" class="hdr-btn hdr-btn-admin" id="adminBtn" style="display:none">
     + Add Game
   </a>
@@ -1082,8 +1087,8 @@ async function confirmEdit(){
 
 async function loadGames(){
   try{
-    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
-    if(error) throw error;
+    const j = await cohesionRead({ action:'listGames', section: cohesionSection() });
+    const data = j.games;
 
     // Parse meta: handle both JSON string and object formats
     // (Supabase may return JSON as string depending on column type)
@@ -1122,6 +1127,30 @@ async function loadGames(){
 
 loadGames();
 renderLibraryTiles();
+</script>
+<script>
+// ── County/Club section switcher (visible only with access to both) ──
+function paintSectionSwitch(){
+  const secs = cohesionSections();
+  const box = document.getElementById('sectionSwitch');
+  if (!box) return;
+  if (secs.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  const cur = cohesionSection();
+  const paint = (id, on) => {
+    const b = document.getElementById(id); if (!b) return;
+    b.style.background = on ? 'var(--accent,#4fc3f7)' : 'transparent';
+    b.style.color = on ? '#fff' : 'var(--t2,#999)';
+  };
+  paint('secBtnCounty', cur === 'county');
+  paint('secBtnClub', cur === 'club');
+}
+function switchSection(s){
+  cohesionSetSection(s);
+  paintSectionSwitch();
+  if (typeof loadGames === 'function') loadGames();
+}
+paintSectionSwitch();
 </script>
 </body>
 </html>

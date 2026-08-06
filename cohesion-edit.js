@@ -51,6 +51,52 @@
     });
   };
 
+  // ── READ GATEWAY (hard county/club separation) ────────────────────
+  // All game/event reads go through /.netlify/functions/data with the
+  // signed-in user's JWT; direct anon SELECT on games/events is revoked.
+  window.cohesionAuthFetch = async function(fn, payload){
+    const ni = window.netlifyIdentity;
+    const cu = ni && ((ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser()));
+    let t = cu && cu.token && cu.token.access_token;
+    if (!t && ni && ni.refresh) { try { await ni.refresh(); const u = ni.gotrue.currentUser(); t = u && u.token && u.token.access_token; } catch (_) {} }
+    if (!t) throw new Error('Not signed in — sign out and back in, then retry.');
+    const res = await fetch('/.netlify/functions/' + fn, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
+      body: JSON.stringify(payload) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || ('HTTP ' + res.status));
+    return j;
+  };
+  window.cohesionRead = function(payload){ return window.cohesionAuthFetch('data', payload); };
+
+  // Section state: which side of the county/club wall the UI is showing.
+  window.cohesionRoles = function(){
+    try { return JSON.parse(sessionStorage.getItem('cohesion_roles')) || []; } catch (_) { return []; }
+  };
+  window.cohesionSections = function(){
+    const roles = window.cohesionRoles().map(r => String(r).toLowerCase());
+    if (roles.includes('admin')) return ['county', 'club'];
+    const hasClub = roles.includes('club');
+    const hasOther = roles.some(r => r !== 'club');
+    if (hasClub && !hasOther) return ['club'];
+    if (hasClub) return ['county', 'club'];
+    return ['county'];
+  };
+  window.cohesionSection = function(){
+    const allowed = window.cohesionSections();
+    let s = sessionStorage.getItem('cohesion_section');
+    if (!allowed.includes(s)) s = allowed[0];
+    return s;
+  };
+  window.cohesionSetSection = function(s){
+    if (window.cohesionSections().includes(s)) sessionStorage.setItem('cohesion_section', s);
+  };
+  // Upload pages: which section a new game is filed under (admin toggle).
+  window.cohesionUploadSection = function(){
+    const el = document.getElementById('uploadSection');
+    return (el && el.value === 'club') ? 'club' : 'county';
+  };
+
   // Searchable playlist picker — EVERY playlist listed (no cap), with a
   // filter box for a growing library. Shared by the dashboard and Code Room.
   // Resolves 'pl-<id>' | 'new' | 'cancel'.

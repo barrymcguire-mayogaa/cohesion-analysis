@@ -190,6 +190,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-edit.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -565,6 +566,14 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 
     <div class="error-box" id="errorBox"></div>
 
+    <div style="margin:10px 0;display:flex;align-items:center;gap:10px;">
+      <label style="font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3,#888);">SECTION</label>
+      <select id="uploadSection" style="background:var(--card,#1c1c26);border:1px solid var(--border,#333);border-radius:8px;color:var(--t1,#eee);font-size:0.85rem;padding:8px 10px;">
+        <option value="county">County (default)</option>
+        <option value="club">Club</option>
+      </select>
+      <span style="font-size:0.68rem;color:var(--t3,#888);">Club games are only visible to users with the CLUB role.</span>
+    </div>
       <button class="process-btn" id="processBtn" onclick="processGame()" disabled>
         ⚙ Generate Game Files
       </button>
@@ -873,8 +882,7 @@ async function loadGamesForReparse(){
   listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
 
   try {
-    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
-    if(error) throw error;
+    const { data } = { data: (await cohesionRead({ action:'listGames', section:'all' })).games };
 
     reparseGames = (data || []).map(r => r.meta);
 
@@ -1554,8 +1562,7 @@ async function processGame(){
       }
       const gameId = reparseGames[rIdx].id;
       try {
-        const { data: evData, error: evErr } = await _sb.from('events').select('data').eq('game_id', gameId);
-        if(evErr) throw evErr;
+        const evData = (await cohesionRead({ action:'getEvents', gameId })).events;
         events = (evData || []).map(r => r.data);
         setProgress(80, 'Preparing updated data…');
       } catch(e){
@@ -2419,6 +2426,7 @@ async function processGame(){
 
     const gameMeta = {
       id: gameId,
+      section: cohesionUploadSection(),
       title: `${homeTeam} v ${awayTeam}`,
       date: dateVal || new Date().toISOString().slice(0,10),
       competition,
@@ -2543,8 +2551,7 @@ async function loadGamesForManage(){
   listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
 
   try {
-    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
-    if(error) throw error;
+    const { data } = { data: (await cohesionRead({ action:'listGames', section:'all' })).games };
 
     manageGames = (data || []).map(r => ({id: r.id, meta: r.meta}));
 
@@ -2614,9 +2621,7 @@ async function loadAndRenderRosters(game){
   try {
     document.getElementById('rosterEditorTitle').textContent = `Edit Rosters: ${game.meta.homeTeam} v ${game.meta.awayTeam}`;
 
-    const { data: eventsData, error: evErr } = await _sb.from('events').select('data').eq('game_id', game.id);
-
-    if(evErr) throw evErr;
+    const eventsData = (await cohesionRead({ action:'getEvents', gameId: game.id })).events;
 
     currentManageGameId = game.id;
     currentManageGameMeta = game.meta;
@@ -2722,9 +2727,7 @@ async function savePlayerRosters(){
       }
     }
 
-    const { data: eventsData, error: evErr } = await _sb.from('events').select('id, data').eq('game_id', currentManageGameId);
-
-    if(evErr) throw evErr;
+    const eventsData = (await cohesionRead({ action:'getEvents', gameId: currentManageGameId })).events;
 
     const totalEvents = eventsData.length;
     let updatedCount = 0;
@@ -2788,8 +2791,7 @@ async function savePlayerRosters(){
     document.getElementById('rosterProgBar').style.width = '95%';
     document.getElementById('rosterProgMsg').textContent = `Verifying no P-tags remain…`;
 
-    const { data: verifyData, error: verifyErr } = await _sb.from('events').select('data').eq('game_id', currentManageGameId);
-    if(verifyErr) throw verifyErr;
+    const verifyData = (await cohesionRead({ action:'getEvents', gameId: currentManageGameId })).events;
 
     let remainingPtags = 0;
     const ptagsFound = [];
@@ -2886,8 +2888,7 @@ async function loadGamesForDelete(){
   listDiv.innerHTML = '<div style="padding:12px;color:var(--t3);font-size:12px;text-align:center;">Loading games…</div>';
 
   try {
-    const { data, error } = await _sb.from('games').select('id, meta').order('created_at', { ascending: false });
-    if(error) throw error;
+    const { data } = { data: (await cohesionRead({ action:'listGames', section:'all' })).games };
 
     deleteGames = (data || []).map(r => ({id: r.id, meta: r.meta}));
 
@@ -3554,6 +3555,7 @@ async function startBatchUpload() {
 }
 
 function buildGameMetaFromExcel(row) {
+  const _section = cohesionUploadSection();
   const gameId = row['game_id'] || row['Game ID'] || '';
   const homeTeam = row['home_team'] || row['Home Team'] || '';
   const awayTeam = row['away_team'] || row['Away Team'] || '';
@@ -3642,6 +3644,7 @@ function buildGameMetaFromExcel(row) {
 
   return {
     id: gameId,
+    section: _section,
     title: title,
     date: date,
     homeTeam: homeTeam,

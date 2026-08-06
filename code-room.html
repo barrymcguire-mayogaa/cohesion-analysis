@@ -409,9 +409,8 @@ let crDeleted=[], crTmpCounter=0;   // queued deletes (existing rows) + temp-id 
 // ── game picker ───────────────────────────────────────────────
 async function loadGames(){
   try{
-    const {data,error}=await _sb.from('games').select('id, meta').order('created_at',{ascending:false});
-    if(error) throw error;
-    GAMES=(data||[]).map(r=>{let m=r.meta; if(typeof m==='string'){try{m=JSON.parse(m);}catch(_){return null;}} return m;}).filter(g=>g&&g.id);
+    const j=await cohesionRead({action:'listGames', section: cohesionSection()});
+    GAMES=(j.games||[]).map(r=>{let m=r.meta; if(typeof m==='string'){try{m=JSON.parse(m);}catch(_){return null;}} return m;}).filter(g=>g&&g.id);
     buildGameFilters();
   }catch(e){ document.getElementById('setupStatus').innerHTML='<span class="err">Could not load games: '+e.message+'</span>'; }
 }
@@ -450,9 +449,8 @@ async function openGame(id){
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
-    const {data,error}=await _sb.from('events').select('id, data').eq('game_id',id);
-    if(error) throw error;
-    EVENTS=(data||[]).map(r=>({...r.data,_rowId:r.id}));
+    const j=await cohesionRead({action:'getEvents', gameId:id});
+    EVENTS=(j.events||[]).map(r=>({...r.data,_rowId:r.id}));
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   }catch(e){
     document.getElementById('loading').innerHTML='Could not load events: '+e.message; return;

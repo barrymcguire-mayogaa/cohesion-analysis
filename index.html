@@ -194,9 +194,13 @@ async function doLogin(){
     // Fetch full user object to get roles
     const fullUser = await netlifyIdentity.gotrue.currentUser();
     const roles = fullUser?.app_metadata?.roles || user?.app_metadata?.roles || [];
-    const role  = roles.includes('admin') ? 'admin' : 'viewer';
+    const lower = roles.map(r => String(r).toLowerCase());
+    const role  = lower.includes('admin') ? 'admin' : 'viewer';
 
     sessionStorage.setItem('cohesion_auth', role);
+    sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
+    sessionStorage.setItem('cohesion_section',
+      (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
     sessionStorage.setItem('cohesion_user', email);
     window.location.href = 'library.html';
 
@@ -210,8 +214,12 @@ async function doLogin(){
 netlifyIdentity.on('init', user => {
   if(user){
     const roles = user.app_metadata?.roles || [];
-    const role  = roles.includes('admin') ? 'admin' : 'viewer';
+    const lower = roles.map(r => String(r).toLowerCase());
+    const role  = lower.includes('admin') ? 'admin' : 'viewer';
     sessionStorage.setItem('cohesion_auth', role);
+    sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
+    sessionStorage.setItem('cohesion_section',
+      (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
     window.location.href = 'library.html';
   }
 });
