@@ -60,6 +60,15 @@
   let _idReady = null;
   window.cohesionIdentityReady = function(){
     if (_idReady) return _idReady;
+    // The widget injects a full-viewport iframe that can sit INVISIBLY over
+    // the page and eat every click. No page using this file ever shows the
+    // widget UI (sign-in lives on index.html, which doesn't load this file),
+    // so keep the iframe out of the way everywhere, permanently.
+    try {
+      const st = document.createElement('style');
+      st.textContent = 'iframe#netlify-identity-widget{display:none !important;pointer-events:none !important;}';
+      document.head.appendChild(st);
+    } catch (_) {}
     _idReady = new Promise(res => {
       let done = false;
       const fin = () => { if (!done) { done = true; res(); } };
@@ -69,8 +78,9 @@
         try {
           const u = (ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser());
           if (u) { fin(); return true; }
-          ni.on('init', fin);
+          ni.on('init', () => { try { ni.close(); } catch (_) {} fin(); });
           try { ni.init(); } catch (_) {}
+          try { ni.close(); } catch (_) {}
         } catch (_) {}
         return true;
       };
