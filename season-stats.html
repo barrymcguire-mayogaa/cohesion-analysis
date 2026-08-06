@@ -30,23 +30,23 @@ button.act:disabled{opacity:.4;cursor:default;}
 .board{display:none;}
 .head2{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:18px 0 6px;}
 .tname{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.04em;}
-.tname.a{color:var(--teal);}
-.tname.b{color:var(--amber);text-align:right;}
+.tname.a{color:var(--colA,var(--teal));}
+.tname.b{color:var(--colB,var(--amber));text-align:right;}
 .vs{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t3);padding:0 16px;}
 .gcount{font-size:.72rem;color:var(--t3);}
 .sec{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 18px;margin-bottom:14px;}
 .sec h3{margin:0 0 10px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:var(--amber);text-align:center;}
 .row{display:grid;grid-template-columns:74px 1fr 210px 1fr 74px;gap:10px;align-items:center;padding:5px 0;}
 .val{font:700 14px 'Barlow Condensed',sans-serif;}
-.val.a{color:var(--teal);}
-.val.b{color:var(--amber);text-align:right;}
+.val.a{color:var(--colA,var(--teal));}
+.val.b{color:var(--colB,var(--amber));text-align:right;}
 .val.na{color:var(--t3);font-weight:400;}
 .lbl{font-size:.8rem;color:var(--t1);text-align:center;font-weight:600;}
 .lbl small{display:block;color:var(--t3);font-weight:400;font-size:.66rem;}
 .track{height:14px;background:var(--card);border-radius:7px;overflow:hidden;position:relative;}
 .track .bar{position:absolute;top:0;bottom:0;border-radius:7px;}
-.track.a .bar{right:0;background:var(--teal);}
-.track.b .bar{left:0;background:var(--amber);}
+.track.a .bar{right:0;background:var(--colA,var(--teal));}
+.track.b .bar{left:0;background:var(--colB,var(--amber));}
 .foot{font-size:.7rem;color:var(--t3);text-align:center;margin-top:10px;line-height:1.6;}
 </style>
 </head>
@@ -283,6 +283,28 @@ async function fetchBundle(id){
   BUNDLES.set(id,b);
   return b;
 }
+// ── team colours from game metas, guarded for a dark page ──
+function ssHexRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(String(h||'').trim()); if(!m) return null; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
+function ssLum(rgb){ return (0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255; }
+function ssLighten(rgb,f){ return '#'+rgb.map(v=>Math.round(v+(255-v)*f).toString(16).padStart(2,'0')).join(''); }
+function ssTeamColor(T){
+  // most recent game the team appears in wins (metas are newest-first)
+  for(const g of GAMES){
+    if(ssUC(g.homeTeam)===T&&g.homeColor) { const rgb=ssHexRgb(g.homeColor); if(rgb) return {rgb, hex:g.homeColor}; }
+    if(ssUC(g.awayTeam)===T&&g.awayColor) { const rgb=ssHexRgb(g.awayColor); if(rgb) return {rgb, hex:g.awayColor}; }
+  }
+  return null;
+}
+function ssDisplayColors(TA, TB){
+  const fallbackA='#2dd4bf', fallbackB='#f5a623';
+  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); return L<0.28?ssLighten(c2.rgb,0.45):c2.hex; };   // navy/black lift to readable
+  let a=legible(ssTeamColor(TA))||fallbackA;
+  let b=(TB&&TB!=='__baseline__')?(legible(ssTeamColor(TB))||fallbackB):fallbackB;
+  const ra=ssHexRgb(a), rb=ssHexRgb(b);
+  if(ra&&rb){ const d=Math.hypot(ra[0]-rb[0],ra[1]-rb[1],ra[2]-rb[2]); if(d<90) b=fallbackB; }   // clash → B goes amber
+  if(a.toLowerCase()===fallbackB.toLowerCase()) a=fallbackA;   // degenerate: both resolved amber
+  return {a,b};
+}
 function teamAgg(bundles, T){
   const tallies=bundles.map(b=>ssGameTally(b.meta,b.events,T)).filter(Boolean);
   return {agg:ssAggregate(tallies), games:tallies.length};
@@ -327,6 +349,10 @@ function metricFor(res, fn){
   return fn(res.agg);
 }
 function render(nameA, ra, nameB, rb){
+  const cols=ssDisplayColors(nameA, rb.baseline?'__baseline__':nameB);
+  const board=document.getElementById('board');
+  board.style.setProperty('--colA', cols.a);
+  board.style.setProperty('--colB', cols.b);
   document.getElementById('board').style.display='block';
   document.getElementById('nameA').textContent=nameA;
   document.getElementById('nameB').textContent=nameB;
