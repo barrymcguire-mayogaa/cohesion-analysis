@@ -204,6 +204,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
     <div class="title">Playlists</div>
     <div class="sub">Clips from one game or many, played back-to-back. Pick a playlist to open the player.</div>
     <div class="pltools">
+      <span id="plSecSwitch" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;vertical-align:middle;margin-right:8px;">
+        <button id="plSecCounty" onclick="plSwitchSection('county')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">COUNTY</button>
+        <button id="plSecClub" onclick="plSwitchSection('club')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">CLUB</button>
+      </span>
       <input type="text" id="plSearch" class="plsearch" placeholder="Search playlists — name, clip, player, game…" oninput="renderPlRows()">
       <button class="newbtn" id="newBtn" style="display:none;" onclick="newPlaylist()">＋ New playlist</button>
     </div>
@@ -372,10 +376,9 @@ async function plAuthFetch(payload){
 function myEmail(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return ((u&&u.email)||'').toLowerCase(); }catch(_){ return ''; } }
 async function loadPlaylists(){
   try{
-    const {data,error}=await _sb.from('playlists').select('id, scope, owner, name, data, created_at').order('created_at',{ascending:false});
-    if(error) throw error;
-    const em=myEmail();
-    PLAYLISTS=(data||[]).filter(p=>p.scope==='club'||(p.scope==='personal'&&p.owner===em));
+    const j=await plAuthFetch({action:'list', section: cohesionSection()});
+    PLAYLISTS=j.playlists||[];
+    paintPlSectionSwitch();
     renderPlRows();
     applyDeepLink();
   }catch(e){
@@ -411,7 +414,7 @@ async function newPlaylist(){
   const scope=await cohesionModal({title:'Who can see this playlist?',message:'Club-wide playlists are visible to every analyst, coach and player; personal playlists are only visible to you.',buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
   if(scope==='cancel') return;
   try{
-    const j=await plAuthFetch({action:'save', name, scope, data:{items:[]}});
+    const j=await plAuthFetch({action:'save', name, scope, section: cohesionSection(), data:{items:[]}});
     await loadPlaylists();
     openPlaylist(j.id);
   }catch(e){ alert('Could not create playlist: '+e.message); }
@@ -601,7 +604,7 @@ async function savePlaylist(){
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='Saving…';
   try{
     const payload={items:ITEMS}; if(COVER) payload.cover=COVER;
-    await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, scope:CUR.scope, data:payload});
+    await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, scope:CUR.scope, section: cohesionSection(), data:payload});
     CUR.data={items:ITEMS.map(x=>({...x}))}; if(COVER) CUR.data.cover=COVER; dirty=false;
     const st=document.getElementById('plStatus'); st.textContent='Saved ✓'; st.style.color='var(--green)';
     renderPlRows();
@@ -1333,6 +1336,19 @@ document.addEventListener('fullscreenchange',()=>setTimeout(sizeDrawSvg,80));
 cohesionSetGuard(()=>dirty, savePlaylist);
 function plGo(t){ cohesionGuardedGo(t); return false; }
 
+function paintPlSectionSwitch(){
+  const secs=cohesionSections(), box=document.getElementById('plSecSwitch');
+  if(!box) return;
+  if(secs.length<2){ box.style.display='none'; return; }
+  box.style.display='inline-flex';
+  const cur=cohesionSection();
+  [['plSecCounty','county'],['plSecClub','club']].forEach(([id,s])=>{
+    const b=document.getElementById(id); if(!b) return;
+    b.style.background=(cur===s)?'var(--accent)':'transparent';
+    b.style.color=(cur===s)?'#fff':'var(--t2)';
+  });
+}
+function plSwitchSection(s){ cohesionSetSection(s); paintPlSectionSwitch(); loadPlaylists(); }
 netlifyIdentity.on('init',()=>loadPlaylists());
 netlifyIdentity.init();
 setTimeout(()=>{ if(!PLAYLISTS.length) loadPlaylists(); },1500);

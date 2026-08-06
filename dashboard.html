@@ -1018,7 +1018,7 @@ async function dashAddToPlaylist(){
   }
   const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(dashClipOf));
   try{
-    await dashAuthFetchPL({action:'save', id:target?target.id:undefined, name, scope, data:{items}});
+    await dashAuthFetchPL({action:'save', id:target?target.id:undefined, name, scope, section: cohesionSection(), data:{items}});
     await cohesionModal({title:'Added ✓', message:evs.length+' clip'+(evs.length>1?'s':'')+' added to "'+name+'". Watch it on the Playlists page.', buttons:[{label:'OK',value:true,primary:true}]});
   }catch(e){ alert('Could not add to playlist: '+e.message); }
 }

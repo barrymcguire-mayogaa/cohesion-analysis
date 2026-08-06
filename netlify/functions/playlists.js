@@ -38,13 +38,23 @@ exports.handler = async (event) => {
     let decoded;
     try { decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8')); }
     catch (e) { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) }; }
-    const isAdmin = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin');
+    const roles = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase());
+    const isAdmin = roles.includes('admin');
+    // County/Club SECTION access (distinct from a playlist's club-wide/personal
+    // "scope"): admin → both; CLUB as only role → club; CLUB+other → both; else county.
+    const hasClubRole = roles.includes('club');
+    const hasOther = roles.some(r => r !== 'club');
+    const allowedSections = isAdmin ? ['county','club']
+      : (hasClubRole && !hasOther) ? ['club']
+      : hasClubRole ? ['county','club'] : ['county'];
+    const sectionOf = d => (d && d.section) === 'club' ? 'club' : 'county';
     const email = (decoded.email || '').toLowerCase();
     const author = (decoded.user_metadata && decoded.user_metadata.full_name) || email.split('@')[0] || 'user';
 
     const { action } = body;
     const COMMENT_ACTIONS = ['comment', 'commentEdit', 'commentDelete'];
-    if (!isAdmin && !COMMENT_ACTIONS.includes(action)) {
+    const MEMBER_ACTIONS = ['list', ...COMMENT_ACTIONS];   // any signed-in member
+    if (!isAdmin && !MEMBER_ACTIONS.includes(action)) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
     }
 
@@ -54,6 +64,9 @@ exports.handler = async (event) => {
       if (id == null || clipIdx == null) return { statusCode: 400, body: JSON.stringify({ error: 'id and clipIdx are required' }) };
       const { data: row, error: rErr } = await supabase.from('playlists').select('id, scope, owner, data').eq('id', id).single();
       if (rErr) throw new Error(rErr.message);
+      if (!allowedSections.includes(sectionOf(row.data))) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this section' }) };
+      }
       if (row.scope === 'personal' && row.owner !== email && !isAdmin) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Not your playlist' }) };
       }
@@ -91,12 +104,18 @@ exports.handler = async (event) => {
     }
 
     if (action === 'list') {
+      let want = body.section || null;
+      if (want && !allowedSections.includes(want)) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };
+      }
       const { data, error } = await supabase.from('playlists')
         .select('id, scope, owner, name, data, created_at')
         .or(`scope.eq.club,and(scope.eq.personal,owner.eq.${email})`)
         .order('name');
       if (error) throw new Error(error.message);
-      return { statusCode: 200, body: JSON.stringify({ ok: true, playlists: data || [] }) };
+      const rows = (data || []).filter(p =>
+        want ? sectionOf(p.data) === want : allowedSections.includes(sectionOf(p.data)));
+      return { statusCode: 200, body: JSON.stringify({ ok: true, playlists: rows, sections: allowedSections }) };
     }
 
     if (action === 'save') {
@@ -104,18 +123,29 @@ exports.handler = async (event) => {
       if (!name || typeof name !== 'string') return { statusCode: 400, body: JSON.stringify({ error: 'name is required' }) };
       if (scope !== 'club' && scope !== 'personal') return { statusCode: 400, body: JSON.stringify({ error: "scope must be 'club' or 'personal'" }) };
       if (!data || typeof data !== 'object') return { statusCode: 400, body: JSON.stringify({ error: 'data object is required' }) };
+      // SECTION: stamped at creation from the caller's context; updates keep
+      // the stored section so a playlist can never drift across the wall.
+      const reqSection = (body.section === 'club') ? 'club' : 'county';
+      if (!allowedSections.includes(reqSection)) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };
+      }
       const row = { name: name.trim().slice(0, 80), scope, owner: scope === 'personal' ? email : '', data };
       if (id) {
         // Only the owner may update a personal template; club is open to admins.
-        const { data: existing, error: exErr } = await supabase.from('playlists').select('scope, owner').eq('id', id).single();
+        const { data: existing, error: exErr } = await supabase.from('playlists').select('scope, owner, data').eq('id', id).single();
         if (exErr) throw new Error(exErr.message);
         if (existing.scope === 'personal' && existing.owner !== email) {
           return { statusCode: 403, body: JSON.stringify({ error: 'Not your template' }) };
         }
+        if (!allowedSections.includes(sectionOf(existing.data))) {
+          return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this section' }) };
+        }
+        row.data.section = sectionOf(existing.data);     // updates preserve the stored section
         const { error } = await supabase.from('playlists').update(row).eq('id', id);
         if (error) throw new Error(error.message);
         return { statusCode: 200, body: JSON.stringify({ ok: true, id }) };
       }
+      row.data.section = reqSection;
       const { data: ins, error } = await supabase.from('playlists').insert(row).select('id').single();
       if (error) throw new Error(error.message);
       return { statusCode: 200, body: JSON.stringify({ ok: true, id: ins.id }) };

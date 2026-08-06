@@ -46,12 +46,14 @@ exports.handler = async (event) => {
     const { action } = body;
 
     if (action === 'list') {
+      const want = (body.section === 'club') ? 'club' : 'county';
       const { data, error } = await supabase.from('templates')
         .select('id, scope, owner, name, data, created_at')
         .or(`scope.eq.club,and(scope.eq.personal,owner.eq.${email})`)
         .order('name');
       if (error) throw new Error(error.message);
-      return { statusCode: 200, body: JSON.stringify({ ok: true, templates: data || [] }) };
+      const secOf = d => (d && d.section) === 'club' ? 'club' : 'county';
+      return { statusCode: 200, body: JSON.stringify({ ok: true, templates: (data || []).filter(t => secOf(t.data) === want) }) };
     }
 
     if (action === 'save') {
@@ -60,6 +62,7 @@ exports.handler = async (event) => {
       if (scope !== 'club' && scope !== 'personal') return { statusCode: 400, body: JSON.stringify({ error: "scope must be 'club' or 'personal'" }) };
       if (!data || typeof data !== 'object') return { statusCode: 400, body: JSON.stringify({ error: 'data object is required' }) };
       const row = { name: name.trim().slice(0, 80), scope, owner: scope === 'personal' ? email : '', data };
+      row.data.section = (body.section === 'club') ? 'club' : 'county';   // stamped per save (admin tooling)
       if (id) {
         // Only the owner may update a personal template; club is open to admins.
         const { data: existing, error: exErr } = await supabase.from('templates').select('scope, owner').eq('id', id).single();

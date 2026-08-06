@@ -1615,7 +1615,7 @@ async function crAddToPlaylist(ids){
   }
   const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(crClipOf));
   try{
-    await crAuthFetch('playlists',{action:'save', id:target?target.id:undefined, name, scope, data:{items}});
+    await crAuthFetch('playlists',{action:'save', id:target?target.id:undefined, name, scope, section: cohesionSection(), data:{items}});
     const f=document.getElementById('bulkStatus')||document.getElementById('epStatus');
     if(f){ f.className='status ok'; f.textContent='✓ Added to "'+name+'" — view on the Playlists page.'; }
   }catch(e){ alert('Could not add to playlist: '+e.message); }
@@ -1996,7 +1996,7 @@ async function crAuthFetch(fn,payload){
   return j;
 }
 async function loadTemplates(){
-  try{ const j=await crAuthFetch('templates',{action:'list'}); crTemplates=j.templates||[]; }
+  try{ const j=await crAuthFetch('templates',{action:'list', section: cohesionSection()}); crTemplates=j.templates||[]; }
   catch(_){ crTemplates=[]; }   // table not created yet / offline — templates just unavailable
   fillTplSelect();
 }
@@ -2020,7 +2020,7 @@ async function saveTemplate(){
   if(scope==='cancel') return;
   const existing=crTemplates.find(t=>t.name.toLowerCase()===name.toLowerCase()&&t.scope===scope);
   try{
-    await crAuthFetch('templates',{action:'save', id:existing?existing.id:undefined, name, scope, data:crTplCapture()});
+    await crAuthFetch('templates',{action:'save', id:existing?existing.id:undefined, name, scope, section: cohesionSection(), data:crTplCapture()});
     await loadTemplates();
     const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Template "'+name+'" saved ('+(scope==='club'?'club-wide':'personal')+')';
   }catch(e){ alert('Could not save template: '+e.message); }

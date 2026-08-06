@@ -13,5 +13,12 @@
 revoke select on table public.games  from anon, authenticated;
 revoke select on table public.events from anon, authenticated;
 
--- (playlists/templates stay readable for now — their lockdown ships with
---  Phase B, which adds section scoping to those tables' functions.)
+-- ── PHASE B (run AFTER the Phase B deploy is live) ──
+-- Playlists/templates now read through their functions with section
+-- filtering; close the direct door too.
+-- Undo:
+--   grant select on table public.playlists to anon, authenticated;
+--   grant select on table public.templates to anon, authenticated;
+
+revoke select on table public.playlists from anon, authenticated;
+revoke select on table public.templates from anon, authenticated;
