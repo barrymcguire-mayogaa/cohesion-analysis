@@ -54,7 +54,37 @@
   // ── READ GATEWAY (hard county/club separation) ────────────────────
   // All game/event reads go through /.netlify/functions/data with the
   // signed-in user's JWT; direct anon SELECT on games/events is revoked.
+  // The Identity widget restores the session ASYNCHRONOUSLY — pages that
+  // read at boot (library, dashboard, code room) must wait for it or the
+  // first fetch sees "not signed in". Resolves on init (or ~4s failsafe).
+  let _idReady = null;
+  window.cohesionIdentityReady = function(){
+    if (_idReady) return _idReady;
+    _idReady = new Promise(res => {
+      let done = false;
+      const fin = () => { if (!done) { done = true; res(); } };
+      const arm = () => {
+        const ni = window.netlifyIdentity;
+        if (!ni) return false;
+        try {
+          const u = (ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser());
+          if (u) { fin(); return true; }
+          ni.on('init', fin);
+          try { ni.init(); } catch (_) {}
+        } catch (_) {}
+        return true;
+      };
+      if (!arm()) {
+        let n = 0;
+        const iv = setInterval(() => { if (arm() || ++n > 40) clearInterval(iv); }, 100);
+      }
+      setTimeout(fin, 4000);   // never wedge a page on identity problems
+    });
+    return _idReady;
+  };
+
   window.cohesionAuthFetch = async function(fn, payload){
+    await window.cohesionIdentityReady();
     const ni = window.netlifyIdentity;
     const cu = ni && ((ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser()));
     let t = cu && cu.token && cu.token.access_token;
