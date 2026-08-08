@@ -673,7 +673,8 @@ function renderList(){
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
 let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0, crSyncOn=false;
 let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false, crSel=[], crBox=null;
-const CR_LW=150, CR_ROWH=26, CR_RULER=22;
+let CR_LW=(()=>{ try{ const v=+localStorage.getItem('cr_lw'); return (v>=60&&v<=420)?v:150; }catch(_){ return 150; } })();
+const CR_ROWH=26, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
 function crFiltered(){
   const q=(document.getElementById('efilter').value||'').toLowerCase().trim();
@@ -1201,6 +1202,7 @@ function crScrollRows(d){ const sc=document.getElementById('tlscroll'); if(sc) s
 function crInitTL(){
   if(crTLInit) return; const c=document.getElementById('crTL'); if(!c) return; crTLInit=true;
   const relX=ev=>ev.clientX-c.getBoundingClientRect().left;
+  let crLWDrag=false;   // dragging the label-gutter edge to reveal/conceal names
   // Touch layer: one finger = the same interactions as the mouse (drag bars,
   // resize edges, box-select, drag rows); TWO fingers = pinch-zoom + pan the
   // game and scroll the rows; long-press a bar = add/remove from selection
@@ -1226,6 +1228,9 @@ function crInitTL(){
       if(crPinch) return;
     }
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    if(y>=CR_RULER && Math.abs(x-CR_LW)<=6){                     // gutter edge → drag to resize the name column
+      crLWDrag=true; document.body.style.userSelect='none'; e.preventDefault(); return;
+    }
     if(y<CR_RULER){ crDown={x}; return; }                       // ruler → seek on release
     if(x<CR_LW){                                                 // label gutter → drag to reorder, click to select
       const rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
@@ -1248,6 +1253,7 @@ function crInitTL(){
     if(e.pointerType!=='mouse') return;         // hover cursor/tooltip is a mouse thing
     if(crDrag||crBox){ crTipHide(); return; }   // active-drag handled on window
     const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    if(y>=CR_RULER && Math.abs(x-CR_LW)<=6){ c.style.cursor='col-resize'; crTipHide(); return; }
     const hit=(x>=CR_LW&&y>=CR_RULER)?crHitAt(x,y):null;
     c.style.cursor = !hit ? 'crosshair' : (hit.mode==='move'?'grab':'ew-resize');
     if(hit) crTipShow(hit.ev, e.clientX, e.clientY); else crTipHide();
@@ -1271,6 +1277,11 @@ function crInitTL(){
       const p0=crPtrs.get(crLP.id);
       if(Math.hypot(e.clientX-p0.x,e.clientY-p0.y)>8){ clearTimeout(crLP.timer); crLP=null; }
     }
+    if(crLWDrag){
+      const r=c.getBoundingClientRect();
+      CR_LW=Math.max(60,Math.min(420,e.clientX-r.left));
+      crDrawTL(); return;
+    }
     if(crRowDrag){ const rr=c.getBoundingClientRect(), rows=crRows(crFiltered());
       const ri=Math.max(0,Math.min(rows.length-1,Math.floor(((e.clientY-rr.top)-CR_RULER)/CR_ROWH)));
       if(ri!==crRowDrag.to){ crRowDrag.to=ri; crRowDrag.moved=true; crDrawTL(); }
@@ -1293,6 +1304,11 @@ function crInitTL(){
     crDrawTL();
   });
   const crPtrUp=e=>{
+    if(crLWDrag){
+      crLWDrag=false; document.body.style.userSelect='';
+      try{ localStorage.setItem('cr_lw', String(Math.round(CR_LW))); }catch(_){}
+      return;
+    }
     if(e.pointerType!=='mouse'){
       crPtrs.delete(e.pointerId);
       if(crLP&&crLP.id===e.pointerId){ clearTimeout(crLP.timer); crLP=null; }
@@ -1368,7 +1384,8 @@ function crDrawTL(){
     ctx.fillStyle=isActive?(dark?'#143240':'#dbeafe'):(dark?'#101018':'#ecebe9'); ctx.fillRect(0,y,CR_LW,CR_ROWH);
     if(isActive){ ctx.fillStyle='#4fc3f7'; ctx.fillRect(0,y,3,CR_ROWH); }
     ctx.fillStyle=isActive?'#4fc3f7':(dark?'rgba(255,255,255,0.78)':'rgba(0,0,0,0.75)'); ctx.font="700 12px 'Barlow Condensed',sans-serif";
-    ctx.fillText(code.length>21?code.slice(0,20)+'…':code, isActive?9:6, y+17);
+    const maxC=Math.max(5,Math.floor((CR_LW-14)/7));
+    ctx.fillText(code.length>maxC+1?code.slice(0,maxC)+'…':code, isActive?9:6, y+17);
     ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(CR_LW,y+CR_ROWH-0.5); ctx.lineTo(cssW,y+CR_ROWH-0.5); ctx.stroke();
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
