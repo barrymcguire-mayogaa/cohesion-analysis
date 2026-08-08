@@ -445,7 +445,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -489,7 +489,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup();   // recover events from a crashed local session
@@ -761,12 +761,39 @@ function crMatrixClear(){
   renderList(); crAfterSelect();
 }
 // Rows = codes present in the (filtered) events plus any manually-added empty
-// rows, ordered by the user's saved order first, then the rest alphabetically.
+// rows, ordered by the user's saved order first, then the rest in the
+// canonical match order: THROW-IN, then the home team's rows, then the away
+// team's, each in CR_TYPE_ORDER; anything unrecognised sorts after its
+// team's block alphabetically.
+const CR_TYPE_ORDER=[
+  ['TEAM POSSESSION'],['65M ENTRY'],['ATTACKS','ATTACK'],['SHOT OPEN PLAY'],['SHOT DEAD BALL'],
+  ['GOAL'],['1 POINT','POINT'],['2 POINT'],['SCORE SOURCE'],['SCORE ASSIST'],
+  ['WIDE'],['SHORT'],['BLOCKED'],['WOODWORK'],['SAVE'],["'45",'45'],['MISS'],
+  ['SHOT SOURCE'],['SHOT ASSIST'],['KICKOUT','KICKOUTS','KO'],['BREAK WON'],['BREAK LOST'],
+  ['TACKLE','TACKLES'],['HIT','HITS'],['FOUL','FOULS'],['CARD','CARDS'],
+  ['TURNOVER','TURNOVERS','TOS'],['BLOCK DOWN'],['GOAL ATTEMPT'],
+  ['SUB','SUBS','SUBSTITUTION','BLOOD SUB']];
+const CR_TYPE_RANK={}; CR_TYPE_ORDER.forEach((vs,i)=>vs.forEach(v=>CR_TYPE_RANK[v]=i));
+function crTeamBlockOf(code){
+  const H=(GAME.homeTeam||'').toUpperCase(), A=(GAME.awayTeam||'').toUpperCase(), C=String(code).toUpperCase();
+  if(C==='THROW-IN'||C==='THROW IN') return {blk:0, base:C};
+  if(H&&C.startsWith(H+' ')) return {blk:1, base:C.slice(H.length+1)};
+  if(A&&C.startsWith(A+' ')) return {blk:2, base:C.slice(A.length+1)};
+  return {blk:3, base:C};
+}
+function crRowCmp(a,b){
+  const ta=crTeamBlockOf(a), tb=crTeamBlockOf(b);
+  if(ta.blk!==tb.blk) return ta.blk-tb.blk;
+  const ra=CR_TYPE_RANK[ta.base], rb=CR_TYPE_RANK[tb.base];
+  const na=ra==null?CR_TYPE_ORDER.length:ra, nb=rb==null?CR_TYPE_ORDER.length:rb;
+  if(na!==nb) return na-nb;
+  return String(a).localeCompare(String(b));
+}
 function crRows(evs){
   const present=new Set(evs.map(e=>e.code||'—'));
   crExtraRows.forEach(c=>present.add(c));
   const inOrder=crRowOrder.filter(c=>present.has(c));
-  const rest=[...present].filter(c=>!inOrder.includes(c)).sort();
+  const rest=[...present].filter(c=>!inOrder.includes(c)).sort(crRowCmp);
   return [...inOrder, ...rest];
 }
 function crRowsKey(){ return 'coh_crrows_'+(GAME&&GAME.id); }
@@ -889,13 +916,16 @@ function crSyncDraft(e){
   renderPanel();
 }
 let crDrag=null, crDown=null, crRowDrag=null;
+// Timeline duration-code recording: {code, start, half} between the two presses.
+let crTLRec=null;
+const CR_DUR_BASES=new Set(['TEAM POSSESSION','65M ENTRY','ATTACKS','ATTACK','SCORE SOURCE','SHOT SOURCE']);
 // Create an event on the timeline with labels chosen up front.
-function crCreateEvent(code,t,half,labels,player){
+function crCreateEvent(code,t,half,labels,player,endT){
   labels=labels||{};
   const team=teamFor(code,labels);
   if(player) labels[`${team||'Unassigned'} Player Labels`]=player;
   const tmpId='tmp-'+(++crTmpCounter);
-  EVENTS.push({ id:'manual-'+Date.now(), start:t, end:t+4, half, code, team, player:player||'',
+  EVENTS.push({ id:'manual-'+Date.now(), start:t, end:endT||t+4, half, code, team, player:player||'',
     outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
     category:catOf(code)||'Other', driveT:t, labels, _manual:true, _rowId:tmpId, _new:true });
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -914,9 +944,9 @@ function crGroupsUsedFor(code){
   return [...m.entries()].map(([g,s])=>({g,options:[...s].sort()}));
 }
 // Double-tap popup: the code's usual label groups as dropdowns + player.
-function crCreatePrompt(code,t,half){
+function crCreatePrompt(code,t,half,endT){
   const groups=crGroupsUsedFor(code);
-  if(!groups.length){ crCreateEvent(code,t,half,{},''); return; }   // nothing known → create bare
+  if(!groups.length){ crCreateEvent(code,t,half,{},'',endT); return; }   // nothing known → create bare
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10005;';
   const rows=groups.map((g,i)=>`<div class="ep-lbl" style="margin:8px 0 4px;">${esc(g.g)}</div>
@@ -924,7 +954,7 @@ function crCreatePrompt(code,t,half){
       <option value="">— skip —</option>${g.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`).join('');
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;max-width:430px;width:calc(100% - 40px);max-height:82vh;overflow-y:auto;font-family:Barlow,sans-serif;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">New ${esc(code)}</div>
-    <div style="font-size:12px;color:var(--t2);margin:2px 0 6px;">at ${fmt(t)} · ${esc(half||'—')}</div>
+    <div style="font-size:12px;color:var(--t2);margin:2px 0 6px;">at ${fmt(t)}${endT?'–'+fmt(endT)+' ('+Math.round(endT-t)+'s)':''} · ${esc(half||'—')}</div>
     <div class="ep-lbl" style="margin:8px 0 4px;">Player</div>
     <input id="ncPlayer" placeholder="(none)" autocomplete="off" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--t1);font:13px 'Barlow',sans-serif;box-sizing:border-box;"
       oninput="acShow(this,crPlayers(),acNoop)" onfocus="acShow(this,crPlayers(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
@@ -937,12 +967,12 @@ function crCreatePrompt(code,t,half){
   document.body.appendChild(ov);
   const close=()=>{ if(ov.parentNode) document.body.removeChild(ov); };
   ov.querySelector('#ncX').onclick=close;
-  ov.querySelector('#ncEmpty').onclick=()=>{ close(); crCreateEvent(code,t,half,{},''); };
+  ov.querySelector('#ncEmpty').onclick=()=>{ close(); crCreateEvent(code,t,half,{},'',endT); };
   ov.querySelector('#ncGo').onclick=()=>{
     const labels={};
     groups.forEach((g,i)=>{ const v=ov.querySelector('#ncg'+i).value; if(v) labels[g.g]=v; });
     const player=(ov.querySelector('#ncPlayer').value||'').trim();
-    close(); crCreateEvent(code,t,half,labels,player);
+    close(); crCreateEvent(code,t,half,labels,player,endT);
   };
 }
 
@@ -1363,6 +1393,20 @@ function crInitTL(){
     const code=rows[ri], t=Math.max(0,Math.round(g.tOf(x)));
     let half=document.getElementById('eperiod').value;
     if(!half){ let best=Infinity; EVENTS.forEach(ev=>{ const dd=Math.abs((ev.driveT||0)-t); if(dd<best){best=dd;half=ev.half||'';} }); }
+    // Duration codes (possession / 65m entry / attack / score & shot source, or
+    // any ⏱ code) run press-to-start, press-again-to-stop instead of a fixed clip.
+    const base=crTeamBlockOf(code).base;
+    if(CR_DUR_BASES.has(base)||codeDurPref[base]){
+      if(crTLRec&&crTLRec.code===code){
+        const s=Math.min(crTLRec.start,t), en=Math.max(Math.min(crTLRec.start,t)+1,Math.max(crTLRec.start,t));
+        const h=crTLRec.half||half; crTLRec=null; crDrawTL();
+        crCreatePrompt(code,s,h,en);
+        return;
+      }
+      crTLRec={code,start:t,half};
+      crDrawTL();
+      return;
+    }
     crCreatePrompt(code,t,half);
   }
   c.addEventListener('dblclick',e=>{ const r=c.getBoundingClientRect(); crDblAt(e.clientX-r.left,e.clientY-r.top); });
@@ -1389,6 +1433,20 @@ function crDrawTL(){
     ctx.strokeStyle=dark?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.06)'; ctx.beginPath(); ctx.moveTo(CR_LW,y+CR_ROWH-0.5); ctx.lineTo(cssW,y+CR_ROWH-0.5); ctx.stroke();
   });
   const hC=GAME.homeColor||'#4fc3f7', aC=GAME.awayColor||'#22c55e', H=(GAME.homeTeam||'').toUpperCase();
+  // Pending duration recording: striped band from the first press to the cursor row's end
+  if(crTLRec){
+    const ri=rows.indexOf(crTLRec.code);
+    if(ri>=0){
+      const y=CR_RULER+ri*CR_ROWH, x0=Math.max(CR_LW,xF(crTLRec.start));
+      ctx.save(); ctx.beginPath(); ctx.rect(CR_LW,0,plotW,cssH); ctx.clip();
+      ctx.fillStyle='rgba(255,107,179,0.22)';
+      ctx.fillRect(x0, y+3, Math.max(3, xF(Math.max(crTLRec.start, vNow()))-x0), CR_ROWH-6);
+      ctx.fillStyle='#ff6bb3'; ctx.fillRect(x0, y+3, 2, CR_ROWH-6);
+      ctx.font="700 11px 'Barlow',sans-serif";
+      ctx.fillText('⏺ recording — double-tap this row again to finish (Esc cancels)', x0+6, y+16);
+      ctx.restore();
+    } else { crTLRec=null; }
+  }
   const dragging=crDrag&&crDrag.mode==='move'&&crDrag.targetRow!=null?crDrag.ev:null;
   const groupSet=crSel.length?new Set(crSel.map(String)):null;
   evs.forEach(e=>{
@@ -2456,6 +2514,7 @@ document.addEventListener('keydown', e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
   if(codeMode.on&&codeMode.pendingLink) return;   // Esc = skip prompt first
+  if(crTLRec){ crTLRec=null; crDrawTL(); return; }
   if(crDrag||crBox||crRowDrag) return;
   crDeselect();
 });
