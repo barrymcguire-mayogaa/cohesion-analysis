@@ -423,7 +423,13 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
           <option>Ulster SFC</option>
           <option>All-Ireland SFC</option>
           <option>U20 Championship</option>
+          <option>Senior Club Championship</option>
+          <option>Intermediate Club Championship</option>
+          <option>Junior Club Championship</option>
+          <option value="__custom__">Custom competition…</option>
         </select>
+        <input class="finput" type="text" id="competitionCustom" style="display:none;margin-top:8px;"
+          placeholder="e.g. Mayo Senior Club Championship" maxlength="60" autocapitalize="words">
       </div>
       <div class="field full" id="divisionField" style="display:none">
         <label>Division</label>
@@ -839,6 +845,14 @@ function toggleAdminDiv(){
   const show = comp === 'National Football League';
   field.style.display = show ? '' : 'none';
   if(!show) document.getElementById('division').value = '';
+  const cust = document.getElementById('competitionCustom');
+  if(cust) cust.style.display = (comp === '__custom__') ? '' : 'none';
+}
+// The competition actually saved: the dropdown choice, or the custom text.
+function getCompetitionValue(){
+  const v = document.getElementById('competition').value;
+  if(v !== '__custom__') return v;
+  return (document.getElementById('competitionCustom').value || '').trim();
 }
 
 function syncColor(side, hex){
@@ -1014,7 +1028,9 @@ function selectReparseGame(idx){
   if(g.awayColor){ document.getElementById('awayColor').value=g.awayColor; document.getElementById('awayColorHex').value=g.awayColor; }
   if(g.competition){
     const sel=document.getElementById('competition');
-    [...sel.options].forEach(o=>{ if(o.text===g.competition||o.value===g.competition) sel.value=o.value; });
+    let matched=false;
+    [...sel.options].forEach(o=>{ if(o.text===g.competition||o.value===g.competition){ sel.value=o.value; matched=true; } });
+    if(!matched){ sel.value='__custom__'; document.getElementById('competitionCustom').value=g.competition; }
     toggleAdminDiv();
   }
   if(g.division) document.getElementById('division').value = g.division;
@@ -1516,7 +1532,7 @@ async function processGame(){
   // Validate
   const homeTeam    = document.getElementById('homeTeam').value.trim();
   const awayTeam    = document.getElementById('awayTeam').value.trim();
-  const competition = document.getElementById('competition').value;
+  const competition = getCompetitionValue();
   const division    = document.getElementById('division').value;
   const round       = document.getElementById('round').value.trim();
   const dateVal     = document.getElementById('gameDate').value;
