@@ -455,7 +455,13 @@ select option{background:var(--card);}
           <option>Ulster SFC</option>
           <option>All-Ireland SFC</option>
           <option>U20 Championship</option>
+          <option>Senior Club Championship</option>
+          <option>Intermediate Club Championship</option>
+          <option>Junior Club Championship</option>
+          <option value="__custom__">Custom competition…</option>
         </select>
+        <input type="text" id="eCompetitionCustom" style="display:none;margin-top:8px;"
+          placeholder="e.g. Mayo Senior Club Championship" maxlength="60" autocapitalize="words">
       </div>
       <div class="edit-field half" id="eDivisionRow" style="display:none;">
         <label>Division</label>
@@ -1015,6 +1021,14 @@ function toggleEditDivisionField(){
   const show = comp === 'National Football League';
   divRow.style.display = show ? '' : 'none';
   if(!show) document.getElementById('eDivision').value = '';
+  const cust = document.getElementById('eCompetitionCustom');
+  cust.style.display = comp === '__custom__' ? '' : 'none';
+}
+// The competition actually saved: the dropdown choice, or the custom text.
+function editCompetitionValue(){
+  const v = document.getElementById('eCompetition').value;
+  if(v !== '__custom__') return v;
+  return (document.getElementById('eCompetitionCustom').value || '').trim();
 }
 
 function startEdit(id, e){
@@ -1029,7 +1043,13 @@ function startEdit(id, e){
   document.getElementById('eHomeHex').value     = g.homeColor   || '#000000';
   document.getElementById('eAwayColor').value   = g.awayColor   || '#000000';
   document.getElementById('eAwayHex').value     = g.awayColor   || '#000000';
-  document.getElementById('eCompetition').value = g.competition || '';
+  // Known competition → pick it; anything else (custom / older vocab) → Custom, prefilled
+  const eSel = document.getElementById('eCompetition');
+  let eMatched = false;
+  [...eSel.options].forEach(o=>{ if(o.text===g.competition || o.value===g.competition){ eSel.value=o.value; eMatched=true; } });
+  if(!eMatched && g.competition){ eSel.value='__custom__'; document.getElementById('eCompetitionCustom').value=g.competition; }
+  else if(!eMatched){ eSel.value='FBD League'; }
+  if(eMatched) document.getElementById('eCompetitionCustom').value='';
   document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
@@ -1059,7 +1079,7 @@ async function confirmEdit(){
   g.awayTeam    = awayTeam;
   g.homeColor   = document.getElementById('eHomeColor').value;
   g.awayColor   = document.getElementById('eAwayColor').value;
-  g.competition = document.getElementById('eCompetition').value;
+  g.competition = editCompetitionValue();
   g.division    = document.getElementById('eDivision').value || undefined;
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
