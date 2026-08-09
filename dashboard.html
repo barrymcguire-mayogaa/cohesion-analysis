@@ -782,8 +782,32 @@ function renderLocMap(){
 }
 
 // ── STATS IMAGE — the full-game stat card in the tracker app's exact format:
-// crests, wrapped equal-size names, scores+PSR, mirrored bars for Shooting /
-// Possession & Attacks / Kickouts / Fouls / Cards, and the scoring worm. ──
+// crests (from an imported tracker team pack), wrapped equal-size names,
+// scores+PSR, mirrored bars, scoring worm. Rows the source XML cannot fill
+// (both sides zero) are hidden, as are fully-empty sections.
+function cohPacksLoad(){ try{ return JSON.parse(localStorage.getItem('coh_team_packs'))||[]; }catch(_e){ return []; } }
+function cohPacksStore(ts){ try{ localStorage.setItem('coh_team_packs', JSON.stringify(ts)); }catch(_e){} }
+function cohPackTeam(name){ const n=String(name||'').trim().toLowerCase();
+  return cohPacksLoad().find(t=>String(t.club||'').trim().toLowerCase()===n)||null; }
+function cohImportTeamPack(ev){
+  const f=ev.target.files&&ev.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const p=JSON.parse(String(rd.result||''));
+      if(p.format!=='gaa-team-pack@1'||!Array.isArray(p.teams)) throw new Error('bad');
+      const ts=cohPacksLoad();
+      let added=0, updated=0;
+      p.teams.forEach(t=>{ if(!t.club) return;
+        const i=ts.findIndex(x=>String(x.club||'').toLowerCase()===String(t.club).toLowerCase());
+        if(i>=0){ ts[i]=t; updated++; } else { ts.push(t); added++; } });
+      cohPacksStore(ts);
+      alert('Team pack "'+(p.name||'')+'" imported — '+added+' clubs added, '+updated+' updated. Crests and colours now appear on stats images.');
+    }catch(_e){ alert('Not a tracker team-pack file (.json exported from the Pack Builder).'); }
+  };
+  rd.readAsText(f);
+  ev.target.value='';
+}
 function dashShareStatsCard(){
   const lum=x=>{ try{ const n=parseInt(String(x).replace('#',''),16);
     return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }catch(_e){ return 0; } };
@@ -801,7 +825,6 @@ function dashShareStatsCard(){
     return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); };
   const up=s=>String(s||'').toUpperCase();
 
-  // full-game numbers, independent of the period chips
   const of=(s,re)=>ALL.filter(e=>statSide(e)===s&&re.test(e.code||''));
   const SHOT=/SHOT (OPEN|DEAD)/i;
   const shotOut=e=>up((e.labels||{})['Shot Outcomes']||(e.labels||{})['ShotOutcome']||(e.labels||{})['Outcome']||e.outcome||'');
@@ -834,16 +857,18 @@ function dashShareStatsCard(){
   const kwpH=ktH?kwH/ktH*100:0, kwpA=ktA?kwA/ktA*100:0;
   const ftH=fouls('h'), ftA=fouls('a');
   const GOOD='#2ecc71', WARN='#e67e22', TXT='#e8e8ee';
-  const row=(label,nH,nA,dH,dA,cH,cA,pH,pA)=>{
+  // basis = the underlying totals; a row with basis 0 has nothing the XML
+  // could fill and is hidden.
+  const row=(label,nH,nA,dH,dA,cH,cA,pH,pA,basis)=>{
     let wH,wA;
     if(pH!==undefined){ wH=Math.round(pH); wA=Math.round(pA); }
     else{ const t=nH+nA; wH=t?Math.round(nH/t*100):0; wA=t?Math.round(nA/t*100):0; }
     return {label, dH:(dH!==undefined?dH:String(nH)), dA:(dA!==undefined?dA:String(nA)),
-            wH, wA, cH:cH||TXT, cA:cA||TXT}; };
-  const sections=[
+            wH, wA, cH:cH||TXT, cA:cA||TXT, basis:(basis!==undefined?basis:nH+nA)}; };
+  let sections=[
     ['SHOOTING',[
       row('Shots (scored/total)',shots('h').length,shots('a').length,scored('h').length+'/'+shots('h').length,scored('a').length+'/'+shots('a').length),
-      row('Shooting %',psrN('h'),psrN('a'),psr('h'),psr('a'),null,null,psrN('h'),psrN('a')),
+      row('Shooting %',psrN('h'),psrN('a'),psr('h'),psr('a'),null,null,psrN('h'),psrN('a'),shots('h').length+shots('a').length),
       row('Shots Open Play',of('h',/SHOT OPEN/i).length,of('a',/SHOT OPEN/i).length),
       row('Shots Dead Ball',of('h',/SHOT DEAD/i).length,of('a',/SHOT DEAD/i).length),
       row('Goal Attempts',goalAtt('h'),goalAtt('a'))]],
@@ -851,8 +876,8 @@ function dashShareStatsCard(){
       row('Possessions',possH,possA,possH+' ('+ppH+'%)',possA+' ('+ppA+'%)'),
       row('Attacks',of('h',/\bATTACKS?\b/i).length,of('a',/\bATTACKS?\b/i).length)]],
     ['KICKOUTS',[
-      row('KO Won',kwH,kwA,kwH+' ('+Math.round(kwpH)+'%)',kwA+' ('+Math.round(kwpA)+'%)',kwH>=klH?GOOD:null,kwA>=klA?GOOD:null,kwpH,kwpA),
-      row('KO Lost',klH,klA,klH+' ('+Math.round(ktH?100-kwpH:0)+'%)',klA+' ('+Math.round(ktA?100-kwpA:0)+'%)',klH>kwH?WARN:null,klA>kwA?WARN:null,ktH?100-kwpH:0,ktA?100-kwpA:0),
+      row('KO Won',kwH,kwA,kwH+' ('+Math.round(kwpH)+'%)',kwA+' ('+Math.round(kwpA)+'%)',kwH>=klH?GOOD:null,kwA>=klA?GOOD:null,kwpH,kwpA,ktH+ktA),
+      row('KO Lost',klH,klA,klH+' ('+Math.round(ktH?100-kwpH:0)+'%)',klA+' ('+Math.round(ktA?100-kwpA:0)+'%)',klH>kwH?WARN:null,klA>kwA?WARN:null,ktH?100-kwpH:0,ktA?100-kwpA:0,ktH+ktA),
       row('Breaks Won (Own KO)',koBreak('h',true),koBreak('a',true)),
       row('Breaks Won (Opp KO)',koBreak('a',false),koBreak('h',false)),
       row('Breaks Lost (Own KO)',koBreak('h',false),koBreak('a',false)),
@@ -867,8 +892,10 @@ function dashShareStatsCard(){
       row('Black',cards('h','BLACK'),cards('a','BLACK')),
       row('Red',cards('h','RED'),cards('a','RED'))]]
   ];
+  // hide unfillable rows, then empty sections
+  sections.forEach(sec=>{ sec[1]=sec[1].filter(r=>r.basis>0); });
+  sections=sections.filter(sec=>sec[1].length>0);
 
-  // scoring timeline from the scored shots' game clock (2H stacked after 1H)
   const minOf=e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
     return {half:+m[1], min:+m[2]+(+m[3])/60}; };
   let h1len=30;
@@ -879,124 +906,139 @@ function dashShareStatsCard(){
     scoreEvts.push({s, min:t.half===1?t.min:h1len+t.min,
       pts:k.includes('GOAL')?3:(k.includes('2 POINT')||k.includes('TWO'))?2:1}); }));
   scoreEvts.sort((x,y)=>x.min-y.min);
+  const hasWorm=scoreEvts.length>0;
 
-  const hCraw=GAME.homeColor||'#2563eb', aCraw=GAME.awayColor||'#22c55e';
-  const colH=lum(hCraw)>=90?hCraw:lighten(hCraw,0.45);
-  const colA2=lum(aCraw)>=90?aCraw:lighten(aCraw,0.45);
-  const W=1080, HEAD=260, TITLE_H=52, ROW_H=44, WORM_H=330, FOOT=56;
-  const nRows=sections.reduce((s,x)=>s+x[1].length,0);
-  const HGT=HEAD+sections.length*TITLE_H+nRows*ROW_H+TITLE_H+WORM_H+FOOT;
-  const cv=document.createElement('canvas'); cv.width=W; cv.height=HGT;
-  const ctx=cv.getContext('2d');
-  const g=ctx.createLinearGradient(0,0,0,HGT);
-  g.addColorStop(0,'#12121a'); g.addColorStop(1,'#0c0c12');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,HGT);
-  ctx.fillStyle=hCraw; ctx.fillRect(0,0,10,HGT);
-  ctx.fillStyle=aCraw; ctx.fillRect(W-10,0,10,HGT);
-  ctx.textAlign='center';
-  const crest=(cx,cy,r,col,nm)=>{
-    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.closePath();
-    ctx.fillStyle=col; ctx.fill(); ctx.restore();
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
-    ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=3; ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.font='700 '+Math.round(r*0.6)+'px "Barlow Condensed","Barlow",sans-serif';
-    ctx.fillText(initials(nm),cx,cy+r*0.2);
-  };
-  crest(120,150,68,hCraw,GAME.homeTeam); crest(W-120,150,68,aCraw,GAME.awayTeam);
-  const linesH=wrapName(up(GAME.homeTeam)), linesA=wrapName(up(GAME.awayTeam));
-  let nfs=42;
-  const nfits=fs=>{ ctx.font='italic 800 '+fs+'px "Barlow",sans-serif';
-    return linesH.concat(linesA).every(l=>ctx.measureText(l).width<=300); };
-  while(nfs>22 && !nfits(nfs)) nfs-=2;
-  const teamCol=(lines,col,cx,sc,ps)=>{
-    ctx.fillStyle=col; ctx.font='italic 800 '+nfs+'px "Barlow",sans-serif';
-    lines.forEach((l,i)=>ctx.fillText(l,cx,70+i*(nfs+8)));
-    ctx.fillStyle='#fff'; ctx.font='800 84px "Barlow Condensed","Barlow",sans-serif';
-    ctx.fillText(sc,cx,196);
-    ctx.fillStyle='#77777f'; ctx.font='600 24px "Barlow",sans-serif';
-    ctx.fillText('PSR: '+ps,cx,232);
-  };
-  teamCol(linesH,colH,W*0.32,scH.str,psr('h')); teamCol(linesA,colA2,W*0.68,scA.str,psr('a'));
-  ctx.fillStyle='#3a3a44'; ctx.font='800 40px "Barlow Condensed",sans-serif'; ctx.fillText('V',W/2,166);
-  ctx.fillStyle='#9a9aa5'; ctx.font='600 24px "Barlow",sans-serif';
-  ctx.fillText('FULL TIME', W/2, 236);
-  let y=HEAD;
-  const CX=W/2, LBL_W=300, TRACK_H=13;
-  const trackL1=CX-LBL_W/2-14, trackR0=CX+LBL_W/2+14;
-  ctx.textAlign='center';
-  sections.forEach(([title,rows])=>{
-    ctx.fillStyle='#8a8a95'; ctx.font='700 26px "Barlow Condensed","Barlow",sans-serif';
-    ctx.textAlign='center'; ctx.fillText(title, CX, y+34);
-    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
-    const tw=ctx.measureText(title).width;
-    ctx.beginPath(); ctx.moveTo(60,y+26); ctx.lineTo(CX-tw/2-18,y+26);
-    ctx.moveTo(CX+tw/2+18,y+26); ctx.lineTo(W-60,y+26); ctx.stroke();
-    y+=TITLE_H;
-    rows.forEach(r=>{
-      const cy=y+ROW_H/2;
-      ctx.font='500 24px "Barlow Condensed","Barlow",monospace';
-      const tl0=18+ctx.measureText(r.dH).width+14;
-      const tr1=W-18-ctx.measureText(r.dA).width-14;
-      ctx.textAlign='left';  ctx.fillStyle=r.cH; ctx.fillText(r.dH, 18, cy+8);
-      ctx.textAlign='right'; ctx.fillStyle=r.cA; ctx.fillText(r.dA, W-18, cy+8);
-      ctx.textAlign='center'; ctx.fillStyle='#9a9aa5';
-      ctx.font='600 22px "Barlow",sans-serif';
-      ctx.fillText(r.label, CX, cy+7);
-      ctx.fillStyle='#232330';
-      ctx.fillRect(tl0,cy-TRACK_H/2,trackL1-tl0,TRACK_H);
-      ctx.fillRect(trackR0,cy-TRACK_H/2,tr1-trackR0,TRACK_H);
-      const wl=(trackL1-tl0)*Math.min(100,r.wH)/100;
-      const wr=(tr1-trackR0)*Math.min(100,r.wA)/100;
-      ctx.fillStyle=colH; ctx.fillRect(trackL1-wl,cy-TRACK_H/2,wl,TRACK_H);
-      ctx.fillStyle=colA2; ctx.fillRect(trackR0,cy-TRACK_H/2,wr,TRACK_H);
-      y+=ROW_H;
-    });
-  });
-  ctx.fillStyle='#8a8a95'; ctx.font='700 26px "Barlow Condensed","Barlow",sans-serif';
-  ctx.textAlign='center'; ctx.fillText('SCORING TIMELINE', CX, y+34);
-  y+=TITLE_H;
-  (function worm(){
-    const ML=70, MR=40, MT=14, MB=44;
-    const pw=W-ML-MR, ph=WORM_H-MT-MB;
-    const nowMin=Math.max(scoreEvts.length?scoreEvts[scoreEvts.length-1].min:0, h1len*2, 10);
-    let cH=0,cA=0;
-    const ptsH=[{min:0,v:0}], ptsA=[{min:0,v:0}];
-    scoreEvts.forEach(sv=>{ if(sv.s==='h'){cH+=sv.pts; ptsH.push({min:sv.min,v:cH});}
-                            else{cA+=sv.pts; ptsA.push({min:sv.min,v:cA});} });
-    ptsH.push({min:nowMin,v:cH}); ptsA.push({min:nowMin,v:cA});
-    const maxV=Math.max(cH,cA,5);
-    const X=m=>ML+(m/nowMin)*pw, Y=v=>y+MT+ph-(v/maxV)*ph;
-    ctx.strokeStyle='#26262f'; ctx.fillStyle='#6a6a75';
-    ctx.font='18px "Barlow",monospace'; ctx.lineWidth=1;
-    const step=maxV<=10?2:maxV<=25?5:10;
-    ctx.textAlign='right';
-    for(let v=0;v<=maxV;v+=step){
-      ctx.beginPath(); ctx.moveTo(ML,Y(v)); ctx.lineTo(W-MR,Y(v)); ctx.stroke();
-      ctx.fillText(v,ML-10,Y(v)+6);
-    }
+  const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
+  const hCraw=(packH&&packH.primary)||GAME.homeColor||'#2563eb';
+  const aCraw=(packA&&packA.primary)||GAME.awayColor||'#22c55e';
+  const legible=(prim,pack)=>{
+    if(lum(prim)>=90) return prim;
+    const sec=pack&&pack.secondary;
+    if(sec&&lum(sec)>=110) return sec;
+    return lighten(prim,0.45); };
+  const colH=legible(hCraw,packH), colA2=legible(aCraw,packA);
+
+  const loadImg=src=>new Promise(res=>{ if(!src) return res(null);
+    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+  Promise.all([loadImg(packH&&packH.crest), loadImg(packA&&packA.crest)]).then(([crH,crA])=>{
+    const W=1080, HEAD=260, TITLE_H=52, ROW_H=44, WORM_H=330, FOOT=56;
+    const nRows=sections.reduce((s,x)=>s+x[1].length,0);
+    const HGT=HEAD+sections.length*TITLE_H+nRows*ROW_H+(hasWorm?TITLE_H+WORM_H:0)+FOOT;
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=HGT;
+    const ctx=cv.getContext('2d');
+    const g=ctx.createLinearGradient(0,0,0,HGT);
+    g.addColorStop(0,'#12121a'); g.addColorStop(1,'#0c0c12');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,HGT);
+    ctx.fillStyle=hCraw; ctx.fillRect(0,0,10,HGT);
+    ctx.fillStyle=aCraw; ctx.fillRect(W-10,0,10,HGT);
     ctx.textAlign='center';
-    const xs=nowMin<=20?5:nowMin<=45?10:15;
-    for(let m=0;m<=nowMin;m+=xs) ctx.fillText(Math.round(m)+"'",X(m),y+WORM_H-14);
-    [[colH,ptsH],[colA2,ptsA]].forEach(([col,pts])=>{
-      ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=4;
-      ctx.beginPath();
-      pts.forEach((p,i)=>{ const x=X(p.min), yy=Y(p.v);
-        if(i===0) ctx.moveTo(x,yy);
-        else{ ctx.lineTo(x,Y(pts[i-1].v)); ctx.lineTo(x,yy); } });
-      ctx.stroke();
-      pts.slice(1,-1).forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.min),Y(p.v),6,0,Math.PI*2); ctx.fill(); });
+    const crest=(im,cx,cy,r,col,nm)=>{
+      ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.closePath();
+      ctx.fillStyle='#1c1c26'; ctx.fill(); ctx.clip();
+      if(im) ctx.drawImage(im,cx-r,cy-r,r*2,r*2);
+      else{ ctx.fillStyle=col; ctx.fillRect(cx-r,cy-r,r*2,r*2);
+        ctx.fillStyle='#fff'; ctx.font='700 '+Math.round(r*0.6)+'px "Barlow Condensed","Barlow",sans-serif';
+        ctx.fillText(initials(nm),cx,cy+r*0.2); }
+      ctx.restore();
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=3; ctx.stroke();
+    };
+    crest(crH,120,150,68,hCraw,GAME.homeTeam); crest(crA,W-120,150,68,aCraw,GAME.awayTeam);
+    const linesH=wrapName(up(GAME.homeTeam)), linesA=wrapName(up(GAME.awayTeam));
+    let nfs=42;
+    const nfits=fs=>{ ctx.font='italic 800 '+fs+'px "Barlow",sans-serif';
+      return linesH.concat(linesA).every(l=>ctx.measureText(l).width<=300); };
+    while(nfs>22 && !nfits(nfs)) nfs-=2;
+    const teamCol=(lines,col,cx,sc,ps)=>{
+      ctx.fillStyle=col; ctx.font='italic 800 '+nfs+'px "Barlow",sans-serif';
+      lines.forEach((l,i)=>ctx.fillText(l,cx,70+i*(nfs+8)));
+      ctx.fillStyle='#fff'; ctx.font='800 84px "Barlow Condensed","Barlow",sans-serif';
+      ctx.fillText(sc,cx,196);
+      ctx.fillStyle='#77777f'; ctx.font='600 24px "Barlow",sans-serif';
+      ctx.fillText('PSR: '+ps,cx,232);
+    };
+    teamCol(linesH,colH,W*0.32,scH.str,psr('h')); teamCol(linesA,colA2,W*0.68,scA.str,psr('a'));
+    ctx.fillStyle='#3a3a44'; ctx.font='800 40px "Barlow Condensed",sans-serif'; ctx.fillText('V',W/2,166);
+    ctx.fillStyle='#9a9aa5'; ctx.font='600 24px "Barlow",sans-serif';
+    ctx.fillText('FULL TIME', W/2, 236);
+    let y=HEAD;
+    const CX=W/2, LBL_W=300, TRACK_H=13;
+    const trackL1=CX-LBL_W/2-14, trackR0=CX+LBL_W/2+14;
+    sections.forEach(([title,rows])=>{
+      ctx.fillStyle='#8a8a95'; ctx.font='700 26px "Barlow Condensed","Barlow",sans-serif';
+      ctx.textAlign='center'; ctx.fillText(title, CX, y+34);
+      ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+      const tw=ctx.measureText(title).width;
+      ctx.beginPath(); ctx.moveTo(60,y+26); ctx.lineTo(CX-tw/2-18,y+26);
+      ctx.moveTo(CX+tw/2+18,y+26); ctx.lineTo(W-60,y+26); ctx.stroke();
+      y+=TITLE_H;
+      rows.forEach(r=>{
+        const cy=y+ROW_H/2;
+        ctx.font='500 24px "Barlow Condensed","Barlow",monospace';
+        const tl0=18+ctx.measureText(r.dH).width+14;
+        const tr1=W-18-ctx.measureText(r.dA).width-14;
+        ctx.textAlign='left';  ctx.fillStyle=r.cH; ctx.fillText(r.dH, 18, cy+8);
+        ctx.textAlign='right'; ctx.fillStyle=r.cA; ctx.fillText(r.dA, W-18, cy+8);
+        ctx.textAlign='center'; ctx.fillStyle='#9a9aa5';
+        ctx.font='600 22px "Barlow",sans-serif';
+        ctx.fillText(r.label, CX, cy+7);
+        ctx.fillStyle='#232330';
+        ctx.fillRect(tl0,cy-TRACK_H/2,trackL1-tl0,TRACK_H);
+        ctx.fillRect(trackR0,cy-TRACK_H/2,tr1-trackR0,TRACK_H);
+        const wl=(trackL1-tl0)*Math.min(100,r.wH)/100;
+        const wr=(tr1-trackR0)*Math.min(100,r.wA)/100;
+        ctx.fillStyle=colH; ctx.fillRect(trackL1-wl,cy-TRACK_H/2,wl,TRACK_H);
+        ctx.fillStyle=colA2; ctx.fillRect(trackR0,cy-TRACK_H/2,wr,TRACK_H);
+        y+=ROW_H;
+      });
     });
-  })();
-  ctx.fillStyle='#55555f'; ctx.font='600 22px "Barlow",sans-serif';
-  ctx.textAlign='center'; ctx.fillText('COHESION ANALYSIS', W/2, HGT-16);
-  cv.toBlob(b=>{
-    if(!b) return;
-    const fname=(String(GAME.homeTeam||'home')+'_v_'+String(GAME.awayTeam||'away')+'_stats.png').toLowerCase().replace(/[^\w.]+/g,'_');
-    const file=(typeof File!=='undefined')?new File([b],fname,{type:'image/png'}):null;
-    if(file && navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file], title:(GAME.homeTeam||'')+' v '+(GAME.awayTeam||'')}).catch(()=>dashDlBlob(b,fname));
-    } else dashDlBlob(b,fname);
-  },'image/png');
+    if(hasWorm){
+      ctx.fillStyle='#8a8a95'; ctx.font='700 26px "Barlow Condensed","Barlow",sans-serif';
+      ctx.textAlign='center'; ctx.fillText('SCORING TIMELINE', CX, y+34);
+      y+=TITLE_H;
+      const ML=70, MR=40, MT=14, MB=44;
+      const pw=W-ML-MR, ph=WORM_H-MT-MB;
+      const nowMin=Math.max(scoreEvts[scoreEvts.length-1].min, h1len*2, 10);
+      let cH=0,cA=0;
+      const ptsH=[{min:0,v:0}], ptsA=[{min:0,v:0}];
+      scoreEvts.forEach(sv=>{ if(sv.s==='h'){cH+=sv.pts; ptsH.push({min:sv.min,v:cH});}
+                              else{cA+=sv.pts; ptsA.push({min:sv.min,v:cA});} });
+      ptsH.push({min:nowMin,v:cH}); ptsA.push({min:nowMin,v:cA});
+      const maxV=Math.max(cH,cA,5);
+      const X=m=>ML+(m/nowMin)*pw, Y=v=>y+MT+ph-(v/maxV)*ph;
+      ctx.strokeStyle='#26262f'; ctx.fillStyle='#6a6a75';
+      ctx.font='18px "Barlow",monospace'; ctx.lineWidth=1;
+      const step=maxV<=10?2:maxV<=25?5:10;
+      ctx.textAlign='right';
+      for(let v=0;v<=maxV;v+=step){
+        ctx.beginPath(); ctx.moveTo(ML,Y(v)); ctx.lineTo(W-MR,Y(v)); ctx.stroke();
+        ctx.fillText(v,ML-10,Y(v)+6);
+      }
+      ctx.textAlign='center';
+      const xs=nowMin<=20?5:nowMin<=45?10:15;
+      for(let m=0;m<=nowMin;m+=xs) ctx.fillText(Math.round(m)+"'",X(m),y+WORM_H-14);
+      [[colH,ptsH],[colA2,ptsA]].forEach(([col,pts])=>{
+        ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=4;
+        ctx.beginPath();
+        pts.forEach((p,i)=>{ const x=X(p.min), yy=Y(p.v);
+          if(i===0) ctx.moveTo(x,yy);
+          else{ ctx.lineTo(x,Y(pts[i-1].v)); ctx.lineTo(x,yy); } });
+        ctx.stroke();
+        pts.slice(1,-1).forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.min),Y(p.v),6,0,Math.PI*2); ctx.fill(); });
+      });
+      y+=WORM_H;
+    }
+    ctx.fillStyle='#55555f'; ctx.font='600 22px "Barlow",sans-serif';
+    ctx.textAlign='center'; ctx.fillText('COHESION ANALYSIS', W/2, HGT-16);
+    cv.toBlob(b=>{
+      if(!b) return;
+      const fname=(String(GAME.homeTeam||'home')+'_v_'+String(GAME.awayTeam||'away')+'_stats.png').toLowerCase().replace(/[^\w.]+/g,'_');
+      const file=(typeof File!=='undefined')?new File([b],fname,{type:'image/png'}):null;
+      if(file && navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:(GAME.homeTeam||'')+' v '+(GAME.awayTeam||'')}).catch(()=>dashDlBlob(b,fname));
+      } else dashDlBlob(b,fname);
+    },'image/png');
+  });
 }
 function dashDlBlob(b,fname){
   const a=document.createElement('a');
@@ -1010,7 +1052,10 @@ function renderSV(){
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
   const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
   let h=`<div class="stt-teams"><span style="color:${hC}">● ${H}</span><span style="color:${aC}">${A} ●</span></div>`;
-  h+=`<button class="tl-pb" style="width:100%;margin:2px 0 8px;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>`;
+  h+=`<div style="display:flex;gap:6px;margin:2px 0 8px;">
+    <button class="tl-pb" style="flex:2;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>
+    <label class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;text-align:center;" title="Import a tracker team-pack .json — its crests and colours appear on stats images">📦 Team Pack<input type="file" accept=".json,application/json" style="display:none" onchange="cohImportTeamPack(event)"></label>
+  </div>`;
 
   // period chips (ET chips only when the game has ET events)
   const halves=new Set(ALL.map(e=>e.half).filter(Boolean));
