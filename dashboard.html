@@ -204,6 +204,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
@@ -808,7 +809,7 @@ function cohImportTeamPack(ev){
   rd.readAsText(f);
   ev.target.value='';
 }
-function dashShareStatsCard(){
+function dashBuildStatsCanvas(){
   const lum=x=>{ try{ const n=parseInt(String(x).replace('#',''),16);
     return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }catch(_e){ return 0; } };
   const lighten=(x,f)=>{ try{ const n=parseInt(String(x).replace('#',''),16);
@@ -920,7 +921,7 @@ function dashShareStatsCard(){
 
   const loadImg=src=>new Promise(res=>{ if(!src) return res(null);
     const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
-  Promise.all([loadImg(packH&&packH.crest), loadImg(packA&&packA.crest)]).then(([crH,crA])=>{
+  return Promise.all([loadImg(packH&&packH.crest), loadImg(packA&&packA.crest)]).then(([crH,crA])=>{
     const W=1080, HEAD=260, TITLE_H=52, ROW_H=44, WORM_H=330, FOOT=56;
     const nRows=sections.reduce((s,x)=>s+x[1].length,0);
     const HGT=HEAD+sections.length*TITLE_H+nRows*ROW_H+(hasWorm?TITLE_H+WORM_H:0)+FOOT;
@@ -1030,6 +1031,11 @@ function dashShareStatsCard(){
     }
     ctx.fillStyle='#55555f'; ctx.font='600 22px "Barlow",sans-serif';
     ctx.textAlign='center'; ctx.fillText('COHESION ANALYSIS', W/2, HGT-16);
+    return cv;
+  });
+}
+function dashShareStatsCard(){
+  dashBuildStatsCanvas().then(cv=>{
     cv.toBlob(b=>{
       if(!b) return;
       const fname=(String(GAME.homeTeam||'home')+'_v_'+String(GAME.awayTeam||'away')+'_stats.png').toLowerCase().replace(/[^\w.]+/g,'_');
@@ -1039,6 +1045,121 @@ function dashShareStatsCard(){
       } else dashDlBlob(b,fname);
     },'image/png');
   });
+}
+// ── MATCH MOMENTUM from the game's XML events (light theme for the PDF):
+// TO won: 1 · missed shot: 2 · point: 3 · 2-pointer: 4 · goal: 5. Home up,
+// away down, both in their (pack-aware) colours; scores carry markers.
+function dashBuildMomentumCanvas(){
+  const up=s=>String(s||'').toUpperCase();
+  const shotOut=e=>up((e.labels||{})['Shot Outcomes']||(e.labels||{})['ShotOutcome']||(e.labels||{})['Outcome']||e.outcome||'');
+  const minOf=e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
+    return {half:+m[1], min:+m[2]+(+m[3])/60}; };
+  let h1len=30;
+  ALL.forEach(e=>{ const t=minOf(e); if(t&&t.half===1) h1len=Math.max(h1len,Math.ceil(t.min)); });
+  const cum=e=>{ const t=minOf(e); return t?(t.half===1?t.min:h1len+t.min):null; };
+  const items=[];
+  ALL.forEach(e=>{
+    const s=statSide(e); if(!s) return;
+    const m=cum(e); if(m==null) return;
+    if(/SHOT (OPEN|DEAD)/i.test(e.code||'')){
+      const k=shotOut(e);
+      if((k.includes('POINT')||k.includes('GOAL'))&&!k.includes('DISALLOWED')&&!k.includes('ATTEMPT')){
+        const v=k.includes('GOAL')?5:(k.includes('2 POINT')||k.includes('TWO'))?4:3;
+        items.push({s,m,v,kind:v===5?'goal':v===4?'2pt':'1pt'});
+      } else items.push({s,m,v:2});
+    } else if(/TURNOVER|\bTOS?\b/i.test(e.code||'')){
+      items.push({s:s==='h'?'a':'h', m, v:1});
+    }
+  });
+  if(!items.length) return null;
+  let maxMin=0; items.forEach(it=>{ maxMin=Math.max(maxMin,it.m); });
+  const nW=Math.max(1,Math.ceil((maxMin+0.01)/2));
+  const H2=new Array(nW).fill(0), A2=new Array(nW).fill(0), markers=[];
+  items.forEach(it=>{
+    const w=Math.min(nW-1,Math.floor(it.m/2));
+    if(it.s==='h') H2[w]+=it.v; else A2[w]+=it.v;
+    if(it.kind) markers.push({w, s:it.s, kind:it.kind});
+  });
+  const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
+  const colH=(packH&&packH.primary)||GAME.homeColor||'#2ecc71';
+  const colA=(packA&&packA.primary)||GAME.awayColor||'#e74c3c';
+  const W=1400, HT=460;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=HT;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,HT);
+  const ML2=52, MR2=16, MT2=18, MB2=38;
+  const plotW=W-ML2-MR2, plotH=HT-MT2-MB2;
+  const maxV=Math.max(...H2,...A2,5);
+  const zeroY=MT2+plotH/2, scaleY=(plotH/2-8)/maxV, bw=plotW/nW;
+  ctx.strokeStyle='#e4e4ec'; ctx.fillStyle='#8a8a95';
+  ctx.font='13px sans-serif'; ctx.textAlign='right'; ctx.lineWidth=1;
+  const step=maxV<=10?5:10;
+  for(let v=-Math.floor(maxV/step)*step; v<=maxV; v+=step){
+    const yy=zeroY-v*scaleY;
+    ctx.beginPath(); ctx.moveTo(ML2,yy); ctx.lineTo(W-MR2,yy); ctx.stroke();
+    ctx.fillText((v>0?'+':'')+v,ML2-7,yy+4);
+  }
+  for(let w=0;w<nW;w++){
+    const x=ML2+w*bw+1, wd=Math.max(2,bw-2);
+    if(H2[w]){ ctx.fillStyle=colH; ctx.fillRect(x,zeroY-H2[w]*scaleY,wd,H2[w]*scaleY-1); }
+    if(A2[w]){ ctx.fillStyle=colA; ctx.fillRect(x,zeroY+1,wd,A2[w]*scaleY-1); }
+  }
+  ctx.strokeStyle='#b8b8c2'; ctx.beginPath(); ctx.moveTo(ML2,zeroY); ctx.lineTo(W-MR2,zeroY); ctx.stroke();
+  const x=ML2+(h1len/2)*bw;
+  if(h1len/2<nW){
+    ctx.strokeStyle='#8a8a95'; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(x,MT2-4); ctx.lineTo(x,MT2+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.textAlign='center'; ctx.fillStyle='#8a8a95'; ctx.fillText('HT',x,MT2-6);
+  }
+  const stackN={};
+  markers.forEach(mk=>{
+    const key=mk.s+mk.w, n=(stackN[key]=(stackN[key]||0)+1);
+    const mx=ML2+mk.w*bw+bw/2;
+    const base=mk.s==='h'? zeroY-H2[mk.w]*scaleY-9-(n-1)*15 : zeroY+A2[mk.w]*scaleY+9+(n-1)*15;
+    const col=mk.s==='h'?colH:colA;
+    if(mk.kind==='goal'){
+      ctx.fillStyle='#ffffff'; ctx.strokeStyle='#555';
+      ctx.beginPath(); ctx.arc(mx,base,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='#999'; ctx.beginPath(); ctx.arc(mx,base,2.5,0,Math.PI*2); ctx.stroke();
+    } else if(mk.kind==='2pt'){
+      ctx.fillStyle=col; ctx.strokeStyle='#555';
+      ctx.beginPath(); ctx.moveTo(mx-5,base+5); ctx.lineTo(mx-5,base-7); ctx.lineTo(mx+7,base-1); ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.fillStyle='#f4f4f6'; ctx.strokeStyle='#777';
+      ctx.fillRect(mx-4,base-5,10,8); ctx.strokeRect(mx-4,base-5,10,8);
+      ctx.beginPath(); ctx.moveTo(mx-4,base+3); ctx.lineTo(mx-4,base+7); ctx.stroke();
+    }
+  });
+  ctx.fillStyle='#8a8a95'; ctx.textAlign='center'; ctx.font='13px sans-serif';
+  for(let min=0;min<=nW*2;min+=10) ctx.fillText(String(min),ML2+(min/2)*bw,HT-18);
+  ctx.fillText('Match Minute',ML2+plotW/2,HT-4);
+  return cv;
+}
+// ── MATCH REPORT PDF: the stats card + the momentum chart ──
+async function dashExportPDF(){
+  const jspdfNS=window.jspdf||{};
+  if(!jspdfNS.jsPDF){ alert('PDF library not loaded — check your connection and reload.'); return; }
+  const cv=await dashBuildStatsCanvas();
+  const doc=new jspdfNS.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210,PH=297,M=10;
+  let w=PW-2*M, h=w*cv.height/cv.width;
+  if(h>PH-2*M){ h=PH-2*M; w=h*cv.width/cv.height; }
+  doc.addImage(cv.toDataURL('image/png'),'PNG',(PW-w)/2,M,w,h);
+  const mom=dashBuildMomentumCanvas();
+  if(mom){
+    doc.addPage('a4','landscape');
+    const LW=297;
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(35,35,45);
+    doc.text('Match Momentum — '+(GAME.homeTeam||'')+' v '+(GAME.awayTeam||''),10,14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(110,110,120);
+    doc.text('Momentum value per 2-min window — TO won: 1pt · Wide/Missed Shot: 2pts · 1-pointer: 3pts · 2-pointer: 4pts · Goal: 5pts   (up = '+(GAME.homeTeam||'home')+', down = '+(GAME.awayTeam||'away')+')',10,20);
+    const mw=LW-20, mh=mw*mom.height/mom.width;
+    doc.addImage(mom.toDataURL('image/png'),'PNG',10,25,mw,mh);
+    doc.setFontSize(7.5); doc.setTextColor(110,110,120);
+    doc.text('\u25CB Goal     \u25B6 2-pointer     \u25A0 1-pointer', LW/2-18, 25+mh+5);
+  }
+  doc.save((String(GAME.homeTeam||'home')+'_v_'+String(GAME.awayTeam||'away')+'_report.pdf').toLowerCase().replace(/[^\w.]+/g,'_'));
 }
 function dashDlBlob(b,fname){
   const a=document.createElement('a');
@@ -1054,6 +1175,7 @@ function renderSV(){
   let h=`<div class="stt-teams"><span style="color:${hC}">● ${H}</span><span style="color:${aC}">${A} ●</span></div>`;
   h+=`<div style="display:flex;gap:6px;margin:2px 0 8px;">
     <button class="tl-pb" style="flex:2;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>
+    <button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="dashExportPDF()" title="Stats card + momentum chart as a PDF">📄 PDF</button>
     <label class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;text-align:center;" title="Import a tracker team-pack .json — its crests and colours appear on stats images">📦 Team Pack<input type="file" accept=".json,application/json" style="display:none" onchange="cohImportTeamPack(event)"></label>
   </div>`;
 
