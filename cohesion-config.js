@@ -54,7 +54,7 @@ window.COHESION_EVENT_LINKS = [
   { appliesTo: /\bKO\b|KICKOUT/,   group: 'Kickout Outcomes', prompt: 'Kickout outcome',
     options: ['KO WON CLEAN','KO BREAK WON','KO BREAK LOST','KO LOST CLEAN','KO FREE WON','KO FREE LOST'] },
   { appliesTo: /\bTOS?\b|TURNOVER/,group: 'Turnover Outcomes',prompt: 'Turnover outcome',
-    options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING'] },
+    options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING','FREE AGAINST','SHOT ATTEMPT'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
     options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION','FOUL CONCEDED'] },
 ];
