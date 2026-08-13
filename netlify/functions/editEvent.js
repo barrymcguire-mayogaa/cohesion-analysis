@@ -62,31 +62,39 @@ exports.handler = async (event) => {
     // client can reconcile inserts (temp id -> real new id). Ops are applied
     // independently; a failed op is reported without aborting the rest.
     if (Array.isArray(body.ops)) {
-      const results = [];
-      for (const op of body.ops) {
+      // Ops are independent rows — run them with bounded parallelism so a
+      // large save (hundreds of edits) finishes well inside the function
+      // timeout instead of one-round-trip-per-op serially (the old way 504'd).
+      const ops = body.ops;
+      const results = new Array(ops.length);
+      const doOp = async (op) => {
         try {
           if (op.action === 'update') {
             if (op.id == null || typeof op.data !== 'object') throw new Error('update needs id and data');
             const { error } = await supabase.from('events').update({ data: op.data }).eq('id', op.id);
             if (error) throw new Error(error.message);
-            results.push({ ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id });
+            return { ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id };
           } else if (op.action === 'insert') {
             if (!op.game_id || typeof op.data !== 'object') throw new Error('insert needs game_id and data');
             const { data: row, error } = await supabase.from('events').insert({ game_id: op.game_id, data: op.data }).select('id').single();
             if (error) throw new Error(error.message);
-            results.push({ ref: op.ref, ok: true, id: row.id });
+            return { ref: op.ref, ok: true, id: row.id };
           } else if (op.action === 'delete') {
             if (op.id == null) throw new Error('delete needs id');
             const { error } = await supabase.from('events').delete().eq('id', op.id);
             if (error) throw new Error(error.message);
-            results.push({ ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id });
-          } else {
-            throw new Error('bad action: ' + op.action);
+            return { ref: op.ref != null ? op.ref : op.id, ok: true, id: op.id };
           }
+          throw new Error('bad action: ' + op.action);
         } catch (e) {
-          results.push({ ref: op.ref, ok: false, error: e.message });
+          return { ref: op.ref, ok: false, error: e.message };
         }
-      }
+      };
+      let next = 0;
+      const worker = async () => {
+        while (next < ops.length) { const i = next++; results[i] = await doOp(ops[i]); }
+      };
+      await Promise.all(Array.from({ length: Math.min(10, ops.length) }, worker));
       return { statusCode: 200, body: JSON.stringify({ ok: results.every(r => r.ok), results }) };
     }
 

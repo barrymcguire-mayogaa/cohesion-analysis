@@ -1991,16 +1991,33 @@ async function crSaveAll(){
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
   crDeleted.forEach(d=>ops.push({action:'delete', id:d.id, ref:'del-'+d.id}));
   if(!ops.length){ crClearBackup(); return; }
-  const {results}=await cohesionEventBatch(ops);
+  // Save in chunks: each request stays well inside the function timeout, and
+  // every completed chunk is reconciled immediately - if a later chunk fails,
+  // pressing save again only sends what is still unsaved.
+  const CHUNK=40;
+  const btn=document.getElementById('crSaveBtn');
   const failed=[];
-  results.forEach(r=>{
-    if(!r.ok){ failed.push(r); return; }
-    if(typeof r.ref==='string' && r.ref.indexOf('del-')===0) return;   // delete: reconciled below
-    const e=EVENTS.find(x=>String(x._rowId)===String(r.ref));
-    if(e){ if(e._new){ e._rowId=r.id; e._new=false; } e._dirty=false; }
-  });
-  crDeleted=crDeleted.filter(d=>{ const r=results.find(x=>x.ref==='del-'+d.id); return !(r&&r.ok); });
-  crBackup(); crUpdatePending();
+  const reconcile=results=>{
+    results.forEach(r=>{
+      if(!r.ok){ failed.push(r); return; }
+      if(typeof r.ref==='string' && r.ref.indexOf('del-')===0){
+        crDeleted=crDeleted.filter(d=>('del-'+d.id)!==r.ref);
+        return;
+      }
+      const e=EVENTS.find(x=>String(x._rowId)===String(r.ref));
+      if(e){ if(e._new){ e._rowId=r.id; e._new=false; } e._dirty=false; }
+    });
+    crBackup(); crUpdatePending();
+  };
+  for(let i=0;i<ops.length;i+=CHUNK){
+    if(btn) btn.textContent='Saving '+Math.min(i+CHUNK,ops.length)+' / '+ops.length+'...';
+    let r;
+    try{ r=await cohesionEventBatch(ops.slice(i,i+CHUNK)); }
+    catch(e){
+      throw new Error((ops.length-i)+' of '+ops.length+' change(s) still unsaved ('+e.message+'). The first '+i+' ARE saved - press save again to send the rest.');
+    }
+    reconcile(r.results||[]);
+  }
   if(failed.length) throw new Error(failed.length+' change(s) failed: '+failed.map(f=>f.error).join('; '));
   crClearBackup();
 }
