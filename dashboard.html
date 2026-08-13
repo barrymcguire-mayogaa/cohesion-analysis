@@ -947,12 +947,15 @@ function dashBuildStatsCanvas(){
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
   const hCraw=GAME.homeColor||(packH&&packH.primary)||'#2563eb';
   const aCraw=GAME.awayColor||(packA&&packA.primary)||'#22c55e';
-  const legible=(prim,pack)=>{
-    if(lum(prim)>=90) return prim;
-    const sec=pack&&pack.secondary;
-    if(sec&&lum(sec)>=110) return sec;
-    return lighten(prim,0.45); };
-  const colH=legible(hCraw,packH), colA2=legible(aCraw,packA);
+  // Bars use the exact colour selected in COHESION. Thin elements (team name,
+  // worm line) get nudged toward white just enough to read on the black card
+  // when the colour is very dark (e.g. maroon), keeping the hue.
+  const legible=prim=>{
+    let c=prim, n=0;
+    while(lum(c)<70 && n<6){ c=lighten(c,0.18); n++; }
+    return c; };
+  const colH=hCraw, colA2=aCraw;
+  const txtH=legible(hCraw), txtA=legible(aCraw);
 
   const loadImg=src=>new Promise(res=>{ if(!src) return res(null);
     const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
@@ -993,7 +996,7 @@ function dashBuildStatsCanvas(){
       ctx.fillStyle='#77777f'; ctx.font='600 24px "Barlow",sans-serif';
       ctx.fillText('PSR: '+ps,cx,232);
     };
-    teamCol(linesH,colH,W*0.32,scH.str,psr('h')); teamCol(linesA,colA2,W*0.68,scA.str,psr('a'));
+    teamCol(linesH,txtH,W*0.32,scH.str,psr('h')); teamCol(linesA,txtA,W*0.68,scA.str,psr('a'));
     ctx.fillStyle='#3a3a44'; ctx.font='800 40px "Barlow Condensed",sans-serif'; ctx.fillText('V',W/2,166);
     ctx.fillStyle='#9a9aa5'; ctx.font='600 24px "Barlow",sans-serif';
     ctx.fillText('FULL TIME', W/2, 236);
@@ -1053,7 +1056,7 @@ function dashBuildStatsCanvas(){
       ctx.textAlign='center';
       const xs=nowMin<=20?5:nowMin<=45?10:15;
       for(let m=0;m<=nowMin;m+=xs) ctx.fillText(Math.round(m)+"'",X(m),y+WORM_H-14);
-      [[colH,ptsH],[colA2,ptsA]].forEach(([col,pts])=>{
+      [[txtH,ptsH],[txtA,ptsA]].forEach(([col,pts])=>{
         ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=4;
         ctx.beginPath();
         pts.forEach((p,i)=>{ const x=X(p.min), yy=Y(p.v);
