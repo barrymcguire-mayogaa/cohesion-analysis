@@ -792,8 +792,13 @@ function crRowCmp(a,b){
 function crRows(evs){
   const present=new Set(evs.map(e=>e.code||'—'));
   crExtraRows.forEach(c=>present.add(c));
+  present.add('THROW-IN');
   const inOrder=crRowOrder.filter(c=>present.has(c));
   const rest=[...present].filter(c=>!inOrder.includes(c)).sort(crRowCmp);
+  // THROW-IN sits at the very top of every game unless the user has dragged
+  // it into a custom position.
+  if(!inOrder.includes('THROW-IN'))
+    return ['THROW-IN', ...inOrder, ...rest.filter(c=>c!=='THROW-IN')];
   return [...inOrder, ...rest];
 }
 function crRowsKey(){ return 'coh_crrows_'+(GAME&&GAME.id); }

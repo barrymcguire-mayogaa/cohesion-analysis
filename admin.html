@@ -2278,7 +2278,7 @@ async function processGame(){
           'ET 2nd Half': et2Video!==null&&xmlET2!==null ? et2Video-xmlET2 : null,
         };
         const xmlRefs = {'1st Half':xmlHalf1,'2nd Half':xmlHalf2,'ET 1st Half':xmlET1,'ET 2nd Half':xmlET2};
-        const SKIP = new Set(['THROW-IN','1st Half','2nd Half','ET 1st Half','ET 2nd Half','Count']);
+        const SKIP = new Set(['1st Half','2nd Half','ET 1st Half','ET 2nd Half','Count']);
 
         instances.forEach(inst=>{
           const code = inst.querySelector('code')?.textContent?.trim()||'';
