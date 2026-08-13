@@ -1158,13 +1158,12 @@ function dashBuildMomentumCanvas(){
     const key=mk.s+mk.w, n=(stackN[key]=(stackN[key]||0)+1);
     const mx=ML2+mk.w*bw+bw/2;
     const base=mk.s==='h'? zeroY-H2[mk.w]*scaleY-9-(n-1)*15 : zeroY+A2[mk.w]*scaleY+9+(n-1)*15;
-    const col=mk.s==='h'?colH:colA;
     if(mk.kind==='goal'){
-      ctx.fillStyle='#ffffff'; ctx.strokeStyle='#555';
+      ctx.fillStyle='#006a4e'; ctx.strokeStyle='#003d2d';
       ctx.beginPath(); ctx.arc(mx,base,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle='#999'; ctx.beginPath(); ctx.arc(mx,base,2.5,0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle='#ffffff'; ctx.beginPath(); ctx.arc(mx,base,2.5,0,Math.PI*2); ctx.stroke();
     } else if(mk.kind==='2pt'){
-      ctx.fillStyle=col; ctx.strokeStyle='#555';
+      ctx.fillStyle='#f97316'; ctx.strokeStyle='#555';
       ctx.beginPath(); ctx.moveTo(mx-5,base+5); ctx.lineTo(mx-5,base-7); ctx.lineTo(mx+7,base-1); ctx.closePath(); ctx.fill(); ctx.stroke();
     } else {
       ctx.fillStyle='#f4f4f6'; ctx.strokeStyle='#777';
@@ -1372,11 +1371,13 @@ async function dashExportPDF(){
     // legend markers drawn as vector shapes (helvetica has no glyphs for these)
     doc.setFontSize(6.5); doc.setTextColor(...C_T2); doc.setLineWidth(0.25);
     const lx=ML+CW/2-30;
-    doc.setDrawColor(85,85,85); doc.setFillColor(255,255,255);
-    doc.circle(lx,y-1,1.6,'FD'); doc.circle(lx,y-1,0.6,'S');
+    doc.setDrawColor(0,61,45); doc.setFillColor(0,106,78);
+    doc.circle(lx,y-1,1.6,'FD');
+    doc.setDrawColor(255,255,255); doc.circle(lx,y-1,0.6,'S');
+    doc.setDrawColor(85,85,85);
     doc.text('Goal',lx+3.2,y);
     const fx=lx+14;
-    doc.setFillColor(192,57,43);
+    doc.setFillColor(249,115,22);
     doc.line(fx,y+1.2,fx,y-3.4);
     doc.triangle(fx,y-3.4,fx+3.4,y-2.2,fx,y-1,'FD');
     doc.text('2-pointer',fx+4.6,y);
