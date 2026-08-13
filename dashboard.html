@@ -207,6 +207,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -791,6 +792,14 @@ function cohPacksLoad(){ try{ return JSON.parse(localStorage.getItem('coh_team_p
 function cohPacksStore(ts){ try{ localStorage.setItem('coh_team_packs', JSON.stringify(ts)); }catch(_e){} }
 function cohPackTeam(name){ const n=String(name||'').trim().toLowerCase();
   return cohPacksLoad().find(t=>String(t.club||'').trim().toLowerCase()===n)||null; }
+// Crest source: an imported team-pack crest wins; otherwise fall back to the
+// bundled club crests in /crests (matched on an accent/spacing-insensitive slug).
+function cohCrestSrc(name,pack){
+  if(pack&&pack.crest) return pack.crest;
+  const sl=String(name||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const M=window.COHESION_CRESTS||{};
+  return M[sl]?('crests/'+M[sl]):null;
+}
 function cohImportTeamPack(ev){
   const f=ev.target.files&&ev.target.files[0]; if(!f) return;
   const rd=new FileReader();
@@ -936,8 +945,8 @@ function dashBuildStatsCanvas(){
   const sections=S.sections, scH=S.scH, scA=S.scA, hasWorm=S.hasWorm, scoreEvts=S.scoreEvts, h1len=S.h1len;
   const psr=side=>side==='h'?S.psrH:S.psrA;
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
-  const hCraw=(packH&&packH.primary)||GAME.homeColor||'#2563eb';
-  const aCraw=(packA&&packA.primary)||GAME.awayColor||'#22c55e';
+  const hCraw=GAME.homeColor||(packH&&packH.primary)||'#2563eb';
+  const aCraw=GAME.awayColor||(packA&&packA.primary)||'#22c55e';
   const legible=(prim,pack)=>{
     if(lum(prim)>=90) return prim;
     const sec=pack&&pack.secondary;
@@ -947,7 +956,7 @@ function dashBuildStatsCanvas(){
 
   const loadImg=src=>new Promise(res=>{ if(!src) return res(null);
     const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
-  return Promise.all([loadImg(packH&&packH.crest), loadImg(packA&&packA.crest)]).then(([crH,crA])=>{
+  return Promise.all([loadImg(cohCrestSrc(GAME.homeTeam,packH)), loadImg(cohCrestSrc(GAME.awayTeam,packA))]).then(([crH,crA])=>{
     const W=1080, HEAD=260, TITLE_H=52, ROW_H=44, WORM_H=330, FOOT=56;
     const nRows=sections.reduce((s,x)=>s+x[1].length,0);
     const HGT=HEAD+sections.length*TITLE_H+nRows*ROW_H+(hasWorm?TITLE_H+WORM_H:0)+FOOT;
@@ -1107,8 +1116,8 @@ function dashBuildMomentumCanvas(){
     if(it.kind) markers.push({w, s:it.s, kind:it.kind});
   });
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
-  const colH=(packH&&packH.primary)||GAME.homeColor||'#2ecc71';
-  const colA=(packA&&packA.primary)||GAME.awayColor||'#e74c3c';
+  const colH=GAME.homeColor||(packH&&packH.primary)||'#2ecc71';
+  const colA=GAME.awayColor||(packA&&packA.primary)||'#e74c3c';
   const W=1400, HT=460;
   const cv=document.createElement('canvas'); cv.width=W; cv.height=HT;
   const ctx=cv.getContext('2d');
@@ -1228,9 +1237,12 @@ async function dashExportPDF(){
     return [parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0]; };
   const rlum=rgb=>0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];
   const safe=rgb=>rlum(rgb)>=200?[122,128,140]:rgb;
-  const hexH=(packH&&packH.primary)||GAME.homeColor||'#2563eb';
-  const hexA=(packA&&packA.primary)||GAME.awayColor||'#22c55e';
+  const hexH=GAME.homeColor||(packH&&packH.primary)||'#2563eb';
+  const hexA=GAME.awayColor||(packA&&packA.primary)||'#22c55e';
   const colH=safe(hexToRgb(hexH)), colA=safe(hexToRgb(hexA));
+  const loadCrest=src=>new Promise(res=>{ if(!src) return res(null);
+    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+  const [crImH,crImA]=await Promise.all([loadCrest(cohCrestSrc(Hn,packH)), loadCrest(cohCrestSrc(An,packA))]);
   const C_TEXT=[30,30,40], C_T2=[100,100,115], C_ACC=[2,132,199];
   const up=s=>String(s||'').toUpperCase();
   const checkPage=n=>{ if(y+n>PH-MB){ doc.addPage(); y=MT; } };
@@ -1249,10 +1261,10 @@ async function dashExportPDF(){
   const meta=[GAME.competition||'',GAME.round||'',GAME.date||''].filter(Boolean).join('  ·  ');
   doc.text(Hn+' v '+An+(meta?'   ·   '+meta:''),ML,y);
   y+=6;
-  const box=(x,w,team,col,pack,sc,shots,scored,ps)=>{
+  const box=(x,w,team,col,crest,sc,shots,scored,ps)=>{
     doc.setFillColor(246,248,252); doc.roundedRect(x,y,w,26,2,2,'F');
     let tx=x+4;
-    if(pack&&pack.crest){ try{ doc.addImage(pack.crest,'PNG',x+3,y+5.5,15,15); tx=x+21; }catch(_e){} }
+    if(crest){ try{ doc.addImage(crest,'PNG',x+3,y+5.5,15,15); tx=x+21; }catch(_e){} }
     doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...col);
     doc.text(up(team),tx,y+8);
     doc.setFontSize(15); doc.setTextColor(...C_TEXT);
@@ -1260,8 +1272,8 @@ async function dashExportPDF(){
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
     doc.text(scored+'/'+shots+' shots  ·  PSR '+ps,tx,y+23);
   };
-  box(ML,CW/2-2,Hn,colH,packH,S.scH.str,S.shotsH,S.scoredH,S.psrH);
-  box(ML+CW/2+2,CW/2-2,An,colA,packA,S.scA.str,S.shotsA,S.scoredA,S.psrA);
+  box(ML,CW/2-2,Hn,colH,crImH,S.scH.str,S.shotsH,S.scoredH,S.psrH);
+  box(ML+CW/2+2,CW/2-2,An,colA,crImA,S.scA.str,S.shotsA,S.scoredA,S.psrA);
   y+=32;
 
   // ── per-player scoring tables ──
@@ -1356,9 +1368,24 @@ async function dashExportPDF(){
     doc.text('Momentum value per 2-min window — TO won: 1pt · Wide/Missed Shot: 2pts · 1-pointer: 3pts · 2-pointer: 4pts · Goal: 5pts   (up = '+Hn+', down = '+An+')',ML,y+2);
     y+=5;
     doc.addImage(mom.toDataURL('image/png'),'PNG',ML,y,CW,mh);
-    y+=mh+3;
-    doc.setFontSize(6.5);
-    doc.text('\u25CB Goal    \u25B6 2-pointer    \u25A0 1-pointer',ML+CW/2-18,y);
+    y+=mh+4;
+    // legend markers drawn as vector shapes (helvetica has no glyphs for these)
+    doc.setFontSize(6.5); doc.setTextColor(...C_T2); doc.setLineWidth(0.25);
+    const lx=ML+CW/2-30;
+    doc.setDrawColor(85,85,85); doc.setFillColor(255,255,255);
+    doc.circle(lx,y-1,1.6,'FD'); doc.circle(lx,y-1,0.6,'S');
+    doc.text('Goal',lx+3.2,y);
+    const fx=lx+14;
+    doc.setFillColor(192,57,43);
+    doc.line(fx,y+1.2,fx,y-3.4);
+    doc.triangle(fx,y-3.4,fx+3.4,y-2.2,fx,y-1,'FD');
+    doc.text('2-pointer',fx+4.6,y);
+    const gx=fx+25;
+    doc.setFillColor(244,244,246); doc.setDrawColor(119,119,119);
+    doc.line(gx,y+1.2,gx,y-3.4);
+    doc.rect(gx,y-3.4,3,2.2,'FD');
+    doc.text('1-pointer',gx+4.4,y);
+    doc.setDrawColor(0,0,0);
     y+=6;
   }
 
