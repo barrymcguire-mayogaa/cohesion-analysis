@@ -800,6 +800,13 @@ function cohCrestSrc(name,pack){
   const M=window.COHESION_CRESTS||{};
   return M[sl]?('crests/'+M[sl]):null;
 }
+// Bundled default colour for a club (from the published team packs) — used
+// only when the game has no colour set and no pack is imported on the device.
+function cohTeamColourDefault(name){
+  const sl=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const C=window.COHESION_TEAM_COLOURS||{};
+  return (C[sl]&&C[sl].primary)||null;
+}
 function cohImportTeamPack(ev){
   const f=ev.target.files&&ev.target.files[0]; if(!f) return;
   const rd=new FileReader();
@@ -945,8 +952,8 @@ function dashBuildStatsCanvas(){
   const sections=S.sections, scH=S.scH, scA=S.scA, hasWorm=S.hasWorm, scoreEvts=S.scoreEvts, h1len=S.h1len;
   const psr=side=>side==='h'?S.psrH:S.psrA;
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
-  const hCraw=GAME.homeColor||(packH&&packH.primary)||'#2563eb';
-  const aCraw=GAME.awayColor||(packA&&packA.primary)||'#22c55e';
+  const hCraw=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(GAME.homeTeam)||'#2563eb';
+  const aCraw=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(GAME.awayTeam)||'#22c55e';
   // Bars use the exact colour selected in COHESION. Thin elements (team name,
   // worm line) get nudged toward white just enough to read on the black card
   // when the colour is very dark (e.g. maroon), keeping the hue.
@@ -1119,8 +1126,8 @@ function dashBuildMomentumCanvas(){
     if(it.kind) markers.push({w, s:it.s, kind:it.kind});
   });
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
-  const colH=GAME.homeColor||(packH&&packH.primary)||'#2ecc71';
-  const colA=GAME.awayColor||(packA&&packA.primary)||'#e74c3c';
+  const colH=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(GAME.homeTeam)||'#2ecc71';
+  const colA=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(GAME.awayTeam)||'#e74c3c';
   const W=1400, HT=460;
   const cv=document.createElement('canvas'); cv.width=W; cv.height=HT;
   const ctx=cv.getContext('2d');
@@ -1471,8 +1478,8 @@ async function dashExportPDF(){
     return [parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0]; };
   const rlum=rgb=>0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];
   const safe=rgb=>rlum(rgb)>=200?[122,128,140]:rgb;
-  const hexH=GAME.homeColor||(packH&&packH.primary)||'#2563eb';
-  const hexA=GAME.awayColor||(packA&&packA.primary)||'#22c55e';
+  const hexH=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(Hn)||'#2563eb';
+  const hexA=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(An)||'#22c55e';
   const colH=safe(hexToRgb(hexH)), colA=safe(hexToRgb(hexA));
   const loadCrest=src=>new Promise(res=>{ if(!src) return res(null);
     const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });

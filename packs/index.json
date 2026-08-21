@@ -2,9 +2,14 @@
   "format": "gaa-pack-index@1",
   "packs": [
     {
-      "name": "Mayo Senior",
-      "file": "mayo_senior.json",
+      "name": "Mayo Club Teams",
+      "file": "mayo_club_teams.json",
       "teams": 44
+    },
+    {
+      "name": "Sligo Club Teams",
+      "file": "sligo_club_teams.json",
+      "teams": 23
     }
   ]
 }
