@@ -15,9 +15,12 @@
  * edit this file (or ask an admin) to add a group for the whole team.
  */
 window.COHESION_LABEL_GROUPS = [
-  { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT/ },
-  { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT/ },
-  { name: 'Shot Pressure', options: ['Low Pressure', 'Medium Pressure', 'High Pressure'], appliesTo: /SHOT/ },
+  { name: 'Shot Attempts', options: ['1 Point Attempt', '2 Point Attempt', 'Goal Attempt'], appliesTo: /SHOT (OPEN|DEAD)/ },
+  { name: 'Deadball Shot Type', options: ['FREE KICK', 'PENALTY', 'MARK', "'45"], appliesTo: /SHOT DEAD ?BALL/ },
+  { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT (OPEN|DEAD)/ },
+  { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT (OPEN|DEAD)/ },
+  { name: 'Shot Pressure', options: ['Low Pressure', 'Medium Pressure', 'High Pressure'], appliesTo: /SHOT (OPEN|DEAD)/ },
+  { name: 'Turnover Locations', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bTOS?\b|TURNOVER/ },
 ];
 
 // Return the label groups that apply to a given event code.

@@ -2362,7 +2362,7 @@ function codeTag(baseCode){
   const link=crAutoLinkFor(code);
   // Shots also get their per-shot detail panel (leg/side/pressure/assist),
   // fresh each time; anything else clears it.
-  codeMode.shotQual=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(code)?{rowId:tmpId}:null;
+  codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
   codeMode.pendingLink=link?{rowId:tmpId, link}:null;
   renderCodeLink();
 }
@@ -2398,7 +2398,7 @@ function crDurToggle(baseCode){
     if(f) f.textContent='✓ '+code+' · '+fmt(start)+'–'+fmt(end)+' ('+(end-start)+'s)';
     const link=crAutoLinkFor(code);                 // outcome prompt ON STOP
     codeMode.pendingLink=link?{rowId:tmpId, link}:null;
-    codeMode.shotQual=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(code)?{rowId:tmpId}:null;
+    codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
     renderCodeLink();
   }
   renderCodeRecs(); buildCodePanel();
@@ -2536,13 +2536,16 @@ function renderCodeLink(){
           `<div class="cl-opts">${opts}<button class="cbtn mini" onclick="codeSkipLink()" title="Skip (Esc)">Skip</button></div>`;
   }
   if(sq){
-    // per-shot detail labels — fresh for every shot, applied straight to the row
-    (window.COHESION_LABEL_GROUPS||[]).forEach(g=>{
+    // per-event detail labels (only the groups that apply to this code) —
+    // fresh for every tag, applied straight to the row
+    const isShot=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(sq.code||'');
+    (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
       const cur=(sq.labels||{})[g.name]||'';
       html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
         g.options.map(o=>`<button class="cbtn mini ${cur===o?'on':''}" onclick="codeShotQual('${_cq(g.name)}','${_cq(o)}')">${esc(o)}</button>`).join('')+
         `</div>`;
     });
+    if(isShot){
     const side=(sq.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase()?'home':'away';
     const list=codePlayerList(side).filter(p=>p!==sq.player);
     const curA=(sq.labels||{})['Assist']||'';
@@ -2551,6 +2554,7 @@ function renderCodeLink(){
       `<option value=""${!curA?' selected':''}>— no assist —</option>`+
       list.map(p=>`<option value="${esc(p)}"${curA===p?' selected':''}>${esc(p)}</option>`).join('')+
       `</select></div>`;
+    }
   }
   box.style.display='';
   box.innerHTML=html;
