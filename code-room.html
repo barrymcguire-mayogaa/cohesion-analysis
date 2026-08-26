@@ -49,7 +49,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 /* editor */
 .grid{display:grid;grid-template-columns:1fr 400px;gap:14px;align-items:start;}
 .vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
-.editcol{position:sticky;top:12px;align-self:start;}
+.editcol{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;}
+@media(max-width:900px){.editcol{max-height:none;overflow-y:visible;}}
 .editcol .epanel{margin-top:0;}
 .vid{width:100%;height:480px;background:#000;}
 .crsz{padding:4px 9px;border-radius:5px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);}
@@ -1403,6 +1404,11 @@ function crInitTL(){
   // a new event of that row's code there. Shared body: crDblAt.
   function crDblAt(x,y){
     if(crSyncOn) return;   // no create while syncing
+    if(x<CR_LW&&y>=CR_RULER){   // double-click a row NAME → rename that code
+      const rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
+      if(ri>=0&&ri<rows.length) crRenameFullCode(rows[ri]);
+      return;
+    }
     if(x<CR_LW||y<CR_RULER) return;
     if(crHitAt(x,y)) return;              // on an existing bar → don't create
     const g=crGeom(), rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
@@ -2077,6 +2083,17 @@ function saveCodeDur(){ try{ localStorage.setItem('cr_codeDur', JSON.stringify(c
 function setCodeDur(code,on){ if(on) codeDurPref[code]=true; else delete codeDurPref[code]; saveCodeDur(); buildCodePanel(); }
 // Team-neutral codes are tagged with NO team, whichever team is lit (e.g.
 // THROW-IN — neutral out of the box). Explicit true/false overrides the default.
+// Per-code clip window override ({base:{lead,lag}}) — a shot from open play
+// and a deadball can carry different lead/lag times. Blank = the global window.
+let codeClipPref={};
+try{ const s=JSON.parse(localStorage.getItem('cr_codeClip')||'null'); if(s&&typeof s==='object') codeClipPref=s; }catch(_){}
+function saveCodeClip(){ try{ localStorage.setItem('cr_codeClip', JSON.stringify(codeClipPref)); }catch(_){} }
+// Custom keyboard shortcuts: {key:base} — numbers, letters, and Shift+letter
+// ('k' vs 'K') are distinct keys. Saved across games; stored in templates.
+let codeHotkeys={};
+try{ const s=JSON.parse(localStorage.getItem('cr_codeHotkeys')||'null'); if(s&&typeof s==='object') codeHotkeys=s; }catch(_){}
+function saveCodeHotkeys(){ try{ localStorage.setItem('cr_codeHotkeys', JSON.stringify(codeHotkeys)); }catch(_){} }
+const CR_RESERVED_KEYS=new Set([' ','r','R','?','.',',','-','=','Escape']);
 let codeNeutralPref={};
 try{ const s=JSON.parse(localStorage.getItem('cr_codeNeutral')||'null'); if(s&&typeof s==='object') codeNeutralPref=s; }catch(_){}
 function saveCodeNeutral(){ try{ localStorage.setItem('cr_codeNeutral', JSON.stringify(codeNeutralPref)); }catch(_){} }
@@ -2118,6 +2135,7 @@ function fillTplSelect(){
 // Capture the current Code Mode setup as a template payload.
 function crTplCapture(){
   return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref}, dur:{...codeDurPref}, neutral:{...codeNeutralPref},
+           clip:{...codeClipPref}, hotkeys:{...codeHotkeys},
            rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
 }
 async function saveTemplate(){
@@ -2143,6 +2161,8 @@ function applyTemplate(){
   if(d.colors&&typeof d.colors==='object'){ codeColorPref={...d.colors}; saveCodeColors(); }
   if(d.dur&&typeof d.dur==='object'){ codeDurPref={...d.dur}; saveCodeDur(); }
   if(d.neutral&&typeof d.neutral==='object'){ codeNeutralPref={...d.neutral}; saveCodeNeutral(); }
+  if(d.clip&&typeof d.clip==='object'){ codeClipPref={...d.clip}; saveCodeClip(); }
+  if(d.hotkeys&&typeof d.hotkeys==='object'){ codeHotkeys={...d.hotkeys}; saveCodeHotkeys(); }
   if(d.rows){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
   if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
   if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
@@ -2177,19 +2197,165 @@ function baseCodeOf(code){
   [ (GAME.homeTeam||'').toUpperCase(), (GAME.awayTeam||'').toUpperCase() ].forEach(t=>{ if(t && c.toUpperCase().startsWith(t+' ')) c=c.slice(t.length+1); });
   return c.trim();
 }
+// ── Rename an event code ─────────────────────────────────────
+// Base rename (from a button's ✏): every event of that base — both teams'
+// variants — plus every preference keyed by it moves to the new name.
+function codeRenameBase(oldBase,newBase){
+  oldBase=String(oldBase||'').trim(); newBase=String(newBase||'').trim().toUpperCase();
+  if(!oldBase||!newBase||oldBase===newBase) return false;
+  EVENTS.forEach(e=>{
+    const b=baseCodeOf(e.code);
+    if(b!==oldBase) return;
+    e.code=e.code.slice(0, e.code.length-oldBase.length)+newBase;
+    if(!e._new) e._dirty=true;
+  });
+  const mv=(o)=>{ if(oldBase in o){ o[newBase]=o[oldBase]; delete o[oldBase]; } };
+  mv(codeColorPref); saveCodeColors();
+  mv(codeDurPref); saveCodeDur();
+  if(oldBase in codeNeutralPref){ codeNeutralPref[newBase]=codeNeutralPref[oldBase]; delete codeNeutralPref[oldBase]; saveCodeNeutral(); }
+  mv(codeClipPref); saveCodeClip();
+  Object.keys(codeHotkeys).forEach(k=>{ if(codeHotkeys[k]===oldBase) codeHotkeys[k]=newBase; }); saveCodeHotkeys();
+  codeKeyPref=codeKeyPref.map(c=>c===oldBase?newBase:c); saveCodeKeys();
+  crSessionCodes=crSessionCodes.map(c=>c===oldBase?newBase:c); crCodesSave();
+  crTplCodes=crTplCodes.map(c=>c===oldBase?newBase:c);
+  const swapFull=c=>c===oldBase?newBase:(c.endsWith(' '+oldBase)?c.slice(0,c.length-oldBase.length)+newBase:c);
+  crRowOrder=crRowOrder.map(swapFull); crExtraRows=crExtraRows.map(swapFull); crRowsSave();
+  if(crRec[oldBase]){ crRec[newBase]=crRec[oldBase]; delete crRec[oldBase]; }
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); buildCodePanel();
+  if(crView==='tl') crDrawTL();
+  return true;
+}
+// Full-code rename (double-click a timeline row name): that exact code only.
+function crRenameFullCode(oldFull){
+  const v=(prompt('Rename event "'+oldFull+'" to:',oldFull)||'').trim().toUpperCase();
+  if(!v||v===oldFull) return;
+  EVENTS.forEach(e=>{ if(e.code===oldFull){ e.code=v; if(!e._new) e._dirty=true; } });
+  const swap=c=>c===oldFull?v:c;
+  crRowOrder=crRowOrder.map(swap); crExtraRows=crExtraRows.map(swap); crRowsSave();
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); buildCodePanel();
+  if(crView==='tl') crDrawTL();
+}
+// ── Per-button editor: rename · lead/lag override · keyboard shortcut ──
+let _cbeCapture=null;
+function codeBtnEdit(base){
+  document.querySelectorAll('#cbeOv').forEach(x=>x.remove());
+  const clip=codeClipPref[base]||{};
+  const hk=Object.keys(codeHotkeys).find(k=>codeHotkeys[k]===base)||'';
+  const ov=document.createElement('div');
+  ov.id='cbeOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10006;display:flex;align-items:center;justify-content:center;';
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:330px;font-family:Barlow,sans-serif;">
+    <div style="font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:12px;">EDIT EVENT — ${esc(base)}</div>
+    <label style="font-size:11px;color:var(--t3);">Name<input id="cbeName" value="${_cq(base)}" style="width:100%;box-sizing:border-box;margin:4px 0 10px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
+    <div style="display:flex;gap:10px;">
+      <label style="flex:1;font-size:11px;color:var(--t3);">Lead s (blank = global)<input id="cbeLead" type="number" min="0" max="60" value="${clip.lead!=null?clip.lead:''}" style="width:100%;box-sizing:border-box;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
+      <label style="flex:1;font-size:11px;color:var(--t3);">Lag s (blank = global)<input id="cbeLag" type="number" min="0" max="120" value="${clip.lag!=null?clip.lag:''}" style="width:100%;box-sizing:border-box;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
+    </div>
+    <div style="margin:12px 0 4px;font-size:11px;color:var(--t3);">Keyboard shortcut — numbers, letters, Shift+letter (k and K are different keys)</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="cbtn" id="cbeKeyBtn" onclick="cbeCaptureKey(this)">${hk?('Key: '+esc(hk)):'Press a key…'}</button>
+      ${hk?'<button class="cbtn mini" onclick="cbeClearKey()">✕ clear</button>':''}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="cbtn" onclick="document.getElementById('cbeOv').remove()">Cancel</button>
+      <button class="cbtn" style="border-color:var(--accent);color:var(--accent);" onclick="cbeSave('${_cq(base)}')">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  _cbeCapture={base, key:hk||null, capturing:false};
+}
+function cbeCaptureKey(btn){
+  if(!_cbeCapture) return;
+  _cbeCapture.capturing=true;
+  btn.textContent='… now press the key';
+  const h=e=>{
+    e.preventDefault(); e.stopPropagation();
+    document.removeEventListener('keydown',h,true);
+    if(!_cbeCapture) return;
+    _cbeCapture.capturing=false;
+    const k=e.key;
+    if(k==='Escape'){ btn.textContent=_cbeCapture.key?('Key: '+_cbeCapture.key):'Press a key…'; return; }
+    if(k.length!==1||CR_RESERVED_KEYS.has(k)){ btn.textContent='That key is reserved — try another'; return; }
+    _cbeCapture.key=k;
+    btn.textContent='Key: '+(k===' '?'Space':k);
+  };
+  document.addEventListener('keydown',h,true);
+}
+function cbeClearKey(){ if(_cbeCapture){ _cbeCapture.key=null; const b=document.getElementById('cbeKeyBtn'); if(b) b.textContent='Press a key…'; } }
+function cbeSave(base){
+  const nm=(document.getElementById('cbeName').value||'').trim().toUpperCase();
+  const leadV=document.getElementById('cbeLead').value, lagV=document.getElementById('cbeLag').value;
+  let target=base;
+  if(nm&&nm!==base){ if(codeRenameBase(base,nm)) target=nm; }
+  if(leadV===''&&lagV===''){ delete codeClipPref[target]; }
+  else codeClipPref[target]={ ...(leadV!==''?{lead:Math.max(0,+leadV||0)}:{}), ...(lagV!==''?{lag:Math.max(0,+lagV||0)}:{}) };
+  saveCodeClip();
+  Object.keys(codeHotkeys).forEach(k=>{ if(codeHotkeys[k]===target) delete codeHotkeys[k]; });
+  if(_cbeCapture&&_cbeCapture.key) codeHotkeys[_cbeCapture.key]=target;   // stealing a key reassigns it
+  saveCodeHotkeys();
+  _cbeCapture=null;
+  const ov=document.getElementById('cbeOv'); if(ov) ov.remove();
+  buildCodePanel();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ '+target+' updated';
+}
+// ── Tracker event picker: the standard tracker vocabulary, with built-in
+// outcome prompts and labels ─────────────────────────────────
+const CR_TRACKER_EVENTS=['TEAM POSSESSION','65M ENTRY','ATTACKS','SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','CARD','SUB',
+  'BREAK WON','BREAK LOST','BLOCK DOWN','GOAL ATTEMPT','THROW-IN','SCORE SOURCE','SHOT SOURCE',
+  '1 POINT','2 POINT','GOAL','WIDE','SHORT','BLOCKED','WOODWORK','SAVE'];
+function codeTrackerPicker(){
+  document.querySelectorAll('#ctpOv').forEach(x=>x.remove());
+  const have=new Set(codeEvtList);
+  const ov=document.createElement('div');
+  ov.id='ctpOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10006;display:flex;align-items:center;justify-content:center;';
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
+  ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;font-family:Barlow,sans-serif;">
+    <div style="font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:6px;">TRACKER EVENTS</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:12px;">Tick the events to add to this template. Their outcome prompts and labels (shot outcomes &amp; type, kickout outcomes, turnover outcomes &amp; thirds, foul areas…) are built in. Save as… keeps the set for future games.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      ${CR_TRACKER_EVENTS.map(c=>`<label style="display:flex;gap:7px;align-items:center;font-size:12px;${have.has(c)?'color:var(--t3);':''}">
+        <input type="checkbox" data-ctp="${_cq(c)}" ${have.has(c)?'checked disabled':''}> ${esc(c)}${have.has(c)?' ✓':''}</label>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+      <button class="cbtn" onclick="document.getElementById('ctpOv').remove()">Cancel</button>
+      <button class="cbtn" style="border-color:var(--accent);color:var(--accent);" onclick="ctpAdd()">Add selected</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function ctpAdd(){
+  let n=0;
+  document.querySelectorAll('#ctpOv input[data-ctp]:checked:not(:disabled)').forEach(cb=>{
+    const c=cb.dataset.ctp;
+    if(!crSessionCodes.includes(c)){ crSessionCodes.push(c); n++; }
+  });
+  crCodesSave();
+  const ov=document.getElementById('ctpOv'); if(ov) ov.remove();
+  buildCodePanel();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ '+n+' tracker event'+(n===1?'':'s')+' added — Save as… to keep them in a template';
+}
 function buildCodePanel(){
   const home=GAME.homeTeam||'Home', away=GAME.awayTeam||'Away';
   const periods=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
   document.getElementById('codePeriods').innerHTML=periods.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${p}')">${p}</button>`).join('');
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
-    `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`;
+    `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`+
+    `<span style="color:var(--t3);font-size:10px;align-self:center;">Ⓝ events (e.g. THROW-IN) save with no team</span>`;
   let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes, ...crSessionCodes])];
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
   fillTplSelect();
-  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>`<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${i<9?`<span class="hk">${i+1}</span>`:''}</button>`).join('')
-    +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`;
+  const hkOf=b=>{ const k=Object.keys(codeHotkeys).find(k2=>codeHotkeys[k2]===b); return k||null; };
+  document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>{
+    const hk=hkOf(b);
+    const chip=hk?`<span class="hk" title="Keyboard shortcut">${esc(hk===' '?'Space':hk)}</span>`:(i<9?`<span class="hk">${i+1}</span>`:'');
+    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${esc(b).replace(/'/g,"&#39;")}')">✏</span></button>`;
+  }).join('')
+    +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`
+    +`<button class="cbtn" onclick="codeTrackerPicker()" title="Add events from the tracker app's standard set — their outcome prompts and labels come built in">＋ Tracker events…</button>`;
   buildCodePlayers();
   buildCodeLabels();
   buildCodeKeysEditor();
@@ -2333,7 +2499,8 @@ function codeTag(baseCode){
   // Clip window: start lead-seconds before the tag (reaction pre-roll), end
   // lag-seconds after (follow-through). driveT anchors to the clip start so
   // review/seek and XML export both begin at the pre-roll point.
-  const lead=codeMode.lead||0, lag=codeMode.lag||0;
+  const _ov=codeClipPref[baseCode]||{};
+  const lead=(_ov.lead!=null?_ov.lead:codeMode.lead)||0, lag=(_ov.lag!=null?_ov.lag:codeMode.lag)||0;
   const clipStart=Math.max(0, now-lead), clipEnd=now+lag;
   const labels={};
   // Armed detail labels, filtered to those applicable to this event's code.
@@ -2359,7 +2526,11 @@ function codeTag(baseCode){
     f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+'  — paused; press Space to resume';
   }
   // Event link: if this code has a follow-up outcome, prompt for it now.
-  const link=crAutoLinkFor(code);
+  let link=crAutoLinkFor(code);
+  // Team-neutral throw-in: one-tap "who won it?" — writes a Won By label
+  if(!teamName && /THROW.?IN/i.test(baseCode))
+    link={ group:'Won By', prompt:'Throw-in — who won it?', noOutcome:true,
+           options:[GAME.homeTeam||'Home', GAME.awayTeam||'Away'] };
   // Shots also get their per-shot detail panel (leg/side/pressure/assist),
   // fresh each time; anything else clears it.
   codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
@@ -2579,7 +2750,7 @@ function codeApplyOutcome(value){
   if(row){
     row.labels=row.labels||{};
     row.labels[pl.link.group]=value;   // exact DB group name → flows through parser + filters
-    row.outcome=value;                 // denormalised convenience field
+    if(!pl.link.noOutcome) row.outcome=value;   // denormalised convenience field
     crBackup(); crUpdatePending(); renderList();
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
@@ -2638,8 +2809,14 @@ document.addEventListener('keydown', e=>{
   if(codeMode.pendingLink){
     if(e.key==='Escape'){ e.preventDefault(); codeSkipLink(); return; }
     if(e.key>='1'&&e.key<='9'){ const opts=codeMode.pendingLink.link.options; const i=+e.key-1; if(opts[i]){ e.preventDefault(); codeApplyOutcome(opts[i]); } return; }
+    // a LETTER hotkey mid-prompt behaves like tapping its button: skip the
+    // prompt and tag the next event (digits stay reserved for the options)
+    const hb2=codeHotkeys[e.key];
+    if(hb2&&codeEvtList.includes(hb2)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ e.preventDefault(); codeTag(hb2); return; }
     return;
   }
+  const hkBase=codeHotkeys[e.key];
+  if(hkBase&&codeEvtList.includes(hkBase)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ e.preventDefault(); codeTag(hkBase); return; }
   if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
 });
 
