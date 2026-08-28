@@ -466,7 +466,7 @@ async function openGame(id){
   document.getElementById('loading').style.display='none';
   document.getElementById('editor').style.display='';
   // Offer to restore any unsaved changes from a previous session on this game.
-  await crRestoreBackup();
+  await crRestoreBackup(); crFixRowIds();
   // period filter options
   const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))];
   const sel=document.getElementById('eperiod');
@@ -510,7 +510,7 @@ async function startLocalSession(){
   crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
-  await crRestoreBackup();   // recover events from a crashed local session
+  await crRestoreBackup(); crFixRowIds();   // recover events from a crashed local session
   const sel=document.getElementById('eperiod');
   sel.innerHTML='<option value="">All periods</option>';
   refreshDatalists();
@@ -1995,6 +1995,21 @@ function crBackup(){
   }catch(_){}
 }
 function crClearBackup(){ try{ localStorage.removeItem(crBackupKey()); }catch(_){} }
+// Row-id hygiene: after loading/restoring, bump the tmp counter past every
+// existing tmp-N id and re-id any duplicated NEW rows. Duplicates arise when
+// a backup restore brings back tmp-N events while the counter restarts at 0 —
+// every later tag then collides, so clicking one event selects several.
+function crFixRowIds(){
+  let mx=0; EVENTS.forEach(e=>{ const m=/^tmp-(\d+)$/.exec(String(e._rowId||'')); if(m) mx=Math.max(mx,+m[1]); });
+  crTmpCounter=Math.max(crTmpCounter,mx);
+  const seen=new Set(); let healed=0;
+  EVENTS.forEach(e=>{ const id=String(e._rowId);
+    if(seen.has(id)&&e._new){ e._rowId='tmp-'+(++crTmpCounter); healed++; seen.add(String(e._rowId)); }
+    else seen.add(id);
+  });
+  if(healed){ crBackup(); }
+  return healed;
+}
 async function crRestoreBackup(){
   let raw; try{ raw=localStorage.getItem(crBackupKey()); }catch(_){ return; }
   if(!raw) return;
