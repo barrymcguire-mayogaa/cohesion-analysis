@@ -1753,9 +1753,11 @@ function crBulkDelete(){
   const evs=crSel.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
   if(!evs.length) return;
   if(!confirm('Delete '+evs.length+' selected events?\n\nYou can Undo before saving.')) return;
+  const _selIds=new Set(evs.map(e=>String(e._rowId)));
+  EVENTS.forEach(x=>{ if(x._shotComp&&_selIds.has(String(x._shotComp))&&!_selIds.has(String(x._rowId))){ evs.push(x); _selIds.add(String(x._rowId)); } });
   undoStack.push({type:'bulkdelete', snaps: evs.map(e=>({data:crClone(e), wasNew:!!e._new}))});
   evs.forEach(e=>{ if(!e._new) crDeleted.push({id:e._rowId}); });
-  const ids=new Set(crSel.map(String)); EVENTS=EVENTS.filter(e=>!ids.has(String(e._rowId)));
+  const ids=_selIds; EVENTS=EVENTS.filter(e=>!ids.has(String(e._rowId)));
   crSel=[]; activeId=null; draft=null;
   crBackup(); crUpdatePending(); renderList(); renderPanel();
 }
@@ -2768,6 +2770,7 @@ function codeApplyOutcome(value){
     row.labels=row.labels||{};
     row.labels[pl.link.group]=value;   // exact DB group name → flows through parser + filters
     if(!pl.link.noOutcome) row.outcome=value;   // denormalised convenience field
+    crShotCompanion(row, value);
     crBackup(); crUpdatePending(); renderList();
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
@@ -2908,12 +2911,38 @@ function saveEvent(){
   const st=document.getElementById('epStatus'); if(st){ st.className='status ok'; st.textContent='Queued ✓ — saved to Cohesion when you close the session'; }
 }
 
+// ── Shot outcome companions ──────────────────────────────────
+// Answering the Shot Outcome prompt on a coded shot also logs the tracker's
+// bare secondary event ([TEAM] WIDE / BLOCKED / 1 POINT …, '45 exports as
+// WIDE) on the same window. Deleting the shot deletes its companion too.
+const SHOT_OUTCOME_COMPANIONS={'1 POINT':'1 POINT','2 POINT':'2 POINT','GOAL':'GOAL','WIDE':'WIDE','SHORT':'SHORT','SAVE':'SAVE','BLOCKED':'BLOCKED','WOODWORK':'WOODWORK',"'45":'WIDE'};
+function crShotCompanion(row, value){
+  if(!row||!row.team) return;
+  if(!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(row.code||'')) return;
+  const base=SHOT_OUTCOME_COMPANIONS[value]; if(!base) return;
+  if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
+  const tmpId='tmp-'+(++crTmpCounter);
+  const comp={ id:'manual-'+Date.now()+'-c', start:row.start, end:row.end, half:row.half,
+    code:row.team+' '+base, team:row.team, player:'', outcome:'', subtype:'',
+    category:catOf(base)||'Other', driveT:row.driveT, labels:{},
+    _manual:true, _rowId:tmpId, _new:true, _shotComp:row._rowId };
+  EVENTS.push(comp);
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  undoStack.push({type:'add', rowId:tmpId});
+  refreshDatalists();
+}
 function deleteEvent(){
   const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e)return;
   if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this before closing the session.`)) return;
-  undoStack.push({type:'delete', snapshot: crClone(e), wasNew: !!e._new});
-  if(!e._new) crDeleted.push({id:e._rowId});
-  EVENTS=EVENTS.filter(x=>String(x._rowId)!==String(e._rowId));
+  const comps=EVENTS.filter(x=>x._shotComp&&String(x._shotComp)===String(e._rowId));
+  if(comps.length){
+    undoStack.push({type:'bulkdelete', snaps:[e,...comps].map(x=>({data:crClone(x), wasNew:!!x._new}))});
+  } else {
+    undoStack.push({type:'delete', snapshot: crClone(e), wasNew: !!e._new});
+  }
+  [e,...comps].forEach(x=>{ if(!x._new) crDeleted.push({id:x._rowId}); });
+  const _del=new Set([e,...comps].map(x=>String(x._rowId)));
+  EVENTS=EVENTS.filter(x=>!_del.has(String(x._rowId)));
   activeId=null; draft=null;
   crBackup(); crUpdatePending();
   renderList(); renderPanel();
