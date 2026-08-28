@@ -1355,7 +1355,7 @@ function crInitTL(){
     if(crBox){ const rr=c.getBoundingClientRect(); crBox.x1=e.clientX-rr.left; crBox.y1=e.clientY-rr.top; if(Math.abs(crBox.x1-crBox.x0)>3||Math.abs(crBox.y1-crBox.y0)>3) crBox.moved=true; crDrawTL(); return; }
     if(!crDrag) return;
     const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
-    if(Math.abs(x-crDrag.startX)>3) crDrag.moved=true;
+    if(Math.abs(x-crDrag.startX)>6) crDrag.moved=true;   // jittery trackpad clicks still SELECT
     crApplyDrag(crDrag, dt);
     // moving vertically onto another row targets a type reassign
     if(crDrag.mode==='move'){
@@ -2210,7 +2210,7 @@ function setMode(m){
   if(codeMode.on){ activeId=null; draft=null; renderList(); buildCodePanel(); renderCodeLink(); }
   else { renderPanel(); }
 }
-function codeTeamName(){ return ((codeMode.team==='home'?(GAME.homeTeam||''):(GAME.awayTeam||''))||'').toUpperCase(); }
+function codeTeamName(side){ const t=side||codeMode.team; return ((t==='home'?(GAME.homeTeam||''):(GAME.awayTeam||''))||'').toUpperCase(); }
 function baseCodeOf(code){
   let c=(code||'').trim();
   [ (GAME.homeTeam||'').toUpperCase(), (GAME.awayTeam||'').toUpperCase() ].forEach(t=>{ if(t && c.toUpperCase().startsWith(t+' ')) c=c.slice(t.length+1); });
@@ -2362,7 +2362,7 @@ function buildCodePanel(){
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`+
-    `<span style="color:var(--t3);font-size:10px;align-self:center;">Ⓝ events (e.g. THROW-IN) save with no team</span>`;
+    `<span style="color:var(--t3);font-size:10px;align-self:center;">Ⓝ events save with no team · Shift+click a button (or Alt+key) tags ONE event for the other team</span>`;
   let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes, ...crSessionCodes])];
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
@@ -2371,7 +2371,7 @@ function buildCodePanel(){
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>{
     const hk=hkOf(b);
     const chip=hk?`<span class="hk" title="Keyboard shortcut">${esc(hk===' '?'Space':hk)}</span>`:(i<9?`<span class="hk">${i+1}</span>`:'');
-    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}')">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${esc(b).replace(/'/g,"&#39;")}')">✏</span></button>`;
+    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}',{otherTeam:event.shiftKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${codeDurPref[b]&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${esc(b).replace(/'/g,"&#39;")}')">✏</span></button>`;
   }).join('')
     +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`
     +`<button class="cbtn" onclick="codeTrackerPicker()" title="Add events from the tracker app's standard set — their outcome prompts and labels come built in">＋ Tracker events…</button>`;
@@ -2505,10 +2505,13 @@ function crReplayStop(){
   vSeekDrive(r.resume);
   const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Back at '+fmt(r.resume)+' — press Space to resume.';
 }
-function codeTag(baseCode){
+function codeTag(baseCode, opts){
   if(crReplay){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Replay running — press R to return first.'; return; }
   // Tagging a fresh event moves past any outcome prompt still awaiting an answer.
   if(codeMode.pendingLink) codeSkipLink(true);
+  // Shift+click a button (or Alt+hotkey) = tag this ONE event for the other
+  // team without switching the team selection.
+  const _tagSide=(opts&&opts.otherTeam)?(codeMode.team==='home'?'away':'home'):codeMode.team;
   // Duration codes: first press starts recording, next press stops it.
   if(codeDurPref[baseCode]){ crDurToggle(baseCode); return; }
   // A turnover ends the possession: any running TEAM POSSESSION / 65M ENTRY /
@@ -2516,7 +2519,7 @@ function codeTag(baseCode){
   if(/\bTOS?\b|TURNOVER/i.test(baseCode)){
     ['TEAM POSSESSION','65M ENTRY','ATTACKS','ATTACK'].forEach(b=>{ if(crRec[b]) crDurToggle(b); });
   }
-  const teamName=isNeutralCode(baseCode)?'':codeTeamName();   // neutral: no team, either side
+  const teamName=isNeutralCode(baseCode)?'':codeTeamName(_tagSide);   // neutral: no team, either side
   const code=(teamName?teamName+' ':'')+baseCode;
   const now=Math.max(0,Math.round(vNow()));
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
@@ -2565,13 +2568,15 @@ function codeTag(baseCode){
 // ── Duration recording (press to start, press again to stop) ──
 function crDurToggle(baseCode){
   if(!crRec[baseCode]){
-    crRec[baseCode]={start:Math.max(0,Math.round(vNow()))};
+    crRec[baseCode]={start:Math.max(0,Math.round(vNow())), team:codeMode.team};
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='⏺ '+baseCode+' recording — press again (or click the chip) to stop; ✕ cancels.';
   } else {
     const rec=crRec[baseCode]; delete crRec[baseCode];
     const start=rec.start, end=Math.max(start+1, Math.round(vNow()));
-    const teamName=isNeutralCode(baseCode)?'':codeTeamName();   // neutral: no team, either side
+    // stopping attributes to the team the recording STARTED with — switching
+    // teams mid-recording (e.g. to tag their foul) no longer misattributes it
+    const teamName=isNeutralCode(baseCode)?'':codeTeamName(rec.team||codeMode.team);
     const code=(teamName?teamName+' ':'')+baseCode;
     const labels={};
     const applies=new Set((window.cohesionGroupsFor?cohesionGroupsFor(code):[]).map(g=>g.name));
@@ -2856,11 +2861,11 @@ document.addEventListener('keydown', e=>{
     // a LETTER hotkey mid-prompt behaves like tapping its button: skip the
     // prompt and tag the next event (digits stay reserved for the options)
     const hb2=codeHotkeys[e.key];
-    if(hb2&&codeEvtList.includes(hb2)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ e.preventDefault(); codeTag(hb2); return; }
+    if(hb2&&codeEvtList.includes(hb2)&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); codeTag(hb2,{otherTeam:e.altKey}); return; }
     return;
   }
   const hkBase=codeHotkeys[e.key];
-  if(hkBase&&codeEvtList.includes(hkBase)&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ e.preventDefault(); codeTag(hkBase); return; }
+  if(hkBase&&codeEvtList.includes(hkBase)&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); codeTag(hkBase,{otherTeam:e.altKey}); return; }
   if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
 });
 
