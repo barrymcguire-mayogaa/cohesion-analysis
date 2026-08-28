@@ -2804,6 +2804,24 @@ document.addEventListener('keydown', e=>{
   const on=crToggleFlag(row);
   if(codeMode.on){ const f=document.getElementById('codeFlash'); if(f) f.textContent=on?('⚑ '+(row.code||'')+' flagged for review — sweep them later with the ⚑ filter'):((row.code||'')+' — review flag removed'); }
 });
+// Arrow keys: ← → seek the video 5s (Shift+← → = 1s, both modes);
+// ↑ ↓ step through the event list in Edit mode (selects + cues the clip).
+document.addEventListener('keydown', e=>{
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(e.key==='ArrowLeft'){ e.preventDefault(); vseek(e.shiftKey?-1:-5); return; }
+  if(e.key==='ArrowRight'){ e.preventDefault(); vseek(e.shiftKey?1:5); return; }
+  if((e.key==='ArrowUp'||e.key==='ArrowDown') && !codeMode.on){
+    const evs=crFiltered(); if(!evs.length) return;
+    e.preventDefault();
+    let i=evs.findIndex(x=>String(x._rowId)===String(activeId));
+    i = i<0 ? (e.key==='ArrowDown'?0:evs.length-1) : i+(e.key==='ArrowDown'?1:-1);
+    i=Math.max(0,Math.min(evs.length-1,i));
+    pick(evs[i]._rowId);
+    const el=document.querySelector('.ev.on'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+  }
+});
 // Video hotkeys (both modes): , . = frame back/forward, - = = slower/faster.
 document.addEventListener('keydown', e=>{
   const tag=(e.target&&e.target.tagName)||'';
