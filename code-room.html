@@ -196,6 +196,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -226,12 +227,18 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
     <div class="status" id="setupStatus"></div>
     <div class="divider">or code a new game from a local video</div>
     <div class="frow">
-      <input type="text" id="lvHome" placeholder="Home team (e.g. MAYO)" autocomplete="off" style="flex:1;width:auto;">
-      <input type="text" id="lvAway" placeholder="Away team" autocomplete="off" style="flex:1;width:auto;">
+      <input type="text" id="lvHome" placeholder="Home team (e.g. MAYO)" autocomplete="off" style="flex:1;width:auto;" onchange="lvColourAuto('home')">
+      <input type="text" id="lvAway" placeholder="Away team" autocomplete="off" style="flex:1;width:auto;" onchange="lvColourAuto('away')">
     </div>
     <div class="frow">
       <input type="text" id="lvComp" placeholder="Competition (optional)" autocomplete="off" style="flex:1;width:auto;">
       <input type="date" id="lvDate" style="flex:1;width:auto;">
+    </div>
+    <div class="frow" style="align-items:center;gap:14px;">
+      <label style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);">Home colour
+        <input type="color" id="lvHomeCol" value="#4fc3f7" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
+      <label style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);">Away colour
+        <input type="color" id="lvAwayCol" value="#22c55e" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
     </div>
     <input type="file" id="lvFile" accept="video/*" style="margin-bottom:4px;">
     <button class="startbtn" onclick="startLocalSession()">▶ Start coding session</button>
@@ -475,6 +482,14 @@ async function openGame(id){
 // ── Local-video session: code a brand-new game against a file on this
 // machine. Nothing is uploaded and nothing touches the database — the output
 // is Export XML, which then goes through the normal New Game upload flow.
+// Prefill the colour swatch from the bundled club palette when a known
+// club name is typed (the user can still change it).
+function lvColourAuto(which){
+  const nm=document.getElementById(which==='home'?'lvHome':'lvAway').value;
+  const sl=String(nm||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const C=window.COHESION_TEAM_COLOURS||{};
+  if(C[sl]&&C[sl].primary) document.getElementById(which==='home'?'lvHomeCol':'lvAwayCol').value=C[sl].primary;
+}
 async function startLocalSession(){
   const home=(document.getElementById('lvHome').value||'').trim().toUpperCase();
   const away=(document.getElementById('lvAway').value||'').trim().toUpperCase();
@@ -484,6 +499,8 @@ async function startLocalSession(){
   if(!file){ st.innerHTML='<span class="err">Choose a video file.</span>'; return; }
   const lid='local-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_');
   GAME={ id:lid, _local:true, homeTeam:home, awayTeam:away,
+         homeColor:document.getElementById('lvHomeCol').value||'#4fc3f7',
+         awayColor:document.getElementById('lvAwayCol').value||'#22c55e',
          competition:(document.getElementById('lvComp').value||'').trim(),
          date:document.getElementById('lvDate').value||'',
          title:home+' v '+away+' (local video)',
