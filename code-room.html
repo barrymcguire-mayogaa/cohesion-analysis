@@ -2511,6 +2511,11 @@ function codeTag(baseCode){
   if(codeMode.pendingLink) codeSkipLink(true);
   // Duration codes: first press starts recording, next press stops it.
   if(codeDurPref[baseCode]){ crDurToggle(baseCode); return; }
+  // A turnover ends the possession: any running TEAM POSSESSION / 65M ENTRY /
+  // ATTACK recording stops at this moment (attributed to the selected team).
+  if(/\bTOS?\b|TURNOVER/i.test(baseCode)){
+    ['TEAM POSSESSION','65M ENTRY','ATTACKS','ATTACK'].forEach(b=>{ if(crRec[b]) crDurToggle(b); });
+  }
   const teamName=isNeutralCode(baseCode)?'':codeTeamName();   // neutral: no team, either side
   const code=(teamName?teamName+' ':'')+baseCode;
   const now=Math.max(0,Math.round(vNow()));
@@ -2771,6 +2776,7 @@ function codeApplyOutcome(value){
     row.labels[pl.link.group]=value;   // exact DB group name → flows through parser + filters
     if(!pl.link.noOutcome) row.outcome=value;   // denormalised convenience field
     crShotCompanion(row, value);
+    crKoCompanions(row, value);
     crBackup(); crUpdatePending(); renderList();
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
@@ -2916,19 +2922,38 @@ function saveEvent(){
 // bare secondary event ([TEAM] WIDE / BLOCKED / 1 POINT …, '45 exports as
 // WIDE) on the same window. Deleting the shot deletes its companion too.
 const SHOT_OUTCOME_COMPANIONS={'1 POINT':'1 POINT','2 POINT':'2 POINT','GOAL':'GOAL','WIDE':'WIDE','SHORT':'SHORT','SAVE':'SAVE','BLOCKED':'BLOCKED','WOODWORK':'WOODWORK',"'45":'WIDE'};
+// Push a bare companion event tied to `row` (same window; deleted with it).
+function crPushCompanion(row, base, labels){
+  const tmpId='tmp-'+(++crTmpCounter);
+  const comp={ id:'manual-'+Date.now()+'-'+tmpId, start:row.start, end:row.end, half:row.half,
+    code:row.team+' '+base, team:row.team, player:'', outcome:'', subtype:'',
+    category:catOf(base)||'Other', driveT:row.driveT, labels:labels||{},
+    _manual:true, _rowId:tmpId, _new:true, _shotComp:row._rowId };
+  EVENTS.push(comp);
+  undoStack.push({type:'add', rowId:tmpId});
+  return comp;
+}
+// KO outcomes: a lost kickout (clean / break / free / sideline) logs the
+// kicker's KICKOUT LOST turnover; break outcomes log the BREAK WON / BREAK
+// LOST event — all on the kickout's window, deleted with the kickout.
+function crKoCompanions(row, value){
+  if(!row||!row.team) return;
+  if(!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
+  const v=String(value||'').toUpperCase();
+  if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
+  if(/BREAK WON/.test(v)) crPushCompanion(row,'BREAK WON');
+  if(/BREAK LOST/.test(v)) crPushCompanion(row,'BREAK LOST');
+  if(/LOST/.test(v)) crPushCompanion(row,'TOs',{'Turnover Outcomes':'KICKOUT LOST'});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists();
+}
 function crShotCompanion(row, value){
   if(!row||!row.team) return;
   if(!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(row.code||'')) return;
   const base=SHOT_OUTCOME_COMPANIONS[value]; if(!base) return;
   if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
-  const tmpId='tmp-'+(++crTmpCounter);
-  const comp={ id:'manual-'+Date.now()+'-c', start:row.start, end:row.end, half:row.half,
-    code:row.team+' '+base, team:row.team, player:'', outcome:'', subtype:'',
-    category:catOf(base)||'Other', driveT:row.driveT, labels:{},
-    _manual:true, _rowId:tmpId, _new:true, _shotComp:row._rowId };
-  EVENTS.push(comp);
+  crPushCompanion(row, base);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  undoStack.push({type:'add', rowId:tmpId});
   refreshDatalists();
 }
 function deleteEvent(){

@@ -55,7 +55,7 @@ window.COHESION_EVENT_LINKS = [
   { appliesTo: /SHOT/,             group: 'Shot Outcomes',    prompt: 'Shot outcome',
     options: ['1 POINT','2 POINT','GOAL','WIDE','SHORT','SAVE','BLOCKED','WOODWORK',"'45"] },
   { appliesTo: /\bKO\b|KICKOUT/,   group: 'Kickout Outcomes', prompt: 'Kickout outcome',
-    options: ['KO WON CLEAN','KO BREAK WON','KO BREAK LOST','KO LOST CLEAN','KO FREE WON','KO FREE LOST'] },
+    options: ['KO WON CLEAN','KO BREAK WON','KO BREAK LOST','KO LOST CLEAN','KO FREE WON','KO FREE LOST','KO SIDELINE WON','KO SIDELINE LOST'] },
   { appliesTo: /\bTOS?\b|TURNOVER/,group: 'Turnover Outcomes',prompt: 'Turnover outcome',
     options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING','FREE AGAINST','SHOT ATTEMPT'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
