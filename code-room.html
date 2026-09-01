@@ -2588,7 +2588,10 @@ function crDurToggle(baseCode){
     if(f) f.textContent='⏺ '+baseCode+' recording — press again (or click the chip) to stop; ✕ cancels.';
   } else {
     const rec=crRec[baseCode]; delete crRec[baseCode];
-    const start=rec.start, end=Math.max(start+1, Math.round(vNow()));
+    // the second press may be EARLIER than the first (press at the end,
+    // scrub back to the start, press again) — the span works both ways
+    const _a=rec.start, _b=Math.round(vNow());
+    const start=Math.min(_a,_b), end=Math.max(start+1, Math.max(_a,_b));
     // stopping attributes to the team the recording STARTED with — switching
     // teams mid-recording (e.g. to tag their foul) no longer misattributes it
     const teamName=isNeutralCode(baseCode)?'':codeTeamName(rec.team||codeMode.team);
