@@ -626,7 +626,24 @@ function renderP(){if(viewMode==='events')renderEV();else if(viewMode==='stats')
 // Source. Everything is derived from label groups, so it works for any two
 // teams that came through the parser.
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
-function statSide(e){ const t=(e.team||'').toUpperCase(); if(t===(GAME.homeTeam||'').toUpperCase())return 'h'; if(t===(GAME.awayTeam||'').toUpperCase())return 'a'; return null; }
+// Side of an event's team. Resilient to a renamed game: if the events carry
+// a team name matching NEITHER current name, that orphan value is assigned
+// to whichever side has no exact-matching events.
+let _sideMap=null,_sideKey='';
+function _statSideMap(){
+  const H=(GAME.homeTeam||'').toUpperCase(), A=(GAME.awayTeam||'').toUpperCase();
+  const key=H+'|'+A+'|'+ALL.length;
+  if(_sideMap&&_sideKey===key) return _sideMap;
+  const m={}; if(H) m[H]='h'; if(A) m[A]='a';
+  const vals=[...new Set(ALL.map(e=>(e.team||'').toUpperCase()).filter(Boolean))];
+  const un=vals.filter(v=>!(v in m));
+  if(un.length===1){
+    const hasH=vals.includes(H), hasA=vals.includes(A);
+    if(!hasH&&hasA) m[un[0]]='h'; else if(hasH&&!hasA) m[un[0]]='a';
+  }
+  _sideMap=m; _sideKey=key; return m;
+}
+function statSide(e){ return _statSideMap()[(e.team||'').toUpperCase()]||null; }
 // Period splits. Quarters come from the per-half game clock (Q1 = 1H before
 // 18:00, Q2 = the rest, etc.); ET events only count under Full / ET chips.
 let statPeriod='full';

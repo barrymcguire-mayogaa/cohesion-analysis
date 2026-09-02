@@ -1075,6 +1075,7 @@ async function confirmEdit(){
   const homeTeam = document.getElementById('eHomeTeam').value.trim();
   const awayTeam = document.getElementById('eAwayTeam').value.trim();
   if(!homeTeam||!awayTeam){ alert('Please enter both team names.'); return; }
+  const oldHome=(g.homeTeam||''), oldAway=(g.awayTeam||'');
   g.homeTeam    = homeTeam;
   g.awayTeam    = awayTeam;
   g.homeColor   = document.getElementById('eHomeColor').value;
@@ -1095,6 +1096,11 @@ async function confirmEdit(){
   }
   try{
     await libAdminFetch('gameAdmin', { action:'updateMeta', gameId: pendingEditId, meta: g });
+    // Renaming a team migrates its events (team field, code prefixes, player
+    // label groups) so stats keep working; also heals games renamed before
+    // this existed (event teams matching NEITHER name).
+    try{ await migrateTeamNames(pendingEditId, oldHome, oldAway, homeTeam, awayTeam); }
+    catch(me){ showToast('Team-name update on events failed: '+me.message+' — re-save to retry.'); }
     closeEditModal();
     const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
     fTeam.innerHTML='<option value="">All Teams</option>';
@@ -1108,6 +1114,57 @@ async function confirmEdit(){
   }
 }
 
+// ── Team rename migration ────────────────────────────────────
+// Rewrites every event of a renamed team: team field, "TEAM ..." code
+// prefix, "TEAM Player Labels" group and the Team Name label. Also heals a
+// game whose events match NEITHER current name (renamed before migration
+// existed): the orphan event-team is mapped to the side with no events,
+// after a confirm.
+async function migrateTeamNames(gameId, oldHome, oldAway, newHome, newAway){
+  const renames=[];
+  if(oldHome&&newHome&&oldHome.toUpperCase()!==newHome.toUpperCase()) renames.push([oldHome,newHome]);
+  if(oldAway&&newAway&&oldAway.toUpperCase()!==newAway.toUpperCase()) renames.push([oldAway,newAway]);
+  const bundle=await cohesionRead({ action:'gameBundle', id: gameId });
+  const rows=bundle.events||[];
+  // heal: orphan team value present in events but matching neither name
+  const HU=newHome.toUpperCase(), AU=newAway.toUpperCase();
+  const teamVals=[...new Set(rows.map(r=>((r.data||{}).team||'').toUpperCase()).filter(Boolean))];
+  const known=new Set([HU,AU,...renames.map(([o])=>o.toUpperCase())]);
+  const orphans=teamVals.filter(v=>!known.has(v));
+  if(orphans.length===1){
+    const hasH=teamVals.includes(HU), hasA=teamVals.includes(AU);
+    const target=(!hasH&&hasA)?newHome:(!hasA&&hasH)?newAway:null;
+    if(target && confirm('Events in this game are tagged "'+orphans[0]+'", which matches neither team name.\n\nUpdate them all to "'+target+'"?'))
+      renames.push([orphans[0], target]);
+  }
+  if(!renames.length) return;
+  const ops=[];
+  rows.forEach(r=>{
+    const d=r.data||{}; let changed=false;
+    renames.forEach(([oldN,newN])=>{
+      const OU=oldN.toUpperCase(), NU=newN.toUpperCase();
+      if((d.team||'').toUpperCase()===OU){ d.team=NU; changed=true; }
+      if(d.code){
+        if(d.code.toUpperCase().startsWith(OU+' ')){ d.code=NU+d.code.slice(OU.length); changed=true; }
+        else if(d.code.toUpperCase()===OU){ d.code=NU; changed=true; }
+      }
+      if(d.labels&&typeof d.labels==='object'){
+        Object.keys(d.labels).forEach(k=>{
+          if(k.toUpperCase()===(OU+' PLAYER LABELS')){ const v=d.labels[k]; delete d.labels[k]; d.labels[NU+' Player Labels']=v; changed=true; }
+        });
+        if(String(d.labels['Team Name']||'').toUpperCase()===OU){ d.labels['Team Name']=NU; changed=true; }
+      }
+    });
+    if(changed) ops.push({action:'update', id:r.id, data:d, ref:String(r.id)});
+  });
+  if(!ops.length) return;
+  showToast('Updating '+ops.length+' events to the new team name…');
+  for(let i=0;i<ops.length;i+=40){
+    const j=await libAdminFetch('editEvent',{ops:ops.slice(i,i+40)});
+    if(j&&j.ok===false) throw new Error('some events failed to update');
+  }
+  showToast('✓ '+ops.length+' events updated to the new team name.');
+}
 async function loadGames(){
   try{
     const j = await cohesionRead({ action:'listGames', section: cohesionSection() });
