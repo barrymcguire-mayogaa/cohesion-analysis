@@ -1099,8 +1099,9 @@ async function confirmEdit(){
     // Renaming a team migrates its events (team field, code prefixes, player
     // label groups) so stats keep working; also heals games renamed before
     // this existed (event teams matching NEITHER name).
-    try{ await migrateTeamNames(pendingEditId, oldHome, oldAway, homeTeam, awayTeam); }
-    catch(me){ showToast('Team-name update on events failed: '+me.message+' — re-save to retry.'); }
+    let migMsg='';
+    try{ migMsg=await migrateTeamNames(pendingEditId, oldHome, oldAway, homeTeam, awayTeam)||''; }
+    catch(me){ migMsg='Event rename failed: '+me.message; }
     closeEditModal();
     const fTeam=document.getElementById('fTeam'),fYear=document.getElementById('fYear');
     fTeam.innerHTML='<option value="">All Teams</option>';
@@ -1108,7 +1109,7 @@ async function confirmEdit(){
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();
-    showToast('Game updated successfully.');
+    showToast('Game updated. '+migMsg);
   } catch(e){
     showToast('Error saving changes: ' + e.message);
   }
@@ -1120,56 +1121,56 @@ async function confirmEdit(){
 // game whose events match NEITHER current name (renamed before migration
 // existed): the orphan event-team is mapped to the side with no events,
 // after a confirm.
+function _tnorm(x){ return String(x||'').normalize('NFC').toUpperCase(); }
 async function migrateTeamNames(gameId, oldHome, oldAway, newHome, newAway){
   const renames=[];
-  if(oldHome&&newHome&&oldHome.toUpperCase()!==newHome.toUpperCase()) renames.push([oldHome,newHome]);
-  if(oldAway&&newAway&&oldAway.toUpperCase()!==newAway.toUpperCase()) renames.push([oldAway,newAway]);
+  if(oldHome&&newHome&&_tnorm(oldHome)!==_tnorm(newHome)) renames.push([oldHome,newHome]);
+  if(oldAway&&newAway&&_tnorm(oldAway)!==_tnorm(newAway)) renames.push([oldAway,newAway]);
   const bundle=await cohesionRead({ action:'gameBundle', id: gameId });
   const rows=bundle.events||[];
-  if(!rows.length){ if(renames.length) showToast('Could not read this game\'s events to rename them.'); return; }
+  if(!rows.length) return 'No events found for this game (id '+gameId+') — nothing to rename.';
   // heal: any event team matching NEITHER current name gets an explicit
   // home/away/skip choice — nothing silent.
-  const HU=newHome.toUpperCase(), AU=newAway.toUpperCase();
-  const teamVals=[...new Set(rows.map(r=>((r.data||{}).team||'').toUpperCase()).filter(Boolean))];
-  const known=new Set([HU,AU,...renames.map(([o])=>o.toUpperCase())]);
+  const HU=_tnorm(newHome), AU=_tnorm(newAway);
+  const teamVals=[...new Set(rows.map(r=>_tnorm((r.data||{}).team)).filter(Boolean))];
+  const known=new Set([HU,AU,...renames.map(([o])=>_tnorm(o))]);
   const orphans=teamVals.filter(v=>!known.has(v));
   for(const o of orphans){
-    const n=rows.filter(r=>(((r.data||{}).team||'').toUpperCase())===o).length;
+    const n=rows.filter(r=>_tnorm((r.data||{}).team)===o).length;
     if(confirm(n+' events are tagged "'+o+'", which matches neither team name.\n\nOK — update them to "'+newHome+'" (home team)\nCancel — choose the away team or skip'))
       renames.push([o,newHome]);
     else if(confirm('Update the '+n+' "'+o+'" events to "'+newAway+'" (away team)?\n\nCancel — leave them unchanged'))
       renames.push([o,newAway]);
   }
-  if(!renames.length){
-    if(orphans.length) showToast('Events left unchanged (teams found: '+teamVals.join(', ')+').');
-    return;
-  }
+  if(!renames.length)
+    return rows.length+' events checked — teams found: '+(teamVals.join(', ')||'(none)')+'. Nothing needed renaming.';
   const ops=[];
   rows.forEach(r=>{
     const d=r.data||{}; let changed=false;
     renames.forEach(([oldN,newN])=>{
-      const OU=oldN.toUpperCase(), NU=newN.toUpperCase();
-      if((d.team||'').toUpperCase()===OU){ d.team=NU; changed=true; }
+      const OU=_tnorm(oldN), NU=newN.normalize('NFC').toUpperCase();
+      if(_tnorm(d.team)===OU){ d.team=NU; changed=true; }
       if(d.code){
-        if(d.code.toUpperCase().startsWith(OU+' ')){ d.code=NU+d.code.slice(OU.length); changed=true; }
-        else if(d.code.toUpperCase()===OU){ d.code=NU; changed=true; }
+        const codeN=String(d.code).normalize('NFC');
+        if(codeN.toUpperCase().startsWith(OU+' ')){ d.code=NU+codeN.slice(OU.length); changed=true; }
+        else if(codeN.toUpperCase()===OU){ d.code=NU; changed=true; }
       }
       if(d.labels&&typeof d.labels==='object'){
         Object.keys(d.labels).forEach(k=>{
-          if(k.toUpperCase()===(OU+' PLAYER LABELS')){ const v=d.labels[k]; delete d.labels[k]; d.labels[NU+' Player Labels']=v; changed=true; }
+          if(_tnorm(k)===(OU+' PLAYER LABELS')){ const v=d.labels[k]; delete d.labels[k]; d.labels[NU+' Player Labels']=v; changed=true; }
         });
-        if(String(d.labels['Team Name']||'').toUpperCase()===OU){ d.labels['Team Name']=NU; changed=true; }
+        if(_tnorm(d.labels['Team Name'])===OU){ d.labels['Team Name']=NU; changed=true; }
       }
     });
     if(changed) ops.push({action:'update', id:r.id, data:d, ref:String(r.id)});
   });
-  if(!ops.length) return;
+  if(!ops.length) return rows.length+' events checked — none needed changing.';
   showToast('Updating '+ops.length+' events to the new team name…');
   for(let i=0;i<ops.length;i+=40){
     const j=await libAdminFetch('editEvent',{ops:ops.slice(i,i+40)});
     if(j&&j.ok===false) throw new Error('some events failed to update');
   }
-  showToast('✓ '+ops.length+' events updated to the new team name.');
+  return '✓ '+ops.length+' events updated to the new team name.';
 }
 async function loadGames(){
   try{
