@@ -309,6 +309,8 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
               <div class="tlrb del" onclick="crRemoveRow()" title="Remove the selected empty row">Del</div>
               <div class="tlsep"></div>
               <div class="tlrb" onclick="crSelectAll()" title="Select all visible events for bulk edit">Sel all</div>
+              <div class="tlrb" onclick="crSelectTeam('home')" id="selTeamH" title="Select every visible event for the home team — bulk edit (colour, labels, player, delete)">Sel home</div>
+              <div class="tlrb" onclick="crSelectTeam('away')" id="selTeamA" title="Select every visible event for the away team — bulk edit (colour, labels, player, delete)">Sel away</div>
               <div class="tlsep"></div>
               <div class="tlzb" onclick="crZoom(-1)" title="Zoom out (or pinch on a trackpad)">−</div>
               <div class="tlzb" onclick="crZoom(1)" title="Zoom in (or pinch on a trackpad)">+</div>
@@ -466,7 +468,7 @@ async function openGame(id){
   document.getElementById('loading').style.display='none';
   document.getElementById('editor').style.display='';
   // Offer to restore any unsaved changes from a previous session on this game.
-  await crRestoreBackup(); crFixRowIds();
+  await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();
   // period filter options
   const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))];
   const sel=document.getElementById('eperiod');
@@ -510,7 +512,7 @@ async function startLocalSession(){
   crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
-  await crRestoreBackup(); crFixRowIds();   // recover events from a crashed local session
+  await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
   const sel=document.getElementById('eperiod');
   sel.innerHTML='<option value="">All periods</option>';
   refreshDatalists();
@@ -1645,6 +1647,19 @@ function crSelectBox(box){
 }
 function crSelectRow(code){ crSel=crFiltered().filter(e=>(e.code||'—')===code).map(e=>e._rowId); crAfterSelect(); }
 function crSelectAll(){ crSel=crFiltered().map(e=>e._rowId); crAfterSelect(); }
+// Select every visible event belonging to one team (then bulk-edit — e.g.
+// recolour the whole team at once).
+function crSelectTeam(side){
+  const nm=((side==='home'?GAME.homeTeam:GAME.awayTeam)||'').toUpperCase();
+  crSel=crFiltered().filter(e=>(e.team||'').toUpperCase()===nm).map(e=>e._rowId);
+  crAfterSelect();
+}
+// Show the real team names on the Sel home/away buttons once a game is open.
+function crSelTeamLabels(){
+  const h=document.getElementById('selTeamH'), a=document.getElementById('selTeamA');
+  if(h&&GAME.homeTeam) h.textContent='Sel '+GAME.homeTeam;
+  if(a&&GAME.awayTeam) a.textContent='Sel '+GAME.awayTeam;
+}
 function crToggleSel(id){ id=String(id); const i=crSel.findIndex(x=>String(x)===id); if(i>=0) crSel.splice(i,1); else crSel.push(id); crAfterSelect(); }
 function crClearSel(){ crSel=[]; if(!codeMode.on) renderPanel(); renderList(); }
 // Decide what to show after a selection changes.
@@ -1668,7 +1683,7 @@ function renderBulk(){
   const n=crSel.length;
   p.innerHTML=`
     <div class="ep-code">${n} events selected</div>
-    <div class="ep-meta">Bulk-edit them together — each change is one Save you can undo.</div>
+    <div class="ep-meta">Bulk-edit them together — each change is one Save you can undo. Select more with Shift+click, a box-drag, a row name, or the Sel all / Sel team buttons.</div>
     <div class="ep-lbl">Set player</div>
     <input id="bulkPlayer" placeholder="Player name" autocomplete="off" oninput="acShow(this,crPlayers(),acNoop)" onfocus="acShow(this,crPlayers(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
     <button class="addg" onclick="crBulkPlayer()">Apply player to ${n}</button>
