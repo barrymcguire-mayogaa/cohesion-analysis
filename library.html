@@ -1142,8 +1142,36 @@ async function migrateTeamNames(gameId, oldHome, oldAway, newHome, newAway){
     else if(confirm('Update the '+n+' "'+o+'" events to "'+newAway+'" (away team)?\n\nCancel — leave them unchanged'))
       renames.push([o,newAway]);
   }
+  // Events with NO team (a Gaelic Insights upload where the typed name did
+  // not match the XML's code prefix): infer the club from the codes' shared
+  // leading words and offer to claim them for a side.
+  const blanks=rows.filter(r=>!((r.data||{}).team));
+  if(blanks.length>=5){
+    const counts={};
+    blanks.forEach(r=>{ const w=_tnorm((r.data||{}).code).trim().split(/\s+/)[0];
+      if(w&&!/^THROW/.test(w)) counts[w]=(counts[w]||0)+1; });
+    const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+    if(top&&top[1]>=blanks.length*0.3&&!known.has(top[0])&&!renames.some(([o])=>_tnorm(o)===top[0])){
+      let prefix=top[0];
+      const EVT=/^(SHOT|KO|KICKOUT|TEAM|65M|ATTACK|ATTACKS|FOUL|FOULS|CARD|CARDS|SUB|SUBS|TOS?|GOAL|WIDE|SHORT|BLOCKED|SAVE|WOODWORK|BREAK|SCORE|BLOCK|MISS|1|2|POINT|POSSESSION)$/;
+      for(let guard=0;guard<4;guard++){
+        const withP=blanks.filter(r=>_tnorm((r.data||{}).code).startsWith(prefix+' '));
+        const nexts={};
+        withP.forEach(r=>{ const w2=_tnorm((r.data||{}).code).slice(prefix.length+1).split(/\s+/)[0]; if(w2) nexts[w2]=(nexts[w2]||0)+1; });
+        const nt=Object.entries(nexts).sort((a,b)=>b[1]-a[1])[0];
+        if(nt&&nt[1]>=withP.length*0.9&&!EVT.test(nt[0])) prefix=prefix+' '+nt[0]; else break;
+      }
+      const nP=blanks.filter(r=>{ const c=_tnorm((r.data||{}).code); return c===prefix||c.startsWith(prefix+' '); }).length;
+      if(nP){
+        if(confirm(nP+' events have no team and their codes start with "'+prefix+'".\n\nOK — treat them as "'+newHome+'" (home team)\nCancel — choose the away team or skip'))
+          renames.push([prefix,newHome]);
+        else if(confirm('Treat the '+nP+' "'+prefix+'" events as "'+newAway+'" (away team)?\n\nCancel — leave them unchanged'))
+          renames.push([prefix,newAway]);
+      }
+    }
+  }
   if(!renames.length)
-    return rows.length+' events checked — teams found: '+(teamVals.join(', ')||'(none)')+'. Nothing needed renaming.';
+    return rows.length+' events checked — teams found: '+(teamVals.join(', ')||'(none)')+(blanks.length?' · '+blanks.length+' with no team':'')+'. Nothing needed renaming.';
   const ops=[];
   rows.forEach(r=>{
     const d=r.data||{}; let changed=false;
@@ -1152,8 +1180,8 @@ async function migrateTeamNames(gameId, oldHome, oldAway, newHome, newAway){
       if(_tnorm(d.team)===OU){ d.team=NU; changed=true; }
       if(d.code){
         const codeN=String(d.code).normalize('NFC');
-        if(codeN.toUpperCase().startsWith(OU+' ')){ d.code=NU+codeN.slice(OU.length); changed=true; }
-        else if(codeN.toUpperCase()===OU){ d.code=NU; changed=true; }
+        if(codeN.toUpperCase().startsWith(OU+' ')){ d.code=NU+codeN.slice(OU.length); if(!d.team){ d.team=NU; } changed=true; }
+        else if(codeN.toUpperCase()===OU){ d.code=NU; if(!d.team){ d.team=NU; } changed=true; }
       }
       if(d.labels&&typeof d.labels==='object'){
         Object.keys(d.labels).forEach(k=>{
