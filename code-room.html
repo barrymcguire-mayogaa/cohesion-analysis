@@ -1270,7 +1270,16 @@ function crInitTL(){
     if(crDrag){ Object.assign(crDrag.ev, crDrag.snapshot); crDrag=null; }   // pinch aborts a just-started drag
     crBox=null; crRowDrag=null; crDown=null; document.body.style.userSelect='';
   };
+  c.addEventListener('contextmenu',e=>{
+    const r=c.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+    const hit=crHitAt(x,y);
+    if(!hit&&!crSel.length) return;              // nothing to act on → native menu
+    e.preventDefault();
+    if(hit&&!crSel.map(String).includes(String(hit.ev._rowId))){ crSel=[hit.ev._rowId]; crAfterSelect(); }
+    crCtxMenu(e.clientX,e.clientY);
+  });
   c.addEventListener('pointerdown',e=>{
+    if(e.button===2) return;                     // right button → context menu only
     if(e.pointerType!=='mouse'){
       crPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
       if(crPtrs.size===2){
@@ -1661,18 +1670,47 @@ function crSelTeamLabels(){
   if(a&&GAME.awayTeam) a.textContent='Sel '+GAME.awayTeam;
 }
 function crToggleSel(id){ id=String(id); const i=crSel.findIndex(x=>String(x)===id); if(i>=0) crSel.splice(i,1); else crSel.push(id); crAfterSelect(); }
-function crClearSel(){ crSel=[]; if(!codeMode.on) renderPanel(); renderList(); }
+function crClearSel(){ crSel=[]; if(codeMode.on) crRestoreCodePanel(); else renderPanel(); renderList(); }
 // Decide what to show after a selection changes.
 function crAfterSelect(){
   if(crSyncOn){                                    // Sync Mode: earliest = reference
     if(crSel.length){ const evs=EVENTS.filter(e=>crSel.map(String).includes(String(e._rowId))); const ref=evs.reduce((a,b)=>((a.driveT||0)<=(b.driveT||0)?a:b)); activeId=ref._rowId; crSyncDraft(ref); }
     crSyncUpdate(); renderList(); return;
   }
-  if(codeMode.on){ renderList(); return; }         // code mode keeps its tagging panel
+  if(codeMode.on){
+    // multi-select opens the bulk editor even mid-coding; clearing it
+    // brings the tagging panel straight back
+    if(crSel.length>1){ renderBulk(); renderList(); return; }
+    if(!crSel.length) crRestoreCodePanel();
+    renderList(); return;
+  }
   if(crSel.length>1) { renderBulk(); renderList(); }
   else if(crSel.length===1){ pick(crSel[0]); }     // single → normal editor
   else { renderPanel(); renderList(); }
 }
+function crRestoreCodePanel(){
+  const p=document.getElementById('epanel'), cp=document.getElementById('codePanel');
+  if(p) p.style.display='none';
+  if(cp&&codeMode.on) cp.style.display='';
+}
+// ── Right-click menu on the timeline: quick bulk actions ─────
+function crCtxMenu(px,py){
+  crCtxClose();
+  const n=crSel.length; if(!n) return;
+  const m=document.createElement('div'); m.id='crCtx';
+  m.style.cssText='position:fixed;z-index:10007;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:9px;display:flex;flex-direction:column;gap:6px;font:600 12px Barlow,sans-serif;color:var(--t1);box-shadow:0 8px 30px rgba(0,0,0,.45);min-width:180px;';
+  m.style.left=Math.min(px,window.innerWidth-210)+'px';
+  m.style.top=Math.min(py,window.innerHeight-230)+'px';
+  m.innerHTML=`<div style="color:var(--t3);font-size:11px;">${n} event${n>1?'s':''} selected</div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">Set colour <input type="color" id="crCtxCol" value="#4fc3f7" style="width:38px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--card);padding:1px;cursor:pointer;"></label>
+    <button class="cbtn mini" onclick="crBulkColor(document.getElementById('crCtxCol').value);crCtxClose()">Apply colour to ${n}</button>
+    <button class="cbtn mini" onclick="crBulkColor('');crCtxClose()">Team default colour</button>
+    <button class="cbtn mini" onclick="crCtxClose();crBulkDelete()">🗑 Delete ${n}</button>
+    <button class="cbtn mini" onclick="crClearSel();crCtxClose()">Clear selection</button>`;
+  document.body.appendChild(m);
+  setTimeout(()=>{ document.addEventListener('pointerdown',function close(ev){ if(!m.contains(ev.target)){ crCtxClose(); document.removeEventListener('pointerdown',close); } }); },0);
+}
+function crCtxClose(){ const m=document.getElementById('crCtx'); if(m) m.remove(); }
 // ── Bulk edit (multiple selected events) ──────────────────────
 function crLabelGroups(){ const s=new Set(); EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(g!=='Team Name'&&!/player labels$/i.test(g)) s.add(g); })); (window.COHESION_LABEL_GROUPS||[]).forEach(g=>s.add(g.name)); return [...s].sort(); }
 function renderBulk(){
@@ -1774,7 +1812,8 @@ function crBulkDelete(){
   evs.forEach(e=>{ if(!e._new) crDeleted.push({id:e._rowId}); });
   const ids=_selIds; EVENTS=EVENTS.filter(e=>!ids.has(String(e._rowId)));
   crSel=[]; activeId=null; draft=null;
-  crBackup(); crUpdatePending(); renderList(); renderPanel();
+  crBackup(); crUpdatePending(); renderList();
+  if(codeMode.on) crRestoreCodePanel(); else renderPanel();
 }
 
 // ── derivation helpers (keep promoted fields consistent) ──────
