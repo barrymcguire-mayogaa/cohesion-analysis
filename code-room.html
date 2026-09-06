@@ -2117,7 +2117,9 @@ async function crRestoreBackup(){
 async function crSaveAll(){
   // Local session: there is no database game — "saving" means exporting the
   // XML for the normal upload flow.
-  if(GAME&&GAME._local){ crExportXml(); crClearBackup(); EVENTS.forEach(e=>{ delete e._dirty; }); crUpdatePending(); return; }
+  // The backup is deliberately KEPT — a silently blocked download must never
+  // be the only copy. It clears when the close dialog confirms the file exists.
+  if(GAME&&GAME._local){ crExportXml(); EVENTS.forEach(e=>{ delete e._dirty; }); crUpdatePending(); return; }
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
@@ -2161,9 +2163,23 @@ async function saveAllAndClose(){
         message:'This is a local coding session — your '+EVENTS.length+' event(s) exist only here. Export the XML now, then upload it with the video link via New Game.',
         buttons:[{label:'⬇ Export XML & close',value:'export',primary:true},{label:'Discard & close',value:'discard',danger:true},{label:'Cancel',value:'cancel'}] });
       if(c==='cancel') return;
-      if(c==='export') crExportXml();
+      if(c==='export'){
+        // Safari saves the file silently and can even swallow the download —
+        // so the coding stays backed up here until the file is CONFIRMED.
+        const safe=(GAME.title||GAME.id||'game').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'');
+        for(;;){
+          crExportXml();
+          const ok=await cohesionModal({ title:'Check your Downloads',
+            message:'The XML downloads silently — look in your <b>Downloads</b> folder for<br><b>'+safe+'.xml</b><br><br>Your coding is kept safe in this browser until you confirm the file is there.',
+            buttons:[{label:'✓ File is there — close',value:'yes',primary:true},{label:'⬇ Download again',value:'again'},{label:'Cancel — stay here',value:'cancel'}] });
+          if(ok==='cancel') return;
+          if(ok==='yes') break;
+        }
+      }
     }
-    crClearBackup(); window.location.href='library.html'; return;
+    crClearBackup();
+    EVENTS.forEach(e=>{ delete e._dirty; delete e._new; }); crDeleted=[]; crRec={};
+    cohesionGuardedGo('library.html'); return;   // guarded go = no second browser "leave?" prompt
   }
   if(!crHasPending()){ crClearBackup(); window.location.href='library.html'; return; }
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
