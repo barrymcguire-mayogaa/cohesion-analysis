@@ -1863,7 +1863,8 @@ function renderEV(){
     const dc=tm===GAME.homeTeam?(GAME.homeColor||'#2563eb'):tm===GAME.awayTeam?(GAME.awayColor||'#22c55e'):'var(--t3)';
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
-      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl">${ev.player||tc(ev.outcome)||'—'}</div><div class="inst-sb">${[ev.outcome?tc(ev.outcome):'',ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
+      const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
+      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl">${ev.player||tc(ev.outcome)||'—'}</div><div class="inst-sb">${[ev.outcome?tc(ev.outcome):'',ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
     }
     h+='</div>';
   });

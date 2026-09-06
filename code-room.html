@@ -301,6 +301,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
+            <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
               <div class="tlsep"></div>
@@ -676,11 +677,15 @@ function renderList(){
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
     fb.style.color=crFlagOnly?'#f59e0b':''; fb.style.borderColor=crFlagOnly?'#f59e0b':''; }
+  const db2=document.getElementById('dupBtn');
+  if(db2){ const nd=EVENTS.filter(crIsDup).length;
+    db2.style.display=(nd||crDupOnly)?'':'none'; db2.textContent='⚠ '+nd;
+    db2.style.color=crDupOnly?'#f59e0b':''; db2.style.borderColor=crDupOnly?'#f59e0b':''; }
   wrap.innerHTML=rows.map(e=>{
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${e._rowId}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${e.code||'—'}${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${e.code||'—'} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
     </div>`;
   }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
   if(crView==='tl') crDrawTL();
@@ -704,9 +709,12 @@ function crFiltered(){
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
     if(crFlagOnly&&!crIsFlagged(e)) return false;
+    if(crDupOnly&&!crIsDup(e)) return false;
     return true;
   });
 }
+let crDupOnly=false;
+function crDupToggleFilter(){ crDupOnly=!crDupOnly; renderList(); }
 // ── MATRIX VIEW: base codes × teams with live counts (the Sportscode code
 // matrix). Counts follow the same filter/period controls as the list. Click
 // a number to drill: the list shows ONLY those clips (chip to clear) and
@@ -875,20 +883,37 @@ function crGeom(){
   const dur=crDur(), vD=dur/crTLZ;
   return {c,cssW,plotW,dur,vD, xF:t=>CR_LW+((t-crTLO)/vD)*plotW, tOf:x=>crTLO+((x-CR_LW)/plotW)*vD};
 }
+// Chronological sequence of an event among ALL events of its exact code
+// (per team + per code — the 5th Breaffy kickout is BREAFFY KO #5).
+function crSeqOf(e){
+  if(!e||!e.code) return 0;
+  let n=0;
+  for(const x of EVENTS){ if(x.code===e.code){ n++; if(String(x._rowId)===String(e._rowId)) return n; } }
+  return n;
+}
+// Possible duplicate: another event of the SAME code within 2 seconds (a
+// double-tap on the tracker). Multiple shots after a block/save are further
+// apart than that.
+function crIsDup(e){
+  return !!(e&&e.code)&&EVENTS.some(x=>x!==e&&x.code===e.code&&Math.abs((x.driveT||0)-(e.driveT||0))<=2);
+}
 // What's under the cursor: an event bar (with move / resizeL / resizeR mode) or null.
+// Overlapping bars: every event under the point is returned in `stack` (the
+// currently selected one is preferred as `ev`) so clicks can cycle through.
 function crHitAt(x,y){
   const g=crGeom(), evs=crFiltered(), rows=crRows(evs), ri=Math.floor((y-CR_RULER)/CR_ROWH);
   if(ri<0||ri>=rows.length) return null;
   const code=rows[ri];
+  const hits=[];
   for(const e of evs){ if((e.code||'—')!==code) continue;
     const bx=g.xF(e.driveT||0), bw=Math.max(3,(crBarD(e)/g.vD)*g.plotW);
-    if(x>=bx-4&&x<=bx+bw+4){
-      let mode='move'; const EDGE=6;
-      if(bw>=16){ if(x<=bx+EDGE) mode='resizeL'; else if(x>=bx+bw-EDGE) mode='resizeR'; }
-      return {ev:e, mode, ri};
-    }
+    if(x>=bx-4&&x<=bx+bw+4) hits.push({e,bx,bw});
   }
-  return null;
+  if(!hits.length) return null;
+  const pickH=hits.find(h=>String(h.e._rowId)===String(activeId))||hits[0];
+  let mode='move'; const EDGE=6;
+  if(pickH.bw>=16){ if(x<=pickH.bx+EDGE) mode='resizeL'; else if(x>=pickH.bx+pickH.bw-EDGE) mode='resizeR'; }
+  return {ev:pickH.e, mode, ri, stack:hits.map(h=>h.e)};
 }
 // Apply a drag of dt seconds from the drag's original values (d.o).
 function crApplyDrag(d, dt){
@@ -920,7 +945,14 @@ function crCommitDrag(d){
   const e=d.ev;
   if(!d.moved){
     if(d.dup){ const i=EVENTS.indexOf(e); if(i>=0) EVENTS.splice(i,1); renderList(); return; }  // alt-click without a drag → discard the copy
-    pick(e._rowId); return;                      // no movement → treat as a select
+    // overlapping bars: clicking the same spot again selects the NEXT event
+    // in the stack, cycling through them
+    let target=e._rowId;
+    if(d.stack&&d.stack.length>1){
+      const ids=d.stack.map(x=>String(x._rowId));
+      target=d.stack[(ids.indexOf(String(activeId))+1)%d.stack.length]._rowId;
+    }
+    pick(target); return;                        // no movement → treat as a select
   }
   undoStack.push(d.dup?{type:'add', rowId:e._rowId}:{type:'edit', snapshot:d.snapshot});
   // vertical reassign: dropped on a different row → change the event's code/type
@@ -1317,7 +1349,7 @@ function crInitTL(){
         delete ev._dirty;
         EVENTS.push(ev);
       }
-      crDrag={ev, mode:hit.mode, startX:x, moved:false, dup, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault();
+      crDrag={ev, mode:hit.mode, startX:x, moved:false, dup, stack:hit.stack, origRow:hit.ri, targetRow:hit.ri, snapshot:crClone(ev), o:{driveT:ev.driveT||0, start:ev.start, end:ev.end}}; if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); document.body.style.userSelect='none'; e.preventDefault();
       if(e.pointerType!=='mouse'){   // long-press = toggle selection (touch shift-click)
         const rid=ev._rowId;
         crLP={id:e.pointerId, timer:setTimeout(()=>{ crLP=null; if(crDrag&&!crDrag.moved&&String(crDrag.ev._rowId)===String(rid)){ Object.assign(crDrag.ev,crDrag.snapshot); crDrag=null; document.body.style.userSelect=''; crToggleSel(rid); if(navigator.vibrate) navigator.vibrate(25); crDrawTL(); } },500)};
@@ -1591,7 +1623,7 @@ function crTipShow(ev, cx, cy){
   const tip=document.getElementById('tlTip'); if(!tip) return;
   const rows=Object.entries(ev.labels||{}).filter(([g])=>g!=='Team Name')
     .map(([g,v])=>`<div><span class="tg">${esc(g)}</span> ${esc(v)}</div>`).join('');
-  tip.innerHTML=`<div class="tt-code">${esc(ev.code||'')}</div>`
+  tip.innerHTML=`<div class="tt-code">${esc(ev.code||'')} <span style="opacity:.6">#${crSeqOf(ev)}</span>${crIsDup(ev)?' <span style="color:#f59e0b">⚠ possible duplicate</span>':''}</div>`
     +(ev.player?`<div><span class="tg">Player</span> ${esc(ev.player)}</div>`:'')
     +(rows||'<div class="tt-none">No labels on this event</div>');
   tip.style.display='block';
@@ -1899,6 +1931,7 @@ function renderPanel(){
     </div>`).join('');
   const labelRows=definedRows+freeRows;
   p.innerHTML=`
+    <div class="ep-code">${esc(e.code||'')} #${crSeqOf(e)}${crIsDup(e)?' <span style="color:#f59e0b;font-size:12px;">⚠ possible duplicate</span>':''}</div>
     <div class="ep-meta">${e.half||''} · Game clock ${e.gameTime||'—'}</div>
     <div class="ep-lbl">Event code</div>
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
