@@ -2707,6 +2707,7 @@ function crDurToggle(baseCode){
     codePitchArm(tmpId, code);
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+code+' · '+fmt(start)+'–'+fmt(end)+' ('+(end-start)+'s)';
+    crScoreSourceAutoScore(row);                    // SCORE SOURCE: score value from the shot inside it
     const link=crAutoLinkFor(code);                 // outcome prompt ON STOP
     codeMode.pendingLink=link?{rowId:tmpId, link}:null;
     codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
@@ -2875,6 +2876,7 @@ function codeShotQual(group,value){
   if(!sq) return;
   sq.labels=sq.labels||{};
   if(sq.labels[group]===value) delete sq.labels[group]; else sq.labels[group]=value;
+  if(group==='Kickout Locations') crSyncKoTOLoc(sq);
   crBackup(); crUpdatePending(); renderCodeLink();
 }
 function codeShotAssist(value){
@@ -2893,6 +2895,8 @@ function codeApplyOutcome(value){
     if(!pl.link.noOutcome) row.outcome=value;   // denormalised convenience field
     crShotCompanion(row, value);
     crKoCompanions(row, value);
+    crScoreSourceSweep(row);                    // scoring shot fills covering SCORE SOURCEs
+    crScoreSourceAutoScore(row);                // SCORE SOURCE answered after its shot
     crBackup(); crUpdatePending(); renderList();
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
@@ -3027,6 +3031,7 @@ function saveEvent(){
   const data=buildData(e);
   Object.assign(e,data);
   if(!e._new) e._dirty=true;
+  crSyncKoTOLoc(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   draft=null; pick(e._rowId);
@@ -3059,9 +3064,53 @@ function crKoCompanions(row, value){
   if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
   if(/BREAK WON/.test(v)) crPushCompanion(row,'BREAK WON');
   if(/BREAK LOST/.test(v)) crPushCompanion(row,'BREAK LOST');
-  if(/LOST/.test(v)) crPushCompanion(row,'TOs',{'Turnover Outcomes':'KICKOUT LOST'});
+  if(/LOST/.test(v)){
+    const tl={'Turnover Outcomes':'KICKOUT LOST'};
+    const loc=crKoLocToThird(row); if(loc) tl['Turnover Locations']=loc;
+    crPushCompanion(row,'TOs',tl);
+  }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
+}
+// A team's own kickout: SHORT lands inside their 45 (defensive third), MEDIUM
+// between the 45s (middle third), LONG inside the opposition 45 (attacking third).
+function crKoLocToThird(row){
+  const k=String((row&&row.labels||{})['Kickout Locations']||'').toUpperCase();
+  return /SHORT/.test(k)?'DEFENSIVE THIRD':/MEDIUM/.test(k)?'MIDDLE THIRD':/LONG/.test(k)?'ATTACKING THIRD':'';
+}
+// Keep the KICKOUT LOST turnover's location in step when the KO's location
+// label is set (or changed) after the outcome was answered.
+function crSyncKoTOLoc(row){
+  if(!row||!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
+  const comp=EVENTS.find(x=>x._shotComp&&String(x._shotComp)===String(row._rowId)&&/\bTOS?\b/i.test(x.code||''));
+  if(!comp) return;
+  const loc=crKoLocToThird(row);
+  comp.labels=comp.labels||{};
+  if(loc) comp.labels['Turnover Locations']=loc; else delete comp.labels['Turnover Locations'];
+  if(!comp._new) comp._dirty=true;
+}
+// SCORE SOURCE: fill the score value the dashboard reads ('Score Source Score
+// Outcomes' — GOAL / 2 POINT / 1 POINT) from the same team's scoring shot
+// inside the source window. A value already on the event is never overwritten.
+const CR_SCORE_VALS=new Set(['1 POINT','2 POINT','GOAL']);
+function crScoreSourceAutoScore(ss){
+  if(!ss||!/SCORE SOURCE/i.test(ss.code||'')) return;
+  ss.labels=ss.labels||{};
+  if(ss.labels['Score Source Score Outcomes']) return;
+  const hit=EVENTS.find(x=>x!==ss && x.team && x.team===ss.team &&
+    /SHOT/i.test(x.code||'') && !/SOURCE/i.test(x.code||'') &&
+    CR_SCORE_VALS.has(String((x.labels||{})['Shot Outcomes']||x.outcome||'').toUpperCase()) &&
+    (x.driveT??x.start??0)>=(ss.start??0)-2 && (x.driveT??x.start??0)<=(ss.end??0)+3);
+  if(!hit) return;
+  ss.labels['Score Source Score Outcomes']=String((hit.labels||{})['Shot Outcomes']||hit.outcome).toUpperCase();
+  if(!ss._new) ss._dirty=true;
+}
+// The reverse order — shot's outcome answered after the SCORE SOURCE exists —
+// sweeps any same-team source windows covering the shot.
+function crScoreSourceSweep(shot){
+  if(!shot||!/SHOT/i.test(shot.code||'')||/SOURCE/i.test(shot.code||'')) return;
+  const t=(shot.driveT??shot.start??0);
+  EVENTS.forEach(ss=>{ if(ss.team&&ss.team===shot.team&&/SCORE SOURCE/i.test(ss.code||'')&&t>=(ss.start??0)-2&&t<=(ss.end??0)+3) crScoreSourceAutoScore(ss); });
 }
 function crShotCompanion(row, value){
   if(!row||!row.team) return;
