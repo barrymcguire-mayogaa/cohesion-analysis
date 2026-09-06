@@ -328,12 +328,19 @@ function makeYTP(){
     onStateChange:function(e){if(e.data===1)startRAF();else stopRAF();},
     onError:function(e){
       console.warn('YT Error:',e.data);
-      // Show fallback on embedding error (error code 150 = blocked embedding)
-      if(e.data===150||e.data===2){
+      // 2 = malformed video id · 100 = not found / private · 101/150 = the
+      // video's owner (or a copyright claim) disallows playback off YouTube
+      if(e.data===150||e.data===101||e.data===100||e.data===2){
         document.getElementById('ytPlayerDiv').style.display='none';
         document.getElementById('ytFallback').style.display='flex';
         const vid=(GAME.angles&&GAME.angles[currentAngleIdx||0]?.youtubeId)||GAME.youtubeId||'';
         document.getElementById('ytFallbackLink').href='https://youtu.be/'+vid;
+        const msg=document.getElementById('ytFallbackMsg');
+        if(msg){
+          if(e.data===2) msg.innerHTML='The stored video ID <b>'+vid+'</b> is not a valid YouTube ID.<br>Fix the video link for this game in Library → ✏ Edit.';
+          else if(e.data===100) msg.innerHTML='This video was not found — it is <b>Private</b> or has been deleted.<br>In YouTube Studio set its visibility to <b>Unlisted</b> (or Public), then refresh.';
+          else msg.innerHTML='This video\'s settings <b>do not allow playback outside YouTube</b> — usually a<br>copyright claim on the stream, or "Allow embedding" is unticked.<br>In YouTube Studio open the video → Edit → Show more → tick <b>Allow embedding</b>;<br>if there is a copyright claim, trim or mute the claimed section.<br>(Error '+e.data+' · video '+vid+')';
+        }
       }
     }
   });
@@ -419,15 +426,7 @@ function buildHTML(H,A){
       <div id="ytPlayerDiv" style="width:100%;height:100%;"></div>
       <div id="ytFallback" style="display:none;width:100%;height:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;overflow-y:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
         <div style="font-size:14px;color:var(--t2);margin-bottom:12px;">⚠ YouTube is blocking embedded playback</div>
-        <div style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.5;">
-          <div>YouTube may require authentication or is blocking this session.</div>
-          <div style="margin-top:8px;">Try these steps:</div>
-          <div style="margin-top:8px;text-align:left;display:inline-block;color:var(--t2);">
-            <div>1. Click "Open In YouTube" above</div>
-            <div>2. Sign in to your Google account</div>
-            <div>3. Return here and refresh</div>
-          </div>
-        </div>
+        <div id="ytFallbackMsg" style="font-size:12px;color:var(--t3);margin-bottom:16px;line-height:1.6;">This video cannot be played here — open it in YouTube instead.</div>
         <a href="" id="ytFallbackLink" target="_blank" rel="noopener" style="padding:8px 16px;background:var(--accent);color:#fff;border-radius:6px;font-size:11px;font-weight:bold;text-decoration:none;cursor:pointer;">Open In YouTube</a>
       </div>
     </div>
