@@ -351,6 +351,18 @@ let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }c
 function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
 function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
 function sbHalves(){
+  // The half clock starts at the THROW-IN tap — the coder hits it on the
+  // whistle — with the earliest throw-in of each half as that half's zero.
+  let t1=null,t2=null;
+  ALL.forEach(e=>{ if(!/THROW.?IN$/i.test(String(e.code||''))) return;
+    const t=(e.driveT??e.start)??0;
+    if(/2nd|ET/i.test(String(e.half||''))){ t2=(t2==null||t<t2)?t:t2; } else { t1=(t1==null||t<t1)?t:t1; } });
+  if(t1!=null&&t2==null){ // halves not marked: 2nd = the next throw-in well after the 1st
+    let c=null; ALL.forEach(e=>{ if(!/THROW.?IN$/i.test(String(e.code||''))) return;
+      const t=(e.driveT??e.start)??0; if(t>t1+1200&&(c==null||t<c)) c=t; });
+    t2=c;
+  }
+  if(t1!=null) return { h1:t1, h2:t2 };
   const A=(GAME.angles&&GAME.angles[0])||GAME||{};
   let h1=A.half1Start??GAME.half1Start, h2=A.half2Start??GAME.half2Start;
   if(h1==null||(!h1&&!h2)){
