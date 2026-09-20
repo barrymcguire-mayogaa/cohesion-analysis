@@ -287,6 +287,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="crsz" onclick="crSetH(620)">L</div>
             <div class="crsz" onclick="crSetH(760)">Xl</div>
             <span class="vtime" id="vtime">0:00</span>
+            <button class="vbtn" id="sbBtn" onclick="sbToggle()" title="Scoreboard overlay — live score and half clock over the video. Turn off when the footage has its own scoreboard.">🏁</button>
           </div>
         </div>
         <div class="crdh" id="crdh" title="Drag up or down to resize the video"></div>
@@ -590,6 +591,56 @@ function videoTimeToDrive(vt,idx){
   const ms=period==='et2'?(m.et2Start??m.half2Start):period==='et1'?(m.et1Start??m.half2Start):period==='2h'?m.half2Start:m.half1Start;
   return Math.max(0,(ms||0)+gck);
 }
+// ── Scoreboard overlay: abbr + score + half clock over the video ──
+// Score is computed from the bare score events (TEAM 1 POINT / 2 POINT /
+// GOAL) up to the CURRENT video moment, so it tracks the play like a broadcast
+// bug; falls back to shot outcomes for games without bare score events.
+let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }catch(_){ }
+function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
+function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
+function sbHalves(){
+  const A=(typeof crAngles==='function'?crAngles()[0]:null)||{};
+  let h1=A.half1Start, h2=A.half2Start;
+  if(h1==null||(!h1&&!h2)){
+    let m1=null,m2=null;
+    EVENTS.forEach(e=>{ const t=(e.driveT??e.start)??0; if(/2nd|ET/i.test(String(e.half||''))) m2=(m2==null||t<m2)?t:m2; else m1=(m1==null||t<m1)?t:m1; });
+    if(h1==null||!h1) h1=m1||0;
+    if(h2==null||!h2) h2=m2;
+  }
+  return { h1:h1||0, h2:(h2&&h2>0)?h2:null };
+}
+function sbScore(team,t){
+  const TM=String(team||'').toUpperCase(); let g=0,p=0,found=false;
+  EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return; const c=String(e.code||'').toUpperCase();
+    if(c===TM+' GOAL'){g++;found=true;} else if(c===TM+' 1 POINT'){p++;found=true;} else if(c===TM+' 2 POINT'){p+=2;found=true;} });
+  if(!found) EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return;
+    if(String(e.team||'').toUpperCase()!==TM||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
+    const o=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
+    if(o==='GOAL')g++; else if(o==='1 POINT')p++; else if(o==='2 POINT')p+=2; });
+  return g+'-'+String(p).padStart(2,'0');
+}
+function sbTick(){
+  sbSyncBtn();
+  const w=document.getElementById('vwrap'); if(!w) return;
+  let el=document.getElementById('sbOv');
+  if(!el){ w.style.position='relative'; el=document.createElement('div'); el.id='sbOv';
+    el.style.cssText='position:absolute;top:10px;left:10px;z-index:60;display:none;align-items:stretch;font:800 13px "Barlow Condensed",sans-serif;letter-spacing:.5px;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;';
+    w.appendChild(el); }
+  if(!sbOn||!GAME||!(GAME.homeTeam||GAME.awayTeam)){ el.style.display='none'; return; }
+  const t=(typeof vNow==='function'?vNow():0)||0;
+  const H=sbHalves();
+  let tag,gs;
+  if(H.h2!=null&&t>=H.h2){ tag='2H'; gs=t-H.h2; } else { tag='1H'; gs=Math.max(0,t-H.h1); }
+  const mm=Math.floor(gs/60), ss=Math.floor(gs%60);
+  const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
+  el.style.display='flex';
+  el.innerHTML='<span style="background:'+hC+';color:'+sbInk(hC)+';padding:5px 9px;">'+sbAbbr(GAME.homeTeam)+' '+sbScore(GAME.homeTeam,t)+'</span>'
+    +'<span style="background:rgba(10,12,18,.85);color:#fff;padding:5px 9px;font-family:\'DM Mono\',monospace;">'+tag+' '+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0')+'</span>'
+    +'<span style="background:'+aC+';color:'+sbInk(aC)+';padding:5px 9px;">'+sbScore(GAME.awayTeam,t)+' '+sbAbbr(GAME.awayTeam)+'</span>';
+}
+function sbToggle(){ sbOn=!sbOn; try{ localStorage.setItem('coh_scoreboard',sbOn?'1':'0'); }catch(_){ } sbSyncBtn(); sbTick(); }
+function sbSyncBtn(){ const b=document.getElementById('sbBtn'); if(b){ b.style.borderColor=sbOn?'var(--accent)':''; b.style.color=sbOn?'var(--accent)':''; } }
+setInterval(sbTick,500);
 // Current video position in DRIVE (main-angle) reference.
 function vNow(){ return videoTimeToDrive((YTP&&YTP.getCurrentTime?YTP.getCurrentTime():0)||0, crAngleIdx); }
 // Seek to a drive-reference time on whichever angle is showing.
@@ -2930,6 +2981,7 @@ function codeApplyOutcome(value){
     crShotCompanion(row, value);
     crKoCompanions(row, value);
     crToCompanions(row, value);
+    if(pl.link&&pl.link.group==='Shot Outcomes') crAutoSourceFor(row, value);
     crScoreSourceSweep(row);                    // scoring shot fills covering SCORE SOURCEs
     crScoreSourceAutoScore(row);                // SCORE SOURCE answered after its shot
     crBackup(); crUpdatePending(); renderList();
@@ -3161,6 +3213,49 @@ function crToCompanions(row, value){
   const fl={}; const loc=(row.labels||{})['Turnover Locations'];
   if(loc) fl['Foul Areas']=loc;
   crPushCompanion(row,'FOUL',fl);
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists();
+}
+// Auto SHOT/SCORE SOURCE (the tracker's behaviour): answering a shot's
+// outcome builds the source chain for it — spanning from the team's
+// possession start to the end of the shot — and infers where the possession
+// came from (throw-in, own/opp kickout, turnover type, free won) from the
+// events around the possession start. Never created when a source already
+// covers the shot (manually coded ones win); deleted with the shot.
+function crAutoSourceFor(shot, outcome){
+  if(!shot||!shot.team||!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(shot.code||'')) return;
+  const t=(shot.driveT??shot.start)??0;
+  const scoring=CR_SCORE_VALS.has(String(outcome||'').toUpperCase());
+  const base=scoring?'SCORE SOURCE':'SHOT SOURCE';
+  if(EVENTS.some(x=>x.team===shot.team&&/(SCORE|SHOT) SOURCE/i.test(x.code||'')&&t>=(x.start??0)-2&&t<=(x.end??0)+3)) return;
+  // possession window: the latest same-team TEAM POSSESSION that reaches the shot
+  let poss=null;
+  EVENTS.forEach(x=>{ if(x.team===shot.team&&/TEAM POSSESSION/i.test(x.code||'')&&(x.start??0)<=t+2&&(x.end??0)>=t-40&&(poss==null||(x.start??0)>(poss.start??0))) poss=x; });
+  const srcStart=poss?(poss.start??t):Math.max(0,t-10);
+  // infer the possession source near its start
+  const near=x=>{ const xt=(x.driveT??x.start)??0; return Math.abs(xt-srcStart)<=7||((x.start??0)<=srcStart&&(x.end??0)>=srcStart); };
+  const TM=shot.team.toUpperCase();
+  let src='';
+  for(const x of EVENTS){ if(x===shot||!near(x)) continue; const c=(x.code||'').toUpperCase();
+    if(/THROW.?IN/.test(c)&&(!x.team||String((x.labels||{})['Won By']||'').toUpperCase()===TM)){ src='THROW-IN'; break; } }
+  if(!src) for(const x of EVENTS){ if(!near(x)) continue; const c=(x.code||'').toUpperCase();
+    if(!/(\bKO\b|KICKOUT)/.test(c)||/\bTOS?\b/.test(c)) continue;
+    const o=String((x.labels||{})['Kickout Outcomes']||x.outcome||'').toUpperCase();
+    if(x.team===shot.team&&/WON/.test(o)&&!/LOST/.test(o)){ src='OWN KICKOUT'; break; }
+    if(x.team&&x.team!==shot.team&&/LOST/.test(o)){ src='OPP KICKOUT'; break; } }
+  if(!src) for(const x of EVENTS){ if(!near(x)||!x.team||x.team===shot.team) continue; const c=(x.code||'').toUpperCase();
+    if(/\bTOS?\b|TURNOVER/.test(c)){ const o=String((x.labels||{})['Turnover Outcomes']||x.outcome||'').toUpperCase();
+      if(/KICKOUT LOST/.test(o)){ src='OPP KICKOUT'; } else if(/FREE AGAINST/.test(o)){ src='FREE WON'; }
+      else if(/UNFORCED/.test(o)){ src='UNFORCED TURNOVER'; } else { src='FORCED TURNOVER'; } break; }
+    if(/\bFOULS?\b/.test(c)){ src='FREE WON'; break; } }
+  const labels={};
+  if(src) labels[scoring?'Score Source Outcomes':'Shot Source Outcomes']=src;
+  if(scoring) labels['Score Source Score Outcomes']=String(outcome).toUpperCase();
+  const tmpId='tmp-'+(++crTmpCounter);
+  EVENTS.push({ id:'manual-'+Date.now()+'-'+tmpId, start:srcStart, end:Math.max(srcStart+1,(shot.end??t)), half:shot.half,
+    code:shot.team+' '+base, team:shot.team, player:'', outcome:src, subtype:'', category:catOf(base)||'Other',
+    driveT:srcStart, labels, _manual:true, _rowId:tmpId, _new:true, _shotComp:shot._rowId });
+  undoStack.push({type:'add', rowId:tmpId});
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
 }

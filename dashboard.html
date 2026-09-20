@@ -346,6 +346,55 @@ function makeYTP(){
   });
   setTimeout(()=>{const el=document.getElementById('ytPlayerDiv');if(el){el.querySelectorAll('iframe').forEach(f=>{f.style.width='100%';f.style.height='100%';f.style.border='none';});}},1200);
 }
+// ── Scoreboard overlay: abbr + score + half clock over the video ──
+let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }catch(_){ }
+function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
+function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
+function sbHalves(){
+  const A=(GAME.angles&&GAME.angles[0])||GAME||{};
+  let h1=A.half1Start??GAME.half1Start, h2=A.half2Start??GAME.half2Start;
+  if(h1==null||(!h1&&!h2)){
+    let m1=null,m2=null;
+    ALL.forEach(e=>{ const t=(e.driveT??e.start)??0; if(/2nd|ET/i.test(String(e.half||''))) m2=(m2==null||t<m2)?t:m2; else m1=(m1==null||t<m1)?t:m1; });
+    if(h1==null||!h1) h1=m1||0;
+    if(h2==null||!h2) h2=m2;
+  }
+  return { h1:h1||0, h2:(h2&&h2>0)?h2:null };
+}
+function sbScore(team,t){
+  const TM=String(team||'').toUpperCase(); let g=0,p=0,found=false;
+  ALL.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return; const c=String(e.code||'').toUpperCase();
+    if(c===TM+' GOAL'){g++;found=true;} else if(c===TM+' 1 POINT'){p++;found=true;} else if(c===TM+' 2 POINT'){p+=2;found=true;} });
+  if(!found) ALL.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return;
+    if(String(e.team||'').toUpperCase()!==TM||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
+    const o=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
+    if(o==='GOAL')g++; else if(o==='1 POINT')p++; else if(o==='2 POINT')p+=2; });
+  return g+'-'+String(p).padStart(2,'0');
+}
+function sbTick(){
+  sbSyncBtn();
+  const w=document.getElementById('VA'); if(!w) return;
+  let el=document.getElementById('sbOv');
+  if(!el){ w.style.position='relative'; el=document.createElement('div'); el.id='sbOv';
+    el.style.cssText='position:absolute;top:10px;left:10px;z-index:60;display:none;align-items:stretch;font:800 13px "Barlow Condensed",sans-serif;letter-spacing:.5px;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.5);pointer-events:none;';
+    w.appendChild(el); }
+  if(!sbOn||!GAME||!(GAME.homeTeam||GAME.awayTeam)){ el.style.display='none'; return; }
+  const t=(YTP&&YTP.getCurrentTime)?videoTimeToDrive(YTP.getCurrentTime()||0,currentAngleIdx):0;
+  const H=sbHalves();
+  let tag,gs;
+  if(H.h2!=null&&t>=H.h2){ tag='2H'; gs=t-H.h2; } else { tag='1H'; gs=Math.max(0,t-H.h1); }
+  const mm=Math.floor(gs/60), ss=Math.floor(gs%60);
+  const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
+  const hC=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(GAME.homeTeam)||'#2563eb';
+  const aC=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(GAME.awayTeam)||'#22c55e';
+  el.style.display='flex';
+  el.innerHTML='<span style="background:'+hC+';color:'+sbInk(hC)+';padding:5px 9px;">'+sbAbbr(GAME.homeTeam)+' '+sbScore(GAME.homeTeam,t)+'</span>'
+    +'<span style="background:rgba(10,12,18,.85);color:#fff;padding:5px 9px;font-family:monospace;">'+tag+' '+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0')+'</span>'
+    +'<span style="background:'+aC+';color:'+sbInk(aC)+';padding:5px 9px;">'+sbScore(GAME.awayTeam,t)+' '+sbAbbr(GAME.awayTeam)+'</span>';
+}
+function sbToggle(){ sbOn=!sbOn; try{ localStorage.setItem('coh_scoreboard',sbOn?'1':'0'); }catch(_){ } sbSyncBtn(); sbTick(); }
+function sbSyncBtn(){ const b=document.getElementById('sbBtn'); if(b){ b.style.borderColor=sbOn?'var(--accent)':''; b.style.color=sbOn?'var(--accent)':''; } }
+setInterval(sbTick,500);
 function seekV(t){curT=t;const vt=driveToAngle(t,currentAngleIdx);if(YTP&&YTP.seekTo){YTP.seekTo(vt,true);YTP.playVideo();}else pendSeek=vt;updatePH(t);}
 function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=YTP.getCurrentTime();vidT=videoTimeToDrive(vt,currentAngleIdx);updatePH(vidT);}rafID=requestAnimationFrame(f);}rafID=requestAnimationFrame(f);}
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
@@ -419,6 +468,7 @@ function buildHTML(H,A){
       </div>
       <div class="angle-grp" id="angleGrp" style="display:none;gap:2px;padding-left:8px;border-left:1px solid var(--border);"></div>
       <div class="v-spacer"></div>
+      <div class="tbtn" id="sbBtn" onclick="sbToggle()" title="Scoreboard overlay — live score and half clock over the video. Turn off when the footage has its own scoreboard.">🏁 Score</div>
       <div class="tbtn tbtn-fs" onclick="goFS()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 4h-4v2h6v-6h-2v4z"/></svg> Fullscreen</div>
       <a id="YTB" class="tbtn tbtn-yt" href="https://youtu.be/${(GAME.angles&&GAME.angles[0]?.youtubeId)||GAME.youtubeId||''}" target="_blank" rel="noopener"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.8 15.5V8.5l6.4 3.5-6.4 3.5z"/></svg> Open In Youtube</a>
     </div>
@@ -1284,29 +1334,35 @@ function dashMapData(){
 // triangle goal. kind 'ko': dot = retained, X = lost.
 function dashBuildMapCanvas(kind,hHex,aHex){
   const D=dashMapData();
-  const yf=kind==='shot'?1:1, vbH=kind==='shot'?75:89;
+  // Chart aspect matched to the tracker's own maps (shot 3402x2829, KO 625x685
+  // crop): the pitch art is stretched vertically inside a <g>, markers are
+  // plotted in the OUTER space so they stay round — and smaller, like the
+  // tracker's, so clusters read cleanly.
+  const vbH=kind==='shot'?75:89, H2=kind==='shot'?83.2:109.6, STR=H2/vbH;
   const evs=kind==='shot'?D.shots:D.kos;
   const colOf=s=>s==='h'?hHex:aHex;
   const marks=evs.map(m=>{
-    const c=colOf(m.s), x=m.x, y=kind==='shot'?m.y*0.75:koPlotY(m.y);
+    const c=colOf(m.s), x=m.x;
+    const y=kind==='shot'?m.y*(H2/100):Math.min(H2-1.6, m.y*(137/92)*(H2/100));
     if(kind==='ko'){
-      if(m.won) return `<circle cx="${x}" cy="${y}" r="1.9" fill="${c}" stroke="#111" stroke-width=".45"/>`;
-      return `<g stroke="#111" stroke-width="1.7"><line x1="${x-1.7}" y1="${y-1.7}" x2="${x+1.7}" y2="${y+1.7}"/><line x1="${x-1.7}" y1="${y+1.7}" x2="${x+1.7}" y2="${y-1.7}"/></g>`
-        +`<g stroke="${c}" stroke-width="1"><line x1="${x-1.7}" y1="${y-1.7}" x2="${x+1.7}" y2="${y+1.7}"/><line x1="${x-1.7}" y1="${y+1.7}" x2="${x+1.7}" y2="${y-1.7}"/></g>`;
+      if(m.won) return `<circle cx="${x}" cy="${y}" r="1.35" fill="${c}" stroke="#111" stroke-width=".35"/>`;
+      return `<g stroke="#111" stroke-width="1.25"><line x1="${x-1.25}" y1="${y-1.25}" x2="${x+1.25}" y2="${y+1.25}"/><line x1="${x-1.25}" y1="${y+1.25}" x2="${x+1.25}" y2="${y-1.25}"/></g>`
+        +`<g stroke="${c}" stroke-width=".75"><line x1="${x-1.25}" y1="${y-1.25}" x2="${x+1.25}" y2="${y+1.25}"/><line x1="${x-1.25}" y1="${y+1.25}" x2="${x+1.25}" y2="${y-1.25}"/></g>`;
     }
-    const fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.45':'1';
-    if(m.shape==='tri') return `<path d="M ${x} ${y-2.5} L ${x+2.3} ${y+1.8} L ${x-2.3} ${y+1.8} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    if(m.shape==='dia') return `<path d="M ${x} ${y-2.5} L ${x+2.3} ${y} L ${x} ${y+2.5} L ${x-2.3} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    return `<circle cx="${x}" cy="${y}" r="1.9" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    const fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
+    if(m.shape==='tri') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y+1.35} L ${x-1.7} ${y+1.35} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    if(m.shape==='dia') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y} L ${x} ${y+1.85} L ${x-1.7} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="1.4" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
   }).join('');
-  const svg=locPitchSvg(kind)
-    .replace(/ id="locSvg"/,'').replace(/ style="[^"]*"/,'')
-    .replace('<g id="mapMarks"></g>','<g>'+marks+'</g>')
-    .replace('<svg','<svg xmlns="http://www.w3.org/2000/svg" width="600" height="'+Math.round(600*vbH/100)+'"');
+  const inner=locPitchSvg(kind)
+    .replace(/^<svg[^>]*>/,'')
+    .replace('<g id="mapMarks"></g></svg>','');
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 '+H2+'" width="600" height="'+Math.round(600*H2/100)+'">'
+    +'<g transform="scale(1,'+STR.toFixed(4)+')">'+inner+'</g><g>'+marks+'</g></svg>';
   return new Promise(res=>{
     const im=new Image();
     im.onload=()=>{
-      const W=640,MH=Math.round(600*vbH/100),LEG=64;
+      const W=640,MH=Math.round(600*H2/100),LEG=64;
       const cv=document.createElement('canvas'); cv.width=W; cv.height=MH+LEG+20;
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cv.width,cv.height);
