@@ -2993,7 +2993,6 @@ function codeApplyOutcome(value){
     crShotCompanion(row, value);
     crKoCompanions(row, value);
     crToCompanions(row, value);
-    if(pl.link&&pl.link.group==='Shot Outcomes') crAutoSourceFor(row, value);
     crScoreSourceSweep(row);                    // scoring shot fills covering SCORE SOURCEs
     crScoreSourceAutoScore(row);                // SCORE SOURCE answered after its shot
     crBackup(); crUpdatePending(); renderList();
@@ -3225,49 +3224,6 @@ function crToCompanions(row, value){
   const fl={}; const loc=(row.labels||{})['Turnover Locations'];
   if(loc) fl['Foul Areas']=loc;
   crPushCompanion(row,'FOUL',fl);
-  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
-  refreshDatalists();
-}
-// Auto SHOT/SCORE SOURCE (the tracker's behaviour): answering a shot's
-// outcome builds the source chain for it — spanning from the team's
-// possession start to the end of the shot — and infers where the possession
-// came from (throw-in, own/opp kickout, turnover type, free won) from the
-// events around the possession start. Never created when a source already
-// covers the shot (manually coded ones win); deleted with the shot.
-function crAutoSourceFor(shot, outcome){
-  if(!shot||!shot.team||!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(shot.code||'')) return;
-  const t=(shot.driveT??shot.start)??0;
-  const scoring=CR_SCORE_VALS.has(String(outcome||'').toUpperCase());
-  const base=scoring?'SCORE SOURCE':'SHOT SOURCE';
-  if(EVENTS.some(x=>x.team===shot.team&&/(SCORE|SHOT) SOURCE/i.test(x.code||'')&&t>=(x.start??0)-2&&t<=(x.end??0)+3)) return;
-  // possession window: the latest same-team TEAM POSSESSION that reaches the shot
-  let poss=null;
-  EVENTS.forEach(x=>{ if(x.team===shot.team&&/TEAM POSSESSION/i.test(x.code||'')&&(x.start??0)<=t+2&&(x.end??0)>=t-40&&(poss==null||(x.start??0)>(poss.start??0))) poss=x; });
-  const srcStart=poss?(poss.start??t):Math.max(0,t-10);
-  // infer the possession source near its start
-  const near=x=>{ const xt=(x.driveT??x.start)??0; return Math.abs(xt-srcStart)<=7||((x.start??0)<=srcStart&&(x.end??0)>=srcStart); };
-  const TM=shot.team.toUpperCase();
-  let src='';
-  for(const x of EVENTS){ if(x===shot||!near(x)) continue; const c=(x.code||'').toUpperCase();
-    if(/THROW.?IN/.test(c)&&(!x.team||String((x.labels||{})['Won By']||'').toUpperCase()===TM)){ src='THROW-IN'; break; } }
-  if(!src) for(const x of EVENTS){ if(!near(x)) continue; const c=(x.code||'').toUpperCase();
-    if(!/(\bKO\b|KICKOUT)/.test(c)||/\bTOS?\b/.test(c)) continue;
-    const o=String((x.labels||{})['Kickout Outcomes']||x.outcome||'').toUpperCase();
-    if(x.team===shot.team&&/WON/.test(o)&&!/LOST/.test(o)){ src='OWN KICKOUT'; break; }
-    if(x.team&&x.team!==shot.team&&/LOST/.test(o)){ src='OPP KICKOUT'; break; } }
-  if(!src) for(const x of EVENTS){ if(!near(x)||!x.team||x.team===shot.team) continue; const c=(x.code||'').toUpperCase();
-    if(/\bTOS?\b|TURNOVER/.test(c)){ const o=String((x.labels||{})['Turnover Outcomes']||x.outcome||'').toUpperCase();
-      if(/KICKOUT LOST/.test(o)){ src='OPP KICKOUT'; } else if(/FREE AGAINST/.test(o)){ src='FREE WON'; }
-      else if(/UNFORCED/.test(o)){ src='UNFORCED TURNOVER'; } else { src='FORCED TURNOVER'; } break; }
-    if(/\bFOULS?\b/.test(c)){ src='FREE WON'; break; } }
-  const labels={};
-  if(src) labels[scoring?'Score Source Outcomes':'Shot Source Outcomes']=src;
-  if(scoring) labels['Score Source Score Outcomes']=String(outcome).toUpperCase();
-  const tmpId='tmp-'+(++crTmpCounter);
-  EVENTS.push({ id:'manual-'+Date.now()+'-'+tmpId, start:srcStart, end:Math.max(srcStart+1,(shot.end??t)), half:shot.half,
-    code:shot.team+' '+base, team:shot.team, player:'', outcome:src, subtype:'', category:catOf(base)||'Other',
-    driveT:srcStart, labels, _manual:true, _rowId:tmpId, _new:true, _shotComp:shot._rowId });
-  undoStack.push({type:'add', rowId:tmpId});
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
 }
