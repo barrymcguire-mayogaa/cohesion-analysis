@@ -14,7 +14,9 @@ header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:
 .logo{font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;}
 .logo span{color:var(--accent);}
 .sub{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.2em;color:var(--t3);}
-.hdr-btn{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
+.hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hdr-btn{background:transparent;cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
+.hdr-btn:disabled{opacity:.35;cursor:default;}
 .wrap{max-width:1180px;margin:0 auto;padding:18px 22px 60px;}
 .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;}
 .fg{display:flex;flex-direction:column;gap:5px;}
@@ -54,7 +56,11 @@ button.act:disabled{opacity:.4;cursor:default;}
 <header>
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
   <div class="sub">SEASON STATS</div>
-  <a href="library.html" class="hdr-btn">← Library</a>
+  <div class="hdr-actions">
+    <button class="hdr-btn" id="pdfBtn" onclick="ssExportPDF()" disabled title="Run a comparison first">📄 PDF</button>
+    <button class="hdr-btn" id="imgBtn" onclick="ssExportImage()" disabled title="Run a comparison first">🖼 Image</button>
+    <a href="library.html" class="hdr-btn">← Library</a>
+  </div>
 </header>
 <div class="wrap">
   <div class="filters">
@@ -75,6 +81,8 @@ button.act:disabled{opacity:.4;cursor:default;}
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="cohesion-edit.js"></script>
 <script>
@@ -107,6 +115,17 @@ function ssScoreVal(txt){
   if(/POINT|1PT/.test(K)&&!/ATTEMPT/.test(K)) return 1;
   return 0;
 }
+// Attempt type from a 'Shot Attempts' / 'Attempt' label ('1 Point Attempt',
+// '2 Point Attempt', 'Goal Attempt'; also tolerates 1PT/2PT/TWO/ONE POINT).
+// Returns '1' | '2' | 'G' | null. Never inferred from distance or zone.
+function ssAttType(txt){
+  const K=ssUC(txt);
+  if(!K) return null;
+  if(/GOAL/.test(K)) return 'G';
+  if(/\b2\s*-?\s*(POINT|PT|PTS)\b|TWO[\s-]*POINT|\b2PT/.test(K)) return '2';
+  if(/\b1\s*-?\s*(POINT|PT|PTS)\b|ONE[\s-]*POINT|\b1PT|\bPOINT/.test(K)) return '1';
+  return null;
+}
 function ssKoWon(v){ const K=ssUC(v); return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); }
 
 // Per-game tallies for team T (uppercase). O = opponent name (uppercase).
@@ -115,7 +134,8 @@ function ssGameTally(meta, events, T){
   if(T!==H&&T!==A) return null;
   const O=(T===H)?A:H;
   const g={ games:1,
-    shots:0, scores:0, pts:0, twoPts:0,
+    shots:0, scores:0, pts:0, onePts:0, twoPts:0, goals:0,
+    att1:0, att1Scored:0, att2:0, att2Scored:0,
     goalCh:0, goalScored:0, attemptData:false,
     ownKO:0, ownKOWon:0, oppKO:0, oppKOWonByT:0, koData:false,
     srcData:false, srcOwnKO:0, srcOppKO:0, srcTO:0, srcTotal:0,
@@ -131,12 +151,17 @@ function ssGameTally(meta, events, T){
       const out=ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'';
       g.shots++;
       const v=ssScoreVal(out);
-      if(v>0){ g.scores++; g.pts+=v; if(v===2) g.twoPts++; }
+      if(v>0){ g.scores++; g.pts+=v; if(v===1) g.onePts++; else if(v===2) g.twoPts++; else if(v===3) g.goals++; }
       // A goal chance = an explicit Goal Attempt label, OR any shot that
       // ENDED as a goal or a save (those are chances by definition, even in
       // XMLs that carry no attempt labels — fixes phantom 0% conversion).
       const att=(e.labels||{})['Shot Attempts']||(e.labels||{})['Attempt'];
       if(att) g.attemptData=true;
+      // per-type conversion: only shots that CARRY an attempt label count,
+      // so unlabelled games simply add nothing (→ n/a, not a fake 0%).
+      const aType=ssAttType(att);
+      if(aType==='1'){ g.att1++; if(v===1) g.att1Scored++; }
+      else if(aType==='2'){ g.att2++; if(v===2) g.att2Scored++; }
       const attGoal=att&&/GOAL/.test(ssUC(att));
       const isGoal=v===3, isSave=/SAVE/.test(ssUC(out));
       if(attGoal||isGoal||isSave){ g.goalCh++; if(isGoal) g.goalScored++; }
@@ -217,7 +242,11 @@ function ssMetrics(){
     ['SHOOTING','Shot/Score %','', a=>pct(a.scores,a.shots)],
     ['SHOOTING','Shots per Game','', a=>per(a.shots,a.games)],
     ['SHOOTING','Total Pts per Game','', a=>per(a.pts,a.games,1)],
+    ['SHOOTING','1pt per Game','', a=>per(a.onePts,a.games,1)],
     ['SHOOTING','2pt per Game','', a=>per(a.twoPts,a.games,2)],
+    ['SHOOTING','Goals per Game','', a=>per(a.goals,a.games,2)],
+    ['SHOOTING','1pt Conversion %','1pt scores ÷ labelled 1pt attempts', a=>a.att1>0?pct(a.att1Scored,a.att1):null],
+    ['SHOOTING','2pt Conversion %','2pt scores ÷ labelled 2pt attempts', a=>a.att2>0?pct(a.att2Scored,a.att2):null],
     ['SHOOTING','Goal Chances per Game','', a=>(a.attemptData||a.goalCh>0)?per(a.goalCh,a.games):null],
     ['SHOOTING','Goal Chance Conversion %','', a=>(a.goalCh>0)?pct(a.goalScored,a.goalCh):null],
     ['POSSESSION','Possession %','needs possession instances', a=>(a.possData&&(a.possDur+a.possDurOpp)>0)?pct(a.possDur,a.possDur+a.possDurOpp):null],
@@ -332,7 +361,7 @@ async function runCompare(){
       rb={baseline:teams.map(t=>teamAgg(bundles,t))};
       nameB='ALL TEAMS AVG';
     } else { rb=teamAgg(bundles,B); nameB=B; }
-    render(A, ra, nameB, rb);
+    render(A, ra, nameB, rb, games);
     st.textContent='';
   }catch(e){ st.textContent='Could not compute: '+e.message; }
   btn.disabled=false;
@@ -348,7 +377,8 @@ function metricFor(res, fn){
   }
   return fn(res.agg);
 }
-function render(nameA, ra, nameB, rb){
+let SS_LAST=null;   // snapshot of exactly what's on screen, for the exports
+function render(nameA, ra, nameB, rb, games){
   const cols=ssDisplayColors(nameA, rb.baseline?'__baseline__':nameB);
   const board=document.getElementById('board');
   board.style.setProperty('--colA', cols.a);
@@ -357,11 +387,13 @@ function render(nameA, ra, nameB, rb){
   document.getElementById('nameA').textContent=nameA;
   document.getElementById('nameB').textContent=nameB;
   document.getElementById('gcA').textContent=(ra.games||0)+' games'+(rb.baseline?'':' v '+(rb.games||0));
-  const secs={};
+  const secs={}, snapSecs=[];
   ssMetrics().forEach(([sec,label,sub,fn])=>{
     const a=metricFor(ra,fn), b=metricFor(rb,fn);
     const max=Math.max(a&&isFinite(a.v)?Math.abs(a.v):0, b&&isFinite(b.v)?Math.abs(b.v):0)||1;
     const barW=x=>x?Math.max(3,Math.abs(x.v)/max*100):0;
+    let ss=snapSecs.find(x=>x.name===sec); if(!ss){ ss={name:sec, rows:[]}; snapSecs.push(ss); }
+    ss.rows.push({label, sub, a:a?a.txt:null, b:b?b.txt:null, wa:barW(a), wb:barW(b)});
     (secs[sec]=secs[sec]||[]).push(
       `<div class="row">
         <div class="val a ${a?'':'na'}">${a?a.txt:'n/a'}</div>
@@ -373,6 +405,279 @@ function render(nameA, ra, nameB, rb){
   });
   document.getElementById('sections').innerHTML=Object.entries(secs)
     .map(([s,rows])=>`<div class="sec"><h3>${s}</h3>${rows.join('')}</div>`).join('');
+  SS_LAST={ nameA, nameB, baseline:!!rb.baseline,
+    gcount:document.getElementById('gcA').textContent,
+    cols, pcols:ssPrintColors(nameA, rb.baseline?'__baseline__':nameB),
+    games:(games||[]).map(g=>({title:g.title||((g.homeTeam||'?')+' v '+(g.awayTeam||'?')), home:g.homeTeam||'', away:g.awayTeam||'', date:g.date||'', competition:g.competition||''})),
+    filters:{competition:(document.getElementById('fComp')||{}).value||'', season:(document.getElementById('fYear')||{}).value||''},
+    sections:snapSecs };
+  ['pdfBtn','imgBtn'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.disabled=false; el.title=''; } });
+}
+// ═══════════════════════════════════════════════════════════════
+//  EXPORTS — PDF (white, print-friendly, native jsPDF + autoTable)
+//  and PNG (dark COHESION theme, hand-drawn canvas at 2x). Both read
+//  SS_LAST, the snapshot render() took of exactly what's on screen.
+// ═══════════════════════════════════════════════════════════════
+// print colours: same source as the page (game metas), but NOT lifted for
+// a dark background — navy stays navy on white paper.
+function ssPrintColors(TA, TB){
+  const fallbackA='#2dd4bf', fallbackB='#f5a623';
+  const hexOf=c2=>c2?('#'+c2.rgb.map(v=>v.toString(16).padStart(2,'0')).join('')):null;
+  let a=hexOf(ssTeamColor(TA))||fallbackA;
+  let b=(TB&&TB!=='__baseline__')?(hexOf(ssTeamColor(TB))||fallbackB):fallbackB;
+  const ra=ssHexRgb(a), rb=ssHexRgb(b);
+  if(ra&&rb){ const d=Math.hypot(ra[0]-rb[0],ra[1]-rb[1],ra[2]-rb[2]); if(d<90) b=fallbackB; }
+  if(a.toLowerCase()===fallbackB.toLowerCase()) a=fallbackA;
+  return {a,b};
+}
+const SS_PDF_GREY=[156,163,175];            // #9ca3af outline for anything light
+const ssRlum=rgb=>0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];
+const ssIsLight=rgb=>ssRlum(rgb)>=200;       // same rule as dashboard.html's PDF
+const ssPdfTextCol=rgb=>ssIsLight(rgb)?[122,128,140]:rgb;   // light text → substitute grey
+// helvetica (WinAnsi) can't draw arrows, minus signs, bullets or shapes:
+// map the ones we use to ASCII and drop anything else outside Latin-1.
+function ssPdfTxt(s){
+  return String(s==null?'':s)
+    .replace(/[→⟶➔]/g,'->').replace(/[←]/g,'<-').replace(/[−–—]/g,'-').replace(/÷/g,'/')
+    .replace(/×/g,'x').replace(/…/g,'...').replace(/[‘’]/g,"'").replace(/[“”]/g,'"')
+    .replace(/≥/g,'>=').replace(/≤/g,'<=')
+    .replace(/[^\x00-\xff]/g,'');
+}
+function ssSlug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'team'; }
+function ssExportName(snap, ext, now){
+  const d=now||new Date();
+  const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const teams=ssSlug(snap.nameA)+'_v_'+(snap.baseline?'baseline':ssSlug(snap.nameB));
+  return 'season_stats_'+teams+'_'+ds+'.'+ext;
+}
+function ssGameLine(g){ return [g.title, g.competition, g.date].filter(Boolean).join(' · '); }
+
+function ssBuildPDF(snap, NS, now){
+  const teamsShown=2;   // Team A + Team B/baseline; wider layouts would go landscape
+  const doc=new NS.jsPDF({orientation:teamsShown>2?'landscape':'portrait', unit:'mm', format:'a4'});
+  const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+  const ML=12, MR=12, MT=14, MB=14, CW=PW-ML-MR;
+  const C_TEXT=[30,30,40], C_T2=[100,100,115], C_ACC=[2,132,199], C_AMB=[180,83,9];
+  const cA=ssHexRgb(snap.pcols.a)||[45,212,191], cB=ssHexRgb(snap.pcols.b)||[245,166,35];
+  const painted=new Set();
+  const pageNo=()=>doc.internal.getCurrentPageInfo().pageNumber;
+  const paintWhite=()=>{ const n=pageNo(); if(painted.has(n)) return; painted.add(n);
+    doc.setFillColor(255,255,255); doc.rect(0,0,PW,PH,'F'); };
+  const T=(s,x,y,o)=>doc.text(ssPdfTxt(s),x,y,o);
+  // filled shape; anything light gets the grey outline so it survives on white
+  const fillBox=(x,y,w,h,rgb,r)=>{
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+    const light=ssIsLight(rgb);
+    if(light){ doc.setDrawColor(...SS_PDF_GREY); doc.setLineWidth(0.25); }
+    const mode=light?'FD':'F';
+    if(r) doc.roundedRect(x,y,w,h,r,r,mode); else doc.rect(x,y,w,h,mode);
+  };
+  const cellBase={font:'helvetica', fontSize:8.5, textColor:C_TEXT, fillColor:[255,255,255],
+    lineColor:SS_PDF_GREY, lineWidth:0.2, cellPadding:1.6, valign:'middle'};
+
+  // ── header ──
+  paintWhite();
+  let y=MT;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...C_ACC);
+  T('COHESION ANALYSIS · Season Stats', ML, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...C_T2);
+  const d=now||new Date();
+  T('Generated '+d.toISOString().slice(0,10), PW-MR, y, {align:'right'});
+  y+=8;
+  // team line with outlined colour swatches
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  fillBox(ML, y-3.4, 4, 4, cA, 0.6);
+  doc.setTextColor(...ssPdfTextCol(cA)); T(snap.nameA, ML+6, y);
+  let x=ML+6+doc.getTextWidth(ssPdfTxt(snap.nameA))+4;
+  doc.setTextColor(...C_T2); doc.setFont('helvetica','normal'); T('v', x, y); x+=5;
+  doc.setFont('helvetica','bold');
+  fillBox(x, y-3.4, 4, 4, cB, 0.6);
+  doc.setTextColor(...ssPdfTextCol(cB)); T(snap.nameB, x+6, y);
+  y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...C_T2);
+  const filt=[snap.filters&&snap.filters.competition?'Competition: '+snap.filters.competition:'Competition: All',
+              snap.filters&&snap.filters.season?'Season: '+snap.filters.season:'Season: All',
+              'Head-to-head: '+(snap.gcount||'')].join('   ·   ');
+  T(filt, ML, y);
+  y+=4;
+
+  // ── games included ──
+  doc.autoTable({
+    startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+    head:[[{content:'GAMES INCLUDED ('+snap.games.length+')', colSpan:4, styles:{halign:'left', fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold'}}],
+          ['#','Game','Date','Competition']],
+    body:snap.games.map((g,i)=>[String(i+1), ssPdfTxt(g.title), ssPdfTxt(g.date||'-'), ssPdfTxt(g.competition||'-')]),
+    styles:cellBase,
+    headStyles:{fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+    columnStyles:{0:{cellWidth:8, halign:'center'}, 2:{cellWidth:24}, 3:{cellWidth:48}},
+    showHead:'everyPage', rowPageBreak:'avoid',
+    willDrawPage:paintWhite });
+  y=doc.lastAutoTable.finalY+6;
+
+  // ── one table per section, mirrored bars drawn into the bar cells ──
+  const VALW=22, LBLW=58, BARW=(CW-2*VALW-LBLW)/2;
+  snap.sections.forEach(sec=>{
+    if(y+30>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    const rows=sec.rows;
+    doc.autoTable({
+      startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+      head:[[{content:sec.name, colSpan:5, styles:{halign:'center', fillColor:[254,243,199], textColor:C_AMB, fontStyle:'bold', fontSize:10}}],
+            [{content:ssPdfTxt(snap.nameA), styles:{textColor:ssPdfTextCol(cA), halign:'left'}},
+             '', {content:'Metric', styles:{halign:'center'}}, '',
+             {content:ssPdfTxt(snap.nameB), styles:{textColor:ssPdfTextCol(cB), halign:'right'}}]],
+      body:rows.map(r=>[r.a==null?'n/a':ssPdfTxt(r.a), '', ssPdfTxt(r.label+(r.sub?'\n'+r.sub:'')), '', r.b==null?'n/a':ssPdfTxt(r.b)]),
+      styles:cellBase,
+      headStyles:{fillColor:[249,250,251], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+      columnStyles:{0:{cellWidth:VALW, halign:'left', fontStyle:'bold'}, 1:{cellWidth:BARW}, 2:{cellWidth:LBLW, halign:'center'},
+                    3:{cellWidth:BARW}, 4:{cellWidth:VALW, halign:'right', fontStyle:'bold'}},
+      showHead:'everyPage', rowPageBreak:'avoid',
+      willDrawPage:paintWhite,
+      didParseCell:h=>{
+        if(h.section!=='body') return;
+        const r=rows[h.row.index]; if(!r) return;
+        if(h.column.index===0) h.cell.styles.textColor=r.a==null?[160,160,170]:ssPdfTextCol(cA);
+        if(h.column.index===4) h.cell.styles.textColor=r.b==null?[160,160,170]:ssPdfTextCol(cB);
+        if((h.column.index===0&&r.a==null)||(h.column.index===4&&r.b==null)) h.cell.styles.fontStyle='normal';
+        if(h.column.index===2) h.cell.styles.fontSize=8;
+      },
+      didDrawCell:h=>{
+        if(h.section!=='body'||(h.column.index!==1&&h.column.index!==3)) return;
+        const r=rows[h.row.index]; if(!r) return;
+        const tx=h.cell.x+1.5, tw=h.cell.width-3, th=3.2, ty=h.cell.y+(h.cell.height-th)/2;
+        fillBox(tx, ty, tw, th, [243,244,246], 1.2);   // track (light → outlined)
+        const isA=h.column.index===1, w=tw*(isA?r.wa:r.wb)/100;
+        if(w>0) fillBox(isA?tx+tw-w:tx, ty, w, th, isA?cA:cB, 1.2);
+      } });
+    y=doc.lastAutoTable.finalY+5;
+  });
+
+  // ── note + footer on every page ──
+  if(y+12>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
+  const note='Numbers aggregate every selected game each team appears in. "n/a" means the source XMLs for those games do not carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+  doc.text(doc.splitTextToSize(ssPdfTxt(note), CW), ML, y+3);
+  const n=doc.internal.getNumberOfPages();
+  for(let i=1;i<=n;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...C_T2);
+    T('COHESION ANALYSIS · Season Stats · '+snap.nameA+' v '+snap.nameB, ML, PH-6);
+    T('Page '+i+' / '+n, PW-MR, PH-6, {align:'right'});
+  }
+  return doc;
+}
+function ssExportPDF(){
+  if(!SS_LAST){ alert('Run a comparison first.'); return; }
+  const NS=window.jspdf||{};
+  if(!NS.jsPDF){ alert('PDF library not loaded — check your connection and reload.'); return; }
+  try{ ssBuildPDF(SS_LAST, NS).save(ssExportName(SS_LAST,'pdf')); }
+  catch(e){ alert('Could not build PDF: '+e.message); }
+}
+
+// ── PNG: dark COHESION theme, drawn by hand so fonts/colours are exact ──
+function ssThemeColors(){
+  const fb={bg:'#0b0b10',panel:'#14141c',card:'#1b1b25',border:'#2a2a36',t1:'#ececf1',t2:'#a0a0ae',t3:'#6d6d7a',accent:'#4fc3f7',amber:'#f5a623'};
+  try{
+    const cs=getComputedStyle(document.documentElement);
+    Object.keys(fb).forEach(k=>{ const v=cs.getPropertyValue('--'+k).trim(); if(v) fb[k]=v; });
+  }catch(_e){}
+  return fb;
+}
+function ssDrawImage(snap, ctx, C, now){
+  const W=1180, P=28, FC="'Barlow Condensed', 'Arial Narrow', sans-serif", FB="'Barlow', Arial, sans-serif";
+  const rr=(x,y,w,h,r)=>{ r=Math.min(r,h/2,w/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); };
+  const text=(s,x,y,font,col,align)=>{ ctx.font=font; ctx.fillStyle=col; ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic'; ctx.fillText(s,x,y); };
+  const fit=(s,maxW)=>{ if(ctx.measureText(s).width<=maxW) return s; let t=s; while(t.length>1&&ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; };
+  const colA=snap.cols.a, colB=snap.cols.b;
+  let y=P;
+  // header
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,ctx.__H||99999);
+  ctx.font='800 26px '+FC; ctx.textAlign='left';
+  let x=P;
+  [['CO',C.t1],['HE',C.accent],['SION',C.t1]].forEach(([s,c])=>{ text(s,x,y+24,'800 26px '+FC,c); x+=ctx.measureText(s).width; });
+  text('ANALYSIS · SEASON STATS', x+12, y+23, '700 14px '+FC, C.t3);
+  const d=now||new Date();
+  text('Generated '+d.toISOString().slice(0,10), W-P, y+23, '400 12px '+FB, C.t3, 'right');
+  y+=40;
+  ctx.fillStyle=C.border; ctx.fillRect(P,y,W-2*P,1);
+  y+=18;
+  // head-to-head row
+  ctx.font='800 32px '+FC;
+  text(fit(snap.nameA,(W-2*P)/2-110), P, y+30, '800 32px '+FC, colA);
+  text(fit(snap.nameB,(W-2*P)/2-110), W-P, y+30, '800 32px '+FC, colB, 'right');
+  text('HEAD-TO-HEAD', W/2, y+14, '700 13px '+FC, C.t3, 'center');
+  text(snap.gcount||'', W/2, y+32, '400 12px '+FB, C.t3, 'center');
+  y+=50;
+  // games panel (two columns)
+  const gl=snap.games, colsN=gl.length>6?2:1, perCol=Math.ceil(gl.length/colsN)||1, lh=20;
+  const gpH=44+perCol*lh+8;
+  rr(P,y,W-2*P,gpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+  const f=snap.filters||{};
+  text('GAMES INCLUDED ('+gl.length+')   ·   Competition: '+(f.competition||'All')+'   ·   Season: '+(f.season||'All'), P+18, y+26, '700 13px '+FC, C.t2);
+  const colW=(W-2*P-36)/colsN;
+  ctx.font='400 13px '+FB;
+  gl.forEach((g,i)=>{ const c=Math.floor(i/perCol), r=i%perCol;
+    text(fit(ssGameLine(g), colW-16), P+18+c*colW, y+50+r*lh, '400 13px '+FB, C.t2); });
+  y+=gpH+14;
+  // sections
+  const cw=W-2*P-36, VW=74, LW=210, GAP=10, BW=(cw-2*VW-LW-4*GAP)/2;
+  snap.sections.forEach(sec=>{
+    const rowsH=sec.rows.reduce((s,r)=>s+(r.sub?40:30),0);
+    const sh=14+26+rowsH+12;
+    rr(P,y,W-2*P,sh,16); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+    text(sec.name, W/2, y+14+15, '800 15px '+FC, C.amber, 'center');
+    let ry=y+14+26;
+    const x0=P+18;
+    sec.rows.forEach(r=>{
+      const rh=r.sub?40:30, cy=ry+rh/2;
+      const xA=x0, xTA=x0+VW+GAP, xL=xTA+BW+GAP, xTB=xL+LW+GAP, xB=xTB+BW+GAP;
+      text(r.a==null?'n/a':r.a, xA, cy+5, (r.a==null?'400':'700')+' 15px '+FC, r.a==null?C.t3:colA);
+      text(r.b==null?'n/a':r.b, xB+VW, cy+5, (r.b==null?'400':'700')+' 15px '+FC, r.b==null?C.t3:colB, 'right');
+      rr(xTA,cy-7,BW,14,7); ctx.fillStyle=C.card; ctx.fill();
+      rr(xTB,cy-7,BW,14,7); ctx.fillStyle=C.card; ctx.fill();
+      const wa=BW*r.wa/100, wb=BW*r.wb/100;
+      if(wa>0){ rr(xTA+BW-wa,cy-7,wa,14,7); ctx.fillStyle=colA; ctx.fill(); }
+      if(wb>0){ rr(xTB,cy-7,wb,14,7); ctx.fillStyle=colB; ctx.fill(); }
+      if(r.sub){
+        text(r.label, xL+LW/2, cy-2, '600 13px '+FB, C.t1, 'center');
+        ctx.font='400 11px '+FB; text(fit(r.sub,LW), xL+LW/2, cy+13, '400 11px '+FB, C.t3, 'center');
+      } else text(r.label, xL+LW/2, cy+5, '600 13px '+FB, C.t1, 'center');
+      ry+=rh;
+    });
+    y+=sh+14;
+  });
+  // foot note
+  ctx.font='400 11px '+FB;
+  const note='Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don’t carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+  const words=note.split(' '), lines=[]; let cur='';
+  words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>W-2*P-120&&cur){ lines.push(cur); cur=w; } else cur=t; });
+  if(cur) lines.push(cur);
+  lines.forEach((l,i)=>text(l, W/2, y+14+i*17, '400 11px '+FB, C.t3, 'center'));
+  y+=14+lines.length*17+P;
+  return {W, H:Math.ceil(y)};
+}
+async function ssExportImage(){
+  if(!SS_LAST){ alert('Run a comparison first.'); return; }
+  try{
+    if(document.fonts&&document.fonts.load){
+      try{ await Promise.all(["800 26px 'Barlow Condensed'","700 15px 'Barlow Condensed'","400 13px 'Barlow'","600 13px 'Barlow'"].map(f=>document.fonts.load(f))); }catch(_e){}
+    }
+    const C=ssThemeColors(), S=2;
+    // pass 1: measure height on a throwaway canvas; pass 2: draw at 2x
+    const m=document.createElement('canvas').getContext('2d');
+    const size=ssDrawImage(SS_LAST, m, C);
+    const cv=document.createElement('canvas');
+    cv.width=size.W*S; cv.height=size.H*S;
+    const ctx=cv.getContext('2d');
+    ctx.scale(S,S); ctx.__H=size.H;
+    ssDrawImage(SS_LAST, ctx, C);
+    cv.toBlob(b=>{
+      if(!b){ alert('Could not create image.'); return; }
+      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=ssExportName(SS_LAST,'png');
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    },'image/png');
+  }catch(e){ alert('Could not build image: '+e.message); }
 }
 cohesionIdentityReady().then(boot);
 </script>

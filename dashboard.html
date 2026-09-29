@@ -1330,7 +1330,8 @@ function dashMapData(){
       const scored=(k.includes('POINT')||k.includes('GOAL'))&&!k.includes('DISALLOWED')&&!k.includes('ATTEMPT');
       const shape=(att.includes('GOAL')||k==='GOAL')?'tri':(att.includes('2')||k.includes('2 POINT')||k.includes('TWO'))?'dia':'cir';
       const co=dashCoordOf(e);
-      if(co) out.shots.push({s,x:co.x,y:co.y,scored,shape}); else out.shotMiss[s]++;
+      const db=/SHOT DEAD/i.test(e.code||'');
+      if(co) out.shots.push({s,x:co.x,y:co.y,scored,shape,db}); else out.shotMiss[s]++;
     } else if(/KICKOUT|\bKO\b/i.test(e.code||'')){
       const k=up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['PO_Result']||e.outcome||'');
       if(!k) return;
@@ -1341,10 +1342,13 @@ function dashMapData(){
   });
   return out;
 }
-// Build one combined pitch map (both teams, team colours) as a canvas.
-// kind 'shot': filled = scored, open = missed; circle 1pt, diamond 2pt,
-// triangle goal. kind 'ko': dot = retained, X = lost.
-function dashBuildMapCanvas(kind,hHex,aHex){
+// Shared pitch-map SVG (PDF maps, maps image, infographic): both teams in
+// their colours. kind 'shot': filled = scored, open = missed; circle 1pt,
+// diamond 2pt, triangle goal, square = dead-ball 1pt attempt. kind 'ko':
+// dot = retained, X = lost. opts.bg fills the whole viewBox (the pitch art
+// itself starts 1.2 units in).
+function dashMapSvg(kind,hHex,aHex,pxW,opts){
+  opts=opts||{};
   const D=dashMapData();
   // Chart aspect matched to the tracker's own maps (shot 3402x2829, KO 625x685
   // crop): the pitch art is stretched vertically inside a <g>, markers are
@@ -1364,17 +1368,41 @@ function dashBuildMapCanvas(kind,hHex,aHex){
     const fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
     if(m.shape==='tri') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y+1.35} L ${x-1.7} ${y+1.35} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
     if(m.shape==='dia') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y} L ${x} ${y+1.85} L ${x-1.7} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    if(m.db) return `<rect x="${x-1.3}" y="${y-1.3}" width="2.6" height="2.6" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
     return `<circle cx="${x}" cy="${y}" r="1.4" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
   }).join('');
   const inner=locPitchSvg(kind)
     .replace(/^<svg[^>]*>/,'')
     .replace('<g id="mapMarks"></g></svg>','');
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 '+H2+'" width="600" height="'+Math.round(600*H2/100)+'">'
-    +'<g transform="scale(1,'+STR.toFixed(4)+')">'+inner+'</g><g>'+marks+'</g></svg>';
+  const bg=opts.bg?'<rect x="0" y="0" width="100" height="'+vbH+'" fill="'+opts.bg+'"/>':'';
+  const pxH=Math.round(pxW*H2/100);
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 '+H2+'" width="'+pxW+'" height="'+pxH+'">'
+    +'<g transform="scale(1,'+STR.toFixed(4)+')">'+bg+inner+'</g><g>'+marks+'</g></svg>';
+  return {svg,pxH,D};
+}
+function dashSvgImg(svg){
+  return new Promise(res=>{ const im=new Image();
+    im.onload=()=>res(im); im.onerror=()=>res(null);
+    im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg); });
+}
+// Legend glyph matching the map markers (shape: cir / dia / tri / sq).
+function dashGlyph(ctx,shape,x,y,r,col,filled,edge){
+  ctx.beginPath();
+  if(shape==='tri'){ ctx.moveTo(x,y-r*1.3); ctx.lineTo(x+r*1.2,y+r*0.95); ctx.lineTo(x-r*1.2,y+r*0.95); ctx.closePath(); }
+  else if(shape==='dia'){ ctx.moveTo(x,y-r*1.3); ctx.lineTo(x+r*1.2,y); ctx.lineTo(x,y+r*1.3); ctx.lineTo(x-r*1.2,y); ctx.closePath(); }
+  else if(shape==='sq') ctx.rect(x-r*0.9,y-r*0.9,r*1.8,r*1.8);
+  else ctx.arc(x,y,r,0,Math.PI*2);
+  if(filled){ ctx.fillStyle=col; ctx.fill(); ctx.strokeStyle=edge||'#111'; ctx.lineWidth=1; ctx.stroke(); }
+  else { ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke(); }
+}
+// Build one combined pitch map (both teams, team colours) as a canvas with
+// its legend, on white (PDF / maps image).
+function dashBuildMapCanvas(kind,hHex,aHex){
+  const {svg,pxH:MH}=dashMapSvg(kind,hHex,aHex,600);
   return new Promise(res=>{
     const im=new Image();
     im.onload=()=>{
-      const W=640,MH=Math.round(600*H2/100),LEG=64;
+      const W=640,LEG=64;
       const cv=document.createElement('canvas'); cv.width=W; cv.height=MH+LEG+20;
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cv.width,cv.height);
@@ -1391,7 +1419,8 @@ function dashBuildMapCanvas(kind,hHex,aHex){
         dot(hHex,true); word(Hn); dot(aHex,true); word(An);
         ly+=24; lx=24;
         dot('#8a93a0',true); word('SCORED'); dot('#8a93a0',false); word('MISSED');
-        word('● 1PT   ◆ 2PT   ▲ GOAL');
+        [['cir','1PT'],['dia','2PT'],['tri','GOAL'],['sq','DEADBALL']].forEach(([sh,lb])=>{
+          dashGlyph(ctx,sh,lx+6,ly-5,6,'#8a93a0',true); lx+=17; word(lb); });
       } else {
         dot(hHex,true); word(Hn); dot(aHex,true); word(An);
         ly+=24; lx=24;
@@ -1864,6 +1893,641 @@ function dashDlBlob(b,fname){
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 
+// ── Shared helpers for the maps image + infographic ──────────────────
+// Colour precedence as in the PDF: game colour → imported pack → bundled default.
+function dashTeamHexes(){
+  const Hn=GAME.homeTeam||'Home', An=GAME.awayTeam||'Away';
+  const packH=cohPackTeam(Hn), packA=cohPackTeam(An);
+  return {Hn,An,packH,packA,
+    hexH:GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(Hn)||'#2563eb',
+    hexA:GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(An)||'#22c55e',
+    secA:(packA&&packA.secondary)||dashTeamSecondary(An), secH:(packH&&packH.secondary)||dashTeamSecondary(Hn)};
+}
+function dashTeamSecondary(name){
+  const sl=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const C=window.COHESION_TEAM_COLOURS||{}; return (C[sl]&&C[sl].secondary)||null;
+}
+function dashLoadImg(src){
+  return new Promise(res=>{ if(!src) return res(null);
+    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+}
+function dashHexLum(x){ try{ const n=parseInt(String(x).replace('#',''),16);
+  return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }catch(_e){ return 0; } }
+function dashHexMix(x,y,f){ try{ const a=parseInt(String(x).replace('#',''),16), b=parseInt(String(y).replace('#',''),16);
+  const c=(sh)=>Math.round(((a>>sh)&255)*(1-f)+((b>>sh)&255)*f);
+  return '#'+((1<<24)+(c(16)<<16)+(c(8)<<8)+c(0)).toString(16).slice(1); }catch(_e){ return x; } }
+function dashFileStem(){ const T=dashTeamHexes();
+  return (String(T.Hn)+'_v_'+String(T.An)).toLowerCase().replace(/[^\w.]+/g,'_'); }
+function dashBusy(btn,on,label){
+  if(!btn) return;
+  if(on){ btn.dataset.lbl=btn.textContent; btn.textContent='⏳ Building…'; btn.style.pointerEvents='none'; }
+  else { btn.textContent=btn.dataset.lbl||label||btn.textContent; btn.style.pointerEvents=''; }
+}
+
+// ── MAPS IMAGE — shot map + kickout landing map side by side on a light
+// card, the PDF's green pitches with legends and "no location" notes.
+async function dashBuildMapsImage(){
+  const T=dashTeamHexes(), S=dashComputeStats(), MD=dashMapData();
+  const [shotCv,koCv,crH,crA]=await Promise.all([
+    MD.shots.length?dashBuildMapCanvas('shot',T.hexH,T.hexA):null,
+    MD.kos.length?dashBuildMapCanvas('ko',T.hexH,T.hexA):null,
+    dashLoadImg(cohCrestSrc(T.Hn,T.packH)), dashLoadImg(cohCrestSrc(T.An,T.packA))]);
+  if(!shotCv&&!koCv) return null;
+  try{ await Promise.all(['700 20px "Barlow Condensed"','800 20px "Barlow Condensed"','600 20px "Barlow"'].map(f=>document.fonts.load(f))); }catch(_e){}
+  const noteTxt=(m,what)=>{ const n=m.h+m.a; if(!n) return '';
+    return '* '+['h','a'].filter(s=>m[s]).map(s=>(s==='h'?T.Hn:T.An)+' '+m[s]).join(' · ')+' '+what+(n>1?'s':'')+' with no location tagged'; };
+  const cards=[
+    shotCv&&{cv:shotCv,title:'SHOT MAP',sub:'ATTACKING UP THE PAGE · '+MD.shots.length+' LOCATED',note:noteTxt(MD.shotMiss,'shot')},
+    koCv&&{cv:koCv,title:'KICKOUT LANDING MAP',sub:'TOP = KICKING GOAL · '+MD.kos.length+' LOCATED',note:noteTxt(MD.koMiss,'kickout')}
+  ].filter(Boolean);
+  const PAD=40, GAP=24, CW=680, HEAD=156, CT=58, NOTE=40, FOOT=44;
+  const maxH=Math.max(...cards.map(c=>c.cv.height));
+  const W=Math.max(PAD*2+cards.length*CW+(cards.length-1)*GAP, 1000);
+  const HT=HEAD+CT+maxH+NOTE+FOOT+PAD/2;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=HT;
+  const ctx=cv.getContext('2d');
+  const CF='"Barlow Condensed","Barlow",Helvetica,Arial,sans-serif', BF='"Barlow",Helvetica,Arial,sans-serif';
+  const INK='#1e1e28', MUTE='#5b6070', ACC='#0284c7';
+  const onLight=c=>dashHexLum(c)>=200?'#7a808c':c;
+  ctx.fillStyle='#eef0f4'; ctx.fillRect(0,0,W,HT);
+  ctx.fillStyle=T.hexH; ctx.fillRect(0,0,W/2,8); ctx.fillStyle=T.hexA; ctx.fillRect(W/2,0,W/2,8);
+  ctx.textBaseline='alphabetic';
+  // title strip
+  ctx.textAlign='left'; ctx.font='800 22px '+CF; ctx.fillStyle=ACC;
+  ctx.fillText('COHESION ANALYSIS',PAD,46);
+  const tw0=ctx.measureText('COHESION ANALYSIS').width;
+  ctx.font='700 16px '+CF; ctx.fillStyle=MUTE;
+  ctx.fillText('·  SHOT & KICKOUT MAPS  ·  FULL GAME',PAD+tw0+12,46);
+  const up=s=>String(s||'').toUpperCase();
+  let nfs=40;
+  const parts=()=>{ ctx.font='800 '+nfs+'px '+CF; const sf='800 '+nfs+'px '+CF;
+    return [ctx.measureText(up(T.Hn)).width, ctx.measureText(S.scH.str).width, ctx.measureText(' v ').width,
+            ctx.measureText(S.scA.str).width, ctx.measureText(up(T.An)).width, sf]; };
+  let p=parts(), CR=nfs*0.62;
+  const rowW=()=>p[0]+p[1]+p[2]+p[3]+p[4]+4*18+(crH?CR*2+12:0)+(crA?CR*2+12:0);
+  while(nfs>22 && rowW()>W-PAD*2){ nfs-=2; CR=nfs*0.62; p=parts(); }
+  let x=PAD; const by=102;
+  const crest=(im,col)=>{ if(!im) return; const cx=x+CR, cy=by-nfs*0.34;
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,CR,0,Math.PI*2); ctx.closePath(); ctx.fillStyle='#fff'; ctx.fill(); ctx.clip();
+    ctx.drawImage(im,cx-CR,cy-CR,CR*2,CR*2); ctx.restore();
+    ctx.beginPath(); ctx.arc(cx,cy,CR,0,Math.PI*2); ctx.strokeStyle='#cfd4dc'; ctx.lineWidth=1.5; ctx.stroke();
+    x+=CR*2+12; };
+  const put=(s,col)=>{ ctx.font=p[5]; ctx.fillStyle=col; ctx.fillText(s,x,by); x+=ctx.measureText(s).width+18; };
+  crest(crH); put(up(T.Hn),onLight(T.hexH)); put(S.scH.str,INK);
+  ctx.font='700 '+Math.round(nfs*0.7)+'px '+CF; ctx.fillStyle='#9aa0ad'; ctx.fillText('v',x,by); x+=ctx.measureText('v').width+18;
+  put(S.scA.str,INK); put(up(T.An),onLight(T.hexA)); crest(crA);
+  const meta=[GAME.competition||'',GAME.round||'',GAME.date||''].filter(Boolean).join('  ·  ');
+  ctx.font='600 16px '+BF; ctx.fillStyle=MUTE;
+  ctx.fillText(((meta?meta+'  ·  ':'')+S.scoredH+'/'+S.shotsH+' shots (PSR '+S.psrH+')  v  '+S.scoredA+'/'+S.shotsA+' (PSR '+S.psrA+')'),PAD,136);
+  // map cards
+  const x0=(W-(cards.length*CW+(cards.length-1)*GAP))/2;
+  cards.forEach((c,i)=>{
+    const cx=x0+i*(CW+GAP), cy=HEAD;
+    const ch=CT+maxH+NOTE;
+    ctx.fillStyle='#ffffff'; ctx.strokeStyle='#d8dce4'; ctx.lineWidth=1;
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(cx,cy,CW,ch,10); else ctx.rect(cx,cy,CW,ch); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=ACC; ctx.fillRect(cx+20,cy+20,4,20);
+    ctx.font='800 22px '+CF; ctx.fillStyle=INK; ctx.textAlign='left'; ctx.fillText(c.title,cx+32,cy+38);
+    const tw=ctx.measureText(c.title).width;
+    ctx.font='700 14px '+CF; ctx.fillStyle=MUTE; ctx.fillText('·  '+c.sub,cx+32+tw+10,cy+37);
+    ctx.drawImage(c.cv,cx+(CW-c.cv.width)/2,cy+CT-4);
+    if(c.note){ ctx.font='500 14px '+BF; ctx.fillStyle=MUTE; ctx.fillText(c.note,cx+24,cy+CT+c.cv.height+18); }
+  });
+  ctx.font='700 13px '+CF; ctx.fillStyle='#8a90a0'; ctx.textAlign='left';
+  ctx.fillText('COHESION ANALYSIS  ·  GENERATED FROM TAGGED MATCH EVENTS  ·  LOCATIONS AS TAGGED',PAD,HT-22);
+  return cv;
+}
+async function dashDownloadMapsImage(btn){
+  dashBusy(btn,true);
+  try{
+    const cv=await dashBuildMapsImage();
+    if(!cv){ alert('No shot or kickout locations are tagged in this game.'); return; }
+    await new Promise(r=>cv.toBlob(b=>{ if(b) dashDlBlob(b,dashFileStem()+'_maps.png'); r(); },'image/png'));
+  } finally { dashBusy(btn,false); }
+}
+
+// ── MATCH INFOGRAPHIC — metric definitions ported from the COHESION
+// match-infographic skill (gaa_match.py / render.py), computed from the
+// game's real events. FULL GAME: period chips are ignored.
+function dashInfographicData(S){
+  const up=s=>String(s||'').toUpperCase().trim();
+  const lab=(e,k)=>{ const L=e.labels||{}; if(L[k]!=null&&L[k]!=='') return L[k];
+    const kk=Object.keys(L).find(x=>x.toLowerCase()===k.toLowerCase()); return kk?L[kk]:''; };
+  const minOf=e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
+    const mn=+m[2]+(+m[3])/60; return +m[1]===1?mn:S.h1len+mn; };
+  const ev=ALL.map(e=>({e,s:statSide(e),m:minOf(e),c:up(e.code)})).filter(x=>x.s);
+  const chron=ev.filter(x=>x.m!=null).sort((a,b)=>a.m-b.m);
+  const SIDES=['h','a'];
+  const D={h:{},a:{}};
+  // shots — PSR = scored / shots; scored = a point, 2-pointer or goal
+  const shotOut=e=>up(lab(e,'Shot Outcomes')||lab(e,'ShotOutcome')||lab(e,'Outcome')||e.outcome);
+  const isScored=k=>(k.includes('POINT')||k.includes('GOAL'))&&!k.includes('DISALLOWED')&&!k.includes('ATTEMPT');
+  const shots=ev.filter(x=>/SHOT (OPEN|DEAD)/.test(x.c)).map(x=>{
+    const out=shotOut(x.e), att=up(lab(x.e,'Shot Attempts')), sc=isScored(out);
+    const v=!sc?0:out.includes('GOAL')?3:(out.includes('2 POINT')||out.includes('TWO'))?2:1;
+    return {...x,out,att,scored:sc,v,two:/2 POINT|TWO POINT/.test(att),player:String(x.e.player||'').trim()}; });
+  const attTagged=shots.some(x=>x.att);
+  // kickouts — retained on the WON verdict (KT/RT vocabularies as elsewhere)
+  const koOut=e=>up(lab(e,'Kickout Outcomes')||lab(e,'KickoutOutcome')||lab(e,'PO_Result')||e.outcome);
+  const koWon=k=>k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST'));
+  const kos=ev.filter(x=>/KICKOUT|\bKO\b/.test(x.c)).map(x=>({...x,out:koOut(x.e),len:up(lab(x.e,'Kickout Locations'))})).filter(x=>x.out);
+  const lenTagged=kos.some(x=>x.len);
+  // turnovers
+  const tos=ev.filter(x=>/\bTOS?\b|TURNOVER/.test(x.c)).map(x=>({...x,out:up(lab(x.e,'Turnover Outcomes'))}));
+  const LOSS=new Set(['SHORT','BLOCKED','SAVE','WOODWORK']);
+  // First possession-defining event after a shot decides whether it was conceded.
+  const possAfter=sh=>{
+    for(const r of chron){
+      if(r.m<=sh.m+1e-6) continue;
+      if(r.s===sh.s && (r.c.includes('1 POINT')||r.c.includes('2 POINT')||(/\bGOAL$/.test(r.c))
+        ||/TEAM POSSESSION$/.test(r.c)||/SHOT (OPEN|DEAD)/.test(r.c))) return 'retained';
+      if(r.s!==sh.s && /TEAM POSSESSION$/.test(r.c)) return 'conceded';
+    }
+    return 'unknown'; };
+  const CARD_T=[['YELLOW','Y','#f7cd28'],['BLACK','B','#2e2e3a'],['RED','R','#d62d28']];
+  const cards=ev.filter(x=>/\bCARD$/.test(x.c)).map(x=>{ let o=up(lab(x.e,'Card Outcomes')); const assumed=!o; if(!o) o='YELLOW CARD';
+    const t=CARD_T.find(c=>o.includes(c[0]))||CARD_T[0]; return {s:x.s,m:x.m,type:t[0],col:t[2],assumed}; });
+  SIDES.forEach(s=>{
+    const d=D[s], sh=shots.filter(x=>x.s===s);
+    d.shots=sh.length; d.scored=sh.filter(x=>x.scored).length; d.psr=d.shots?d.scored/d.shots*100:0;
+    d.twoAtt=sh.filter(x=>x.two).length; d.twoMade=sh.filter(x=>x.v===2).length;
+    const miss=sh.filter(x=>!x.scored);
+    d.mix={scored:d.scored,wide:miss.filter(x=>x.out.includes('WIDE')).length,short:miss.filter(x=>x.out.includes('SHORT')).length};
+    d.mix.other=d.shots-d.mix.scored-d.mix.wide-d.mix.short;
+    // kickouts by length and half
+    const k=kos.filter(x=>x.s===s), w=a=>[a.filter(x=>koWon(x.out)).length,a.length];
+    d.ko={ALL:w(k),SHORT:w(k.filter(x=>x.len.includes('SHORT'))),MEDIUM:w(k.filter(x=>x.len.includes('MEDIUM'))),
+          LONG:w(k.filter(x=>x.len.includes('LONG'))),H1:w(k.filter(x=>x.e.half==='1st Half')),H2:w(k.filter(x=>x.e.half==='2nd Half'))};
+    d.poss=ev.filter(x=>x.s===s&&/TEAM POSSESSION/.test(x.c)).length;
+    d.att=ev.filter(x=>x.s===s&&/\bATTACKS?\b/.test(x.c)).length;
+    d.fouls=ev.filter(x=>x.s===s&&/\bFOUL$/.test(x.c)).length;
+    // turnovers conceded = in-play TOs (not SHOT ATTEMPT / kickout-lost rows)
+    //   + own kickouts lost + shots that handed the ball over
+    const to=tos.filter(x=>x.s===s);
+    d.toInPlay=to.filter(x=>x.out!=='SHOT ATTEMPT'&&!(x.out==='KICKOUT LOST'||x.out.startsWith('KO LOST'))).length;
+    const tagged=to.filter(x=>x.out==='SHOT ATTEMPT'&&x.m!=null);
+    const lossSh=sh.filter(x=>LOSS.has(x.out)&&x.m!=null);
+    const pairs=[]; tagged.forEach((t,i)=>lossSh.forEach((q,j)=>pairs.push([Math.abs(t.m-q.m)*60,i,j])));
+    pairs.sort((a,b)=>a[0]-b[0]);
+    const usedT=new Set(), isTag=new Set();
+    pairs.forEach(([g,i,j])=>{ if(g>30||usedT.has(i)||isTag.has(j)) return; usedT.add(i); isTag.add(j); });
+    d.toShots=lossSh.filter((q,j)=>isTag.has(j)||possAfter(q)==='conceded').length;
+    d.toConceded=d.toInPlay+(d.ko.ALL[1]-d.ko.ALL[0])+d.toShots;
+    d.toData=to.length>0;
+    d.cards={}; CARD_T.forEach(c=>{ d.cards[c[0]]=cards.filter(x=>x.s===s&&x.type===c[0]).length; });
+    // top shooters — name variants differing only by punctuation/space/case merged
+    const pk=n=>n.replace(/,/g,' ').split(/\s+/).filter(Boolean).join(' ').toLowerCase();
+    const spell={}, agg={};
+    sh.filter(x=>x.player).forEach(x=>{ const key=pk(x.player);
+      (spell[key]=spell[key]||{})[x.player]=(spell[key][x.player]||0)+1;
+      const r=agg[key]||(agg[key]={pts:0,goals:0,shots:0,twoMade:0,twoAtt:0});
+      r.shots++; if(x.v===3) r.goals++; else r.pts+=x.v; if(x.v===2) r.twoMade++; if(x.two) r.twoAtt++; });
+    d.shooters=Object.entries(agg).map(([key,r])=>{
+      const nm=Object.entries(spell[key]).sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length)[0][0];
+      return {name:nm,...r}; }).sort((a,b)=>(b.goals*3+b.pts)-(a.goals*3+a.pts)||a.shots-b.shots);
+    // score sources — each SCORE SOURCE row paired with the score it produced
+    // (in order when counts match, else nearest-in-time); the SCORE's value is used
+    // abbreviated variants seen in hand-typed rows ("OWN KO") fold into the standard keys
+    const srcKey=k=>k.replace(/^(OWN|OPP)\s+KO$/,'$1 KICKOUT').replace(/^OPPOSITION\s+KICKOUT$/,'OPP KICKOUT');
+    const srcs=ev.filter(x=>x.s===s&&/SCORE SOURCE/.test(x.c)).map(x=>({m:x.m,src:srcKey(up(lab(x.e,'Score Source Outcomes')))}))
+      .sort((a,b)=>(a.m==null?1e9:a.m)-(b.m==null?1e9:b.m));
+    const scs=S.scoreEvts.filter(x=>x.s===s);
+    let paired=[];
+    if(srcs.length===scs.length) paired=srcs.map((x,i)=>[x.src,scs[i].pts]);
+    else{
+      const pp=[]; srcs.forEach((x,i)=>{ if(x.m==null) return; scs.forEach((q,j)=>pp.push([Math.abs(x.m-q.min),i,j])); });
+      pp.sort((a,b)=>a[0]-b[0]); const ui=new Set(), uj=new Set();
+      pp.forEach(([g,i,j])=>{ if(ui.has(i)||uj.has(j)) return; ui.add(i); uj.add(j); paired.push([srcs[i].src,scs[j].pts]); });
+    }
+    d.src={}; paired.forEach(([k,v])=>{ if(k) d.src[k]=(d.src[k]||0)+v; });
+    d.srcData=srcs.length>0;
+    // half scorelines
+    const hs=h=>{ const q=sh.filter(x=>x.scored&&x.e.half===h); const g=q.filter(x=>x.v===3).length, p=q.filter(x=>x.v<3).reduce((a,x)=>a+x.v,0);
+      return g+'-'+String(p).padStart(2,'0'); };
+    d.h1=hs('1st Half'); d.h2=hs('2nd Half');
+    d.total=S[s==='h'?'scH':'scA'].g*3+S[s==='h'?'scH':'scA'].p;
+  });
+  const SRC_ORDER=['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','FREE WON','BALL RECOVERED','THROW-IN'];
+  const SRC_LBL={'OWN KICKOUT':'OWN KICKOUT','OPP KICKOUT':'OPPOSITION KICKOUT','FORCED TURNOVER':'TURNOVER FORCED',
+    'UNFORCED TURNOVER':'OPPOSITION ERROR','FREE WON':'FREE WON','BALL RECOVERED':'BALL RECOVERED','THROW-IN':'THROW-IN'};
+  const keys=[...SRC_ORDER]; SIDES.forEach(s=>Object.keys(D[s].src).forEach(k=>{ if(!keys.includes(k)) keys.push(k); }));
+  const srcRows=keys.map(k=>[k,SRC_LBL[k]||k,D.h.src[k]||0,D.a.src[k]||0]).filter(r=>r[2]||r[3])
+    .sort((a,b)=>(b[2]+b[3])-(a[2]+a[3])).slice(0,7);
+  // margin worm (home − away), longest unanswered run, early tight spell
+  const series=[[0,0]]; let a=0,b=0;
+  S.scoreEvts.forEach(x=>{ if(x.s==='h') a+=x.pts; else b+=x.pts; series.push([x.min,a-b,x]); });
+  let best=[null,0,0,0,0], cur=[null,0,0,0,0];
+  S.scoreEvts.forEach(x=>{ const g=x.pts===3?1:0;
+    if(x.s===cur[0]){ cur[1]+=x.pts; cur[3]=x.min; cur[4]+=g; } else cur=[x.s,x.pts,x.min,x.min,g];
+    if(cur[1]>best[1]) best=cur.slice(); });
+  let tight=0; for(const [m,v] of series){ if(Math.abs(v)>2) break; tight=m; }
+  return {D,srcRows,series,run:best,tight,cards,attTagged,lenTagged,
+    kosN:kos.length, shotsN:shots.length,
+    lastMin:Math.max(60,...S.scoreEvts.map(x=>x.min),...cards.filter(c=>c.m!=null).map(c=>c.m)),
+    cardsAssumed:cards.filter(c=>c.assumed).length};
+}
+
+// ── MATCH INFOGRAPHIC — 1920×1080 canvas on the dark COHESION background,
+// green PDF pitches for the shot and kickout maps.
+async function dashBuildInfographic(){
+  try{ await Promise.all(['600 20px "Barlow Condensed"','700 20px "Barlow Condensed"','800 20px "Barlow Condensed"',
+    '500 20px "Barlow"','600 20px "Barlow"'].map(f=>document.fonts.load(f))); await document.fonts.ready; }catch(_e){}
+  const T=dashTeamHexes(), S=dashComputeStats(), I=dashInfographicData(S), D=I.D, MD=dashMapData();
+  const W=1920, H=1080;
+  // dark COHESION palette (dashboard [data-theme=dark] + cohesion-theme.js)
+  const BG='#181820', PANEL='#1e1e28', CARD='#252530', HOVER='#2c2c3a', LINE='#2c2c3a', HEADBG='#14151c',
+        T1='#f0f0f5', T2='#8888a0', T3='#52526a', ACC='#4fc3f7', GOLD='#ffd700', PITCH='#256e17';
+  const C_WIDE='#e8734a', C_SHORT='#e5b93c', C_OTHER='#6b7080';
+  // team colours: nudge a too-dark colour toward white so it reads on dark
+  const legible=c=>{ let x=c,n=0; while(dashHexLum(x)<110&&n<12){ x=dashHexMix(x,'#ffffff',0.16); n++; } return x; };
+  const CH=legible(T.hexH);
+  let CA=legible(T.hexA);
+  // two near-identical team colours make every panel unreadable: move the away
+  // side to its secondary colour (or a neutral light tone) when they clash
+  const rgbOf=h=>{ const n=parseInt(String(h).replace('#',''),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
+  const cdist=(a,b)=>{ const x=rgbOf(a), y=rgbOf(b); return Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]); };
+  if(cdist(CH,CA)<90){
+    const alt=[T.secA&&legible(T.secA),'#e6e8ef','#4fc3f7'].find(c=>c&&cdist(CH,c)>=90);
+    if(alt) CA=alt;
+  }
+  const onCol=c=>dashHexLum(c)>150?'#14151c':'#ffffff';
+  const up=s=>String(s||'').toUpperCase();
+  const Hn=up(T.Hn), An=up(T.An);
+  // compact name for tight furniture: whole words up to 11 chars, then the
+  // initials of the rest ("BÉAL AN M.", "CROSSMOLINA D.R."); never mid-word
+  const short=(n,lim)=>{ lim=lim||11; if(n.length<=lim) return n; const w=n.split(/\s+/); let out='', i=0;
+    for(;i<w.length;i++){ const c=(out+' '+w[i]).trim(); if(c.length>lim) break; out=c; }
+    if(!out) return w[0].slice(0,lim-1)+'.';
+    return out+' '+w.slice(i).map(x=>x[0]+'.').join(''); };
+  const sH=short(Hn), sA=short(An);
+
+  const [crH,crA]=await Promise.all([dashLoadImg(cohCrestSrc(T.Hn,T.packH)),dashLoadImg(cohCrestSrc(T.An,T.packA))]);
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const CF='"Barlow Condensed","Barlow",sans-serif', BF='"Barlow",sans-serif';
+  const F=(w,s,b)=>w+' '+s+'px '+(b?BF:CF);
+  const LS=v=>{ if('letterSpacing' in ctx) ctx.letterSpacing=(v||0)+'px'; };
+  const tw=(s,f,ls)=>{ ctx.font=f; LS(ls); const w=ctx.measureText(s).width; LS(0); return w; };
+  const txt=(s,x,y,f,col,al,ls)=>{ ctx.font=f; LS(ls); ctx.fillStyle=col; ctx.textAlign=al||'left'; ctx.textBaseline='top';
+    // letterSpacing adds trailing space after the last glyph; compensate for right/centre alignment
+    const adj=(ls&&'letterSpacing' in ctx)?(al==='right'?ls:al==='center'?ls/2:0):0;
+    ctx.fillText(s,x+adj,y); LS(0); };
+  const fit=(s,f,ls,maxw)=>{ if(tw(s,f,ls)<=maxw) return s; let w=s.split(' ');
+    while(w.length>1&&tw(w.join(' '),f,ls)>maxw) w.pop(); let o=w.join(' ');
+    while(o&&tw(o,f,ls)>maxw) o=o.slice(0,-1); return o; };
+  const rr=(x,y,w,h,r,fill,stroke,lw)=>{ ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h);
+    if(fill){ ctx.fillStyle=fill; ctx.fill(); } if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=lw||1; ctx.stroke(); } };
+  const bar=(x,y,w,h,fill)=>{ if(w<=0) return; rr(x,y,Math.max(w,1.5),h,Math.min(2,h/2),fill); };
+  const ln=(x1,y1,x2,y2,col,lw)=>{ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.strokeStyle=col; ctx.lineWidth=lw||1; ctx.stroke(); };
+  const dotKey=(x,y,col,name,al)=>{ // coloured dot + short team name; returns width
+    const f=F(700,14); const w=tw(name,f,0.5);
+    if(al==='right'){ txt(name,x,y,f,col,'right',0.5); rr(x-w-15,y+3,10,10,5,col); return w+15; }
+    rr(x,y+3,10,10,5,col); txt(name,x+15,y,f,col,'left',0.5); return w+15; };
+  const panel=(x,y,w,h,title,sub,acc)=>{
+    rr(x,y,w,h,8,PANEL,'rgba(255,255,255,0.08)');
+    rr(x+16,y+16,3,17,1,acc||ACC);
+    txt(title,x+27,y+13,F(700,20),T1,'left',0.8);
+    if(sub) txt(sub,x+27+tw(title,F(700,20),0.8)+10,y+18,F(600,14),T2,'left',0.4);
+    ln(x+16,y+43,x+w-16,y+43,LINE,1);
+    return y+54; };
+
+  ctx.fillStyle=BG; ctx.fillRect(0,0,W,H);
+
+  // ── HEADER ─────────────────────────────────────────────
+  const HB=150;
+  ctx.fillStyle=HEADBG; ctx.fillRect(0,0,W,HB);
+  ctx.fillStyle=T.hexH; ctx.fillRect(0,0,W/2,5); ctx.fillStyle=T.hexA; ctx.fillRect(W/2,0,W/2,5);
+  ln(0,HB,W,HB,HOVER,2);
+  txt('COHESION',44,32,F(800,32),T1,'left',1.5);
+  txt('ANALYSIS',44+tw('COHESION',F(800,32),1.5)+12,32,F(800,32),ACC,'left',1.5);
+  txt('MATCH INFOGRAPHIC  ·  FULL GAME',46,76,F(600,16),'#b4b4c6','left',1.6);
+  const meta=[GAME.competition||'',GAME.round||'',GAME.date||''].filter(Boolean).join('  ·  ');
+  if(meta) txt(fit(up(meta),F(600,16),0.9,500),46,102,F(600,16),T2,'left',0.9);
+  const leftEdge=46+Math.max(tw('COHESION ANALYSIS',F(800,32),1.5)+12,tw('MATCH INFOGRAPHIC  ·  FULL GAME',F(600,16),1.6),
+    meta?Math.min(500,tw(up(meta),F(600,16),0.9)):0)+36;
+  const tH=D.h.total, tA=D.a.total, margin=Math.abs(tH-tA);
+  const res=margin===0?'DRAW':((tH>tA?Hn:An)+' WIN BY '+margin);
+  txt('FULL TIME',W-44,30,F(800,26),T1,'right',1.6);
+  const resF=F(700,19);
+  txt(fit(res,resF,1,440),W-44,66,resF,GOLD,'right',1);
+  const rt3=I.shotsN+' SHOTS  ·  '+I.kosN+' KICKOUTS';
+  txt(rt3,W-44,98,F(600,15),T2,'right',0.6);
+  const rightEdge=W-44-Math.max(tw('FULL TIME',F(800,26),1.6),Math.min(440,tw(res,resF,1)),tw(rt3,F(600,15),0.6))-36;
+  const cx=W/2, SF=F(800,78);
+  txt('V',cx,50,F(700,26),T3,'center');
+  txt(S.scH.str,cx-40,26,SF,T1,'right');
+  txt(S.scA.str,cx+40,26,SF,T1,'left');
+  const scWH=tw(S.scH.str,SF), scWA=tw(S.scA.str,SF);
+  const CR=40, cyC=70;
+  const drawCrest=(im,x,col,nm)=>{
+    ctx.save(); ctx.beginPath(); ctx.arc(x,cyC,CR,0,Math.PI*2); ctx.closePath(); ctx.fillStyle=CARD; ctx.fill(); ctx.clip();
+    if(im) ctx.drawImage(im,x-CR,cyC-CR,CR*2,CR*2);
+    else{ ctx.fillStyle=col; ctx.fillRect(x-CR,cyC-CR,CR*2,CR*2);
+      const ini=nm.split(/\s+/).filter(Boolean).map(w=>w[0]).join('').slice(0,3)||'?';
+      ctx.fillStyle=onCol(col); ctx.font=F(800,26); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ini,x,cyC+1); }
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(x,cyC,CR,0,Math.PI*2); ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=2; ctx.stroke(); };
+  const crXH=cx-40-scWH-28-CR, crXA=cx+40+scWA+28+CR;
+  drawCrest(crH,crXH,T.hexH,Hn); drawCrest(crA,crXA,T.hexA,An);
+  // team names: largest size that fits the space beside the crest; wrap to two lines if needed
+  const nameFit=(nm,avail)=>{
+    const wrap=s=>{ const w=s.split(/\s+/); if(w.length<2) return [s]; let bst=null;
+      for(let i=1;i<w.length;i++){ const l1=w.slice(0,i).join(' '), l2=w.slice(i).join(' '), m=Math.max(l1.length,l2.length);
+        if(!bst||m<bst.m) bst={m,l:[l1,l2]}; } return bst.l; };
+    let lines=[nm], fs=38;
+    const widest=(ls,f)=>Math.max(...ls.map(l=>tw(l,F(800,f),1)));
+    while(fs>26&&widest(lines,fs)>avail) fs-=2;
+    if(widest(lines,fs)>avail){ lines=wrap(nm); fs=36; while(fs>20&&widest(lines,fs)>avail) fs-=2; }
+    return {lines,fs}; };
+  const nameBlock=(nm,col,edgeX,limitX,al,d,fsCap)=>{
+    const avail=Math.abs(edgeX-limitX);
+    let {lines,fs}=nameFit(nm,avail);
+    if(fsCap&&fs>fsCap) fs=fsCap;   // both names share one size so the header stays balanced
+    const lh=fs+2, blockH=lines.length*lh+26, y0=cyC-blockH/2-2;
+    lines.forEach((l,i)=>txt(l,edgeX,y0+i*lh,F(800,fs),col,al,1));
+    txt(d.scored+'/'+d.shots+' SHOTS  ·  PSR '+Math.round(d.psr)+'%',edgeX,y0+lines.length*lh+6,F(600,16),T2,al,0.8);
+  };
+  const fsH=nameFit(Hn,Math.abs(crXH-CR-22-leftEdge)), fsA=nameFit(An,Math.abs(crXA+CR+22-rightEdge));
+  const fsCap=(fsH.lines.length===fsA.lines.length)?Math.min(fsH.fs,fsA.fs):0;
+  nameBlock(Hn,CH,crXH-CR-22,leftEdge,'right',D.h,fsCap);
+  nameBlock(An,CA,crXA+CR+22,rightEdge,'left',D.a,fsCap);
+
+  // ── BODY GRID ───────────────────────────────────────────
+  const CXs=[40,660,1280], CW=600, Y0=HB+16, Y1=878;
+
+  // A: SHOT MAP + SHOT OUTCOME MIX
+  {
+    const x=CXs[0];
+    const ay=panel(x,Y0,CW,Y1-Y0,'SHOT MAP','· ALL '+I.shotsN+' SHOTS · ATTACKING UP THE PAGE',CH);
+    let kx=x+CW-16; kx-=dotKey(kx,Y0+14,CA,sA,'right')+12; dotKey(kx,Y0+14,CH,sH,'right');
+    const miss=MD.shotMiss.h+MD.shotMiss.a;
+    const tp=I.attTagged&&(D.h.shots||D.a.shots);
+    const textLines=(tp?1:0)+(miss?1:0);
+    const MIXH=168;
+    const avail=(Y1-16-MIXH-10)-ay-30-textLines*22;   // 30 = legend row
+    let ph=Math.min(avail,Math.round(540*0.832)); const pw=Math.round(ph/0.832); ph=Math.round(pw*0.832);
+    const px=x+(CW-pw)/2, py=ay;
+    const {svg}=dashMapSvg('shot',CH,CA,pw*2,{bg:PITCH});
+    const im=await dashSvgImg(svg);
+    ctx.save(); rr(px,py,pw,ph,6); ctx.clip(); ctx.fillStyle=PITCH; ctx.fillRect(px,py,pw,ph); if(im) ctx.drawImage(im,px,py,pw,ph); ctx.restore();
+    rr(px,py,pw,ph,6,null,'rgba(255,255,255,0.15)');
+    if(!MD.shots.length){ rr(px+pw/2-150,py+ph/2-24,300,48,6,'rgba(20,21,28,0.78)');
+      txt('NO SHOT LOCATIONS TAGGED',px+pw/2,py+ph/2-9,F(700,17),T1,'center',1); }
+    let ly=py+ph+10; const G='#a8acba';
+    let lx=px+2;
+    [['cir',true,'SCORED'],['cir',false,'MISSED'],['cir',true,'1PT'],['dia',true,'2PT'],['tri',true,'GOAL'],['sq',true,'DEADBALL']].forEach(([shp,fl,lb])=>{
+      dashGlyph(ctx,shp,lx+6,ly+8,5.5,G,fl,BG); lx+=16; txt(lb,lx,ly,F(600,14),T2,'left',0.5); lx+=tw(lb,F(600,14),0.5)+18; });
+    ly+=30;
+    const pc=(n,d)=>d?Math.round(n/d*100):0;
+    if(tp){ txt(fit(pc(D.h.twoAtt,D.h.shots)+'% OF '+sH+"'S SHOTS CAME FROM TWO-POINT RANGE — "+sA+' '+pc(D.a.twoAtt,D.a.shots)+'%.',F(600,15),0.3,pw),
+      px,ly,F(600,15),T1,'left',0.3); ly+=22; }
+    if(miss){ txt(fit('* '+['h','a'].filter(s=>MD.shotMiss[s]).map(s=>(s==='h'?sH:sA)+' '+MD.shotMiss[s]).join(' · ')+' SHOT'+(miss>1?'S':'')+' WITH NO LOCATION TAGGED',F(500,14,1),0.2,pw),
+      px,ly,F(500,14,1),T2,'left',0.2); ly+=22; }
+    // outcome mix
+    const oy=Y1-16-MIXH;
+    ln(px,oy,px+pw,oy,LINE,1);
+    txt('SHOT OUTCOME MIX',px,oy+10,F(700,17),T1,'left',0.8);
+    let lgx=px+pw;
+    [['BLOCKED / SAVED / OTHER',C_OTHER],['DROPPED SHORT',C_SHORT],['WIDE',C_WIDE]].forEach(([lb,c])=>{
+      lgx-=tw(lb,F(600,12),0.4); txt(lb,lgx,oy+14,F(600,12),T2,'left',0.4); lgx-=14; rr(lgx,oy+15,9,9,2,c); lgx-=16; });
+    [['h',CH,Hn],['a',CA,An]].forEach(([s,col,nm],i)=>{
+      const o=D[s].mix, tot=D[s].shots, by=oy+60+i*50;
+      txt(nm,px,by-21,F(700,15),col,'left',0.7);
+      txt(o.scored+' SCORED FROM '+tot+' SHOTS',px+pw,by-20,F(600,13),T2,'right',0.4);
+      if(!tot){ rr(px,by,pw,22,3,CARD); return; }
+      let c0=px;
+      [[o.scored,col,true],[o.wide,C_WIDE],[o.short,C_SHORT],[o.other,C_OTHER]].forEach(([v,c,own])=>{
+        const seg=pw*v/tot; if(!v) return;
+        rr(c0,by,Math.max(seg-2,2),22,2,c);
+        if(seg>28) txt(String(v),c0+seg/2-1,by+3,F(700,16),own?onCol(c):(dashHexLum(c)>150?'#14151c':'#ffffff'),'center');
+        c0+=seg; });
+    });
+    const worst=(D.h.shots-D.h.scored)>=(D.a.shots-D.a.scored)?'h':'a', wd=D[worst];
+    if(wd.shots) txt(fit((wd.shots-wd.scored)+' OF '+(worst==='h'?sH:sA)+"'S "+wd.shots+' SHOTS FAILED TO SCORE.',F(600,14),0.3,pw),
+      px,oy+140,F(600,14),GOLD,'left',0.3);
+  }
+
+  // B: KICKOUT LANDING MAP + KICKOUT RETENTION
+  {
+    const x=CXs[1];
+    const lenRows=I.lenTagged?[['SHORT','SHORT'],['MEDIUM','MEDIUM'],['LONG','LONG']]:[];
+    const rows=[['ALL KICKOUTS','ALL'],...lenRows,['1ST HALF','H1'],['2ND HALF','H2']];
+    const RH=54+22+rows.length*19+14;
+    const KH=(Y1-Y0)-10-RH;
+    const ky=panel(x,Y0,CW,KH,'KICKOUT LANDING MAP','· TOP = KICKING GOAL · DASHED = HALFWAY',ACC);
+    const ph=KH-(ky-Y0)-16, pw=Math.round(ph/1.096);
+    const px=x+22, py=ky;
+    const {svg}=dashMapSvg('ko',CH,CA,pw*2,{bg:PITCH});
+    const im=await dashSvgImg(svg);
+    ctx.save(); rr(px,py,pw,ph,6); ctx.clip(); ctx.fillStyle=PITCH; ctx.fillRect(px,py,pw,ph); if(im) ctx.drawImage(im,px,py,pw,ph); ctx.restore();
+    rr(px,py,pw,ph,6,null,'rgba(255,255,255,0.15)');
+    if(!MD.kos.length){ rr(px+pw/2-140,py+ph/2-24,280,48,6,'rgba(20,21,28,0.78)');
+      txt('NO KICKOUT LOCATIONS TAGGED',px+pw/2,py+ph/2-9,F(700,17),T1,'center',1); }
+    // side column: legend + restart counts + unlocated notes
+    const sx=px+pw+24, sw=x+CW-20-sx; let sy=py+4;
+    txt('LEGEND',sx,sy,F(700,14),T2,'left',1); sy+=26;
+    rr(sx,sy+2,11,11,5.5,'#a8acba'); txt('RETAINED',sx+20,sy-1,F(600,15),T1,'left',0.5); sy+=26;
+    ln(sx+1,sy+2,sx+11,sy+12,'#a8acba',2.2); ln(sx+1,sy+12,sx+11,sy+2,'#a8acba',2.2); txt('LOST',sx+20,sy-1,F(600,15),T1,'left',0.5); sy+=34;
+    [['h',CH,sH],['a',CA,sA]].forEach(([s,col,nm])=>{ rr(sx,sy+3,11,11,5.5,col); txt(fit(nm,F(700,15),0.5,sw-20),sx+20,sy,F(700,15),col,'left',0.5); sy+=26; });
+    sy+=16; ln(sx,sy,sx+sw,sy,LINE,1); sy+=14;
+    [['h',CH,sH],['a',CA,sA]].forEach(([s,col,nm])=>{
+      const k=D[s].ko.ALL;
+      txt(fit(nm,F(700,14),0.5,sw),sx,sy,F(700,14),col,'left',0.5); sy+=20;
+      txt(String(k[1]),sx,sy,F(800,34),T1,'left'); const w1=tw(String(k[1]),F(800,34));
+      txt('OWN RESTARTS',sx+w1+8,sy+15,F(600,13),T2,'left',0.4); sy+=40;
+      const loc=MD.kos.filter(m=>m.s===s).length;
+      txt(loc+' LOCATED ON MAP',sx,sy,F(600,13),T2,'left',0.4); sy+=30; });
+    const km=MD.koMiss.h+MD.koMiss.a;
+    if(km){ sy+=4;
+      txt('* NO LOCATION TAGGED:',sx,sy,F(500,13,1),T2,'left',0.2); sy+=18;
+      ['h','a'].filter(s=>MD.koMiss[s]).forEach(s=>{ txt(fit((s==='h'?sH:sA)+'  '+MD.koMiss[s],F(500,13,1),0.2,sw),sx+9,sy,F(500,13,1),T2,'left',0.2); sy+=18; }); }
+
+    // retention
+    const RY=Y0+KH+10;
+    const dy=panel(x,RY,CW,RH,'KICKOUT RETENTION','· BY LENGTH AND BY HALF',ACC);
+    const rx=x+24, rw=CW-48, GUT=58, bw=rw*0.27;
+    txt(sH,rx+GUT,dy-2,F(700,15),CH,'left',0.8);
+    txt(sA,rx+rw-GUT,dy-2,F(700,15),CA,'right',0.8);
+    let ry=dy+22;
+    rows.forEach(([lb,key])=>{
+      const big=key==='ALL';
+      txt(lb,rx+rw/2,ry,F(big?700:600,big?15:14),big?T1:T2,'center',0.7);
+      [['h',CH],['a',CA]].forEach(([s,col],side)=>{
+        const [wn,n]=D[s].ko[key];
+        const bx=rx+(side===0?GUT:rw-GUT-bw);
+        rr(bx,ry+2,bw,13,2,CARD);
+        if(n){ const fw=bw*wn/n; bar(side===0?bx+bw-fw:bx,ry+2,fw,13,col); }
+        const lbv=n?wn+'/'+n:'—';
+        txt(lbv,side===0?bx-8:bx+bw+8,ry-1,F(700,16),n?col:T3,side===0?'right':'left');
+      });
+      ry+=19; if(big){ ln(rx,ry-1,rx+rw,ry-1,LINE,1); ry+=4; }
+    });
+  }
+
+  // C: KEY BATTLES / SCORE SOURCES / SHOOTING RETURNS
+  {
+    const x=CXs[2];
+    const pc=(n,d)=>d?Math.round(n/d*100):0;
+    const h=D.h, a=D.a;
+    // rows: [label, home text, away text, home weight, away weight]; rows the data cannot fill are hidden
+    const B=[];
+    if(h.shots||a.shots) B.push(['SHOOTING ACCURACY',Math.round(h.psr)+'%',Math.round(a.psr)+'%',Math.max(h.psr,.1),Math.max(a.psr,.1)]);
+    if(I.attTagged&&(h.twoAtt||a.twoAtt)) B.push(['TWO-POINT SHOTS',h.twoMade+'/'+h.twoAtt,a.twoMade+'/'+a.twoAtt,Math.max(h.twoMade*10+h.twoAtt,1),Math.max(a.twoMade*10+a.twoAtt,1)]);
+    if(h.ko.ALL[1]||a.ko.ALL[1]) B.push(['OWN KICKOUTS WON',(h.ko.ALL[1]?pc(...h.ko.ALL)+'%':'—'),(a.ko.ALL[1]?pc(...a.ko.ALL)+'%':'—'),Math.max(pc(...h.ko.ALL),.1),Math.max(pc(...a.ko.ALL),.1)]);
+    if(h.poss||a.poss) B.push(['POSSESSIONS',String(h.poss),String(a.poss),Math.max(h.poss,1),Math.max(a.poss,1)]);
+    if(h.att||a.att) B.push(['ATTACKS',String(h.att),String(a.att),Math.max(h.att,1),Math.max(a.att,1)]);
+    if((h.toData||a.toData)&&(h.toConceded||a.toConceded)) B.push(['TURNOVERS CONCEDED',String(h.toConceded),String(a.toConceded),Math.max(h.toConceded,1),Math.max(a.toConceded,1)]);
+    if(h.fouls||a.fouls) B.push(['FOULS CONCEDED',String(h.fouls),String(a.fouls),Math.max(h.fouls,1),Math.max(a.fouls,1)]);
+    const cardsOn=I.cards.length>0;
+    const nB=B.length+(cardsOn?1:0);
+    const src=I.srcRows;
+    const avail=(Y1-Y0)-20;
+    const retH=54+24+5*22+8;
+    let sb=27, ss=24;
+    const bH=()=>54+nB*sb+8, sHt=()=>54+Math.max(src.length,1)*ss+(src.length&&src.length<=6?22:0)+6;
+    while(bH()+sHt()+retH>avail&&(sb>22||ss>20)){ if(sb>22) sb--; if(ss>20) ss--; }
+    const EH=bH(), FH=sHt(), GY=Y0+EH+10+FH+10, GH=Y1-GY;
+    // key battles
+    let ey=panel(x,Y0,CW,EH,'THE KEY BATTLES',null,GOLD);
+    const hx=x+24, hw=CW-48, hbw=hw*0.25;
+    B.forEach(([lb,v1,v2,n1,n2])=>{
+      txt(lb,hx+hw/2,ey,F(600,14),T2,'center',0.6);
+      const tot=n1+n2, f1=hbw*n1/tot, f2=hbw*n2/tot;
+      rr(hx+46,ey+3,hbw,12,2,CARD); bar(hx+46+hbw-f1,ey+3,f1,12,CH);
+      rr(hx+hw-46-hbw,ey+3,hbw,12,2,CARD); bar(hx+hw-46-hbw,ey+3,f2,12,CA);
+      txt(v1,hx+38,ey-2,F(700,17),CH,'right'); txt(v2,hx+hw-38,ey-2,F(700,17),CA,'left');
+      ey+=sb; });
+    if(cardsOn){
+      txt('CARDS',hx+hw/2,ey,F(600,14),T2,'center',0.6);
+      [['h',h],['a',a]].forEach(([s,d],side)=>{
+        const tot=d.cards.YELLOW+d.cards.BLACK+d.cards.RED;
+        if(!tot){ txt('—',side===0?hx+46+hbw-4:hx+hw-46-hbw+4,ey-2,F(700,17),T3,side===0?'right':'left'); return; }
+        let cx2=side===0?hx+46+hbw:hx+hw-46-hbw;
+        [['YELLOW','#f7cd28'],['BLACK','#2e2e3a'],['RED','#d62d28']].forEach(([k,col])=>{
+          const n=d.cards[k]; if(!n) return;
+          const lbl=n>1?'x'+n:'', w=12+(lbl?tw(lbl,F(700,15))+5:0);
+          const bx=side===0?cx2-w:cx2;
+          rr(bx,ey+1,11,15,2,col,'#9698a6',1);
+          if(lbl) txt(lbl,bx+16,ey-1,F(700,15),T1,'left');
+          cx2=side===0?cx2-w-8:cx2+w+8; });
+      });
+    }
+    // score sources
+    const FY=Y0+EH+10;
+    let fy=panel(x,FY,CW,FH,'HOW THE SCORES WERE BUILT','· POINTS BY SOURCE',GOLD);
+    const sx=x+24, sw=CW-48, sbw=sw*0.25;
+    if(!src.length) txt('NO SCORE-SOURCE TAGS IN THIS GAME',sx+sw/2,fy+4,F(600,14),T3,'center',0.6);
+    const mxv=Math.max(1,...src.map(r=>Math.max(r[2],r[3])));
+    src.forEach(([k,lb,p1,p2])=>{
+      txt(lb,sx+sw/2,fy,F(600,14),T2,'center',0.6);
+      rr(sx+36,fy+3,sbw,11,2,CARD); if(p1) bar(sx+36+sbw-sbw*p1/mxv,fy+3,sbw*p1/mxv,11,CH);
+      rr(sx+sw-36-sbw,fy+3,sbw,11,2,CARD); if(p2) bar(sx+sw-36-sbw,fy+3,sbw*p2/mxv,11,CA);
+      txt(String(p1),sx+28,fy-2,F(700,17),p1?CH:T3,'right'); txt(String(p2),sx+sw-28,fy-2,F(700,17),p2?CA:T3,'left');
+      fy+=ss; });
+    if(src.length&&src.length<=6){
+      const b=src.reduce((m,r)=>Math.max(r[2],r[3])>Math.max(m[2],m[3])?r:m,src[0]);
+      const who=b[2]>=b[3]?sH:sA;
+      txt(fit('BIGGEST SINGLE SOURCE: '+who+' SCORED '+Math.max(b[2],b[3])+' POINTS OFF '+b[1]+'.',F(600,14),0.2,sw),sx,fy+2,F(600,14),GOLD,'left',0.2);
+    }
+    // shooting returns
+    const gy=panel(x,GY,CW,GH,'SHOOTING RETURNS','· TOP FIVE SHOOTERS',GOLD);
+    const gx=x+24, cwid=(CW-48)/2-12;
+    const rstep=Math.min(24,Math.floor((GY+GH-14-(gy+22))/5));
+    [['h',CH,sH],['a',CA,sA]].forEach(([s,col,nm],side)=>{
+      const x0=gx+side*(cwid+24);
+      txt(nm,x0,gy-4,F(700,15),col,'left',0.8);
+      txt('PTS    SH    2PT',x0+cwid,gy-2,F(600,12),T2,'right',0.4);
+      ln(x0,gy+17,x0+cwid,gy+17,LINE,1);
+      let yy=gy+24;
+      const list=D[s].shooters.slice(0,5);
+      if(!list.length) txt('NO SHOOTERS TAGGED',x0,yy,F(600,14),T3,'left',0.4);
+      // "D. HURLEY" style; fall back to the full name where two shooters would collide
+      const abbr=n=>{ const p=n.replace(/,/g,' ').split(/\s+/).filter(Boolean); return (p.length>1?p[0][0]+'. '+p.slice(1).join(' '):n).toUpperCase(); };
+      const abC={}; list.forEach(r=>{ const k=abbr(r.name); abC[k]=(abC[k]||0)+1; });
+      list.forEach(r=>{
+        const nmS=abC[abbr(r.name)]>1?r.name.replace(/,/g,' ').split(/\s+/).filter(Boolean).join(' ').toUpperCase():abbr(r.name);
+        txt(fit(nmS,F(600,15),0.3,cwid-108),x0,yy,F(600,15),T1,'left',0.3);
+        const val=r.goals*3+r.pts;
+        txt(r.goals+'-'+String(r.pts).padStart(2,'0'),x0+cwid-72,yy,F(700,16),val?col:T3,'right');
+        txt(String(r.shots),x0+cwid-40,yy,F(600,15),T2,'right');
+        txt(r.twoAtt?r.twoMade+'/'+r.twoAtt:'—',x0+cwid,yy,F(600,15),r.twoAtt?T2:T3,'right');
+        yy+=rstep; });
+    });
+  }
+
+  // ── MATCH MARGIN worm ────────────────────────────────────
+  {
+    const ty=Y1+12, th=1034-ty;
+    panel(40,ty,W-80,th,'MATCH MARGIN',I.cards.length?'· RUNNING LEAD · 2-POINTERS, GOALS AND CARDS MARKED':'· RUNNING LEAD · 2-POINTERS AND GOALS MARKED',CH);
+    txt('HALF-TIME '+D.h.h1+' TO '+D.a.h1+'        SECOND HALF '+D.h.h2+' TO '+D.a.h2,W-60,ty+12,F(700,18),T1,'right',0.8);
+    const tx0=Math.max(150,60+Math.max(tw(sH,F(700,14),0.6),tw(sA,F(700,14),0.6))+14), tx1=W-130;
+    const series=I.series.slice();
+    const mmMax=Math.max(I.lastMin+2,62);
+    const vals=series.map(p=>p[1]); const hi=Math.max(...vals,1), lo=Math.min(...vals,-1);
+    const rTop=ty+74, rBot=ty+th-30, avail=rBot-rTop;
+    const rng=Math.max(hi+Math.abs(lo),2), scale=Math.min(9,avail/rng);
+    const zy=rTop+(avail-rng*scale)/2+hi*scale, chartTop=zy-hi*scale;
+    series.push([mmMax,series[series.length-1][1]]);
+    const MX=m=>tx0+(m/mmMax)*(tx1-tx0);
+    ln(tx0,zy,tx1,zy,'#3a3a4c',1);
+    const step=mmMax<=70?5:10;
+    for(let m=0;m<=mmMax;m+=step){ ln(MX(m),zy,MX(m),zy+3,'#4a4a60',1); txt(m+"'",MX(m),ty+th-24,F(600,13),T3,'center'); }
+    const pts=[]; let prev=null;
+    series.forEach(([m,v])=>{ if(prev!==null) pts.push([MX(m),zy-prev*scale]); pts.push([MX(m),zy-v*scale]); prev=v; });
+    for(let i=0;i<pts.length-1;i++){
+      const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+      if(Math.abs(y1-zy)<0.1&&Math.abs(y2-zy)<0.1) continue;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x2,zy); ctx.lineTo(x1,zy); ctx.closePath();
+      ctx.globalAlpha=(y1+y2)/2<zy?0.32:0.26; ctx.fillStyle=(y1+y2)/2<zy?CH:CA; ctx.fill(); ctx.globalAlpha=1; }
+    ctx.beginPath(); pts.forEach(([px2,py2],i)=>i?ctx.lineTo(px2,py2):ctx.moveTo(px2,py2));
+    ctx.strokeStyle='#ececf4'; ctx.lineWidth=2; ctx.stroke();
+    const hx=MX(S.h1len);
+    ln(hx,chartTop-12,hx,zy+(Math.abs(lo)+0.6)*scale,'#60607a',1);
+    // 2-pointers and goals
+    I.series.slice(1).forEach(([m,v,e])=>{ if(!e||e.pts<2) return;
+      const yy=zy-v*scale, r=e.pts===2?4.5:6.5, col=e.s==='h'?CH:CA;
+      ctx.beginPath(); ctx.arc(MX(m),yy,r,0,Math.PI*2); ctx.fillStyle=col; ctx.fill(); ctx.strokeStyle=HEADBG; ctx.lineWidth=1.5; ctx.stroke();
+      if(e.pts===3){ ctx.beginPath(); ctx.arc(MX(m),yy,2,0,Math.PI*2); ctx.fillStyle=HEADBG; ctx.fill(); } });
+    const marginAt=m=>{ let v=0; for(const [t,val] of series){ if(t<=m) v=val; else break; } return v; };
+    I.cards.forEach(c=>{ if(c.m==null) return; const yy=zy-marginAt(c.m)*scale;
+      rr(MX(c.m)-4.5,yy-6.5,9,13,2,c.col,'#f0f2f8',1); });
+    const fin=series[series.length-1][1];
+    if(fin===0) txt('LEVEL',tx1+12,zy-10,F(700,16),GOLD,'left');
+    else txt((fin>0?'+':'')+fin,tx1+12,zy-fin*scale-11,F(700,19),fin>0?CH:CA,'left');
+    txt(sH,tx0-12,chartTop-6,F(700,14),CH,'right',0.6);
+    txt(sA,tx0-12,zy+Math.abs(lo)*scale-10,F(700,14),CA,'right',0.6);
+    const [rs,rp,r0,r1,rg]=I.run; let runSpan=null;
+    if(rs&&rp>=4){
+      const yl=chartTop-8;
+      ln(MX(r0),yl,MX(r1),yl,GOLD,1); ln(MX(r0),yl,MX(r0),yl+5,GOLD,1); ln(MX(r1),yl,MX(r1),yl+5,GOLD,1);
+      const lbl=rg+'-'+String(Math.max(rp-rg*3,0)).padStart(2,'0')+' WITHOUT REPLY ('+(rs==='h'?sH:sA)+')';
+      const lw=tw(lbl,F(600,13),0.6), mid=MX((r0+r1)/2);
+      txt(lbl,mid,yl-19,F(600,13),GOLD,'center',0.6); runSpan=[mid-lw/2,mid+lw/2]; }
+    const htY=chartTop-30;
+    if(runSpan&&runSpan[0]<hx+90&&runSpan[1]>hx-90) txt('HALF-TIME',hx-6,htY+2,F(600,12),T2,runSpan[0]<hx?'left':'right',0.6);
+    else txt('HALF-TIME',hx+6,htY+2,F(600,12),T2,'left',0.6);
+    if(I.tight>=15){
+      const subW=27+tw('MATCH MARGIN',F(700,20),0.8)+10+tw(I.cards.length?'· RUNNING LEAD · 2-POINTERS, GOALS AND CARDS MARKED':'· RUNNING LEAD · 2-POINTERS AND GOALS MARKED',F(600,14),0.4);
+      txt('LEVEL OR WITHIN TWO POINTS FOR THE FIRST '+Math.floor(I.tight)+' MINUTES',40+subW+30,ty+18,F(600,14),GOLD,'left',0.6);
+    }
+  }
+
+  // ── FOOTER ───────────────────────────────────────────────
+  ln(40,1044,W-40,1044,LINE,1);
+  txt('COHESION ANALYSIS',44,1054,F(700,15),T2,'left',1);
+  txt(fit(('GENERATED FROM TAGGED MATCH EVENTS'+(meta?'  ·  '+meta:'')).toUpperCase(),F(600,13),0.5,900),44+tw('COHESION ANALYSIS',F(700,15),1)+16,1055,F(600,13),T3,'left',0.5);
+  txt('PSR = POINT SCORING RATE  ·  SHOT & KICKOUT LOCATIONS AS TAGGED',W-44,1055,F(600,13),T3,'right',0.5);
+  return cv;
+}
+async function dashDownloadInfographic(btn){
+  dashBusy(btn,true);
+  try{
+    const cv=await dashBuildInfographic();
+    await new Promise(r=>cv.toBlob(b=>{ if(b) dashDlBlob(b,dashFileStem()+'_infographic.png'); r(); },'image/png'));
+  } catch(e){ alert('Could not build the infographic: '+e.message); }
+  finally { dashBusy(btn,false); }
+}
+
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
@@ -1873,6 +2537,10 @@ function renderSV(){
     <button class="tl-pb" style="flex:2;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>
     <button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="dashExportPDF()" title="Stats card + momentum chart as a PDF">📄 PDF</button>
     <label class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;text-align:center;" title="Import a tracker team-pack .json — its crests and colours appear on stats images">📦 Team Pack<input type="file" accept=".json,application/json" style="display:none" onchange="cohImportTeamPack(event)"></label>
+  </div>
+  <div style="display:flex;gap:6px;margin:0 0 8px;">
+    <button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="dashDownloadMapsImage(this)" title="Shot map + kickout landing map as one PNG (full game)">🗺 Maps image</button>
+    <button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="dashDownloadInfographic(this)" title="1920×1080 match infographic PNG (full game)">🖼 Infographic</button>
   </div>`;
 
   // period chips (ET chips only when the game has ET events)

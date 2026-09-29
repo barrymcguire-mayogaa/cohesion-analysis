@@ -192,6 +192,24 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .spin{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @media(max-width:900px){.grid{grid-template-columns:1fr;}.editcol{position:static;}.list{max-height:60vh;}}
+/* Find & Replace (Cmd/Ctrl+F) */
+.crfr{position:fixed;top:64px;right:16px;z-index:10004;width:360px;max-width:calc(100vw - 32px);background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px var(--shadow);padding:10px 12px 8px;font-family:'Barlow',sans-serif;}
+.crfr-h{display:flex;align-items:center;gap:8px;font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:8px;}
+.crfr-sub{font:600 10px 'Barlow',sans-serif;letter-spacing:0;color:var(--t3);flex:1;}
+.crfr-x{cursor:pointer;color:var(--t3);font-size:13px;padding:0 2px;}
+.crfr-x:hover{color:var(--t1);}
+.crfr-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.crfr-wrap{flex-wrap:wrap;gap:4px 10px;}
+.crfr-row input[type=text],.crfr-row input:not([type]),.crfr-row select{flex:1;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
+.crfr-row input:focus,.crfr-row select:focus{border-color:var(--accent);}
+.crfr-count{font:600 11px 'Barlow',sans-serif;color:var(--t2);white-space:nowrap;flex:none;}
+.crfr-lbl{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin:2px 0 4px;}
+.crfr-ck{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);cursor:pointer;user-select:none;}
+.crfr-ck input{accent-color:var(--accent);margin:0;}
+.crfr-btns .cbtn{padding:6px 9px;}
+.crfr-btns .cbtn:disabled{opacity:.4;cursor:default;}
+.crfr-all{border-color:var(--accent);color:var(--accent);}
+.crfr-status{font-size:11px;color:var(--green);min-height:14px;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -446,7 +464,7 @@ function filterGames(){
     if(q && ![g.id,g.title,g.homeTeam,g.awayTeam,g.competition,g.date].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     return true;
   }).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,20);   // newest first (undated last)
-  drop.innerHTML=hits.map(g=>`<div class="row" onclick="openGame('${g.id.replace(/'/g,"\\'")}')">${(g.title||g.id)} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></div>`).join('')||'<div class="row" style="color:var(--t3);cursor:default">No matches</div>';
+  drop.innerHTML=hits.map(g=>`<div class="row" onclick="openGame('${_cq(g.id)}')">${esc(g.title||g.id)} <span style="color:var(--t3)">· ${esc(g.competition||'')} ${esc(g.date||'')}</span></div>`).join('')||'<div class="row" style="color:var(--t3);cursor:default">No matches</div>';
   // Must be an explicit 'block': the .drop class sets display:none in the
   // stylesheet, and clearing the inline style ('') would just fall back to
   // that rule and stay hidden.
@@ -746,9 +764,9 @@ function renderList(){
     db2.style.color=crDupOnly?'#f59e0b':''; db2.style.borderColor=crDupOnly?'#f59e0b':''; }
   wrap.innerHTML=rows.map(e=>{
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
-    return `<div class="ev ${cls}" onclick="pick('${e._rowId}')">
+    return `<div class="ev ${cls}" onclick="pick('${_cq(e._rowId)}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${e.code||'—'} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${e.player}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${esc(e.player)}</span>`:''}</span>
     </div>`;
   }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
   if(crView==='tl') crDrawTL();
@@ -824,7 +842,7 @@ function crBuildMatrix(){
   if(!bases.length){ box.innerHTML='<div style="padding:16px;color:var(--t3);font-size:12px;">No events match the current filter.</div>'; return; }
   const hasN=bases.some(b=>M[b].neutral), hasO=bases.some(b=>M[b].other);
   const home=(GAME.homeTeam||'Home').toUpperCase(), away=(GAME.awayTeam||'Away').toUpperCase();
-  const cell=(b,k,n)=> n?('<td class="n" title="Show these '+n+' clips" onclick="crMatrixDrill(\''+_cq(b)+'\',\''+k+'\')">'+n+'</td>'):'<td class="z">·</td>';
+  const cell=(b,k,n)=> n?('<td class="n" title="Show these '+n+' clips" onclick="crMatrixDrill(\''+_cq(b)+'\',\''+_cq(k)+'\')">'+n+'</td>'):'<td class="z">·</td>';
   const tot={home:0,away:0,neutral:0,other:0,total:0};
   bases.forEach(b=>{ ['home','away','neutral','other','total'].forEach(k=>tot[k]+=M[b][k]); });
   box.innerHTML='<table><tr><th style="text-align:left;">EVENT</th><th>'+esc(home)+'</th><th>'+esc(away)+'</th>'+(hasN?'<th>NEUTRAL</th>':'')+(hasO?'<th>OTHER</th>':'')+'<th>ALL</th></tr>'
@@ -2306,8 +2324,20 @@ function setCodeNeutral(code,on){ codeNeutralPref[code]=!!on; saveCodeNeutral();
 let crRec={};
 let codeEvtList=[];
 const CODE_DEFAULT_EVENTS=['SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','TEAM POSSESSION'];
-// Escape a string for use inside a single-quoted inline onclick attribute.
-function _cq(s){ return esc(String(s==null?'':s)).replace(/'/g,"&#39;"); }
+// Escape a value for use as a single-quoted JS string literal INSIDE a
+// double-quoted inline handler attribute (onclick="fn('${_cq(v)}')").
+// Two layers, in this order: (1) JS-string escaping — backslash, quote and
+// line breaks get a backslash; (2) HTML-attribute escaping. The browser
+// HTML-decodes the attribute BEFORE the JS runs, so HTML-escaping a quote
+// alone (&#39;) is NOT enough: "'45" would decode back to ''45' and the
+// handler would be a syntax error. Use esc() (not _cq) for plain attribute
+// values such as value="", title="", data-*="".
+function _cq(s){
+  return esc(String(s==null?'':s)
+    .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+    .replace(/\r/g,'\\r').replace(/\n/g,'\\n')
+    .replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029'));
+}
 
 // ── Coding templates ──────────────────────────────────────────
 // A template bundles the Code Mode setup — event codes, hotkey order, row
@@ -2425,6 +2455,7 @@ function codeRenameBase(oldBase,newBase){
   crSessionCodes=crSessionCodes.map(c=>c===oldBase?newBase:c); crCodesSave();
   crTplCodes=crTplCodes.map(c=>c===oldBase?newBase:c);
   const swapFull=c=>c===oldBase?newBase:(c.endsWith(' '+oldBase)?c.slice(0,c.length-oldBase.length)+newBase:c);
+  if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; }   // don't save an unread (empty) order over the stored one
   crRowOrder=crRowOrder.map(swapFull); crExtraRows=crExtraRows.map(swapFull); crRowsSave();
   if(crRec[oldBase]){ crRec[newBase]=crRec[oldBase]; delete crRec[oldBase]; }
   refreshDatalists(); crBackup(); crUpdatePending(); renderList(); buildCodePanel();
@@ -2453,7 +2484,7 @@ function codeBtnEdit(base){
   ov.addEventListener('click',e=>{ if(e.target===ov) ov.remove(); });
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:330px;font-family:Barlow,sans-serif;">
     <div style="font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:12px;">EDIT EVENT — ${esc(base)}</div>
-    <label style="font-size:11px;color:var(--t3);">Name<input id="cbeName" value="${_cq(base)}" style="width:100%;box-sizing:border-box;margin:4px 0 10px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
+    <label style="font-size:11px;color:var(--t3);">Name<input id="cbeName" value="${esc(base)}" style="width:100%;box-sizing:border-box;margin:4px 0 10px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
     <div style="display:flex;gap:10px;">
       <label style="flex:1;font-size:11px;color:var(--t3);">Lead s (blank = global)<input id="cbeLead" type="number" min="0" max="60" value="${clip.lead!=null?clip.lead:''}" style="width:100%;box-sizing:border-box;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
       <label style="flex:1;font-size:11px;color:var(--t3);">Lag s (blank = global)<input id="cbeLag" type="number" min="0" max="120" value="${clip.lag!=null?clip.lag:''}" style="width:100%;box-sizing:border-box;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--t1);"></label>
@@ -2522,7 +2553,7 @@ function codeTrackerPicker(){
     <div style="font-size:11px;color:var(--t3);margin-bottom:12px;">Tick the events to add to this template. Their outcome prompts and labels (shot outcomes &amp; type, kickout outcomes, turnover outcomes &amp; thirds, foul areas…) are built in. Save as… keeps the set for future games.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
       ${CR_TRACKER_EVENTS.map(c=>`<label style="display:flex;gap:7px;align-items:center;font-size:12px;${have.has(c)?'color:var(--t3);':''}">
-        <input type="checkbox" data-ctp="${_cq(c)}" ${have.has(c)?'checked disabled':''}> ${esc(c)}${have.has(c)?' ✓':''}</label>`).join('')}
+        <input type="checkbox" data-ctp="${esc(c)}" ${have.has(c)?'checked disabled':''}> ${esc(c)}${have.has(c)?' ✓':''}</label>`).join('')}
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
       <button class="cbtn" onclick="document.getElementById('ctpOv').remove()">Cancel</button>
@@ -2545,7 +2576,7 @@ function ctpAdd(){
 function buildCodePanel(){
   const home=GAME.homeTeam||'Home', away=GAME.awayTeam||'Away';
   const periods=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
-  document.getElementById('codePeriods').innerHTML=periods.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${p}')">${p}</button>`).join('');
+  document.getElementById('codePeriods').innerHTML=periods.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${_cq(p)}')">${esc(p)}</button>`).join('');
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`+
@@ -2558,7 +2589,7 @@ function buildCodePanel(){
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>{
     const hk=hkOf(b);
     const chip=hk?`<span class="hk" title="Keyboard shortcut">${esc(hk===' '?'Space':hk)}</span>`:(i<9?`<span class="hk">${i+1}</span>`:'');
-    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${esc(b).replace(/'/g,"&#39;")}',{otherTeam:event.shiftKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${esc(b).replace(/'/g,"&#39;")}')">✏</span></button>`;
+    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${_cq(b)}',{otherTeam:event.shiftKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${_cq(b)}')">✏</span></button>`;
   }).join('')
     +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`
     +`<button class="cbtn" onclick="codeTrackerPicker()" title="Add events from the tracker app's standard set — their outcome prompts and labels come built in">＋ Tracker events…</button>`;
@@ -2587,9 +2618,9 @@ function buildCodeKeysEditor(){
   let rows='';
   for(let i=0;i<n;i++){
     const cur=all[i];
-    const opts=all.map(c=>`<option value="${_cq(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
+    const opts=all.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const col=codeColorPref[cur]||'';
-    rows+=`<div class="keyrow"><span class="keynum"${i>=9?' style="background:var(--card);color:var(--t3);"':''}>${i<9?i+1:'—'}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${isDurCode(cur)?' on':''}" title="${isDurCode(cur)?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${isDurCode(cur)?'false':'true'})">⏱</button><button class="cbtn mini${isNeutralCode(cur)?' on':''}" title="${isNeutralCode(cur)?'TEAM-NEUTRAL: tagged with no team, whichever team is selected (e.g. THROW-IN) — click to tie it to the selected team':'Tagged with the selected team — click to make it team-neutral (saved with no team)'}" onclick="setCodeNeutral('${_cq(cur)}',${isNeutralCode(cur)?'false':'true'})">Ⓝ</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${_cq(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
+    rows+=`<div class="keyrow"><span class="keynum"${i>=9?' style="background:var(--card);color:var(--t3);"':''}>${i<9?i+1:'—'}</span><select onchange="setCodeKey(${i},this.value)">${opts}</select><button class="cbtn mini${isDurCode(cur)?' on':''}" title="${isDurCode(cur)?'Duration event: press starts, press again stops':'Instant event (lead/lag clip) — click to make it a duration event'}" onclick="setCodeDur('${_cq(cur)}',${isDurCode(cur)?'false':'true'})">⏱</button><button class="cbtn mini${isNeutralCode(cur)?' on':''}" title="${isNeutralCode(cur)?'TEAM-NEUTRAL: tagged with no team, whichever team is selected (e.g. THROW-IN) — click to tie it to the selected team':'Tagged with the selected team — click to make it team-neutral (saved with no team)'}" onclick="setCodeNeutral('${_cq(cur)}',${isNeutralCode(cur)?'false':'true'})">Ⓝ</button><input type="color" value="${col||'#4fc3f7'}" title="Default colour for ${esc(cur)} events (tagged in Code Mode)" style="width:34px;height:30px;padding:2px;flex:none;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;" onchange="setCodeColor('${_cq(cur)}',this.value)">${col?`<span style="cursor:pointer;color:var(--t3);font-size:11px;" title="Clear colour (use team colour)" onclick="setCodeColor('${_cq(cur)}','');buildCodeKeysEditor()">✕</span>`:''}</div>`;
   }
   box.style.display='';
   box.innerHTML=`<div class="keyhelp">Pick which code sits on each number key — saved across games. ⏱ makes a code a DURATION event (press starts, press again stops); Ⓝ makes it TEAM-NEUTRAL (tagged with no team, whichever team is lit — THROW-IN starts that way); the colour is applied to events tagged in Code Mode (✕ = team colour).</div>${rows}<div style="margin-top:8px;"><button class="cbtn mini" onclick="resetCodeKeys()">Reset A–Z</button></div>`;
@@ -2804,7 +2835,7 @@ function crCancelRec(baseCode){ delete crRec[baseCode]; renderCodeRecs(); buildC
 function renderCodeRecs(){
   const box=document.getElementById('codeRecs'); if(!box) return;
   box.innerHTML=Object.entries(crRec).map(([b,r])=>
-    `<span class="recchip" onclick="crDurToggle('${_cq(b)}')" title="Click to stop ${_cq(b)} at the current video moment">⏺ ${esc(b)} <span data-rec="${_cq(b)}">0:00</span><span class="x" onclick="event.stopPropagation();crCancelRec('${_cq(b)}')" title="Cancel — discard this recording">✕</span></span>`).join('');
+    `<span class="recchip" onclick="crDurToggle('${_cq(b)}')" title="Click to stop ${esc(b)} at the current video moment">⏺ ${esc(b)} <span data-rec="${esc(b)}">0:00</span><span class="x" onclick="event.stopPropagation();crCancelRec('${_cq(b)}')" title="Cancel — discard this recording">✕</span></span>`).join('');
   crTickRecs();
 }
 function crTickRecs(){
@@ -3084,6 +3115,248 @@ document.addEventListener('keydown', e=>{
   if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
 });
 
+// ── Find & Replace (Cmd/Ctrl+F — Sportscode-style) ────────────
+// Searches THIS game's events. What it searches is chosen by the ticks:
+// player names (the player field + "<TEAM> Player Labels" values), event
+// codes (row titles), label values (optionally one group only) and label
+// group names. Prev/Next select + cue each matching event; Replace / Replace
+// all edit events in memory through the normal queue (_dirty / _new,
+// crBackup, pending count) — nothing is written until the session is saved.
+// Every replace is ONE undo step (the page's bulkedit undo).
+let crFR={open:false, hits:[], idx:-1, total:0};
+function crFROpts(){
+  const g=id=>document.getElementById(id);
+  return { find:(g('frFind')||{}).value||'', rep:(g('frRep')||{}).value||'',
+    cs:!!(g('frCase')||{}).checked, word:!!(g('frWord')||{}).checked,
+    player:!!(g('frInPlayer')||{}).checked, code:!!(g('frInCode')||{}).checked,
+    values:!!(g('frInValue')||{}).checked, groups:!!(g('frInGroup')||{}).checked,
+    group:(g('frGroup')||{}).value||'' };
+}
+// Literal (never regex) search; "whole word" = not touching a letter/digit/_
+// on either side, so values that START with punctuation ('45) still work.
+function crFRRegex(o){
+  if(!o.find) return null;
+  const src=o.find.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const W='[\\p{L}\\p{N}_]';
+  return new RegExp(o.word?('(?<!'+W+')'+src+'(?!'+W+')'):src, 'gu'+(o.cs?'':'i'));
+}
+// Count (apply=false) or perform (apply=true) the replacements on ONE event.
+// Returns the number of occurrences. Derived fields (team, category,
+// outcome/subtype, player-label group) are kept consistent when applying.
+function crFRProcess(e, re, o, apply){
+  let n=0;
+  const sub=s=>{ if(s==null||s==='') return s; const str=String(s); let c=0;
+    re.lastIndex=0; const out=str.replace(re,()=>{ c++; return o.rep; }); n+=c; return c?out:s; };
+  const quiet=s=>{ if(s==null||s==='') return s; re.lastIndex=0; return String(s).replace(re,()=>o.rep); };
+  const oldCode=e.code||'', oldTeamLbl=(e.labels||{})['Team Name'];
+  let code=oldCode, player=e.player||'';
+  if(o.code && oldCode){ const c2=sub(oldCode).replace(/\s+/g,' ').trim(); if(c2) code=c2; }
+  if(o.player && player) player=sub(player);
+  const labels={};
+  Object.entries(e.labels||{}).forEach(([g,v])=>{
+    let v2=v, g2=g;
+    if(isPlayerGroup(g)){ if(o.player) v2=sub(v); }
+    else if(o.values && (!o.group || g===o.group)) v2=sub(v);
+    if(o.groups){ const gg=sub(g); if(String(gg).trim()) g2=String(gg).trim(); }
+    if((v2==null||v2==='') && v2!==v) return;   // a value replaced with nothing drops the label
+    labels[g2]=v2;
+  });
+  if(!apply||!n) return n;
+  e.code=code; e.player=player; e.labels=labels;
+  if(code!==oldCode || labels['Team Name']!==oldTeamLbl){
+    const oldTeam=e.team||'';
+    const t=teamFor(e.code,e.labels); if(t) e.team=t;
+    e.category=catOf(e.code)||e.category||'Other';
+    // keep "<TEAM> Player Labels" in step with a changed team
+    if(e.team && e.team!==oldTeam){
+      const pg=Object.keys(e.labels).find(k=>isPlayerGroup(k)&&k.toUpperCase()===((oldTeam||'Unassigned')+' Player Labels').toUpperCase());
+      if(pg){ const v=e.labels[pg]; delete e.labels[pg]; e.labels[`${e.team} Player Labels`]=v; }
+    }
+  }
+  if(o.values || o.groups){
+    const out=firstOf(e.labels,OUT_KEYS); e.outcome=out || (o.values?quiet(e.outcome):e.outcome) || '';
+    const sb=firstOf(e.labels,SUB_KEYS); e.subtype=sb || (o.values?quiet(e.subtype):e.subtype) || '';
+  }
+  if(!e._new) e._dirty=true;
+  return n;
+}
+// Rebuild the hit list (events with ≥1 occurrence, in list order).
+function crFRUpdate(keepId){
+  const o=crFROpts(), re=crFRRegex(o);
+  const curId=keepId!==undefined?keepId:(crFR.hits[crFR.idx]!=null?crFR.hits[crFR.idx]:null);
+  crFR.hits=[]; crFR.total=0;
+  if(re && (o.player||o.code||o.values||o.groups)){
+    EVENTS.forEach(e=>{ const n=crFRProcess(e,re,o,false); if(n){ crFR.hits.push(e._rowId); crFR.total+=n; } });
+  }
+  crFR.idx=curId!=null?crFR.hits.findIndex(id=>String(id)===String(curId)):-1;
+  crFRStatus();
+}
+function crFRStatus(msg){
+  const c=document.getElementById('frCount'); if(!c) return;
+  const n=crFR.hits.length;
+  if(!(document.getElementById('frFind')||{}).value) c.textContent='';
+  else if(!n) c.textContent='No matches';
+  else c.textContent=(crFR.idx>=0?(crFR.idx+1)+' of ':'')+n+' event'+(n===1?'':'s')+' · '+crFR.total+' match'+(crFR.total===1?'':'es');
+  c.style.color=(document.getElementById('frFind')||{}).value&&!n?'var(--red)':'var(--t2)';
+  const st=document.getElementById('frStatus'); if(st && msg!==undefined) st.textContent=msg;
+  const ub=document.getElementById('frUndo'); if(ub) ub.disabled=!undoStack.length;
+}
+// Select + cue an event without leaving the current mode.
+function crFRShow(rowId){
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId)); if(!e) return;
+  if(codeMode.on){ activeId=e._rowId; if(YTP&&YTP.seekTo) vSeekDrive(e.driveT||0); renderList(); }
+  else { pick(e._rowId); }
+  if(YTP&&YTP.pauseVideo) YTP.pauseVideo();          // hold on the match while reviewing
+  if(crView==='tl'){ const dur=crDur(), vD=dur/crTLZ, t=e.driveT||0;
+    if(t<crTLO||t>crTLO+vD){ crTLO=Math.max(0,Math.min(Math.max(0,dur-vD), t-vD/2)); crDrawTL(); } }
+  const el=document.querySelector('#levents .ev.on'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+}
+function crFRStep(dir){
+  crFRUpdate();
+  const n=crFR.hits.length; if(!n) return;
+  if(crFR.idx<0){
+    // start from the selected event's position if there is one
+    const pos=EVENTS.findIndex(x=>String(x._rowId)===String(activeId));
+    const order=crFR.hits.map(id=>EVENTS.findIndex(x=>String(x._rowId)===String(id)));
+    if(pos<0) crFR.idx=dir>0?0:n-1;
+    else if(dir>0){ const i=order.findIndex(p=>p>pos); crFR.idx=i<0?0:i; }
+    else { let i=-1; order.forEach((p,k)=>{ if(p<pos) i=k; }); crFR.idx=i<0?n-1:i; }
+  } else crFR.idx=(crFR.idx+dir+n)%n;
+  crFRShow(crFR.hits[crFR.idx]); crFRStatus('');
+}
+// Apply to a set of events as ONE undo step, then refresh everything.
+function crFRApply(ids){
+  const o=crFROpts(), re=crFRRegex(o); if(!re) return {events:0,matches:0};
+  const evs=ids.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean)
+               .filter(e=>crFRProcess(e,re,o,false)>0);
+  if(!evs.length) return {events:0,matches:0};
+  if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; }   // never overwrite a saved row order we haven't read
+  const rowOrder0=crRowOrder.slice();
+  undoStack.push({type:'bulkedit', snaps:evs.map(e=>({id:e._rowId, data:crClone(e)})), rowOrder:rowOrder0});
+  const renamed={}; let matches=0;
+  evs.forEach(e=>{ const oc=e.code||''; matches+=crFRProcess(e,re,o,true); if((e.code||'')!==oc) renamed[oc]=e.code; });
+  // Timeline row order: a code that no longer exists hands its saved slot to
+  // its new name (or drops out if the new name already has one).
+  const present=new Set(EVENTS.map(e=>e.code||'—'));
+  Object.entries(renamed).forEach(([oc,nc])=>{
+    if(present.has(oc)) return;
+    crRowOrder=crRowOrder.includes(nc)?crRowOrder.filter(c=>c!==oc):crRowOrder.map(c=>c===oc?nc:c);
+  });
+  if(crRowOrder.join('\u0001')!==rowOrder0.join('\u0001')) crRowsSave();
+  crFRRefreshPage();
+  return {events:evs.length, matches};
+}
+function crFRRefreshPage(){
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  if(codeMode.on){ buildCodePanel(); renderCodeLink(); }
+  else if(activeId){ const cur=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(cur) crSyncDraft(cur); }
+  crFRGroupOpts();
+}
+function crFRReplace(){
+  crFRUpdate();
+  if(!crFR.hits.length){ crFRStatus('Nothing to replace.'); return; }
+  if(crFR.idx<0){ crFRStep(1); crFRStatus('Press Replace again to change this event.'); return; }
+  const id=crFR.hits[crFR.idx], pos=EVENTS.findIndex(x=>String(x._rowId)===String(id));
+  const r=crFRApply([id]);
+  crFRUpdate(null);
+  if(crFR.hits.length){
+    const order=crFR.hits.map(h=>EVENTS.findIndex(x=>String(x._rowId)===String(h)));
+    const i=order.findIndex(p=>p>pos); crFR.idx=i<0?0:i; crFRShow(crFR.hits[crFR.idx]);
+  }
+  crFRStatus(r.matches?('Replaced '+r.matches+' in 1 event — unsaved until you save the session.'):'');
+}
+function crFRReplaceAll(){
+  crFRUpdate();
+  const n=crFR.hits.length; if(!n){ crFRStatus('Nothing to replace.'); return; }
+  const o=crFROpts();
+  if(!confirm('Replace '+crFR.total+' match'+(crFR.total===1?'':'es')+' of "'+o.find+'" with "'+o.rep+'" in '+n+' event'+(n===1?'':'s')+'?\n\nQueued as unsaved edits — one Undo reverses it.')) return;
+  const r=crFRApply(crFR.hits.slice());
+  crFRUpdate(null);
+  crFRStatus('✓ Replaced '+r.matches+' match'+(r.matches===1?'':'es')+' in '+r.events+' event'+(r.events===1?'':'s')+' — save the session to keep them.');
+}
+function crFRUndo(){ if(!undoStack.length) return; undo(); crFRUpdate(null); crFRGroupOpts(); crFRStatus('Undone.'); }
+function crFRGroupOpts(){
+  const sel=document.getElementById('frGroup'); if(!sel) return;
+  const cur=sel.value, s=new Set();
+  EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(!isPlayerGroup(g)) s.add(g); }));
+  const gs=[...s].sort();
+  sel.innerHTML='<option value="">All label groups</option>'+gs.map(g=>`<option value="${esc(g)}"${g===cur?' selected':''}>${esc(g)}</option>`).join('');
+  if(cur && !gs.includes(cur)) sel.value='';
+}
+function crFRBuild(){
+  let p=document.getElementById('crFR'); if(p) return p;
+  p=document.createElement('div'); p.id='crFR'; p.className='crfr';
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Find and replace');
+  const ck=(id,lbl,on,tip)=>`<label class="crfr-ck" title="${esc(tip||'')}"><input type="checkbox" id="${id}"${on?' checked':''}>${lbl}</label>`;
+  p.innerHTML=`<div class="crfr-h"><span>FIND &amp; REPLACE</span><span class="crfr-sub">this game</span><span class="crfr-x" id="frClose" title="Close (Esc)">✕</span></div>
+    <div class="crfr-row"><input id="frFind" placeholder="Find" autocomplete="off" spellcheck="false"><span id="frCount" class="crfr-count"></span></div>
+    <div class="crfr-row"><input id="frRep" placeholder="Replace with" autocomplete="off" spellcheck="false"></div>
+    <div class="crfr-row crfr-wrap">${ck('frCase','Match case',false)}${ck('frWord','Whole word',false,'Only whole words — e.g. Mayo but not Mayobridge')}</div>
+    <div class="crfr-lbl">Search in</div>
+    <div class="crfr-row crfr-wrap">${ck('frInPlayer','Player names',true,'Player field + <team> Player Labels')}${ck('frInCode','Event codes',true,'Event codes (timeline row titles)')}${ck('frInValue','Label values',true)}${ck('frInGroup','Label group names',true)}</div>
+    <div class="crfr-row"><select id="frGroup" title="Limit label VALUES to one group"></select></div>
+    <div class="crfr-row crfr-btns">
+      <button class="cbtn mini" id="frPrev" title="Previous match (Shift+Enter)">‹ Prev</button>
+      <button class="cbtn mini" id="frNext" title="Next match (Enter)">Next ›</button>
+      <span style="flex:1"></span>
+      <button class="cbtn mini" id="frOne" title="Replace in the current event, then go to the next">Replace</button>
+      <button class="cbtn mini crfr-all" id="frAll" title="Replace every match in this game">Replace all</button>
+      <button class="cbtn mini" id="frUndo" title="Undo the last change (one step)">↶</button>
+    </div>
+    <div id="frStatus" class="crfr-status"></div>`;
+  document.body.appendChild(p);
+  const q=id=>p.querySelector('#'+id);
+  q('frClose').onclick=crFRClose;
+  q('frPrev').onclick=()=>crFRStep(-1);
+  q('frNext').onclick=()=>crFRStep(1);
+  q('frOne').onclick=crFRReplace;
+  q('frAll').onclick=crFRReplaceAll;
+  q('frUndo').onclick=crFRUndo;
+  q('frFind').addEventListener('input',()=>{ crFR.idx=-1; crFRUpdate(null); crFRStatus(''); });
+  ['frCase','frWord','frInPlayer','frInCode','frInValue','frInGroup','frGroup'].forEach(id=>q(id).addEventListener('change',()=>{ crFRUpdate(); crFRStatus(''); }));
+  return p;
+}
+function crFROpen(){
+  const p=crFRBuild(); p.style.display=''; crFR.open=true;
+  crFRGroupOpts();
+  const f=p.querySelector('#frFind');
+  // Prefill from a short text selection on the page (not from inside inputs)
+  try{ const s=String(window.getSelection?window.getSelection():'').trim(); if(s && s.length<60 && !/\n/.test(s)) f.value=s; }catch(_){}
+  crFRUpdate(); f.focus(); f.select();
+}
+function crFRClose(){
+  const p=document.getElementById('crFR'); if(p) p.style.display='none';
+  crFR.open=false;
+  if(document.activeElement && document.activeElement.blur && p && p.contains(document.activeElement)) document.activeElement.blur();
+}
+// Registered on WINDOW in the CAPTURE phase so it runs before every page
+// hotkey handler (all on document): Cmd/Ctrl+F opens the panel even from
+// inside an input, and keys typed in the panel never reach the coding
+// hotkeys (Space, 1–9, letters, arrows, ?, Esc …). stopPropagation doesn't
+// cancel the default action, so typing into the inputs still works.
+window.addEventListener('keydown', e=>{
+  const k=String(e.key||'').toLowerCase();
+  if((e.metaKey||e.ctrlKey) && !e.altKey && !e.shiftKey && k==='f'){
+    if(!GAME) return;                              // game picker: leave the browser's own find
+    if(document.getElementById('cbeOv')) return;   // key-capture dialog owns the keyboard
+    e.preventDefault(); e.stopPropagation(); crFROpen(); return;
+  }
+  if(!crFR.open) return;
+  const p=document.getElementById('crFR');
+  const inPanel=!!(p && e.target && p.contains(e.target));
+  if(e.key==='Escape' && (inPanel || !(codeMode.on && codeMode.pendingLink))){
+    e.preventDefault(); e.stopPropagation(); crFRClose(); return;
+  }
+  if(!inPanel) return;
+  e.stopPropagation();
+  if(e.key==='Enter' && e.target.tagName==='INPUT' && (e.target.id==='frFind'||e.target.id==='frRep') && !e.isComposing){
+    e.preventDefault();
+    if(e.target.id==='frRep' && (e.metaKey||e.ctrlKey)) crFRReplaceAll();
+    else if(e.target.id==='frRep' && e.altKey) crFRReplace();
+    else crFRStep(e.shiftKey?-1:1);
+  }
+}, true);
+
 // ── XML export ────────────────────────────────────────────────
 // Writes the current events (including any queued edits, custom labels and
 // player tags) as a Sportscode-shaped ALL_INSTANCES file. Synthesised period
@@ -3329,6 +3602,7 @@ function undo(){
     draft=null;
   } else if(op.type==='bulkedit'){
     op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
+    if(op.rowOrder){ crRowOrder=op.rowOrder.slice(); crRowsSave(); }   // Find & Replace code renames
     draft=null;
   } else if(op.type==='bulkdelete'){
     op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
