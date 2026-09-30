@@ -19,6 +19,10 @@
  *   { action:'gameBundle', id }                -> { meta, events:[{id, data}] }
  *   { action:'getEvents',  gameId }            -> { events:[{id, data}] }
  *   { action:'gamesMeta' }                     -> { metas:[meta] }  (all allowed sections)
+ *   { action:'xpModel' }                       -> { model: <xp_model.json> | null, version?, id?, published_at? }
+ *        the CURRENT published xP model (table xp_models, see supabase/xp_models.sql).
+ *        Any verified user. null (never an error) when the table or a current row doesn't
+ *        exist yet, so cohesion-xp.js keeps its bundled v1.
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
 
@@ -107,7 +111,25 @@ exports.handler = async (event, context) => {
       return { statusCode: 200, body: JSON.stringify({ ok: true, metas }) };
     }
 
-    return { statusCode: 400, body: JSON.stringify({ error: 'action must be listGames, gameBundle, getEvents or gamesMeta' }) };
+    if (action === 'xpModel') {
+      const none = (why) => ({ statusCode: 200, body: JSON.stringify({ ok: true, model: null, reason: why }) });
+      try {
+        const { data, error } = await supabase.from('xp_models')
+          .select('id, version, model, made_current_at')
+          .not('made_current_at', 'is', null)
+          .order('made_current_at', { ascending: false })
+          .limit(1);
+        if (error) { console.warn('xpModel: ' + error.message); return none('unavailable'); }
+        const row = (data || [])[0];
+        if (!row || !row.model || typeof row.model !== 'object') return none('none published');
+        return { statusCode: 200, body: JSON.stringify({ ok: true, model: row.model, version: row.version, id: row.id, published_at: row.made_current_at }) };
+      } catch (e) {
+        console.warn('xpModel: ' + (e && e.message));
+        return none('unavailable');
+      }
+    }
+
+    return { statusCode: 400, body: JSON.stringify({ error: 'action must be listGames, gameBundle, getEvents, gamesMeta or xpModel' }) };
 
   } catch (error) {
     console.error('data error:', error);
