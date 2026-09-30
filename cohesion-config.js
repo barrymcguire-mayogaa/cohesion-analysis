@@ -20,6 +20,9 @@ window.COHESION_LABEL_GROUPS = [
   { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT (OPEN|DEAD)/ },
   { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT (OPEN|DEAD)/ },
   { name: 'Shot Pressure', options: ['Low Pressure', 'Medium Pressure', 'High Pressure'], appliesTo: /SHOT (OPEN|DEAD)/ },
+  // players:true — options are the shooting team's players (filled per game by
+  // each page), not a fixed list. The shooter himself is left out.
+  { name: 'Assist', options: [], players: true, appliesTo: /SHOT (OPEN|DEAD)/ },
   { name: 'Turnover Locations', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bTOS?\b|TURNOVER/ },
   { name: 'Score Source Score Outcomes', options: ['1 POINT', '2 POINT', 'GOAL'], appliesTo: /SCORE SOURCE/ },
   { name: 'Kickout Locations', options: ['KO SHORT', 'KO MEDIUM', 'KO LONG'], appliesTo: /\bKO\b|KICKOUT/ },

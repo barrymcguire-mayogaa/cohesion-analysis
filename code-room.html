@@ -143,6 +143,8 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .lblrow{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
 .lblrow .g{min-width:118px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;}
 .lblrow input{flex:1;margin:0;}
+.lblrow.need select{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange);}
+.lblrow.need .g{color:var(--orange);}
 .lblrow .x{cursor:pointer;color:var(--red);font-weight:700;padding:0 6px;user-select:none;}
 .addg{background:none;border:1px dashed var(--border);color:var(--t3);border-radius:6px;padding:7px;font:600 11px 'Barlow Condensed',sans-serif;cursor:pointer;width:100%;margin-top:2px;}
 .addg:hover{border-color:var(--accent);color:var(--accent);}
@@ -2054,10 +2056,16 @@ function renderPanel(){
   const defined=(window.cohesionGroupsFor?window.cohesionGroupsFor(draft.code):[]);
   const definedNames=new Set(defined.map(d=>d.name.toLowerCase()));
   const curMap={}; draft.groups.forEach(({g,v})=>{curMap[g.toLowerCase()]=v;});
+  // Shots always show every shot label (attempt, dead-ball type, leg, side,
+  // pressure, assist); blanks are outlined amber so gaps are obvious.
+  const shotDraft=/SHOT (OPEN PLAY|DEAD ?BALL)/i.test(draft.code||'');
   const definedRows=defined.map(d=>{
     const val=curMap[d.name.toLowerCase()]||'';
-    const opts=['<option value="">— select —</option>'].concat(d.options.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
-    return `<div class="lblrow"><span class="g" title="${esc(d.name)}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`;
+    const choices=crGroupOpts(d,{code:draft.code,team:e.team,player:draft.player});
+    if(val&&!choices.includes(val)) choices.unshift(val);
+    const opts=[`<option value="">${d.players?'— no assist —':'— select —'}</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
+    const need=shotDraft&&!val;
+    return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`;
   }).join('');
   const freeRows=draft.groups.map((row,i)=>({row,i})).filter(o=>!definedNames.has(o.row.g.toLowerCase())).map(({row,i})=>`
     <div class="lblrow">
@@ -2727,6 +2735,15 @@ function codePlayerList(side){
   const teamUC=side==='home'?(GAME.homeTeam||'').toUpperCase():(GAME.awayTeam||'').toUpperCase();
   return [...new Set(EVENTS.filter(e=>(e.team||'').toUpperCase()===teamUC && e.player).map(e=>e.player))].sort();
 }
+// Options for a defined label group on an event: fixed options, or — for a
+// players:true group (Assist) — the event team's players minus the shooter.
+function crGroupOpts(g,e){
+  if(!g) return [];
+  if(!g.players) return (g.options||[]).slice();
+  const side=String((e&&e.team)||'').toUpperCase()===String(GAME&&GAME.homeTeam||'').toUpperCase()?'home':'away';
+  const me=String((e&&e.player)||'').trim().toLowerCase();
+  return codePlayerList(side).filter(p=>p&&p.trim().toLowerCase()!==me);
+}
 function buildCodePlayers(){
   const players=codePlayerList(codeMode.team);
   const tm=codeMode.team==='home'?(GAME.homeTeam||'Home'):(GAME.awayTeam||'Away');
@@ -3037,6 +3054,7 @@ function renderCodeLink(){
     // fresh for every tag, applied straight to the row
     const isShot=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(sq.code||'');
     (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
+      if(g.players) return;                       // Assist → its own dropdown below
       const cur=(sq.labels||{})[g.name]||'';
       html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
         g.options.map(o=>`<button class="cbtn mini ${cur===o?'on':''}" onclick="codeShotQual('${_cq(g.name)}','${_cq(o)}')">${esc(o)}</button>`).join('')+
@@ -3545,7 +3563,7 @@ function crLCValueOptions(g){
   rowEvs.forEach(e=>crLCValues(e,g).forEach(add));           // this row's values first
   EVENTS.forEach(e=>crLCValues(e,g).forEach(add));
   if(g[0]!=='@'){
-    (window.COHESION_LABEL_GROUPS||[]).forEach(x=>{ if(x&&x.name===g) (x.options||[]).forEach(add); });
+    (window.COHESION_LABEL_GROUPS||[]).forEach(x=>{ if(x&&x.name===g){ (x.options||[]).forEach(add); if(x.players) crPlayers().forEach(add); } });
     (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group===g) (l.options||[]).forEach(add); });
   }
   return [...s.values()];
@@ -3898,7 +3916,7 @@ async function crGiConvertPrompt(){
 // Prev/Next commit the draft with saveEvent() — the normal dirty/undo/save
 // pipeline; Skip moves on without committing.
 const CR_LOC_RE=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i;
-const CR_LOC_GROUPS=['Shot Attempts','Shot Side','Shooting Leg','Shot Pressure'];
+const CR_LOC_GROUPS=['Shot Attempts','Deadball Shot Type','Shot Side','Shooting Leg','Shot Pressure','Assist'];
 let crLoc={open:false, ids:[], i:0, mapOv:null, msg:''};
 function crLocTargets(){
   return EVENTS.filter(e=>CR_LOC_RE.test(e.code||'')&&!crCoordOf(e))
@@ -4010,9 +4028,16 @@ function crLocRender(){
   CR_LOC_GROUPS.forEach((g,gi)=>{
     const grp=groups.find(x=>x.name===g); if(!grp) return;
     const cur=crLocVal(g);
-    const need=g==='Shot Attempts'&&!cur;
-    rows+=`<div class="crfr-lbl">${esc(g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>
-      <div class="crloc-chips${need?' need':''}">${grp.options.map((o,vi)=>`<span class="crloc-chip${cur===o?' on':''}" onclick="crLocTag(${gi},${vi})">${esc(o)}</span>`).join('')}</div>`;
+    const need=!cur;                               // every blank shot label is flagged
+    const head=`<div class="crfr-lbl">${esc(g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>`;
+    if(grp.players){
+      const pl=crGroupOpts(grp,{code:e.code,team:e.team,player:(draft&&draft.player)||e.player});
+      if(cur&&!pl.includes(cur)) pl.unshift(cur);
+      rows+=head+`<div class="crloc-chips${need?' need':''}"><select data-group="${esc(g)}" onchange="setDefinedLabel(this.dataset.group,this.value);crLocRender()" style="flex:1;width:100%;">`+
+        `<option value="">— no assist —</option>`+pl.map(o=>`<option value="${esc(o)}"${o===cur?' selected':''}>${esc(o)}</option>`).join('')+`</select></div>`;
+      return;
+    }
+    rows+=head+`<div class="crloc-chips${need?' need':''}">${grp.options.map((o,vi)=>`<span class="crloc-chip${cur===o?' on':''}" onclick="crLocTag(${gi},${vi})">${esc(o)}</span>`).join('')}</div>`;
   });
   p.innerHTML=`<div class="crfr-h"><span>LOCATE SHOTS</span><span class="crfr-sub" id="locProg">${done} of ${n} located</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this shot's changes to the session)">✕</span></div>
     <div class="crloc-ev" title="${esc(e.code||'')}">${crLoc.i+1}/${n} · ${esc(e.code||'')} <span>${esc(e.gameTime||fmt(e.driveT||0))}${e.player?' · '+esc(e.player):''}${out?' · '+esc(out):''}</span></div>

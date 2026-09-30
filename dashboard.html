@@ -3099,7 +3099,14 @@ function renderCustomTags(ev){
   wrap.style.display='block';
   wrap.innerHTML=groups.map(g=>{
     const val=(ev.labels&&ev.labels[g.name])||'';
-    const opts=[`<option value="">${g.name}…</option>`].concat(g.options.map(o=>`<option${o===val?' selected':''}>${o}</option>`)).join('');
+    let choices=g.options||[];
+    if(g.players){                                   // Assist: this team's players, minus the shooter
+      const T=String(ev.team||'').toUpperCase(), me=String(ev.player||'').trim().toLowerCase();
+      choices=[...new Set(ALL.filter(x=>String(x.team||'').toUpperCase()===T&&x.player).map(x=>String(x.player).trim()))]
+        .filter(p=>p.toLowerCase()!==me).sort();
+      if(val&&!choices.includes(val)) choices.unshift(val);
+    }
+    const opts=[`<option value="">${esc(g.name)}…</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
     return `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
       <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;min-width:82px;">${g.name}</span>
       <select data-group="${g.name}" onchange="saveCustomTag(${ev._rowId},this.dataset.group,this.value)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
