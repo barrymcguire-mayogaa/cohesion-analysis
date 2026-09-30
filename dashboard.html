@@ -3092,6 +3092,30 @@ async function savePlayerTag(ev,name){
 // Player. Admin only. Options come from cohesion-config.js; the values write
 // into the event's own labels, so they immediately become filters in the
 // LABELS tab (which builds its groups dynamically from ev.labels).
+// Assist (players:true group) choices: this game's team sheet for the
+// shooting side (meta.rosters[side], string or object entries, then the
+// admin's P-tag map playerRoster teamA=home / teamB=away), then every player
+// tagged for that team in this game (player, "<TEAM> Player Labels", Assist
+// values) — de-duplicated case/space-insensitively, shooter excluded.
+// "Other…" prompts for any free name.
+function dashAssistChoices(ev){
+  const T=String(ev.team||'').toUpperCase();
+  const side=T&&T===String(GAME.homeTeam||'').toUpperCase()?'home':'away';
+  const key=s=>String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase();
+  const tidy=s=>String(s==null?'':s).replace(/\s+/g,' ').trim();
+  const seen=new Set(), out=[], me=key(ev.player); if(me) seen.add(me);
+  const add=n=>{ const k=key(n); if(!k||seen.has(k)) return; seen.add(k); out.push(tidy(n)); };
+  const list=GAME.rosters&&GAME.rosters[side];
+  if(Array.isArray(list)) list.forEach(r=>add(r&&typeof r==='object'?(r.name!=null?r.name:r.player):r));
+  const pr=GAME.playerRoster&&GAME.playerRoster[side==='home'?'teamA':'teamB'];
+  if(pr&&typeof pr==='object'){ const num=k=>parseInt(String(k).replace(/\D/g,''),10)||0;
+    Object.keys(pr).sort((a,b)=>num(a)-num(b)).forEach(k=>{ const v=tidy(pr[k]); if(v&&!/^P\s*\d+$/i.test(v)) add(v); }); }
+  const tagged=[];
+  ALL.forEach(x=>{ if(String(x.team||'').toUpperCase()!==T) return; if(x.player) tagged.push(x.player);
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) tagged.push(L[k]); }); });
+  tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
+  return out;
+}
 function renderCustomTags(ev){
   const wrap=document.getElementById('NPCustom'); if(!wrap)return;
   const groups=(window.cohesionGroupsFor?window.cohesionGroupsFor(ev.code):[]);
@@ -3099,19 +3123,28 @@ function renderCustomTags(ev){
   wrap.style.display='block';
   wrap.innerHTML=groups.map(g=>{
     const val=(ev.labels&&ev.labels[g.name])||'';
-    let choices=g.options||[];
-    if(g.players){                                   // Assist: this team's players, minus the shooter
-      const T=String(ev.team||'').toUpperCase(), me=String(ev.player||'').trim().toLowerCase();
-      choices=[...new Set(ALL.filter(x=>String(x.team||'').toUpperCase()===T&&x.player).map(x=>String(x.player).trim()))]
-        .filter(p=>p.toLowerCase()!==me).sort();
+    let choices=(g.options||[]).slice();
+    if(g.players){                                   // Assist: team sheet + this game's players, minus the shooter
+      choices=dashAssistChoices(ev);
       if(val&&!choices.includes(val)) choices.unshift(val);
     }
-    const opts=[`<option value="">${esc(g.name)}…</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
+    const opts=[`<option value="">${esc(g.name)}…</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`))
+      .concat(g.players?[`<option value="__other__">Other…</option>`]:[]).join('');
     return `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
-      <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;min-width:82px;">${g.name}</span>
-      <select data-group="${g.name}" onchange="saveCustomTag(${ev._rowId},this.dataset.group,this.value)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
+      <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;min-width:82px;">${esc(g.name)}</span>
+      <select data-group="${esc(g.name)}" data-row="${esc(String(ev._rowId))}" onchange="dashCustomTagChange(this)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
     </div>`;
   }).join('');
+}
+function dashCustomTagChange(sel){
+  const ev=ALL.find(e=>String(e._rowId)===String(sel.dataset.row)); if(!ev){alert('Event reference missing.');return;}
+  let v=sel.value;
+  if(v==='__other__'){
+    v=String(prompt('Assist — player name:')||'').replace(/\s+/g,' ').trim();
+    if(!v){ renderCustomTags(ev); return; }          // cancelled: restore the select
+  }
+  saveCustomTag(ev._rowId, sel.dataset.group, v);
+  renderCustomTags(ev);
 }
 function saveCustomTag(rowId,group,value){
   const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
