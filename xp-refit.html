@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Refit xP model</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:920px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;}
+input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;}
+input[type=text]:focus{border-color:var(--accent);}
+.help{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.5;}
+
+.process-btn{width:100%;padding:13px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;margin-top:4px;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.btn-row .process-btn{flex:1;min-width:180px;}
+.sec-btn{padding:9px 14px;border-radius:8px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.dl-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;background:var(--green-bg);border:1px solid var(--green);color:var(--green);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.dl-btn:hover:not(:disabled){background:var(--green);color:#fff;}
+.dl-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.progress-block{display:none;margin-top:16px;}
+.progress-block.show{display:block;}
+.prog-bar-wrap{background:var(--card);border-radius:4px;height:6px;margin:8px 0 12px;overflow:hidden;}
+.prog-bar{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .3s;}
+.prog-msg{font-size:12px;color:var(--t2);}
+
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.verdict{border-radius:10px;padding:16px 18px;margin:16px 0 4px;font:700 17px 'Barlow Condensed',sans-serif;letter-spacing:.4px;line-height:1.35;border:1px solid var(--border);}
+.verdict.good{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.verdict.keep{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:12px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px;}
+.kpi-v{font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.kpi-l{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;color:var(--t3);text-transform:uppercase;margin-top:2px;}
+
+.tbl-wrap{overflow-x:auto;margin-top:10px;}
+table.t{width:100%;border-collapse:collapse;font-size:12px;}
+table.t th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+table.t th:first-child,table.t td:first-child{text-align:left;}
+table.t td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;color:var(--t1);}
+table.t td.better{color:var(--green);font-weight:600;}
+table.t td.worse{color:var(--red);}
+table.t td.muted{color:var(--t3);}
+.sub-h{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t2);text-transform:uppercase;margin:18px 0 4px;}
+details{margin-top:10px;font-size:12px;color:var(--t2);}
+details summary{cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);}
+details ul{margin:8px 0 0 18px;line-height:1.7;}
+.cal-wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-top:8px;}
+.cal-wrap svg{flex:0 0 auto;background:var(--card);border:1px solid var(--border);border-radius:9px;}
+.legend{font-size:11px;color:var(--t2);display:flex;gap:14px;margin-top:6px;}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;}
+.hist-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.hist-v{font:800 16px 'Barlow Condensed',sans-serif;min-width:62px;}
+.hist-meta{flex:1;font-size:12px;color:var(--t2);line-height:1.5;min-width:220px;}
+.cur-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--green);background:var(--green-bg);border:1px solid var(--green);padding:2px 7px;border-radius:5px;}
+code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent);}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-xp.js"></script>
+<script src="cohesion-xp-fit.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">Refit xP model</div>
+  <div class="page-sub">
+    Re-fits the expected-points model on every game in COHESION (county and club), checks it on games it
+    was not trained on, and compares it with the model the site uses now. Nothing changes on the site until you
+    press <strong>Publish</strong> — and any earlier version can be made current again from the history below.
+  </div>
+
+  <!-- 1. CURRENT -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Current model</div><div class="step-sub">What dashboards score shots with today</div></div></div>
+    <div id="curBox" class="note">Loading…</div>
+    <div class="error-box" id="tableErr"></div>
+  </div>
+
+  <!-- 2. DATA -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title">Load games</div><div class="step-sub">Every game you can see, both sections, through the read gateway</div></div></div>
+    <button class="process-btn" id="loadBtn" onclick="loadGames()">Fetch all games</button>
+    <div class="progress-block" id="loadProg"><div class="prog-bar-wrap"><div class="prog-bar" id="loadBar"></div></div><div class="prog-msg" id="loadMsg"></div></div>
+    <div class="error-box" id="loadErr"></div>
+    <div id="dataBox"></div>
+  </div>
+
+  <!-- 3. FIT -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">3</div>
+      <div><div class="step-title">Fit &amp; validate</div><div class="step-sub">Leave-games-out 5-fold cross-validation — NEW v CURRENT on the same held-out games</div></div></div>
+    <button class="process-btn" id="fitBtn" onclick="runFit()" disabled>Fit new model</button>
+    <div class="error-box" id="fitErr"></div>
+    <div id="fitBox"></div>
+  </div>
+
+  <!-- 4. PUBLISH -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">4</div>
+      <div><div class="step-title">Publish</div><div class="step-sub">Makes the new model current for every dashboard. Never automatic.</div></div></div>
+    <label for="pubNotes">Notes (optional)</label>
+    <input type="text" id="pubNotes" placeholder="e.g. Added 2026 club championship games" maxlength="300">
+    <div class="btn-row">
+      <button class="process-btn" id="pubBtn" onclick="publishNew()" disabled>Publish new model</button>
+      <button class="dl-btn" id="dlBtn" onclick="downloadNew()" disabled>⬇ Download model JSON</button>
+    </div>
+    <div class="error-box" id="pubErr"></div>
+    <div id="pubOk"></div>
+  </div>
+
+  <!-- 5. HISTORY -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">5</div>
+      <div><div class="step-title">History</div><div class="step-sub">Every published version. “Make current” rolls the site back (or forward) instantly.</div></div></div>
+    <div id="histBox" class="note">Loading…</div>
+    <div class="error-box" id="histErr"></div>
+  </div>
+</div>
+
+<script>
+// ── Auth (same gate as admin.html; every write is re-checked server-side) ──
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!auth) window.location.href = 'index.html';
+if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('cohesion_theme',n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+const F = window.CohesionXpFit;
+const MIN_GAMES = 20, MIN_POINT_ATTEMPTS = 1500, CONCURRENCY = 3;
+const S = { published:false, history:[], currentRow:null, currentModel:null, tableMissing:false, ds:null, cv:null, fit:null, newModel:null, busy:false };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f3 = v => v==null||!isFinite(v) ? '—' : v.toFixed(3);
+const f4 = v => v==null||!isFinite(v) ? '—' : v.toFixed(4);
+const f1 = v => v==null||!isFinite(v) ? '—' : v.toFixed(1);
+const fmtN = n => Number(n||0).toLocaleString('en-IE');
+const fmtDate = d => d ? new Date(d).toLocaleString('en-IE',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+function showErr(id, msg){ const e=$(id); e.innerHTML = msg ? esc(msg) : ''; e.classList.toggle('show', !!msg); }
+const admin = payload => window.cohesionAuthFetch('gameAdmin', payload);
+const bundled = () => window.XP_MODEL_BUNDLED;
+
+// ── 1 + 5: current model and history ───────────────────────────────────
+async function loadHistory(){
+  showErr('histErr',''); showErr('tableErr','');
+  try{
+    const j = await admin({ action:'listXpModels' });
+    S.tableMissing = false;
+    S.history = j.models || [];
+    S.currentRow = S.history.find(m => m.id === j.currentId) || null;
+  }catch(e){
+    S.history = []; S.currentRow = null;
+    if(/xp_models\.sql|not created/i.test(e.message)){
+      S.tableMissing = true;
+      showErr('tableErr', 'The xP model table has not been created yet, so nothing can be published. Run supabase/xp_models.sql in the Supabase SQL editor. You can still fit, compare and download a model.');
+    } else showErr('histErr', 'Could not load model history: ' + e.message);
+  }
+  S.currentModel = S.currentRow ? S.currentRow.model : bundled();
+  renderCurrent(); renderHistory(); refreshButtons();
+}
+function currentTraining(){
+  if(S.currentRow) return (S.currentRow.training && S.currentRow.training.games) || null;
+  return (S.currentModel && S.currentModel.version === '1.0.0') ? F.V1_TRAINING : null;
+}
+function renderCurrent(){
+  const m = S.currentModel, td = (m && m.training_data) || {};
+  const src = S.currentRow ? 'Published ' + esc(fmtDate(S.currentRow.made_current_at)) + (S.currentRow.author ? ' by ' + esc(S.currentRow.author) : '')
+                           : 'Built-in model (cohesion-xp.js) — nothing published yet';
+  $('curBox').className = 'note';
+  $('curBox').innerHTML = '<div class="kpis">'
+    + kpi('v' + esc(m.version), 'Version') + kpi(fmtN(td.unique_games), 'Games') + kpi(fmtN(td.shots), 'Shots')
+    + kpi(fmtN(td.point_attempts), 'Point attempts') + kpi(fmtN(td.goal_attempts), 'Goal attempts') + '</div>'
+    + '<div>' + src + '. Fitted ' + esc(m.created || '—') + '.</div>';
+}
+const kpi = (v, l) => '<div class="kpi"><div class="kpi-v">' + v + '</div><div class="kpi-l">' + l + '</div></div>';
+
+function renderHistory(){
+  const box = $('histBox');
+  if(S.tableMissing){ box.className='note'; box.innerHTML = 'No history until the xp_models table exists.'; return; }
+  const curId = S.currentRow ? S.currentRow.id : null;
+  const rows = S.history.map(h => {
+    const td = (h.model && h.model.training_data) || {}, v = h.validation && h.validation.verdict;
+    return '<div class="hist-row"><div class="hist-v">v' + esc(h.version) + '</div>'
+      + '<div class="hist-meta">' + esc(fmtDate(h.created_at)) + (h.author ? ' · ' + esc(h.author) : '') + ' · ' + fmtN(td.unique_games) + ' games, ' + fmtN(td.shots) + ' shots'
+      + (v && v.text ? '<br><span style="color:var(--t3)">' + esc(v.text) + '</span>' : '') + (h.notes ? '<br>' + esc(h.notes) : '') + '</div>'
+      + (h.id === curId ? '<span class="cur-badge">Current</span>' : '<button class="sec-btn" onclick="makeCurrent(' + h.id + ')">Make current</button>')
+      + '<button class="sec-btn" onclick="downloadHist(' + h.id + ')">JSON</button></div>';
+  });
+  const b = bundled();
+  rows.push('<div class="hist-row"><div class="hist-v">v' + esc(b.version) + '</div><div class="hist-meta">Built-in model (bundled with the site) · '
+    + fmtN(b.training_data.unique_games) + ' games, ' + fmtN(b.training_data.shots) + ' shots</div>'
+    + (curId === null ? '<span class="cur-badge">Current</span>' : '<button class="sec-btn" onclick="makeCurrent(\'bundled\')">Make current</button>')
+    + '<button class="sec-btn" onclick="downloadJson(bundled())">JSON</button></div>');
+  box.className = ''; box.innerHTML = rows.join('');
+}
+async function makeCurrent(id){
+  const h = id === 'bundled' ? { version: bundled().version } : S.history.find(x => x.id === id);
+  if(!h) return;
+  const yes = await cohesionModal({ title:'Make v' + esc(h.version) + ' current?',
+    message:'Every dashboard will score shots with v' + esc(h.version) + ' from their next page load. You can switch back at any time.',
+    buttons:[{label:'Cancel',value:false},{label:'Make current',value:true,primary:true}] });
+  if(!yes) return;
+  try{ await admin({ action:'setCurrentXpModel', id }); await loadHistory(); }
+  catch(e){ showErr('histErr', 'Could not change the current model: ' + e.message); }
+}
+function downloadHist(id){ const h = S.history.find(x => x.id === id); if(h) downloadJson(h.model); }
+function downloadJson(m){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(m, null, 1)], { type:'application/json' }));
+  a.download = 'xp_model_v' + m.version + '.json'; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ── 2: load every game through the gateway ─────────────────────────────
+async function loadGames(){
+  if(S.busy) return; S.busy = true; refreshButtons();
+  showErr('loadErr',''); $('dataBox').innerHTML=''; $('fitBox').innerHTML=''; S.ds=S.cv=S.fit=S.newModel=null;
+  const prog = $('loadProg'), bar = $('loadBar'), msg = $('loadMsg');
+  prog.classList.add('show'); bar.style.width='0%'; msg.textContent='Listing games…';
+  try{
+    const list = await window.cohesionRead({ action:'listGames', section:'all' });
+    const metas = (list.games || []).slice().sort((a,b) => String((a.meta||{}).date||'').localeCompare(String((b.meta||{}).date||'')) || String(a.id).localeCompare(String(b.id)));
+    const games = new Array(metas.length), failed = [];
+    let next = 0, done = 0;
+    async function worker(){
+      while(next < metas.length){
+        const i = next++, g = metas[i];
+        for(let attempt = 0; attempt < 2; attempt++){
+          try{
+            const b = await window.cohesionRead({ action:'gameBundle', id:g.id });
+            // keep only shot codes — all the fitter reads — to hold memory down
+            const ev = (b.events || []).map(e => e.data || e).filter(d => d && /SHOT/i.test(String(d.code || '')));
+            games[i] = { id:g.id, meta:b.meta || g.meta || {}, events:ev, order:i };
+            break;
+          }catch(e){
+            if(attempt === 1){ failed.push({ id:g.id, title:(g.meta||{}).title || g.id, reason:'could not fetch: ' + e.message }); }
+            else await new Promise(r => setTimeout(r, 800));
+          }
+        }
+        done++; bar.style.width = (100 * done / metas.length).toFixed(1) + '%';
+        msg.textContent = 'Fetched ' + done + ' of ' + metas.length + ' games…';
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, metas.length) }, worker));
+    msg.textContent = 'Building dataset…';
+    await new Promise(r => setTimeout(r, 20));
+    S.ds = F.buildDataset(games.filter(Boolean));
+    S.ds.fetchFailed = failed;
+    msg.textContent = 'Loaded ' + metas.length + ' games.';
+    renderData();
+  }catch(e){ showErr('loadErr', 'Could not load games: ' + e.message); }
+  finally{ S.busy = false; refreshButtons(); }
+}
+function renderData(){
+  const ds = S.ds, s = ds.summary;
+  const warn = [];
+  if(s.uniqueGames < MIN_GAMES) warn.push('Only ' + s.uniqueGames + ' usable games (recommended at least ' + MIN_GAMES + ').');
+  if(s.pointAttempts < MIN_POINT_ATTEMPTS) warn.push('Only ' + fmtN(s.pointAttempts) + ' point attempts (recommended at least ' + fmtN(MIN_POINT_ATTEMPTS) + ').');
+  const byReason = {};
+  ds.excludedGames.concat(ds.fetchFailed || []).forEach(e => (byReason[e.reason] = byReason[e.reason] || []).push(e));
+  const excl = Object.entries(byReason).map(([r, list]) => '<li><strong>' + esc(r) + '</strong> — ' + list.length + ' game' + (list.length===1?'':'s') + ': '
+      + list.slice(0, 40).map(e => esc(e.title || e.id)).join(', ') + (list.length > 40 ? ' …' : '') + '</li>').join('');
+  const dups = ds.games.filter(g => g.dropped.length).map(g => '<li>Kept <strong>' + esc(g.title) + '</strong>' + (g.date ? ' (' + esc(g.date) + ')' : '') + ' — '
+      + g.dropped.map(d => 'dropped ' + esc(d.title) + (d.date ? ' (' + esc(d.date) + ')' : '') + ', ' + d.nxy + '/' + d.n + ' located shots, ' + Math.round(100 * d.sim) + '% same sequence').join('; ') + '</li>').join('');
+  const skipped = Object.entries(s.shotsSkipped).map(([r, n]) => fmtN(n) + ' ' + esc(r)).join(' · ');
+  $('dataBox').innerHTML =
+    '<div class="sub-h">Dataset</div><div class="kpis">'
+    + kpi(fmtN(s.gamesFetched + (ds.fetchFailed||[]).length), 'Games fetched') + kpi(fmtN(s.uniqueGames), 'Games used')
+    + kpi(fmtN(s.countyGames) + ' / ' + fmtN(s.clubGames), 'County / club') + kpi(fmtN(s.shots), 'Shots')
+    + kpi(fmtN(s.pointAttempts), 'Point attempts') + kpi(fmtN(s.goalAttempts), 'Goal attempts') + kpi(fmtN(s.penalties), 'Penalties')
+    + kpi(fmtN(s.gamesExcluded + (ds.fetchFailed||[]).length), 'Games excluded') + kpi(fmtN(s.duplicatesDropped), 'Duplicates dropped') + '</div>'
+    + '<div class="help">County shots ' + fmtN(s.countyShots) + ' · club shots ' + fmtN(s.clubShots) + ' · coordinate conventions: ' + s.convCounts.tracker + ' tracker, ' + s.convCounts.sportscode_rot + ' rotated Sportscode'
+    + (s.dupInstancesRemoved ? ' · ' + fmtN(s.dupInstancesRemoved) + ' repeated shot tags removed within games' : '') + (skipped ? '<br>Shots left out: ' + skipped : '') + '</div>'
+    + (warn.length ? '<div class="note warn">⚠ ' + warn.map(esc).join(' ') + ' A refit on this little data is unlikely to be reliable.</div>' : '')
+    + (excl ? '<details><summary>Excluded games and why (' + (s.gamesExcluded + (ds.fetchFailed||[]).length) + ')</summary><ul>' + excl + '</ul></details>' : '')
+    + (dups ? '<details><summary>Duplicate copies dropped (' + s.duplicatesDropped + ')</summary><ul>' + dups + '</ul></details>' : '');
+}
+
+// ── 3: fit + validate ───────────────────────────────────────────────────
+async function runFit(){
+  if(!S.ds || S.busy) return; S.busy = true; refreshButtons(); showErr('fitErr','');
+  $('fitBox').innerHTML = '<div class="note">Fitting and cross-validating…</div>';
+  await new Promise(r => setTimeout(r, 30));
+  try{
+    if(S.ds.rows.filter(r => r.isGa).length < 10 || S.ds.summary.pointAttempts < 100) throw new Error('Not enough shots to fit a model.');
+    S.cv = F.crossValidate(S.ds, { k:5, seed:0, current:S.currentModel, currentTraining:currentTraining() });
+    S.fit = F.fitAll(S.ds.rows);
+    const maxV = [S.currentModel.version, bundled().version].concat(S.history.map(h => h.version))
+      .reduce((a, v) => cmpV(v, a) > 0 ? v : a, '1.0.0');
+    S.newModel = F.toModelJson(S.fit, S.ds, { version: F.nextVersion(maxV) });
+    S.published = false; $('pubOk').innerHTML = '';
+    renderFit();
+  }catch(e){ $('fitBox').innerHTML=''; showErr('fitErr', 'Fit failed: ' + e.message); S.cv = S.newModel = null; }
+  finally{ S.busy = false; refreshButtons(); }
+}
+function cmpV(a, b){ const p = v => String(v).split('.').map(Number); const x = p(a), y = p(b); for(let i=0;i<3;i++) if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); return 0; }
+
+function cmpTable(nw, cur, base, lowerBetter){
+  const rows = [
+    ['Log-loss, all shots', nw.allShotsLogloss, cur.allShotsLogloss, null, true, f4],
+    ['Point attempts — log-loss', nw.point.logloss, cur.point.logloss, base && base.pointZone.logloss, true, f4],
+    ['Point attempts — Brier', nw.point.brier, cur.point.brier, base && base.pointZone.brier, true, f4],
+    ['Goal attempts — log-loss (goal/point/miss)', nw.goal.logloss, cur.goal.logloss, base && base.goalZone.logloss, true, f4],
+    ['Goal attempts — Brier', nw.goal.brier, cur.goal.brier, base && base.goalZone.brier, true, f4],
+    ['xP error per shot (MSE)', nw.mse, cur.mse, base && base.mseZone, true, f4],
+    ['Team-game correlation', nw.teamGame.model.corr, cur.teamGame.model.corr, base && base.teamGameZone.corr, false, f3],
+    ['Team-game MAE (points)', nw.teamGame.model.mae, cur.teamGame.model.mae, base && base.teamGameZone.mae, true, f3],
+    ['Team-game bias (points)', nw.teamGame.model.bias, cur.teamGame.model.bias, base && base.teamGameZone.bias, null, f3],
+    ['Season xP v actual', nw.totals.all.xp, cur.totals.all.xp, null, null, v => f1(v) + ' v ' + fmtN(nw.totals.all.actual)]
+  ];
+  return '<div class="tbl-wrap"><table class="t"><tr><th>Held-out measure</th><th>New v' + esc(S.newModel.version) + '</th><th>Current v' + esc(S.currentModel.version) + '</th>'
+    + (base ? '<th>Shot Zone baseline</th>' : '') + '</tr>'
+    + rows.map(([l, a, b, z, low, fm]) => {
+        const cls = low == null || Math.abs(a - b) < 1e-9 ? '' : ((low ? a < b : a > b) ? 'better' : 'worse');
+        return '<tr><td>' + l + '</td><td class="' + cls + '">' + fm(a) + '</td><td>' + fm(b) + '</td>' + (base ? '<td class="muted">' + (z == null ? '' : fm(z)) + '</td>' : '') + '</tr>';
+      }).join('') + '</table></div>';
+}
+function calSvg(nw, cur){
+  const W = 300, H = 260, P = 34, mx = Math.max(1.4, ...nw.calibration.map(c => Math.max(c.meanXp, c.meanActual)), ...cur.calibration.map(c => Math.max(c.meanXp, c.meanActual)));
+  const X = v => P + (W - P - 10) * v / mx, Y = v => H - P - (H - P - 10) * v / mx;
+  let s = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Calibration by decile">';
+  for(let t = 0; t <= mx + 1e-9; t += 0.5){ s += '<line x1="' + X(0) + '" x2="' + X(mx) + '" y1="' + Y(t) + '" y2="' + Y(t) + '" stroke="var(--border)"/><text x="' + (P - 6) + '" y="' + (Y(t) + 3) + '" font-size="9" text-anchor="end" fill="var(--t3)">' + t.toFixed(1) + '</text><text x="' + X(t) + '" y="' + (H - P + 13) + '" font-size="9" text-anchor="middle" fill="var(--t3)">' + t.toFixed(1) + '</text>'; }
+  s += '<line x1="' + X(0) + '" y1="' + Y(0) + '" x2="' + X(mx) + '" y2="' + Y(mx) + '" stroke="var(--t3)" stroke-dasharray="4 3"/>';
+  const series = (cal, col) => '<polyline fill="none" stroke="' + col + '" stroke-width="1.5" points="' + cal.map(c => X(c.meanXp) + ',' + Y(c.meanActual)).join(' ') + '"/>'
+    + cal.map(c => '<circle cx="' + X(c.meanXp) + '" cy="' + Y(c.meanActual) + '" r="3.2" fill="' + col + '"><title>Decile ' + c.decile + ': predicted ' + c.meanXp.toFixed(2) + ', actual ' + c.meanActual.toFixed(2) + ' (n=' + c.n + ')</title></circle>').join('');
+  s += series(cur.calibration, 'var(--t2)') + series(nw.calibration, 'var(--accent)');
+  s += '<text x="' + (W / 2 + P / 2) + '" y="' + (H - 4) + '" font-size="10" text-anchor="middle" fill="var(--t2)">predicted xP per shot</text>';
+  s += '<text transform="translate(10,' + (H / 2 - P / 2) + ') rotate(-90)" font-size="10" text-anchor="middle" fill="var(--t2)">actual points per shot</text></svg>';
+  return s;
+}
+function renderFit(){
+  const cv = S.cv, nw = cv.new, cur = cv.current, v = cv.verdict, m = S.newModel;
+  const coefRows = ['intercept'].concat(F.P_NAMES).map(k => {
+    const a = k === 'intercept' ? m.point_attempt_model.intercept : m.point_attempt_model.coefficients[k];
+    const b = k === 'intercept' ? S.currentModel.point_attempt_model.intercept : (S.currentModel.point_attempt_model.coefficients || {})[k];
+    return '<tr><td>' + k + '</td><td>' + f4(a) + '</td><td>' + f4(b) + '</td></tr>';
+  }).concat([
+    ['goal: intercept', m.goal_attempt_model.p_goal.intercept, S.currentModel.goal_attempt_model.p_goal.intercept],
+    ['goal: log(dist)', m.goal_attempt_model.p_goal.coef_log_dist, S.currentModel.goal_attempt_model.p_goal.coef_log_dist],
+    ['P(point | no goal)', m.goal_attempt_model.p_point_given_no_goal.value, S.currentModel.goal_attempt_model.p_point_given_no_goal.value],
+    ['penalty xP', m.penalty.xp, S.currentModel.penalty.xp]
+  ].map(([k, a, b]) => '<tr><td>' + k + '</td><td>' + f4(a) + '</td><td>' + f4(b) + '</td></tr>')).join('');
+  const calRows = nw.calibration.map((c, i) => '<tr><td>' + c.decile + '</td><td>' + c.n + '</td><td>' + c.meanXp.toFixed(3) + '</td><td>' + cur.calibration[i].meanXp.toFixed(3) + '</td><td>' + c.meanActual.toFixed(3) + '</td></tr>').join('');
+  const unseen = cv.unseen;
+  $('fitBox').innerHTML =
+    '<div class="verdict ' + (v.recommend ? 'good' : 'keep') + '">' + esc(v.text) + '</div>'
+    + '<div class="help">Held-out = each game is predicted by a model fitted without it (5 folds, grouped by game, ' + cv.perFold.map(f => f.games).join('/') + ' games per fold). '
+    + 'The current model is scored on exactly the same shots with its published coefficients'
+    + (cv.currentSeenGames != null ? '; it was trained on ' + cv.currentSeenGames + ' of these ' + S.ds.summary.uniqueGames + ' games, so on those its score is in-sample (flattering).' : '.')
+    + (cv.currentCompatible === false ? ' <strong>The current model uses different features; its column is approximate.</strong>' : '') + '</div>'
+    + (unseen && unseen.new ? '<div class="sub-h">Games the current model never saw — ' + unseen.games + ' games, ' + fmtN(unseen.shots) + ' shots (fair comparison)</div>' + cmpTable(unseen.new, unseen.current, null) : '')
+    + '<div class="sub-h">All ' + S.ds.summary.uniqueGames + ' games — same held-out folds</div>' + cmpTable(nw, cur, nw.baselines)
+    + '<div class="help">Lower is better for log-loss, Brier, MSE and MAE; higher for correlation. Green/red mark where the new model is better/worse than current. The Shot Zone baseline is a Shot Zone × attempt-type conversion table.</div>'
+    + '<div class="sub-h">Calibration — deciles of predicted xP (held-out)</div>'
+    + '<div class="cal-wrap">' + calSvg(nw, cur) + '<div class="tbl-wrap" style="flex:1;min-width:260px;margin-top:0"><table class="t"><tr><th>Decile</th><th>Shots</th><th>New xP</th><th>Current xP</th><th>Actual</th></tr>' + calRows + '</table></div></div>'
+    + '<div class="legend"><span><i style="background:var(--accent)"></i>New</span><span><i style="background:var(--t2)"></i>Current</span><span>dashed = perfect calibration</span></div>'
+    + '<details><summary>Coefficients: new v current</summary><div class="tbl-wrap"><table class="t"><tr><th>Term</th><th>New</th><th>Current</th></tr>' + coefRows + '</table></div></details>';
+}
+
+// ── 4: publish ──────────────────────────────────────────────────────────
+async function publishNew(){
+  if(!S.newModel || !S.cv) return;
+  const v = S.cv.verdict, s = S.ds.summary, small = s.uniqueGames < MIN_GAMES || s.pointAttempts < MIN_POINT_ATTEMPTS;
+  const msg = 'The site will score every shot with the new model from the next page load. ' + fmtN(s.uniqueGames) + ' games, ' + fmtN(s.shots) + ' shots.<br><br>'
+    + '<strong>' + esc(v.text) + '</strong>'
+    + (!v.recommend ? '<br><br>The check above does <strong>not</strong> recommend publishing.' : '')
+    + (small ? '<br><br>⚠ Small dataset — below the recommended ' + MIN_GAMES + ' games / ' + fmtN(MIN_POINT_ATTEMPTS) + ' point attempts.' : '')
+    + '<br><br>You can roll back from History at any time.';
+  const yes = await cohesionModal({ title:'Publish new xP model?', message:msg,
+    buttons:[{label:'Cancel',value:false},{label: v.recommend ? 'Publish' : 'Publish anyway', value:true, primary:v.recommend, danger:!v.recommend}] });
+  if(!yes) return;
+  showErr('pubErr',''); $('pubBtn').disabled = true;
+  try{
+    const training = { summary: s, fitted_at: new Date().toISOString(), cv_folds: S.cv.folds,
+      games: S.ds.games.map(g => g.fp).filter(Boolean) };
+    const j = await admin({ action:'publishXpModel', model:S.newModel, training, validation:F.validationSummary(S.cv), notes:$('pubNotes').value.trim() });
+    S.newModel.version = j.version; S.published = true;
+    $('pubOk').innerHTML = '<div class="note good">Published v' + esc(j.version) + ' — it is now the current model.</div>';
+    await loadHistory();
+  }catch(e){ showErr('pubErr', 'Publish failed: ' + e.message); }
+  finally{ refreshButtons(); }
+}
+function downloadNew(){ if(S.newModel) downloadJson(S.newModel); }
+
+function refreshButtons(){
+  $('loadBtn').disabled = S.busy;
+  $('fitBtn').disabled = S.busy || !S.ds || !S.ds.rows.length;
+  $('pubBtn').disabled = S.busy || !S.newModel || S.tableMissing || S.published;
+  $('dlBtn').disabled = !S.newModel;
+}
+
+(async () => { await window.cohesionIdentityReady(); loadHistory(); })();
+</script>
+<script src="cohesion-theme.js"></script>
+</body>
+</html>
