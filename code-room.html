@@ -210,6 +210,35 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crfr-btns .cbtn:disabled{opacity:.4;cursor:default;}
 .crfr-all{border-color:var(--accent);color:var(--accent);}
 .crfr-status{font-size:11px;color:var(--green);min-height:14px;}
+/* below cohesionModal (z 10000) so the gate / delete confirmations show on top */
+.crlc{right:392px;width:380px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
+@media (max-width:1100px){.crlc{right:16px;}}
+.crlc-sec{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;}
+.crlc-count{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t1);flex:1;min-width:0;}
+.crlc-count.bad{color:var(--red);} .crlc-count.good{color:var(--green);}
+.crlc-note{font-size:11px;color:var(--t3);margin-bottom:6px;}
+.crlc-note a{color:var(--accent);cursor:pointer;text-decoration:underline;}
+.crlc-list{max-height:190px;overflow:auto;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;}
+.crlc-list:empty{display:none;}
+.crlc-item{display:flex;gap:6px;align-items:baseline;padding:5px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);color:var(--t1);}
+.crlc-item:last-child{border-bottom:none;}
+.crlc-item:hover{background:var(--card);}
+.crlc-item.on{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--accent);}
+.crlc-t{flex:none;font:600 11px 'Barlow',sans-serif;color:var(--t3);min-width:34px;}
+.crlc-c{flex:none;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.3px;}
+.crlc-p{flex:1;min-width:0;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crlc-m{flex:none;font-size:10px;color:var(--red);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crlc-rule{display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--t2);}
+.crlc-rule b{color:var(--t1);}
+.crlc-rt{flex:1;min-width:0;}
+.crlc-gap{flex:none;font:700 11px 'Barlow',sans-serif;color:var(--green);}
+.crlc-gap.bad{color:var(--red);}
+.crlc-rule .cbtn{padding:3px 7px;}
+.crlc-ed{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:6px;}
+.crlc-ed .crfr-row input,.crlc-ed .crfr-row select{background:var(--panel);}
+.crlc-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:4px;}
+.crlc-chip{display:inline-flex;align-items:center;gap:5px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent);border-radius:12px;padding:2px 8px;font:600 11px 'Barlow',sans-serif;}
+.crlc-chip span{cursor:pointer;opacity:.8;} .crlc-chip span:hover{opacity:1;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -276,7 +305,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
         <option value="raw">Original coder time</option>
       </select>
       <button onclick="crPlayersPopup()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Rename a player across every event in this game">👥 Players</button>
-      <button onclick="crExportXml()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
+      <button onclick="crExportXmlManual()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
       <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
     </div>
     <div class="grid">
@@ -321,6 +350,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
+            <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
               <div class="tlsep"></div>
@@ -752,6 +782,7 @@ function renderList(){
     if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
     if(crFlagOnly&&!crIsFlagged(e)) return false;
+    if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
   const fb=document.getElementById('flagBtn');
@@ -768,7 +799,8 @@ function renderList(){
       <span class="ev-t">${fmt(e.driveT||0)}</span>
       <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${esc(e.player)}</span>`:''}</span>
     </div>`;
-  }).join('')||'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>';
+  }).join('')||(crLCFilterOn()?'<div style="padding:16px;color:var(--green);font-size:12px;">✓ Nothing missing — every event passes the label check.</div>':'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>');
+  crLCAfterRender();
   if(crView==='tl') crDrawTL();
   else if(crView==='mx') crBuildMatrix();   // live counts while coding
 }
@@ -1622,13 +1654,15 @@ function crDrawTL(){
     const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||(!(e.team||'')?'#9ca3af':(((e.team||'').toUpperCase()===H)?hC:aC));
     // Selected keeps its team colour (so you can still tell teams apart) but
     // gets an accent glow + outline instead of turning white.
-    ctx.globalAlpha=sel?1:0.85;
+    const lcDim=!sel&&crLCDim(e);   // Label check "Show only missing": passing events fade back
+    ctx.globalAlpha=sel?1:(lcDim?0.16:0.85);
     if(sel){ ctx.save(); ctx.shadowColor='#4fc3f7'; ctx.shadowBlur=9; }
     ctx.fillStyle=col; ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
     if(sel){ ctx.restore(); ctx.lineWidth=1.5; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.75,y+3.75,Math.max(1,bw-1.5),CR_ROWH-7.5); }
     else if(groupSet&&groupSet.has(String(e._rowId))){ ctx.lineWidth=1; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.5,y+3.5,Math.max(1,bw-1),CR_ROWH-7); }
     // edge handles (only when wide enough to grab)
-    if(bw>=16){ ctx.globalAlpha=sel?1:0.55; ctx.fillStyle=sel?'#4fc3f7':(dark?'#fff':'#000'); ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
+    if(!sel&&!lcDim&&crLCFilterOn()){ ctx.globalAlpha=1; ctx.lineWidth=1.5; ctx.strokeStyle='#f59e0b'; ctx.strokeRect(bx+0.75,y+3.75,Math.max(1,bw-1.5),CR_ROWH-7.5); }
+    if(bw>=16){ ctx.globalAlpha=sel?1:(lcDim?0.12:0.55); ctx.fillStyle=sel?'#4fc3f7':(dark?'#fff':'#000'); ctx.fillRect(bx,y+3,2,CR_ROWH-6); ctx.fillRect(bx+bw-2,y+3,2,CR_ROWH-6); }
     if(crIsFlagged(e)){ ctx.globalAlpha=1; ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.moveTo(bx,y+3); ctx.lineTo(bx+7,y+3); ctx.lineTo(bx,y+10); ctx.closePath(); ctx.fill(); }
     ctx.globalAlpha=1;
   });
@@ -2240,6 +2274,7 @@ async function saveAllAndClose(){
   const btn=document.getElementById('crSaveBtn');
   if(GAME&&GAME._local){
     if(EVENTS.length){
+      if(!(await crLabelGate('save'))) return;   // required-label rules (never blocks: Continue anyway)
       const c=await cohesionModal({ title:'Export before closing?',
         message:'This is a local coding session — your '+EVENTS.length+' event(s) exist only here. Export the XML now, then upload it with the video link via New Game.',
         buttons:[{label:'⬇ Export XML & close',value:'export',primary:true},{label:'Discard & close',value:'discard',danger:true},{label:'Cancel',value:'cancel'}] });
@@ -2263,6 +2298,7 @@ async function saveAllAndClose(){
     cohesionGuardedGo('library.html'); return;   // guarded go = no second browser "leave?" prompt
   }
   if(!crHasPending()){ crClearBackup(); window.location.href='library.html'; return; }
+  if(!(await crLabelGate('save'))) return;     // required-label rules (never blocks: Continue anyway)
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   try{ await crSaveAll(); }
   catch(e){ if(btn){ btn.disabled=false; } crUpdatePending(); alert('Some changes could not be saved: '+e.message+'\nYou remain in Code Room; nothing was lost.'); return; }
@@ -3071,7 +3107,7 @@ document.addEventListener('keydown', e=>{
   if(e.key==='ArrowLeft'){ e.preventDefault(); vseek(e.shiftKey?-1:-5); return; }
   if(e.key==='ArrowRight'){ e.preventDefault(); vseek(e.shiftKey?1:5); return; }
   if((e.key==='ArrowUp'||e.key==='ArrowDown') && !codeMode.on){
-    const evs=crFiltered(); if(!evs.length) return;
+    const evs=crFiltered().filter(crLCPass); if(!evs.length) return;
     e.preventDefault();
     let i=evs.findIndex(x=>String(x._rowId)===String(activeId));
     i = i<0 ? (e.key==='ArrowDown'?0:evs.length-1) : i+(e.key==='ArrowDown'?1:-1);
@@ -3401,6 +3437,386 @@ window.addEventListener('keydown', e=>{
     else if(e.target.id==='frRep' && e.altKey) crFRReplace();
     else crFRStep(e.shiftKey?-1:1);
   }
+}, true);
+
+// ── Label Check (✓ Labels button / Cmd/Ctrl+Shift+L) ──────────
+// "Do all the events in a row have a label?" Pick a row — one event code, or
+// a BASE code across both teams (SHOT OPEN PLAY = MAYO + opposition) — and a
+// label group, then check "has any value" or "= a specific value". The panel
+// counts the passes and lists the events that miss (click = select + cue).
+// "Show only missing" filters the event list to the failures and fades every
+// other bar on the timeline, so you can fix them one by one; it re-evaluates
+// on every renderList(), so a fixed event drops out as soon as it's saved.
+// Pseudo-groups: Player (player field or "<TEAM> Player Labels"), Shot
+// location / KO location (X-/Y- label pair, with or without _away).
+// Required-label RULES ("SHOT OPEN PLAY must have Player, Shot Outcomes,
+// Shot location") are keyed by base code, stored in localStorage
+// (cr_labelRules, global across games) and checked before the manual Save and
+// Export XML — a warning with Review gaps / Continue anyway / Cancel, never a
+// hard block. The auto paths (crBackup, crSaveAll via the leave guard, the
+// local-session crExportXml calls) never prompt.
+var crLC={open:false, row:'', group:'', mode:'any', value:'', only:false, src:'check', cur:null, edit:null, rules:[]};
+const CR_LC_PSEUDO={'@player':'Player','@shotloc':'Shot location','@koloc':'KO location'};
+const CR_LC_RULES_KEY='cr_labelRules';
+const CR_LC_LOC_RE=/^[xy]-(shot|kos)(_away)?$/i;
+function crLCGroupName(g){ return CR_LC_PSEUDO[g]||g; }
+function _lcBlank(v){ return v==null||String(v).trim()===''; }
+function _lcGet(labels,g){
+  labels=labels||{}; if(Object.prototype.hasOwnProperty.call(labels,g)) return labels[g];
+  const gl=String(g).toLowerCase(), k=Object.keys(labels).find(x=>x.toLowerCase()===gl);
+  return k!=null?labels[k]:undefined;
+}
+function crLCPlayersOf(e){
+  const out=[]; if(!_lcBlank(e.player)) out.push(String(e.player).trim());
+  Object.entries(e.labels||{}).forEach(([g,v])=>{ if(isPlayerGroup(g)&&!_lcBlank(v)&&!out.includes(String(v).trim())) out.push(String(v).trim()); });
+  return out;
+}
+function crLCHasLoc(e,kind){ const L=e.labels||{}; return ['','_away'].some(s=>!_lcBlank(_lcGet(L,'X-'+kind+s))&&!_lcBlank(_lcGet(L,'Y-'+kind+s))); }
+// The non-blank value(s) event e carries for group g.
+function crLCValues(e,g){
+  if(g==='@player') return crLCPlayersOf(e);
+  if(g==='@shotloc') return crLCHasLoc(e,'Shot')?['✓']:[];
+  if(g==='@koloc') return crLCHasLoc(e,'KOs')?['✓']:[];
+  const v=_lcGet(e.labels,g); return _lcBlank(v)?[]:[String(v).trim()];
+}
+// value '' = has any value; otherwise must equal it (trimmed, case-insensitive)
+function crLCHas(e,g,value){
+  const vs=crLCValues(e,g); if(!vs.length) return false;
+  if(_lcBlank(value)) return true;
+  const want=String(value).trim().toUpperCase(); return vs.some(v=>v.toUpperCase()===want);
+}
+// Row keys: 'c:<exact code>' or 'b:<base code>' (both teams).
+function crLCRowMatch(e,row){
+  row=row==null?crLC.row:row; if(!row) return false;
+  if(row.slice(0,2)==='b:') return (baseCodeOf(e.code)||'').toUpperCase()===row.slice(2).toUpperCase();
+  return (e.code||'—')===row.slice(2);
+}
+function crLCRowName(row){ return !row?'':row.slice(0,2)==='b:'?row.slice(2)+' (both teams)':row.slice(2); }
+function crLCRowOptions(){
+  const codes=new Map(), bases=new Map();
+  EVENTS.forEach(e=>{
+    const c=e.code||'—'; codes.set(c,(codes.get(c)||0)+1);
+    const b=(baseCodeOf(e.code)||'').trim(); if(b&&b!==(e.code||'').trim()) bases.set(b.toUpperCase(),0);
+  });
+  EVENTS.forEach(e=>{ const b=(baseCodeOf(e.code)||'').toUpperCase(); if(bases.has(b)) bases.set(b,bases.get(b)+1); });
+  return { bases:[...bases.entries()].sort((a,b)=>a[0].localeCompare(b[0])),
+           codes:[...codes.entries()].sort((a,b)=>a[0].localeCompare(b[0])) };
+}
+function crLCGroupOptions(){
+  const seen=new Set();
+  EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(!isPlayerGroup(g)&&!CR_LC_LOC_RE.test(g)&&g!=='Team Name') seen.add(g); }));
+  const cfg=new Set();
+  (window.COHESION_LABEL_GROUPS||[]).forEach(g=>{ if(g&&g.name) cfg.add(g.name); });
+  (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group) cfg.add(l.group); });
+  return { used:[...seen].sort(), other:[...cfg].filter(g=>!seen.has(g)).sort() };
+}
+function crLCGroupSelectHtml(cur){
+  const o=crLCGroupOptions(), opt=g=>`<option value="${esc(g)}"${g===cur?' selected':''}>${esc(crLCGroupName(g))}</option>`;
+  return `<option value="">Label group…</option><optgroup label="Special">${Object.keys(CR_LC_PSEUDO).map(opt).join('')}</optgroup>`
+    +(o.used.length?`<optgroup label="Used in this game">${o.used.map(opt).join('')}</optgroup>`:'')
+    +(o.other.length?`<optgroup label="Other defined groups">${o.other.map(opt).join('')}</optgroup>`:'');
+}
+// Values that exist in this game for the group (+ the config's options).
+function crLCValueOptions(g){
+  if(!g||g==='@shotloc'||g==='@koloc') return [];
+  const s=new Map(), add=v=>{ const t=String(v).trim(); if(t&&!s.has(t.toUpperCase())) s.set(t.toUpperCase(),t); };
+  const rowEvs=crLC.row?EVENTS.filter(e=>crLCRowMatch(e)):[];
+  rowEvs.forEach(e=>crLCValues(e,g).forEach(add));           // this row's values first
+  EVENTS.forEach(e=>crLCValues(e,g).forEach(add));
+  if(g[0]!=='@'){
+    (window.COHESION_LABEL_GROUPS||[]).forEach(x=>{ if(x&&x.name===g) (x.options||[]).forEach(add); });
+    (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group===g) (l.options||[]).forEach(add); });
+  }
+  return [...s.values()];
+}
+function crLCCheck(){
+  if(!crLC.row||!crLC.group) return {total:0, ok:0, missing:[]};
+  const val=crLC.mode==='value'?crLC.value:'';
+  const evs=EVENTS.filter(e=>crLCRowMatch(e)), missing=evs.filter(e=>!crLCHas(e,crLC.group,val));
+  return {total:evs.length, ok:evs.length-missing.length, missing};
+}
+// ── rules ──
+function crLCNormBase(b){ return String(b||'').replace(/\s+/g,' ').trim().toUpperCase(); }
+function crLCRulesLoad(){
+  try{
+    const j=JSON.parse(localStorage.getItem(CR_LC_RULES_KEY)||'[]');
+    return Array.isArray(j)?j.filter(r=>r&&typeof r.base==='string'&&Array.isArray(r.groups))
+      .map(r=>({base:crLCNormBase(r.base), groups:r.groups.filter(g=>typeof g==='string'&&g.trim())}))
+      .filter(r=>r.base&&r.groups.length):[];
+  }catch(_){ return []; }
+}
+function crLCRulesSave(rules){ try{ localStorage.setItem(CR_LC_RULES_KEY, JSON.stringify(rules)); }catch(_){} crLC.rules=rules; }
+function crLCRuleMissing(e,rules){
+  const b=crLCNormBase(baseCodeOf(e.code)), out=[];
+  (rules||[]).forEach(r=>{ if(r.base!==b) return; r.groups.forEach(g=>{ if(!out.includes(g)&&!crLCHas(e,g)) out.push(g); }); });
+  return out;
+}
+function crLCRuleReport(rules){
+  rules=rules||crLCRulesLoad();
+  return rules.map((r,i)=>{
+    const evs=EVENTS.filter(e=>crLCNormBase(baseCodeOf(e.code))===r.base);
+    return { i, rule:r, total:evs.length,
+      bad:evs.filter(e=>r.groups.some(g=>!crLCHas(e,g))),
+      per:r.groups.map(g=>({g, n:evs.filter(e=>!crLCHas(e,g)).length})) };
+  });
+}
+function crLCGapEvents(rules){ rules=rules||crLCRulesLoad(); return EVENTS.filter(e=>crLCRuleMissing(e,rules).length>0); }
+// ── the filter (list) + dim (timeline) ──
+function crLCFails(e){
+  if(crLC.src==='rules') return crLCRuleMissing(e,crLC.rules).length>0;
+  if(!crLC.row||!crLC.group) return false;
+  return crLCRowMatch(e)&&!crLCHas(e,crLC.group,crLC.mode==='value'?crLC.value:'');
+}
+function crLCFilterOn(){ return !!(crLC&&crLC.open&&crLC.only&&(crLC.src==='rules'||(crLC.row&&crLC.group))); }
+function crLCPass(e){ return !crLCFilterOn()||crLCFails(e); }
+function crLCDim(e){ return crLCFilterOn()&&!crLCFails(e); }
+function crLCMissingList(){ return crLC.src==='rules'?crLCGapEvents(crLC.rules):crLCCheck().missing; }
+// Called at the end of every renderList(): keeps the button + panel live.
+function crLCAfterRender(){
+  if(!crLC) return;
+  const b=document.getElementById('lcBtn'), on=crLCFilterOn();
+  if(b){
+    b.textContent=on?('✓ Missing '+crLCMissingList().length):'✓ Labels';
+    b.style.color=on?'#f59e0b':(crLC.open?'var(--accent)':'');
+    b.style.borderColor=on?'#f59e0b':(crLC.open?'var(--accent)':'');
+  }
+  if(crLC.open) crLCRender();
+}
+// ── panel ──
+function crLCBuild(){
+  let p=document.getElementById('crLC'); if(p) return p;
+  p=document.createElement('div'); p.id='crLC'; p.className='crfr crlc';
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Label check');
+  p.innerHTML=`<div class="crfr-h"><span>LABEL CHECK</span><span class="crfr-sub">this game</span><span class="crfr-x" data-act="close" title="Close (Esc)">✕</span></div>
+    <div class="crfr-lbl">Row</div>
+    <div class="crfr-row"><select id="lcRow" title="An event code, or a base code across both teams"></select></div>
+    <div class="crfr-lbl">Label</div>
+    <div class="crfr-row"><select id="lcGroup"></select></div>
+    <div class="crfr-row crfr-wrap">
+      <label class="crfr-ck"><input type="radio" name="lcMode" id="lcModeAny" checked>Has any value</label>
+      <label class="crfr-ck"><input type="radio" name="lcMode" id="lcModeVal">Specific value</label>
+    </div>
+    <div class="crfr-row" id="lcValRow" style="display:none;"><select id="lcValue"></select></div>
+    <div id="lcRulesNote" class="crlc-note" style="display:none;"></div>
+    <div class="crfr-row"><span id="lcCount" class="crlc-count"></span>
+      <button class="cbtn mini" data-act="prev" title="Previous missing event">‹</button>
+      <button class="cbtn mini" data-act="next" title="Next missing event">›</button></div>
+    <div class="crfr-row"><label class="crfr-ck" title="Filter the event list to the failing events and fade the rest on the timeline"><input type="checkbox" id="lcOnly">Show only missing</label></div>
+    <div id="lcList" class="crlc-list"></div>
+    <div class="crlc-sec">
+      <div class="crfr-row"><span class="crfr-lbl" style="flex:1;margin:0;">Required-label rules</span>
+        <button class="cbtn mini" data-act="rules-mode" title="List every event that breaks a saved rule">Check rules</button>
+        <button class="cbtn mini crfr-all" data-act="rule-add" title="New rule — checked before Save and Export XML">+ Add rule</button></div>
+      <div id="lcRules"></div>
+      <div id="lcEditor"></div>
+    </div>
+    <div id="lcStatus" class="crfr-status"></div>`;
+  document.body.appendChild(p);
+  p.addEventListener('click', crLCClick);
+  p.addEventListener('change', crLCChange);
+  return p;
+}
+// Only touch the DOM when the markup actually changed (compared with what WE
+// last wrote — the browser's serialised innerHTML never matches exactly).
+function _lcSet(id,html){ const el=document.getElementById(id); if(!el) return el;
+  if(el._lcHtml!==html){ el.innerHTML=html; el._lcHtml=html; } return el; }
+// In "specific value" mode make sure a real value is chosen (first one that exists).
+function crLCFixValue(){
+  if(crLC.mode!=='value') return;
+  if(crLC.group==='@shotloc'||crLC.group==='@koloc'){ crLC.mode='any'; return; }
+  const vals=crLCValueOptions(crLC.group);
+  const hit=vals.find(v=>v.toUpperCase()===String(crLC.value).trim().toUpperCase());
+  crLC.value=hit||vals[0]||'';
+}
+function crLCRender(){
+  const g=id=>document.getElementById(id);
+  // Row + group options: only rebuilt when the choices change (keeps focus/open selects stable while coding)
+  const ro=crLCRowOptions();
+  const rowHtml=`<option value="">Pick a row…</option>`
+    +(ro.bases.length?`<optgroup label="Both teams (base code)">${ro.bases.map(([b,n])=>`<option value="${esc('b:'+b)}">${esc(b)} · both teams (${n})</option>`).join('')}</optgroup>`:'')
+    +`<optgroup label="Single row">${ro.codes.map(([c,n])=>`<option value="${esc('c:'+c)}">${esc(c)} (${n})</option>`).join('')}</optgroup>`;
+  const rs=_lcSet('lcRow',rowHtml); if(rs&&rs.value!==crLC.row) rs.value=crLC.row;
+  const gs=_lcSet('lcGroup',crLCGroupSelectHtml('')); if(gs&&gs.value!==crLC.group) gs.value=crLC.group;
+  const isLoc=crLC.group==='@shotloc'||crLC.group==='@koloc';
+  if(isLoc&&crLC.mode==='value') crLC.mode='any';
+  const ma=g('lcModeAny'), mv=g('lcModeVal');
+  if(ma) ma.checked=crLC.mode!=='value';
+  if(mv){ mv.checked=crLC.mode==='value'; mv.disabled=isLoc; }
+  const vr=g('lcValRow'); if(vr) vr.style.display=crLC.mode==='value'?'':'none';
+  if(crLC.mode==='value'){
+    const vals=crLCValueOptions(crLC.group);
+    const vs=_lcSet('lcValue',vals.length?vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''):'<option value="">(no values yet)</option>');
+    if(vs){ const hit=vals.find(v=>v.toUpperCase()===String(crLC.value).toUpperCase()); vs.value=hit||''; }
+  }
+  const oc=g('lcOnly'); if(oc) oc.checked=!!crLC.only;
+  // Count + missing list
+  const cnt=g('lcCount'), note=g('lcRulesNote');
+  let missing=[], extra=()=>'';
+  if(crLC.src==='rules'){
+    missing=crLCGapEvents(crLC.rules);
+    if(note){ note.style.display=''; note.innerHTML=crLC.rules.length?`Showing events that break a saved rule. <a data-act="check-mode">Back to single check</a>`:`No rules saved yet — add one below. <a data-act="check-mode">Back to single check</a>`; }
+    if(cnt){ cnt.textContent=crLC.rules.length?(missing.length?missing.length+' event'+(missing.length===1?'':'s')+' with gaps':'✓ All rules satisfied'):'';
+      cnt.className='crlc-count '+(missing.length?'bad':'good'); }
+    extra=e=>`<span class="crlc-m" title="Missing">missing: ${esc(crLCRuleMissing(e,crLC.rules).map(crLCGroupName).join(', '))}</span>`;
+  } else {
+    if(note) note.style.display='none';
+    const r=crLCCheck(); missing=r.missing;
+    const what=crLC.mode==='value'&&crLC.value?(' = '+crLC.value):'';
+    if(cnt){
+      if(!crLC.row||!crLC.group){ cnt.textContent='Pick a row and a label'; cnt.className='crlc-count'; }
+      else { cnt.textContent=r.ok+' of '+r.total+' have it'+what; cnt.className='crlc-count '+(r.total&&!missing.length?'good':missing.length?'bad':''); }
+    }
+    if(crLC.mode==='value'&&crLC.value) extra=e=>{ const v=crLCValues(e,crLC.group); return `<span class="crlc-m">${v.length?'has: '+esc(v.join(', ')):'blank'}</span>`; };
+  }
+  const MAX=300, cur=crLC.cur!=null?String(crLC.cur):String(activeId);
+  const items=missing.slice(0,MAX).map(e=>{
+    const pl=crLCPlayersOf(e)[0]||'';
+    return `<div class="crlc-item${String(e._rowId)===cur?' on':''}" data-act="show" data-id="${esc(String(e._rowId))}" title="Select and cue this event"><span class="crlc-t">${fmt(e.driveT||0)}</span><span class="crlc-c">${esc(e.code||'—')}</span><span class="crlc-p">${pl?esc(pl):'<i>no player</i>'}</span>${extra(e)}</div>`;
+  }).join('')+(missing.length>MAX?`<div class="crlc-item" style="cursor:default;color:var(--t3);">…and ${missing.length-MAX} more — tick Show only missing</div>`:'');
+  _lcSet('lcList',items);
+  // Rules list
+  const rep=crLCRuleReport(crLC.rules);
+  _lcSet('lcRules',rep.length?rep.map(x=>`<div class="crlc-rule"><div class="crlc-rt"><b>${esc(x.rule.base)}</b> must have ${esc(x.rule.groups.map(crLCGroupName).join(', '))}</div>`
+      +`<span class="crlc-gap${x.bad.length?' bad':''}" title="${x.total} event${x.total===1?'':'s'} in this game">${x.total?(x.bad.length?x.bad.length+' gap'+(x.bad.length===1?'':'s'):'✓'):'—'}</span>`
+      +`<button class="cbtn mini" data-act="rule-edit" data-i="${x.i}" title="Edit rule">✎</button><button class="cbtn mini" data-act="rule-del" data-i="${x.i}" title="Delete rule">🗑</button></div>`).join('')
+    :'<div class="crlc-note">No rules yet. e.g. SHOT OPEN PLAY must have Player, Shot Outcomes, Shot location.</div>');
+}
+function crLCRenderEditor(){
+  const ed=crLC.edit;
+  if(!ed){ _lcSet('lcEditor',''); return; }
+  const bases=[...new Set(EVENTS.map(e=>crLCNormBase(baseCodeOf(e.code))).filter(Boolean))].sort();
+  _lcSet('lcEditor',`<div class="crlc-ed">
+    <div class="crfr-lbl">${ed.i>=0?'Edit rule':'New rule'} — base code (applies to both teams)</div>
+    <div class="crfr-row"><input id="lcEdBase" list="lcBaseList" placeholder="e.g. SHOT OPEN PLAY" autocomplete="off" spellcheck="false" value="${esc(ed.base)}"><datalist id="lcBaseList">${bases.map(b=>`<option value="${esc(b)}">`).join('')}</datalist></div>
+    <div class="crfr-lbl">must have</div>
+    <div class="crlc-chips">${ed.groups.map((g,k)=>`<span class="crlc-chip">${esc(crLCGroupName(g))}<span data-act="ed-rm" data-k="${k}" title="Remove">✕</span></span>`).join('')||'<span class="crlc-note" style="margin:0;">no labels yet</span>'}</div>
+    <div class="crfr-row"><select id="lcEdGroup">${crLCGroupSelectHtml('')}</select><button class="cbtn mini" data-act="ed-addg">Add</button></div>
+    <div class="crfr-row crfr-btns"><span style="flex:1"></span><button class="cbtn mini" data-act="ed-cancel">Cancel</button><button class="cbtn mini crfr-all" data-act="ed-save">Save rule</button></div>
+  </div>`);
+}
+function crLCStatus(msg,bad){ const st=document.getElementById('lcStatus'); if(st){ st.textContent=msg||''; st.style.color=bad?'var(--red)':'var(--green)'; } }
+function crLCEdSyncBase(){ const i=document.getElementById('lcEdBase'); if(i&&crLC.edit) crLC.edit.base=i.value; }
+function crLCEdSave(){
+  const ed=crLC.edit; if(!ed) return false;
+  crLCEdSyncBase();
+  const base=crLCNormBase(ed.base);
+  if(!base){ crLCStatus('Enter a base code, e.g. SHOT OPEN PLAY.',true); return false; }
+  if(!ed.groups.length){ crLCStatus('Add at least one label the rule requires.',true); return false; }
+  const rules=crLCRulesLoad(), r={base, groups:ed.groups.slice()};
+  if(ed.i>=0&&ed.i<rules.length) rules[ed.i]=r; else rules.push(r);
+  crLCRulesSave(rules); crLC.edit=null; crLCRenderEditor();
+  crLCStatus('✓ Rule saved — checked before Save and Export XML (all games).');
+  renderList(); return true;
+}
+async function crLCDelete(i){
+  const rules=crLCRulesLoad(); const r=rules[i]; if(!r) return false;
+  const v=await cohesionModal({title:'Delete rule?', message:`<b>${esc(r.base)}</b> must have ${esc(r.groups.map(crLCGroupName).join(', '))}<br><br>This removes it for every game.`,
+    buttons:[{label:'Cancel',value:false},{label:'Delete',value:true,danger:true}]});
+  if(v!==true) return false;
+  rules.splice(i,1); crLCRulesSave(rules);
+  if(crLC.edit&&crLC.edit.i===i){ crLC.edit=null; crLCRenderEditor(); }
+  crLCStatus('Rule deleted.'); renderList(); return true;
+}
+function crLCShow(id){ crLC.cur=String(id); crFRShow(id); crLCRender(); }
+function crLCStep(dir){
+  const list=crLCMissingList(); if(!list.length){ crLCStatus('Nothing missing.'); return; }
+  const ids=list.map(e=>String(e._rowId));
+  let i=ids.indexOf(String(activeId));
+  if(i<0){
+    const pos=EVENTS.findIndex(x=>String(x._rowId)===String(activeId)), order=list.map(e=>EVENTS.indexOf(e));
+    if(pos<0) i=dir>0?0:list.length-1;
+    else if(dir>0){ i=order.findIndex(p=>p>pos); if(i<0) i=0; }
+    else { i=-1; order.forEach((p,k)=>{ if(p<pos) i=k; }); if(i<0) i=list.length-1; }
+  } else i=(i+dir+list.length)%list.length;
+  crLCShow(ids[i]); crLCStatus('');
+}
+function crLCClick(ev){
+  const t=ev.target&&ev.target.closest?ev.target.closest('[data-act]'):null; if(!t) return;
+  const act=t.getAttribute('data-act');
+  if(act==='close') crLCClose();
+  else if(act==='show') crLCShow(t.getAttribute('data-id'));
+  else if(act==='prev') crLCStep(-1);
+  else if(act==='next') crLCStep(1);
+  else if(act==='rules-mode'){ crLC.rules=crLCRulesLoad(); crLC.src='rules'; crLCStatus(''); renderList(); }
+  else if(act==='check-mode'){ crLC.src='check'; renderList(); }
+  else if(act==='rule-add'){
+    const base=crLC.row?crLCNormBase(crLC.row.slice(0,2)==='b:'?crLC.row.slice(2):baseCodeOf(crLC.row.slice(2))):'';
+    crLC.edit={i:-1, base, groups:crLC.group?[crLC.group]:[]}; crLCRenderEditor(); crLCStatus('');
+    const b=document.getElementById('lcEdBase'); if(b&&b.focus) b.focus();
+  }
+  else if(act==='rule-edit'){ const i=+t.getAttribute('data-i'), r=crLCRulesLoad()[i]; if(r){ crLC.edit={i, base:r.base, groups:r.groups.slice()}; crLCRenderEditor(); crLCStatus(''); } }
+  else if(act==='rule-del') crLCDelete(+t.getAttribute('data-i'));
+  else if(act==='ed-addg'){ crLCEdSyncBase(); const s=document.getElementById('lcEdGroup'), g=s&&s.value; if(g&&crLC.edit&&!crLC.edit.groups.includes(g)) crLC.edit.groups.push(g); crLCRenderEditor(); }
+  else if(act==='ed-rm'){ crLCEdSyncBase(); if(crLC.edit) crLC.edit.groups.splice(+t.getAttribute('data-k'),1); crLCRenderEditor(); }
+  else if(act==='ed-cancel'){ crLC.edit=null; crLCRenderEditor(); crLCStatus(''); }
+  else if(act==='ed-save') crLCEdSave();
+}
+function crLCChange(ev){
+  const t=ev.target||{}, id=t.id;
+  if(id==='lcRow'){ crLC.row=t.value; crLC.src='check'; crLC.cur=null; }
+  else if(id==='lcGroup'){ crLC.group=t.value; crLC.value=''; crLC.src='check'; crLC.cur=null; }
+  else if(id==='lcModeAny'){ crLC.mode='any'; crLC.src='check'; }
+  else if(id==='lcModeVal'){ crLC.mode='value'; crLC.src='check'; }
+  else if(id==='lcValue'){ crLC.value=t.value; crLC.src='check'; }
+  else if(id==='lcOnly'){ crLC.only=!!t.checked; }
+  else return;                                    // rule-editor inputs: nothing to re-check
+  crLCFixValue(); crLCStatus(''); renderList();                   // renderList → crLCAfterRender → crLCRender
+}
+function crLCOpen(opts){
+  opts=opts||{};
+  const p=crLCBuild(); p.style.display=''; crLC.open=true;
+  crLC.rules=crLCRulesLoad();
+  if(opts.src==='rules'){ crLC.src='rules'; crLC.only=true; }
+  if(!crLC.row&&activeId!=null){ const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(e) crLC.row='c:'+(e.code||'—'); }
+  crLCFixValue(); crLCRenderEditor(); renderList();
+  if(opts.first){ const m=crLCMissingList(); if(m.length) crLCShow(m[0]._rowId); }
+  else { const s=document.getElementById('lcRow'); if(s&&s.focus) s.focus(); }
+}
+// Closing always drops the filter: the list and timeline go back to normal.
+function crLCClose(){
+  const p=document.getElementById('crLC'); if(p) p.style.display='none';
+  crLC.open=false; crLC.only=false; crLC.edit=null; crLC.cur=null;
+  if(document.activeElement && document.activeElement.blur && p && p.contains(document.activeElement)) document.activeElement.blur();
+  renderList();
+}
+function crLCToggle(){ if(crLC.open) crLCClose(); else crLCOpen(); }
+// ── Save / Export gate ──
+// Returns true to go ahead. Only the manual Save button and the Export XML
+// button call this — crBackup, crSaveAll (leave guard) and the programmatic
+// crExportXml calls never do, so autosave/backup paths never prompt.
+async function crLabelGate(kind){
+  const rules=crLCRulesLoad(); if(!rules.length||!EVENTS.length) return true;
+  const rep=crLCRuleReport(rules).filter(r=>r.bad.length); if(!rep.length) return true;
+  const n=crLCGapEvents(rules).length;
+  const list=rep.map(r=>`<div style="padding:6px 0;border-bottom:1px solid var(--border,#333);">
+      <div style="color:var(--t1,#eee);"><b>${esc(r.rule.base)}</b> — ${r.bad.length} of ${r.total} event${r.total===1?'':'s'} incomplete</div>
+      <div style="font-size:12px;">${r.per.filter(x=>x.n).map(x=>esc(crLCGroupName(x.g))+' missing on '+x.n).join(' · ')}</div></div>`).join('');
+  const v=await cohesionModal({ title:'Required labels missing',
+    message:`${n} event${n===1?'':'s'} ${n===1?"doesn't":"don't"} meet your required-label rules. ${kind==='export'?'Export':'Save'} anyway?`
+      +`<div style="max-height:260px;overflow:auto;margin-top:8px;">${list}</div>`
+      +`<div style="margin-top:10px;font-size:11px;">Rules live in ✓ Labels (Cmd/Ctrl+Shift+L).</div>`,
+    buttons:[{label:'Cancel',value:'cancel'},{label:'Continue anyway',value:'continue'},{label:'Review gaps',value:'review',primary:true}] });
+  if(v==='continue') return true;
+  if(v==='review') crLCOpen({src:'rules', first:true});
+  return false;
+}
+async function crExportXmlManual(){ if(!(await crLabelGate('export'))) return; crExportXml(); }
+// Cmd/Ctrl+Shift+L toggles the panel. Like Find & Replace, keys typed inside
+// the panel are stopped in the WINDOW CAPTURE phase so they never reach the
+// coding hotkeys (Space, digits, letters, arrows, ?, Esc…).
+window.addEventListener('keydown', e=>{
+  const k=String(e.key||'').toLowerCase();
+  if((e.metaKey||e.ctrlKey) && e.shiftKey && !e.altKey && k==='l'){
+    if(!GAME) return;
+    if(document.getElementById('cbeOv')) return;   // key-capture dialog owns the keyboard
+    e.preventDefault(); e.stopPropagation(); crLCToggle(); return;
+  }
+  if(!crLC.open) return;
+  const p=document.getElementById('crLC');
+  if(!(p && e.target && p.contains(e.target))) return;
+  e.stopPropagation();
+  if(e.key==='Escape'){ e.preventDefault(); if(crLC.edit){ crLC.edit=null; crLCRenderEditor(); } else crLCClose(); return; }
+  if(e.key==='Enter' && e.target.id==='lcEdBase' && !e.isComposing){ e.preventDefault(); crLCEdSave(); }
 }, true);
 
 // ── XML export ────────────────────────────────────────────────
