@@ -796,6 +796,13 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
 // Generic admin-authenticated call to a Netlify function. Used for writes
 // that must go through the service role (the events/games RLS blocks anon
 // browser writes and fails silently). Same token model as processGameSecure.
+// A P-tag renamed to a player name: also rename it in the event's
+// "<TEAM> Player Labels" group (converted GI/GIU shots carry the player there
+// too), so the label and e.player never disagree.
+function syncPlayerLabel(ev, tag){
+  const L = ev && ev.labels; if(!L) return;
+  Object.keys(L).forEach(k => { if(/player labels$/i.test(k) && L[k] === tag) L[k] = ev.player; });
+}
 async function adminFetch(fn, payload){
   let user = netlifyIdentity.gotrue.currentUser();
   let token = (user && user.jwt ? await user.jwt().catch(()=>null) : null) || (user && user.token && user.token.access_token);
@@ -1740,6 +1747,20 @@ async function processGame(){
           });
         });
 
+        // ── GIU SHOT CONVERSION ─────────────────────────────────────────
+        // As for Gaelic Insights: each GIU shot ("<Team> Shot (P)/(F)",
+        // "Shot Sideline", and "45"/"Penalty" carrying a ShotOutcome) also
+        // gets a COHESION SHOT OPEN PLAY / SHOT DEADBALL event plus the bare
+        // score companion; originals are kept and superseded (cohesion-gi.js).
+        if(typeof cohGiConvert === 'function'){
+          const giuDerived = cohGiConvert(events, { homeTeam, awayTeam });
+          if(giuDerived.length){
+            const gc = cohGiCounts(giuDerived);
+            events.push(...giuDerived);
+            console.log(`✓ GIU: created ${gc.shots} shot events + ${gc.scores} score events`);
+          }
+        }
+
       } else if(xmlFormat === 'gaelic-insights'){
         // ── Gaelic Insights XML format ──────────────────────────
         const badge = document.getElementById('srcBadge');
@@ -2367,9 +2388,11 @@ async function processGame(){
             if(/^P\d+$/.test(tag)){
               if(ev.team === teamAName && savedRoster.teamA && savedRoster.teamA[tag]){
                 ev.player = savedRoster.teamA[tag];
+                syncPlayerLabel(ev, tag);
                 appliedCount++;
               } else if(ev.team === teamBName && savedRoster.teamB && savedRoster.teamB[tag]){
                 ev.player = savedRoster.teamB[tag];
+                syncPlayerLabel(ev, tag);
                 appliedCount++;
               }
             }
@@ -2777,6 +2800,7 @@ async function savePlayerRosters(){
           const newName = currentRosters.teamA[playerTag];
           if(newName && newName !== playerTag){
             event.player = newName;
+            syncPlayerLabel(event, playerTag);
             updates.push({ game_id: currentManageGameId, data: event });
             updateIds.push(row.id);
             updatedCount++;
@@ -2785,6 +2809,7 @@ async function savePlayerRosters(){
           const newName = currentRosters.teamB[playerTag];
           if(newName && newName !== playerTag){
             event.player = newName;
+            syncPlayerLabel(event, playerTag);
             updates.push({ game_id: currentManageGameId, data: event });
             updateIds.push(row.id);
             updatedCount++;
