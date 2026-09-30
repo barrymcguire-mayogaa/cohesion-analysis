@@ -2258,6 +2258,22 @@ async function processGame(){
         if(et1Events.length > 0) validateDuration('ET 1st Half', et1Events, 8, 15);
         if(et2Events.length > 0) validateDuration('ET 2nd Half', et2Events, 8, 15);
 
+        // ── GAELIC INSIGHTS SHOT CONVERSION ─────────────────────────────
+        // Each GI "<Team> Shot" also gets a COHESION shot (SHOT OPEN PLAY /
+        // SHOT DEADBALL with Shot Outcomes, Shot Attempts, Deadball Shot
+        // Type …) plus the bare "<TEAM> 1 POINT|2 POINT|GOAL" companion for
+        // scores, so the scoreboard, stats and maps work like a Code Room
+        // game. The GI originals are kept untouched; stats skip the ones a
+        // derived shot supersedes (cohesion-gi.js).
+        if(typeof cohGiConvert === 'function'){
+          const giDerived = cohGiConvert(events, { homeTeam, awayTeam });
+          if(giDerived.length){
+            const gc = cohGiCounts(giDerived);
+            events.push(...giDerived);
+            console.log(`✓ Gaelic Insights: created ${gc.shots} shot events + ${gc.scores} score events`);
+          }
+        }
+
       } else {
         // ── Sportscode XML format ───────────────────────────────
         let xmlHalf1=null, xmlHalf2=null, xmlET1=null, xmlET2=null;
