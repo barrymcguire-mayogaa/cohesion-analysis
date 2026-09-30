@@ -1272,7 +1272,7 @@ async function uploadReadyGames() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${user.token.access_token}`
+        Authorization: `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
       },
       body: JSON.stringify(payload)
     });

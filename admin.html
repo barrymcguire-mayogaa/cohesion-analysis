@@ -738,7 +738,7 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
     if(!user) throw new Error('Not authenticated');
 
     // Get the JWT token - it's stored directly in user.token.access_token
-    let token = user.token?.access_token;
+    let token = (user.jwt ? await user.jwt().catch(()=>null) : null) || user.token?.access_token;
 
     // If that doesn't work, try getting a fresh token
     if(!token){
@@ -796,7 +796,7 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
 // browser writes and fails silently). Same token model as processGameSecure.
 async function adminFetch(fn, payload){
   let user = netlifyIdentity.gotrue.currentUser();
-  let token = user && user.token && user.token.access_token;
+  let token = (user && user.jwt ? await user.jwt().catch(()=>null) : null) || (user && user.token && user.token.access_token);
   if(!token){ try{ await netlifyIdentity.refresh(); user = netlifyIdentity.gotrue.currentUser(); token = user && user.token && user.token.access_token; }catch(_){} }
   if(!token) throw new Error('Not signed in as admin — sign out and back in, then retry.');
   const res = await fetch('/.netlify/functions/'+fn, {
@@ -3710,7 +3710,7 @@ async function callBatchUpload(games) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${user.token.access_token}`
+        'Authorization': `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
       },
       body: JSON.stringify({ games: games })
     });

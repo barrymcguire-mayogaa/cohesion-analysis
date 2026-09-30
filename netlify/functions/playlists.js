@@ -14,6 +14,8 @@
  *
  * scope: 'club' (any admin can use/edit) | 'personal' (owner = caller email).
  */
+const { verifiedClaims, UNAUTH } = require('../lib/identity');
+
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -22,7 +24,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   try {
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -36,8 +38,8 @@ exports.handler = async (event) => {
     const token = (event.headers.authorization || '').replace('Bearer ', '');
     if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Authentication required' }) };
     let decoded;
-    try { decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8')); }
-    catch (e) { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) }; }
+    decoded = verifiedClaims(context);
+    if (!decoded) return UNAUTH;
     const roles = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase());
     const isAdmin = roles.includes('admin');
     // County/Club SECTION access (distinct from a playlist's club-wide/personal

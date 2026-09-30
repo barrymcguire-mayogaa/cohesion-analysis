@@ -20,6 +20,8 @@
  *   { action:'getEvents',  gameId }            -> { events:[{id, data}] }
  *   { action:'gamesMeta' }                     -> { metas:[meta] }  (all allowed sections)
  */
+const { verifiedClaims, UNAUTH } = require('../lib/identity');
+
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -44,7 +46,7 @@ function sectionOf(meta) {
   return (meta && meta.section) === 'club' ? 'club' : 'county';
 }
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   try {
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
@@ -56,8 +58,8 @@ exports.handler = async (event) => {
     const token = (event.headers.authorization || '').replace('Bearer ', '');
     if (!token) return { statusCode: 401, body: JSON.stringify({ error: 'Authentication required' }) };
     let decoded;
-    try { decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8')); }
-    catch (e) { return { statusCode: 401, body: JSON.stringify({ error: 'Invalid token format' }) }; }
+    decoded = verifiedClaims(context);
+    if (!decoded) return UNAUTH;
 
     const roles = rolesOf(decoded);
     const isAdmin = roles.includes('admin');

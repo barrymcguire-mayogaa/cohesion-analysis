@@ -15,6 +15,8 @@
  *
  * CRITICAL: Validation happens BEFORE any database writes to prevent orphaned records
  */
+const { verifiedClaims, UNAUTH } = require('../lib/identity');
+
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -24,7 +26,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   try {
     // ========================================================================
     // STEP 1: Validate HTTP method
@@ -72,18 +74,9 @@ exports.handler = async (event) => {
       };
     }
 
-    // Decode and verify JWT (basic validation - Netlify Identity signed this)
-    let decodedToken;
-    try {
-      const parts = token.split('.');
-      const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
-      decodedToken = JSON.parse(payload);
-    } catch (e) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid token format' })
-      };
-    }
+    // Claims verified by Netlify (signature + expiry) — never decode the header ourselves
+    const decodedToken = verifiedClaims(context);
+    if (!decodedToken) return UNAUTH;
 
     // ========================================================================
     // STEP 4: Validate admin role (ONCE for all games)

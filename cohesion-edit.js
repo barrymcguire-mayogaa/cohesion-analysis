@@ -9,7 +9,7 @@
   async function authToken(){
     const ni = window.netlifyIdentity;
     const cu = ni && ((ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser()));
-    let t = cu && cu.token && cu.token.access_token;
+    let t = (cu && cu.jwt ? await cu.jwt().catch(()=>null) : null) || (cu && cu.token && cu.token.access_token);
     if(!t && ni && ni.refresh){ try{ await ni.refresh(); const u = ni.gotrue.currentUser(); t = u && u.token && u.token.access_token; }catch(_){ } }
     return t;
   }
@@ -97,7 +97,7 @@
     await window.cohesionIdentityReady();
     const ni = window.netlifyIdentity;
     const cu = ni && ((ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser()));
-    let t = cu && cu.token && cu.token.access_token;
+    let t = (cu && cu.jwt ? await cu.jwt().catch(()=>null) : null) || (cu && cu.token && cu.token.access_token);
     if (!t && ni && ni.refresh) { try { await ni.refresh(); const u = ni.gotrue.currentUser(); t = u && u.token && u.token.access_token; } catch (_) {} }
     if (!t) throw new Error('Not signed in — sign out and back in, then retry.');
     const res = await fetch('/.netlify/functions/' + fn, { method: 'POST',
