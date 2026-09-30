@@ -670,11 +670,16 @@ function sbHalves(){
   }
   return { h1:h1||0, h2:(h2&&h2>0)?h2:null };
 }
+// Converted Gaelic Insights shots (cohesion-gi.js): the original "<Team>
+// Shot" is superseded by its derived SHOT event and never counted.
+function crGiSupFn(){ return (typeof cohGiSupersededFn==='function')?cohGiSupersededFn(EVENTS):()=>false; }
 function sbScore(team,t){
   const TM=String(team||'').toUpperCase(); let g=0,p=0,found=false;
+  const giSup=crGiSupFn();
   EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return; const c=String(e.code||'').toUpperCase();
     if(c===TM+' GOAL'){g++;found=true;} else if(c===TM+' 1 POINT'){p++;found=true;} else if(c===TM+' 2 POINT'){p+=2;found=true;} });
   if(!found) EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return;
+    if(giSup(e)) return;
     if(String(e.team||'').toUpperCase()!==TM||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
     const o=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
     if(o==='GOAL')g++; else if(o==='1 POINT')p++; else if(o==='2 POINT')p+=2; });

@@ -191,9 +191,16 @@ function ssGameTally(meta, events, T){
     tosConceded:0,
     possCount:0, possDur:0, possDurOpp:0, possData:false,
     scoreSeq:[] };
+  // Converted Gaelic Insights shots (cohesion-gi.js): count the derived
+  // SHOT OPEN PLAY / DEADBALL event and skip the superseded original "<Team>
+  // Shot" and the derived bare score companion — each shot and score once.
+  // Unconverted games have no derived events, so nothing is skipped.
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e);
   events.forEach(e=>{
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
+    if(giSup(e)||giComp(e)) return;
     // shots + scores
     if(ssIsShot(e)&&mineT){
       const out=ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'';
@@ -230,7 +237,8 @@ function ssGameTally(meta, events, T){
       }
     }
     // score source (attached to shots/scores or SCORE SOURCE instances)
-    const src=ssLbl(e,SS_SRC_GROUPS);
+    // (a converted GI shot carries its source as 'Shot Source Outcomes')
+    const src=ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?(e.labels||{})['Shot Source Outcomes']:null);
     if(src){
       const S=ssUC(src);
       const val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
