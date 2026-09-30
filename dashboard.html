@@ -584,7 +584,7 @@ function populatePl(){
 function setVM(m){viewMode=m;document.getElementById('vtE')?.classList.toggle('on',m==='events');document.getElementById('vtL')?.classList.toggle('on',m==='labels');document.getElementById('vtS')?.classList.toggle('on',m==='stats');renderP();}
 // ── Format detection ─────────────────────────────────────────
 function detectFormat(evs){
-  // Converted GI games stay 'gi': ignore the derived (uppercase) events.
+  // Converted GI / GIU games keep their format: ignore the derived (uppercase) events.
   if(evs.some(e=>e.labels&&e.labels['GI Source ID'])) evs=evs.filter(e=>!(e.labels&&e.labels['GI Source ID']));
   if(!evs.length)return'gi';
   if(evs.some(e=>/\([PF]\)/.test(e.code)))return'giu';
@@ -600,7 +600,7 @@ const CHIP_DEFS={
   ],
   giu:[
     {label:'Possession', key:'poss',   filter:e=>/\bPoss\b/i.test(e.code),          color:'#42a5f5'},
-    {label:'Shots',      key:'shots',  filter:e=>/Shot\s*\([PF]\)/i.test(e.code),   color:'#ffd700', dark:true},
+    {label:'Shots',      key:'shots',  filter:e=>(/Shot\s*\([PF]\)/i.test(e.code)&&!giSup(e))||/SHOT OPEN PLAY|SHOT DEAD/i.test(e.code||''),   color:'#ffd700', dark:true},
     {label:'KOs',        key:'kos',    filter:e=>/Kickout/i.test(e.code),            color:'#ab47bc'},
     {label:'TOs',        key:'tos',    filter:e=>/Turnover/i.test(e.code),           color:'#ff7043'},
     {label:'Fouls',      key:'fouls',  filter:e=>/\bFoul\b/i.test(e.code),           color:'#f44336'},
@@ -622,8 +622,8 @@ const SUB_DEFS={
     {label:'Dead Ball', key:'db', filter:e=>(['Free','Forty Five','Mark','Penalty','Sideline'].includes(e.labels?.Description)&&!giSup(e))||/SHOT DEAD/i.test(e.code||'')},
   ],
   giu:[
-    {label:'Open Play', key:'op', filter:e=>/Shot\s*\(P\)/i.test(e.code)},
-    {label:'Dead Ball', key:'db', filter:e=>/Shot\s*\(F\)/i.test(e.code)},
+    {label:'Open Play', key:'op', filter:e=>(/Shot\s*\(P\)/i.test(e.code)&&!giSup(e))||/SHOT OPEN PLAY/i.test(e.code||'')},
+    {label:'Dead Ball', key:'db', filter:e=>(/Shot\s*\(F\)/i.test(e.code)&&!giSup(e))||/SHOT DEAD/i.test(e.code||'')},
   ],
   sc:[
     {label:'Open Play', key:'op', filter:e=>/SHOT OPEN PLAY/i.test(e.code)},
