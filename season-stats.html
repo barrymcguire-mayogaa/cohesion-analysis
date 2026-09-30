@@ -50,6 +50,32 @@ button.act:disabled{opacity:.4;cursor:default;}
 .track.a .bar{right:0;background:var(--colA,var(--teal));}
 .track.b .bar{left:0;background:var(--colB,var(--amber));}
 .foot{font-size:.7rem;color:var(--t3);text-align:center;margin-top:10px;line-height:1.6;}
+/* game-type chips, multi-selects, mode switch, set boxes */
+.filters+.filters{margin-top:10px;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{--tc:var(--accent);border:1px solid var(--border);background:var(--card);color:var(--t3);border-radius:999px;padding:7px 11px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.05em;cursor:pointer;}
+.chip.on{background:var(--tc);border-color:var(--tc);color:#0b0b10;}
+.chip:disabled{opacity:.35;cursor:default;}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.seg button{background:var(--card);border:0;color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.05em;padding:10px 12px;cursor:pointer;}
+.seg button.on{background:var(--accent);color:#04222f;}
+input[type=date]{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:7px 8px;font-family:'Barlow',sans-serif;color-scheme:dark;}
+.ms{position:relative;}
+.ms>summary{list-style:none;cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:9px 10px;min-width:170px;white-space:nowrap;}
+.ms>summary::-webkit-details-marker{display:none;}
+.ms>summary::after{content:' ▾';color:var(--t3);}
+.ms .msbody{position:absolute;z-index:30;top:calc(100% + 4px);left:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:260px;max-width:min(420px,calc(100vw - 32px));max-height:300px;overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.5);}
+.msbar{display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;}
+.mini{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.05em;padding:4px 9px;cursor:pointer;}
+.gitem label{display:flex;gap:8px;align-items:center;flex:1;min-width:0;cursor:pointer;}
+.gitem .gt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbadge{--tc:var(--t3);font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:2px 7px;border-radius:6px;border:1px solid var(--tc);color:var(--tc);white-space:nowrap;}
+.tsel{font-size:.72rem;padding:3px 5px;border-radius:6px;}
+.tsrc{font-size:.66rem;color:var(--t3);white-space:nowrap;}
+.setbox{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:7px;}
+.setbox .ms>summary{background:var(--panel);min-width:150px;}
+.fnote{font-size:.7rem;color:var(--t3);}
+@media (max-width:640px){ .wrap{padding:14px 16px 50px;} .row{grid-template-columns:52px 1fr 120px 1fr 52px;gap:6px;} .gitem{flex-wrap:wrap;} }
 </style>
 </head>
 <body>
@@ -64,20 +90,41 @@ button.act:disabled{opacity:.4;cursor:default;}
 </header>
 <div class="wrap">
   <div class="filters">
-    <div class="fg"><label>COMPETITION</label><select id="fComp" onchange="applyFilters()"><option value="">All</option></select></div>
+    <div class="fg"><label>COMPARE</label><div class="seg"><button id="mTeams" class="on" onclick="setMode('teams')">Team v Team</button><button id="mSets" onclick="setMode('sets')">Same team, two game sets</button></div></div>
+    <div class="fg" id="fTypesWrap"><label>GAME TYPES <span class="fnote" id="fTypesNote"></span></label><div class="chips" id="fTypes"></div></div>
+  </div>
+  <div class="filters">
+    <div class="fg"><label>COMPETITIONS</label>
+      <details class="ms" id="fCompBox"><summary id="fCompSum">All</summary>
+        <div class="msbody"><div class="msbar"><button class="mini" onclick="compAll(true)">All</button><button class="mini" onclick="compAll(false)">None</button></div><div id="fComp"></div></div>
+      </details></div>
     <div class="fg"><label>SEASON</label><select id="fYear" onchange="applyFilters()"><option value="">All</option></select></div>
+    <div class="fg"><label>FROM</label><input type="date" id="fFrom" onchange="applyFilters()"></div>
+    <div class="fg"><label>TO</label><input type="date" id="fTo" onchange="applyFilters()"></div>
+    <div class="fg"><label>&nbsp;</label><button class="act" onclick="clearFilters()">Reset filters</button></div>
+  </div>
+  <div class="filters" id="teamsCtl">
     <div class="fg"><label>TEAM A</label><select id="fTeamA"></select></div>
     <div class="fg"><label>TEAM B</label><select id="fTeamB"><option value="__baseline__">— Baseline (all teams avg) —</option></select></div>
-    <div class="fg"><label>&nbsp;</label><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
   </div>
-  <details class="gamespick"><summary>Games included (<span id="gCount">0</span>) — untick any to exclude</summary><div id="gList"></div></details>
+  <div class="filters" id="setsCtl" style="display:none">
+    <div class="fg"><label>TEAM</label><select id="fTeamS" onchange="refreshSets()"></select></div>
+    <div class="fg"><label>SET 1</label><div class="setbox"><div class="chips" id="s0Types"></div>
+      <details class="ms"><summary id="s0Sum">Games</summary><div class="msbody"><div class="msbar"><button class="mini" onclick="setGamesAll(0,true)">Select all</button><button class="mini" onclick="setGamesAll(0,false)">Select none</button></div><div id="s0Games"></div></div></details></div></div>
+    <div class="fg"><label>SET 2</label><div class="setbox"><div class="chips" id="s1Types"></div>
+      <details class="ms"><summary id="s1Sum">Games</summary><div class="msbody"><div class="msbar"><button class="mini" onclick="setGamesAll(1,true)">Select all</button><button class="mini" onclick="setGamesAll(1,false)">Select none</button></div><div id="s1Games"></div></div></details></div></div>
+  </div>
+  <div class="filters" style="justify-content:flex-end"><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
+  <details class="gamespick"><summary>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
+    <div class="msbar" style="margin-top:4px"><button class="mini" onclick="gamesAll(true)">Select all</button><button class="mini" onclick="gamesAll(false)">Select none</button><span class="fnote" id="gNote"></span></div>
+    <div id="gList"></div></details>
   <div id="status">Loading games…</div>
   <div class="board" id="board">
     <div class="head2">
-      <div class="tname a" id="nameA"></div><div class="vs">HEAD-TO-HEAD<br><span class="gcount" id="gcA"></span></div><div class="tname b" id="nameB"></div>
+      <div class="tname a" id="nameA"></div><div class="vs"><span id="vsLbl">HEAD-TO-HEAD</span><br><span class="gcount" id="gcA"></span></div><div class="tname b" id="nameB"></div>
     </div>
     <div id="sections"></div>
-    <div class="foot">Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don't carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.</div>
+    <div class="foot" id="footNote">Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don't carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.</div>
   </div>
 </div>
 
@@ -264,46 +311,259 @@ function ssMetrics(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  GAME TYPES — pure classifier + filter helpers (headlessly tested).
+//  A game's type = session override (non-admin, this tab only)
+//               → saved meta.gameType (admin override, via gameAdmin)
+//               → automatic keyword rules on the competition name.
+// ═══════════════════════════════════════════════════════════════
+const SS_TYPES=[
+  {k:'preseason',    label:'Pre-season',         col:'#a78bfa'},
+  {k:'league',       label:'League',             col:'#4fc3f7'},
+  {k:'championship', label:'Championship',       col:'#fbbf24'},
+  {k:'challenge',    label:'Challenge/Friendly', col:'#94a3b8'},
+  {k:'unclassified', label:'Unclassified',       col:'#6d6d7a'}];
+const SS_TYPE_KEYS=SS_TYPES.map(t=>t.k);
+function ssTypeDef(k){ return SS_TYPES.find(t=>t.k===k)||SS_TYPES[SS_TYPES.length-1]; }
+function ssTypeLabel(k){ return ssTypeDef(k).label; }
+// accepts a key or a label in any case ('League', 'Challenge/Friendly', 'pre season')
+function ssNormType(v){
+  const s=String(v==null?'':v).toLowerCase().replace(/[^a-z]/g,'');
+  if(!s) return null;
+  if(s==='preseason') return 'preseason';
+  if(s==='league') return 'league';
+  if(s==='championship') return 'championship';
+  if(s==='challenge'||s==='friendly'||s==='challengefriendly') return 'challenge';
+  if(s==='unclassified') return 'unclassified';
+  return null;
+}
+// Ordered rules — FIRST match wins. Pre-season runs before League so
+// "FBD League" is pre-season; Challenge runs before League/Championship
+// so an explicit friendly is never promoted. Tested against every
+// competition string in games/*.json metadata + the upload dropdowns.
+const SS_TYPE_RULES=[
+  ['preseason',   'FBD',                   /\bFBD\b/],
+  ['preseason',   "O'Byrne Cup",           /\bO\s*['’`]?\s*BYRNE\b/],
+  ['preseason',   'McKenna Cup',           /\bMC\s*KENNA\b/],
+  ['preseason',   'McGrath Cup',           /\bMC\s*GRATH\b/],
+  ['preseason',   'Pre-season',            /\bPRE[\s-]*SEASON\b/],
+  ['challenge',   'Challenge',             /\bCHALLENGE\b/],
+  ['challenge',   'Friendly',              /\bFRIENDL(Y|IES)\b/],
+  ['challenge',   'In-house',              /\bIN[\s-]*HOUSE\b/],
+  ['league',      'National League',       /\bNATIONAL\s+(FOOTBALL\s+)?LEAGUE\b/],
+  ['league',      'NFL',                   /\bNFL\b/],
+  ['league',      'Division',              /\bDIV(ISION)?\b|\bD[1-4](\s*R\d+)?\b/],
+  ['league',      'League',                /\bLEAGUE\b/],
+  ['championship','Provincial',            /\b(CONNACHT|MUNSTER|LEINSTER|ULSTER)\b/],
+  ['championship','All-Ireland',           /\bALL[\s-]*IRELAND\b/],
+  ['championship','SFC',                   /SFC\b/],
+  ['championship','Championship',          /\bCHAMPIONSHIP\b/],
+  ['championship','Tailteann',             /\bTAILTEANN\b/],
+  ['championship','Sam Maguire',           /\bSAM\s+MAGUIRE\b/],
+  ['championship','Knockout round',        /\b(QF|SF|FINALS?|SEMI[\s-]*FINAL|QUARTER[\s-]*FINAL|QUALIFIERS?|PRELIM(INARY)?)\b/]];
+// competition decides; the round is only consulted when the competition is
+// BLANK (and then never via the bare QF/SF/Final rule — "Final" alone is not
+// a championship context).
+function ssClassifyCompetition(comp, round){
+  const C=ssUC(comp);
+  if(C){
+    for(const [type,rule,re] of SS_TYPE_RULES) if(re.test(C)) return {type, rule, from:'competition'};
+    return {type:'unclassified', rule:null, from:'competition'};
+  }
+  const R=ssUC(round);
+  if(R){
+    for(const [type,rule,re] of SS_TYPE_RULES){ if(rule==='Knockout round') continue; if(re.test(R)) return {type, rule, from:'round'}; }
+  }
+  return {type:'unclassified', rule:null, from:null};
+}
+function ssAutoType(g){ return ssClassifyCompetition(g&&g.competition, g&&g.round).type; }
+function ssTypeOf(g, sess){ return (sess&&g&&sess[g.id]&&ssNormType(sess[g.id]))||ssNormType(g&&g.gameType)||ssAutoType(g); }
+function ssTypeSource(g, sess){ return (sess&&sess[g.id]&&ssNormType(sess[g.id]))?'session':ssNormType(g.gameType)?'saved':'auto'; }
+// the saved override: a copy of the FULL meta with only gameType touched
+function ssMergeGameType(meta, key){
+  const m=Object.assign({}, meta||{});
+  const k=ssNormType(key);
+  if(k) m.gameType=k; else delete m.gameType;
+  return m;
+}
+// 'YYYY-MM-DD' from ISO or D/M/YYYY dates; '' when unknown
+function ssIsoDate(s){
+  const t=String(s||'').trim();
+  let m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(t); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return '';
+}
+function ssYearOf(g){ const d=ssIsoDate(g.date); return d?d.slice(0,4):(/^\d{4}/.test(String(g.date||''))?String(g.date).slice(0,4):''); }
+// f = {types:Set|null (null = no type filter), compsOff:Set, year, from, to}
+function ssFilterGames(games, f, typeOf){
+  f=f||{};
+  return (games||[]).filter(g=>{
+    if(f.types&&!f.types.has(typeOf(g))) return false;
+    if(f.compsOff&&f.compsOff.has(g.competition||'')) return false;
+    if(f.year&&ssYearOf(g)!==f.year) return false;
+    if(f.from||f.to){
+      const d=ssIsoDate(g.date);
+      if(!d) return false;                          // undated games can't satisfy a date range
+      if(f.from&&d<f.from) return false;
+      if(f.to&&d>f.to) return false;
+    }
+    return true;
+  });
+}
+function ssTeamIn(g, T){ return ssUC(g.homeTeam)===T||ssUC(g.awayTeam)===T; }
+// candidates of a set = pool games the team played whose type is in the set;
+// the set's chosen games = candidates minus the ones unticked (set.off)
+function ssSetCandidates(pool, T, set, typeOf){ return (pool||[]).filter(g=>ssTeamIn(g,T)&&set.types.has(typeOf(g))); }
+function ssSetGames(pool, T, set, typeOf){ return ssSetCandidates(pool,T,set,typeOf).filter(g=>!(set.off&&set.off.has(g.id))); }
+function ssTypesText(types){ const ks=SS_TYPE_KEYS.filter(k=>types.has?types.has(k):types.includes(k)); return ks.length?ks.map(ssTypeLabel).join(' + '):'No types'; }
+function ssSetLabel(T, types, n){ return T+' · '+ssTypesText(types)+' ('+n+' game'+(n===1?'':'s')+')'; }
+function ssEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════════════
 //  PAGE — filters, gateway fetching, mirrored bars
 // ═══════════════════════════════════════════════════════════════
 let GAMES=[], BUNDLES=new Map();
+let MODE='teams', IS_ADMIN=false;
+const TYPE_OFF=new Set(), COMP_OFF=new Set(), EXCLUDED=new Set();
+const SESSION_TYPES={};   // non-admin (or failed-save) overrides, this tab only
+const SETS=[{types:new Set(['league']), off:new Set()}, {types:new Set(['championship']), off:new Set()}];
+let ALL_COMPS=[];
+const typeOfG=g=>ssTypeOf(g, SESSION_TYPES);
+const ssEl=id=>document.getElementById(id);
 function metaOf(r){ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return null; } } return (m&&m.id)?m:null; }
 async function boot(){
   try{
+    try{ IS_ADMIN=(cohesionRoles()||[]).map(r=>String(r).toLowerCase()).includes('admin'); }catch(_){ IS_ADMIN=false; }
     const j=await cohesionRead({action:'listGames', section:cohesionSection()});
     GAMES=(j.games||[]).map(metaOf).filter(Boolean);
-    const comps=[...new Set(GAMES.map(g=>g.competition).filter(Boolean))].sort();
-    const years=[...new Set(GAMES.map(g=>String(g.date||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
-    document.getElementById('fComp').innerHTML='<option value="">All</option>'+comps.map(c=>`<option>${c}</option>`).join('');
-    document.getElementById('fYear').innerHTML='<option value="">All</option>'+years.map(y=>`<option>${y}</option>`).join('');
+    ALL_COMPS=[...new Set(GAMES.map(g=>g.competition||''))].sort((a,b)=>(a===''?1:b===''?-1:a.localeCompare(b)));
+    const years=[...new Set(GAMES.map(ssYearOf).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
+    ssEl('fYear').innerHTML='<option value="">All</option>'+years.map(y=>`<option>${y}</option>`).join('');
+    renderTypeChips(); renderComps();
     applyFilters();
-    document.getElementById('status').textContent=GAMES.length+' games available in this section.';
+    ssEl('status').textContent=GAMES.length+' games available in this section.'+(IS_ADMIN?'':' Game-type changes you make here last for this session only (admins can save them).');
   }catch(e){
-    document.getElementById('status').textContent='Could not load games: '+e.message;
+    ssEl('status').textContent='Could not load games: '+e.message;
   }
 }
-function filteredGames(){
-  const comp=document.getElementById('fComp').value, yr=document.getElementById('fYear').value;
-  return GAMES.filter(g=>(!comp||g.competition===comp)&&(!yr||String(g.date||'').slice(0,4)===yr));
+function curFilter(){
+  return { types: MODE==='sets'?null:new Set(SS_TYPE_KEYS.filter(k=>!TYPE_OFF.has(k))),   // sets choose their own types
+           compsOff:COMP_OFF, year:ssEl('fYear').value, from:ssEl('fFrom').value, to:ssEl('fTo').value };
 }
-function selectedGames(){
-  return filteredGames().filter(g=>{ const cb=document.getElementById('g_'+g.id); return !cb||cb.checked; });
+function filteredGames(){ return ssFilterGames(GAMES, curFilter(), typeOfG); }
+function selectedGames(){ return filteredGames().filter(g=>!EXCLUDED.has(g.id)); }
+function renderTypeChips(){
+  const dis=MODE==='sets';
+  ssEl('fTypes').innerHTML=SS_TYPES.map(t=>`<button class="chip ${TYPE_OFF.has(t.k)?'':'on'}" style="--tc:${t.col}" ${dis?'disabled':''} onclick="toggleType('${t.k}')">${ssEsc(t.label)}</button>`).join('');
+  ssEl('fTypesNote').textContent=dis?'· chosen per set below':'';
+}
+function toggleType(k){ if(TYPE_OFF.has(k)) TYPE_OFF.delete(k); else TYPE_OFF.add(k); renderTypeChips(); applyFilters(); }
+function compName(c){ return c===''?'(no competition)':c; }
+function renderComps(){
+  ssEl('fComp').innerHTML=ALL_COMPS.map((c,i)=>`<label class="gitem"><input type="checkbox" data-i="${i}" ${COMP_OFF.has(c)?'':'checked'} onchange="compToggle(this)"> ${ssEsc(compName(c))} <span class="tbadge" style="--tc:${ssTypeDef(ssClassifyCompetition(c,'').type).col}">${ssEsc(ssTypeLabel(ssClassifyCompetition(c,'').type).toUpperCase())}</span></label>`).join('')||'<div class="gitem">No competitions.</div>';
+  const on=ALL_COMPS.filter(c=>!COMP_OFF.has(c));
+  ssEl('fCompSum').textContent=on.length===ALL_COMPS.length?'All ('+ALL_COMPS.length+')':on.length===0?'None':on.length===1?compName(on[0]):on.length+' of '+ALL_COMPS.length;
+}
+function compToggle(el){ const c=ALL_COMPS[+el.dataset.i]; if(el.checked) COMP_OFF.delete(c); else COMP_OFF.add(c); renderComps(); applyFilters(); }
+function compAll(on){ COMP_OFF.clear(); if(!on) ALL_COMPS.forEach(c=>COMP_OFF.add(c)); renderComps(); applyFilters(); }
+function clearFilters(){
+  TYPE_OFF.clear(); COMP_OFF.clear(); EXCLUDED.clear();
+  ssEl('fYear').value=''; ssEl('fFrom').value=''; ssEl('fTo').value='';
+  renderTypeChips(); renderComps(); applyFilters();
+}
+function setMode(m){
+  MODE=m==='sets'?'sets':'teams';
+  ssEl('mTeams').classList.toggle('on', MODE==='teams');
+  ssEl('mSets').classList.toggle('on', MODE==='sets');
+  ssEl('teamsCtl').style.display=MODE==='teams'?'':'none';
+  ssEl('setsCtl').style.display=MODE==='sets'?'':'none';
+  renderTypeChips(); applyFilters();
+}
+function typeSelectHTML(g){
+  const src=ssTypeSource(g, SESSION_TYPES), cur=src==='auto'?'':typeOfG(g);
+  return `<select class="tsel" data-id="${ssEsc(g.id)}" onchange="setGameType(this)" title="${IS_ADMIN?'Change and save this game\'s type':'Change this game\'s type for this session'}">`
+    +`<option value="" ${cur?'':'selected'}>Auto: ${ssEsc(ssTypeLabel(ssAutoType(g)))}</option>`
+    +SS_TYPES.map(t=>`<option value="${t.k}" ${cur===t.k?'selected':''}>${ssEsc(t.label)}</option>`).join('')+'</select>';
 }
 function applyFilters(){
   const fg=filteredGames();
-  document.getElementById('gCount').textContent=fg.length;
-  document.getElementById('gList').innerHTML=fg.map(g=>
-    `<label class="gitem"><input type="checkbox" id="g_${g.id}" checked onchange="refreshTeams()"> ${g.title||g.id} <span style="color:var(--t3)">· ${g.competition||''} ${g.date||''}</span></label>`).join('')||'<div class="gitem">No games match.</div>';
+  const nSel=fg.filter(g=>!EXCLUDED.has(g.id)).length;
+  ssEl('gCount').textContent=nSel===fg.length?String(fg.length):nSel+' of '+fg.length;
+  ssEl('gList').innerHTML=fg.map(g=>{
+    const k=typeOfG(g), src=ssTypeSource(g, SESSION_TYPES);
+    return `<div class="gitem"><label><input type="checkbox" data-id="${ssEsc(g.id)}" ${EXCLUDED.has(g.id)?'':'checked'} onchange="toggleGame(this)"> <span class="gt">${ssEsc(g.title||g.id)} <span style="color:var(--t3)">· ${ssEsc(g.competition||'')} ${ssEsc(g.date||'')}</span></span></label>`
+      +`<span class="tbadge" style="--tc:${ssTypeDef(k).col}">${ssEsc(ssTypeLabel(k).toUpperCase())}</span>`
+      +(src==='auto'?'':`<span class="tsrc">${src}</span>`)+typeSelectHTML(g)+'</div>';
+  }).join('')||'<div class="gitem">No games match.</div>';
+  ssEl('gNote').textContent=MODE==='sets'?'Sets draw only from ticked games.':'';
   refreshTeams();
+}
+function gamesAll(on){ filteredGames().forEach(g=>{ if(on) EXCLUDED.delete(g.id); else EXCLUDED.add(g.id); }); applyFilters(); }
+function toggleGame(el){ const id=el.dataset.id; if(el.checked) EXCLUDED.delete(id); else EXCLUDED.add(id); applyFilters(); }
+async function setGameType(el){
+  const id=el.dataset.id, key=ssNormType(el.value)||'';
+  const g=GAMES.find(x=>x.id===id); if(!g) return;
+  const st=ssEl('status');
+  if(!IS_ADMIN){
+    if(key) SESSION_TYPES[id]=key; else delete SESSION_TYPES[id];
+    st.textContent='Type for '+(g.title||id)+' changed for this session only — ask an admin to save it.';
+    applyFilters(); return;
+  }
+  el.disabled=true; st.textContent='Saving type for '+(g.title||id)+'…';
+  try{
+    await ssSaveGameType(id, key);
+    delete SESSION_TYPES[id];
+    st.textContent='Saved: '+(g.title||id)+' is '+(key?ssTypeLabel(key):'auto ('+ssTypeLabel(ssAutoType(g))+')')+'.';
+  }catch(e){
+    if(key) SESSION_TYPES[id]=key; else delete SESSION_TYPES[id];
+    st.textContent='Could not save ('+e.message+') — applied for this session only.';
+  }
+  applyFilters();
+}
+// Admin-only write: re-read the CURRENT meta through the gateway, change only
+// gameType, and send the whole meta back through the service-role gameAdmin
+// function (updateMeta replaces games.meta, so every other field must ride along).
+async function ssSaveGameType(id, key){
+  const j=await cohesionRead({action:'gameBundle', id});
+  let fresh=j.meta; if(typeof fresh==='string'){ try{ fresh=JSON.parse(fresh); }catch(_){ fresh=null; } }
+  if(!fresh||typeof fresh!=='object') throw new Error('could not read the game\'s current metadata');
+  const merged=ssMergeGameType(fresh, key);
+  await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:id, meta:merged});
+  BUNDLES.set(id, {meta:merged, events:(j.events||[]).map(r=>r.data)});
+  const g=GAMES.find(x=>x.id===id);
+  if(g){ if(merged.gameType) g.gameType=merged.gameType; else delete g.gameType; }
+  return merged;
 }
 function refreshTeams(){
   const teams=[...new Set(selectedGames().flatMap(g=>[ssUC(g.homeTeam),ssUC(g.awayTeam)]).filter(Boolean))].sort();
-  const a=document.getElementById('fTeamA'), b=document.getElementById('fTeamB');
-  const pa=a.value, pb=b.value;
-  a.innerHTML=teams.map(t=>`<option>${t}</option>`).join('');
-  b.innerHTML='<option value="__baseline__">— Baseline (all teams avg) —</option>'+teams.map(t=>`<option>${t}</option>`).join('');
+  const a=ssEl('fTeamA'), b=ssEl('fTeamB'), s=ssEl('fTeamS');
+  const pa=a.value, pb=b.value, ps=s.value;
+  a.innerHTML=teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  b.innerHTML='<option value="__baseline__">— Baseline (all teams avg) —</option>'+teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  s.innerHTML=teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
   if(teams.includes(pa)) a.value=pa;
   if(pb==='__baseline__'||teams.includes(pb)) b.value=pb;
+  if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
+  refreshSets();
+}
+// ── same team, two game sets ──
+function refreshSets(){
+  if(MODE!=='sets') return;
+  const T=ssEl('fTeamS').value, pool=selectedGames();
+  SETS.forEach((set,i)=>{
+    ssEl('s'+i+'Types').innerHTML=SS_TYPES.map(t=>`<button class="chip ${set.types.has(t.k)?'on':''}" style="--tc:${t.col}" onclick="toggleSetType(${i},'${t.k}')">${ssEsc(t.label)}</button>`).join('');
+    const cand=T?ssSetCandidates(pool,T,set,typeOfG):[];
+    const n=cand.filter(g=>!set.off.has(g.id)).length;
+    ssEl('s'+i+'Sum').textContent=(n===cand.length?'All ':n+' of ')+cand.length+' game'+(cand.length===1?'':'s');
+    ssEl('s'+i+'Games').innerHTML=cand.map(g=>`<label class="gitem"><input type="checkbox" data-set="${i}" data-id="${ssEsc(g.id)}" ${set.off.has(g.id)?'':'checked'} onchange="toggleSetGame(this)"> ${ssEsc(g.title||g.id)} <span style="color:var(--t3)">· ${ssEsc(g.date||'')}</span> <span class="tbadge" style="--tc:${ssTypeDef(typeOfG(g)).col}">${ssEsc(ssTypeLabel(typeOfG(g)).toUpperCase())}</span></label>`).join('')
+      ||'<div class="gitem">No games for '+ssEsc(T||'this team')+' of these types in the filtered pool.</div>';
+  });
+}
+function toggleSetType(i,k){ const s=SETS[i].types; if(s.has(k)) s.delete(k); else s.add(k); refreshSets(); }
+function toggleSetGame(el){ const s=SETS[+el.dataset.set]; if(el.checked) s.off.delete(el.dataset.id); else s.off.add(el.dataset.id); refreshSets(); }
+function setGamesAll(i,on){
+  const T=ssEl('fTeamS').value, cand=ssSetCandidates(selectedGames(),T,SETS[i],typeOfG);
+  cand.forEach(g=>{ if(on) SETS[i].off.delete(g.id); else SETS[i].off.add(g.id); });
+  refreshSets();
 }
 async function fetchBundle(id){
   if(BUNDLES.has(id)) return BUNDLES.get(id);
@@ -338,21 +598,37 @@ function teamAgg(bundles, T){
   const tallies=bundles.map(b=>ssGameTally(b.meta,b.events,T)).filter(Boolean);
   return {agg:ssAggregate(tallies), games:tallies.length};
 }
+async function loadBundles(games, st){
+  const out=[];
+  for(let i=0;i<games.length;i+=4){
+    if(st) st.textContent='Loading events… '+Math.min(i+4,games.length)+'/'+games.length;
+    const chunk=await Promise.all(games.slice(i,i+4).map(g=>fetchBundle(g.id)));
+    out.push(...chunk);
+  }
+  return out;
+}
+// Set mode, pure: aggregate ONE team over two game sets with the unchanged
+// engine. bundleOf(id) -> {meta, events}. Returns what render() needs.
+function ssSetsCompare(T, sets, pool, typeOf, bundleOf){
+  const res=sets.map(set=>{
+    const games=ssSetGames(pool, T, set, typeOf);
+    const r=teamAgg(games.map(g=>bundleOf(g.id)).filter(Boolean), T);
+    return {games, res:r, label:ssSetLabel(T, set.types, r.games), types:SS_TYPE_KEYS.filter(k=>set.types.has(k))};
+  });
+  const ids0=new Set(res[0].games.map(g=>g.id));
+  return {sets:res, overlap:res[1].games.filter(g=>ids0.has(g.id)).length};
+}
 async function runCompare(){
+  const st=ssEl('status');
+  if(MODE==='sets') return runSets();
   const games=selectedGames();
-  if(!games.length){ document.getElementById('status').textContent='No games selected.'; return; }
-  const A=document.getElementById('fTeamA').value, B=document.getElementById('fTeamB').value;
-  if(!A){ document.getElementById('status').textContent='Pick Team A.'; return; }
-  if(A===B){ document.getElementById('status').textContent='Pick two different teams.'; return; }
-  const btn=document.getElementById('goBtn'); btn.disabled=true;
-  const st=document.getElementById('status');
+  if(!games.length){ st.textContent='No games selected.'; return; }
+  const A=ssEl('fTeamA').value, B=ssEl('fTeamB').value;
+  if(!A){ st.textContent='Pick Team A.'; return; }
+  if(A===B){ st.textContent='Pick two different teams.'; return; }
+  const btn=ssEl('goBtn'); btn.disabled=true;
   try{
-    const bundles=[];
-    for(let i=0;i<games.length;i+=4){
-      st.textContent='Loading events… '+Math.min(i+4,games.length)+'/'+games.length;
-      const chunk=await Promise.all(games.slice(i,i+4).map(g=>fetchBundle(g.id)));
-      bundles.push(...chunk);
-    }
+    const bundles=await loadBundles(games, st);
     const ra=teamAgg(bundles,A);
     let rb, nameB;
     if(B==='__baseline__'){
@@ -361,8 +637,28 @@ async function runCompare(){
       rb={baseline:teams.map(t=>teamAgg(bundles,t))};
       nameB='ALL TEAMS AVG';
     } else { rb=teamAgg(bundles,B); nameB=B; }
-    render(A, ra, nameB, rb, games);
+    render(A, ra, nameB, rb, games, {mode:'teams', keyA:A, keyB:B});
     st.textContent='';
+  }catch(e){ st.textContent='Could not compute: '+e.message; }
+  btn.disabled=false;
+}
+async function runSets(){
+  const st=ssEl('status');
+  const T=ssEl('fTeamS').value;
+  if(!T){ st.textContent='Pick a team.'; return; }
+  const pool=selectedGames();
+  for(let i=0;i<2;i++){
+    if(!SETS[i].types.size){ st.textContent='Set '+(i+1)+': pick at least one game type.'; return; }
+    if(!ssSetGames(pool,T,SETS[i],typeOfG).length){ st.textContent='Set '+(i+1)+' ('+ssTypesText(SETS[i].types)+') has no games for '+T+' in the filtered pool.'; return; }
+  }
+  const btn=ssEl('goBtn'); btn.disabled=true;
+  try{
+    const union=[...new Map(SETS.flatMap(s=>ssSetGames(pool,T,s,typeOfG)).map(g=>[g.id,g])).values()];
+    await loadBundles(union, st);
+    const out=ssSetsCompare(T, SETS, pool, typeOfG, id=>BUNDLES.get(id));
+    const [s1,s2]=out.sets;
+    render(s1.label, s1.res, s2.label, s2.res, union, {mode:'sets', keyA:T, keyB:T, team:T, sets:out.sets});
+    st.textContent=out.overlap?(out.overlap+' game'+(out.overlap===1?' is':'s are')+' in both sets (their types overlap).'):'';
   }catch(e){ st.textContent='Could not compute: '+e.message; }
   btn.disabled=false;
 }
@@ -378,15 +674,50 @@ function metricFor(res, fn){
   return fn(res.agg);
 }
 let SS_LAST=null;   // snapshot of exactly what's on screen, for the exports
-function render(nameA, ra, nameB, rb, games){
-  const cols=ssDisplayColors(nameA, rb.baseline?'__baseline__':nameB);
-  const board=document.getElementById('board');
+function ssSnapGame(g){
+  return {id:g.id, title:g.title||((g.homeTeam||'?')+' v '+(g.awayTeam||'?')), home:g.homeTeam||'', away:g.awayTeam||'',
+          date:g.date||'', competition:g.competition||'', type:ssTypeLabel(typeOfG(g))};
+}
+// the active filters, as the exports print them
+function ssFilterSnap(){
+  const typesOn=SS_TYPE_KEYS.filter(k=>!TYPE_OFF.has(k));
+  const compsOn=ALL_COMPS.filter(c=>!COMP_OFF.has(c));
+  return { types:typesOn.map(ssTypeLabel), typesAll:typesOn.length===SS_TYPE_KEYS.length,
+           competitions:compsOn.map(compName), compsAll:compsOn.length===ALL_COMPS.length,
+           season:((ssEl('fYear')||{}).value)||'', from:((ssEl('fFrom')||{}).value)||'', to:((ssEl('fTo')||{}).value)||'',
+           excluded:filteredGames().filter(g=>EXCLUDED.has(g.id)).length };
+}
+// plain-ASCII lines describing mode + filters (safe for jsPDF helvetica)
+function ssFilterLines(snap){
+  const f=snap.filters||{}, L=[];
+  if(snap.mode==='sets'){
+    L.push('Mode: Same team, two game sets ('+snap.team+')');
+    (snap.sets||[]).forEach((s,i)=>L.push('Set '+(i+1)+': '+(s.types.length?s.types.join(' + '):'none')+' ('+s.games.length+' game'+(s.games.length===1?'':'s')+')'));
+  } else {
+    L.push('Mode: '+(snap.baseline?'Team v baseline (all teams avg)':'Team v Team'));
+    L.push('Game types: '+(f.typesAll?'All':((f.types||[]).length?f.types.join(', '):'None')));
+  }
+  L.push('Competitions: '+(f.compsAll?'All':((f.competitions||[]).length?f.competitions.join(', '):'None')));
+  L.push('Season: '+(f.season||'All'));
+  L.push('Dates: '+((f.from||f.to)?(f.from||'any')+' to '+(f.to||'any'):'Any'));
+  if(f.excluded) L.push(f.excluded+' filtered game'+(f.excluded===1?'':'s')+' unticked');
+  return L;
+}
+function render(nameA, ra, nameB, rb, games, opt){
+  opt=opt||{mode:'teams'};
+  const keyA=opt.keyA||nameA, keyB=rb.baseline?'__baseline__':(opt.keyB||nameB);
+  const cols=ssDisplayColors(keyA, keyB);
+  const board=ssEl('board');
   board.style.setProperty('--colA', cols.a);
   board.style.setProperty('--colB', cols.b);
-  document.getElementById('board').style.display='block';
-  document.getElementById('nameA').textContent=nameA;
-  document.getElementById('nameB').textContent=nameB;
-  document.getElementById('gcA').textContent=(ra.games||0)+' games'+(rb.baseline?'':' v '+(rb.games||0));
+  board.style.display='block';
+  ssEl('nameA').textContent=nameA;
+  ssEl('nameB').textContent=nameB;
+  ssEl('vsLbl').textContent=opt.mode==='sets'?'SET v SET':'HEAD-TO-HEAD';
+  ssEl('gcA').textContent=opt.mode==='sets'?((ra.games||0)+' v '+(rb.games||0)+' games'):((ra.games||0)+' games'+(rb.baseline?'':' v '+(rb.games||0)));
+  ssEl('footNote').textContent=opt.mode==='sets'
+    ?'Each side aggregates only the games in its set that '+opt.team+' played. “n/a” means the source XMLs for those games don\'t carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.'
+    :'Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don\'t carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.';
   const secs={}, snapSecs=[];
   ssMetrics().forEach(([sec,label,sub,fn])=>{
     const a=metricFor(ra,fn), b=metricFor(rb,fn);
@@ -403,15 +734,16 @@ function render(nameA, ra, nameB, rb, games){
         <div class="val b ${b?'':'na'}">${b?b.txt:'n/a'}</div>
       </div>`);
   });
-  document.getElementById('sections').innerHTML=Object.entries(secs)
+  ssEl('sections').innerHTML=Object.entries(secs)
     .map(([s,rows])=>`<div class="sec"><h3>${s}</h3>${rows.join('')}</div>`).join('');
-  SS_LAST={ nameA, nameB, baseline:!!rb.baseline,
-    gcount:document.getElementById('gcA').textContent,
-    cols, pcols:ssPrintColors(nameA, rb.baseline?'__baseline__':nameB),
-    games:(games||[]).map(g=>({title:g.title||((g.homeTeam||'?')+' v '+(g.awayTeam||'?')), home:g.homeTeam||'', away:g.awayTeam||'', date:g.date||'', competition:g.competition||''})),
-    filters:{competition:(document.getElementById('fComp')||{}).value||'', season:(document.getElementById('fYear')||{}).value||''},
+  SS_LAST={ mode:opt.mode==='sets'?'sets':'teams', nameA, nameB, team:opt.team||null, baseline:!!rb.baseline,
+    gcount:ssEl('gcA').textContent,
+    cols, pcols:ssPrintColors(keyA, keyB),
+    games:(games||[]).map(ssSnapGame),
+    filters:ssFilterSnap(),
+    sets:opt.mode==='sets'?(opt.sets||[]).map(s=>({label:s.label, types:s.types.map(ssTypeLabel), games:s.games.map(ssSnapGame)})):null,
     sections:snapSecs };
-  ['pdfBtn','imgBtn'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.disabled=false; el.title=''; } });
+  ['pdfBtn','imgBtn'].forEach(id=>{ const el=ssEl(id); if(el){ el.disabled=false; el.title=''; } });
 }
 // ═══════════════════════════════════════════════════════════════
 //  EXPORTS — PDF (white, print-friendly, native jsPDF + autoTable)
@@ -447,10 +779,18 @@ function ssSlug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_'
 function ssExportName(snap, ext, now){
   const d=now||new Date();
   const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const teams=ssSlug(snap.nameA)+'_v_'+(snap.baseline?'baseline':ssSlug(snap.nameB));
+  const teams=snap.mode==='sets'
+    ? ssSlug(snap.team)+'_'+ssSlug((snap.sets[0].types||[]).join(' '))+'_v_'+ssSlug((snap.sets[1].types||[]).join(' '))
+    : ssSlug(snap.nameA)+'_v_'+(snap.baseline?'baseline':ssSlug(snap.nameB));
   return 'season_stats_'+teams+'_'+ds+'.'+ext;
 }
-function ssGameLine(g){ return [g.title, g.competition, g.date].filter(Boolean).join(' · '); }
+function ssGameLine(g){ return [g.title, g.competition, g.date, g.type].filter(Boolean).join(' · '); }
+function ssFootNote(snap){
+  return (snap.mode==='sets'
+    ? 'Each side aggregates only the games in its set that '+snap.team+' played.'
+    : 'Numbers aggregate every selected game each team appears in.')
+    +' "n/a" means the source XMLs for those games do not carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+}
 
 function ssBuildPDF(snap, NS, now){
   const teamsShown=2;   // Team A + Team B/baseline; wider layouts would go landscape
@@ -484,35 +824,54 @@ function ssBuildPDF(snap, NS, now){
   const d=now||new Date();
   T('Generated '+d.toISOString().slice(0,10), PW-MR, y, {align:'right'});
   y+=8;
-  // team line with outlined colour swatches
+  // team line(s) with outlined colour swatches
   doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  fillBox(ML, y-3.4, 4, 4, cA, 0.6);
-  doc.setTextColor(...ssPdfTextCol(cA)); T(snap.nameA, ML+6, y);
-  let x=ML+6+doc.getTextWidth(ssPdfTxt(snap.nameA))+4;
-  doc.setTextColor(...C_T2); doc.setFont('helvetica','normal'); T('v', x, y); x+=5;
-  doc.setFont('helvetica','bold');
-  fillBox(x, y-3.4, 4, 4, cB, 0.6);
-  doc.setTextColor(...ssPdfTextCol(cB)); T(snap.nameB, x+6, y);
-  y+=5;
+  if(snap.mode==='sets'){
+    // one line per set: the labels are long ("MAYO · League (5 games)")
+    [[snap.nameA,cA],[snap.nameB,cB]].forEach(([nm,c],i)=>{
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...C_T2); T('SET '+(i+1), ML, y);
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      fillBox(ML+12, y-3.4, 4, 4, c, 0.6);
+      doc.setTextColor(...ssPdfTextCol(c)); T(nm, ML+18, y);
+      y+=6;
+    });
+    y-=1;
+  } else {
+    fillBox(ML, y-3.4, 4, 4, cA, 0.6);
+    doc.setTextColor(...ssPdfTextCol(cA)); T(snap.nameA, ML+6, y);
+    let x=ML+6+doc.getTextWidth(ssPdfTxt(snap.nameA))+4;
+    doc.setTextColor(...C_T2); doc.setFont('helvetica','normal'); T('v', x, y); x+=5;
+    doc.setFont('helvetica','bold');
+    fillBox(x, y-3.4, 4, 4, cB, 0.6);
+    doc.setTextColor(...ssPdfTextCol(cB)); T(snap.nameB, x+6, y);
+    y+=5;
+  }
+  // filters + types, wrapped to the page width
   doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...C_T2);
-  const filt=[snap.filters&&snap.filters.competition?'Competition: '+snap.filters.competition:'Competition: All',
-              snap.filters&&snap.filters.season?'Season: '+snap.filters.season:'Season: All',
-              'Head-to-head: '+(snap.gcount||'')].join('   ·   ');
-  T(filt, ML, y);
-  y+=4;
+  const filt=ssFilterLines(snap).concat([(snap.mode==='sets'?'Games: ':'Head-to-head: ')+(snap.gcount||'')]).join('   ·   ');
+  const fl=doc.splitTextToSize(ssPdfTxt(filt), CW);
+  fl.forEach((ln,i)=>T(ln, ML, y+i*3.8));
+  y+=fl.length*3.8+0.5;
 
-  // ── games included ──
-  doc.autoTable({
-    startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
-    head:[[{content:'GAMES INCLUDED ('+snap.games.length+')', colSpan:4, styles:{halign:'left', fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold'}}],
-          ['#','Game','Date','Competition']],
-    body:snap.games.map((g,i)=>[String(i+1), ssPdfTxt(g.title), ssPdfTxt(g.date||'-'), ssPdfTxt(g.competition||'-')]),
-    styles:cellBase,
-    headStyles:{fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
-    columnStyles:{0:{cellWidth:8, halign:'center'}, 2:{cellWidth:24}, 3:{cellWidth:48}},
-    showHead:'everyPage', rowPageBreak:'avoid',
-    willDrawPage:paintWhite });
-  y=doc.lastAutoTable.finalY+6;
+  // ── games included: one table (team mode) or one per set (set mode) ──
+  const gamesTable=(title, list)=>{
+    if(y+20>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    doc.autoTable({
+      startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+      head:[[{content:ssPdfTxt(title), colSpan:5, styles:{halign:'left', fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold'}}],
+            ['#','Game','Date','Competition','Type']],
+      body:list.length?list.map((g,i)=>[String(i+1), ssPdfTxt(g.title), ssPdfTxt(g.date||'-'), ssPdfTxt(g.competition||'-'), ssPdfTxt(g.type||'-')])
+                      :[['-','No games','','','']],
+      styles:cellBase,
+      headStyles:{fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+      columnStyles:{0:{cellWidth:8, halign:'center'}, 2:{cellWidth:22}, 3:{cellWidth:44}, 4:{cellWidth:30}},
+      showHead:'everyPage', rowPageBreak:'avoid',
+      willDrawPage:paintWhite });
+    y=doc.lastAutoTable.finalY+4;
+  };
+  if(snap.mode==='sets') (snap.sets||[]).forEach((s,i)=>gamesTable('SET '+(i+1)+': '+s.label, s.games));
+  else gamesTable('GAMES INCLUDED ('+snap.games.length+')', snap.games);
+  y+=2;
 
   // ── one table per section, mirrored bars drawn into the bar cells ──
   const VALW=22, LBLW=58, BARW=(CW-2*VALW-LBLW)/2;
@@ -522,9 +881,9 @@ function ssBuildPDF(snap, NS, now){
     doc.autoTable({
       startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
       head:[[{content:sec.name, colSpan:5, styles:{halign:'center', fillColor:[254,243,199], textColor:C_AMB, fontStyle:'bold', fontSize:10}}],
-            [{content:ssPdfTxt(snap.nameA), styles:{textColor:ssPdfTextCol(cA), halign:'left'}},
-             '', {content:'Metric', styles:{halign:'center'}}, '',
-             {content:ssPdfTxt(snap.nameB), styles:{textColor:ssPdfTextCol(cB), halign:'right'}}]],
+            [{content:ssPdfTxt(snap.nameA), colSpan:2, styles:{textColor:ssPdfTextCol(cA), halign:'left'}},
+             {content:'Metric', styles:{halign:'center'}},
+             {content:ssPdfTxt(snap.nameB), colSpan:2, styles:{textColor:ssPdfTextCol(cB), halign:'right'}}]],
       body:rows.map(r=>[r.a==null?'n/a':ssPdfTxt(r.a), '', ssPdfTxt(r.label+(r.sub?'\n'+r.sub:'')), '', r.b==null?'n/a':ssPdfTxt(r.b)]),
       styles:cellBase,
       headStyles:{fillColor:[249,250,251], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
@@ -554,7 +913,7 @@ function ssBuildPDF(snap, NS, now){
   // ── note + footer on every page ──
   if(y+12>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
-  const note='Numbers aggregate every selected game each team appears in. "n/a" means the source XMLs for those games do not carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+  const note=ssFootNote(snap);
   doc.text(doc.splitTextToSize(ssPdfTxt(note), CW), ML, y+3);
   const n=doc.internal.getNumberOfPages();
   for(let i=1;i<=n;i++){
@@ -602,24 +961,43 @@ function ssDrawImage(snap, ctx, C, now){
   y+=40;
   ctx.fillStyle=C.border; ctx.fillRect(P,y,W-2*P,1);
   y+=18;
-  // head-to-head row
-  ctx.font='800 32px '+FC;
-  text(fit(snap.nameA,(W-2*P)/2-110), P, y+30, '800 32px '+FC, colA);
-  text(fit(snap.nameB,(W-2*P)/2-110), W-P, y+30, '800 32px '+FC, colB, 'right');
-  text('HEAD-TO-HEAD', W/2, y+14, '700 13px '+FC, C.t3, 'center');
+  // head-to-head row (set labels are longer → smaller type)
+  const NF=snap.mode==='sets'?'800 24px ':'800 32px ';
+  ctx.font=NF+FC;
+  text(fit(snap.nameA,(W-2*P)/2-90), P, y+30, NF+FC, colA);
+  ctx.font=NF+FC;
+  text(fit(snap.nameB,(W-2*P)/2-90), W-P, y+30, NF+FC, colB, 'right');
+  text(snap.mode==='sets'?'SET v SET':'HEAD-TO-HEAD', W/2, y+14, '700 13px '+FC, C.t3, 'center');
   text(snap.gcount||'', W/2, y+32, '400 12px '+FB, C.t3, 'center');
   y+=50;
-  // games panel (two columns)
-  const gl=snap.games, colsN=gl.length>6?2:1, perCol=Math.ceil(gl.length/colsN)||1, lh=20;
-  const gpH=44+perCol*lh+8;
-  rr(P,y,W-2*P,gpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
-  const f=snap.filters||{};
-  text('GAMES INCLUDED ('+gl.length+')   ·   Competition: '+(f.competition||'All')+'   ·   Season: '+(f.season||'All'), P+18, y+26, '700 13px '+FC, C.t2);
-  const colW=(W-2*P-36)/colsN;
+  // filters panel: mode, types, competitions, season, dates (wrapped)
+  const wrap=(s,maxW)=>{ const words=String(s).split(' '), out=[]; let cur='';
+    words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW&&cur){ out.push(cur); cur=w; } else cur=t; });
+    if(cur) out.push(cur); return out; };
   ctx.font='400 13px '+FB;
-  gl.forEach((g,i)=>{ const c=Math.floor(i/perCol), r=i%perCol;
-    text(fit(ssGameLine(g), colW-16), P+18+c*colW, y+50+r*lh, '400 13px '+FB, C.t2); });
-  y+=gpH+14;
+  const fLines=wrap(ssFilterLines(snap).join('   ·   '), W-2*P-36);
+  const fpH=40+fLines.length*18+6;
+  rr(P,y,W-2*P,fpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+  text('FILTERS', P+18, y+26, '700 13px '+FC, C.t2);
+  fLines.forEach((l,i)=>text(l, P+18, y+46+i*18, '400 13px '+FB, C.t3));
+  y+=fpH+14;
+  // games panel(s), two columns when long
+  const gamesPanel=(title, gl)=>{
+    const colsN=gl.length>6?2:1, perCol=Math.ceil(gl.length/colsN)||1, lh=20;
+    const gpH=44+perCol*lh+8;
+    rr(P,y,W-2*P,gpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+    ctx.font='700 13px '+FC;
+    text(fit(title, W-2*P-36), P+18, y+26, '700 13px '+FC, C.t2);
+    const colW=(W-2*P-36)/colsN;
+    ctx.font='400 13px '+FB;
+    if(!gl.length) text('No games', P+18, y+50, '400 13px '+FB, C.t3);
+    gl.forEach((g,i)=>{ const c=Math.floor(i/perCol), r=i%perCol;
+      ctx.font='400 13px '+FB;
+      text(fit(ssGameLine(g), colW-16), P+18+c*colW, y+50+r*lh, '400 13px '+FB, C.t2); });
+    y+=gpH+14;
+  };
+  if(snap.mode==='sets') (snap.sets||[]).forEach((s,i)=>gamesPanel('SET '+(i+1)+':  '+s.label, s.games));
+  else gamesPanel('GAMES INCLUDED ('+snap.games.length+')', snap.games);
   // sections
   const cw=W-2*P-36, VW=74, LW=210, GAP=10, BW=(cw-2*VW-LW-4*GAP)/2;
   snap.sections.forEach(sec=>{
@@ -649,7 +1027,7 @@ function ssDrawImage(snap, ctx, C, now){
   });
   // foot note
   ctx.font='400 11px '+FB;
-  const note='Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don’t carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+  const note=ssFootNote(snap);
   const words=note.split(' '), lines=[]; let cur='';
   words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>W-2*P-120&&cur){ lines.push(cur); cur=w; } else cur=t; });
   if(cur) lines.push(cur);
