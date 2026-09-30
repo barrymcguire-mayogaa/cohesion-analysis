@@ -2940,8 +2940,74 @@ function crAssistCommit(inp){
   if(d.where==='code') codeShotAssist(v);
   else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
 }
-function crAssistOtherNames(T){ return []; }
-function crAssistLoadOther(T){}
+// (c) Players used for a team in its OTHER games. listGames (already loaded
+// into GAMES) carries each game's meta, so other games' team sheets (rosters /
+// playerRoster) cost nothing. Tagged names need the events: the first time an
+// Assist box opens for a team, getEvents (events only — cheaper than
+// gameBundle) is read through cohesionRead for the team's CR_OTHER_MAX most
+// recent other games, CR_OTHER_CONC at a time, in the background; names merge
+// in as each game arrives. The result is cached in localStorage per team and
+// refreshed after a day.
+const CR_OTHER_MAX=15, CR_OTHER_CONC=3, CR_OTHER_TTL=864e5;
+let crAssistOther={};   // TEAM → {names:[], loading:bool}
+function crOtherKey(T){ return 'coh_cr_assist_'+T; }
+function crOtherGamesAll(T){
+  return (GAMES||[]).filter(g=>g&&g.id&&g.id!==(GAME&&GAME.id)&&
+    (String(g.homeTeam||'').toUpperCase()===T||String(g.awayTeam||'').toUpperCase()===T));
+}
+function crOtherGames(T){
+  return crOtherGamesAll(T).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,CR_OTHER_MAX);
+}
+// Names for team T on one event of another game g (P-tags resolved through
+// that game's roster when possible, otherwise skipped — numbers differ by game).
+function crOtherNamesFromEvent(e, g, T){
+  if(!e||String(e.team||'').toUpperCase()!==T) return [];
+  const out=[], L=e.labels||{};
+  const put=v=>{ v=crNameTidy(v); if(!v) return;
+    if(/^P\s*\d+$/i.test(v)){ v=(window.cohGiuRosterName&&window.cohGiuRosterName(g,T,v))||''; if(!v) return; }
+    out.push(v); };
+  put(e.player);
+  Object.keys(L).forEach(k=>{ if(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist') put(L[k]); });
+  return out;
+}
+function crAssistOtherNames(T){
+  const out=[];
+  crOtherGamesAll(T).forEach(g=>crSheetNames(String(g.homeTeam||'').toUpperCase()===T?'home':'away', g).forEach(n=>out.push(n)));
+  const o=crAssistOther[T]; if(o) o.names.forEach(n=>out.push(n));
+  return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+}
+// Re-show an open Assist dropdown when new names arrive (not mid-arrowing).
+function crAssistRefresh(){
+  const inp=acInput;
+  if(inp&&inp.classList&&inp.classList.contains('crasst-in')&&acIdx<0&&document.activeElement===inp) crAssistOpen(inp,true);
+}
+function crAssistLoadOther(T){
+  if(!T||crAssistOther[T]) return crAssistOther[T]&&crAssistOther[T].promise;
+  const o=crAssistOther[T]={names:[],loading:true,promise:null};
+  try{
+    const c=JSON.parse(localStorage.getItem(crOtherKey(T))||'null');
+    if(c&&Array.isArray(c.names)&&Date.now()-(+c.ts||0)<CR_OTHER_TTL){ o.names=c.names.map(crNameTidy).filter(Boolean); o.loading=false; return null; }
+  }catch(_){}
+  const games=crOtherGames(T);
+  if(!games.length||typeof cohesionRead!=='function'){ o.loading=false; return null; }
+  const found=new Map(); let next=0, okN=0;
+  const worker=async()=>{
+    while(next<games.length){
+      const g=games[next++];
+      try{
+        const j=await cohesionRead({action:'getEvents', gameId:g.id}); okN++;
+        (j.events||[]).forEach(r=>crOtherNamesFromEvent(r&&r.data,g,T).forEach(n=>{ const k=crNameKey(n); if(!found.has(k)) found.set(k,n); }));
+        o.names=[...found.values()];
+        crAssistRefresh();
+      }catch(_){ /* one unreadable game never stops the rest */ }
+    }
+  };
+  o.promise=Promise.all(Array.from({length:Math.min(CR_OTHER_CONC,games.length)},worker)).then(()=>{
+    o.loading=false;
+    if(okN){ try{ localStorage.setItem(crOtherKey(T),JSON.stringify({ts:Date.now(),names:o.names})); }catch(_){} }
+  });
+  return o.promise;
+}
 function crAssistAddToSheet(inp){}
 function crAssistKey(ev){
   const inp=ev.target;
