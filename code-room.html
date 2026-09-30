@@ -258,6 +258,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-xp.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
@@ -521,7 +522,7 @@ function filterGames(){
 async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
@@ -575,7 +576,7 @@ async function startLocalSession(){
          title:home+' v '+away+' (local video)',
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null;
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
@@ -1218,9 +1219,48 @@ function crCoordOf(e){
   const p=crCoordPairs(e&&e.labels)[0];
   return p?{x:Math.max(0,Math.min(100,p.x)),y:Math.max(0,Math.min(100,p.y))}:null;
 }
+// ── Shot Attempts from location ─────────────────────────────
+// Placing (or moving) a shot's location fills a BLANK "Shot Attempts" with
+// 1 Point Attempt inside the 40m arc, 2 Point Attempt outside it. Distance is
+// cohesion-xp.js's geometry (xpForShot with a stub attempt → parts.dist) in
+// the tracker convention, which is how Code Room stores placed shots (goal at
+// the top, X = lateral %, Y = % down the drawn half-pitch). The threshold is
+// the DRAWN arc: on the model's metre scale it sits at ~41.8 m (the drawing's
+// arc is ~4% large relative to its 13/20/45 m lines), and tagged 1pt/2pt
+// attempts split exactly on it. Never touches a value someone set — only a
+// blank one, or one this feature set earlier in the session (so moving the
+// location again re-derives it). Penalties and GIU "For Goal" shots are left
+// alone (their attempt is a Goal Attempt).
+const CR_ARC_2PT_M=41.8;
+let crAutoAtt={};                  // rowId → attempt value auto-set this session
+let crAttNote={id:null,text:''};   // "attempt set from location: 2pt" for the Edit panel / Locate
+function crShotDistM(x,y){
+  if(typeof xpForShot!=='function'||x==null||y==null||!isFinite(x)||!isFinite(y)) return null;
+  try{ const r=xpForShot({'Shot Attempts':'1 Point Attempt','X-Shot':String(x),'Y-Shot':String(y)},'home',null,{conv:'tracker'});
+    return r&&r.parts&&isFinite(r.parts.dist)?r.parts.dist:null; }catch(_){ return null; }
+}
+// labels: {group:value}. Returns the attempt to write, or '' to leave it.
+function crAttemptFromLoc(rowId, code, labels, x, y){
+  if(!CR_LOC_RE.test(code||'')) return '';
+  const L=labels||{};
+  const get=g=>{ const w=g.toLowerCase(); for(const k in L) if(k.toLowerCase()===w) return String(L[k]==null?'':L[k]).trim(); return ''; };
+  const cur=get('Shot Attempts');
+  if(cur&&cur!==crAutoAtt[rowId]) return '';
+  if(/PENALTY/i.test(code)||/PENALTY/i.test(get('Deadball Shot Type'))) return '';
+  const forGoal=v=>/^for goal$/i.test(String(v||'').trim());
+  if(forGoal(get('ShootingIntent'))) return '';
+  const src=get('GI Source ID');
+  if(src){ const o=EVENTS.find(e=>String(e.id)===src&&!(e.labels||{})['GI Source ID']);
+    if(o&&forGoal((o.labels||{})['ShootingIntent'])) return ''; }
+  const d=crShotDistM(x,y);
+  if(d==null) return '';
+  return d>CR_ARC_2PT_M?'2 Point Attempt':'1 Point Attempt';
+}
+function crAttNoteText(att){ return 'attempt set from location: '+(/^2/.test(att)?'2pt':'1pt'); }
 // After placing on a map: update existing X-/Y- label rows in the draft, or
 // create the Match Tracker-named pair if the event has none.
 function crSyncCoordGroups(kind){
+  if(kind==='shot') crDraftAutoAttempt();
   const xs=String(Math.round(draft.x)), ys=String(Math.round(draft.y));
   if(draft.groups.some(r=>/^x[-_ ]/i.test(r.g))){
     draft.groups.forEach(r=>{ if(/^x[-_ ]/i.test(r.g)) r.v=xs; else if(/^y[-_ ]/i.test(r.g)) r.v=ys; });
@@ -1230,6 +1270,17 @@ function crSyncCoordGroups(kind){
   const suf=(!(e.team||'')||(e.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
   const base=kind==='ko'?'KOs':'Shot';
   draft.groups.push({g:'X-'+base+suf,v:xs},{g:'Y-'+base+suf,v:ys});
+}
+// Edit panel / Locate: fill the draft's blank Shot Attempts from draft.x/y.
+function crDraftAutoAttempt(){
+  if(!draft) return;
+  const lbls={}; draft.groups.forEach(r=>lbls[r.g]=r.v);
+  const att=crAttemptFromLoc(activeId, draft.code, lbls, draft.x, draft.y);
+  if(!att) return;
+  const r=draft.groups.find(x=>x.g.toLowerCase()==='shot attempts');
+  if(r) r.v=att; else draft.groups.push({g:'Shot Attempts',v:att});
+  crAutoAtt[activeId]=att;
+  crAttNote={id:activeId,text:crAttNoteText(att)};
 }
 function crShotGlyph(){
   const code=((draft&&draft.code)||'').toUpperCase();
@@ -2021,6 +2072,7 @@ function pick(rowId){
   const e=EVENTS.find(x=>String(x._rowId)===String(rowId)); if(!e)return;
   closeAdd();
   activeId=e._rowId;
+  if(crAttNote.id!==e._rowId) crAttNote={id:null,text:''};
   draft={
     code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
     x:(crCoordOf(e)||{}).x??null, y:(crCoordOf(e)||{}).y??null,
@@ -2093,7 +2145,7 @@ function renderPanel(){
       <button onclick="nudge(1)">+1s</button><button onclick="nudge(5)">+5s</button>
     </div>
     <div class="nudge" style="margin-top:6px;"><button class="setnow" onclick="setNow()">⏱ Set to current video moment</button></div>
-    ${/SHOT/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crShotMap()" style="flex:1;">📍 ${draft.x!=null?'Shot location set ('+((draft.groups.find(r=>r.g==='Shot Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set shot location'}</button></div>`:''}
+    ${/SHOT/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crShotMap()" style="flex:1;">📍 ${draft.x!=null?'Shot location set ('+((draft.groups.find(r=>r.g==='Shot Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set shot location'}</button></div>${crAttNote.id===activeId&&crAttNote.text?`<div class="crattnote" style="font-size:11px;color:var(--green);margin-top:4px;">✓ ${esc(crAttNote.text)}</div>`:''}`:''}
     ${/KICKOUT|\bKO\b/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crKoMap()" style="flex:1;">📍 ${draft.x!=null?'Kickout landing set ('+((draft.groups.find(r=>r.g==='Kickout Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set kickout landing'}</button></div>`:''}
     <div class="ep-lbl">Labels</div>
     ${labelRows||'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>'}
@@ -3024,7 +3076,9 @@ function crApplyLocToRow(row, kind, px, py){
   row.labels=row.labels||{};
   let desc;
   if(kind==='ko'){ const z=crKoZoneOf(px,py); row.labels['Kickout Zones']=z.zone; row.labels['Kickout Locations']=z.loc; desc=z.zone+' · '+z.loc; }
-  else { const z=crZoneOf(px,py); row.labels['Shot Zones']=z; desc=z; }
+  else { const z=crZoneOf(px,py); row.labels['Shot Zones']=z; desc=z;
+    const att=crAttemptFromLoc(row._rowId, row.code, row.labels, row.x, row.y);
+    if(att){ row.labels['Shot Attempts']=att; crAutoAtt[row._rowId]=att; desc+=' · '+crAttNoteText(att); } }
   const keys=Object.keys(row.labels);
   const xk=keys.find(k=>/^x[-_ ]/i.test(k)), yk=keys.find(k=>/^y[-_ ]/i.test(k));
   const xs=String(Math.round(row.x)), ys=String(Math.round(row.y));
@@ -3899,7 +3953,7 @@ async function crGiConvertPrompt(){
   const c=cohGiCounts(add);
   const ok=await cohesionModal({ title:'Convert Gaelic Insights shots',
     message:'Create '+c.shots+' shot event'+(c.shots===1?'':'s')+' + '+c.scores+' score event'+(c.scores===1?'':'s')+'?<br><br>'
-      +'Each GI shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
+      +'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
       +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. The original GI events are kept unchanged. '
       +'Nothing is saved until you close the session — Undo removes them all in one step.',
     buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
@@ -4042,7 +4096,7 @@ function crLocRender(){
   p.innerHTML=`<div class="crfr-h"><span>LOCATE SHOTS</span><span class="crfr-sub" id="locProg">${done} of ${n} located</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this shot's changes to the session)">✕</span></div>
     <div class="crloc-ev" title="${esc(e.code||'')}">${crLoc.i+1}/${n} · ${esc(e.code||'')} <span>${esc(e.gameTime||fmt(e.driveT||0))}${e.player?' · '+esc(e.player):''}${out?' · '+esc(out):''}</span></div>
     <div class="crfr-row"><button class="cbtn" onclick="crLocMap()" title="Open the shot pitch (Alt+↑)">📍 Pitch</button>
-      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}</span></div>
+      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}${crAttNote.id!=null&&String(crAttNote.id)===String(e._rowId)&&crAttNote.text?' · '+esc(crAttNote.text):''}</span></div>
     ${rows}
     <div class="crfr-row crfr-btns" style="margin-top:4px;">
       <button class="cbtn" onclick="crLocStep(-1)" ${crLoc.i===0?'disabled':''} title="Previous shot (Alt+←)">‹ Prev</button>
