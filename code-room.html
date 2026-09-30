@@ -366,7 +366,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
-            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights shots into COHESION shot events (SHOT OPEN PLAY / DEADBALL + score events) — the originals are kept">⇄ GI shots</div>
+            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots into COHESION shot events (SHOT OPEN PLAY / DEADBALL + score events) — the originals are kept">⇄ Convert shots</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
@@ -3927,7 +3927,7 @@ function crGiUnconverted(){
 function crGiBtnSync(){
   const b=document.getElementById('giBtn'); if(!b) return;
   const n=GAME?crGiUnconverted():0;
-  b.style.display=n?'':'none'; b.textContent='⇄ GI shots ('+n+')';
+  b.style.display=n?'':'none'; b.textContent='⇄ Convert shots ('+n+')';
 }
 // Queue converted rows; returns the new rows. No confirmation (see prompt).
 function crGiApply(add){
