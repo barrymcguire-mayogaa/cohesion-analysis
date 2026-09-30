@@ -191,6 +191,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-gi.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -2257,6 +2258,22 @@ async function processGame(){
         if(p2Events.length > 0) validateDuration('2nd Half', p2Events, 20, 50);
         if(et1Events.length > 0) validateDuration('ET 1st Half', et1Events, 8, 15);
         if(et2Events.length > 0) validateDuration('ET 2nd Half', et2Events, 8, 15);
+
+        // ── GAELIC INSIGHTS SHOT CONVERSION ─────────────────────────────
+        // Each GI "<Team> Shot" also gets a COHESION shot (SHOT OPEN PLAY /
+        // SHOT DEADBALL with Shot Outcomes, Shot Attempts, Deadball Shot
+        // Type …) plus the bare "<TEAM> 1 POINT|2 POINT|GOAL" companion for
+        // scores, so the scoreboard, stats and maps work like a Code Room
+        // game. The GI originals are kept untouched; stats skip the ones a
+        // derived shot supersedes (cohesion-gi.js).
+        if(typeof cohGiConvert === 'function'){
+          const giDerived = cohGiConvert(events, { homeTeam, awayTeam });
+          if(giDerived.length){
+            const gc = cohGiCounts(giDerived);
+            events.push(...giDerived);
+            console.log(`✓ Gaelic Insights: created ${gc.shots} shot events + ${gc.scores} score events`);
+          }
+        }
 
       } else {
         // ── Sportscode XML format ───────────────────────────────

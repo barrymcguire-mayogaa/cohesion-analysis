@@ -16,7 +16,7 @@
  */
 window.COHESION_LABEL_GROUPS = [
   { name: 'Shot Attempts', options: ['1 Point Attempt', '2 Point Attempt', 'Goal Attempt'], appliesTo: /SHOT (OPEN|DEAD)/ },
-  { name: 'Deadball Shot Type', options: ['FREE KICK', 'PENALTY', 'MARK', "'45"], appliesTo: /SHOT DEAD ?BALL/ },
+  { name: 'Deadball Shot Type', options: ['FREE KICK', 'PENALTY', 'MARK', "'45", 'SIDELINE'], appliesTo: /SHOT DEAD ?BALL/ },
   { name: 'Shooting Leg', options: ['Right Leg', 'Left Leg', 'No Leg (Hand Pass Score)'], appliesTo: /SHOT (OPEN|DEAD)/ },
   { name: 'Shot Side',    options: ['Left Side', 'Centre', 'Right Side'], appliesTo: /SHOT (OPEN|DEAD)/ },
   { name: 'Shot Pressure', options: ['Low Pressure', 'Medium Pressure', 'High Pressure'], appliesTo: /SHOT (OPEN|DEAD)/ },

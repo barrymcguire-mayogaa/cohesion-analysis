@@ -220,6 +220,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="cohesion-gi.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-xp.js"></script>
@@ -387,11 +388,24 @@ function sbHalves(){
   }
   return { h1:h1||0, h2:(h2&&h2>0)?h2:null };
 }
+// Gaelic Insights shots converted to COHESION shots (cohesion-gi.js): the
+// original "<Team> Shot" is superseded by its derived SHOT OPEN PLAY /
+// DEADBALL event, so every count skips the original (each shot once). The
+// derived bare score companion is not a shot either. Unconverted games have
+// no derived events, so both predicates are always false for them.
+let _giSupC={a:null,n:-1,f:()=>false};
+function giSup(e){
+  if(_giSupC.a!==ALL||_giSupC.n!==ALL.length)
+    _giSupC={a:ALL,n:ALL.length,f:(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(ALL):()=>false};
+  return _giSupC.f(e);
+}
+function giComp(e){ return typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e); }
 function sbScore(team,t){
   const TM=String(team||'').toUpperCase(); let g=0,p=0,found=false;
   ALL.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return; const c=String(e.code||'').toUpperCase();
     if(c===TM+' GOAL'){g++;found=true;} else if(c===TM+' 1 POINT'){p++;found=true;} else if(c===TM+' 2 POINT'){p+=2;found=true;} });
   if(!found) ALL.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return;
+    if(giSup(e)) return;
     if(String(e.team||'').toUpperCase()!==TM||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
     const o=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
     if(o==='GOAL')g++; else if(o==='1 POINT')p++; else if(o==='2 POINT')p+=2; });
@@ -570,6 +584,8 @@ function populatePl(){
 function setVM(m){viewMode=m;document.getElementById('vtE')?.classList.toggle('on',m==='events');document.getElementById('vtL')?.classList.toggle('on',m==='labels');document.getElementById('vtS')?.classList.toggle('on',m==='stats');renderP();}
 // ── Format detection ─────────────────────────────────────────
 function detectFormat(evs){
+  // Converted GI games stay 'gi': ignore the derived (uppercase) events.
+  if(evs.some(e=>e.labels&&e.labels['GI Source ID'])) evs=evs.filter(e=>!(e.labels&&e.labels['GI Source ID']));
   if(!evs.length)return'gi';
   if(evs.some(e=>/\([PF]\)/.test(e.code)))return'giu';
   if(evs.some(e=>e.code===e.code.toUpperCase()&&/[A-Z]{2}/.test(e.code)))return'sc';
@@ -578,7 +594,7 @@ function detectFormat(evs){
 // ── Chip definitions per format ───────────────────────────────
 const CHIP_DEFS={
   gi:[
-    {label:'Shots', key:'shots', filter:e=>e.category==='Shots & Scores', color:'#ffd700', dark:true},
+    {label:'Shots', key:'shots', filter:e=>e.category==='Shots & Scores'&&!giSup(e)&&!giComp(e), color:'#ffd700', dark:true},
     {label:'KOs',   key:'kos',   filter:e=>e.category==='Kickouts',        color:'#ab47bc'},
     {label:'TOs',   key:'tos',   filter:e=>e.category==='Turnovers',       color:'#ff7043'},
   ],
@@ -602,8 +618,8 @@ const CHIP_DEFS={
 };
 const SUB_DEFS={
   gi:[
-    {label:'Open Play', key:'op', filter:e=>e.labels?.Description==='Play'},
-    {label:'Dead Ball', key:'db', filter:e=>['Free','Forty Five','Mark','Penalty','Sideline'].includes(e.labels?.Description)},
+    {label:'Open Play', key:'op', filter:e=>(e.labels?.Description==='Play'&&!giSup(e))||/SHOT OPEN PLAY/i.test(e.code||'')},
+    {label:'Dead Ball', key:'db', filter:e=>(['Free','Forty Five','Mark','Penalty','Sideline'].includes(e.labels?.Description)&&!giSup(e))||/SHOT DEAD/i.test(e.code||'')},
   ],
   giu:[
     {label:'Open Play', key:'op', filter:e=>/Shot\s*\(P\)/i.test(e.code)},
@@ -744,6 +760,7 @@ function setStatPeriod(p){ statPeriod=p; renderSV(); }
 function tallyOutcome(pred, groups){
   const out={h:{},a:{},totH:0,totA:0,group:''};
   ALL.forEach(e=>{ const s=statSide(e); if(!s)return; if(!statPred(e))return;
+    if(giSup(e))return;   // converted GI shot: its derived shot is counted instead
     if(pred&&!pred(e))return;
     let v=null,g=null;
     for(const cand of groups){ const val=(e.labels||{})[cand]; if(val){ v=val; g=cand; break; } }
@@ -917,7 +934,7 @@ function dashXpSigned(v,ascii){ const r=Math.round(v*10)/10; return (r>0?'+':r<0
 // Shots without an xP keep the standard size.
 function dashXpScale(xp){ return xp==null?1:0.6+0.7*Math.sqrt(Math.max(0,Math.min(xp,2.2))); }
 function locEvents(kind){
-  return ALL.filter(e=>dashCoordOf(e) && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
+  return ALL.filter(e=>dashCoordOf(e) && !giSup(e) && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
 }
 function openLocMap(kind){
   locMap={kind,team:'h'};
@@ -2830,13 +2847,14 @@ function renderSV(){
   const tos=tallyOutcome(toRe, ['Turnover Outcomes','TurnoverOutcome','turnover_zone','Turnover Location']);
   h+=statSection('Turnovers', `${codeCount(toRe,'h')} won &nbsp;|&nbsp; ${codeCount(toRe,'a')} won`, statRows(tos, tos.group||'Turnover Outcomes'));
 
-  const src=tallyOutcome(e=>isShot(e)||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source']);
+  // 'Shot Source Outcomes' = a converted GI shot's source (SHOT SOURCE rows stay out)
+  const src=tallyOutcome(e=>(isShot(e)&&!/SHOT SOURCE/i.test(e.code||''))||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source','Shot Source Outcomes']);
   h+=statSection('Score Source', '', statRows(src, src.group||'Score Source Outcomes'));
 
   // Score assists: dedicated codes/groups, or the GI 'Assist' label whose
   // VALUE is the assisting player's name.
   const assistName=e=>{ const a=(e.labels||{})['Assist']; if(a) return a; if(((e.labels||{})['Score Assist Outcomes'])||/SCORE ASSIST/i.test(e.code||'')) return e.player||'—'; return null; };
-  const assists=ALL.filter(e=>statPred(e)&&assistName(e));
+  const assists=ALL.filter(e=>statPred(e)&&!giSup(e)&&assistName(e));
   const asH=assists.filter(e=>statSide(e)==='h'), asA=assists.filter(e=>statSide(e)==='a');
   const topP=list=>{const m={};list.forEach(e=>{const n=assistName(e);if(n&&n!=='—')m[n]=(m[n]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};

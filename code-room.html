@@ -210,6 +210,18 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crfr-btns .cbtn:disabled{opacity:.4;cursor:default;}
 .crfr-all{border-color:var(--accent);color:var(--accent);}
 .crfr-status{font-size:11px;color:var(--green);min-height:14px;}
+/* Locate shots: bottom-right so the shot pitch (top-right) stays clear */
+.crloc{top:auto;bottom:16px;max-height:calc(100vh - 90px);overflow:auto;z-index:9995;}
+.crloc-ev{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t1);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crloc-ev span{color:var(--t3);font-weight:600;}
+.crloc-loc{flex:1;min-width:0;font-size:11px;color:var(--t2);}
+.crloc-loc.ok{color:var(--green);}
+.crloc-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;border-radius:8px;}
+.crloc-chips.need{box-shadow:0 0 0 1px var(--orange);padding:3px;}
+.crloc-chip{cursor:pointer;background:var(--card);color:var(--t2);border:1px solid var(--border);border-radius:12px;padding:3px 9px;font:600 11px 'Barlow',sans-serif;user-select:none;}
+.crloc-chip:hover{color:var(--t1);border-color:var(--t3);}
+.crloc-chip.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent);}
+.crloc-keys{font-size:10px;color:var(--t3);margin-top:2px;}
 /* below cohesionModal (z 10000) so the gate / delete confirmations show on top */
 .crlc{right:392px;width:380px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
 @media (max-width:1100px){.crlc{right:16px;}}
@@ -243,6 +255,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="cohesion-gi.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
@@ -350,6 +363,8 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
+            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights shots into COHESION shot events (SHOT OPEN PLAY / DEADBALL + score events) — the originals are kept">⇄ GI shots</div>
+            <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
@@ -669,11 +684,16 @@ function sbHalves(){
   }
   return { h1:h1||0, h2:(h2&&h2>0)?h2:null };
 }
+// Converted Gaelic Insights shots (cohesion-gi.js): the original "<Team>
+// Shot" is superseded by its derived SHOT event and never counted.
+function crGiSupFn(){ return (typeof cohGiSupersededFn==='function')?cohGiSupersededFn(EVENTS):()=>false; }
 function sbScore(team,t){
   const TM=String(team||'').toUpperCase(); let g=0,p=0,found=false;
+  const giSup=crGiSupFn();
   EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return; const c=String(e.code||'').toUpperCase();
     if(c===TM+' GOAL'){g++;found=true;} else if(c===TM+' 1 POINT'){p++;found=true;} else if(c===TM+' 2 POINT'){p+=2;found=true;} });
   if(!found) EVENTS.forEach(e=>{ if(((e.driveT??e.start)??0)>t) return;
+    if(giSup(e)) return;
     if(String(e.team||'').toUpperCase()!==TM||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
     const o=String((e.labels||{})['Shot Outcomes']||e.outcome||'').toUpperCase();
     if(o==='GOAL')g++; else if(o==='1 POINT')p++; else if(o==='2 POINT')p+=2; });
@@ -785,6 +805,7 @@ function renderList(){
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
+  crGiBtnSync(); crLocBtnSync();
   const fb=document.getElementById('flagBtn');
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
@@ -3819,6 +3840,207 @@ window.addEventListener('keydown', e=>{
   if(e.key==='Enter' && e.target.id==='lcEdBase' && !e.isComposing){ e.preventDefault(); crLCEdSave(); }
 }, true);
 
+// ── Gaelic Insights shot conversion ───────────────────────────
+// GI codes a shot as "<Team> Shot" + Outcome/Description/Source labels.
+// Converting adds the COHESION shot (SHOT OPEN PLAY / DEADBALL with Shot
+// Outcomes, Shot Attempts, Deadball Shot Type …) and, for scores, the bare
+// "<TEAM> 1 POINT|2 POINT|GOAL" companion — as _new rows, ONE undo step,
+// saved with the normal session save. The GI originals are untouched; the
+// "GI Source ID" label on each derived row makes this idempotent.
+function crGiUnconverted(){
+  if(typeof cohGiIsShot!=='function') return 0;
+  const done=new Set(); EVENTS.forEach(e=>{ const id=(e.labels||{})['GI Source ID']; if(id) done.add(String(id)); });
+  return EVENTS.filter(e=>cohGiIsShot(e)&&!done.has(String(e.id))).length;
+}
+function crGiBtnSync(){
+  const b=document.getElementById('giBtn'); if(!b) return;
+  const n=GAME?crGiUnconverted():0;
+  b.style.display=n?'':'none'; b.textContent='⇄ GI shots ('+n+')';
+}
+// Queue converted rows; returns the new rows. No confirmation (see prompt).
+function crGiApply(add){
+  const rowIds=[], shotRow={};
+  add.forEach(n=>{
+    const tmpId='tmp-'+(++crTmpCounter);
+    const row=Object.assign(crClone(n), { _manual:true, _rowId:tmpId, _new:true });
+    const src=(n.labels||{})['GI Source ID'];
+    if(/SHOT (OPEN|DEAD)/i.test(n.code||'')) shotRow[src]=tmpId;
+    else if(shotRow[src]) row._shotComp=shotRow[src];   // deleted with its shot, like crPushCompanion
+    EVENTS.push(row); rowIds.push(tmpId);
+  });
+  if(!rowIds.length) return [];
+  undoStack.push({type:'addmany', rowIds});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  return rowIds;
+}
+async function crGiConvertPrompt(){
+  if(!GAME||typeof cohGiConvert!=='function') return;
+  const add=cohGiConvert(EVENTS, GAME);
+  if(!add.length){ crGiBtnSync(); return; }
+  const c=cohGiCounts(add);
+  const ok=await cohesionModal({ title:'Convert Gaelic Insights shots',
+    message:'Create '+c.shots+' shot event'+(c.shots===1?'':'s')+' + '+c.scores+' score event'+(c.scores===1?'':'s')+'?<br><br>'
+      +'Each GI shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
+      +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. The original GI events are kept unchanged. '
+      +'Nothing is saved until you close the session — Undo removes them all in one step.',
+    buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
+  if(!ok) return;
+  crGiApply(add);
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+c.shots+' shots + '+c.scores+' scores — saved when you close the session'; }
+}
+
+// ── Locate shots (step-through) ───────────────────────────────
+// Walks every SHOT OPEN PLAY / DEADBALL event with no X/Y (any game): selects
+// and cues it (pick), opens the existing shot pitch (crShotMap → Shot Zones +
+// X-Shot/Y-Shot, or X-Shot_away/Y-Shot_away for the away team, via
+// crSyncCoordGroups), and offers quick-tap rows for the shot detail labels.
+// Prev/Next commit the draft with saveEvent() — the normal dirty/undo/save
+// pipeline; Skip moves on without committing.
+const CR_LOC_RE=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i;
+const CR_LOC_GROUPS=['Shot Attempts','Shot Side','Shooting Leg','Shot Pressure'];
+let crLoc={open:false, ids:[], i:0, mapOv:null, msg:''};
+function crLocTargets(){
+  return EVENTS.filter(e=>CR_LOC_RE.test(e.code||'')&&!crCoordOf(e))
+    .sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0)).map(e=>e._rowId);
+}
+function crLocBtnSync(){
+  const b=document.getElementById('locBtn'); if(!b) return;
+  const n=GAME?EVENTS.filter(e=>CR_LOC_RE.test(e.code||'')&&!crCoordOf(e)).length:0;
+  b.style.display=(n||crLoc.open)?'':'none';
+  b.textContent='📍 Locate'+(n?' ('+n+')':'');
+  b.style.color=crLoc.open?'var(--accent)':''; b.style.borderColor=crLoc.open?'var(--accent)':'';
+}
+function crLocCur(){ return EVENTS.find(x=>String(x._rowId)===String(crLoc.ids[crLoc.i])); }
+function crLocToggle(){ if(crLoc.open) crLocClose(); else crLocOpen(); }
+function crLocOpen(){
+  if(!GAME) return;
+  const ids=crLocTargets();
+  if(!ids.length){ cohesionModal({title:'Locate shots', message:'Every shot in this game already has a location.'}); return; }
+  crLoc={open:true, ids, i:0, mapOv:null, msg:''};
+  const p=crLocBuild(); p.style.display='';
+  crLocGo(0);
+}
+function crLocBuild(){
+  let p=document.getElementById('crLoc'); if(p) return p;
+  p=document.createElement('div'); p.id='crLoc'; p.className='crfr crloc';
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Locate shots');
+  document.body.appendChild(p);
+  return p;
+}
+// Commit the current shot's draft (location / labels) as a normal edit.
+function crLocCommit(){
+  const e=crLocCur();
+  if(e&&draft&&String(activeId)===String(e._rowId)&&isDirty()) saveEvent();
+}
+function crLocCloseMap(){
+  const ov=crLoc.mapOv; crLoc.mapOv=null;
+  if(ov&&ov.parentNode) ov.parentNode.removeChild(ov);
+}
+// Open the existing shot pitch for the current shot; keep the clip playing
+// so the shot can be watched while placing it.
+function crLocMap(){
+  const e=crLocCur(); if(!e) return;
+  if(String(activeId)!==String(e._rowId)) pick(e._rowId);
+  crLocCloseMap();
+  const before=document.body.lastElementChild;
+  crShotMap();
+  const ov=document.body.lastElementChild;
+  if(!ov||ov===before) return;
+  crLoc.mapOv=ov;
+  ['smGo','smClear','smX'].forEach(id=>{ const b=ov.querySelector('#'+id);
+    if(b) b.addEventListener('click',()=>setTimeout(()=>{ if(crLoc.mapOv===ov) crLoc.mapOv=null; crLocRender(); },0)); });
+  if(YTP&&YTP.playVideo) YTP.playVideo();
+}
+function crLocGo(i){
+  crLoc.ids=crLoc.ids.filter(id=>EVENTS.some(x=>String(x._rowId)===String(id)));   // deleted meanwhile
+  if(!crLoc.ids.length){ crLocClose(); return; }
+  crLoc.i=Math.max(0,Math.min(i,crLoc.ids.length-1));
+  const e=crLocCur();
+  pick(e._rowId);
+  crLocRender();
+  crLocMap();
+}
+function crLocStep(d){
+  if(!crLoc.open) return;
+  crLocCommit();
+  const j=crLoc.i+d;
+  if(j>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last shot reached — '+crLocDone()+' of '+crLoc.ids.length+' located. Close when done.'; crLocRender(); return; }
+  if(j<0){ crLoc.msg='This is the first shot.'; crLocRender(); return; }
+  crLoc.msg=''; crLocGo(j);
+}
+function crLocSkip(){
+  if(!crLoc.open) return;
+  if(crLoc.i+1>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last shot reached — close when done.'; crLocRender(); return; }
+  crLoc.msg=''; crLocGo(crLoc.i+1);     // pick() rebuilds the draft: uncommitted changes are dropped
+}
+function crLocClose(){
+  crLocCommit(); crLocCloseMap();
+  crLoc.open=false;
+  const p=document.getElementById('crLoc'); if(p) p.style.display='none';
+  renderList();
+}
+function crLocDone(){
+  return crLoc.ids.filter(id=>{ const e=EVENTS.find(x=>String(x._rowId)===String(id)); if(!e) return false;
+    if(draft&&String(activeId)===String(id)&&draft.x!=null) return true;
+    return !!crCoordOf(e); }).length;
+}
+function crLocVal(g){
+  const r=draft&&draft.groups.find(x=>x.g.toLowerCase()===g.toLowerCase());
+  return r?r.v:'';
+}
+function crLocTag(gi,vi){
+  const e=crLocCur(); if(!e||!draft) return;
+  const g=CR_LOC_GROUPS[gi];
+  const grp=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]).find(x=>x.name===g);
+  const v=grp&&grp.options[vi]; if(v==null) return;
+  setDefinedLabel(g, crLocVal(g)===v?'':v);      // tap again to clear
+  crLocRender();
+}
+function crLocRender(){
+  const p=document.getElementById('crLoc'); if(!p||!crLoc.open) return;
+  const e=crLocCur();
+  if(!e){ p.innerHTML=''; return; }
+  const n=crLoc.ids.length, done=crLocDone();
+  const hasLoc=draft&&String(activeId)===String(e._rowId)&&draft.x!=null;
+  const L=e.labels||{};
+  const out=(draft&&crLocVal('Shot Outcomes'))||L['Shot Outcomes']||e.outcome||'';
+  const groups=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]);
+  let rows='';
+  CR_LOC_GROUPS.forEach((g,gi)=>{
+    const grp=groups.find(x=>x.name===g); if(!grp) return;
+    const cur=crLocVal(g);
+    const need=g==='Shot Attempts'&&!cur;
+    rows+=`<div class="crfr-lbl">${esc(g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>
+      <div class="crloc-chips${need?' need':''}">${grp.options.map((o,vi)=>`<span class="crloc-chip${cur===o?' on':''}" onclick="crLocTag(${gi},${vi})">${esc(o)}</span>`).join('')}</div>`;
+  });
+  p.innerHTML=`<div class="crfr-h"><span>LOCATE SHOTS</span><span class="crfr-sub" id="locProg">${done} of ${n} located</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this shot's changes to the session)">✕</span></div>
+    <div class="crloc-ev" title="${esc(e.code||'')}">${crLoc.i+1}/${n} · ${esc(e.code||'')} <span>${esc(e.gameTime||fmt(e.driveT||0))}${e.player?' · '+esc(e.player):''}${out?' · '+esc(out):''}</span></div>
+    <div class="crfr-row"><button class="cbtn" onclick="crLocMap()" title="Open the shot pitch (Alt+↑)">📍 Pitch</button>
+      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}</span></div>
+    ${rows}
+    <div class="crfr-row crfr-btns" style="margin-top:4px;">
+      <button class="cbtn" onclick="crLocStep(-1)" ${crLoc.i===0?'disabled':''} title="Previous shot (Alt+←)">‹ Prev</button>
+      <button class="cbtn" onclick="crLocSkip()" title="Next shot without keeping this one's changes (Alt+↓)">Skip</button>
+      <button class="cbtn crfr-all" style="flex:1;" onclick="crLocStep(1)" title="Keep this shot's changes and go to the next (Alt+→)">Next ›</button>
+    </div>
+    <div class="crfr-status">${esc(crLoc.msg||'')}</div>
+    <div class="crloc-keys">Alt+← Prev · Alt+↓ Skip · Alt+→ Next · Alt+↑ Pitch — changes save with the session</div>`;
+  const pg=document.getElementById('locBtn'); if(pg) crLocBtnSync();
+}
+// Alt+arrows while the panel is open. Window capture phase so they never
+// reach the page hotkeys (arrows seek / step the list; Alt+letter tags the
+// other team in Code Mode). Not used anywhere else: Cmd/Ctrl+F is Find &
+// Replace, Cmd/Ctrl+Shift+L is Label check.
+window.addEventListener('keydown', e=>{
+  if(!crLoc.open||!e.altKey||e.metaKey||e.ctrlKey||e.shiftKey) return;
+  const tag=(e.target&&e.target.tagName)||'';
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+  const fn={ArrowRight:()=>crLocStep(1), ArrowLeft:()=>crLocStep(-1), ArrowDown:crLocSkip, ArrowUp:crLocMap}[e.key];
+  if(!fn) return;
+  e.preventDefault(); e.stopPropagation(); fn();
+}, true);
+
 // ── XML export ────────────────────────────────────────────────
 // Writes the current events (including any queued edits, custom labels and
 // player tags) as a Sportscode-shaped ALL_INSTANCES file. Synthesised period
@@ -4066,6 +4288,9 @@ function undo(){
     op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
     if(op.rowOrder){ crRowOrder=op.rowOrder.slice(); crRowsSave(); }   // Find & Replace code renames
     draft=null;
+  } else if(op.type==='addmany'){                 // e.g. Gaelic Insights conversion
+    const ids=new Set(op.rowIds.map(String));
+    EVENTS=EVENTS.filter(x=>!ids.has(String(x._rowId))); activeId=null; draft=null;
   } else if(op.type==='bulkdelete'){
     op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
     draft=null;
