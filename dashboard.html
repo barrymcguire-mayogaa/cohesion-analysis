@@ -120,6 +120,19 @@ select option{background:var(--card);}
 .stt-pc:hover{border-color:var(--accent);color:var(--accent);}
 .stt-pc.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .stt-n.clk,.stt-k.clk{cursor:pointer;}
+.stt-xpl{font-size:12px;color:var(--t1);margin:0 0 4px;line-height:1.45;}
+.stt-xpl b{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:.3px;}
+.stt-xpl .pos{color:#22c55e;font-weight:700;} .stt-xpl .neg{color:#ef4444;font-weight:700;}
+.stt-row.xp{grid-template-columns:40px 1fr 118px 1fr 40px;}
+.stt-xpt{width:100%;border-collapse:collapse;font-size:11px;margin:4px 0 6px;}
+.stt-xpt th{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3);text-transform:uppercase;padding:2px 0;}
+.stt-xpt td{padding:3px 0;border-top:1px solid var(--border);color:var(--t1);}
+.stt-xpt td:first-child,.stt-xpt th:first-child{text-align:left;} .stt-xpt td:last-child,.stt-xpt th:last-child{text-align:right;}
+.stt-xpt td.k{text-align:center;color:var(--t2);font-size:10px;}
+.stt-xpt small{color:var(--t3);}
+.stt-xpc{display:block;width:100%;height:auto;margin:4px 0 2px;}
+.stt-xpleg{display:flex;gap:12px;justify-content:center;font-size:10px;color:var(--t3);margin-bottom:4px;}
+.stt-xpn{font-size:10px;color:var(--t3);margin:2px 0 6px;line-height:1.5;}
 .stt-n.clk:hover,.stt-k.clk:hover{color:var(--accent);text-decoration:underline;}
 /* Right panel */
 .right-panel{display:flex;flex-direction:column;overflow-y:auto;background:var(--panel);}
@@ -209,6 +222,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="cohesion-config.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-xp.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
 <body>
@@ -412,7 +426,10 @@ function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=
 function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
 async function loadGame(){
   try{
+    // xP model: published one if available, else the bundled v1 (never blocks the load)
+    const xpReady=(typeof window.cohesionXpReady==='function'?window.cohesionXpReady():Promise.resolve()).catch(()=>{});
     const bundle = await cohesionRead({ action:'gameBundle', id: gameId });
+    await xpReady;
     GAME = bundle.meta || {};
     ALL  = (bundle.events || []).map(r => ({ ...r.data, _rowId: r.id }));
     applyVisualSyncCorrections(ALL);
@@ -808,6 +825,10 @@ let locMap={kind:'shot',team:'h'};
 function koPlotY(y){ return Math.min(87.5, y*(137/92)*0.89); }
 // Coordinates: native e.x/e.y first, else Match Tracker label pairs
 // (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...), 0-100 scale.
+// Older Mayo Sportscode timelines tag on a pitch rotated 90° (goal at X=100):
+// those games are detected once (cohesionXpDetectConv, from the Shot Zones
+// labels) and their label pairs un-rotated here, so every map plots them the
+// same way as tracker files (goal at the top, X across).
 function dashCoordOf(e){
   if(e&&e.x!=null&&e.y!=null) return {x:e.x,y:e.y};
   const keys=Object.keys(e&&e.labels||{});
@@ -815,11 +836,86 @@ function dashCoordOf(e){
     const m=/^x([-_ ].*)$/i.exec(k); if(!m) continue;
     const yk=keys.find(k2=>/^y/i.test(k2)&&k2.slice(1).toLowerCase()===m[1].toLowerCase());
     if(!yk) continue;
-    const x=parseFloat(e.labels[k]), y=parseFloat(e.labels[yk]);
-    if(isFinite(x)&&isFinite(y)) return {x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};
+    let x=parseFloat(e.labels[k]), y=parseFloat(e.labels[yk]);
+    if(isFinite(x)&&isFinite(y)){
+      if(dashCoordConv()==='sportscode_rot'){ const x0=x; x=100-y; y=100-x0; }
+      return {x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};
+    }
   }
   return null;
 }
+
+// ── EXPECTED POINTS (xP) ─────────────────────────────────────────────
+// cohesion-xp.js scores every shot that has a location + attempt type.
+// Scored once per game bundle (events array, teams, model) and shared by
+// the Stats tab, the location maps, the PDF, the maps image and the
+// infographic. Unlocated / unlabelled shots are counted and reported, never
+// guessed.
+let _dashConvC=null, _dashXpC=null;
+function dashXpInvalidate(){ _dashConvC=null; _dashXpC=null; }
+function dashCoordConv(){
+  if(_dashConvC&&_dashConvC.all===ALL&&_dashConvC.n===ALL.length) return _dashConvC.v;
+  let v='tracker';
+  try{ if(typeof window.cohesionXpDetectConv==='function') v=window.cohesionXpDetectConv(ALL); }catch(_e){ v='tracker'; }
+  _dashConvC={all:ALL,n:ALL.length,v};
+  return v;
+}
+function dashXpModel(){ return (typeof window.xpForShot==='function')?((window.xpForShot.model)||window.XP_MODEL||null):null; }
+function dashXpLevel(){ const s=String(GAME.section||GAME.level||'').toLowerCase(); return (s==='club'||s==='county')?s:null; }
+function dashShotPts(e){
+  const L=e.labels||{};
+  const k=String(L['Shot Outcomes']||L['ShotOutcome']||L['Outcome']||e.outcome||'').toUpperCase();
+  if(!((k.includes('POINT')||k.includes('GOAL'))&&!k.includes('DISALLOWED')&&!k.includes('ATTEMPT'))) return 0;
+  return k.includes('GOAL')?3:(k.includes('2 POINT')||k.includes('TWO'))?2:1;
+}
+function dashXpAll(){
+  const M=dashXpModel(); if(!M) return null;
+  const C=_dashXpC;
+  if(C&&C.all===ALL&&C.n===ALL.length&&C.M===M&&C.H===GAME.homeTeam&&C.A===GAME.awayTeam) return C.v;
+  const conv=dashCoordConv(), level=dashXpLevel();
+  let h1len=30;
+  ALL.forEach(e=>{ const m=/^1H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(m) h1len=Math.max(h1len,Math.ceil(+m[1]+(+m[2])/60)); });
+  const minOf=e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
+    const mn=+m[2]+(+m[3])/60; return +m[1]===1?mn:h1len+mn; };
+  const shots=[], byEv=new Map();
+  ALL.forEach(e=>{
+    const s=statSide(e); if(!s||!/SHOT (OPEN|DEAD)/i.test(e.code||'')) return;
+    let r=null;
+    try{ r=window.xpForShot(e.labels||{}, s==='h'?'home':'away', level, {conv, deadball:/DEAD ?BALL/i.test(e.code||''), model:M}); }catch(_e){ r=null; }
+    const o={e, s, pts:dashShotPts(e), xp:r?r.xp:null, p:r?r.p:null,
+      cat:r?(r.parts.dbType!=='open'?'db':r.parts.attempt):null, min:minOf(e), res:r};
+    shots.push(o); byEv.set(e,o);
+  });
+  const v={conv, level, shots, byEv, h1len, version:M.version||'?'};
+  _dashXpC={all:ALL,n:ALL.length,M,H:GAME.homeTeam,A:GAME.awayTeam,v};
+  return v;
+}
+function dashXpOf(e){ const X=dashXpAll(); const o=X&&X.byEv.get(e); return o&&o.xp!=null?o.xp:null; }
+// Per-team totals over the shots passing pred (default: the Stats period chip).
+// pts/xp/diff use ONLY shots that carry an xP; ptsAll/g/p are the full score.
+const DASH_XP_CATS=[['1pt','1pt attempts (open play)'],['2pt','2pt attempts (open play)'],['goal','Goal attempts (open play)'],['db','Dead-ball attempts']];
+function dashXpSummary(pred){
+  const X=dashXpAll(); if(!X) return null;
+  const mk=()=>({shots:0,n:0,xp:0,pts:0,ptsAll:0,g:0,p:0,miss:0,missPts:0,
+    cat:Object.fromEntries(DASH_XP_CATS.map(([k])=>[k,{n:0,xp:0,pts:0}]))});
+  const T={h:mk(),a:mk()};
+  X.shots.forEach(o=>{
+    if(pred&&!pred(o.e)) return;
+    const t=T[o.s]; t.shots++; t.ptsAll+=o.pts; if(o.pts===3) t.g++; else t.p+=o.pts;
+    if(o.xp==null){ t.miss++; t.missPts+=o.pts; return; }
+    t.n++; t.xp+=o.xp; t.pts+=o.pts;
+    const c=t.cat[o.cat]; if(c){ c.n++; c.xp+=o.xp; c.pts+=o.pts; }
+  });
+  ['h','a'].forEach(s=>{ const t=T[s]; t.diff=t.pts-t.xp; t.perShot=t.n?t.xp/t.n:null;
+    t.score=t.g+'-'+String(t.p).padStart(2,'0'); });
+  return {X, h:T.h, a:T.a, miss:T.h.miss+T.a.miss, version:X.version, conv:X.conv};
+}
+function dashXpF(v){ return (Math.round(v*10)/10).toFixed(1); }
+// signed difference; ascii=true for jsPDF helvetica (no unicode minus)
+function dashXpSigned(v,ascii){ const r=Math.round(v*10)/10; return (r>0?'+':r<0?(ascii?'-':'−'):(ascii?'':'±'))+Math.abs(r).toFixed(1); }
+// Marker scale by xP (area ~ xP, clamped): 0.1 xP -> 0.82x, 0.6 -> 1.14x, 2+ -> 1.6x.
+// Shots without an xP keep the standard size.
+function dashXpScale(xp){ return xp==null?1:0.6+0.7*Math.sqrt(Math.max(0,Math.min(xp,2.2))); }
 function locEvents(kind){
   return ALL.filter(e=>dashCoordOf(e) && (kind==='shot'?/SHOT/i.test(e.code||''):/KICKOUT|\bKO\b/i.test(e.code||'')));
 }
@@ -853,17 +949,18 @@ function renderLocMap(){
     const co=dashCoordOf(e); if(!co) return '';
     const cy=locMap.kind==='shot'?co.y*yf:koPlotY(co.y);
     if(locMap.kind==='shot'){
-      const g=locShotGlyph(e);
+      const g=locShotGlyph(e), xp=dashXpOf(e), k=dashXpScale(xp);
+      const tip=`<title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}${xp!=null?' · xP '+xp.toFixed(2):' · no xP'}</title>`;
       return g.shape==='square'
-        ? `<rect x="${co.x-1.7}" y="${co.y*yf-1.7}" width="3.4" height="3.4" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></rect>`
-        : `<circle cx="${co.x}" cy="${co.y*yf}" r="1.8" fill="${g.color}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}</title></circle>`;
+        ? `<rect x="${co.x-1.7*k}" y="${co.y*yf-1.7*k}" width="${3.4*k}" height="${3.4*k}" fill="${g.color}" stroke="#000" stroke-width=".4">${tip}</rect>`
+        : `<circle cx="${co.x}" cy="${co.y*yf}" r="${1.8*k}" fill="${g.color}" stroke="#000" stroke-width=".4">${tip}</circle>`;
     }
     const out=String((e.labels||{})['Kickout Outcomes']||e.outcome||'').toUpperCase();
     const col=/WON/.test(out)?'#4ade80':/LOST/.test(out)?'#ef4444':'#e5e5e5';
     return `<circle cx="${co.x}" cy="${cy}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${out?' — '+tc(out):''}</title></circle>`;
   }).join('');
   if(leg) leg.innerHTML=locMap.kind==='shot'
-    ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty`
+    ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty${dashXpModel()?' · bigger marker = higher xP (hover for the value)':''}`
     : `${evs.length} located kickouts — <span style="color:#4ade80">●</span> won · <span style="color:#ef4444">●</span> lost`;
 }
 
@@ -1316,6 +1413,41 @@ function dashBuildWormCanvas(S,hHex,aHex){
   });
   return cv;
 }
+// Running points (solid step) v running xP (dashed step), both teams, in the
+// scoring-timeline's white style. Full game.
+function dashBuildXpWormCanvas(hHex,aHex){
+  const X=dashXpAll(); if(!X) return null;
+  const sh=X.shots.filter(o=>o.min!=null).sort((p,q)=>p.min-q.min);
+  if(!sh.some(o=>o.xp!=null)) return null;
+  const W=1200,HH=380, ML=56,MR=18,MT=16,MB=40, pw=W-ML-MR, ph=HH-MT-MB;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=HH;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,HH);
+  const nowMin=Math.max(sh[sh.length-1].min,X.h1len*2,10);
+  const ser={h:{p:[{m:0,v:0}],x:[{m:0,v:0}]},a:{p:[{m:0,v:0}],x:[{m:0,v:0}]}}, tot={h:{p:0,x:0},a:{p:0,x:0}};
+  sh.forEach(o=>{ const t=tot[o.s];
+    if(o.pts){ t.p+=o.pts; ser[o.s].p.push({m:o.min,v:t.p}); }
+    if(o.xp!=null){ t.x+=o.xp; ser[o.s].x.push({m:o.min,v:t.x}); } });
+  ['h','a'].forEach(s=>{ ser[s].p.push({m:nowMin,v:tot[s].p}); ser[s].x.push({m:nowMin,v:tot[s].x}); });
+  const maxV=Math.max(5,tot.h.p,tot.a.p,tot.h.x,tot.a.x);
+  const Xp=m=>ML+(m/nowMin)*pw, Yp=v=>MT+ph-(v/maxV)*ph;
+  ctx.strokeStyle='#d5dae2'; ctx.fillStyle='#4a5568'; ctx.font='15px Helvetica,Arial,sans-serif'; ctx.textAlign='right'; ctx.lineWidth=1;
+  const step=maxV<=10?2:maxV<=25?5:10;
+  for(let v=0;v<=maxV;v+=step){ ctx.beginPath(); ctx.moveTo(ML,Yp(v)); ctx.lineTo(W-MR,Yp(v)); ctx.stroke(); ctx.fillText(v,ML-8,Yp(v)+5); }
+  ctx.textAlign='center';
+  const xs=nowMin<=20?5:nowMin<=45?10:15;
+  for(let m=0;m<=nowMin;m+=xs) ctx.fillText(Math.round(m)+"'",Xp(m),HH-16);
+  const path=pts=>{ ctx.beginPath(); pts.forEach((p,i)=>{ if(i===0) ctx.moveTo(Xp(p.m),Yp(p.v)); else { ctx.lineTo(Xp(p.m),Yp(pts[i-1].v)); ctx.lineTo(Xp(p.m),Yp(p.v)); } }); };
+  [[hHex,'h'],[aHex,'a']].forEach(([col,s])=>{
+    const light=dashHexLum(col)>=200;
+    [['x',true],['p',false]].forEach(([k,dash])=>{
+      ctx.setLineDash(dash?[14,9]:[]);
+      if(light){ ctx.strokeStyle='#9ca3af'; ctx.lineWidth=dash?5:7; path(ser[s][k]); ctx.stroke(); }
+      ctx.strokeStyle=col; ctx.lineWidth=dash?3:4; path(ser[s][k]); ctx.stroke(); });
+    ctx.setLineDash([]);
+  });
+  return cv;
+}
 // ── PDF pitch maps & charts ──────────────────────────────────────────
 // Shot / kickout events with coordinates, plus per-team counts of events
 // tagged WITHOUT a location (for the starred notes under the maps).
@@ -1331,7 +1463,7 @@ function dashMapData(){
       const shape=(att.includes('GOAL')||k==='GOAL')?'tri':(att.includes('2')||k.includes('2 POINT')||k.includes('TWO'))?'dia':'cir';
       const co=dashCoordOf(e);
       const db=/SHOT DEAD/i.test(e.code||'');
-      if(co) out.shots.push({s,x:co.x,y:co.y,scored,shape,db}); else out.shotMiss[s]++;
+      if(co) out.shots.push({s,x:co.x,y:co.y,scored,shape,db,xp:dashXpOf(e)}); else out.shotMiss[s]++;
     } else if(/KICKOUT|\bKO\b/i.test(e.code||'')){
       const k=up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['PO_Result']||e.outcome||'');
       if(!k) return;
@@ -1355,7 +1487,7 @@ function dashMapSvg(kind,hHex,aHex,pxW,opts){
   // plotted in the OUTER space so they stay round — and smaller, like the
   // tracker's, so clusters read cleanly.
   const vbH=kind==='shot'?75:89, H2=kind==='shot'?83.2:109.6, STR=H2/vbH;
-  const evs=kind==='shot'?D.shots:D.kos;
+  const evs=kind==='shot'?D.shots.slice().sort((p,q)=>(q.xp||0)-(p.xp||0)):D.kos;
   const colOf=s=>s==='h'?hHex:aHex;
   const marks=evs.map(m=>{
     const c=colOf(m.s), x=m.x;
@@ -1366,10 +1498,12 @@ function dashMapSvg(kind,hHex,aHex,pxW,opts){
         +`<g stroke="${c}" stroke-width=".75"><line x1="${x-1.25}" y1="${y-1.25}" x2="${x+1.25}" y2="${y+1.25}"/><line x1="${x-1.25}" y1="${y+1.25}" x2="${x+1.25}" y2="${y-1.25}"/></g>`;
     }
     const fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
-    if(m.shape==='tri') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y+1.35} L ${x-1.7} ${y+1.35} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    if(m.shape==='dia') return `<path d="M ${x} ${y-1.85} L ${x+1.7} ${y} L ${x} ${y+1.85} L ${x-1.7} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    if(m.db) return `<rect x="${x-1.3}" y="${y-1.3}" width="2.6" height="2.6" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-    return `<circle cx="${x}" cy="${y}" r="1.4" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    // marker size by xP (dashXpScale); same glyphs and colours
+    const k=dashXpScale(m.xp), f=v=>(v*k).toFixed(3);
+    if(m.shape==='tri') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y+(+f(1.35))} L ${x-f(1.7)} ${y+(+f(1.35))} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    if(m.shape==='dia') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y} L ${x} ${y+(+f(1.85))} L ${x-f(1.7)} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    if(m.db) return `<rect x="${x-f(1.3)}" y="${y-f(1.3)}" width="${f(2.6)}" height="${f(2.6)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    return `<circle cx="${x}" cy="${y}" r="${f(1.4)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
   }).join('');
   const inner=locPitchSvg(kind)
     .replace(/^<svg[^>]*>/,'')
@@ -1395,6 +1529,17 @@ function dashGlyph(ctx,shape,x,y,r,col,filled,edge){
   if(filled){ ctx.fillStyle=col; ctx.fill(); ctx.strokeStyle=edge||'#111'; ctx.lineWidth=1; ctx.stroke(); }
   else { ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke(); }
 }
+// "SIZE = xP" key: three circles at the map's own marker scale (px per unit).
+// Returns the width used.
+function dashXpSizeKey(ctx,x,y,unitPx,glyphCol,txtCol,font,up){
+  ctx.save(); ctx.font=font; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  let lx=x; const lbl=up?'MARKER SIZE = XP':'MARKER SIZE = xP';
+  ctx.fillStyle=txtCol; ctx.fillText(lbl,lx,y); lx+=ctx.measureText(lbl).width+12;
+  [0.2,0.6,1.5].forEach(v=>{ const r=1.4*unitPx*dashXpScale(v);
+    ctx.beginPath(); ctx.arc(lx+r,y-5,r,0,Math.PI*2); ctx.fillStyle=glyphCol; ctx.fill();
+    lx+=2*r+5; ctx.fillStyle=txtCol; ctx.fillText(v.toFixed(1),lx,y); lx+=ctx.measureText(v.toFixed(1)).width+12; });
+  ctx.restore(); return lx-x;
+}
 // Build one combined pitch map (both teams, team colours) as a canvas with
 // its legend, on white (PDF / maps image).
 function dashBuildMapCanvas(kind,hHex,aHex){
@@ -1402,7 +1547,8 @@ function dashBuildMapCanvas(kind,hHex,aHex){
   return new Promise(res=>{
     const im=new Image();
     im.onload=()=>{
-      const W=640,LEG=64;
+      const xpOn=kind==='shot'&&!!dashXpModel();
+      const W=640,LEG=xpOn?90:64;
       const cv=document.createElement('canvas'); cv.width=W; cv.height=MH+LEG+20;
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cv.width,cv.height);
@@ -1421,6 +1567,7 @@ function dashBuildMapCanvas(kind,hHex,aHex){
         dot('#8a93a0',true); word('SCORED'); dot('#8a93a0',false); word('MISSED');
         [['cir','1PT'],['dia','2PT'],['tri','GOAL'],['sq','DEADBALL']].forEach(([sh,lb])=>{
           dashGlyph(ctx,sh,lx+6,ly-5,6,'#8a93a0',true); lx+=17; word(lb); });
+        if(xpOn) dashXpSizeKey(ctx,24,ly+27,6,'#8a93a0','#555e6a','600 17px Helvetica,Arial,sans-serif');
       } else {
         dot(hHex,true); word(Hn); dot(aHex,true); word(An);
         ly+=24; lx=24;
@@ -1620,8 +1767,11 @@ async function dashExportPDF(){
   const meta=[GAME.competition||'',GAME.round||'',GAME.date||''].filter(Boolean).join('  ·  ');
   doc.text(Hn+' v '+An+(meta?'   ·   '+meta:''),ML,y);
   y+=6;
-  const box=(x,w,team,col,crest,sc,shots,scored,ps)=>{
-    doc.setFillColor(246,248,252); doc.roundedRect(x,y,w,26,2,2,'F');
+  const XS=dashXpSummary(null);
+  const xpOn=!!(XS&&(XS.h.n||XS.a.n));
+  const BOXH=xpOn?30:26;
+  const box=(x,w,team,col,crest,sc,shots,scored,ps,xt)=>{
+    doc.setFillColor(246,248,252); doc.roundedRect(x,y,w,BOXH,2,2,'F');
     let tx=x+4;
     if(crest){ try{ doc.addImage(crest,'PNG',x+3,y+5.5,15,15); tx=x+21; }catch(_e){} }
     doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...col);
@@ -1629,11 +1779,17 @@ async function dashExportPDF(){
     doc.setFontSize(15); doc.setTextColor(...C_TEXT);
     doc.text(sc,tx,y+17);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
-    doc.text(scored+'/'+shots+' shots  ·  PSR '+ps,tx,y+23);
+    if(xpOn){
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...C_TEXT);
+      doc.text(xt,tx,y+22.5);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
+      doc.text(scored+'/'+shots+' shots  ·  PSR '+ps,tx,y+27);
+    } else doc.text(scored+'/'+shots+' shots  ·  PSR '+ps,tx,y+23);
   };
-  box(ML,CW/2-2,Hn,colH,crImH,S.scH.str,S.shotsH,S.scoredH,S.psrH);
-  box(ML+CW/2+2,CW/2-2,An,colA,crImA,S.scA.str,S.shotsA,S.scoredA,S.psrA);
-  y+=32;
+  const xpLine=t=>t.n?t.score+' from '+dashXpF(t.xp)+' xP  ('+dashXpSigned(t.diff,true)+')':'no located shots - no xP';
+  box(ML,CW/2-2,Hn,colH,crImH,S.scH.str,S.shotsH,S.scoredH,S.psrH,xpOn?xpLine(XS.h):'');
+  box(ML+CW/2+2,CW/2-2,An,colA,crImA,S.scA.str,S.shotsA,S.scoredA,S.psrA,xpOn?xpLine(XS.a):'');
+  y+=BOXH+6;
 
   // ── per-player scoring tables ──
   const shotEv=ALL.filter(e=>/SHOT (OPEN|DEAD)/i.test(e.code||''));
@@ -1645,8 +1801,9 @@ async function dashExportPDF(){
       const evs=shotEv.filter(e=>statSide(e)===side&&e.player);
       if(!evs.length) return;
       const m={};
-      evs.forEach(e=>{ const p=m[e.player]||(m[e.player]={p1:0,p2:0,g:0,shots:0,scored:0});
+      evs.forEach(e=>{ const p=m[e.player]||(m[e.player]={p1:0,p2:0,g:0,shots:0,scored:0,xp:0,xn:0});
         p.shots++;
+        const xv=dashXpOf(e); if(xv!=null){ p.xp+=xv; p.xn++; }
         const k=outOf(e);
         if(k.includes('DISALLOWED')||k.includes('ATTEMPT')){}
         else if(k.includes('GOAL')){p.g++;p.scored++;}
@@ -1655,12 +1812,13 @@ async function dashExportPDF(){
       });
       const rows=Object.entries(m)
         .sort((x2,y2)=>(y2[1].g*3+y2[1].p2*2+y2[1].p1)-(x2[1].g*3+x2[1].p2*2+x2[1].p1))
-        .map(([n,p])=>[n,p.p1||'—',p.p2||'—',p.g||'—',p.shots,p.scored,Math.round(p.scored/p.shots*100)+'%']);
+        .map(([n,p])=>{ const r=[n,p.p1||'-',p.p2||'-',p.g||'-',p.shots,p.scored,Math.round(p.scored/p.shots*100)+'%'];
+          if(xpOn) r.push(p.xn?dashXpF(p.xp)+(p.xn<p.shots?'*':''):'-'); return r; });
       checkPage(22);
       doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...col);
       doc.text(team+' Players',ML,y); y+=2;
       doc.autoTable({ startY:y, margin:{left:ML,right:MR},
-        head:[['Player','1pt','2pt','Goal','Shots','Scored','%']], body:rows,
+        head:[['Player','1pt','2pt','Goal','Shots','Scored','%'].concat(xpOn?['xP']:[])], body:rows,
         styles:{fontSize:7.5,cellPadding:1.3},
         headStyles:{fillColor:hexToRgb(hexH&&side==='h'?hexH:hexA),
           textColor:rlum(hexToRgb(side==='h'?hexH:hexA))>=200?[30,30,40]:[255,255,255],
@@ -1695,6 +1853,42 @@ async function dashExportPDF(){
       if(MD2.koMiss.h||MD2.koMiss.a) doc.text('* '+noteTxt(MD2.koMiss)+' kickout'+((MD2.koMiss.h+MD2.koMiss.a)>1?'s':'')+' with no location tagged',ML+HW+6,ny);
       y=ny+6;
     }
+  }
+
+  // ── expected points (xP) — full game ──
+  if(xpOn){
+    const xpCv=dashBuildXpWormCanvas(hexH,hexA);
+    const wh=xpCv?CW*xpCv.height/xpCv.width:0;
+    checkPage(70);
+    secHead('Expected Points (xP)');
+    const t=XS, r2=(lab,fh,fa)=>[lab,fh(t.h),fa?fa(t.a):fh(t.a)];
+    const cellC=k=>tt=>{ const c=tt.cat[k]; return c.n?c.pts+' / '+dashXpF(c.xp)+'  ('+c.n+')':'-'; };
+    const body=[
+      r2('Score (all shots)',tt=>tt.score+' ('+tt.ptsAll+')'),
+      r2('xP (located shots with an attempt type)',tt=>tt.n?dashXpF(tt.xp):'n/a'),
+      r2('Points from those shots',tt=>tt.n?String(tt.pts):'n/a'),
+      r2('Points - xP',tt=>tt.n?dashXpSigned(tt.diff,true):'n/a'),
+      r2('xP per shot',tt=>tt.perShot!=null?tt.perShot.toFixed(2):'n/a')];
+    DASH_XP_CATS.forEach(([k,lab])=>{ if(t.h.cat[k].n||t.a.cat[k].n) body.push(r2(lab+'  -  pts / xP (shots)',cellC(k))); });
+    doc.autoTable({ startY:y, margin:{left:ML,right:MR},
+      head:[['',Hn,An]], body,
+      styles:{fontSize:7.5,cellPadding:1.4},
+      columnStyles:{1:{halign:'center'},2:{halign:'center'}},
+      headStyles:{fillColor:C_ACC,textColor:[255,255,255],fontStyle:'bold'},
+      theme:'grid' });
+    y=doc.lastAutoTable.finalY+4;
+    if(xpCv){
+      checkPage(wh+12);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.8); doc.setTextColor(...C_T2);
+      doc.text('Running score (solid) v running xP (dashed), by minute',ML,y+1); y+=3;
+      doc.addImage(xpCv.toDataURL('image/png'),'PNG',ML,y,CW,wh);
+      y+=wh+3;
+    }
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(...C_T2);
+    const nt='xP model v'+XS.version+(XS.conv==='sportscode_rot'?'  -  rotated Sportscode coordinates detected':'')
+      +'  -  '+(XS.miss?XS.miss+' shot'+(XS.miss>1?'s':'')+' without location/attempt -> not in xP'+(anyPlayers?' (* player xP covers only their modelled shots)':''):'every shot located');
+    doc.text(nt,ML,y+1.5);
+    y+=8;
   }
 
   // ── shot outcome mix + possession share ──
@@ -1937,7 +2131,7 @@ async function dashBuildMapsImage(){
   const noteTxt=(m,what)=>{ const n=m.h+m.a; if(!n) return '';
     return '* '+['h','a'].filter(s=>m[s]).map(s=>(s==='h'?T.Hn:T.An)+' '+m[s]).join(' · ')+' '+what+(n>1?'s':'')+' with no location tagged'; };
   const cards=[
-    shotCv&&{cv:shotCv,title:'SHOT MAP',sub:'ATTACKING UP THE PAGE · '+MD.shots.length+' LOCATED',note:noteTxt(MD.shotMiss,'shot')},
+    shotCv&&{cv:shotCv,title:'SHOT MAP',sub:'ATTACKING UP THE PAGE · '+MD.shots.length+' LOCATED'+(dashXpModel()?' · SIZE = XP':''),note:noteTxt(MD.shotMiss,'shot')},
     koCv&&{cv:koCv,title:'KICKOUT LANDING MAP',sub:'TOP = KICKING GOAL · '+MD.kos.length+' LOCATED',note:noteTxt(MD.koMiss,'kickout')}
   ].filter(Boolean);
   const PAD=40, GAP=24, CW=680, HEAD=156, CT=58, NOTE=40, FOOT=44;
@@ -1978,7 +2172,9 @@ async function dashBuildMapsImage(){
   put(S.scA.str,INK); put(up(T.An),onLight(T.hexA)); crest(crA);
   const meta=[GAME.competition||'',GAME.round||'',GAME.date||''].filter(Boolean).join('  ·  ');
   ctx.font='600 16px '+BF; ctx.fillStyle=MUTE;
-  ctx.fillText(((meta?meta+'  ·  ':'')+S.scoredH+'/'+S.shotsH+' shots (PSR '+S.psrH+')  v  '+S.scoredA+'/'+S.shotsA+' (PSR '+S.psrA+')'),PAD,136);
+  const XS=dashXpSummary(null);
+  const xpTxt=(XS&&(XS.h.n||XS.a.n))?'  ·  xP '+dashXpF(XS.h.xp)+' v '+dashXpF(XS.a.xp):'';
+  ctx.fillText(((meta?meta+'  ·  ':'')+S.scoredH+'/'+S.shotsH+' shots (PSR '+S.psrH+')  v  '+S.scoredA+'/'+S.shotsA+' (PSR '+S.psrA+')'+xpTxt),PAD,136);
   // map cards
   const x0=(W-(cards.length*CW+(cards.length-1)*GAP))/2;
   cards.forEach((c,i)=>{
@@ -2218,6 +2414,11 @@ async function dashBuildInfographic(){
   txt(S.scH.str,cx-40,26,SF,T1,'right');
   txt(S.scA.str,cx+40,26,SF,T1,'left');
   const scWH=tw(S.scH.str,SF), scWA=tw(S.scA.str,SF);
+  // xP under each score: "FROM 22.4 XP" (full game, located shots only)
+  const XS=dashXpSummary(null), xpOn=!!(XS&&(XS.h.n||XS.a.n));
+  if(xpOn){ const xf=F(700,17);
+    [['h',cx-40,'right',scWH],['a',cx+40,'left',scWA]].forEach(([s2,x2,al,wd])=>{ const t=XS[s2];
+      txt(fit(t.n?'FROM '+dashXpF(t.xp)+' XP':'NO XP',xf,1,wd+20),x2,112,xf,t.n?'#b4b4c6':T3,al,1); }); }
   const CR=40, cyC=70;
   const drawCrest=(im,x,col,nm)=>{
     ctx.save(); ctx.beginPath(); ctx.arc(x,cyC,CR,0,Math.PI*2); ctx.closePath(); ctx.fillStyle=CARD; ctx.fill(); ctx.clip();
@@ -2262,7 +2463,7 @@ async function dashBuildInfographic(){
     let kx=x+CW-16; kx-=dotKey(kx,Y0+14,CA,sA,'right')+12; dotKey(kx,Y0+14,CH,sH,'right');
     const miss=MD.shotMiss.h+MD.shotMiss.a;
     const tp=I.attTagged&&(D.h.shots||D.a.shots);
-    const textLines=(tp?1:0)+(miss?1:0);
+    const textLines=(tp?1:0)+(miss?1:0)+(xpOn?1:0);
     const MIXH=168;
     const avail=(Y1-16-MIXH-10)-ay-30-textLines*22;   // 30 = legend row
     let ph=Math.min(avail,Math.round(540*0.832)); const pw=Math.round(ph/0.832); ph=Math.round(pw*0.832);
@@ -2278,6 +2479,14 @@ async function dashBuildInfographic(){
     [['cir',true,'SCORED'],['cir',false,'MISSED'],['cir',true,'1PT'],['dia',true,'2PT'],['tri',true,'GOAL'],['sq',true,'DEADBALL']].forEach(([shp,fl,lb])=>{
       dashGlyph(ctx,shp,lx+6,ly+8,5.5,G,fl,BG); lx+=16; txt(lb,lx,ly,F(600,14),T2,'left',0.5); lx+=tw(lb,F(600,14),0.5)+18; });
     ly+=30;
+    if(xpOn){ // marker size key at the pitch's own scale (pw px per 100 units)
+      const u=pw/100; let kx=px+2;
+      txt('MARKER SIZE = XP',kx,ly,F(600,14),T2,'left',0.5); kx+=tw('MARKER SIZE = XP',F(600,14),0.5)+12;
+      [0.2,0.6,1.5].forEach(v=>{ const r=1.4*u*dashXpScale(v);
+        ctx.beginPath(); ctx.arc(kx+r,ly+8,r,0,Math.PI*2); ctx.fillStyle=G; ctx.fill(); ctx.strokeStyle=BG; ctx.lineWidth=1; ctx.stroke();
+        kx+=2*r+6; txt(v.toFixed(1),kx,ly,F(600,14),T2,'left',0.5); kx+=tw(v.toFixed(1),F(600,14),0.5)+14; });
+      txt('· BIGGER = BETTER CHANCE',kx,ly,F(600,14),T3,'left',0.5);
+      ly+=22; }
     const pc=(n,d)=>d?Math.round(n/d*100):0;
     if(tp){ txt(fit(pc(D.h.twoAtt,D.h.shots)+'% OF '+sH+"'S SHOTS CAME FROM TWO-POINT RANGE — "+sA+' '+pc(D.a.twoAtt,D.a.shots)+'%.',F(600,15),0.3,pw),
       px,ly,F(600,15),T1,'left',0.3); ly+=22; }
@@ -2372,6 +2581,7 @@ async function dashBuildInfographic(){
     // rows: [label, home text, away text, home weight, away weight]; rows the data cannot fill are hidden
     const B=[];
     if(h.shots||a.shots) B.push(['SHOOTING ACCURACY',Math.round(h.psr)+'%',Math.round(a.psr)+'%',Math.max(h.psr,.1),Math.max(a.psr,.1)]);
+    if(xpOn) B.push(['EXPECTED POINTS (XP)',XS.h.n?dashXpF(XS.h.xp):'—',XS.a.n?dashXpF(XS.a.xp):'—',Math.max(XS.h.xp,.1),Math.max(XS.a.xp,.1)]);
     if(I.attTagged&&(h.twoAtt||a.twoAtt)) B.push(['TWO-POINT SHOTS',h.twoMade+'/'+h.twoAtt,a.twoMade+'/'+a.twoAtt,Math.max(h.twoMade*10+h.twoAtt,1),Math.max(a.twoMade*10+a.twoAtt,1)]);
     if(h.ko.ALL[1]||a.ko.ALL[1]) B.push(['OWN KICKOUTS WON',(h.ko.ALL[1]?pc(...h.ko.ALL)+'%':'—'),(a.ko.ALL[1]?pc(...a.ko.ALL)+'%':'—'),Math.max(pc(...h.ko.ALL),.1),Math.max(pc(...a.ko.ALL),.1)]);
     if(h.poss||a.poss) B.push(['POSSESSIONS',String(h.poss),String(a.poss),Math.max(h.poss,1),Math.max(a.poss,1)]);
@@ -2516,7 +2726,7 @@ async function dashBuildInfographic(){
   ln(40,1044,W-40,1044,LINE,1);
   txt('COHESION ANALYSIS',44,1054,F(700,15),T2,'left',1);
   txt(fit(('GENERATED FROM TAGGED MATCH EVENTS'+(meta?'  ·  '+meta:'')).toUpperCase(),F(600,13),0.5,900),44+tw('COHESION ANALYSIS',F(700,15),1)+16,1055,F(600,13),T3,'left',0.5);
-  txt('PSR = POINT SCORING RATE  ·  SHOT & KICKOUT LOCATIONS AS TAGGED',W-44,1055,F(600,13),T3,'right',0.5);
+  txt('PSR = POINT SCORING RATE  ·  SHOT & KICKOUT LOCATIONS AS TAGGED'+(xpOn?'  ·  XP MODEL V'+XS.version:''),W-44,1055,F(600,13),T3,'right',0.5);
   return cv;
 }
 async function dashDownloadInfographic(btn){
@@ -2528,6 +2738,58 @@ async function dashDownloadInfographic(btn){
   finally { dashBusy(btn,false); }
 }
 
+// ── Stats tab: Expected points (xP) section — period-aware via statPred ──
+function dashXpChartSvg(S,hC,aC){
+  const X=S.X, sh=X.shots.filter(o=>statPred(o.e)&&o.min!=null).sort((p,q)=>p.min-q.min);
+  if(!sh.length) return '';
+  const mins=ALL.filter(e=>statSide(e)&&statPred(e)).map(e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
+    const mn=+m[2]+(+m[3])/60; return +m[1]===1?mn:X.h1len+mn; }).filter(v=>v!=null);
+  let x0=Math.floor(Math.min(...mins,sh[0].min)), x1=Math.ceil(Math.max(...mins,sh[sh.length-1].min));
+  if(x1-x0<5) x1=x0+5;
+  const series={h:{p:[[x0,0]],x:[[x0,0]]},a:{p:[[x0,0]],x:[[x0,0]]}}, tot={h:{p:0,x:0},a:{p:0,x:0}};
+  sh.forEach(o=>{ const t=tot[o.s], z=series[o.s];
+    if(o.pts){ t.p+=o.pts; z.p.push([o.min,t.p]); }
+    if(o.xp!=null){ t.x+=o.xp; z.x.push([o.min,t.x]); } });
+  ['h','a'].forEach(s=>{ series[s].p.push([x1,tot[s].p]); series[s].x.push([x1,tot[s].x]); });
+  const W=320,H=132,ML=24,MR=8,MT=8,MB=18, maxV=Math.max(4,tot.h.p,tot.a.p,tot.h.x,tot.a.x);
+  const X_=m=>ML+(m-x0)/(x1-x0)*(W-ML-MR), Y_=v=>MT+(H-MT-MB)*(1-v/maxV);
+  const step=pts=>pts.map((p,i)=>(i?'L'+X_(p[0]).toFixed(1)+' '+Y_(pts[i-1][1]).toFixed(1)+' ':'M')+X_(p[0]).toFixed(1)+' '+Y_(p[1]).toFixed(1)).join(' ');
+  const ys=maxV<=10?2:maxV<=25?5:10, xs=(x1-x0)<=20?5:(x1-x0)<=45?10:15;
+  let g='';
+  for(let v=0;v<=maxV;v+=ys) g+=`<line x1="${ML}" x2="${W-MR}" y1="${Y_(v)}" y2="${Y_(v)}" stroke="var(--border)" stroke-width=".6"/><text x="${ML-4}" y="${Y_(v)+3}" font-size="8" text-anchor="end" fill="var(--t3)">${v}</text>`;
+  for(let m=Math.ceil(x0/xs)*xs;m<=x1;m+=xs) g+=`<text x="${X_(m)}" y="${H-5}" font-size="8" text-anchor="middle" fill="var(--t3)">${m}'</text>`;
+  const line=(d,col,dash)=>`<path d="${d}" fill="none" stroke="${col}" stroke-width="${dash?1.6:2.2}" ${dash?'stroke-dasharray="4 3"':''} stroke-linejoin="round"/>`;
+  return `<svg class="stt-xpc" viewBox="0 0 ${W} ${H}" role="img" aria-label="Running points and expected points">${g}`
+    +line(step(series.h.x),hC,true)+line(step(series.a.x),aC,true)+line(step(series.h.p),hC,false)+line(step(series.a.p),aC,false)+`</svg>`
+    +`<div class="stt-xpleg"><span>━ points</span><span>╌ xP (running)</span></div>`;
+}
+function dashXpSectionHtml(){
+  const S=dashXpSummary(statPred);
+  const title='Expected points (xP)';
+  if(!S) return statSection(title,'','<div class="stt-none">The xP model did not load.</div>');
+  const {h,a}=S;
+  if(!h.shots&&!a.shots) return statSection(title,'','');
+  const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
+  const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
+  const line=(t,nm,col)=>{
+    if(!t.n) return `<div class="stt-xpl"><b style="color:${col}">${esc(nm)}</b> ${t.score} (${t.ptsAll}) · no located shots, no xP</div>`;
+    const d=Math.round(t.diff*10)/10;
+    return `<div class="stt-xpl"><b style="color:${col}">${esc(nm)}</b> ${t.score} (${t.ptsAll}) from <b>${dashXpF(t.xp)}</b> xP · <span class="${d>0?'pos':d<0?'neg':''}">${dashXpSigned(t.diff)}</span>${t.miss?` <small style="color:var(--t3)">(${t.pts} of ${t.ptsAll} pts from modelled shots)</small>`:''}</div>`;
+  };
+  const row=(lab,hv,av,hw,aw)=>{ const m=Math.max(Math.abs(hw),Math.abs(aw),1e-9);
+    return `<div class="stt-row xp"><span class="stt-n">${hv}</span><span class="stt-bar r"><span style="width:${Math.abs(hw)/m*100}%;background:${hC}"></span></span><span class="stt-k">${lab}</span><span class="stt-bar"><span style="width:${Math.abs(aw)/m*100}%;background:${aC}"></span></span><span class="stt-n">${av}</span></div>`; };
+  let body=line(h,H,hC)+line(a,A,aC);
+  body+=row('xP',dashXpF(h.xp),dashXpF(a.xp),h.xp,a.xp);
+  body+=row('Points − xP',h.n?dashXpSigned(h.diff):'—',a.n?dashXpSigned(a.diff):'—',h.n?h.diff:0,a.n?a.diff:0);
+  body+=row('xP per shot',h.perShot!=null?h.perShot.toFixed(2):'—',a.perShot!=null?a.perShot.toFixed(2):'—',h.perShot||0,a.perShot||0);
+  const cell=c=>c.n?`${c.pts} / ${dashXpF(c.xp)} <small>(${c.n})</small>`:'<small>—</small>';
+  const cats=DASH_XP_CATS.filter(([k])=>h.cat[k].n||a.cat[k].n);
+  if(cats.length) body+=`<table class="stt-xpt"><tr><th>pts / xP (shots)</th><th></th><th>pts / xP (shots)</th></tr>`
+    +cats.map(([k,lab])=>`<tr><td>${cell(h.cat[k])}</td><td class="k">${lab}</td><td>${cell(a.cat[k])}</td></tr>`).join('')+`</table>`;
+  body+=dashXpChartSvg(S,hC,aC);
+  body+=`<div class="stt-xpn">Model v${esc(S.version)}${S.conv==='sportscode_rot'?' · rotated Sportscode coordinates detected':''} · ${S.miss?S.miss+' shot'+(S.miss>1?'s':'')+' without location/attempt → not in xP':'every shot located'}</div>`;
+  return statSection(title,'',body);
+}
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
@@ -2556,6 +2818,7 @@ function renderSV(){
   h+=statSection('Shooting',
     `${shots.totH} shots · <b>${pct(scH,shots.totH)}</b> conversion &nbsp;|&nbsp; <b>${pct(scA,shots.totA)}</b> conversion · ${shots.totA} shots`,
     statRows(shots, shots.group||'Shot Outcomes'));
+  h+=dashXpSectionHtml();
 
   const kos=tallyOutcome(e=>/KICKOUT|\bKO\b/i.test(e.code||'')||e.category==='Kickouts', ['Kickout Outcomes','KickoutOutcome','PO_Result']);
   const wonH=koWonCount(kos,'h'), wonA=koWonCount(kos,'a');
@@ -2694,7 +2957,7 @@ function updateDashUnsaved(){
   if(el){ el.style.display = n ? '' : 'none'; el.style.color='var(--orange,#ff9800)'; el.textContent = n ? ('● '+n+' unsaved') : ''; }
   if(btn){ btn.style.display = n ? '' : 'none'; btn.disabled=false; btn.textContent='💾 Save ('+n+')'; }
 }
-function queueEventEdit(ev){ dashPending.set(ev._rowId, dashCleanEv(ev)); dashPersistBackup(); updateDashUnsaved(); }
+function queueEventEdit(ev){ dashXpInvalidate(); dashPending.set(ev._rowId, dashCleanEv(ev)); dashPersistBackup(); updateDashUnsaved(); }
 async function saveAllDash(){
   if(!dashPending.size) return;
   const ops=[...dashPending.entries()].map(([id,data])=>({action:'update',id,data,ref:id}));
