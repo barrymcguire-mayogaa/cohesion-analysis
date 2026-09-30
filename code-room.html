@@ -130,6 +130,16 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .acdrop div{padding:9px 12px;font:600 14px 'Barlow',sans-serif;color:var(--t1);cursor:pointer;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .acdrop div:last-child{border-bottom:none;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
+.acdrop .actag{float:right;margin-left:10px;font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding-top:3px;}
+.acdrop div:hover .actag,.acdrop div.on .actag{color:#fff;}
+/* Assist (players:true group) type-to-search box — Edit panel, Locate, Code mode */
+.crasst{display:flex;align-items:center;gap:6px;flex:1;min-width:150px;flex-wrap:wrap;}
+.crasst input{flex:1;min-width:120px;margin:0;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:600 12px 'Barlow',sans-serif;}
+.crasst.need input{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange);}
+.crasst-x{cursor:pointer;color:var(--t3);font-weight:700;padding:0 4px;user-select:none;}
+.crasst-x:hover{color:var(--red);}
+.crasst-add{cursor:pointer;color:var(--accent);font:700 11px 'Barlow',sans-serif;white-space:nowrap;user-select:none;}
+.crasst-add:hover{text-decoration:underline;}
 .tltip{position:fixed;z-index:10003;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;font:600 12px 'Barlow',sans-serif;color:var(--t1);box-shadow:0 12px 32px rgba(0,0,0,.55);pointer-events:none;display:none;max-width:300px;line-height:1.5;}
 .tltip .tt-code{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:4px;color:var(--accent);}
 .tltip .tg{display:inline-block;min-width:104px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;}
@@ -2113,6 +2123,10 @@ function renderPanel(){
   const shotDraft=/SHOT (OPEN PLAY|DEAD ?BALL)/i.test(draft.code||'');
   const definedRows=defined.map(d=>{
     const val=curMap[d.name.toLowerCase()]||'';
+    if(d.players){                                  // Assist: type-to-search box (crAssistBoxHtml)
+      const need=shotDraft&&!val;
+      return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val,draft.player,need)}</div>`;
+    }
     const choices=crGroupOpts(d,{code:draft.code,team:e.team,player:draft.player});
     if(val&&!choices.includes(val)) choices.unshift(val);
     const opts=[`<option value="">${d.players?'— no assist —':'— select —'}</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
@@ -2159,6 +2173,7 @@ function renderPanel(){
       <button class="del" onclick="deleteEvent()">🗑 Delete event</button>
     </div>
     <div class="status" id="epStatus"></div>`;
+  crAssistWire(p);
   refreshSave();
 }
 
@@ -2185,13 +2200,19 @@ function acNoop(){}
 function acPickCode(v){ setDraftCode(v); renderPanel(); }
 function acPickPlayer(v){ setDraftPlayer(v); }
 function acHide(){ const d=document.getElementById('acDrop'); if(d) d.style.display='none'; acInput=null; acIdx=-1; }
-function acShow(input, options, onPick){
+// opt (optional): tag(item) → small group label shown on the first item of
+// each group; all:true → list everything (focus/click on an unedited box);
+// max → cap (default 60).
+function acShow(input, options, onPick, opt){
+  opt=opt||{};
   acInput=input; acPick=onPick;
-  const q=(input.value||'').toLowerCase().trim();
-  acItems=options.filter(o=>o&&o.toLowerCase().includes(q)).slice(0,60);
+  const q=opt.all?'':(input.value||'').toLowerCase().trim();
+  acItems=options.filter(o=>o&&o.toLowerCase().includes(q)).slice(0,opt.max||60);
   const d=document.getElementById('acDrop'); if(!d) return;
   if(!acItems.length){ acHide(); return; }
-  d.innerHTML=acItems.map((o,i)=>`<div data-i="${i}">${esc(o)}</div>`).join('');
+  let prevTag=null;
+  d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
+    return `<div data-i="${i}">${show?`<span class="actag">${esc(t)}</span>`:''}${esc(o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
   d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px'; d.style.display='';
   acIdx=-1;
@@ -2796,6 +2817,156 @@ function crGroupOpts(g,e){
   const me=String((e&&e.player)||'').trim().toLowerCase();
   return codePlayerList(side).filter(p=>p&&p.trim().toLowerCase()!==me);
 }
+// ── Assist type-to-search box ─────────────────────────────────
+// A players:true group (Assist) is a free-text box with the themed
+// autocomplete (acShow/acKey), used identically in the Edit panel, Locate and
+// the Code-mode shot panel. Any typed name is accepted (Enter, blur or a
+// picked suggestion) and written through that place's own path
+// (setDefinedLabel / codeShotAssist). Suggestions, de-duplicated case- and
+// whitespace-insensitively, shooter excluded:
+//   (a) this game's team sheet for the side (GAME.rosters[side], then the
+//       admin's P-tag map game.playerRoster teamA=home / teamB=away)
+//   (b) every player tagged for the team in THIS game (e.player, "<TEAM>
+//       Player Labels", Assist values) + names typed this session
+//   (c) players used for the team in its other games (crAssistOtherNames)
+function crNameKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase(); }
+function crNameTidy(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
+function crRosterEntryName(r){
+  if(r==null) return '';
+  if(typeof r==='object') return crNameTidy(r.name!=null?r.name:(r.player!=null?r.player:''));
+  return crNameTidy(r);
+}
+function crSideOf(team){ return String(team||'').toUpperCase()===String((GAME&&GAME.homeTeam)||'').toUpperCase()?'home':'away'; }
+function crTeamOf(side){ return String((GAME&&(side==='home'?GAME.homeTeam:GAME.awayTeam))||'').toUpperCase(); }
+// (a) team sheet names for a side of a game meta (default: this game).
+function crSheetNames(side, meta){
+  const g=meta||GAME||{}, out=[];
+  const list=g.rosters&&g.rosters[side];
+  if(Array.isArray(list)) list.forEach(r=>{ const n=crRosterEntryName(r); if(n) out.push(n); });
+  const pr=g.playerRoster&&g.playerRoster[side==='home'?'teamA':'teamB'];
+  if(pr&&typeof pr==='object'){
+    const num=k=>parseInt(String(k).replace(/\D/g,''),10)||0;
+    Object.keys(pr).sort((a,b)=>num(a)-num(b)).forEach(k=>{ const v=crNameTidy(pr[k]); if(v&&!/^P\s*\d+$/i.test(v)) out.push(v); });
+  }
+  return out;
+}
+function crOnSheet(side, name){ const k=crNameKey(name); return !!k&&crSheetNames(side).some(n=>crNameKey(n)===k); }
+// Names typed into an Assist box this session, per game + side.
+let crAssistTyped={};
+function crAssistTypedList(side){ return crAssistTyped[((GAME&&GAME.id)||'')+'|'+side]||[]; }
+function crAssistRemember(side, name){
+  const key=((GAME&&GAME.id)||'')+'|'+side, l=crAssistTyped[key]||(crAssistTyped[key]=[]);
+  if(name&&!l.some(n=>crNameKey(n)===crNameKey(name))) l.push(crNameTidy(name));
+}
+// (b) every name tagged for the side's team in this game.
+function crGameNames(side){
+  const T=crTeamOf(side), out=[];
+  EVENTS.forEach(e=>{
+    if(String(e.team||'').toUpperCase()!==T) return;
+    if(e.player) out.push(e.player);
+    const L=e.labels||{};
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) out.push(L[k]); });
+  });
+  crAssistTypedList(side).forEach(n=>out.push(n));
+  return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+}
+// Ordered, de-duplicated suggestions: {items:[name], tags:Map(name → group)}.
+function crAssistSuggest(side, shooter){
+  const seen=new Set(), items=[], tags=new Map();
+  const me=crNameKey(shooter); if(me) seen.add(me);
+  const add=(n,tag)=>{ const k=crNameKey(n); if(!k||seen.has(k)) return; seen.add(k); const t=crNameTidy(n); items.push(t); tags.set(t,tag); };
+  crSheetNames(side).forEach(n=>add(n,'team sheet'));
+  crGameNames(side).forEach(n=>add(n,'this game'));
+  crAssistOtherNames(crTeamOf(side)).forEach(n=>add(n,'other games'));
+  return {items, tags};
+}
+// Markup for one box. Values go in data-* attributes (esc'd); behaviour is
+// attached by crAssistWire after the container's innerHTML is set.
+function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need){
+  const show=cur&&!crOnSheet(side,cur);
+  return `<div class="crasst${need?' need':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}" value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
+    `<span class="crasst-x" title="Clear (no assist)">✕</span>`+
+    `<span class="crasst-add" title="Add this name to the game's team sheet (saved with the session)"${show?'':' style="display:none"'}>+ add to team sheet</span></div>`;
+}
+function crAssistWire(root){
+  if(!root||!root.querySelectorAll) return;
+  root.querySelectorAll('input.crasst-in').forEach(inp=>{
+    if(inp._crWired) return; inp._crWired=true;
+    inp.addEventListener('focus',()=>crAssistOpen(inp,true));
+    inp.addEventListener('click',()=>crAssistOpen(inp,true));
+    inp.addEventListener('input',()=>{ crAssistOpen(inp,false); crAssistAddSync(inp); });
+    inp.addEventListener('blur',()=>setTimeout(()=>{ if(acInput===inp) acHide(); crAssistCommit(inp); },150));
+    const wrap=inp.parentNode;
+    const x=wrap&&wrap.querySelector('.crasst-x');
+    if(x) x.addEventListener('mousedown',ev=>{ ev.preventDefault(); inp.value=''; acHide(); crAssistCommit(inp); });
+    const a=wrap&&wrap.querySelector('.crasst-add');
+    if(a) a.addEventListener('mousedown',ev=>{ ev.preventDefault(); crAssistAddToSheet(inp); });
+  });
+}
+// Current stored value for the box's row, or null when that row is no longer
+// the one being edited (never write a stale box into a different event).
+function crAssistCur(inp){
+  const d=inp.dataset||{}, g=d.group||'Assist';
+  if(d.where==='code'){
+    const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
+    return (sq&&String(sq._rowId)===String(d.row))?((sq.labels||{})[g]||''):null;
+  }
+  if(!draft||String(activeId)!==String(d.row)) return null;
+  const r=draft.groups.find(x=>x.g.toLowerCase()===g.toLowerCase());
+  return r?r.v:'';
+}
+function crAssistOpen(inp, all){
+  const d=inp.dataset||{};
+  crAssistLoadOther(crTeamOf(d.side));              // lazy, background — never blocks typing
+  const s=crAssistSuggest(d.side, d.shooter);
+  const cur=crAssistCur(inp);
+  acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
+    { tag:n=>s.tags.get(n), all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
+}
+function crAssistAddSync(inp){
+  const a=inp.parentNode&&inp.parentNode.querySelector('.crasst-add');
+  if(a) a.style.display=(crNameTidy(inp.value)&&!crOnSheet((inp.dataset||{}).side,inp.value))?'':'none';
+}
+function crAssistCommit(inp){
+  const cur=crAssistCur(inp); if(cur===null) return;
+  const d=inp.dataset||{};
+  let v=crNameTidy(inp.value);
+  if(v){   // adopt a known spelling when only case/spacing differ
+    const hit=crAssistSuggest(d.side,'').items.find(n=>crNameKey(n)===crNameKey(v));
+    if(hit) v=hit;
+  }
+  if(v===cur) return;
+  if(v) crAssistRemember(d.side, v);
+  if(d.where==='code') codeShotAssist(v);
+  else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
+}
+function crAssistOtherNames(T){ return []; }
+function crAssistLoadOther(T){}
+function crAssistAddToSheet(inp){}
+function crAssistKey(ev){
+  const inp=ev.target;
+  const dd=document.getElementById('acDrop'), open=acInput===inp&&dd&&dd.style.display!=='none';
+  if(open&&(ev.key==='ArrowDown'||ev.key==='ArrowUp'||(ev.key==='Enter'&&acIdx>=0))){ acKey(ev); return; }
+  if(ev.key==='ArrowDown'&&!open){ ev.preventDefault(); crAssistOpen(inp,true); return; }
+  if(ev.key==='Enter'){ ev.preventDefault(); acHide(); crAssistCommit(inp); return; }
+  if(ev.key==='Escape'){
+    ev.preventDefault();
+    if(open){ acHide(); return; }
+    const cur=crAssistCur(inp); if(cur!==null) inp.value=cur;
+    crAssistAddSync(inp); if(inp.blur) inp.blur();
+  }
+}
+// Window CAPTURE phase (like Find & Replace): keys typed in an Assist box are
+// handled here and stopped, so they never reach the page hotkeys (Space,
+// digits, letters, arrows, ?, Esc…) or Locate's Alt+arrows. Other window
+// capture listeners (Cmd/Ctrl+F, Cmd/Ctrl+Shift+L) still run — stopPropagation
+// doesn't stop listeners on the same target — and typing itself is untouched.
+window.addEventListener('keydown', e=>{
+  const t=e.target;
+  if(!(t&&t.classList&&t.classList.contains('crasst-in'))) return;
+  e.stopPropagation();
+  crAssistKey(e);
+}, true);
 function buildCodePlayers(){
   const players=codePlayerList(codeMode.team);
   const tm=codeMode.team==='home'?(GAME.homeTeam||'Home'):(GAME.awayTeam||'Away');
@@ -3115,18 +3286,14 @@ function renderCodeLink(){
         `</div>`;
     });
     if(isShot){
-    const side=(sq.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase()?'home':'away';
-    const list=codePlayerList(side).filter(p=>p!==sq.player);
     const curA=(sq.labels||{})['Assist']||'';
     html+=`<div class="clblrow"><span class="clbl-g">Assist</span>`+
-      `<select onchange="codeShotAssist(this.value)" style="flex:1;min-width:150px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:600 12px 'Barlow',sans-serif;cursor:pointer;">`+
-      `<option value=""${!curA?' selected':''}>— no assist —</option>`+
-      list.map(p=>`<option value="${esc(p)}"${curA===p?' selected':''}>${esc(p)}</option>`).join('')+
-      `</select></div>`;
+      crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA,sq.player,!curA)+`</div>`;
     }
   }
   box.style.display='';
   box.innerHTML=html;
+  crAssistWire(box);
 }
 function codeShotQual(group,value){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
@@ -4084,11 +4251,8 @@ function crLocRender(){
     const cur=crLocVal(g);
     const need=!cur;                               // every blank shot label is flagged
     const head=`<div class="crfr-lbl">${esc(g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>`;
-    if(grp.players){
-      const pl=crGroupOpts(grp,{code:e.code,team:e.team,player:(draft&&draft.player)||e.player});
-      if(cur&&!pl.includes(cur)) pl.unshift(cur);
-      rows+=head+`<div class="crloc-chips${need?' need':''}"><select data-group="${esc(g)}" onchange="setDefinedLabel(this.dataset.group,this.value);crLocRender()" style="flex:1;width:100%;">`+
-        `<option value="">— no assist —</option>`+pl.map(o=>`<option value="${esc(o)}"${o===cur?' selected':''}>${esc(o)}</option>`).join('')+`</select></div>`;
+    if(grp.players){                               // Assist: type-to-search box (the chips row carries the amber outline)
+      rows+=head+`<div class="crloc-chips${need?' need':''}">${crAssistBoxHtml('loc',g,e._rowId,crSideOf(e.team),cur,(draft&&draft.player)||e.player,false)}</div>`;
       return;
     }
     rows+=head+`<div class="crloc-chips${need?' need':''}">${grp.options.map((o,vi)=>`<span class="crloc-chip${cur===o?' on':''}" onclick="crLocTag(${gi},${vi})">${esc(o)}</span>`).join('')}</div>`;
@@ -4105,6 +4269,7 @@ function crLocRender(){
     </div>
     <div class="crfr-status">${esc(crLoc.msg||'')}</div>
     <div class="crloc-keys">Alt+← Prev · Alt+↓ Skip · Alt+→ Next · Alt+↑ Pitch — changes save with the session</div>`;
+  crAssistWire(p);
   const pg=document.getElementById('locBtn'); if(pg) crLocBtnSync();
 }
 // Alt+arrows while the panel is open. Window capture phase so they never
