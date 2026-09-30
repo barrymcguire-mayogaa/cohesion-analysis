@@ -351,6 +351,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
+            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights shots into COHESION shot events (SHOT OPEN PLAY / DEADBALL + score events) — the originals are kept">⇄ GI shots</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
@@ -791,6 +792,7 @@ function renderList(){
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
+  crGiBtnSync();
   const fb=document.getElementById('flagBtn');
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
@@ -3825,6 +3827,56 @@ window.addEventListener('keydown', e=>{
   if(e.key==='Enter' && e.target.id==='lcEdBase' && !e.isComposing){ e.preventDefault(); crLCEdSave(); }
 }, true);
 
+// ── Gaelic Insights shot conversion ───────────────────────────
+// GI codes a shot as "<Team> Shot" + Outcome/Description/Source labels.
+// Converting adds the COHESION shot (SHOT OPEN PLAY / DEADBALL with Shot
+// Outcomes, Shot Attempts, Deadball Shot Type …) and, for scores, the bare
+// "<TEAM> 1 POINT|2 POINT|GOAL" companion — as _new rows, ONE undo step,
+// saved with the normal session save. The GI originals are untouched; the
+// "GI Source ID" label on each derived row makes this idempotent.
+function crGiUnconverted(){
+  if(typeof cohGiIsShot!=='function') return 0;
+  const done=new Set(); EVENTS.forEach(e=>{ const id=(e.labels||{})['GI Source ID']; if(id) done.add(String(id)); });
+  return EVENTS.filter(e=>cohGiIsShot(e)&&!done.has(String(e.id))).length;
+}
+function crGiBtnSync(){
+  const b=document.getElementById('giBtn'); if(!b) return;
+  const n=GAME?crGiUnconverted():0;
+  b.style.display=n?'':'none'; b.textContent='⇄ GI shots ('+n+')';
+}
+// Queue converted rows; returns the new rows. No confirmation (see prompt).
+function crGiApply(add){
+  const rowIds=[], shotRow={};
+  add.forEach(n=>{
+    const tmpId='tmp-'+(++crTmpCounter);
+    const row=Object.assign(crClone(n), { _manual:true, _rowId:tmpId, _new:true });
+    const src=(n.labels||{})['GI Source ID'];
+    if(/SHOT (OPEN|DEAD)/i.test(n.code||'')) shotRow[src]=tmpId;
+    else if(shotRow[src]) row._shotComp=shotRow[src];   // deleted with its shot, like crPushCompanion
+    EVENTS.push(row); rowIds.push(tmpId);
+  });
+  if(!rowIds.length) return [];
+  undoStack.push({type:'addmany', rowIds});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  return rowIds;
+}
+async function crGiConvertPrompt(){
+  if(!GAME||typeof cohGiConvert!=='function') return;
+  const add=cohGiConvert(EVENTS, GAME);
+  if(!add.length){ crGiBtnSync(); return; }
+  const c=cohGiCounts(add);
+  const ok=await cohesionModal({ title:'Convert Gaelic Insights shots',
+    message:'Create '+c.shots+' shot event'+(c.shots===1?'':'s')+' + '+c.scores+' score event'+(c.scores===1?'':'s')+'?<br><br>'
+      +'Each GI shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
+      +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. The original GI events are kept unchanged. '
+      +'Nothing is saved until you close the session — Undo removes them all in one step.',
+    buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
+  if(!ok) return;
+  crGiApply(add);
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+c.shots+' shots + '+c.scores+' scores — saved when you close the session'; }
+}
+
 // ── XML export ────────────────────────────────────────────────
 // Writes the current events (including any queued edits, custom labels and
 // player tags) as a Sportscode-shaped ALL_INSTANCES file. Synthesised period
@@ -4072,6 +4124,9 @@ function undo(){
     op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
     if(op.rowOrder){ crRowOrder=op.rowOrder.slice(); crRowsSave(); }   // Find & Replace code renames
     draft=null;
+  } else if(op.type==='addmany'){                 // e.g. Gaelic Insights conversion
+    const ids=new Set(op.rowIds.map(String));
+    EVENTS=EVENTS.filter(x=>!ids.has(String(x._rowId))); activeId=null; draft=null;
   } else if(op.type==='bulkdelete'){
     op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
     draft=null;
