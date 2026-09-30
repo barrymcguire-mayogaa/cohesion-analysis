@@ -151,7 +151,21 @@ function ssSideOf(e, T){
   const t=ssUC(e.team); if(t) return t===T;
   return ssUC(e.code).startsWith(T+' ');
 }
-function ssIsShot(e){ const c=ssUC(e.code); return (/SHOT/.test(c)&&!/SOURCE/.test(c))||e.category==='Shots & Scores'; }
+// A SHOT is the primary shot event only: "<TEAM> SHOT OPEN PLAY / DEADBALL"
+// (Tracker, Code Room, converted GI) or a bare "<Team> Shot" (Gaelic
+// Insights / older Sportscode). Bare outcome companions ("MAYO 1 POINT",
+// "MAYO WIDE" …), SHOT/SCORE SOURCE, SHOT/SCORE ASSIST and GOAL ATTEMPT rows
+// describe the SAME shot and must not add to the count (they inflated Shots
+// per Game ~2.4x and deflated Shot/Score %). Only a game with NO primary shot
+// events falls back to the broad rule, minus those companion codes.
+const SS_SHOT_NOT=/SOURCE|ASSIST|ATTEMPT/;
+function ssPrimaryShot(e){ const c=ssUC(e.code); return !SS_SHOT_NOT.test(c)&&(/SHOT (OPEN PLAY|DEAD ?BALL)/.test(c)||/(^|\s)SHOT$/.test(c)); }
+function ssShotMode(events){ return (events||[]).some(ssPrimaryShot)?'primary':'broad'; }
+function ssIsShot(e,mode){
+  if(mode!=='broad') return ssPrimaryShot(e);
+  const c=ssUC(e.code); if(SS_SHOT_NOT.test(c)) return false;
+  return /SHOT/.test(c)||e.category==='Shots & Scores';
+}
 function ssIsKO(e){ const c=ssUC(e.code); return /KICKOUT|\bKO\b|\bKOS\b/.test(c)&&!/SOURCE|LOST|WON/.test(c)||e.category==='Kickouts'; }
 function ssIsTO(e){ const c=ssUC(e.code); return /\bTOS?\b|TURNOVER/.test(c)&&!/SOURCE/.test(c); }
 function ssIsPoss(e){ return /TEAM POSSESSION/.test(ssUC(e.code)); }
@@ -197,12 +211,13 @@ function ssGameTally(meta, events, T){
   // Unconverted games have no derived events, so nothing is skipped.
   const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
   const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e);
+  const shotMode=ssShotMode(events);
   events.forEach(e=>{
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
     if(giSup(e)||giComp(e)) return;
     // shots + scores
-    if(ssIsShot(e)&&mineT){
+    if(ssIsShot(e,shotMode)&&mineT){
       const out=ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'';
       g.shots++;
       const v=ssScoreVal(out);
@@ -222,7 +237,7 @@ function ssGameTally(meta, events, T){
       if(attGoal||isGoal||isSave){ g.goalCh++; if(isGoal) g.goalScored++; }
     }
     // score sequence for momentum (both teams)
-    if(ssIsShot(e)){
+    if(ssIsShot(e,shotMode)){
       const v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
       if(v>0) g.scoreSeq.push({t:(e.driveT!=null?e.driveT:e.start)||0, team:mineT?'T':'O', v});
     }
