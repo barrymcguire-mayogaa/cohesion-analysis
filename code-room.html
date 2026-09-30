@@ -3252,24 +3252,70 @@ function crFRRefreshPage(){
   else if(activeId){ const cur=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(cur) crSyncDraft(cur); }
   crFRGroupOpts();
 }
-function crFRReplace(){
+// Preview what a replace WOULD change (on clones — nothing touched):
+// identical changes are grouped with a count, e.g.
+// "Player · Ryan O Donoghue → Ryan O'Donoghue ×14".
+function crFRPreview(ids){
+  const o=crFROpts(), re=crFRRegex(o); const m=new Map(); let events=0, matches=0;
+  if(!re) return {rows:[],events,matches};
+  const add=(what,a,b)=>{ const k=what+'\u0001'+a+'\u0001'+b; m.set(k,(m.get(k)||0)+1); };
+  ids.forEach(id=>{
+    const e=EVENTS.find(x=>String(x._rowId)===String(id)); if(!e) return;
+    const c=crClone(e), n=crFRProcess(c,re,o,true); if(!n) return;
+    events++; matches+=n;
+    if((c.code||'')!==(e.code||'')) add('Event code',e.code||'',c.code||'');
+    if((c.player||'')!==(e.player||'')) add('Player',e.player||'',c.player||'');
+    const L0=e.labels||{}, L1=c.labels||{};
+    Object.keys(L0).forEach(g=>{
+      if(g in L1){ if(L1[g]!==L0[g]) add(isPlayerGroup(g)?'Player label':'Label · '+g, L0[g], L1[g]); }
+      else {
+        const g2=Object.keys(L1).find(k=>!(k in L0));
+        if(g2) add('Label group',g,g2); else add('Label · '+g,L0[g],'(removed)');
+      }
+    });
+  });
+  const rows=[...m.entries()].map(([k,n])=>{ const [what,a,b]=k.split('\u0001'); return {what,a,b,n}; })
+    .sort((x,y)=>y.n-x.n);
+  return {rows,events,matches};
+}
+// Confirmation dialog listing every distinct change before it is applied.
+async function crFRConfirm(ids, scope){
+  const pv=crFRPreview(ids);
+  if(!pv.events) return false;
+  const o=crFROpts();
+  const MAX=12;
+  const list=pv.rows.slice(0,MAX).map(r=>
+    `<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border,#333);">
+      <span style="flex:0 0 96px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3,#888);">${esc(r.what)}</span>
+      <span style="flex:1;color:var(--t1,#eee);word-break:break-word;"><s style="opacity:.6">${esc(r.a)}</s> → <b>${esc(r.b)}</b></span>
+      <span style="color:var(--t2,#999);font-weight:700;">×${r.n}</span></div>`).join('')
+    +(pv.rows.length>MAX?`<div style="padding-top:6px;color:var(--t3,#888);">…and ${pv.rows.length-MAX} more distinct change${pv.rows.length-MAX===1?'':'s'}</div>`:'');
+  const v=await cohesionModal({
+    title: scope==='all'?'Confirm replace all':'Confirm replace',
+    message: `Replace <b>"${esc(o.find)}"</b> with <b>"${esc(o.rep)}"</b> — ${pv.matches} match${pv.matches===1?'':'es'} in ${pv.events} event${pv.events===1?'':'s'}${scope==='all'?'':' (this event)'}:`
+      +`<div style="max-height:260px;overflow:auto;margin-top:10px;font-size:12px;">${list}</div>`
+      +`<div style="margin-top:10px;font-size:11px;">Queued as unsaved edits — save the session to keep them. One ↶ Undo reverses it.</div>`,
+    buttons:[{label:'Cancel',value:false},{label:scope==='all'?'Replace all':'Replace',value:true,primary:true}] });
+  return v===true;
+}
+async function crFRReplace(){
   crFRUpdate();
   if(!crFR.hits.length){ crFRStatus('Nothing to replace.'); return; }
-  if(crFR.idx<0){ crFRStep(1); crFRStatus('Press Replace again to change this event.'); return; }
+  if(crFR.idx<0) crFRStep(1);              // jump to the first match so you can see it
   const id=crFR.hits[crFR.idx], pos=EVENTS.findIndex(x=>String(x._rowId)===String(id));
+  if(!(await crFRConfirm([id],'one'))){ crFRStatus('Cancelled — nothing changed.'); return; }
   const r=crFRApply([id]);
   crFRUpdate(null);
   if(crFR.hits.length){
     const order=crFR.hits.map(h=>EVENTS.findIndex(x=>String(x._rowId)===String(h)));
     const i=order.findIndex(p=>p>pos); crFR.idx=i<0?0:i; crFRShow(crFR.hits[crFR.idx]);
   }
-  crFRStatus(r.matches?('Replaced '+r.matches+' in 1 event — unsaved until you save the session.'):'');
+  crFRStatus(r.matches?('✓ Replaced '+r.matches+' in 1 event — unsaved until you save the session.'):'');
 }
-function crFRReplaceAll(){
+async function crFRReplaceAll(){
   crFRUpdate();
   const n=crFR.hits.length; if(!n){ crFRStatus('Nothing to replace.'); return; }
-  const o=crFROpts();
-  if(!confirm('Replace '+crFR.total+' match'+(crFR.total===1?'':'es')+' of "'+o.find+'" with "'+o.rep+'" in '+n+' event'+(n===1?'':'s')+'?\n\nQueued as unsaved edits — one Undo reverses it.')) return;
+  if(!(await crFRConfirm(crFR.hits.slice(),'all'))){ crFRStatus('Cancelled — nothing changed.'); return; }
   const r=crFRApply(crFR.hits.slice());
   crFRUpdate(null);
   crFRStatus('✓ Replaced '+r.matches+' match'+(r.matches===1?'':'es')+' in '+r.events+' event'+(r.events===1?'':'s')+' — save the session to keep them.');
@@ -3299,8 +3345,8 @@ function crFRBuild(){
       <button class="cbtn mini" id="frPrev" title="Previous match (Shift+Enter)">‹ Prev</button>
       <button class="cbtn mini" id="frNext" title="Next match (Enter)">Next ›</button>
       <span style="flex:1"></span>
-      <button class="cbtn mini" id="frOne" title="Replace in the current event, then go to the next">Replace</button>
-      <button class="cbtn mini crfr-all" id="frAll" title="Replace every match in this game">Replace all</button>
+      <button class="cbtn mini" id="frOne" title="Replace in the current event (shows a confirmation), then go to the next">Replace</button>
+      <button class="cbtn mini crfr-all" id="frAll" title="Replace every match in this game (shows a confirmation listing each change)">Replace all</button>
       <button class="cbtn mini" id="frUndo" title="Undo the last change (one step)">↶</button>
     </div>
     <div id="frStatus" class="crfr-status"></div>`;
