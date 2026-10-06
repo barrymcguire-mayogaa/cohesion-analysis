@@ -334,6 +334,9 @@ select option{background:var(--card);}
   <a href="season-stats.html" class="hdr-btn">
     📊 Season Stats
   </a>
+  <a href="xp-refit.html" class="hdr-btn hdr-btn-admin" id="xpBtn" style="display:none" title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">
+    📈 Expected Points
+  </a>
   <a href="playlists.html" class="hdr-btn">
     🎞 Playlists
   </a>
@@ -509,6 +512,7 @@ if(auth === 'admin') {
   document.getElementById('adminBtn').style.display = 'flex';
   document.getElementById('batchBtn').style.display = 'flex';
   document.getElementById('codeRoomBtn').style.display = 'flex';
+  document.getElementById('xpBtn').style.display = 'flex';
 }
 
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
