@@ -365,15 +365,39 @@ function makeYTP(){
 let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }catch(_){ }
 function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
 function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
+// Which period an event's half label means: 'h1' | 'h2' | 'e1' | 'e2'.
+function sbPeriodOf(half){
+  const h=String(half||'');
+  if(/ET/i.test(h)||/extra/i.test(h)) return /2nd|\b2\b|ET\s*2/i.test(h)?'e2':'e1';
+  return /2nd|\b2H\b/i.test(h)?'h2':'h1';
+}
+// Extra-time period starts (drive time), each resolved independently: the
+// earliest THROW-IN of that period, else the video's ET start from the game
+// setup, else the earliest event marked in that period. null = no such period.
+function sbET(){
+  const tOf=e=>(e.driveT??e.start)??0;
+  const ti={e1:null,e2:null}, ev={e1:null,e2:null};
+  ALL.forEach(e=>{ const k=sbPeriodOf(e.half); if(k!=='e1'&&k!=='e2') return; const t=tOf(e);
+    if(ev[k]==null||t<ev[k]) ev[k]=t;
+    if(/THROW.?IN$/i.test(String(e.code||''))&&(ti[k]==null||t<ti[k])) ti[k]=t; });
+  const A=((GAME&&GAME.angles&&GAME.angles[0])||GAME||{});
+  const set=v=>(v!=null&&+v>0)?+v:null;
+  const e1=ti.e1??set(A.et1Start??(GAME&&GAME.et1Start))??ev.e1;
+  let e2=ti.e2??set(A.et2Start??(GAME&&GAME.et2Start))??ev.e2;
+  if(e1!=null&&e2!=null&&e2<=e1) e2=null;
+  return { e1:e1??null, e2:e2??null };
+}
 function sbHalves(){
   // The half clock starts at the THROW-IN tap — the coder hits it on the
   // whistle — with the earliest throw-in of each half as that half's zero.
   let t1=null,t2=null;
   ALL.forEach(e=>{ if(!/THROW.?IN$/i.test(String(e.code||''))) return;
     const t=(e.driveT??e.start)??0;
-    if(/2nd|ET/i.test(String(e.half||''))){ t2=(t2==null||t<t2)?t:t2; } else { t1=(t1==null||t<t1)?t:t1; } });
+    const k=sbPeriodOf(e.half); if(k==='e1'||k==='e2') return;   // extra time has its own clock (sbET)
+    if(k==='h2'){ t2=(t2==null||t<t2)?t:t2; } else { t1=(t1==null||t<t1)?t:t1; } });
   if(t1!=null&&t2==null){ // halves not marked: 2nd = the next throw-in well after the 1st
     let c=null; ALL.forEach(e=>{ if(!/THROW.?IN$/i.test(String(e.code||''))) return;
+      const k=sbPeriodOf(e.half); if(k==='e1'||k==='e2') return;   // an ET throw-in is never the 2nd-half start
       const t=(e.driveT??e.start)??0; if(t>t1+1200&&(c==null||t<c)) c=t; });
     t2=c;
   }
@@ -382,7 +406,7 @@ function sbHalves(){
   let h1=A.half1Start??GAME.half1Start, h2=A.half2Start??GAME.half2Start;
   if(h1==null||(!h1&&!h2)){
     let m1=null,m2=null;
-    ALL.forEach(e=>{ const t=(e.driveT??e.start)??0; if(/2nd|ET/i.test(String(e.half||''))) m2=(m2==null||t<m2)?t:m2; else m1=(m1==null||t<m1)?t:m1; });
+    ALL.forEach(e=>{ const t=(e.driveT??e.start)??0; const k=sbPeriodOf(e.half); if(k==='e1'||k==='e2') return; if(k==='h2') m2=(m2==null||t<m2)?t:m2; else m1=(m1==null||t<m1)?t:m1; });
     if(h1==null||!h1) h1=m1||0;
     if(h2==null||!h2) h2=m2;
   }
@@ -422,7 +446,12 @@ function sbTick(){
   const t=(YTP&&YTP.getCurrentTime)?videoTimeToDrive(YTP.getCurrentTime()||0,currentAngleIdx):0;
   const H=sbHalves();
   let tag,gs;
-  if(H.h2!=null&&t>=H.h2){ tag='2H'; gs=t-H.h2; } else { tag='1H'; gs=Math.max(0,t-H.h1); }
+  const X=sbET();
+  // extra time only counts once it starts after the 2nd half has begun
+  const okE=v=>v!=null&&t>=v&&(H.h2==null||v>H.h2);
+  if(okE(X.e2)){ tag='ET2'; gs=t-X.e2; }
+  else if(okE(X.e1)){ tag='ET1'; gs=t-X.e1; }
+  else if(H.h2!=null&&t>=H.h2){ tag='2H'; gs=t-H.h2; } else { tag='1H'; gs=Math.max(0,t-H.h1); }
   const mm=Math.floor(gs/60), ss=Math.floor(gs%60);
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
   const hC=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(GAME.homeTeam)||'#2563eb';
