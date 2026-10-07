@@ -217,4 +217,7 @@ window.XP_MODEL = window.XP_MODEL_BUNDLED;
   window.cohesionXpDetectConv=function(events){ return detail(events).conv; };
   window.cohesionXpDetectConv.detail=detail;
   window.cohesionXpDetectConv.MIN_SHOTS=MIN_SHOTS;
+  // the tracker's Shot Zone (1-9) of a location in the canonical frame (Xt, Yt):
+  // rows = inside the 20m line / to the 45m line / beyond; columns = thirds of Xt
+  window.cohesionXpDetectConv.zoneOf=zoneOf;
 })();

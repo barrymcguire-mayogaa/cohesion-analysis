@@ -833,6 +833,37 @@ function ssScoreSourceValues(events, T, skip, shotMode){
   });
   return out;
 }
+// A shot is DEAD BALL by its code: "<TEAM> SHOT DEADBALL" (Tracker, Code Room,
+// converted GI), GIU "Shot (F)" / "Shot Sideline" / "45" / "Penalty". Only an
+// unconverted Gaelic Insights "<Team> Shot" has a bare code: its Description
+// label says (anything but PLAY = dead ball, as cohesion-gi.js converts it).
+function ssShotDead(e){
+  const c=ssUC(e&&e.code);
+  if(/DEAD ?BALL|\(\s*F\s*\)$|\sSHOT SIDELINE$|\s45$|\sPENALTY$/.test(c)) return true;
+  if(/(^|\s)SHOT$/.test(c)){ const d=ssUC((e.labels||{})['Description']||e.subtype); return !!d&&d!=='PLAY'; }
+  return false;
+}
+// SCORE SOURCE row → the scoring shot it belongs to (Team Trends' Play v Dead
+// Ball split). Same walk as ssScoreSourceValues: rows and T's scoring primary
+// shots in time order, each row takes one unused score — the earliest that
+// starts inside the row's span, else the nearest within SS_SRC_PAIR_WINDOW
+// seconds — and, when the row carries a value, only a score of that value.
+function ssScoreSourceShots(events, T, skip, shotMode){
+  const own=(events||[]).filter(e=>!skip(e)&&ssSideOf(e,T));
+  const rows=own.filter(e=>/SCORE SOURCE/.test(ssUC(e.code))).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
+  const scores=own.filter(e=>ssIsShot(e,shotMode)).map(e=>({e, t:ssEvT(e), v:ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'')})).filter(x=>x.v>0).sort((a,b)=>a.t-b.t);
+  const out=new Map(), used=new Set();
+  rows.forEach(r=>{
+    const a=r.t, b=Math.max(a, r.e.end!=null?+r.e.end:a), want=ssScoreVal((r.e.labels||{})['Score Source Score Outcomes']||ssLbl(r.e,SS_SHOT_GROUPS)||r.e.outcome||'');
+    let best=-1, bd=Infinity;
+    scores.forEach((sc,j)=>{ if(used.has(j)||(want>0&&sc.v!==want)) return;
+      const d=sc.t<a?a-sc.t:sc.t>b?sc.t-b:0;
+      if(d<=SS_SRC_PAIR_WINDOW&&d<bd){ bd=d; best=j; } });
+    if(best<0) return;
+    used.add(best); out.set(r.e, scores[best].e);
+  });
+  return out;
+}
 function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   g.shotGames=g.shots>0?1:0;
   g.koGames=g.koData?1:0;
@@ -888,10 +919,15 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   // per missed shot (the Tracker folds a run of consecutive misses in one
   // possession into a single row). A game with no such rows (Gaelic Insights,
   // converted or not) is read from the source label on the shot itself.
-  SS_SRC_CATS.forEach(c=>{ g['srcP:'+c.k]=0; g['srcS:'+c.k]=0; g['srcH:'+c.k]=0; });
+  // Team Trends adds, per source: scores by value (src1 / src2 / srcG) and the
+  // open-play v dead-ball split of those scores (srcPl / srcDb, points srcPlP /
+  // srcDbP). In a row-coded game the split needs the SCORE SOURCE row's own
+  // shot (ssScoreSourceShots); a row with no matching shot stays unsplit.
+  SS_SRC_CATS.forEach(c=>{ ['srcP:','srcS:','srcH:','src1:','src2:','srcG:','srcPl:','srcDb:','srcPlP:','srcDbP:'].forEach(p=>g[p+c.k]=0); });
   g.srcPtsTagged=0; g.srcScoresTagged=0; g.srcShotsTagged=0; g.srcValRecovered=0; g.srcValMissing=0;
   const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
   const recovered=rowMode?ssScoreSourceValues(events, T, skip, shotMode):new Map();
+  const rowShot=rowMode?ssScoreSourceShots(events, T, skip, shotMode):null;
   events.forEach(e=>{
     if(skip(e)||!ssSideOf(e,T)) return;
     const c=ssUC(e.code);
@@ -911,7 +947,10 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     }
     if(!cat) return;
     g['srcH:'+cat]++; g.srcShotsTagged++;
-    if(val>0){ g['srcP:'+cat]+=val; g['srcS:'+cat]++; g.srcPtsTagged+=val; g.srcScoresTagged++; }
+    if(val>0){ g['srcP:'+cat]+=val; g['srcS:'+cat]++; g.srcPtsTagged+=val; g.srcScoresTagged++;
+      g[(val===3?'srcG:':val===2?'src2:':'src1:')+cat]++;
+      const sh=rowMode?rowShot.get(e):e;
+      if(sh){ const d=ssShotDead(sh); g[(d?'srcDb:':'srcPl:')+cat]++; g[(d?'srcDbP:':'srcPlP:')+cat]+=val; } }
   });
   g.srcShotGames=g.srcShotsTagged>0?1:0;
   g.srcScoreGames=g.srcScoresTagged>0?1:0;
