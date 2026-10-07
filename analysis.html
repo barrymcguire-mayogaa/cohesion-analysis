@@ -755,13 +755,13 @@ const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone'
 function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.code)); }
 // ── Gaelic Insights short-shot inference ──
 // A GI "<Team> Shot" whose Outcome is "Short", when the NEXT event of the game
-// (by start time, any team, any code) is the OPPOSITION's "Turnover Won" no
-// more than SS_GI_SHORT_WINDOW seconds after the shot starts: that turnover is
+// (by start time, any team, any code) is the OPPOSITION's "Turnover Won" LESS
+// than SS_GI_SHORT_WINDOW seconds after the shot starts: that turnover is
 // the short shot being gathered, so it is class (c), not in-play. Any other
 // event in between (a second shot, a kickout …) or a longer gap leaves it
 // in-play. Derived events of a converted GI game (the 'GI Source ID' copies)
 // are ignored so converted and unconverted games read the same.
-const SS_GI_SHORT_WINDOW=20;   // seconds, shot start → turnover start
+const SS_GI_SHORT_WINDOW=10;   // seconds, shot start → turnover start; must be LESS than this
 function ssEvT(e){ return e.start!=null?+e.start:(+e.driveT||0); }
 function ssGiDerived(e){ return !!String((e.labels||{})['GI Source ID']||'').trim(); }
 function ssIsGiRawShot(e){ const c=String(e.code||''); return /^\s*\S.*\s+shot\s*$/i.test(c)&&!/SOURCE|ASSIST/i.test(c)&&!ssGiDerived(e); }
@@ -774,7 +774,7 @@ function ssGiShortTurnovers(events, T, O){
     if(!ssIsGiRawShot(x.e)||ssGiShotOutcome(x.e)!=='SHORT') return;
     const n=seq[k+1]; if(!n) return;
     if(!ssIsTO(n.e)||!ssToWinnerCoded(n.e)) return;
-    if(n.t-x.t>SS_GI_SHORT_WINDOW) return;
+    if(n.t-x.t>=SS_GI_SHORT_WINDOW) return;
     const a=side(x.e), b=side(n.e);
     if(a&&b&&a!==b) out.add(n.e);
   });
