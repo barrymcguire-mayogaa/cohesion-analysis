@@ -174,12 +174,25 @@ function tallyOutcome(pred, groups){
 }
 // Kickout retention across vocabularies: "KT Won ..." = kicking team kept it,
 // "RT Won ..." = receiver won it (lost); otherwise plain WON-without-LOST.
+// ONE rule for "did the KICKING team (side 'h'|'a') win its own kickout?":
+//  · GIU names the WINNER in the outcome ("Kerry Clean", "Donegal Break" on a
+//    "Kerry Kickout") — an outcome that starts with a team's name is decided
+//    by that name;
+//  · Gaelic Insights "KT Won …" = kicker kept it, "RT Won …" = receiver won;
+//  · Tracker / Code Room "KO WON CLEAN", "KO BREAK LOST" … = WON without LOST.
+function koWonStr(out,side){
+  const K=String(out||'').toUpperCase().trim();
+  if(side==='h'||side==='a'){
+    const H=String((GAME&&GAME.homeTeam)||'').toUpperCase().trim(), A=String((GAME&&GAME.awayTeam)||'').toUpperCase().trim();
+    const own=side==='h'?H:A, opp=side==='h'?A:H;
+    if(opp&&(K===opp||K.startsWith(opp+' '))) return false;
+    if(own&&(K===own||K.startsWith(own+' '))) return true;
+  }
+  return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST'));
+}
 function koWonCount(tal,side){
   const b=side==='h'?tal.h:tal.a;
-  return Object.entries(b).reduce((s,[k,v])=>{
-    const K=k.toUpperCase();
-    const won=K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST'));
-    return s+(won?v:0); },0);
+  return Object.entries(b).reduce((s,[k,v])=>s+(koWonStr(k,side)?v:0),0);
 }
 function codeCount(pred,side){ return ALL.filter(e=>statSide(e)===side&&statPred(e)&&pred(e)).length; }
 // Click a stat row → jump to the Events tab filtered to those events.
@@ -457,8 +470,7 @@ function dashComputeStats(){
   const KO=/KICKOUT|\bKO\b/i;
   const koOut=e=>up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['KickoutOutcome']||(e.labels||{})['PO_Result']||e.outcome||'');
   const koAll=s=>of(s,KO).filter(e=>koOut(e));
-  const koWonN=s=>koAll(s).filter(e=>{ const k=koOut(e);
-    return k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST')); }).length;
+  const koWonN=s=>koAll(s).filter(e=>koWonStr(koOut(e),s)).length;
   const koBreak=(s,won)=>koAll(s).filter(e=>koOut(e).includes(won?'BREAK WON':'BREAK LOST')).length;
   const fouls=(s,z)=>of(s,/\bFOUL\b/i).filter(e=>{ if(!z) return true;
     return up((e.labels||{})['Foul Areas']||'').includes(z); }).length;
@@ -884,7 +896,7 @@ function dashMapData(){
     } else if(/KICKOUT|\bKO\b/i.test(e.code||'')){
       const k=up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['PO_Result']||e.outcome||'');
       if(!k) return;
-      const won=k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST'));
+      const won=koWonStr(k,statSide(e));
       const co=dashCoordOf(e);
       if(co) out.kos.push({s,x:co.x,y:co.y,won}); else out.koMiss[s]++;
     }
@@ -1076,8 +1088,7 @@ function dashBuildPossDoughnut(hHex,aHex){
 function dashBuildKoRetentionCanvas(hHex,aHex){
   const up=s=>String(s||'').toUpperCase();
   const koOf=s=>ALL.filter(e=>statSide(e)===s&&/KICKOUT|\bKO\b/i.test(e.code||'')&&up((e.labels||{})['Kickout Outcomes']||e.outcome||''));
-  const won=e=>{ const k=up((e.labels||{})['Kickout Outcomes']||e.outcome||'');
-    return k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST')); };
+  const won=e=>koWonStr(up((e.labels||{})['Kickout Outcomes']||e.outcome||''),statSide(e));
   const lenOf=e=>up((e.labels||{})['Kickout Locations']||'');
   const ROWS=[['ALL KICKOUTS',()=>true],['SHORT',e=>lenOf(e).includes('SHORT')],['MEDIUM',e=>lenOf(e).includes('MEDIUM')],
     ['LONG',e=>lenOf(e).includes('LONG')],['1ST HALF',e=>/1st/i.test(e.half||'')],['2ND HALF',e=>/2nd/i.test(e.half||'')]];
@@ -1335,8 +1346,7 @@ async function dashExportPDF(){
     [['h',Hn,colH],['a',An,colA]].forEach(([side,team,col])=>{
       const own=ALL.filter(e=>statSide(e)===side&&KOre.test(e.code||'')&&koOut2(e));
       if(!own.length) return;
-      const won=own.filter(e=>{ const k=koOut2(e);
-        return k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST')); }).length;
+      const won=own.filter(e=>koWonStr(koOut2(e),statSide(e))).length;
       checkPage(12);
       doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(...col);
       doc.text(team,ML,y);
@@ -1644,7 +1654,7 @@ function dashInfographicData(S){
   const attTagged=shots.some(x=>x.att);
   // kickouts — retained on the WON verdict (KT/RT vocabularies as elsewhere)
   const koOut=e=>up(lab(e,'Kickout Outcomes')||lab(e,'KickoutOutcome')||lab(e,'PO_Result')||e.outcome);
-  const koWon=k=>k.includes('RT ')?false:k.includes('KT ')?true:(k.includes('WON')&&!k.includes('LOST'));
+  const koWon=(k,s)=>koWonStr(k,s);
   const kos=ev.filter(x=>/KICKOUT|\bKO\b/.test(x.c)).map(x=>({...x,out:koOut(x.e),len:up(lab(x.e,'Kickout Locations'))})).filter(x=>x.out);
   const lenTagged=kos.some(x=>x.len);
   // turnovers
@@ -1670,7 +1680,7 @@ function dashInfographicData(S){
     d.mix={scored:d.scored,wide:miss.filter(x=>x.out.includes('WIDE')).length,short:miss.filter(x=>x.out.includes('SHORT')).length};
     d.mix.other=d.shots-d.mix.scored-d.mix.wide-d.mix.short;
     // kickouts by length and half
-    const k=kos.filter(x=>x.s===s), w=a=>[a.filter(x=>koWon(x.out)).length,a.length];
+    const k=kos.filter(x=>x.s===s), w=a=>[a.filter(x=>koWon(x.out,x.s)).length,a.length];
     d.ko={ALL:w(k),SHORT:w(k.filter(x=>x.len.includes('SHORT'))),MEDIUM:w(k.filter(x=>x.len.includes('MEDIUM'))),
           LONG:w(k.filter(x=>x.len.includes('LONG'))),H1:w(k.filter(x=>x.e.half==='1st Half')),H2:w(k.filter(x=>x.e.half==='2nd Half'))};
     d.poss=ev.filter(x=>x.s===s&&/TEAM POSSESSION/.test(x.c)).length;
