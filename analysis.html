@@ -545,7 +545,12 @@ const SS_SRC_CATS=[
   {k:'TI',      label:'THROW-IN',       col:'#f7ec80'},
   {k:'TO',      label:'TURNOVER',       col:'#5fb8c9', extra:true},   // shown only when present
   {k:'OTHER',   label:'OTHER',          col:'#7b7b88', extra:true}];
-const SS_SRC_TO_KEYS=['FTO','UTO','TO'];   // sources that count as "after a turnover"
+// Sources that count as "after an in-play turnover": FORCED / UNFORCED
+// TURNOVER, the plain TURNOVER of a GI game, and FREE WON — in the Tracker a
+// Free Against is an in-play turnover and sets the next possession's source to
+// FREE WON. (Kickout Lost → OPP KICKOUT and Shot Attempt → BALL RECOVERED are
+// not in-play turnovers, so those sources are not counted.)
+const SS_SRC_TO_KEYS=['FTO','UTO','TO','FREE'];
 function ssSrcCat(txt){
   const S=ssUC(txt); if(!S) return null;
   if(/\bOWN\s+(KICK\s*OUT|KO)S?\b/.test(S)) return 'OWN KO';
@@ -722,15 +727,15 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   });
   g.srcShotGames=g.srcShotsTagged>0?1:0;
   g.srcScoreGames=g.srcScoresTagged>0?1:0;
-  // ── creation after a turnover: shots / scores whose TAGGED source is a
-  // turnover ÷ turnovers won, over games that have BOTH source tags and
-  // turnover rows (so a game without tags cannot drag the rate down) ──
+  // ── creation after a turnover: shots / scores whose TAGGED source is an
+  // in-play turnover (SS_SRC_TO_KEYS) ÷ IN-PLAY turnovers won, over games that
+  // have BOTH source tags and in-play turnover rows (so a game without tags
+  // cannot drag the rate down) ──
   g.toCreateGames=(g.srcShotGames&&g.toGames)?1:0;
-  g.toShotsCreated=0; g.toScoresCreated=0; g.toWonCreateG=0; g.toWonPlayCreateG=0;
+  g.toShotsCreated=0; g.toScoresCreated=0; g.toWonCreateG=0;
   if(g.toCreateGames){
     SS_SRC_TO_KEYS.forEach(k=>{ g.toShotsCreated+=g['srcH:'+k]; g.toScoresCreated+=g['srcS:'+k]; });
     g.toWonCreateG=g.toWon;
-    g.toWonPlayCreateG=g.toWon-g.toWonKo-g.toWonShot;
   }
   return g;
 }
