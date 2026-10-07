@@ -399,6 +399,9 @@ function ssGameTally(meta, events, T){
   const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
   const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e);
   const shotMode=ssShotMode(events);
+  // does this team have a "KICKOUT LOST" turnover row in this game? Then its
+  // "KO LOST LONG/MEDIUM/SHORT" rows are copies of the same lost kickouts.
+  const toKoRowT=events.some(e=>ssIsTO(e)&&ssSideOf(e,T)&&!giSup(e)&&!giComp(e)&&ssToKind(e)==='ko');
   events.forEach(e=>{
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
@@ -452,8 +455,18 @@ function ssGameTally(meta, events, T){
       }
       if(mineO&&val>0&&/OPP KICK/.test(S)){ g.ptsConcededOwnKO+=val; }   // they scored off OUR kickout
     }
-    // turnovers conceded
-    if(ssIsTO(e)&&mineT) g.tosConceded++;
+    // turnovers conceded BY T (Compare's Turnover Rate % = these ÷ T's
+    // possessions, possession-tracked games only). Every turnover row counts,
+    // kickouts lost and shot attempts included, with two rules:
+    //  · the row's team LOST the ball ("<TEAM> TOs", GIU "<Team> Turnover"),
+    //    except Gaelic Insights "<Team> Turnover Won", where the row's team WON
+    //    it — so that row is conceded by the OTHER team;
+    //  · a "KO LOST <length>" row is skipped when the team also has "KICKOUT
+    //    LOST" rows in the game (the Tracker writes each lost kickout twice).
+    if(ssIsTO(e)){
+      const tLost=mineT!==ssToWinnerCoded(e);
+      if(tLost&&!(mineT&&toKoRowT&&ssToKind(e)==='koLen')) g.tosConceded++;
+    }
     // possession instances
     if(ssIsPoss(e)){
       const dur=Math.max(0,((e.end!=null?e.end:0)-(e.start!=null?e.start:0)));
