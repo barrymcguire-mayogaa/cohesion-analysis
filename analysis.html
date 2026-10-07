@@ -101,14 +101,15 @@ body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-
 body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
 body:not([data-tab=overview]) .only-overview{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=compare]) .only-data{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
 .soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -201,6 +202,126 @@ body[data-tab=overview] .wrap{max-width:1320px;}
   .pz-l{font-size:14px;} .pz-p{font-size:30px;} .pz-c{font-size:16px;min-height:20px;} .pz-l:nth-of-type(4){margin-top:18px;}
   .ov-basisnote{padding-top:0;}
 }
+/* ── MATCH REPORTS ── */
+#mrStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
+#mrStatus:not(:empty){margin:4px 2px 12px;}
+.mr-search{display:flex;align-items:flex-end;gap:12px 18px;flex-wrap:wrap;margin-top:24px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:10px 16px 12px;}
+.mr-sbox{flex:1 1 300px;max-width:520px;min-width:0;}
+.mr-sbox label{display:block;font:600 16px 'Barlow',sans-serif;letter-spacing:.04em;color:var(--accent);margin:0 0 5px 3px;}
+.mr-sbox input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:999px;color:var(--t1);font:400 16px 'Barlow',sans-serif;padding:6px 16px;outline:none;-webkit-appearance:none;appearance:none;}
+.mr-sbox input::placeholder{color:var(--t3);}
+.mr-sbox input:focus{border-color:var(--accent);}
+.mr-ctl{margin-left:auto;display:flex;gap:10px 12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;}
+.mr-seg{display:flex;gap:2px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:3px;}
+.mr-seg button{background:transparent;border:1px solid transparent;border-radius:7px;color:var(--t3);font:600 24px 'Barlow',sans-serif;line-height:1;padding:4px 11px;min-height:38px;cursor:pointer;}
+.mr-seg.sm button{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;}
+.mr-seg button:hover{color:var(--t2);}
+.mr-seg button.on{color:var(--t1);border-color:#3a3a48;background:var(--panel);}
+.mr-xmlbtn{background:var(--accent);border:1px solid var(--accent);border-radius:9px;color:#04222f;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:0 14px;min-height:40px;cursor:pointer;white-space:nowrap;}
+.mr-xmlbtn:disabled{opacity:.5;cursor:default;}
+.mr-xmlbtn[hidden]{display:none;}
+.mr-grid{display:grid;grid-template-columns:minmax(0,1.76fr) minmax(0,1fr);gap:24px;margin-top:22px;align-items:start;}
+.mr-tbl{--mr-cols:136px minmax(0,1fr) 100px 120px 76px;background:var(--panel);border-radius:16px;padding:4px 20px 16px 14px;min-width:0;outline:none;}
+.mr-tbl.admin{--mr-cols:136px minmax(0,1fr) 92px 96px 120px 76px;}
+.mr-tbl:focus-visible{box-shadow:0 0 0 2px rgba(79,195,247,.55);}
+.mr-hd,.mr-row{display:grid;grid-template-columns:var(--mr-cols);align-items:center;column-gap:8px;padding-left:10px;border-left:8px solid transparent;}
+.mr-hd{font:400 16px 'Barlow',sans-serif;letter-spacing:.03em;color:var(--accent);padding-top:10px;padding-bottom:9px;text-transform:uppercase;}
+.mr-hd .c{text-align:center;} .mr-tbl .sm{display:none;}
+.mr-row{min-height:62px;margin-bottom:14px;cursor:pointer;border-radius:2px;}
+.mr-row:hover{background:rgba(255,255,255,.03);}
+.mr-row.sel{background:#1c3b4c;border-left-color:#19c3f0;}
+.mr-date{font:400 17px/1.2 'Barlow',sans-serif;color:var(--t1);}
+.mr-date.na{color:var(--t3);font-size:14px;}
+.mr-opp{font:600 22px/1.15 'Barlow',sans-serif;text-transform:uppercase;min-width:0;overflow-wrap:anywhere;padding:4px 0;}
+.mr-opp small{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);margin-left:6px;vertical-align:middle;white-space:nowrap;}
+.mr-res{font:400 22px 'Barlow',sans-serif;white-space:nowrap;}
+.mr-res.W{color:#22c55e;} .mr-res.D{color:#f59223;} .mr-res.L{color:#ef4444;} .mr-res.NA{color:var(--t3);font-size:16px;}
+.mr-cell{display:flex;align-items:center;justify-content:center;gap:2px;min-width:0;}
+.mr-ic{flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:9px;color:#8d919b;cursor:pointer;padding:0;}
+.mr-ic svg{width:34px;height:34px;display:block;pointer-events:none;}
+.mr-ic:hover,.mr-ic:focus-visible{color:#25c4f1;background:rgba(79,195,247,.1);outline:none;}
+.mr-ic:disabled{opacity:.4;cursor:default;}
+.mr-row.sel .mr-ic{color:#25c4f1;}
+.mr-chk{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:34px;height:44px;cursor:pointer;}
+.mr-chk input{width:18px;height:18px;margin:0;accent-color:#19c3f0;cursor:pointer;}
+.mr-empty{padding:26px 10px;color:var(--t2);font-size:.92rem;}
+.mr-foot{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:4px 0 0 18px;}
+.mr-count{font-size:.78rem;color:var(--t3);}
+.mr-more{margin-left:auto;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--t1);font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:0 16px;min-height:40px;cursor:pointer;}
+.mr-more:hover{border-color:var(--accent);color:var(--accent);}
+.mr-card{background:var(--panel);border:1px solid #33333f;border-radius:16px;padding:16px 16px 18px;min-width:0;}
+.mr-teams{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"h b hs" "a b as";gap:8px 14px;align-items:center;background:var(--card);border:1px solid #33333f;border-radius:10px;padding:10px 18px 10px 14px;}
+.mr-tm{display:flex;align-items:center;gap:10px;min-width:0;font:600 18px 'Barlow',sans-serif;text-transform:uppercase;}
+.mr-tm.h{grid-area:h;} .mr-tm.a{grid-area:a;}
+.mr-tm span{min-width:0;overflow-wrap:anywhere;line-height:1.15;}
+.mr-tm.me span{color:#fff;} .mr-tm:not(.me) span{color:#d4d4dc;}
+.mr-chip{flex:0 0 15px;width:15px;height:17px;border-radius:2px;border:1px solid rgba(255,255,255,.35);}
+.mr-crest{flex:0 0 26px;width:26px;height:26px;object-fit:contain;}
+.mr-sc{font:400 24px 'Barlow',sans-serif;white-space:nowrap;text-align:right;}
+.mr-sc.h{grid-area:hs;} .mr-sc.a{grid-area:as;} .mr-sc.na{color:var(--t3);font-size:16px;}
+.mr-badge{grid-area:b;font:600 14px 'Barlow',sans-serif;letter-spacing:.03em;border-radius:5px;padding:2px 16px;white-space:nowrap;}
+.mr-badge.W{background:#12381f;color:#22c55e;} .mr-badge.D{background:#4a2f0d;color:#f59223;} .mr-badge.L{background:#5a1d1f;color:#ff3b3b;} .mr-badge.NA{background:var(--panel);color:var(--t3);}
+.mr-gmeta{font-size:.8rem;color:var(--t3);margin:8px 2px 0;overflow-wrap:anywhere;}
+.mr-kh{font:400 18px 'Barlow',sans-serif;letter-spacing:.02em;color:#9a9aa6;margin:22px 2px 14px;}
+.mr-figs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin:0 2px;}
+.mr-fig{min-width:0;}
+.mr-fl{font:400 12px 'Barlow',sans-serif;letter-spacing:.04em;color:#a3a3af;text-transform:uppercase;}
+.mr-fl em{font-style:normal;text-transform:none;color:var(--t3);margin-left:4px;}
+.mr-fv{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;margin-top:5px;}
+.mr-fv b{font:600 24px 'Barlow',sans-serif;}
+.mr-fv b.na{color:var(--t3);font-weight:400;font-size:19px;}
+.mr-fv small{font-size:.72rem;color:#a3a3af;white-space:nowrap;}
+.mr-fv small.pos{color:var(--green);} .mr-fv small.neg{color:var(--red);}
+.mr-fn{font-size:.68rem;color:var(--t3);margin:14px 2px 0;line-height:1.45;}
+.mr-open{display:block;text-align:center;margin-top:16px;border:2px solid #19c3f0;background:#16465c;color:#2bc6f3;font:700 24px 'Barlow',sans-serif;letter-spacing:.01em;border-radius:13px;padding:5px 10px 6px;text-decoration:none;}
+.mr-open:hover{background:#1b5670;}
+.mr-cload{padding:40px 10px;text-align:center;color:var(--t3);font-size:.9rem;}
+/* infographic / stats window */
+body.mr-lock{overflow:hidden;}
+.mr-modal{position:fixed;inset:0;z-index:9000;background:rgba(4,5,9,.78);display:flex;align-items:center;justify-content:center;padding:14px;}
+.mr-mcard{display:flex;flex-direction:column;width:min(1240px,100%);max-height:100%;background:var(--panel);border:1px solid #3a3a48;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.6);overflow:hidden;}
+.mr-mcard.stats{width:min(640px,100%);}
+.mr-mhd{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 18px;border-bottom:1px solid var(--border);}
+.mr-mt{flex:1;min-width:0;}
+.mr-mt b{display:block;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--accent);}
+.mr-mt span{display:block;font:600 17px 'Barlow',sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mr-mx{flex:0 0 auto;width:42px;height:42px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--t1);font-size:22px;line-height:1;cursor:pointer;}
+.mr-mx:hover{border-color:var(--accent);color:var(--accent);}
+.mr-mbody{flex:1 1 auto;min-height:120px;overflow:auto;padding:12px;background:#0d0d13;}
+.mr-mbody canvas{display:block;max-width:100%;height:auto;margin:0 auto;border-radius:4px;}
+.mr-mload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:240px;color:var(--t2);font-size:.92rem;text-align:center;}
+.mr-mload.err{color:#ff8a8a;}
+.mr-spin{width:34px;height:34px;border-radius:50%;border:3px solid #2a2a36;border-top-color:var(--accent);animation:mrspin .8s linear infinite;}
+@keyframes mrspin{to{transform:rotate(360deg);}}
+.mr-mft{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-top:1px solid var(--border);}
+.mr-mft button{background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--t1);font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:0 16px;min-height:42px;cursor:pointer;}
+.mr-mft button.primary{background:var(--accent);border-color:var(--accent);color:#04222f;}
+.mr-mft button.link{margin-left:auto;background:transparent;color:var(--accent);border-color:transparent;text-decoration:underline;text-underline-offset:3px;}
+.mr-mft button:disabled{opacity:.4;cursor:default;}
+.mr-mmsg{flex:1 1 100%;font-size:.76rem;color:var(--t3);min-height:0;}
+.mr-mmsg:empty{display:none;}
+@media (max-width:1100px){
+  .mr-grid{grid-template-columns:minmax(0,1fr);gap:16px;}
+}
+@media (max-width:640px){
+  .mr-search{padding:10px 12px 12px;margin-top:16px;} .mr-sbox{flex-basis:100%;max-width:none;}
+  .mr-ctl{margin-left:0;width:100%;justify-content:space-between;}
+  .mr-seg button{font-size:20px;padding:4px 10px;min-height:40px;} .mr-seg.sm button{font-size:12px;padding:4px 9px;}
+  .mr-xmlbtn{flex:1 1 100%;}
+  .mr-tbl{--mr-cols:50px minmax(0,1fr) 46px 44px 44px;padding:2px 8px 12px 0;border-radius:14px;}
+  .mr-tbl.admin{--mr-cols:46px minmax(0,1fr) 42px 68px 40px 40px;}
+  .mr-hd,.mr-row{column-gap:4px;padding-left:6px;border-left-width:5px;}
+  .mr-hd{font-size:10.5px;letter-spacing:0;} .mr-tbl .lg{display:none;} .mr-tbl .sm{display:inline;}
+  .mr-row{min-height:56px;margin-bottom:6px;}
+  .mr-date{font-size:13px;} .mr-opp{font-size:14px;} .mr-opp small{margin-left:4px;font-size:10px;} .mr-res{font-size:14px;} .mr-res.NA{font-size:12px;}
+  .mr-ic{width:42px;height:44px;} .mr-ic svg{width:28px;height:28px;}
+  .mr-tbl.admin .mr-ic{width:38px;} .mr-chk{width:30px;}
+  .mr-foot{padding-left:10px;}
+  .mr-card{padding:12px 12px 14px;} .mr-teams{padding:9px 12px 9px 10px;gap:8px 10px;} .mr-tm{font-size:15px;} .mr-sc{font-size:19px;} .mr-badge{padding:2px 10px;font-size:12px;}
+  .mr-fv b{font-size:21px;} .mr-open{font-size:20px;}
+  .mr-modal{padding:8px;} .mr-mhd{padding:8px 8px 8px 12px;} .mr-mbody{padding:8px;}
+  .mr-mft{padding:8px;} .mr-mft button{flex:1 1 100%;} .mr-mft button.link{margin-left:0;}
+}
 </style>
 </head>
 <body>
@@ -253,18 +374,33 @@ body[data-tab=overview] .wrap{max-width:1320px;}
   <div class="filters" style="justify-content:flex-end"><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
   </div>
   <!-- OVERVIEW controls: one team v its opponents -->
-  <div class="filters only-overview" id="ovCtl">
+  <div class="filters only-team" id="ovCtl">
     <div class="fg"><label for="fTeamO">TEAM</label><select id="fTeamO"></select></div>
-    <div class="fg"><label>GAMES</label><div class="seg" id="ovBasis"><button type="button" data-basis="5">Last 5</button><button type="button" data-basis="10" class="on">Last 10</button><button type="button" data-basis="all">All</button></div></div>
-    <div class="fg ov-basisnote"><div class="fnote" id="ovBasisNote"></div></div>
+    <div class="fg only-overview"><label>GAMES</label><div class="seg" id="ovBasis"><button type="button" data-basis="5">Last 5</button><button type="button" data-basis="10" class="on">Last 10</button><button type="button" data-basis="all">All</button></div></div>
+    <div class="fg ov-basisnote only-overview"><div class="fnote" id="ovBasisNote"></div></div>
   </div>
-  <details class="gamespick only-data" id="gamesPick"><summary><span class="only-overview">Game types · </span>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
+  <details class="gamespick only-data" id="gamesPick"><summary><span class="only-team">Game types · </span>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
     <div id="ovTypesSlot"></div>
     <div class="msbar" style="margin-top:4px"><button class="mini" onclick="gamesAll(true)">Select all</button><button class="mini" onclick="gamesAll(false)">Select none</button><span class="fnote" id="gNote"></span></div>
     <div id="gList"></div></details>
   <div id="status">Loading games…</div>
   <div class="pane" id="pane-overview"><div id="ovStatus"></div><div id="ovBody"></div></div>
-  <div class="pane" id="pane-match-reports"><div class="soon"><div class="tag">COMING SOON</div><h2>MATCH REPORTS</h2><p>A one-page report for any single game: the score, shooting, kickouts, turnovers and score sources for both teams.</p></div></div>
+  <div class="pane" id="pane-match-reports">
+    <div id="mrStatus" role="status"></div>
+    <div id="mrRecent"></div>
+    <div class="mr-search" id="mrSearch">
+      <div class="mr-sbox"><label for="mrQ">SEARCH</label><input type="search" id="mrQ" placeholder="game, opposition, competition, date" autocomplete="off" spellcheck="false"></div>
+      <div class="mr-ctl">
+        <button type="button" class="mr-xmlbtn" id="mrXmlBtn" hidden>Download XML (0)</button>
+        <div class="mr-seg sm" id="mrVenue" role="group" aria-label="Home or away"><button type="button" data-venue="all" class="on" aria-pressed="true">All</button><button type="button" data-venue="home" aria-pressed="false">Home</button><button type="button" data-venue="away" aria-pressed="false">Away</button></div>
+        <div class="mr-seg" id="mrRes" role="group" aria-label="Result"><button type="button" data-res="ALL" class="on" aria-pressed="true">ALL</button><button type="button" data-res="W" aria-pressed="false" title="Wins">W</button><button type="button" data-res="D" aria-pressed="false" title="Draws">D</button><button type="button" data-res="L" aria-pressed="false" title="Losses">L</button></div>
+      </div>
+    </div>
+    <div class="mr-grid">
+      <div class="mr-tbl" id="mrList" tabindex="0" role="grid" aria-label="Games. Up and down arrows move the selection."></div>
+      <aside class="mr-card" id="mrCard" aria-live="polite"></aside>
+    </div>
+  </div>
   <div class="pane" id="pane-team-trends"><div class="soon"><div class="tag">COMING SOON</div><h2>TEAM TRENDS</h2><p>How one team's key numbers move game by game across the season, against its own average.</p></div></div>
   <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
   <div class="pane" id="pane-players"><div class="soon"><div class="tag">COMING SOON</div><h2>PLAYERS</h2><p>Player-level shooting, scoring and expected points across the selected games.</p></div></div>
@@ -283,9 +419,13 @@ body[data-tab=overview] .wrap{max-width:1320px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-crests.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-graphics.js"></script>
+<script src="cohesion-xml.js"></script>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
 
@@ -695,6 +835,12 @@ function ssScoreSourceValues(events, T, skip, shotMode){
 function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   g.shotGames=g.shots>0?1:0;
   g.koGames=g.koData?1:0;
+  // attacks: T's "<TEAM> ATTACKS" rows (the dashboard's Attacks count). A game
+  // counts as attack-coded when either side has one.
+  g.attacks=0; let anyAttack=false;
+  events.forEach(e=>{ if(skip(e)||!/\bATTACKS?\b/.test(ssUC(e.code))) return;
+    if(ssSideOf(e,T)){ g.attacks++; anyAttack=true; } else if(ssSideOf(e,O)) anyAttack=true; });
+  g.attackGames=anyAttack?1:0;
   // ── turnovers: one class per ball-loss (see the rule above) ──
   ['toLost','toWon','toLostDEF','toLostMID','toLostATT','toWonDEF','toWonMID','toWonATT','toLostLoc','toWonLoc',
    'toLostKo','toLostShot','toWonKo','toWonShot','toDupDropped','toGiShort'].forEach(k=>g[k]=0);
@@ -971,7 +1117,7 @@ function anSetTab(tab){
   document.querySelectorAll('#tabs a').forEach(a=>{ const on=a.dataset.tab===TAB; a.classList.toggle('on',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   // the game-type chips live in the Compare mode row; on Overview they sit
   // (collapsed) inside "Games included" — the same element, so state is shared
-  const chips=ssEl('fTypesWrap'), slot=TAB==='overview'?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
+  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
   if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
   if(GAMES_READY){ renderTypeChips(); applyFilters(); }
 }
@@ -1105,7 +1251,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule();
+  ovSchedule(); mrSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -1496,18 +1642,23 @@ function ovToPanel(name, s, n, cls, nGames, other){
     +cre('SHOT CREATION AFTER TO', s.shotPct, s.shots)+cre('SCORE CREATION AFTER TO', s.scorePct, s.scores)
     +`<div class="tp-note">${s.games?ssEsc('Shots / scores sourced from a turnover or a free won ÷ '+s.base+' in-play TOs won · '+ovFromNote(s.games,nGames)):ssEsc('No source tags with turnovers in '+(nGames===1?'this game':'these '+nGames+' games'))}</div></div>`;
 }
+// the last-5 match cards (Overview and Match Reports show the same component)
+function ovDashHref(id){ return 'dashboard.html?game='+encodeURIComponent(id); }
+function ovRecentHTML(recent){
+  return '<div class="ov-recent">'+(recent||[]).map(m=>{
+    const sub=[m.competition, m.round].filter(Boolean).join(' · ');
+    return `<a class="mcard ${m.res||'NA'}" href="${ovDashHref(m.id)}" title="Open this game's dashboard">`
+      +`<div class="mc-opp">vs ${ssEsc(m.opp)}</div><div class="mc-meta">${ssEsc(sub||'—')}</div><div class="mc-meta">${ssEsc(ovFmtDate(m.date)||'date n/a')}</div>`
+      +(m.data?`<div class="mc-score"><b>${ssEsc(ovScoreTxt(m.team))}</b><span>v ${ssEsc(ovScoreTxt(m.opposition))}</span><em>${m.res}</em></div>`
+              :`<div class="mc-score"><span class="na">score n/a</span></div>`)+'</a>';
+  }).join('')+'</div>';
+}
 function ovHTML(R){
   const T=R.team, n=R.n;
   if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
   let h='';
   // a. recent matches
-  h+='<div class="ov-recent">'+R.recent.map(m=>{
-    const sub=[m.competition, m.round].filter(Boolean).join(' · ');
-    return `<a class="mcard ${m.res||'NA'}" href="dashboard.html?game=${encodeURIComponent(m.id)}" title="Open this game's dashboard">`
-      +`<div class="mc-opp">vs ${ssEsc(m.opp)}</div><div class="mc-meta">${ssEsc(sub||'—')}</div><div class="mc-meta">${ssEsc(ovFmtDate(m.date)||'date n/a')}</div>`
-      +(m.data?`<div class="mc-score"><b>${ssEsc(ovScoreTxt(m.team))}</b><span>v ${ssEsc(ovScoreTxt(m.opposition))}</span><em>${m.res}</em></div>`
-              :`<div class="mc-score"><span class="na">score n/a</span></div>`)+'</a>';
-  }).join('')+'</div>';
+  h+=ovRecentHTML(R.recent);
   // b. KPI cards
   h+='<div class="ov-kpis">'+R.kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
   // c. doughnuts
@@ -1577,8 +1728,430 @@ async function ovRun(){
   body.innerHTML=ovHTML(OV_LAST);
 }
 function ovInit(){
-  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ovSchedule);
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); });
   document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>ovSetBasis(b.dataset.basis)));
+}
+// ═══════════════════════════════════════════════════════════════
+//  MATCH REPORTS — every game of the selected team: search and W/D/L /
+//  home-away filters over ALL of its filtered games, the 10 most recent
+//  matches (+10 per "Show more"), a Key Match Analysis card for the selected
+//  game, and per game the dashboard's infographic and stats card (built by
+//  the shared cohesion-graphics.js) and, for admins, the Sportscode XML
+//  (cohesion-xml.js, the Code Room export). Pure helpers first (headlessly
+//  tested), then the page wiring. Numbers come from the same cached per-game
+//  tallies as Overview, so turnovers are IN-PLAY turnovers here too.
+// ═══════════════════════════════════════════════════════════════
+const MR_PAGE=10;
+const MR_RES={W:'WIN', D:'DRAW', L:'LOSS'};
+function mrNorm(s){ return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+// one row per game of team T (newest first). bundleOf(id) -> {meta, events}
+// or undefined while it is still loading (row.pending, result unknown).
+function mrRows(T, games, bundleOf){
+  return ovTeamGames(games, T).map(g=>{
+    const b=bundleOf(g.id); let tT=null, tO=null;
+    if(b&&b.meta){ const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam); tT=ssTallyCached(b,T); tO=ssTallyCached(b, T===H?A:H); }
+    const m=ovMatch(g, tT, tO, T);
+    return {id:g.id, g, m, home:ssUC(g.homeTeam)===T, pending:!b, res:m.res};
+  });
+}
+// what the search box looks through: title, both teams, competition, round and
+// the date as stored, as ISO, as D/M/YYYY, and as it is printed on the page
+function mrSearchText(r){
+  const g=r.g, iso=ssIsoDate(g.date);
+  return mrNorm([g.title, r.m.opp, g.homeTeam, g.awayTeam, g.competition, g.round, g.date, iso,
+    iso?(iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4)):'', ovFmtDate(g.date), ovShortDate(g.date)].filter(Boolean).join(' · '));
+}
+// f = {q, res:'ALL'|'W'|'D'|'L', venue:'all'|'home'|'away'}. Every word of q
+// must be found (accents and case ignored). A game with no score data has no
+// result, so it only shows under ALL.
+function mrFilter(rows, f){
+  f=f||{};
+  const toks=mrNorm(f.q).split(/\s+/).filter(Boolean), res=f.res||'ALL', venue=f.venue||'all';
+  return (rows||[]).filter(r=>{
+    if(venue==='home'&&!r.home) return false;
+    if(venue==='away'&&r.home) return false;
+    if(res!=='ALL'&&r.res!==res) return false;
+    if(toks.length){ const hay=mrSearchText(r); if(!toks.every(t=>hay.includes(t))) return false; }
+    return true;
+  });
+}
+function mrSigned(d){ return (d>=0.05?'+':d<=-0.05?'−':'±')+Math.abs(d).toFixed(1); }
+// The Key Match Analysis card for team T in one game. Every figure is T's;
+// txt is null when the game doesn't carry the data (shown as n/a).
+function mrCard(T, b){
+  if(!b||!b.meta||!Array.isArray(b.events)) return null;
+  const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam);
+  if(T!==H&&T!==A) return null;
+  const O=T===H?A:H, t=ssTallyCached(b,T), o=ssTallyCached(b,O);
+  if(!t||!o) return null;
+  const m=ovMatch(b.meta, t, o, T), mine=T===H?'home':'away';
+  const pc=(ok,n,d)=>ok&&d>0?{txt:Math.round(n/d*100)+'%', sub:n+'/'+d}:null;
+  const num=(ok,n)=>ok?{txt:String(n)}:null;
+  // 2-point shots: made = 2-pointers scored; attempts = shots tagged as a
+  // 2-point attempt, plus any 2-pointer scored without that tag
+  const made2=t.twoPts, att2=t.att2+Math.max(0, t.twoPts-t.att2Scored);
+  const two=!(t.shots>0)?null:t.attemptData?{txt:made2+'/'+att2, sub:'made/attempts'}:{txt:String(made2), sub:'made · attempts n/a'};
+  const xp=t.xpShots>0?{txt:t.xpPts+' from '+t.xp.toFixed(1)+' xP', sub:mrSigned(t.xpPts-t.xp)+' pts − xP', tone:(t.xpPts-t.xp)>=0.05?'pos':(t.xpPts-t.xp)<=-0.05?'neg':'',
+    hint:t.xpMiss>0?t.xpShots+' of '+(t.xpShots+t.xpMiss)+' shots located':''}:null;
+  const fig=(k,label,f,hint)=>Object.assign({k, label, txt:null, sub:'', tone:'', hint:hint||''}, f||{});
+  return { id:b.meta.id, team:T, mine, res:m.res, data:m.data,
+    title:b.meta.title||((b.meta.homeTeam||'?')+' v '+(b.meta.awayTeam||'?')), competition:b.meta.competition||'', round:b.meta.round||'', date:b.meta.date||'',
+    home:{name:String(b.meta.homeTeam||'Home').trim(), score:m.data?(mine==='home'?m.team:m.opposition):null},
+    away:{name:String(b.meta.awayTeam||'Away').trim(), score:m.data?(mine==='away'?m.team:m.opposition):null},
+    figs:[
+      fig('poss','Possessions', num(t.possData, t.possCount)),
+      fig('toWon','Turnovers Won', num(t.toGames>0, t.toWon), 'in play'),
+      fig('shooting','Shooting %', pc(t.shots>0, t.scores, t.shots)),
+      fig('toLost','Turnovers Lost', num(t.toGames>0, t.toLost), 'in play'),
+      fig('ownKo','Own KO Won %', pc(t.koData, t.ownKOWon, t.ownKO)),
+      fig('oppKo','Opp KO Won %', pc(t.koData, t.oppKOWonByT, t.oppKO)),
+      fig('attacks','Attacks', num(t.attackGames>0, t.attacks)),
+      fig('twoPt','2-Point Shots', two),
+      fig('goals','Goals', num(t.shots>0, t.goals)),
+      fig('xp','Expected Points', xp)] };
+}
+// ── XML (admins): the stored events as Code Room exports them ──
+function mrXmlName(meta){ const d=ssIsoDate(meta&&meta.date); return cohXmlFileStem(meta)+(d?'_'+d:''); }
+function mrXmlFiles(bundles){
+  const used=new Map();
+  return (bundles||[]).map(b=>{
+    let stem=mrXmlName(b.meta); const n=(used.get(stem)||0)+1; used.set(stem,n); if(n>1) stem+='_'+n;
+    return {name:stem+'.xml', text:cohXmlBuild(cohXmlLoadOrder(b.events), {base:'video'})};
+  });
+}
+function mrZipName(T, n){ return ssSlug(T)+'_xml_'+n+'_games.zip'; }
+// ── the infographic on ONE landscape page: scaled to fit, centred, so white
+// margins appear only on the sides the page's shape leaves over ──
+function mrInfographicPDF(canvas, NS){
+  const doc=new NS.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+  const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+  const s=Math.min(PW/canvas.width, PH/canvas.height), w=canvas.width*s, h=canvas.height*s;
+  doc.addImage(canvas, 'PNG', (PW-w)/2, (PH-h)/2, w, h, undefined, 'FAST');
+  return doc;
+}
+// ── rendering (strings only; every interpolated value is escaped) ──
+const MR_SVG='<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+const MR_ICON={
+  xml:MR_SVG+'<path d="M8 3h11l6 6v20H8z"/><path d="M19 3v6h6"/><path d="M11.5 14h9M11.5 18h9M11.5 22h9M11.5 26h6"/></svg>',
+  info:MR_SVG+'<rect x="6" y="3" width="20" height="26" rx="2.5"/><path d="M10 13v-2.5M14 13V8.5M18 13v-3M22 13V7"/><rect x="10" y="16.5" width="4.5" height="4"/><rect x="17.5" y="16.5" width="4.5" height="4"/><path d="M10 24h12M10 26.5h8"/></svg>',
+  stats:MR_SVG+'<path d="M3.5 28.5h25"/><path d="M7 28v-6M11.5 28V18M16 28v-8M20.5 28V15M25 28V10" stroke-width="2.4"/><path d="M5 15l6.5-6 5 4.5L25 4.5"/><circle cx="11.5" cy="9" r="1.5"/><circle cx="16.5" cy="13.5" r="1.5"/><circle cx="25" cy="4.5" r="1.5"/></svg>'};
+function mrDateHTML(d){
+  const iso=ssIsoDate(d);
+  if(!iso) return `<div class="mr-date na">${ssEsc(String(d||'').trim()||'date n/a')}</div>`;
+  const mon=OV_MONTHS[+iso.slice(5,7)-1];   // long form on wide screens, "19 Sep" on a phone
+  return `<div class="mr-date"><span class="lg">${ssEsc(ovOrd(+iso.slice(8,10))+' '+mon)}</span><span class="sm">${ssEsc((+iso.slice(8,10))+' '+mon.slice(0,3))}</span><br>${ssEsc(iso.slice(0,4))}</div>`;
+}
+// o = {sel, admin, xmlSel:Set, total (matching games), all (the team's games)}
+function mrListHTML(vis, o){
+  o=o||{};
+  const admin=!!o.admin, xs=o.xmlSel||new Set();
+  let h='<div class="mr-hd" role="row"><div role="columnheader">DATE</div><div role="columnheader">OPPONENT</div><div role="columnheader">RESULT</div>'
+    +(admin?'<div class="c" role="columnheader">XML</div>':'')
+    +'<div class="c" role="columnheader"><span class="lg">INFOGRAPHIC</span><span class="sm">INFO</span></div><div class="c" role="columnheader">STATS</div></div>';
+  if(!vis.length) return h+'<div class="mr-empty">No games match this search.</div>';
+  h+=vis.map(r=>{
+    const sel=r.id===o.sel, name=ssEsc('vs '+r.m.opp+(ssIsoDate(r.g.date)?', '+ovFmtDate(r.g.date):''));
+    return `<div class="mr-row${sel?' sel':''}" role="row" data-id="${ssEsc(r.id)}" aria-selected="${sel?'true':'false'}">`
+      +mrDateHTML(r.g.date)
+      +`<div class="mr-opp">${ssEsc(r.m.opp)}<small title="${r.home?'Home':'Away'}">${r.home?'H':'A'}</small></div>`
+      +(r.pending?'<div class="mr-res NA" title="Loading">…</div>':`<div class="mr-res ${r.res||'NA'}">${r.res?MR_RES[r.res]:'n/a'}</div>`)
+      +(admin?`<div class="mr-cell"><label class="mr-chk" title="Select for XML download"><input type="checkbox" data-act="chk"${xs.has(r.id)?' checked':''} aria-label="Select for XML download: ${name}"></label>`
+        +`<button type="button" class="mr-ic" data-act="xml" title="Download XML" aria-label="Download XML: ${name}">${MR_ICON.xml}</button></div>`:'')
+      +`<div class="mr-cell"><button type="button" class="mr-ic" data-act="info" title="Infographic" aria-label="Infographic: ${name}">${MR_ICON.info}</button></div>`
+      +`<div class="mr-cell"><button type="button" class="mr-ic" data-act="stats" title="Stats card" aria-label="Stats card: ${name}">${MR_ICON.stats}</button></div></div>`;
+  }).join('');
+  const total=o.total==null?vis.length:o.total, left=total-vis.length;
+  h+=`<div class="mr-foot"><span class="mr-count">Showing ${vis.length} of ${total} game${total===1?'':'s'}${o.all!=null&&o.all!==total?' · '+o.all+' before search':''}</span>`
+    +(left>0?`<button type="button" class="mr-more" data-act="more">Show more (${Math.min(MR_PAGE,left)} of ${left})</button>`:'')+'</div>';
+  return h;
+}
+function mrHex(c, fb){ return /^#[0-9a-f]{6}$/i.test(String(c||'').trim())?String(c).trim():fb; }
+// deco = {hexH, hexA, crestH, crestA} (colours / crest URLs; all optional)
+function mrCardHTML(c, deco){
+  if(!c) return '<div class="mr-cload">Loading this game…</div>';
+  deco=deco||{};
+  const side=k=>{ const t=c[k], home=k==='home', cls=home?'h':'a', crest=home?deco.crestH:deco.crestA;
+    return `<div class="mr-tm ${cls}${c.mine===k?' me':''}"><i class="mr-chip" style="background:${mrHex(home?deco.hexH:deco.hexA, home?'#2563eb':'#22c55e')}"></i>`
+      +(crest?`<img class="mr-crest" src="${ssEsc(crest)}" alt="">`:'')+`<span>${ssEsc(t.name)}</span></div>`
+      +`<div class="mr-sc ${cls}${t.score?'':' na'}">${t.score?ssEsc(ovScoreTxt(t.score)):'n/a'}</div>`; };
+  const meta=[[c.competition, c.round].filter(Boolean).join(' · '), ovFmtDate(c.date)].filter(Boolean).join(' · ');
+  return `<div class="mr-teams">${side('home')}<div class="mr-badge ${c.res||'NA'}" title="Result for ${ssEsc(c.team)}">${c.res?MR_RES[c.res]:'N/A'}</div>${side('away')}</div>`
+    +(meta?`<div class="mr-gmeta">${ssEsc(meta)}</div>`:'')
+    +'<h3 class="mr-kh">KEY MATCH ANALYSIS</h3><div class="mr-figs">'
+    +c.figs.map(f=>`<div class="mr-fig" data-k="${ssEsc(f.k)}"><div class="mr-fl">${ssEsc(f.label)}${f.hint&&f.txt!=null?`<em>${ssEsc(f.hint)}</em>`:''}</div>`
+      +`<div class="mr-fv"><b class="${f.txt==null?'na':''}">${f.txt==null?'n/a':ssEsc(f.txt)}</b>${f.txt!=null&&f.sub?`<small class="${f.tone==='pos'?'pos':f.tone==='neg'?'neg':''}">${ssEsc(f.sub)}</small>`:''}</div></div>`).join('')
+    +'</div>'
+    +`<div class="mr-fn">${ssEsc(c.team)}'s figures. Turnovers are in-play only, as on Overview. “n/a” means this game doesn't carry that data.</div>`
+    +`<a class="mr-open" href="${ovDashHref(c.id)}">OPEN IN DASHBOARD</a>`;
+}
+
+// ── Match Reports page wiring ──
+let MR_ROWS=[], MR_LIMIT=MR_PAGE, MR_SEL=null, MR_TOKEN=0, MR_TIMER=null, MR_TEAM='', MR_POOLKEY='';
+const MR_F={q:'', res:'ALL', venue:'all'};
+const MR_XML=new Set();
+// XML is for admins only: the sign-in role (cohesion_auth) and the roles the
+// identity token carried (cohesion_roles → IS_ADMIN, set in boot) must agree.
+function mrIsAdmin(){ let a=false; try{ a=sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ } return a&&IS_ADMIN; }
+function mrSchedule(){ if(TAB!=='match-reports'||!GAMES_READY) return; clearTimeout(MR_TIMER); MR_TIMER=setTimeout(mrRun, 40); }
+function mrView(){ const f=mrFilter(MR_ROWS, MR_F); return {f, vis:f.slice(0, MR_LIMIT)}; }
+async function mrRun(){
+  if(TAB!=='match-reports'||!GAMES_READY) return;
+  const my=++MR_TOKEN, st=ssEl('mrStatus');
+  const T=ssEl('fTeamO').value, pool=selectedGames();
+  if(T!==MR_TEAM){ MR_TEAM=T; MR_LIMIT=MR_PAGE; MR_SEL=null; MR_XML.clear(); }
+  if(!T){ MR_ROWS=[]; mrRender(); st.textContent='No games match these filters.'; return; }
+  ovStore('cohesion_analysis_team', T);
+  const build=()=>{ MR_ROWS=mrRows(T, pool, id=>BUNDLES.get(id)); mrRender(); };
+  build();
+  const need=ovTeamGames(pool, T).filter(g=>!BUNDLES.has(g.id));
+  if(need.length){
+    st.textContent='Loading match events… 0/'+need.length;
+    try{ await ovLoad(need, (d,n)=>{ if(my!==MR_TOKEN) return; st.textContent='Loading match events… '+d+'/'+n; if(d<n&&d%4===0) build(); }); }
+    catch(e){ if(my===MR_TOKEN){ build(); st.textContent='Could not load games: '+e.message; } return; }
+  }
+  if(my!==MR_TOKEN) return;   // a newer team / filter superseded this run
+  st.textContent='';
+  build();
+  if(typeof cohCrestsReady==='function') cohCrestsReady().then(()=>{ if(my===MR_TOKEN&&TAB==='match-reports') mrRenderCard(); }).catch(()=>{});
+}
+function mrRender(){
+  const list=ssEl('mrList'), rec=ssEl('mrRecent'); if(!list||!rec) return;
+  const admin=mrIsAdmin();
+  list.classList.toggle('admin', admin);
+  if(!MR_ROWS.length){
+    rec.innerHTML=''; MR_SEL=null; MR_XML.clear();
+    list.innerHTML=`<div class="mr-empty">No games for ${ssEsc(MR_TEAM||'this team')} in the current filters.</div>`;
+    ssEl('mrCard').innerHTML=''; mrSyncXml(); return;
+  }
+  const top=MR_ROWS.slice(0,5);
+  rec.innerHTML=top.some(r=>r.pending)?'':ovRecentHTML(top.map(r=>r.m));   // the same cards as Overview
+  const ids=new Set(MR_ROWS.map(r=>r.id)); [...MR_XML].forEach(id=>{ if(!ids.has(id)) MR_XML.delete(id); });
+  const {f, vis}=mrView();
+  if(!vis.some(r=>r.id===MR_SEL)) MR_SEL=vis.length?vis[0].id:null;
+  list.innerHTML=mrListHTML(vis, {sel:MR_SEL, admin, xmlSel:MR_XML, total:f.length, all:MR_ROWS.length});
+  mrRenderCard(); mrSyncXml();
+}
+// colours and crests as the dashboard resolves them (game colour → imported
+// team pack → bundled default; crest via cohCrestSrc)
+function mrDeco(meta){
+  const d={hexH:meta.homeColor||'', hexA:meta.awayColor||'', crestH:null, crestA:null};
+  try{
+    if(typeof cohesionGraphics==='function'){
+      const t=cohesionGraphics({game:meta, events:[]}).dashTeamHexes();
+      d.hexH=t.hexH; d.hexA=t.hexA;
+      if(typeof cohCrestSrc==='function'){ d.crestH=cohCrestSrc(t.Hn, t.packH); d.crestA=cohCrestSrc(t.An, t.packA); }
+    }
+  }catch(_){ }
+  return d;
+}
+function mrRenderCard(){
+  const card=ssEl('mrCard'); if(!card) return;
+  if(!MR_SEL){ card.innerHTML=MR_ROWS.length?'<div class="mr-cload">No game selected.</div>':''; return; }
+  const b=BUNDLES.get(MR_SEL), c=b?mrCard(MR_TEAM, b):null;
+  card.innerHTML=mrCardHTML(c, c?mrDeco(b.meta):null);
+}
+function mrSyncXml(){
+  const btn=ssEl('mrXmlBtn'); if(!btn) return;
+  const n=mrIsAdmin()?MR_XML.size:0;
+  btn.hidden=n<1; btn.textContent='Download XML ('+n+')';
+}
+function mrSelect(id, scroll){
+  const list=ssEl('mrList'); if(!list||!id) return;
+  MR_SEL=id;
+  list.querySelectorAll('.mr-row').forEach(row=>{ const on=row.dataset.id===id; row.classList.toggle('sel', on); row.setAttribute('aria-selected', on?'true':'false');
+    if(on&&scroll&&row.scrollIntoView) row.scrollIntoView({block:'nearest'}); });
+  mrRenderCard();
+}
+function mrMove(d){
+  const vis=mrView().vis; if(!vis.length) return;
+  const i=vis.findIndex(r=>r.id===MR_SEL), j=Math.max(0, Math.min(vis.length-1, i<0?0:i+d));
+  if(vis[j].id!==MR_SEL) mrSelect(vis[j].id, true);
+}
+function mrSetFilter(k, v){
+  MR_F[k]=v; MR_LIMIT=MR_PAGE;
+  const box=k==='res'?ssEl('mrRes'):k==='venue'?ssEl('mrVenue'):null;
+  if(box) box.querySelectorAll('button').forEach(x=>{ const on=(x.dataset.res||x.dataset.venue)===v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on?'true':'false'); });
+  mrRender();
+}
+function mrSave(blob, name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+// one game → one .xml; several → one .zip (store-only writer in cohesion-xml.js)
+async function mrDownloadXml(ids){
+  if(!mrIsAdmin()||!ids||!ids.length) return;
+  const st=ssEl('mrStatus'), want=new Set(ids), order=MR_ROWS.filter(r=>want.has(r.id)).map(r=>r.id);
+  try{
+    const bundles=[];
+    for(let i=0;i<order.length;i++){ st.textContent='Building XML… '+(i+1)+'/'+order.length; bundles.push(await fetchBundle(order[i])); }
+    const files=mrXmlFiles(bundles);
+    if(!files.length) return;
+    if(files.length===1) mrSave(new Blob([files[0].text], {type:'application/xml'}), files[0].name);
+    else mrSave(new Blob([cohZipStore(files.map(f=>({name:f.name, data:f.text})))], {type:'application/zip'}), mrZipName(MR_TEAM, files.length));
+    st.textContent='';
+  }catch(e){ st.textContent='Could not build the XML: '+e.message; }
+}
+// ── the dashboard's generators, for one game ──
+// They run inside a hidden same-origin frame that loads ONLY the dashboard's
+// font faces and cohesion-graphics.js: canvas text is drawn with the fonts of
+// the document that owns the canvas, and this page loads different Barlow
+// weights than the dashboard, so drawing here would not give the dashboard's
+// image. The frame has no UI and makes no data requests; the crest resolver,
+// xP model, Gaelic Insights helpers and jsPDF are this page's own, handed in
+// by reference. If the frame cannot be set up, the generators run in this page.
+const MR_FONT_CSS='https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap';   // = dashboard.html
+const MR_FONTS=['300','600','700','800','900'].map(w=>w+' 20px "Barlow Condensed"').concat(['300','400','500','600'].map(w=>w+' 20px "Barlow"'));
+const MR_SHARE=['COHESION_TEAM_COLOURS','COHESION_CRESTS','XP_MODEL','xpForShot','cohesionXpDetectConv','cohCrestSlug','cohCrestSrc','cohCrestsReady','cohGiSupersededFn','cohGiIsCompanion','jspdf','__pdfTest'];
+let MR_FACTORY=null;
+function mrGfxFactory(){
+  if(MR_FACTORY) return MR_FACTORY;
+  MR_FACTORY=new Promise(resolve=>{
+    let done=false;
+    const fin=f=>{ if(done) return; done=true; resolve(typeof f==='function'?f:window.cohesionGraphics); };
+    try{
+      const fr=document.createElement('iframe');
+      fr.setAttribute('aria-hidden','true'); fr.setAttribute('tabindex','-1'); fr.title='Match graphics renderer';
+      fr.style.cssText='position:absolute;left:-9999px;top:0;width:10px;height:10px;border:0;visibility:hidden;pointer-events:none;';
+      fr.addEventListener('load', async()=>{
+        try{
+          const fw=fr.contentWindow;
+          if(!fw||typeof fw.cohesionGraphics!=='function') return fin(null);
+          MR_SHARE.forEach(k=>{ try{ Object.defineProperty(fw, k, {configurable:true, get(){ return window[k]; }}); }catch(_){ } });
+          try{ fw.alert=m=>window.alert(m); }catch(_){ }
+          try{ await Promise.all(MR_FONTS.map(f=>fw.document.fonts.load(f))); await fw.document.fonts.ready; }catch(_){ }
+          fin(fw.cohesionGraphics);
+        }catch(_){ fin(null); }
+      });
+      fr.srcdoc='<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="'+MR_FONT_CSS+'"></head><body><script src="cohesion-graphics.js"><\/script></body></html>';
+      document.body.appendChild(fr);
+      setTimeout(()=>fin(null), 8000);   // never wedge the window on a slow font host
+    }catch(_){ fin(null); }
+  });
+  return MR_FACTORY;
+}
+// one generator instance per game, kept (with its finished canvases) while the
+// bundle is the cached one; a handful at most
+const MR_GFX=new Map();
+async function mrGfx(id, b){
+  const c=MR_GFX.get(id);
+  if(c&&c.b===b) return c;
+  const make=await mrGfxFactory();
+  if(typeof make!=='function') throw new Error('the graphics script did not load — reload the page');
+  const e={b, G:make(cohGfxPrepare(b)), cv:{}};
+  MR_GFX.delete(id); MR_GFX.set(id, e);
+  while(MR_GFX.size>6) MR_GFX.delete(MR_GFX.keys().next().value);
+  return e;
+}
+async function mrGraphic(kind, id){
+  const b=await fetchBundle(id);          // cached: opening the window again never refetches
+  const e=await mrGfx(id, b);
+  if(!e.cv[kind]){
+    const src=kind==='stats'?await e.G.dashBuildStatsCanvas():await e.G.dashBuildInfographic();
+    const cv=document.createElement('canvas'); cv.width=src.width; cv.height=src.height;
+    cv.getContext('2d').drawImage(src, 0, 0);   // a copy owned by this page
+    e.cv[kind]=cv;
+  }
+  return {e, canvas:e.cv[kind]};
+}
+// ── the infographic / stats window ──
+let MR_M=null;
+function mrCloseModal(){
+  const m=MR_M; if(!m) return;
+  MR_M=null;
+  document.removeEventListener('keydown', m.onKey, true);
+  if(m.el.parentNode) m.el.parentNode.removeChild(m.el);
+  document.body.classList.remove('mr-lock');
+  try{ if(m.opener&&m.opener.isConnected) m.opener.focus(); else ssEl('mrList').focus({preventScroll:true}); }catch(_){ }
+}
+async function mrOpenModal(kind, id, opener){
+  mrCloseModal();
+  kind=kind==='stats'?'stats':'info';
+  const g=GAMES.find(x=>x.id===id)||{};
+  const el=document.createElement('div');
+  el.className='mr-modal'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true');
+  el.setAttribute('aria-label', kind==='stats'?'Stats card':'Match infographic');
+  el.innerHTML='<div class="mr-mcard'+(kind==='stats'?' stats':'')+'"><div class="mr-mhd"><div class="mr-mt"><b>'+(kind==='stats'?'STATS CARD':'MATCH INFOGRAPHIC')+'</b><span></span></div>'
+    +'<button type="button" class="mr-mx" data-m="close" aria-label="Close">×</button></div>'
+    +'<div class="mr-mbody"><div class="mr-mload"><div class="mr-spin"></div><div class="mr-mlt">Loading match events…</div></div></div>'
+    +'<div class="mr-mft">'+(kind==='stats'
+      ?'<button type="button" class="primary" data-m="png" disabled>Download image</button>'
+      :'<button type="button" class="primary" data-m="png" disabled>Download image (PNG)</button><button type="button" data-m="pdf" disabled>Download PDF</button><button type="button" class="link" data-m="report" disabled>Full match report PDF</button>')
+    +'<div class="mr-mmsg" role="status"></div></div></div>';
+  el.querySelector('.mr-mt span').textContent=[g.title||((g.homeTeam||'?')+' v '+(g.awayTeam||'?')), ovFmtDate(g.date)].filter(Boolean).join(' · ');
+  const m=MR_M={el, kind, id, opener:opener||null, canvas:null, e:null};
+  m.onKey=ev=>{ if(ev.key==='Escape'){ ev.preventDefault(); ev.stopPropagation(); mrCloseModal(); } };
+  document.addEventListener('keydown', m.onKey, true);
+  el.addEventListener('click', ev=>{
+    if(ev.target===el){ mrCloseModal(); return; }
+    const b=ev.target.closest?ev.target.closest('[data-m]'):null;
+    if(b&&!b.disabled) mrModalAct(m, b.dataset.m, b);
+  });
+  document.body.appendChild(el); document.body.classList.add('mr-lock');
+  try{ el.querySelector('.mr-mx').focus(); }catch(_){ }
+  const body=el.querySelector('.mr-mbody'), say=t=>{ const x=el.querySelector('.mr-mlt'); if(x) x.textContent=t; };
+  try{
+    if(BUNDLES.has(id)) say(kind==='stats'?'Drawing the stats card…':'Loading fonts and drawing the infographic…');
+    else { await fetchBundle(id); if(MR_M!==m) return; say(kind==='stats'?'Drawing the stats card…':'Loading fonts and drawing the infographic…'); }
+    const r=await mrGraphic(kind, id);
+    if(MR_M!==m) return;                    // closed (or another window opened) meanwhile
+    m.canvas=r.canvas; m.e=r.e;
+    body.innerHTML=''; body.appendChild(r.canvas);
+    el.querySelectorAll('.mr-mft button').forEach(x=>{ x.disabled=false; });
+  }catch(e){
+    if(MR_M!==m) return;
+    body.innerHTML='<div class="mr-mload err"><div class="mr-mlt"></div></div>';
+    say('Could not build this '+(kind==='stats'?'stats card':'infographic')+': '+((e&&e.message)||e));
+  }
+}
+async function mrModalAct(m, act, btn){
+  if(act==='close'){ mrCloseModal(); return; }
+  if(!m.canvas||!m.e) return;
+  const msg=t=>{ const x=m.el.querySelector('.mr-mmsg'); if(x) x.textContent=t||''; };
+  const stem=m.e.G.dashFileStem();
+  msg('');
+  try{
+    if(act==='png'){
+      await new Promise(res=>m.canvas.toBlob(b=>{ if(b) mrSave(b, stem+(m.kind==='stats'?'_stats.png':'_infographic.png')); else msg('Could not create the image.'); res(); }, 'image/png'));
+    } else if(act==='pdf'){
+      const NS=window.jspdf||{};
+      if(!NS.jsPDF){ msg('PDF library not loaded — check your connection and reload.'); return; }
+      mrInfographicPDF(m.canvas, NS).save(stem+'_infographic.pdf');
+    } else if(act==='report'){
+      const label=btn.textContent; btn.disabled=true; btn.textContent='Building the match report…';
+      try{ await m.e.G.dashExportPDF(); } finally { btn.textContent=label; btn.disabled=false; }
+    }
+  }catch(e){ msg('Could not create the file: '+((e&&e.message)||e)); }
+}
+function mrInit(){
+  const list=ssEl('mrList'), q=ssEl('mrQ'); if(!list) return;
+  if(q) q.addEventListener('input', ()=>mrSetFilter('q', q.value));
+  const seg=(id, key)=>{ const box=ssEl(id); if(box) box.addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) mrSetFilter(key, b.dataset[key]); }); };
+  seg('mrRes','res'); seg('mrVenue','venue');
+  const xb=ssEl('mrXmlBtn'); if(xb) xb.addEventListener('click', ()=>mrDownloadXml([...MR_XML]));
+  list.addEventListener('click', e=>{
+    const t=e.target;
+    if(t.closest('[data-act=more]')){ MR_LIMIT+=MR_PAGE; mrRender(); return; }
+    const row=t.closest('.mr-row'); if(!row) return;
+    if(t.closest('.mr-chk')) return;        // the tick-box has its own change event
+    const id=row.dataset.id, a=t.closest('[data-act]');
+    if(id!==MR_SEL) mrSelect(id);
+    if(!a){ try{ list.focus({preventScroll:true}); }catch(_){ } return; }
+    if(a.dataset.act==='xml') mrDownloadXml([id]);
+    else if(a.dataset.act==='info'||a.dataset.act==='stats') mrOpenModal(a.dataset.act, id, a);
+  });
+  list.addEventListener('change', e=>{
+    const t=e.target; if(!t||t.dataset.act!=='chk') return;
+    const row=t.closest('.mr-row'); if(!row) return;
+    if(t.checked) MR_XML.add(row.dataset.id); else MR_XML.delete(row.dataset.id);
+    mrSyncXml();
+  });
+  list.addEventListener('keydown', e=>{
+    if(e.key!=='ArrowDown'&&e.key!=='ArrowUp') return;
+    if(e.altKey||e.ctrlKey||e.metaKey) return;
+    e.preventDefault(); mrMove(e.key==='ArrowDown'?1:-1);
+  });
+  // a crest that fails to load is simply dropped (the colour chip stays)
+  const card=ssEl('mrCard'); if(card) card.addEventListener('error', e=>{ const t=e.target; if(t&&t.tagName==='IMG'&&t.parentNode) t.parentNode.removeChild(t); }, true);
 }
 // ═══════════════════════════════════════════════════════════════
 //  EXPORTS — PDF (white, print-friendly, native jsPDF + autoTable)
@@ -1955,7 +2528,7 @@ async function ssExportImage(){
     },'image/png');
   }catch(e){ alert('Could not build image: '+e.message); }
 }
-ovInit();
+ovInit(); mrInit();
 anSetTab(anTabFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash)));
 cohesionIdentityReady().then(boot);

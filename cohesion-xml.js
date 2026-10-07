@@ -5,6 +5,7 @@
  *   cohXmlFileStem(game)          -> a safe file stem from the game's title (or id)
  *   cohXmlLoadOrder(events)       -> events in the order Code Room holds them
  *                                    (video position, then coder clock)
+ *   cohZipStore([{name, data}])   -> a store-only .zip (Uint8Array) of several files
  *
  * Writes the events (including custom labels and player tags) as a
  * Sportscode-shaped ALL_INSTANCES file. Synthesised period markers
@@ -47,4 +48,46 @@ function cohXmlFileStem(game){ game=game||{}; return String(game.title||game.id|
 // A copy of the events in Code Room's load order (the gateway returns rows in
 // physical table order): video position, then coder clock.
 function cohXmlLoadOrder(events){ return [...(events||[])].sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0)); }
-if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder};
+
+// ── A tiny store-only ZIP writer (no compression, no dependency) for sending
+// several XML files as one download.
+//   cohZipStore([{name, data}], date?) -> Uint8Array
+// data is a string (written as UTF-8) or a Uint8Array; names are UTF-8
+// (general-purpose bit 11). XML is small, so storing is fine. No ZIP64:
+// fewer than 65,535 files and under 4 GB in total.
+let _cohCrcT=null;
+function cohCrc32(u8){
+  if(!_cohCrcT){ _cohCrcT=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); _cohCrcT[n]=c>>>0; } }
+  let c=0xFFFFFFFF;
+  for(let i=0;i<u8.length;i++) c=_cohCrcT[(c^u8[i])&0xFF]^(c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+function cohZipStore(files, date){
+  const enc=new TextEncoder(), d=date||new Date();
+  const dosT=((d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1))&0xFFFF;
+  const dosD=(((Math.max(1980,d.getFullYear())-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate())&0xFFFF;
+  const ents=(files||[]).map(f=>{ const data=typeof f.data==='string'?enc.encode(f.data):(f.data||new Uint8Array(0));
+    return {name:enc.encode(String(f.name||'file')), data, crc:cohCrc32(data)}; });
+  let size=22; ents.forEach(e=>{ size+=30+e.name.length+e.data.length+46+e.name.length; });
+  const out=new Uint8Array(size), dv=new DataView(out.buffer);
+  let p=0;
+  ents.forEach(e=>{                                   // local file header + data
+    e.off=p;
+    dv.setUint32(p,0x04034b50,true); dv.setUint16(p+4,20,true); dv.setUint16(p+6,0x0800,true); dv.setUint16(p+8,0,true);
+    dv.setUint16(p+10,dosT,true); dv.setUint16(p+12,dosD,true); dv.setUint32(p+14,e.crc,true);
+    dv.setUint32(p+18,e.data.length,true); dv.setUint32(p+22,e.data.length,true); dv.setUint16(p+26,e.name.length,true); dv.setUint16(p+28,0,true);
+    out.set(e.name,p+30); out.set(e.data,p+30+e.name.length); p+=30+e.name.length+e.data.length;
+  });
+  const cd=p;
+  ents.forEach(e=>{                                   // central directory
+    dv.setUint32(p,0x02014b50,true); dv.setUint16(p+4,20,true); dv.setUint16(p+6,20,true); dv.setUint16(p+8,0x0800,true); dv.setUint16(p+10,0,true);
+    dv.setUint16(p+12,dosT,true); dv.setUint16(p+14,dosD,true); dv.setUint32(p+16,e.crc,true);
+    dv.setUint32(p+20,e.data.length,true); dv.setUint32(p+24,e.data.length,true); dv.setUint16(p+28,e.name.length,true);
+    dv.setUint16(p+30,0,true); dv.setUint16(p+32,0,true); dv.setUint16(p+34,0,true); dv.setUint16(p+36,0,true); dv.setUint32(p+38,0,true); dv.setUint32(p+42,e.off,true);
+    out.set(e.name,p+46); p+=46+e.name.length;
+  });
+  dv.setUint32(p,0x06054b50,true); dv.setUint16(p+4,0,true); dv.setUint16(p+6,0,true); dv.setUint16(p+8,ents.length,true); dv.setUint16(p+10,ents.length,true);
+  dv.setUint32(p+12,p-cd,true); dv.setUint32(p+16,cd,true); dv.setUint16(p+20,0,true);
+  return out;
+}
+if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
