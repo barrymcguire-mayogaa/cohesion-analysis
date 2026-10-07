@@ -656,6 +656,42 @@ function ssToThird(e){
   return null;
 }
 function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
+// ── SCORE SOURCE rows with no score value ──
+// A "<TEAM> SCORE SOURCE" row normally carries 'Score Source Score Outcomes'
+// (1 POINT / 2 POINT / GOAL). Rows without it (hand-coded files) take the
+// value of the score they belong to, as the dashboard's infographic does:
+// T's SCORE SOURCE rows and T's scores are walked in time order and each row
+// is paired with one unused score — the earliest score that starts inside the
+// row's span (start…end), else the nearest one within SS_SRC_PAIR_WINDOW
+// seconds of the span. Rows that already have a value are paired too, so they
+// keep "their" score out of reach. A score = a primary shot whose outcome is
+// a score; in a game with no such shot for T, the bare "<TEAM> 1 POINT /
+// 2 POINT / GOAL" rows. Returns Map(row → value) for the valueless rows that
+// found a score; a row with no match is left out of the Score Source points.
+const SS_SRC_PAIR_WINDOW=15;   // seconds outside the row's span
+function ssScoreSourceValues(events, T, skip, shotMode){
+  const own=(events||[]).filter(e=>!skip(e)&&ssSideOf(e,T));
+  const explicit=e=>ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+  const rows=own.filter(e=>/SCORE SOURCE/.test(ssUC(e.code))).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
+  const out=new Map();
+  if(!rows.some(r=>!(explicit(r.e)>0))) return out;
+  let scores=own.filter(e=>ssIsShot(e,shotMode)).map(e=>({t:ssEvT(e), v:ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'')})).filter(x=>x.v>0);
+  if(!scores.length) scores=own.map(e=>{ const c=ssUC(e.code), rest=c.startsWith(T+' ')?c.slice(T.length+1):c;
+    return {t:ssEvT(e), v:/^(1 POINT|2 POINT|GOAL)$/.test(rest)?ssScoreVal(rest):0}; }).filter(x=>x.v>0);
+  scores.sort((a,b)=>a.t-b.t);
+  const used=new Set();
+  rows.forEach(r=>{
+    const a=r.t, b=Math.max(a, r.e.end!=null?+r.e.end:a);
+    let best=-1, bd=Infinity;
+    scores.forEach((sc,j)=>{ if(used.has(j)) return;
+      const d=sc.t<a?a-sc.t:sc.t>b?sc.t-b:0;
+      if(d<=SS_SRC_PAIR_WINDOW&&d<bd){ bd=d; best=j; } });
+    if(best<0) return;
+    used.add(best);
+    if(!(explicit(r.e)>0)) out.set(r.e, scores[best].v);
+  });
+  return out;
+}
 function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   g.shotGames=g.shots>0?1:0;
   g.koGames=g.koData?1:0;
@@ -705,8 +741,9 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   // possession into a single row). A game with no such rows (Gaelic Insights,
   // converted or not) is read from the source label on the shot itself.
   SS_SRC_CATS.forEach(c=>{ g['srcP:'+c.k]=0; g['srcS:'+c.k]=0; g['srcH:'+c.k]=0; });
-  g.srcPtsTagged=0; g.srcScoresTagged=0; g.srcShotsTagged=0;
+  g.srcPtsTagged=0; g.srcScoresTagged=0; g.srcShotsTagged=0; g.srcValRecovered=0; g.srcValMissing=0;
   const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
+  const recovered=rowMode?ssScoreSourceValues(events, T, skip, shotMode):new Map();
   events.forEach(e=>{
     if(skip(e)||!ssSideOf(e,T)) return;
     const c=ssUC(e.code);
@@ -715,7 +752,10 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
       const isScoreRow=/SCORE SOURCE/.test(c), isShotRow=/SHOT SOURCE/.test(c);
       if(!isScoreRow&&!isShotRow) return;
       cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source']));
-      if(isScoreRow) val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(isScoreRow){
+        val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+        if(!(val>0)&&cat){ if(recovered.has(e)){ val=recovered.get(e); g.srcValRecovered++; } else g.srcValMissing++; }   // value from the matched score
+      }
     } else {
       if(!ssIsShot(e,shotMode)) return;
       cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
