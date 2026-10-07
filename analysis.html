@@ -232,7 +232,8 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap{max-width:1320p
 .mr-row.sel{background:#1c3b4c;border-left-color:#19c3f0;}
 .mr-date{font:400 17px/1.2 'Barlow',sans-serif;color:var(--t1);}
 .mr-date.na{color:var(--t3);font-size:14px;}
-.mr-opp{font:600 22px/1.15 'Barlow',sans-serif;text-transform:uppercase;min-width:0;overflow-wrap:anywhere;padding:4px 0;}
+.mr-opp{font:600 22px/1.15 'Barlow',sans-serif;text-transform:uppercase;min-width:0;overflow-wrap:break-word;padding:4px 0;}
+.mr-opp.long{font-size:17px;letter-spacing:-.2px;}
 .mr-opp small{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);margin-left:6px;vertical-align:middle;white-space:nowrap;}
 .mr-res{font:400 22px 'Barlow',sans-serif;white-space:nowrap;}
 .mr-res.W{color:#22c55e;} .mr-res.D{color:#f59223;} .mr-res.L{color:#ef4444;} .mr-res.NA{color:var(--t3);font-size:16px;}
@@ -1820,13 +1821,12 @@ function mrXmlFiles(bundles){
   });
 }
 function mrZipName(T, n){ return ssSlug(T)+'_xml_'+n+'_games.zip'; }
-// ── the infographic on ONE landscape page: scaled to fit, centred, so white
-// margins appear only on the sides the page's shape leaves over ──
+// ── the infographic on ONE landscape page shaped like the image itself
+// (16:9 for the 1920×1080 infographic), so it fills the page with no margins ──
 function mrInfographicPDF(canvas, NS){
-  const doc=new NS.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
-  const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
-  const s=Math.min(PW/canvas.width, PH/canvas.height), w=canvas.width*s, h=canvas.height*s;
-  doc.addImage(canvas, 'PNG', (PW-w)/2, (PH-h)/2, w, h, undefined, 'FAST');
+  const PW=297, PH=Math.round(PW*canvas.height/canvas.width*100)/100;   // A4 width, image aspect
+  const doc=new NS.jsPDF({orientation:'landscape', unit:'mm', format:[PW, PH]});
+  doc.addImage(canvas, 'PNG', 0, 0, PW, PH, undefined, 'FAST');
   return doc;
 }
 // ── rendering (strings only; every interpolated value is escaped) ──
@@ -1853,7 +1853,7 @@ function mrListHTML(vis, o){
     const sel=r.id===o.sel, name=ssEsc('vs '+r.m.opp+(ssIsoDate(r.g.date)?', '+ovFmtDate(r.g.date):''));
     return `<div class="mr-row${sel?' sel':''}" role="row" data-id="${ssEsc(r.id)}" aria-selected="${sel?'true':'false'}">`
       +mrDateHTML(r.g.date)
-      +`<div class="mr-opp">${ssEsc(r.m.opp)}<small title="${r.home?'Home':'Away'}">${r.home?'H':'A'}</small></div>`
+      +`<div class="mr-opp${String(r.m.opp||'').split(/\s+/).some(w=>w.length>12)?' long':''}">${ssEsc(r.m.opp)}<small title="${r.home?'Home':'Away'}">${r.home?'H':'A'}</small></div>`
       +(r.pending?'<div class="mr-res NA" title="Loading">…</div>':`<div class="mr-res ${r.res||'NA'}">${r.res?MR_RES[r.res]:'n/a'}</div>`)
       +(admin?`<div class="mr-cell"><label class="mr-chk" title="Select for XML download"><input type="checkbox" data-act="chk"${xs.has(r.id)?' checked':''} aria-label="Select for XML download: ${name}"></label>`
         +`<button type="button" class="mr-ic" data-act="xml" title="Download XML" aria-label="Download XML: ${name}">${MR_ICON.xml}</button></div>`:'')

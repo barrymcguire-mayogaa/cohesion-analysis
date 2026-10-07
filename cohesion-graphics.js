@@ -541,7 +541,13 @@ function dashComputeStats(){
     scoredH:scored('h').length, scoredA:scored('a').length,
     scoreEvts, hasWorm, h1len };
 }
-function dashBuildStatsCanvas(){
+async function dashBuildStatsCanvas(){
+  try{ if(document.fonts&&document.fonts.load){
+    await Promise.all(['500','700','800'].map(w=>w+' 20px "Barlow Condensed"').concat(['400','600'].map(w=>w+' 20px "Barlow"')).map(f=>document.fonts.load(f)));
+    await document.fonts.ready; } }catch(_e){}
+  return dashBuildStatsCanvasRaw();
+}
+function dashBuildStatsCanvasRaw(){
   const lum=x=>{ try{ const n=parseInt(String(x).replace('#',''),16);
     return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }catch(_e){ return 0; } };
   const lighten=(x,f)=>{ try{ const n=parseInt(String(x).replace('#',''),16);
