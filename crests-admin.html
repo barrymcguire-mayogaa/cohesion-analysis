@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Crests</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;}
+input[type=text]:focus{border-color:var(--accent);}
+
+.process-btn{padding:12px 22px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.sec-btn{padding:7px 11px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+
+.drop{border:2px dashed var(--border);border-radius:12px;padding:30px 20px;text-align:center;color:var(--t2);font-size:13px;line-height:1.7;cursor:pointer;transition:all .15s;background:var(--card);}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.drop strong{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;display:block;color:var(--t1);}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:16px;}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+.tile.done{border-color:var(--green);}
+.tile.fail{border-color:var(--red);}
+.thumb{height:110px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  background-color:#fff;background-image:linear-gradient(45deg,#d9d9de 25%,transparent 25%,transparent 75%,#d9d9de 75%),linear-gradient(45deg,#d9d9de 25%,transparent 25%,transparent 75%,#d9d9de 75%);
+  background-size:16px 16px;background-position:0 0,8px 8px;}
+.thumb img{max-width:92px;max-height:92px;object-fit:contain;}
+.tile-name{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tile-meta{font-size:11px;color:var(--t3);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tile-meta.warn{color:var(--amber);}
+.tile-btns{display:flex;gap:6px;}
+.tile-btns .sec-btn{flex:1;}
+.bar{height:5px;border-radius:3px;background:var(--panel);overflow:hidden;}
+.bar i{display:block;height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s;}
+.tile.busy .bar i{width:40%;animation:slide 1s linear infinite;}
+.tile.done .bar i{width:100%;background:var(--green);}
+.tile.fail .bar i{width:100%;background:var(--red);}
+@keyframes slide{0%{margin-left:-40%;}100%{margin-left:100%;}}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.tile.busy .st{color:var(--accent);} .tile.done .st{color:var(--green);} .tile.fail .st{color:var(--red);white-space:normal;}
+
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.chip{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;padding:4px 9px;border-radius:6px;background:var(--card);border:1px solid var(--border);color:var(--t1);}
+.chip small{color:var(--t3);font-weight:600;margin-left:4px;}
+code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent);}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="crests/index.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-crests.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">🛡 Crests</div>
+  <div class="page-sub">
+    Upload a crest for any club or county. It is then used automatically on the stats image, PDF, maps image and
+    infographic for every game that team plays in. An uploaded crest replaces the built-in one for the same team;
+    a crest imported from a tracker team pack on a device still wins on that device.
+  </div>
+
+  <div class="error-box" id="setupErr"></div>
+
+  <!-- 1. ADD -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Add crests</div><div class="step-sub">PNG, JPEG or WebP · resized to 400px on this device before upload · transparency is kept</div></div></div>
+    <div class="drop" id="drop" tabindex="0">
+      <strong>Drop crest images here</strong>
+      or click to choose — several at once is fine. The team name is taken from the file name; fix it below before uploading.
+    </div>
+    <input type="file" id="pick" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+    <input type="file" id="pickOne" accept="image/png,image/jpeg,image/webp" style="display:none">
+    <div class="grid" id="pending"></div>
+    <div class="btn-row" id="pendBar" style="display:none;">
+      <button class="process-btn" id="upBtn" onclick="uploadAll()">Upload</button>
+      <button class="sec-btn" id="clrBtn" onclick="clearPending()">Clear list</button>
+      <span class="st" id="upMsg"></span>
+    </div>
+    <div class="error-box" id="addErr"></div>
+  </div>
+
+  <!-- 2. MISSING -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title">Teams with no crest</div><div class="step-sub">Every team in COHESION's games that has no uploaded, built-in or team-pack crest</div></div></div>
+    <div id="missingBox" class="note">Checking games…</div>
+  </div>
+
+  <!-- 3. UPLOADED -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">3</div>
+      <div><div class="step-title">Uploaded crests</div><div class="step-sub" id="upCount">Loading…</div></div></div>
+    <div class="grid" id="uploaded" style="margin-top:0;"></div>
+    <div class="error-box" id="listErr"></div>
+  </div>
+</div>
+
+<script>
+// ── Auth (same gate as admin.html; every write is re-checked server-side) ──
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!auth) window.location.href = 'index.html';
+if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('cohesion_theme',n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MAX_SIDE = 400;                       // longest side after the client-side resize
+const OK_TYPES = ['image/png','image/jpeg','image/webp'];
+
+let uploaded = [];                          // [{slug,name,url,updatedAt}] from the function
+let pending = [];                           // [{id,name,dataUrl,w,h,bytes,state,msg}]
+let teamNames = null;                       // every team name in COHESION's games (null = not loaded)
+let busy = false, seq = 0;
+
+function showErr(id, msg){ const el=$(id); el.textContent = msg||''; el.classList.toggle('show', !!msg); }
+
+// "ballina-stephenites_crest.PNG" -> "Ballina Stephenites"
+function nameFromFile(fn){
+  let n = String(fn||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_\-.]+/g,' ')
+    .replace(/\b(crest|logo|badge|gaa crest|final|copy|transparent)\b/gi,' ').replace(/\(\d+\)/g,' ').replace(/\s+/g,' ').trim();
+  if(n && n===n.toLowerCase()) n = n.replace(/(^|\s)([a-zà-ÿ])/g, (m,a,b)=>a+b.toUpperCase());
+  return n;
+}
+
+// Decode -> draw at most 400px on the longest side -> PNG (alpha preserved).
+function resizeToPng(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = ()=>{
+      try{
+        const w0 = im.naturalWidth, h0 = im.naturalHeight;
+        if(!w0 || !h0) throw new Error('empty image');
+        const k = Math.min(1, MAX_SIDE/Math.max(w0,h0));
+        const w = Math.max(1, Math.round(w0*k)), h = Math.max(1, Math.round(h0*k));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.clearRect(0,0,w,h);
+        ctx.drawImage(im,0,0,w,h);
+        const dataUrl = cv.toDataURL('image/png');
+        resolve({ dataUrl, w, h, bytes: Math.round((dataUrl.length - 22)*3/4) });
+      }catch(e){ reject(e); }
+      finally{ URL.revokeObjectURL(url); }
+    };
+    im.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('not a readable image')); };
+    im.src = url;
+  });
+}
+
+async function addFiles(fileList){
+  showErr('addErr','');
+  const files = Array.from(fileList||[]);
+  const skipped = [];
+  for(const f of files){
+    if(!OK_TYPES.includes(f.type)){ skipped.push(f.name+' (not PNG / JPEG / WebP)'); continue; }
+    try{
+      const r = await resizeToPng(f);
+      pending.push(Object.assign({ id: ++seq, name: nameFromFile(f.name), state:'ready', msg:'' }, r));
+    }catch(e){ skipped.push(f.name+' ('+(e.message||'could not be read')+')'); }
+  }
+  if(skipped.length) showErr('addErr','Skipped: '+skipped.join(', '));
+  renderPending();
+}
+
+function pendingNote(p){
+  const sl = cohCrestSlug(p.name);
+  if(!sl) return { cls:'warn', txt:'Needs a team name' };
+  if(pending.some(o=>o!==p && o.state!=='done' && cohCrestSlug(o.name)===sl)) return { cls:'warn', txt:'Same team twice in this list' };
+  if(uploaded.some(u=>u.slug===sl)) return { cls:'warn', txt:'Replaces the uploaded crest' };
+  if(cohCrestInfo(p.name).source==='bundled') return { cls:'', txt:'Replaces the built-in crest' };
+  return { cls:'', txt:p.w+'×'+p.h+' · '+Math.max(1,Math.round(p.bytes/1024))+' KB' };
+}
+const ST_LABEL = { ready:'Ready', queued:'Queued', busy:'Uploading…', done:'Uploaded', fail:'Failed' };
+
+function renderPending(){
+  const box = $('pending');
+  box.innerHTML = pending.map(p=>{
+    const n = pendingNote(p);
+    const cls = p.state==='busy'?'busy':p.state==='done'?'done':p.state==='fail'?'fail':'';
+    const lock = busy || p.state==='done';
+    return '<div class="tile '+cls+'" data-id="'+p.id+'">'
+      +'<div class="thumb"><img alt="" src="'+p.dataUrl+'"></div>'
+      +'<input type="text" value="'+esc(p.name)+'" placeholder="Team name" '+(lock?'disabled':'')+' oninput="renamePending('+p.id+',this.value)">'
+      +'<div class="tile-meta '+n.cls+'" data-note>'+esc(n.txt)+'</div>'
+      +'<div class="bar"><i></i></div>'
+      +'<div style="display:flex;align-items:center;gap:6px;"><span class="st" style="flex:1;">'+esc(ST_LABEL[p.state]+(p.msg?' — '+p.msg:''))+'</span>'
+      +(lock?'':'<button class="sec-btn danger" onclick="removePending('+p.id+')" title="Take this one out of the list">✕</button>')+'</div>'
+      +'</div>';
+  }).join('');
+  const todo = pending.filter(p=>p.state!=='done').length;
+  $('pendBar').style.display = pending.length ? 'flex' : 'none';
+  $('upBtn').disabled = busy || !todo;
+  $('upBtn').textContent = todo ? ('Upload '+todo+' crest'+(todo===1?'':'s')) : 'All uploaded';
+  $('clrBtn').disabled = busy;
+}
+function renamePending(id, v){
+  const p = pending.find(x=>x.id===id); if(!p) return;
+  p.name = v;
+  // refresh the notes without re-rendering (keeps the caret in the input)
+  pending.forEach(o=>{ const t=document.querySelector('.tile[data-id="'+o.id+'"] [data-note]'); if(!t) return;
+    const n=pendingNote(o); t.textContent=n.txt; t.className='tile-meta '+n.cls; });
+}
+function removePending(id){ pending = pending.filter(p=>p.id!==id); renderPending(); }
+function clearPending(){ if(busy) return; pending = []; showErr('addErr',''); $('upMsg').textContent=''; renderPending(); }
+
+async function sendCrest(name, dataUrl){
+  return cohesionAuthFetch('crests', { action:'upload', name: name.trim(), contentType:'image/png',
+    dataBase64: dataUrl.slice(dataUrl.indexOf(',')+1) });
+}
+
+// One at a time: each upload rewrites the bucket's _index.json, so parallel
+// uploads could drop each other's entry.
+async function uploadAll(){
+  if(busy) return;
+  const todo = pending.filter(p=>p.state!=='done');
+  const noName = todo.filter(p=>!cohCrestSlug(p.name));
+  if(noName.length){ showErr('addErr','Give every crest a team name first ('+noName.length+' missing).'); return; }
+  const seen = {};
+  for(const p of todo){ const sl=cohCrestSlug(p.name);
+    if(seen[sl]){ showErr('addErr','"'+p.name+'" and "'+seen[sl]+'" are the same team — remove one.'); return; }
+    seen[sl]=p.name; }
+  showErr('addErr','');
+  busy = true;
+  todo.forEach(p=>{ p.state='queued'; p.msg=''; });
+  let okN = 0, failN = 0;
+  for(let i=0;i<todo.length;i++){
+    const p = todo[i];
+    p.state='busy'; $('upMsg').textContent = 'Uploading '+(i+1)+' of '+todo.length+'…'; renderPending();
+    try{ await sendCrest(p.name, p.dataUrl); p.state='done'; okN++; }
+    catch(e){ p.state='fail'; p.msg = e.message||'error'; failN++;
+      if(/crests_storage\.sql/.test(p.msg)) showErr('setupErr', p.msg); }
+    renderPending();
+  }
+  busy = false;
+  $('upMsg').textContent = okN+' uploaded'+(failN?(' · '+failN+' failed — fix and press Upload again'):'');
+  renderPending();
+  await refresh();
+}
+
+// ── Uploaded list ─────────────────────────────────────────────────────────
+function renderUploaded(){
+  $('upCount').textContent = uploaded.length ? (uploaded.length+' crest'+(uploaded.length===1?'':'s')+' uploaded') : 'None yet';
+  $('uploaded').innerHTML = uploaded.map((c,i)=>
+    '<div class="tile">'
+    +'<div class="thumb"><img alt="" loading="lazy" src="'+esc(c.url)+'"></div>'
+    +'<div class="tile-name" title="'+esc(c.name)+'">'+esc(c.name)+'</div>'
+    +'<div class="tile-meta" title="'+esc(c.slug)+'.png">'+esc(c.updatedAt?new Date(c.updatedAt).toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'numeric'}):'')+'</div>'
+    +'<div class="tile-btns"><button class="sec-btn" onclick="replaceCrest('+i+')">Replace</button>'
+    +'<button class="sec-btn danger" onclick="deleteCrest('+i+')">Delete</button></div>'
+    +'</div>').join('');
+}
+
+let replaceTarget = null;
+function replaceCrest(i){ replaceTarget = uploaded[i]||null; if(replaceTarget){ $('pickOne').value=''; $('pickOne').click(); } }
+$('pickOne').addEventListener('change', async ev=>{
+  const f = ev.target.files && ev.target.files[0], c = replaceTarget; replaceTarget = null;
+  if(!f || !c) return;
+  showErr('listErr','');
+  try{
+    if(!OK_TYPES.includes(f.type)) throw new Error('Choose a PNG, JPEG or WebP image.');
+    const r = await resizeToPng(f);
+    const go = await cohesionModal({ title:'Replace crest', message:'Replace the crest for <strong>'+esc(c.name)+'</strong> with <strong>'+esc(f.name)+'</strong>?',
+      buttons:[{label:'Cancel',value:false},{label:'Replace',value:true,primary:true}] });
+    if(!go) return;
+    await sendCrest(c.name, r.dataUrl);
+    await refresh();
+  }catch(e){ showErr('listErr','Replace failed: '+(e.message||e)); }
+});
+
+async function deleteCrest(i){
+  const c = uploaded[i]; if(!c) return;
+  const fallback = (window.COHESION_CRESTS||{})[c.slug] ? 'The built-in crest for this team will be used again.' : 'This team will then have no crest.';
+  const go = await cohesionModal({ title:'Delete crest', message:'Delete the uploaded crest for <strong>'+esc(c.name)+'</strong>? '+fallback,
+    buttons:[{label:'Cancel',value:false},{label:'Delete',value:true,danger:true}] });
+  if(!go) return;
+  showErr('listErr','');
+  try{ await cohesionAuthFetch('crests', { action:'delete', slug:c.slug }); }
+  catch(e){ showErr('listErr','Delete failed: '+(e.message||e)); }
+  await refresh();
+}
+
+// ── Teams with no crest ───────────────────────────────────────────────────
+function packCrestFor(name){
+  try{
+    const n = String(name||'').trim().toLowerCase();
+    const t = (JSON.parse(localStorage.getItem('coh_team_packs'))||[]).find(t=>String(t.club||'').trim().toLowerCase()===n);
+    return t && t.crest ? t : null;
+  }catch(_e){ return null; }
+}
+function renderMissing(){
+  const box = $('missingBox');
+  if(teamNames===null) return;
+  const counts = {};                                   // slug -> {name, n}
+  teamNames.forEach(n=>{ const sl=cohCrestSlug(n); if(!sl) return;
+    (counts[sl] = counts[sl] || { name:n, n:0 }).n++; });
+  const all = Object.values(counts);
+  const missing = all.filter(t=>!cohCrestInfo(t.name, packCrestFor(t.name)).src).sort((a,b)=>b.n-a.n || a.name.localeCompare(b.name));
+  if(!all.length){ box.className='note'; box.textContent='No games found.'; return; }
+  if(!missing.length){ box.className='note good'; box.textContent='Every one of the '+all.length+' teams in COHESION\'s games has a crest.'; return; }
+  box.className='note warn';
+  box.innerHTML = missing.length+' of '+all.length+' teams have no crest. Name the file (or the box above) exactly like the team and it will be picked up:'
+    +'<div class="chips">'+missing.map(t=>'<span class="chip">'+esc(t.name)+'<small>'+t.n+' game'+(t.n===1?'':'s')+'</small></span>').join('')+'</div>';
+}
+async function loadTeams(){
+  try{
+    const j = await cohesionRead({ action:'listGames', section:'all' });
+    const names = [];
+    (j.games||[]).forEach(g=>{ const m=g.meta||{}; [m.homeTeam,m.awayTeam].forEach(n=>{ n=String(n||'').trim(); if(n) names.push(n); }); });
+    teamNames = names;
+    renderMissing();
+  }catch(e){
+    $('missingBox').className='note warn';
+    $('missingBox').textContent='Could not load the games list: '+(e.message||e);
+  }
+}
+
+// ── Load / refresh ────────────────────────────────────────────────────────
+async function refresh(){
+  try{
+    const j = await cohesionAuthFetch('crests', { action:'list' });
+    uploaded = (j.crests||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    showErr('listErr','');
+    showErr('setupErr', j.bucketMissing ? 'Crest storage is not set up yet — run supabase/crests_storage.sql in the Supabase SQL editor (one paste, one click), then reload this page. Until then the site keeps using the built-in crests.' : '');
+  }catch(e){
+    showErr('listErr','Could not load the uploaded crests: '+(e.message||e));
+  }
+  renderUploaded();
+  try{ await cohCrestsReady({ force:true, timeout:6000 }); }catch(_e){}   // this device's resolver cache -> fresh list
+  renderPending();
+  renderMissing();
+}
+
+// ── Drop zone ─────────────────────────────────────────────────────────────
+(function(){
+  const d = $('drop'), pick = $('pick');
+  d.addEventListener('click', ()=>{ if(!busy){ pick.value=''; pick.click(); } });
+  d.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); d.click(); } });
+  pick.addEventListener('change', e=>addFiles(e.target.files));
+  ['dragenter','dragover'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e=>{ if(!busy && e.dataTransfer) addFiles(e.dataTransfer.files); });
+  // a crest dropped beside the zone must not navigate the page away
+  ['dragover','drop'].forEach(t=>window.addEventListener(t, e=>e.preventDefault()));
+})();
+
+refresh();
+loadTeams();
+</script>
+</body>
+</html>
