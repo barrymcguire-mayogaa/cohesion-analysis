@@ -1486,7 +1486,7 @@ function ovPctTxt(v){ return v==null?'n/a':Math.round(v)+'%'; }
 // `other` = the name of the side this panel's team took the ball from.
 function ovToPanel(name, s, n, cls, nGames, other){
   const cre=(label, pct, tot)=>`<div class="tp-h">${label}</div><div class="tp-row"><b class="${pct==null?'na':''}">${ovPctTxt(pct)}</b><span>Total created: ${s.games?tot:'n/a'}</span></div>`;
-  const line=(label, v, games)=>`<div class="tp-x"><span>${ssEsc(label)}:</span> <b class="${games?'':'na'}">${games?v:'n/a'}</b>${games&&games<nGames?`<small>${ssEsc(ovFromNote(games,nGames))}</small>`:''}</div>`;
+  const line=(label, v, games)=>`<div class="tp-x"><span>${ssEsc(label)}:</span> <b class="${games?'':'na'}">${games?v:'n/a'}</b>${games&&games<nGames&&games!==n?`<small>${ssEsc(ovFromNote(games,nGames))}</small>`:''}</div>`;   // (not repeated when it is the headline's own note)
   const head=(label, v)=>`<div class="tp-h">${label} <em>in play</em></div><div class="tp-n ${n?'':'na'}">${n?v:'n/a'}${n&&n<nGames?`<small>${ssEsc(ovFromNote(n,nGames))}</small>`:''}</div>`;
   return `<div class="tpanel ${cls}"><div class="tp-name">${ssEsc(name)}</div>`
     +head('TOs WON', s.won)
