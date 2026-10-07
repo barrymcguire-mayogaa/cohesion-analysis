@@ -729,7 +729,8 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   else g.toKoSource='';
   g.toKoGames=g.toKoSource?1:0;
   // shot attempts turned over: only where the format can tell (typed rows, or GI)
-  const giFmt=winnerCoded&&events.some(e=>!skip(e)&&ssIsGiRawShot(e)&&ssGiShotOutcome(e));
+  // (the GI originals are looked at directly: in a converted game they are superseded, not gone)
+  const giFmt=winnerCoded&&events.some(e=>ssIsGiRawShot(e)&&ssGiShotOutcome(e));
   g.toShotGames=(typed||giFmt)?1:0;
   if(!g.toShotGames){ g.toLostShot=0; g.toWonShot=0; }
   g.toGames=(g.toLost+g.toWon)>0?1:0;
@@ -1489,7 +1490,7 @@ function ovToPanel(name, s, n, cls, nGames, other){
   const head=(label, v)=>`<div class="tp-h">${label} <em>in play</em></div><div class="tp-n ${n?'':'na'}">${n?v:'n/a'}${n&&n<nGames?`<small>${ssEsc(ovFromNote(n,nGames))}</small>`:''}</div>`;
   return `<div class="tpanel ${cls}"><div class="tp-name">${ssEsc(name)}</div>`
     +head('TOs WON', s.won)
-    +line('Kickouts won from '+other, s.wonKo, s.koGames)+line(other+' shot attempts turned over', s.wonShot, s.shotGames)
+    +line('Kickouts won from '+other, s.wonKo, s.koGames)+line(other.charAt(0).toUpperCase()+other.slice(1)+' shot attempts turned over', s.wonShot, s.shotGames)
     +head('TOs LOST', s.lost)
     +line('Kickouts lost', s.lostKo, s.koGames)+line('Shot attempts turned over', s.lostShot, s.shotGames)
     +cre('SHOT CREATION AFTER TO', s.shotPct, s.shots)+cre('SCORE CREATION AFTER TO', s.scorePct, s.scores)
