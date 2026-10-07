@@ -107,6 +107,96 @@ body:not([data-tab=overview]):not([data-tab=compare]) .only-data{display:none !i
 .soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
+/* ── OVERVIEW ── */
+body[data-tab=overview] .wrap{max-width:1320px;}
+.ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
+#ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
+#ovStatus:not(:empty){margin:4px 2px 12px;}
+.ov-recent{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:6px;}
+.mcard{display:block;min-width:0;text-decoration:none;color:var(--t1);background:var(--panel);border:1.5px solid var(--border);border-radius:14px;padding:12px 14px 12px;transition:transform .12s;}
+.mcard:hover{transform:translateY(-2px);}
+.mcard.W{border-color:#1c8a41;box-shadow:0 0 0 1px rgba(34,197,94,.25),0 0 16px rgba(34,197,94,.38);}
+.mcard.D{border-color:#c9761a;box-shadow:0 0 0 1px rgba(245,146,35,.25),0 0 16px rgba(245,146,35,.4);}
+.mcard.L{border-color:#b3262b;box-shadow:0 0 0 1px rgba(239,68,68,.25),0 0 16px rgba(239,68,68,.4);}
+.mc-opp{font:700 21px 'Barlow',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mc-meta{font-size:.86rem;color:var(--t2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mc-score{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;margin-top:9px;}
+.mc-score b{font:700 21px 'Barlow',sans-serif;white-space:nowrap;}
+.mc-score span{font-size:.84rem;color:var(--t2);white-space:nowrap;}
+.mc-score span.na{color:var(--t3);font-size:.95rem;}
+.mc-score em{margin-left:auto;font:800 22px 'Barlow',sans-serif;font-style:normal;}
+.mcard.W em{color:#22c55e;} .mcard.D em{color:#f59223;} .mcard.L em{color:#ef4444;}
+.ov-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px;margin-top:22px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 22px;}
+.kpi{min-width:0;border:1px solid var(--border);border-radius:14px;padding:12px 8px 12px;text-align:center;background:rgba(255,255,255,.012);}
+.kpi-t{font:700 20px 'Barlow',sans-serif;color:var(--accent);letter-spacing:.01em;line-height:1.15;min-height:46px;display:flex;align-items:center;justify-content:center;}
+.kpi-v{font:800 58px 'Barlow',sans-serif;line-height:1.1;margin:2px 0 6px;}
+.kpi-v.na{color:var(--t3);font-weight:600;font-size:40px;line-height:1.6;}
+.kpi-d{font-size:.74rem;color:var(--t2);min-height:1.1em;}
+.kpi-b{font-size:.7rem;color:var(--t3);margin-top:4px;text-transform:uppercase;letter-spacing:.05em;}
+.ov-h{font:700 23px 'Barlow',sans-serif;letter-spacing:.01em;margin:34px 2px 16px;color:var(--t1);}
+.ov-donuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;}
+.dcard{display:flex;align-items:center;gap:8px 26px;flex-wrap:wrap;justify-content:center;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px 22px;min-width:0;}
+.dchart{flex:0 1 270px;min-width:190px;}
+.donut{display:block;width:100%;height:auto;}
+.dn-lbl{font:700 13px 'Barlow',sans-serif;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2px;}
+.dn-lbl.dark{fill:#1b1b25;stroke:none;}
+.dn-na{font:600 22px 'Barlow',sans-serif;fill:var(--t3);}
+.dkey{flex:1 1 220px;min-width:0;}
+.dkey h4{margin:0 0 12px;font:700 23px 'Barlow',sans-serif;color:var(--accent);}
+.dkey ul{list-style:none;margin:0;padding:0;}
+.dkey li{display:flex;align-items:center;gap:12px;padding:6px 0;font:600 15px 'Barlow',sans-serif;letter-spacing:.02em;}
+.dkey li i{flex:0 0 17px;height:17px;border-radius:2px;}
+.dkey li .lg-l{flex:1;min-width:0;}
+.dkey li .lg-v{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dkey li .lg-v small{display:inline-block;min-width:30px;text-align:right;color:var(--t3);font-weight:400;font-size:.78rem;margin-left:6px;}
+.dkey li.zero{color:var(--t3);}
+.dnote{font-size:.72rem;color:var(--t3);margin-top:10px;line-height:1.45;}
+.ov-to{display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr) minmax(0,270px);gap:16px;align-items:stretch;}
+.tpanel{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;min-width:0;margin-top:30px;}
+.tp-name{font:700 22px 'Barlow',sans-serif;line-height:1.15;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:6px 16px;overflow-wrap:anywhere;}
+.tp-h{font:700 16px 'Barlow',sans-serif;color:var(--accent);margin:20px 2px 8px;}
+.tp-n{font:600 18px 'Barlow',sans-serif;margin:0 6px;}
+.tp-n small{display:block;font-weight:400;font-size:.7rem;color:var(--t3);margin-top:3px;}
+.tp-row{display:flex;align-items:baseline;gap:10px 18px;flex-wrap:wrap;margin:0 6px;}
+.tp-row b{font:700 18px 'Barlow',sans-serif;} .tp-row b.na{color:var(--t3);font-weight:400;}
+.tp-row span{font-size:.92rem;color:var(--t2);}
+.tp-note{font-size:.68rem;color:var(--t3);margin:16px 4px 0;line-height:1.45;}
+.pitchwrap{min-width:0;display:flex;flex-direction:column;}
+.pz-heads{display:grid;grid-template-columns:repeat(3,1fr);height:30px;align-items:center;text-align:center;font:600 15px 'Barlow',sans-serif;color:var(--t2);letter-spacing:.03em;}
+.pitch{position:relative;flex:1;min-height:440px;border-radius:2px;overflow:hidden;}
+.pitch-bg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.pz{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);}
+.pz-col{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55);padding:6px 2px;min-width:0;}
+.pz-l{font:700 22px 'Barlow',sans-serif;}
+.pz-l:nth-of-type(4){margin-top:26px;}
+.pz-p{font:800 44px 'Barlow',sans-serif;line-height:1.25;}
+.pz-p.na{font-size:26px;font-weight:600;opacity:.75;line-height:2;}
+.pz-c{font:700 22px 'Barlow',sans-serif;min-height:26px;}
+.pz-dir{display:flex;align-items:center;gap:10px;margin-top:10px;color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.14em;}
+.pz-dir span{white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis;}
+.pz-dir svg{flex:1;height:12px;min-width:30px;margin-right:-12px;}
+.pz-dir i{width:0;height:0;border-left:11px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;}
+.pz-note{font-size:.7rem;color:var(--t3);margin-top:8px;line-height:1.45;}
+@media (max-width:1100px){
+  .ov-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px;}
+  .ov-recent{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .ov-donuts{grid-template-columns:minmax(0,1fr);}
+  .ov-to{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .ov-to .pitchwrap{grid-column:1 / -1;order:3;}   /* pitch stacks under the two panels */
+  .tpanel{margin-top:0;}
+}
+@media (max-width:640px){
+  .ov-recent{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .mcard{padding:10px 11px;} .mc-opp,.mc-score b{font-size:17px;} .mc-meta{font-size:.76rem;}
+  .ov-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;}
+  .kpi-t{font-size:16px;min-height:38px;} .kpi-v{font-size:44px;} .kpi-v.na{font-size:30px;}
+  .ov-h{font-size:19px;margin:26px 2px 12px;}
+  .dcard{padding:16px 14px;}
+  .ov-to{gap:10px;} .tpanel{padding:10px 9px 12px;} .tp-name{font-size:16px;padding:5px 12px;} .tp-h{font-size:13.5px;margin-top:14px;} .tp-row span{font-size:.8rem;}
+  .pz-heads{font-size:10.5px;letter-spacing:0;} .pitch{min-height:340px;}
+  .pz-l{font-size:14px;} .pz-p{font-size:30px;} .pz-c{font-size:16px;min-height:20px;} .pz-l:nth-of-type(4){margin-top:18px;}
+  .ov-basisnote{padding-top:0;}
+}
 </style>
 </head>
 <body>
@@ -158,13 +248,18 @@ body:not([data-tab=overview]):not([data-tab=compare]) .only-data{display:none !i
   </div>
   <div class="filters" style="justify-content:flex-end"><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
   </div>
-  <!--OVERVIEW-CONTROLS-->
+  <!-- OVERVIEW controls: one team v its opponents -->
+  <div class="filters only-overview" id="ovCtl">
+    <div class="fg"><label for="fTeamO">TEAM</label><select id="fTeamO"></select></div>
+    <div class="fg"><label>GAMES</label><div class="seg" id="ovBasis"><button type="button" data-basis="5">Last 5</button><button type="button" data-basis="10" class="on">Last 10</button><button type="button" data-basis="all">All</button></div></div>
+    <div class="fg ov-basisnote"><div class="fnote" id="ovBasisNote"></div></div>
+  </div>
   <details class="gamespick only-data" id="gamesPick"><summary><span class="only-overview">Game types · </span>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
     <div id="ovTypesSlot"></div>
     <div class="msbar" style="margin-top:4px"><button class="mini" onclick="gamesAll(true)">Select all</button><button class="mini" onclick="gamesAll(false)">Select none</button><span class="fnote" id="gNote"></span></div>
     <div id="gList"></div></details>
   <div id="status">Loading games…</div>
-  <div class="pane" id="pane-overview"><!--OVERVIEW-PANE--></div>
+  <div class="pane" id="pane-overview"><div id="ovStatus"></div><div id="ovBody"></div></div>
   <div class="pane" id="pane-match-reports"><div class="soon"><div class="tag">COMING SOON</div><h2>MATCH REPORTS</h2><p>A one-page report for any single game: the score, shooting, kickouts, turnovers and score sources for both teams.</p></div></div>
   <div class="pane" id="pane-team-trends"><div class="soon"><div class="tag">COMING SOON</div><h2>TEAM TRENDS</h2><p>How one team's key numbers move game by game across the season, against its own average.</p></div></div>
   <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
@@ -391,6 +486,163 @@ function ssGameTally(meta, events, T){
       if(ssSideOf(o.e,T)){ if(o.xp==null){ g.xpMiss++; return; } g.xp+=o.xp; g.xpShots++; g.xpPts+=o.pts; }
       else if(ssSideOf(o.e,O)&&o.xp!=null){ g.xpAg+=o.xp; g.xpAgShots++; } });
     g.xpGames=g.xpShots>0?1:0; g.xpAgGames=g.xpAgShots>0?1:0; g.xpData=g.xpShots>0||g.xpAgShots>0; }
+  ssOverviewTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
+  return g;
+}
+// ═══════════════════════════════════════════════════════════════
+//  OVERVIEW TALLIES — extra per-game fields for the Overview tab, added to
+//  the same tally object (all numeric, so ssAggregate sums them). Nothing
+//  here changes a field the Compare metrics read.
+// ═══════════════════════════════════════════════════════════════
+// case-insensitive label lookup (real files carry 'Turnover Locations',
+// 'Turnover Location', 'TURNOVER LOCATIONS', 'turnover outcomes' …)
+function ssLblCI(e, names){
+  const L=e.labels||{};
+  for(const n of names){ if(L[n]!=null&&String(L[n]).trim()) return String(L[n]).trim(); }
+  const want=names.map(ssUC);
+  for(const k of Object.keys(L)){ if(want.includes(ssUC(k))&&String(L[k]||'').trim()) return String(L[k]).trim(); }
+  return '';
+}
+// ── SOURCES ── the doughnut categories, in display order with fixed colours.
+// Keys are COHESION's own vocabulary (cohesion-config.js COHESION_EVENT_LINKS:
+// 'Score Source Outcomes' / 'Shot Source Outcomes'); TURNOVER is the plain,
+// unspecified turnover a Gaelic Insights conversion writes (cohesion-gi.js).
+const SS_SRC_CATS=[
+  {k:'OWN KO',  label:'OWN KO',         col:'#2f7ed8'},
+  {k:'OPP KO',  label:'OPP KO',         col:'#f08a34'},
+  {k:'FTO',     label:'FORCED TO',      col:'#2fa58d'},
+  {k:'UTO',     label:'UNFORCED TO',    col:'#3fa63f'},
+  {k:'FREE',    label:'FREE WON',       col:'#c9504f'},
+  {k:'BR',      label:'BALL RECOVERED', col:'#8a6bb0'},
+  {k:'TI',      label:'THROW-IN',       col:'#f7ec80'},
+  {k:'TO',      label:'TURNOVER',       col:'#5fb8c9', extra:true},   // shown only when present
+  {k:'OTHER',   label:'OTHER',          col:'#7b7b88', extra:true}];
+const SS_SRC_TO_KEYS=['FTO','UTO','TO'];   // sources that count as "after a turnover"
+function ssSrcCat(txt){
+  const S=ssUC(txt); if(!S) return null;
+  if(/\bOWN\s+(KICK\s*OUT|KO)S?\b/.test(S)) return 'OWN KO';
+  if(/\bOPP(OSITION)?\s+(KICK\s*OUT|KO)S?\b/.test(S)) return 'OPP KO';
+  if(/UNFORCED|\bU\/TO\b|OPPOSITION ERROR/.test(S)) return 'UTO';
+  if(/FORCED|\bF\/TO\b/.test(S)) return 'FTO';
+  if(/FREE/.test(S)) return 'FREE';
+  if(/BALL RECOVERED|\bRECOVER/.test(S)) return 'BR';
+  if(/THROW[\s-]*(IN|UP)/.test(S)) return 'TI';
+  if(/TURNOVER|\bTOS?\b/.test(S)) return 'TO';
+  return 'OTHER';
+}
+// ── TURNOVERS ── who won it, and where.
+//
+// RULE (worked out from the Tracker's export code and real XMLs):
+//  1. "<TEAM> TOs" / "<TEAM> TOS" (GAA Score Tracker, Code Room), GIU
+//     "<Team> Turnover" and "<Team> Turnover Lost": the event's team is the
+//     team that LOST the ball. Tracker: mdCommitTurnover() tags "who lost it"
+//     and hands possession to the other team; in every exported XML a
+//     "<A> TOs" row is followed by "<B> TEAM POSSESSION". GIU: "Kerry
+//     Turnover" is followed by "Donegal Poss".
+//  2. Gaelic Insights "<Team> Turnover Won": the event's team WON the ball.
+//  3. The tagged third ('Turnover Locations' DEFENSIVE / MIDDLE / ATTACKING
+//     THIRD; GIU 'PitchArea' and GI 'turnover_zone' Own / Middle / Opp Third)
+//     is ALWAYS from the EVENT TEAM's point of view. Tracker: a ball over the
+//     OPPOSITION endline is logged ATTACKING THIRD, a "turned over in the
+//     loser's DEFENSIVE third" starts the winners' attack, and KICKOUT LOST
+//     rows read SHORT→DEFENSIVE, MEDIUM→MIDDLE, LONG→ATTACKING (the kicking
+//     team's view). GI: 1037 of 1408 "Turnover Won" zones are 'Own Third'.
+//  So for the selected team T: an event of T keeps its third, an event of
+//  the opposition has DEFENSIVE and ATTACKING swapped; rule 1/2 says whether
+//  T lost or won it.
+//
+// COUNTING: as the Compare engine does (ssIsTO), EVERY turnover row counts —
+// including KICKOUT LOST and SHOT ATTEMPT rows — with one exception: recent
+// Tracker exports write each lost kickout TWICE ("KICKOUT LOST" and
+// "KO LOST LONG/MEDIUM/SHORT"); when a team has both in a game the
+// "KO LOST <length>" copies are dropped so a lost kickout counts once.
+// (Compare's own Turnover Rate still uses its original count, unchanged.)
+const SS_TO_OUT_GROUPS=['Turnover Outcomes','Turnover Outcome','TurnoverOutcome'];
+const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone','PitchArea'];
+function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.code)); }
+function ssToKind(e){
+  const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome);
+  if(/KICK\s*OUT LOST|\bKO LOST\b/.test(K)) return /^KO LOST\b/.test(K)?'koLen':'ko';
+  if(/SHOT ATTEMPT/.test(K)) return 'shot';
+  return 'play';
+}
+// third in the EVENT TEAM's view: 'DEF' | 'MID' | 'ATT' | null
+function ssToThird(e){
+  const K=ssUC(ssLblCI(e,SS_TO_LOC_GROUPS));
+  if(!K) return null;
+  if(/DEFENSIVE|\bDEF\b|\bOWN\b/.test(K)) return 'DEF';
+  if(/MIDDLE|\bMID\b/.test(K)) return 'MID';
+  if(/ATTACKING|OFFENSIVE|\bATT\b|\bOPP/.test(K)) return 'ATT';
+  return null;
+}
+function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
+function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
+  g.shotGames=g.shots>0?1:0;
+  g.koGames=g.koData?1:0;
+  // ── turnovers ──
+  ['toLost','toWon','toLostDEF','toLostMID','toLostATT','toWonDEF','toWonMID','toWonATT','toLostLoc','toWonLoc',
+   'toLostKo','toLostShot','toWonKo','toWonShot','toDupDropped'].forEach(k=>g[k]=0);
+  const tos=[], hasKoRow={};
+  events.forEach(e=>{
+    if(skip(e)||!ssIsTO(e)) return;
+    const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
+    if(!mineT&&!mineO) return;
+    const kind=ssToKind(e), side=mineT?'T':'O';
+    if(kind==='ko') hasKoRow[side]=true;
+    tos.push({e, side, kind});
+  });
+  tos.forEach(x=>{
+    if(x.kind==='koLen'&&hasKoRow[x.side]){ g.toDupDropped++; return; }   // the same lost kickout, written twice
+    const eventTeamWon=ssToWinnerCoded(x.e);
+    const tLost=(x.side==='T')!==eventTeamWon;
+    const raw=ssToThird(x.e), third=raw?(x.side==='T'?raw:ssFlipThird(raw)):null;
+    const P=tLost?'toLost':'toWon';
+    g[P]++;
+    if(third){ g[P+third]++; g[P+'Loc']++; }
+    if(x.kind==='ko'||x.kind==='koLen') g[P+'Ko']++;
+    else if(x.kind==='shot') g[P+'Shot']++;
+  });
+  g.toGames=(g.toLost+g.toWon)>0?1:0;
+  g.toLocGames=(g.toLostLoc+g.toWonLoc)>0?1:0;
+  // ── score source (points) and shot source (shots) for T ──
+  // A game coded with SCORE SOURCE / SHOT SOURCE rows (Tracker, Code Room)
+  // is read from those rows only: one SCORE SOURCE per score, one SHOT SOURCE
+  // per missed shot (the Tracker folds a run of consecutive misses in one
+  // possession into a single row). A game with no such rows (Gaelic Insights,
+  // converted or not) is read from the source label on the shot itself.
+  SS_SRC_CATS.forEach(c=>{ g['srcP:'+c.k]=0; g['srcS:'+c.k]=0; g['srcH:'+c.k]=0; });
+  g.srcPtsTagged=0; g.srcScoresTagged=0; g.srcShotsTagged=0;
+  const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
+  events.forEach(e=>{
+    if(skip(e)||!ssSideOf(e,T)) return;
+    const c=ssUC(e.code);
+    let cat=null, val=0;
+    if(rowMode){
+      const isScoreRow=/SCORE SOURCE/.test(c), isShotRow=/SHOT SOURCE/.test(c);
+      if(!isScoreRow&&!isShotRow) return;
+      cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source']));
+      if(isScoreRow) val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+    } else {
+      if(!ssIsShot(e,shotMode)) return;
+      cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
+      val=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+    }
+    if(!cat) return;
+    g['srcH:'+cat]++; g.srcShotsTagged++;
+    if(val>0){ g['srcP:'+cat]+=val; g['srcS:'+cat]++; g.srcPtsTagged+=val; g.srcScoresTagged++; }
+  });
+  g.srcShotGames=g.srcShotsTagged>0?1:0;
+  g.srcScoreGames=g.srcScoresTagged>0?1:0;
+  // ── creation after a turnover: shots / scores whose TAGGED source is a
+  // turnover ÷ turnovers won, over games that have BOTH source tags and
+  // turnover rows (so a game without tags cannot drag the rate down) ──
+  g.toCreateGames=(g.srcShotGames&&g.toGames)?1:0;
+  g.toShotsCreated=0; g.toScoresCreated=0; g.toWonCreateG=0; g.toWonPlayCreateG=0;
+  if(g.toCreateGames){
+    SS_SRC_TO_KEYS.forEach(k=>{ g.toShotsCreated+=g['srcH:'+k]; g.toScoresCreated+=g['srcS:'+k]; });
+    g.toWonCreateG=g.toWon;
+    g.toWonPlayCreateG=g.toWon-g.toWonKo-g.toWonShot;
+  }
   return g;
 }
 // Player xP over a list of bundles for team T: shots, shots with xP, points
@@ -717,6 +969,8 @@ function refreshTeams(){
   if(pb==='__baseline__'||teams.includes(pb)) b.value=pb;
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
+  ovFillTeams(teams, selectedGames());
+  ovSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -768,7 +1022,7 @@ function ssDisplayColors(TA, TB){
   return {a,b};
 }
 function teamAgg(bundles, T){
-  const tallies=bundles.map(b=>ssGameTally(b.meta,b.events,T)).filter(Boolean);
+  const tallies=bundles.map(b=>ssTallyCached(b,T)).filter(Boolean);
   return {agg:ssAggregate(tallies), games:tallies.length};
 }
 async function loadBundles(games, st){
@@ -948,6 +1202,240 @@ function ssRenderPlayers(){
         +gp.rows.map(r=>`<tr class="${r.few?'few':''}">${r.cells.map((c,j)=>`<td class="${j===4&&r.diff!=null?(r.diff>0.05?'pos':r.diff<-0.05?'neg':''):''}">${ssEsc(j===4?c.replace('-','−'):c)}</td>`).join('')}</tr>`).join('')
         +'</tbody></table>':'<div class="cav">No tagged shooters for this team in these games.</div>')).join('')
     +`<div class="cav">${ssEsc(SS_PCAVEAT)}${SS_LAST&&SS_LAST.xpVersion?' xP model v'+ssEsc(SS_LAST.xpVersion)+'.':''}</div></div>`;
+}
+// ═══════════════════════════════════════════════════════════════
+//  OVERVIEW — one selected team v its opponents. Pure helpers first
+//  (headlessly tested), then the page wiring. Everything is derived from
+//  the same per-game tallies the Compare tab uses (ssGameTally), cached
+//  per bundle so switching tab / basis / team never refetches or recounts.
+// ═══════════════════════════════════════════════════════════════
+const SS_TALLY_CACHE=new WeakMap();
+function ssTallyCached(b, T){
+  if(!b||!b.meta||!Array.isArray(b.events)) return null;
+  const M=ssXpModel();
+  let c=SS_TALLY_CACHE.get(b);
+  if(!c||c.M!==M||c.ev!==b.events||c.n!==b.events.length||c.meta!==b.meta){ c={M, ev:b.events, n:b.events.length, meta:b.meta, t:new Map()}; SS_TALLY_CACHE.set(b,c); }
+  if(!c.t.has(T)) c.t.set(T, ssGameTally(b.meta, b.events, T));
+  return c.t.get(T);
+}
+// the team's games, newest first (undated games last; ties keep list order)
+function ovTeamGames(games, T){
+  return (games||[]).map((g,i)=>({g, i, d:ssIsoDate(g.date)})).filter(x=>ssTeamIn(x.g,T))
+    .sort((a,b)=>a.d===b.d?a.i-b.i:(a.d>b.d?-1:1)).map(x=>x.g);
+}
+// basis: '5' | '10' | 'all' — applied AFTER the filters, to the sorted list
+function ovBasisGames(sorted, basis){ return basis==='all'?sorted.slice():sorted.slice(0, Math.max(1, parseInt(basis,10)||10)); }
+function ovBasisTxt(nWith, n, basis){
+  if(!n) return 'no games';
+  if(!nWith) return 'no data in '+(n===1?'this game':'these '+n+' games');
+  if(nWith===n) return 'Avg · '+(basis==='all'?'all ':'last ')+n+' game'+(n===1?'':'s');
+  return 'from '+nWith+' of '+n+' games';
+}
+function ovScoreTxt(s){ return s.g+'-'+String(s.p).padStart(2,'0')+' ('+s.t+')'; }
+function ovOrd(n){ const v=n%100; return n+(v>=11&&v<=13?'th':['th','st','nd','rd','th','th','th','th','th','th'][n%10]); }
+const OV_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function ovFmtDate(s){ const d=ssIsoDate(s); if(!d) return String(s||'').trim(); return ovOrd(+d.slice(8,10))+' '+OV_MONTHS[+d.slice(5,7)-1]+' '+d.slice(0,4); }
+function ovShortDate(s){ const d=ssIsoDate(s); return d?(+d.slice(8,10))+' '+OV_MONTHS[+d.slice(5,7)-1].slice(0,3)+' '+d.slice(0,4):''; }
+// one recent-match card. Scores come from the engine's shot tallies
+// (goals, 2-pointers, points); a game with no shot data for either side is
+// "score n/a" — never 0-00.
+function ovMatch(g, tT, tO, T){
+  const home=ssUC(g.homeTeam)===T;
+  const m={ id:g.id, opp:String((home?g.awayTeam:g.homeTeam)||'Unknown').trim(), competition:g.competition||'', round:g.round||'', date:g.date||'',
+            data:false, team:null, opposition:null, res:null };
+  if(tT&&tO&&(tT.shots+tO.shots)>0){
+    const sc=t=>({g:t.goals, p:t.onePts+2*t.twoPts, t:t.pts});
+    m.data=true; m.team=sc(tT); m.opposition=sc(tO);
+    m.res=m.team.t>m.opposition.t?'W':m.team.t<m.opposition.t?'L':'D';
+  }
+  return m;
+}
+function ovPct(n, d){ return d>0?n/d*100:null; }
+function ovKpis(a, n, basis){
+  const B=k=>ovBasisTxt(a[k]||0, n, basis);
+  const pc=v=>v==null?null:Math.round(v)+'%', pg=v=>v==null?null:v.toFixed(1);
+  const kpi=(key,title,v,txt,detail,gk)=>({key, title, v, txt, detail:v==null?'':detail, basis:B(gk)});
+  const sh=ovPct(a.scores||0, a.shots||0), ok=ovPct(a.ownKOWon||0, a.ownKO||0), pk=ovPct(a.oppKOWonByT||0, a.oppKO||0);
+  const to=a.toGames>0?a.toWon/a.toGames:null, po=a.possGames>0?a.possCount/a.possGames:null;
+  return [
+    kpi('shooting','SHOOTING %', sh, pc(sh), (a.scores||0)+' scores from '+(a.shots||0)+' shots', 'shotGames'),
+    kpi('ownKo','OWN KO WIN %', ok, pc(ok), (a.ownKOWon||0)+' of '+(a.ownKO||0)+' own kickouts won', 'koGames'),
+    kpi('oppKo','OPP KO WIN %', pk, pc(pk), (a.oppKOWonByT||0)+' of '+(a.oppKO||0)+' opposition kickouts won', 'koGames'),
+    kpi('tos','TOs WON / GAME', to, pg(to), (a.toWon||0)+' turnovers won', 'toGames'),
+    kpi('poss','POSSESSIONS / GAME', po, pg(po), (a.possCount||0)+' possessions', 'possGames')];
+}
+// doughnut data: prefix 'srcP:' = points (Score Source), 'srcH:' = shots (Shot Source)
+function ovSourceSet(a, prefix, total){
+  total=total||0;
+  const items=SS_SRC_CATS.map(c=>({k:c.k, label:c.label, col:c.col, extra:!!c.extra, v:a[prefix+c.k]||0}))
+    .filter(c=>!c.extra||c.v>0).map(c=>Object.assign(c,{pct:total>0?c.v/total*100:null}));
+  return {total, items};
+}
+function ovTurnovers(aT, aO){
+  const third=k=>({k, lost:aT['toLost'+k]||0, won:aT['toWon'+k]||0,
+    lostPct:ovPct(aT['toLost'+k]||0, aT.toLostLoc||0), wonPct:ovPct(aT['toWon'+k]||0, aT.toWonLoc||0)});
+  const side=(a, won, lost)=>({ won, lost,
+    shots:a.toShotsCreated||0, scores:a.toScoresCreated||0, base:a.toWonCreateG||0, games:a.toCreateGames||0,
+    shotPct:ovPct(a.toShotsCreated||0, a.toWonCreateG||0), scorePct:ovPct(a.toScoresCreated||0, a.toWonCreateG||0) });
+  const t=side(aT, aT.toWon||0, aT.toLost||0), o=side(aO, aT.toLost||0, aT.toWon||0);
+  t.wonKo=aT.toWonKo||0; t.wonShot=aT.toWonShot||0; t.lostKo=aT.toLostKo||0; t.lostShot=aT.toLostShot||0;
+  o.wonKo=t.lostKo; o.wonShot=t.lostShot; o.lostKo=t.wonKo; o.lostShot=t.wonShot;
+  return { data:(aT.toGames||0)>0, games:aT.toGames||0, locGames:aT.toLocGames||0,
+    lostLoc:aT.toLostLoc||0, wonLoc:aT.toWonLoc||0, thirds:['DEF','MID','ATT'].map(third), team:t, opposition:o };
+}
+// Everything the Overview shows for team T. `games` = the filtered, ticked
+// game metas; bundleOf(id) -> {meta, events} (already fetched).
+function ovCompute(T, games, basis, bundleOf){
+  const list=ovTeamGames(games, T), use=ovBasisGames(list, basis);
+  const per=g=>{ const b=bundleOf(g.id); if(!b||!b.meta) return {g, tT:null, tO:null};
+    const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam), O=T===H?A:H;
+    return {g, tT:ssTallyCached(b,T), tO:ssTallyCached(b,O)}; };
+  const rows=use.map(per);
+  const used=rows.filter(r=>r.tT&&r.tO);
+  const aT=ssAggregate(used.map(r=>r.tT)), aO=ssAggregate(used.map(r=>r.tO));
+  const n=used.length;
+  const dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return { team:T, basis, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n,
+    from:dates[0]||'', to:dates[dates.length-1]||'',
+    recent:list.slice(0,5).map(g=>{ const r=rows.find(x=>x.g===g)||per(g); return ovMatch(g, r.tT, r.tO, T); }),
+    kpis:ovKpis(aT, n, basis),
+    scoreSrc:Object.assign(ovSourceSet(aT,'srcP:',aT.srcPtsTagged), {games:aT.srcScoreGames||0, scores:aT.srcScoresTagged||0, allPts:aT.pts||0}),
+    shotSrc:Object.assign(ovSourceSet(aT,'srcH:',aT.srcShotsTagged), {games:aT.srcShotGames||0, allShots:aT.shots||0}),
+    to:ovTurnovers(aT, aO), aggT:aT, aggO:aO };
+}
+function ovFromNote(nWith, n){ return !n?'':!nWith?'no data in '+(n===1?'this game':'these '+n+' games'):nWith===n?'all '+n+' game'+(n===1?'':'s'):'from '+nWith+' of '+n+' games'; }
+
+// ── rendering (strings only; every interpolated value is escaped) ──
+function ovDonutSVG(set, unit){
+  const S=260, cx=130, cy=130, R=116, r=62, total=set.total;
+  let h=`<svg class="donut" viewBox="0 0 ${S} ${S}" role="img" aria-label="${ssEsc(unit)} by source">`;
+  if(!(total>0)){
+    return h+`<circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="#2a2a36" stroke-width="${R-r}"/><text x="${cx}" y="${cy+6}" text-anchor="middle" class="dn-na">n/a</text></svg>`;
+  }
+  h+=`<circle cx="${cx}" cy="${cy}" r="${R+3}" fill="none" stroke="#a9adb6" stroke-width="3" opacity=".75"/>`;
+  const pt=(rad,a)=>(cx+rad*Math.cos(a)).toFixed(2)+','+(cy+rad*Math.sin(a)).toFixed(2);
+  let a0=-Math.PI/2, labels='';
+  set.items.forEach(it=>{
+    if(!(it.v>0)) return;
+    const frac=it.v/total, a1=a0+Math.min(frac,0.99999)*2*Math.PI, big=(a1-a0)>Math.PI?1:0;
+    h+=`<path d="M${pt(R,a0)} A${R},${R} 0 ${big} 1 ${pt(R,a1)} L${pt(r,a1)} A${r},${r} 0 ${big} 0 ${pt(r,a0)} Z" fill="${it.col}" stroke="#14141c" stroke-width="1.5"><title>${ssEsc(it.label)}: ${Math.round(it.pct)}% (${it.v} ${ssEsc(unit)})</title></path>`;
+    if(it.pct>=4){ const am=(a0+a1)/2, lr=(R+r)/2;
+      labels+=`<text x="${(cx+lr*Math.cos(am)).toFixed(1)}" y="${(cy+lr*Math.sin(am)+5).toFixed(1)}" text-anchor="middle" class="dn-lbl${it.k==='TI'?' dark':''}">${Math.round(it.pct)}%</text>`; }
+    a0=a0+frac*2*Math.PI;
+  });
+  return h+labels+'</svg>';
+}
+function ovDonutCard(title, set, unit, note){
+  const legend=set.items.map(it=>`<li class="${it.v>0?'':'zero'}"><i style="background:${it.col}"></i><span class="lg-l">${ssEsc(it.label)}</span><span class="lg-v">${it.pct==null?'–':Math.round(it.pct)+'%'}<small>${it.v}</small></span></li>`).join('');
+  return `<div class="dcard"><div class="dchart">${ovDonutSVG(set, unit)}</div><div class="dkey"><h4>${ssEsc(title)}</h4><ul>${legend}</ul><div class="dnote">${ssEsc(note)}</div></div></div>`;
+}
+function ovPitchSVG(){
+  const L='stroke="#fff" stroke-opacity=".34" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"';
+  const end=flip=>{ const x=v=>flip?1450-v:v, sw=flip?0:1;
+    return `<line x1="${x(130)}" y1="0" x2="${x(130)}" y2="900" ${L}/><line x1="${x(200)}" y1="0" x2="${x(200)}" y2="900" ${L}/>`
+      +`<line x1="${x(450)}" y1="0" x2="${x(450)}" y2="900" ${L}/><line x1="${x(650)}" y1="0" x2="${x(650)}" y2="900" ${L}/>`
+      +`<rect x="${Math.min(x(0),x(45))}" y="380" width="45" height="140" ${L}/><rect x="${Math.min(x(0),x(130))}" y="355" width="130" height="190" ${L}/>`
+      +`<path d="M${x(200)},320 A130,130 0 0 ${sw} ${x(200)},580" ${L}/><path d="M${x(0)},50 A400,400 0 0 ${sw} ${x(0)},850" ${L}/>`; };
+  return `<svg class="pitch-bg" viewBox="0 0 1450 900" preserveAspectRatio="none" aria-hidden="true">`
+    +`<rect x="0" y="0" width="483.4" height="900" fill="#7f3639"/><rect x="483.3" y="0" width="483.4" height="900" fill="#9c5320"/><rect x="966.6" y="0" width="483.4" height="900" fill="#2f772e"/>`
+    +end(false)+end(true)
+    +`<line x1="725" y1="0" x2="725" y2="900" ${L} stroke-dasharray="10 8"/>`
+    +`<line x1="483.3" y1="0" x2="483.3" y2="900" stroke="#f2c9a0" stroke-opacity=".7" stroke-width="2" vector-effect="non-scaling-stroke"/><line x1="966.6" y1="0" x2="966.6" y2="900" stroke="#f2c9a0" stroke-opacity=".7" stroke-width="2" vector-effect="non-scaling-stroke"/>`
+    +`<rect x="1" y="1" width="1448" height="898" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function ovPctTxt(v){ return v==null?'n/a':Math.round(v)+'%'; }
+function ovToPanel(name, s, n, cls, nGames){
+  const cre=(label, pct, tot)=>`<div class="tp-h">${label}</div><div class="tp-row"><b class="${pct==null?'na':''}">${ovPctTxt(pct)}</b><span>Total created: ${s.games?tot:'n/a'}</span></div>`;
+  const incl=(ko,shot)=>{ const p=[]; if(ko) p.push(ko+' kickout'+(ko===1?'':'s')+' lost'); if(shot) p.push(shot+' shot attempt'+(shot===1?'':'s')); return p.length?`<small>incl. ${p.join(', ')}</small>`:''; };
+  return `<div class="tpanel ${cls}"><div class="tp-name">${ssEsc(name)}</div>`
+    +`<div class="tp-h">TOs WON</div><div class="tp-n">${n?s.won:'n/a'}${n?incl(s.wonKo,s.wonShot):''}</div>`
+    +`<div class="tp-h">TOs LOST</div><div class="tp-n">${n?s.lost:'n/a'}${n?incl(s.lostKo,s.lostShot):''}</div>`
+    +cre('SHOT CREATION AFTER TO', s.shotPct, s.shots)+cre('SCORE CREATION AFTER TO', s.scorePct, s.scores)
+    +`<div class="tp-note">${s.games?ssEsc('Shots / scores with a tagged turnover source ÷ '+s.base+' TOs won · '+ovFromNote(s.games,nGames)):ssEsc('No source tags with turnovers in '+(nGames===1?'this game':'these '+nGames+' games'))}</div></div>`;
+}
+function ovHTML(R){
+  const T=R.team, n=R.n;
+  if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  let h='';
+  // a. recent matches
+  h+='<div class="ov-recent">'+R.recent.map(m=>{
+    const sub=[m.competition, m.round].filter(Boolean).join(' · ');
+    return `<a class="mcard ${m.res||'NA'}" href="dashboard.html?game=${encodeURIComponent(m.id)}" title="Open this game's dashboard">`
+      +`<div class="mc-opp">vs ${ssEsc(m.opp)}</div><div class="mc-meta">${ssEsc(sub||'—')}</div><div class="mc-meta">${ssEsc(ovFmtDate(m.date)||'date n/a')}</div>`
+      +(m.data?`<div class="mc-score"><b>${ssEsc(ovScoreTxt(m.team))}</b><span>v ${ssEsc(ovScoreTxt(m.opposition))}</span><em>${m.res}</em></div>`
+              :`<div class="mc-score"><span class="na">score n/a</span></div>`)+'</a>';
+  }).join('')+'</div>';
+  // b. KPI cards
+  h+='<div class="ov-kpis">'+R.kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+  // c. doughnuts
+  const sc=R.scoreSrc, sh=R.shotSrc;
+  h+='<h2 class="ov-h">HOW SCORES AND SHOTS WERE BUILT</h2><div class="ov-donuts">'
+    +ovDonutCard('SCORE SOURCE', sc, 'pts', sc.total>0?('Share of points · '+sc.total+' of '+sc.allPts+' pts tagged · '+ovFromNote(sc.games,n)):('No score-source tags · '+ovFromNote(0,n)))
+    +ovDonutCard('SHOT SOURCE', sh, 'shots', sh.total>0?('Share of shots · '+sh.total+' tagged ('+sh.allShots+' shots) · '+ovFromNote(sh.games,n)):('No shot-source tags · '+ovFromNote(0,n)))
+    +'</div>';
+  // d. turnovers
+  const to=R.to, names={DEF:'DEFENSIVE THIRD', MID:'MIDDLE THIRD', ATT:'OFFENSIVE THIRD'};
+  const cell=(lbl, pct, cnt, any)=>`<div class="pz-l">${lbl}</div><div class="pz-p ${pct==null?'na':''}">${ovPctTxt(pct)}</div><div class="pz-c">${any?cnt:''}</div>`;
+  h+='<h2 class="ov-h">TURNOVERS</h2><div class="ov-to">'
+    +ovToPanel(T, to.team, to.games, 'tp-team', n)
+    +'<div class="pitchwrap"><div class="pz-heads">'+to.thirds.map(t=>`<span>${names[t.k]}</span>`).join('')+'</div>'
+    +'<div class="pitch">'+ovPitchSVG()+'<div class="pz">'+to.thirds.map(t=>`<div class="pz-col">${cell('TOs LOST', t.lostPct, t.lost, to.lostLoc>0)}${cell('TOs WON', t.wonPct, t.won, to.wonLoc>0)}</div>`).join('')+'</div></div>'
+    +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div>`
+    +`<div class="pz-note">${to.data?ssEsc('Thirds are from '+T+'\'s point of view for both lost and won. % = share of turnovers with a tagged third (lost '+to.lostLoc+' of '+to.team.lost+', won '+to.wonLoc+' of '+to.team.won+') · '+ovFromNote(to.locGames,n)):ssEsc('No turnover data in '+(n===1?'this game':'these '+n+' games'))}</div></div>`
+    +ovToPanel('OPPOSITION', to.opposition, to.games, 'tp-opp', n)
+    +'</div>';
+  h+=`<div class="foot">Overview covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters; “Opposition” is every opponent in those games. Turnovers count every turnover row (in-play turnovers, kickouts lost and shot attempts). “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+
+// ── Overview page wiring ──
+let OV_BASIS='10', OV_TOKEN=0, OV_TIMER=null, OV_LAST=null;
+function ovStore(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); }catch(_){ } return null; }
+function ovFillTeams(teams, games){
+  const s=ssEl('fTeamO'); if(!s) return;
+  const prev=s.value||ovStore('cohesion_analysis_team')||'';
+  s.innerHTML=teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  if(teams.includes(prev)) s.value=prev;
+  else if(teams.includes('MAYO')) s.value='MAYO';
+  else if(teams.length){ const c={}; games.forEach(g=>[ssUC(g.homeTeam),ssUC(g.awayTeam)].forEach(t=>{ if(t) c[t]=(c[t]||0)+1; }));
+    s.value=teams.slice().sort((a,b)=>(c[b]||0)-(c[a]||0)||a.localeCompare(b))[0]; }
+}
+function ovSchedule(){ if(TAB!=='overview'||!GAMES_READY) return; clearTimeout(OV_TIMER); OV_TIMER=setTimeout(ovRun, 40); }
+function ovSetBasis(b){
+  OV_BASIS=(b==='5'||b==='all')?b:'10';
+  document.querySelectorAll('#ovBasis button').forEach(x=>x.classList.toggle('on', x.dataset.basis===OV_BASIS));
+  ovSchedule();
+}
+// polite concurrency: 4 bundles at a time, with a progress callback
+async function ovLoad(games, onProgress){
+  let next=0, done=0;
+  const worker=async()=>{ while(next<games.length){ const g=games[next++]; await fetchBundle(g.id); done++; if(onProgress) onProgress(done, games.length); } };
+  await Promise.all(Array.from({length:Math.min(4, games.length)}, worker));
+}
+async function ovRun(){
+  if(TAB!=='overview'||!GAMES_READY) return;
+  const my=++OV_TOKEN, st=ssEl('ovStatus'), body=ssEl('ovBody'), note=ssEl('ovBasisNote');
+  const T=ssEl('fTeamO').value, pool=selectedGames();
+  if(!T){ body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  ovStore('cohesion_analysis_team', T);
+  const list=ovTeamGames(pool, T), use=ovBasisGames(list, OV_BASIS);
+  note.textContent=(OV_BASIS==='all'||use.length===list.length?'All '+use.length:'Last '+use.length+' of '+list.length)+' '+T+' game'+(list.length===1?'':'s')+' in the current filters'
+    +(use.length?' · '+[ovShortDate(use[use.length-1].date), ovShortDate(use[0].date)].filter(Boolean).filter((d,i,a)=>a.indexOf(d)===i).join(' – '):'');
+  const need=use.filter(g=>!BUNDLES.has(g.id));
+  try{
+    if(need.length){
+      st.textContent='Loading match events… 0/'+need.length;
+      await ovLoad(need, (d,n)=>{ if(my===OV_TOKEN) st.textContent='Loading match events… '+d+'/'+n; });
+    }
+  }catch(e){ if(my===OV_TOKEN) st.textContent='Could not load games: '+e.message; return; }
+  if(my!==OV_TOKEN) return;   // a newer team / basis / filter superseded this run
+  st.textContent='';
+  OV_LAST=ovCompute(T, pool, OV_BASIS, id=>BUNDLES.get(id));
+  body.innerHTML=ovHTML(OV_LAST);
+}
+function ovInit(){
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ovSchedule);
+  document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>ovSetBasis(b.dataset.basis)));
 }
 // ═══════════════════════════════════════════════════════════════
 //  EXPORTS — PDF (white, print-friendly, native jsPDF + autoTable)
@@ -1324,6 +1812,7 @@ async function ssExportImage(){
     },'image/png');
   }catch(e){ alert('Could not build image: '+e.message); }
 }
+ovInit();
 anSetTab(anTabFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
