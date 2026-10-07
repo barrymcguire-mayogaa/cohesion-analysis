@@ -223,6 +223,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="cohesion-gi.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-crests.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -1018,18 +1019,14 @@ function cohPacksLoad(){ try{ return JSON.parse(localStorage.getItem('coh_team_p
 function cohPacksStore(ts){ try{ localStorage.setItem('coh_team_packs', JSON.stringify(ts)); }catch(_e){} }
 function cohPackTeam(name){ const n=String(name||'').trim().toLowerCase();
   return cohPacksLoad().find(t=>String(t.club||'').trim().toLowerCase()===n)||null; }
-// Crest source: an imported team-pack crest wins; otherwise fall back to the
-// bundled club crests in /crests (matched on an accent/spacing-insensitive slug).
-function cohCrestSrc(name,pack){
-  if(pack&&pack.crest) return pack.crest;
-  const sl=String(name||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const M=window.COHESION_CRESTS||{};
-  return M[sl]?('crests/'+M[sl]):null;
-}
+// Crest source: cohCrestSrc(name,pack) is the SHARED resolver in cohesion-crests.js
+// (team-pack crest, then a crest uploaded on crests-admin.html, then the bundled
+// /crests file). Await cohCrestsReady() before drawing so uploaded crests are known.
+// Uploaded crests are cross-origin: load them with crossOrigin so canvases don't taint.
 // Bundled default colour for a club (from the published team packs) — used
 // only when the game has no colour set and no pack is imported on the device.
 function cohTeamColourDefault(name){
-  const sl=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const sl=cohCrestSlug(name);
   const C=window.COHESION_TEAM_COLOURS||{};
   return (C[sl]&&C[sl].primary)||null;
 }
@@ -1191,8 +1188,8 @@ function dashBuildStatsCanvas(){
   const txtH=legible(hCraw), txtA=legible(aCraw);
 
   const loadImg=src=>new Promise(res=>{ if(!src) return res(null);
-    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
-  return Promise.all([loadImg(cohCrestSrc(GAME.homeTeam,packH)), loadImg(cohCrestSrc(GAME.awayTeam,packA))]).then(([crH,crA])=>{
+    const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+  return cohCrestsReady().then(()=>Promise.all([loadImg(cohCrestSrc(GAME.homeTeam,packH)), loadImg(cohCrestSrc(GAME.awayTeam,packA))])).then(([crH,crA])=>{
     const W=1080, HEAD=260, TITLE_H=52, ROW_H=44, WORM_H=330, FOOT=56;
     const nRows=sections.reduce((s,x)=>s+x[1].length,0);
     const HGT=HEAD+sections.length*TITLE_H+nRows*ROW_H+(hasWorm?TITLE_H+WORM_H:0)+FOOT;
@@ -1793,7 +1790,8 @@ async function dashExportPDF(){
   const hexA=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(An)||'#22c55e';
   const colH=safe(hexToRgb(hexH)), colA=safe(hexToRgb(hexA));
   const loadCrest=src=>new Promise(res=>{ if(!src) return res(null);
-    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+    const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+  await cohCrestsReady();
   const [crImH,crImA]=await Promise.all([loadCrest(cohCrestSrc(Hn,packH)), loadCrest(cohCrestSrc(An,packA))]);
   const C_TEXT=[30,30,40], C_T2=[100,100,115], C_ACC=[2,132,199];
   const up=s=>String(s||'').toUpperCase();
@@ -2144,12 +2142,12 @@ function dashTeamHexes(){
     secA:(packA&&packA.secondary)||dashTeamSecondary(An), secH:(packH&&packH.secondary)||dashTeamSecondary(Hn)};
 }
 function dashTeamSecondary(name){
-  const sl=String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  const sl=cohCrestSlug(name);
   const C=window.COHESION_TEAM_COLOURS||{}; return (C[sl]&&C[sl].secondary)||null;
 }
 function dashLoadImg(src){
   return new Promise(res=>{ if(!src) return res(null);
-    const im=new Image(); im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
+    const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=()=>res(null); im.src=src; });
 }
 function dashHexLum(x){ try{ const n=parseInt(String(x).replace('#',''),16);
   return 0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); }catch(_e){ return 0; } }
@@ -2168,6 +2166,7 @@ function dashBusy(btn,on,label){
 // card, the PDF's green pitches with legends and "no location" notes.
 async function dashBuildMapsImage(){
   const T=dashTeamHexes(), S=dashComputeStats(), MD=dashMapData();
+  await cohCrestsReady();
   const [shotCv,koCv,crH,crA]=await Promise.all([
     MD.shots.length?dashBuildMapCanvas('shot',T.hexH,T.hexA):null,
     MD.kos.length?dashBuildMapCanvas('ko',T.hexH,T.hexA):null,
@@ -2403,6 +2402,7 @@ async function dashBuildInfographic(){
     return out+' '+w.slice(i).map(x=>x[0]+'.').join(''); };
   const sH=short(Hn), sA=short(An);
 
+  await cohCrestsReady();
   const [crH,crA]=await Promise.all([dashLoadImg(cohCrestSrc(T.Hn,T.packH)),dashLoadImg(cohCrestSrc(T.An,T.packA))]);
   const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d');
