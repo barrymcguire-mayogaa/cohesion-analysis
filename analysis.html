@@ -344,6 +344,17 @@ function ssAttType(txt){
   return null;
 }
 function ssKoWon(v){ const K=ssUC(v); return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); }
+// Did the KICKING team win its own kickout? GIU names the WINNER in the
+// outcome ("Kerry Clean", "Donegal Break", "Kerry SL", "Donegal Free" on a
+// "Kerry Kickout"), so an outcome that starts with a team's name is decided
+// by that name; every other vocabulary (Tracker / Code Room "KO WON CLEAN",
+// "KO BREAK LOST" …; Gaelic Insights "KT Won …" / "RT Won …") goes to ssKoWon.
+function ssKoKickerWon(out, kicker, other){
+  const K=ssUC(out);
+  if(other&&(K===other||K.startsWith(other+' '))) return false;
+  if(kicker&&(K===kicker||K.startsWith(kicker+' '))) return true;
+  return ssKoWon(out);
+}
 
 // ── Expected points (xP): every shot of a game scored once (cohesion-xp.js),
 // cached per events array + model so Team v Team, baseline and set modes
@@ -436,7 +447,7 @@ function ssGameTally(meta, events, T){
       const out=ssLbl(e,SS_KO_GROUPS);
       if(out){
         g.koData=true;
-        const kickerWon=ssKoWon(out);
+        const kickerWon=ssKoKickerWon(out, mineT?T:O, mineT?O:T);
         if(mineT){ g.ownKO++; if(kickerWon) g.ownKOWon++; }
         else { g.oppKO++; if(!kickerWon) g.oppKOWonByT++; }
       }
