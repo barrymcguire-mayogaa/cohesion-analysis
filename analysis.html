@@ -156,7 +156,11 @@ body[data-tab=overview] .wrap{max-width:1320px;}
 .tp-name{font:700 22px 'Barlow',sans-serif;line-height:1.15;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:6px 16px;overflow-wrap:anywhere;}
 .tp-h{font:700 16px 'Barlow',sans-serif;color:var(--accent);margin:20px 2px 8px;}
 .tp-n{font:600 18px 'Barlow',sans-serif;margin:0 6px;}
-.tp-n small{display:block;font-weight:400;font-size:.7rem;color:var(--t3);margin-top:3px;}
+.tp-n small{display:block;font-weight:400;font-size:.7rem;color:var(--t3);margin-top:3px;} .tp-n.na{color:var(--t3);font-weight:400;}
+.tp-h em{font:400 .68rem 'Barlow',sans-serif;color:var(--t3);letter-spacing:.3px;margin-left:4px;white-space:nowrap;}
+.tp-x{font-size:.8rem;color:var(--t2);line-height:1.35;margin:6px 6px 0;overflow-wrap:anywhere;}
+.tp-x b{color:var(--t1);font-weight:700;} .tp-x b.na{color:var(--t3);font-weight:400;}
+.tp-x small{display:block;font-size:.68rem;color:var(--t3);}
 .tp-row{display:flex;align-items:baseline;gap:10px 18px;flex-wrap:wrap;margin:0 6px;}
 .tp-row b{font:700 18px 'Barlow',sans-serif;} .tp-row b.na{color:var(--t3);font-weight:400;}
 .tp-row span{font-size:.92rem;color:var(--t2);}
@@ -575,15 +579,62 @@ function ssSrcCat(txt){
 //  the opposition has DEFENSIVE and ATTACKING swapped; rule 1/2 says whether
 //  T lost or won it.
 //
-// COUNTING: as the Compare engine does (ssIsTO), EVERY turnover row counts —
-// including KICKOUT LOST and SHOT ATTEMPT rows — with one exception: recent
-// Tracker exports write each lost kickout TWICE ("KICKOUT LOST" and
-// "KO LOST LONG/MEDIUM/SHORT"); when a team has both in a game the
-// "KO LOST <length>" copies are dropped so a lost kickout counts once.
-// (Compare's own Turnover Rate still uses its original count, unchanged.)
+// CLASSES: every ball-loss falls in exactly ONE class.
+//  (a) IN-PLAY turnover — FORCED, UNFORCED, HANDLING, FREE AGAINST, and any
+//      unlabelled / other turnover row (GI "Turnover Won" and GIU "Turnover"
+//      rows carry no type, so they are in-play unless rule (c) reclassifies).
+//  (b) KICKOUT LOST.
+//  (c) SHOT ATTEMPT turned over — a Tracker / Code Room "SHOT ATTEMPT" row,
+//      or, in Gaelic Insights games only, a "Turnover Won" inferred from a
+//      short shot (ssGiShortTurnovers below).
+// The HEADLINE numbers (TOs WON / GAME, TOs WON / TOs LOST, the thirds, and
+// the base of the creation %) are IN-PLAY ONLY. Classes (b) and (c) are shown
+// as their own lines.
+//
+// KICKOUTS LOST — one source per game (g.toKoSource):
+//  · 'kickout outcomes' whenever the game's kickouts carry an outcome (every
+//    format: Tracker / Code Room 'Kickout Outcomes', GIU 'KickoutOutcome'
+//    naming the winner, GI 'PO_Result' KT Won / RT Won): lost = the kicking
+//    team's kickouts it did not win. Same count as the OWN / OPP KO WIN % cards.
+//  · 'turnover rows' only when a game has no kickout outcomes: its "KICKOUT
+//    LOST" rows; the "KO LOST LONG/MEDIUM/SHORT" copies newer Tracker files
+//    also write are dropped when the team has "KICKOUT LOST" rows, and counted
+//    when they are the only record.
+//  Kickout turnover rows never count as in-play, whichever source is used.
+// SHOT ATTEMPTS TURNED OVER are known only where the format can say so: a game
+// whose turnover rows carry a type (Tracker / Code Room), or a GI game (by the
+// short-shot inference). GIU turnovers carry no type → n/a for those games.
+// (Compare's Turnover Rate % keeps its own definition: every turnover row.)
 const SS_TO_OUT_GROUPS=['Turnover Outcomes','Turnover Outcome','TurnoverOutcome'];
-const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone','PitchArea'];
+const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone','TurnoverZone','PitchArea'];
 function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.code)); }
+// ── Gaelic Insights short-shot inference ──
+// A GI "<Team> Shot" whose Outcome is "Short", when the NEXT event of the game
+// (by start time, any team, any code) is the OPPOSITION's "Turnover Won" no
+// more than SS_GI_SHORT_WINDOW seconds after the shot starts: that turnover is
+// the short shot being gathered, so it is class (c), not in-play. Any other
+// event in between (a second shot, a kickout …) or a longer gap leaves it
+// in-play. Derived events of a converted GI game (the 'GI Source ID' copies)
+// are ignored so converted and unconverted games read the same.
+const SS_GI_SHORT_WINDOW=20;   // seconds, shot start → turnover start
+function ssEvT(e){ return e.start!=null?+e.start:(+e.driveT||0); }
+function ssGiDerived(e){ return !!String((e.labels||{})['GI Source ID']||'').trim(); }
+function ssIsGiRawShot(e){ const c=String(e.code||''); return /^\s*\S.*\s+shot\s*$/i.test(c)&&!/SOURCE|ASSIST/i.test(c)&&!ssGiDerived(e); }
+function ssGiShotOutcome(e){ return ssUC((e.labels||{})['Outcome']||e.outcome); }
+function ssGiShortTurnovers(events, T, O){
+  const out=new Set();
+  const side=e=>ssSideOf(e,T)?'T':ssSideOf(e,O)?'O':'';
+  const seq=(events||[]).filter(e=>e&&!ssGiDerived(e)).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
+  seq.forEach((x,k)=>{
+    if(!ssIsGiRawShot(x.e)||ssGiShotOutcome(x.e)!=='SHORT') return;
+    const n=seq[k+1]; if(!n) return;
+    if(!ssIsTO(n.e)||!ssToWinnerCoded(n.e)) return;
+    if(n.t-x.t>SS_GI_SHORT_WINDOW) return;
+    const a=side(x.e), b=side(n.e);
+    if(a&&b&&a!==b) out.add(n.e);
+  });
+  return out;
+}
 function ssToKind(e){
   const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome);
   if(/KICK\s*OUT LOST|\bKO LOST\b/.test(K)) return /^KO LOST\b/.test(K)?'koLen':'ko';
@@ -603,15 +654,20 @@ function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
 function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   g.shotGames=g.shots>0?1:0;
   g.koGames=g.koData?1:0;
-  // ── turnovers ──
+  // ── turnovers: one class per ball-loss (see the rule above) ──
   ['toLost','toWon','toLostDEF','toLostMID','toLostATT','toWonDEF','toWonMID','toWonATT','toLostLoc','toWonLoc',
-   'toLostKo','toLostShot','toWonKo','toWonShot','toDupDropped'].forEach(k=>g[k]=0);
-  const tos=[], hasKoRow={};
+   'toLostKo','toLostShot','toWonKo','toWonShot','toDupDropped','toGiShort'].forEach(k=>g[k]=0);
+  const giShort=ssGiShortTurnovers(events, T, O);
+  const tos=[], hasKoRow={}, koRows={toLost:0, toWon:0};
+  let typed=false, winnerCoded=false;
   events.forEach(e=>{
     if(skip(e)||!ssIsTO(e)) return;
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
-    const kind=ssToKind(e), side=mineT?'T':'O';
+    let kind=ssToKind(e); const side=mineT?'T':'O';
+    if(String(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome||'').trim()) typed=true;
+    if(ssToWinnerCoded(e)) winnerCoded=true;
+    if(giShort.has(e)){ kind='shot'; g.toGiShort++; }
     if(kind==='ko') hasKoRow[side]=true;
     tos.push({e, side, kind});
   });
@@ -619,13 +675,22 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     if(x.kind==='koLen'&&hasKoRow[x.side]){ g.toDupDropped++; return; }   // the same lost kickout, written twice
     const eventTeamWon=ssToWinnerCoded(x.e);
     const tLost=(x.side==='T')!==eventTeamWon;
-    const raw=ssToThird(x.e), third=raw?(x.side==='T'?raw:ssFlipThird(raw)):null;
     const P=tLost?'toLost':'toWon';
-    g[P]++;
+    if(x.kind==='ko'||x.kind==='koLen'){ koRows[P]++; return; }            // class (b)
+    if(x.kind==='shot'){ g[P+'Shot']++; return; }                           // class (c)
+    g[P]++;                                                                 // class (a): in-play
+    const raw=ssToThird(x.e), third=raw?(x.side==='T'?raw:ssFlipThird(raw)):null;
     if(third){ g[P+third]++; g[P+'Loc']++; }
-    if(x.kind==='ko'||x.kind==='koLen') g[P+'Ko']++;
-    else if(x.kind==='shot') g[P+'Shot']++;
   });
+  // kickouts lost: kickout outcomes when the game has them, else turnover rows
+  if(g.koData){ g.toLostKo=g.ownKO-g.ownKOWon; g.toWonKo=g.oppKOWonByT; g.toKoSource='kickout outcomes'; }
+  else if(koRows.toLost+koRows.toWon>0){ g.toLostKo=koRows.toLost; g.toWonKo=koRows.toWon; g.toKoSource='turnover rows'; }
+  else g.toKoSource='';
+  g.toKoGames=g.toKoSource?1:0;
+  // shot attempts turned over: only where the format can tell (typed rows, or GI)
+  const giFmt=winnerCoded&&events.some(e=>!skip(e)&&ssIsGiRawShot(e)&&ssGiShotOutcome(e));
+  g.toShotGames=(typed||giFmt)?1:0;
+  if(!g.toShotGames){ g.toLostShot=0; g.toWonShot=0; }
   g.toGames=(g.toLost+g.toWon)>0?1:0;
   g.toLocGames=(g.toLostLoc+g.toWonLoc)>0?1:0;
   // ── score source (points) and shot source (shots) for T ──
@@ -1280,12 +1345,12 @@ function ovKpis(a, n, basis){
   const pc=v=>v==null?null:Math.round(v)+'%', pg=v=>v==null?null:v.toFixed(1);
   const kpi=(key,title,v,txt,detail,gk)=>({key, title, v, txt, detail:v==null?'':detail, basis:B(gk)});
   const sh=ovPct(a.scores||0, a.shots||0), ok=ovPct(a.ownKOWon||0, a.ownKO||0), pk=ovPct(a.oppKOWonByT||0, a.oppKO||0);
-  const to=a.toGames>0?a.toWon/a.toGames:null, po=a.possGames>0?a.possCount/a.possGames:null;
+  const to=a.toGames>0?(a.toWon||0)/a.toGames:null, po=a.possGames>0?a.possCount/a.possGames:null;
   return [
     kpi('shooting','SHOOTING %', sh, pc(sh), (a.scores||0)+' scores from '+(a.shots||0)+' shots', 'shotGames'),
     kpi('ownKo','OWN KO WIN %', ok, pc(ok), (a.ownKOWon||0)+' of '+(a.ownKO||0)+' own kickouts won', 'koGames'),
     kpi('oppKo','OPP KO WIN %', pk, pc(pk), (a.oppKOWonByT||0)+' of '+(a.oppKO||0)+' opposition kickouts won', 'koGames'),
-    kpi('tos','TOs WON / GAME', to, pg(to), (a.toWon||0)+' turnovers won', 'toGames'),
+    kpi('tos','TOs WON / GAME', to, pg(to), (a.toWon||0)+' in-play turnovers won', 'toGames'),
     kpi('poss','POSSESSIONS / GAME', po, pg(po), (a.possCount||0)+' possessions', 'possGames')];
 }
 // doughnut data: prefix 'srcP:' = points (Score Source), 'srcH:' = shots (Shot Source)
@@ -1302,9 +1367,11 @@ function ovTurnovers(aT, aO){
     shots:a.toShotsCreated||0, scores:a.toScoresCreated||0, base:a.toWonCreateG||0, games:a.toCreateGames||0,
     shotPct:ovPct(a.toShotsCreated||0, a.toWonCreateG||0), scorePct:ovPct(a.toScoresCreated||0, a.toWonCreateG||0) });
   const t=side(aT, aT.toWon||0, aT.toLost||0), o=side(aO, aT.toLost||0, aT.toWon||0);
+  // the two separate lines: kickouts lost and shot attempts turned over
   t.wonKo=aT.toWonKo||0; t.wonShot=aT.toWonShot||0; t.lostKo=aT.toLostKo||0; t.lostShot=aT.toLostShot||0;
   o.wonKo=t.lostKo; o.wonShot=t.lostShot; o.lostKo=t.wonKo; o.lostShot=t.wonShot;
-  return { data:(aT.toGames||0)>0, games:aT.toGames||0, locGames:aT.toLocGames||0,
+  t.koGames=o.koGames=aT.toKoGames||0; t.shotGames=o.shotGames=aT.toShotGames||0;
+  return { data:(aT.toGames||0)>0, games:aT.toGames||0, locGames:aT.toLocGames||0, koGames:aT.toKoGames||0, shotGames:aT.toShotGames||0, giShort:aT.toGiShort||0,
     lostLoc:aT.toLostLoc||0, wonLoc:aT.toWonLoc||0, thirds:['DEF','MID','ATT'].map(third), team:t, opposition:o };
 }
 // Everything the Overview shows for team T. `games` = the filtered, ticked
@@ -1368,14 +1435,20 @@ function ovPitchSVG(){
     +`<rect x="1" y="1" width="1448" height="898" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function ovPctTxt(v){ return v==null?'n/a':Math.round(v)+'%'; }
-function ovToPanel(name, s, n, cls, nGames){
+// One side panel. Headlines are IN-PLAY turnovers; under each sit the two
+// separate lines (kickouts, shot attempts) with n/a / "from x of y games".
+// `other` = the name of the side this panel's team took the ball from.
+function ovToPanel(name, s, n, cls, nGames, other){
   const cre=(label, pct, tot)=>`<div class="tp-h">${label}</div><div class="tp-row"><b class="${pct==null?'na':''}">${ovPctTxt(pct)}</b><span>Total created: ${s.games?tot:'n/a'}</span></div>`;
-  const incl=(ko,shot)=>{ const p=[]; if(ko) p.push(ko+' kickout'+(ko===1?'':'s')+' lost'); if(shot) p.push(shot+' shot attempt'+(shot===1?'':'s')); return p.length?`<small>incl. ${p.join(', ')}</small>`:''; };
+  const line=(label, v, games)=>`<div class="tp-x"><span>${ssEsc(label)}:</span> <b class="${games?'':'na'}">${games?v:'n/a'}</b>${games&&games<nGames?`<small>${ssEsc(ovFromNote(games,nGames))}</small>`:''}</div>`;
+  const head=(label, v)=>`<div class="tp-h">${label} <em>in play</em></div><div class="tp-n ${n?'':'na'}">${n?v:'n/a'}${n&&n<nGames?`<small>${ssEsc(ovFromNote(n,nGames))}</small>`:''}</div>`;
   return `<div class="tpanel ${cls}"><div class="tp-name">${ssEsc(name)}</div>`
-    +`<div class="tp-h">TOs WON</div><div class="tp-n">${n?s.won:'n/a'}${n?incl(s.wonKo,s.wonShot):''}</div>`
-    +`<div class="tp-h">TOs LOST</div><div class="tp-n">${n?s.lost:'n/a'}${n?incl(s.lostKo,s.lostShot):''}</div>`
+    +head('TOs WON', s.won)
+    +line('Kickouts won from '+other, s.wonKo, s.koGames)+line(other+' shot attempts turned over', s.wonShot, s.shotGames)
+    +head('TOs LOST', s.lost)
+    +line('Kickouts lost', s.lostKo, s.koGames)+line('Shot attempts turned over', s.lostShot, s.shotGames)
     +cre('SHOT CREATION AFTER TO', s.shotPct, s.shots)+cre('SCORE CREATION AFTER TO', s.scorePct, s.scores)
-    +`<div class="tp-note">${s.games?ssEsc('Shots / scores with a tagged turnover source ÷ '+s.base+' TOs won · '+ovFromNote(s.games,nGames)):ssEsc('No source tags with turnovers in '+(nGames===1?'this game':'these '+nGames+' games'))}</div></div>`;
+    +`<div class="tp-note">${s.games?ssEsc('Shots / scores sourced from a turnover or a free won ÷ '+s.base+' in-play TOs won · '+ovFromNote(s.games,nGames)):ssEsc('No source tags with turnovers in '+(nGames===1?'this game':'these '+nGames+' games'))}</div></div>`;
 }
 function ovHTML(R){
   const T=R.team, n=R.n;
@@ -1401,14 +1474,14 @@ function ovHTML(R){
   const to=R.to, names={DEF:'DEFENSIVE THIRD', MID:'MIDDLE THIRD', ATT:'OFFENSIVE THIRD'};
   const cell=(lbl, pct, cnt, any)=>`<div class="pz-l">${lbl}</div><div class="pz-p ${pct==null?'na':''}">${ovPctTxt(pct)}</div><div class="pz-c">${any?cnt:''}</div>`;
   h+='<h2 class="ov-h">TURNOVERS</h2><div class="ov-to">'
-    +ovToPanel(T, to.team, to.games, 'tp-team', n)
+    +ovToPanel(T, to.team, to.games, 'tp-team', n, 'opposition')
     +'<div class="pitchwrap"><div class="pz-heads">'+to.thirds.map(t=>`<span>${names[t.k]}</span>`).join('')+'</div>'
     +'<div class="pitch">'+ovPitchSVG()+'<div class="pz">'+to.thirds.map(t=>`<div class="pz-col">${cell('TOs LOST', t.lostPct, t.lost, to.lostLoc>0)}${cell('TOs WON', t.wonPct, t.won, to.wonLoc>0)}</div>`).join('')+'</div></div>'
     +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div>`
-    +`<div class="pz-note">${to.data?ssEsc('Thirds are from '+T+'\'s point of view for both lost and won. % = share of turnovers with a tagged third (lost '+to.lostLoc+' of '+to.team.lost+', won '+to.wonLoc+' of '+to.team.won+') · '+ovFromNote(to.locGames,n)):ssEsc('No turnover data in '+(n===1?'this game':'these '+n+' games'))}</div></div>`
-    +ovToPanel('OPPOSITION', to.opposition, to.games, 'tp-opp', n)
+    +`<div class="pz-note">${to.data?ssEsc('In-play turnovers only. Thirds are from '+T+'\'s point of view for both lost and won. % = share of in-play turnovers with a tagged third (lost '+to.lostLoc+' of '+to.team.lost+', won '+to.wonLoc+' of '+to.team.won+') · '+ovFromNote(to.locGames,n)):ssEsc('No turnover data in '+(n===1?'this game':'these '+n+' games'))}</div></div>`
+    +ovToPanel('OPPOSITION', to.opposition, to.games, 'tp-opp', n, T)
     +'</div>';
-  h+=`<div class="foot">Overview covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters; “Opposition” is every opponent in those games. Turnovers count every turnover row (in-play turnovers, kickouts lost and shot attempts). “n/a” means those games don't carry the data needed.</div>`;
+  h+=`<div class="foot">Overview covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters; “Opposition” is every opponent in those games. Turnover headlines, thirds and creation rates count in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts lost and shot attempts turned over are listed separately. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 
