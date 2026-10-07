@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b10;--panel:#14141c;--card:#1b1b25;--border:#2a2a36;--t1:#ececf1;--t2:#a0a0ae;--t3:#6d6d7a;--accent:#4fc3f7;--teal:#2dd4bf;--amber:#f5a623;--green:#22c55e;--red:#ef4444;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:'Barlow',sans-serif;}
+header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);}
+.logo{font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;}
+.logo span{color:var(--accent);}
+.sub{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.2em;color:var(--t3);}
+.hdr-actions{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hdr-btn{background:transparent;cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
+.hdr-btn:disabled{opacity:.35;cursor:default;}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 22px 60px;}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);}
+select,button.act{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:9px 10px;font-family:'Barlow',sans-serif;}
+button.act{cursor:pointer;font-weight:700;}
+button.act.primary{background:var(--accent);border-color:var(--accent);color:#04222f;}
+button.act:disabled{opacity:.4;cursor:default;}
+.gamespick{margin-top:10px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 14px;}
+.gamespick summary{cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t2);padding:8px 0;}
+.gitem{display:flex;gap:8px;align-items:center;font-size:.8rem;color:var(--t2);padding:3px 0;}
+#status{font-size:.8rem;color:var(--t3);margin:12px 2px;min-height:18px;}
+.board{display:none;}
+.head2{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:18px 0 6px;}
+.tname{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.04em;}
+.tname.a{color:var(--colA,var(--teal));}
+.tname.b{color:var(--colB,var(--amber));text-align:right;}
+.vs{font:700 12px 'Barlow Condensed',sans-serif;color:var(--t3);padding:0 16px;}
+.gcount{font-size:.72rem;color:var(--t3);}
+.sec{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 18px;margin-bottom:14px;}
+.sec h3{margin:0 0 10px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:var(--amber);text-align:center;}
+.row{display:grid;grid-template-columns:74px 1fr 210px 1fr 74px;gap:10px;align-items:center;padding:5px 0;}
+.val{font:700 14px 'Barlow Condensed',sans-serif;}
+.val.a{color:var(--colA,var(--teal));}
+.val.b{color:var(--colB,var(--amber));text-align:right;}
+.val.na{color:var(--t3);font-weight:400;}
+.lbl{font-size:.8rem;color:var(--t1);text-align:center;font-weight:600;}
+.lbl small{display:block;color:var(--t3);font-weight:400;font-size:.66rem;}
+.track{height:14px;background:var(--card);border-radius:7px;overflow:hidden;position:relative;}
+.track .bar{position:absolute;top:0;bottom:0;border-radius:7px;}
+.track.a .bar{right:0;background:var(--colA,var(--teal));}
+.track.b .bar{left:0;background:var(--colB,var(--amber));}
+.foot{font-size:.7rem;color:var(--t3);text-align:center;margin-top:10px;line-height:1.6;}
+/* game-type chips, multi-selects, mode switch, set boxes */
+.filters+.filters{margin-top:10px;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{--tc:var(--accent);border:1px solid var(--border);background:var(--card);color:var(--t3);border-radius:999px;padding:7px 11px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.05em;cursor:pointer;}
+.chip.on{background:var(--tc);border-color:var(--tc);color:#0b0b10;}
+.chip:disabled{opacity:.35;cursor:default;}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.seg button{background:var(--card);border:0;color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.05em;padding:10px 12px;cursor:pointer;}
+.seg button.on{background:var(--accent);color:#04222f;}
+input[type=date]{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:7px 8px;font-family:'Barlow',sans-serif;color-scheme:dark;}
+.ms{position:relative;}
+.ms>summary{list-style:none;cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-size:.86rem;padding:9px 10px;min-width:170px;white-space:nowrap;}
+.ms>summary::-webkit-details-marker{display:none;}
+.ms>summary::after{content:' ▾';color:var(--t3);}
+.ms .msbody{position:absolute;z-index:30;top:calc(100% + 4px);left:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:260px;max-width:min(420px,calc(100vw - 32px));max-height:300px;overflow:auto;box-shadow:0 12px 32px rgba(0,0,0,.5);}
+.msbar{display:flex;gap:6px;margin-bottom:6px;align-items:center;flex-wrap:wrap;}
+.mini{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.05em;padding:4px 9px;cursor:pointer;}
+.gitem label{display:flex;gap:8px;align-items:center;flex:1;min-width:0;cursor:pointer;}
+.gitem .gt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbadge{--tc:var(--t3);font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.06em;padding:2px 7px;border-radius:6px;border:1px solid var(--tc);color:var(--tc);white-space:nowrap;}
+.tsel{font-size:.72rem;padding:3px 5px;border-radius:6px;}
+.tsrc{font-size:.66rem;color:var(--t3);white-space:nowrap;}
+.setbox{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:7px;}
+.setbox .ms>summary{background:var(--panel);min-width:150px;}
+.fnote{font-size:.7rem;color:var(--t3);}
+/* player xP table */
+.ptab{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 18px;margin-bottom:14px;overflow-x:auto;}
+.ptab h3{margin:0 0 4px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:var(--amber);text-align:center;}
+.ptab .pt-team{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.05em;margin:12px 0 4px;}
+.ptab table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:520px;}
+.ptab th{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t2);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;}
+.ptab th:first-child,.ptab td:first-child{text-align:left;}
+.ptab th.on{color:var(--accent);}
+.ptab td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);color:var(--t1);font-variant-numeric:tabular-nums;}
+.ptab tr.few td{color:var(--t3);}
+.ptab td.pos{color:var(--green);} .ptab td.neg{color:var(--red);}
+.ptab tr.few td.pos,.ptab tr.few td.neg{color:var(--t3);}
+.ptab .cav{font-size:.72rem;color:var(--t3);margin-top:8px;line-height:1.5;}
+@media (max-width:640px){ .wrap{padding:14px 16px 50px;} .row{grid-template-columns:52px 1fr 120px 1fr 52px;gap:6px;} .gitem{flex-wrap:wrap;} }
+/* ── ANALYSIS shell: tabs + per-tab visibility (body[data-tab]) ── */
+html,body{max-width:100%;overflow-x:hidden;}
+.tabs{display:flex;justify-content:center;gap:6px 30px;flex-wrap:wrap;padding:14px 16px 0;border-bottom:1px solid var(--border);}
+.tabs a{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;padding:6px 2px 14px;position:relative;white-space:nowrap;opacity:.82;}
+.tabs a:hover{opacity:1;}
+.tabs a.on{opacity:1;}
+.tabs a.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);}
+.pane{display:none;}
+body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-reports,body[data-tab=team-trends] #pane-team-trends,
+body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
+body:not([data-tab=compare]) .only-compare{display:none !important;}
+body:not([data-tab=overview]) .only-overview{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=compare]) .only-data{display:none !important;}
+.soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
+.soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
+.soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
+.soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
+@media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
+</style>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="sub">ANALYSIS</div>
+  <div class="hdr-actions">
+    <button class="hdr-btn only-compare" id="pdfBtn" onclick="ssExportPDF()" disabled title="Run a comparison first">📄 PDF</button>
+    <button class="hdr-btn only-compare" id="imgBtn" onclick="ssExportImage()" disabled title="Run a comparison first">🖼 Image</button>
+    <a href="library.html" class="hdr-btn">← Library</a>
+  </div>
+</header>
+<nav class="tabs" id="tabs" aria-label="Analysis sections">
+  <a href="#overview" data-tab="overview">OVERVIEW</a>
+  <a href="#match-reports" data-tab="match-reports">MATCH REPORTS</a>
+  <a href="#team-trends" data-tab="team-trends">TEAM TRENDS</a>
+  <a href="#momentum" data-tab="momentum">MOMENTUM</a>
+  <a href="#players" data-tab="players">PLAYERS</a>
+  <a href="#compare" data-tab="compare">COMPARE</a>
+</nav>
+<div class="wrap">
+  <!-- shared filter bar: applies to every tab -->
+  <div class="filters" id="sharedBar">
+    <div class="fg"><label>COMPETITIONS</label>
+      <details class="ms" id="fCompBox"><summary id="fCompSum">All</summary>
+        <div class="msbody"><div class="msbar"><button class="mini" onclick="compAll(true)">All</button><button class="mini" onclick="compAll(false)">None</button></div><div id="fComp"></div></div>
+      </details></div>
+    <div class="fg"><label>SEASON</label><select id="fYear" onchange="applyFilters()"><option value="">All</option></select></div>
+    <div class="fg"><label>FROM</label><input type="date" id="fFrom" onchange="applyFilters()"></div>
+    <div class="fg"><label>TO</label><input type="date" id="fTo" onchange="applyFilters()"></div>
+    <div class="fg"><label>&nbsp;</label><button class="act" onclick="clearFilters()">Reset filters</button></div>
+  </div>
+  <!-- COMPARE controls (the former Season Stats page) -->
+  <div class="filters only-compare" id="cmpModeRow">
+    <div class="fg"><label>COMPARE</label><div class="seg"><button id="mTeams" class="on" onclick="setMode('teams')">Team v Team</button><button id="mSets" onclick="setMode('sets')">Same team, two game sets</button></div></div>
+    <div class="fg" id="fTypesWrap"><label>GAME TYPES <span class="fnote" id="fTypesNote"></span></label><div class="chips" id="fTypes"></div></div>
+  </div>
+  <div class="only-compare">
+  <div class="filters" id="teamsCtl">
+    <div class="fg"><label>TEAM A</label><select id="fTeamA"></select></div>
+    <div class="fg"><label>TEAM B</label><select id="fTeamB"><option value="__baseline__">— Baseline (all teams avg) —</option></select></div>
+  </div>
+  <div class="filters" id="setsCtl" style="display:none">
+    <div class="fg"><label>TEAM</label><select id="fTeamS" onchange="refreshSets()"></select></div>
+    <div class="fg"><label>SET 1</label><div class="setbox"><div class="chips" id="s0Types"></div>
+      <details class="ms"><summary id="s0Sum">Games</summary><div class="msbody"><div class="msbar"><button class="mini" onclick="setGamesAll(0,true)">Select all</button><button class="mini" onclick="setGamesAll(0,false)">Select none</button></div><div id="s0Games"></div></div></details></div></div>
+    <div class="fg"><label>SET 2</label><div class="setbox"><div class="chips" id="s1Types"></div>
+      <details class="ms"><summary id="s1Sum">Games</summary><div class="msbody"><div class="msbar"><button class="mini" onclick="setGamesAll(1,true)">Select all</button><button class="mini" onclick="setGamesAll(1,false)">Select none</button></div><div id="s1Games"></div></div></details></div></div>
+  </div>
+  <div class="filters" style="justify-content:flex-end"><button class="act primary" id="goBtn" onclick="runCompare()">⚡ Compare</button></div>
+  </div>
+  <!--OVERVIEW-CONTROLS-->
+  <details class="gamespick only-data" id="gamesPick"><summary><span class="only-overview">Game types · </span>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
+    <div id="ovTypesSlot"></div>
+    <div class="msbar" style="margin-top:4px"><button class="mini" onclick="gamesAll(true)">Select all</button><button class="mini" onclick="gamesAll(false)">Select none</button><span class="fnote" id="gNote"></span></div>
+    <div id="gList"></div></details>
+  <div id="status">Loading games…</div>
+  <div class="pane" id="pane-overview"><!--OVERVIEW-PANE--></div>
+  <div class="pane" id="pane-match-reports"><div class="soon"><div class="tag">COMING SOON</div><h2>MATCH REPORTS</h2><p>A one-page report for any single game: the score, shooting, kickouts, turnovers and score sources for both teams.</p></div></div>
+  <div class="pane" id="pane-team-trends"><div class="soon"><div class="tag">COMING SOON</div><h2>TEAM TRENDS</h2><p>How one team's key numbers move game by game across the season, against its own average.</p></div></div>
+  <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
+  <div class="pane" id="pane-players"><div class="soon"><div class="tag">COMING SOON</div><h2>PLAYERS</h2><p>Player-level shooting, scoring and expected points across the selected games.</p></div></div>
+  <div class="pane" id="pane-compare">
+  <div class="board" id="board">
+    <div class="head2">
+      <div class="tname a" id="nameA"></div><div class="vs"><span id="vsLbl">HEAD-TO-HEAD</span><br><span class="gcount" id="gcA"></span></div><div class="tname b" id="nameB"></div>
+    </div>
+    <div id="sections"></div>
+    <div id="players"></div>
+    <div class="foot" id="footNote">Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don't carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.</div>
+  </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-xp.js"></script>
+<script src="cohesion-gi.js"></script>
+<script>
+if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+
+// ═══════════════════════════════════════════════════════════════
+//  METRIC ENGINE — pure functions over (meta, events[]) so the whole
+//  thing is headlessly testable. Vocabulary handling mirrors the
+//  dashboard's bilingual predicates (Sportscode + Gaelic Insights +
+//  GAA Score Tracker exports).
+// ═══════════════════════════════════════════════════════════════
+const SS_SHOT_GROUPS=['Shot Outcomes','ShotOutcome','Outcome'];
+const SS_KO_GROUPS=['Kickout Outcomes','KickoutOutcome','PO_Result'];
+const SS_SRC_GROUPS=['Score Source Outcomes','Source'];
+function ssLbl(e,groups){ const L=e.labels||{}; for(const g of groups){ if(L[g]) return L[g]; } return null; }
+function ssUC(s){ return String(s||'').toUpperCase().trim(); }
+function ssSideOf(e, T){
+  const t=ssUC(e.team); if(t) return t===T;
+  return ssUC(e.code).startsWith(T+' ');
+}
+// A SHOT is the primary shot event only: "<TEAM> SHOT OPEN PLAY / DEADBALL"
+// (Tracker, Code Room, converted GI) or a bare "<Team> Shot" (Gaelic
+// Insights / older Sportscode). Bare outcome companions ("MAYO 1 POINT",
+// "MAYO WIDE" …), SHOT/SCORE SOURCE, SHOT/SCORE ASSIST and GOAL ATTEMPT rows
+// describe the SAME shot and must not add to the count (they inflated Shots
+// per Game ~2.4x and deflated Shot/Score %). Only a game with NO primary shot
+// events falls back to the broad rule, minus those companion codes.
+// Unconverted GIU shots are primary too: "<Team> Shot (P)" / "Shot (F)" /
+// "Shot Sideline", and "<Team> 45" / "<Team> Penalty" only when they carry a
+// ShotOutcome label (a bare "45" / "Out for 45" is the award, not the kick).
+// Once converted (cohesion-gi.js) the originals are superseded and skipped.
+const SS_SHOT_NOT=/SOURCE|ASSIST|ATTEMPT/;
+function ssPrimaryShot(e){ const c=ssUC(e.code); return !SS_SHOT_NOT.test(c)&&(/SHOT (OPEN PLAY|DEAD ?BALL)/.test(c)||/(^|\s)SHOT$/.test(c)
+  ||/\sSHOT\s*\(\s*[PF]\s*\)$|\sSHOT SIDELINE$/.test(c)
+  ||(/\s(45|PENALTY)$/.test(c)&&!/\sOUT FOR 45$/.test(c)&&!!String((e.labels||{})['ShotOutcome']||'').trim())); }
+function ssShotMode(events){ return (events||[]).some(ssPrimaryShot)?'primary':'broad'; }
+function ssIsShot(e,mode){
+  if(mode!=='broad') return ssPrimaryShot(e);
+  const c=ssUC(e.code); if(SS_SHOT_NOT.test(c)) return false;
+  return /SHOT/.test(c)||e.category==='Shots & Scores';
+}
+function ssIsKO(e){ const c=ssUC(e.code); return /KICKOUT|\bKO\b|\bKOS\b/.test(c)&&!/SOURCE|LOST|WON/.test(c)||e.category==='Kickouts'; }
+function ssIsTO(e){ const c=ssUC(e.code); return /\bTOS?\b|TURNOVER/.test(c)&&!/SOURCE/.test(c); }
+function ssIsPoss(e){ return /TEAM POSSESSION/.test(ssUC(e.code)); }
+function ssScoreVal(txt){
+  const K=ssUC(txt);
+  if(!K) return 0;
+  if(/GOAL/.test(K)&&!/ATTEMPT|CHANCE|MISS|DISALLOW/.test(K)) return 3;
+  if(/2 POINT|TWO POINT|2PT/.test(K)&&!/ATTEMPT/.test(K)) return 2;
+  if(/POINT|1PT/.test(K)&&!/ATTEMPT/.test(K)) return 1;
+  return 0;
+}
+// Attempt type from a 'Shot Attempts' / 'Attempt' label ('1 Point Attempt',
+// '2 Point Attempt', 'Goal Attempt'; also tolerates 1PT/2PT/TWO/ONE POINT).
+// Returns '1' | '2' | 'G' | null. Never inferred from distance or zone.
+function ssAttType(txt){
+  const K=ssUC(txt);
+  if(!K) return null;
+  if(/GOAL/.test(K)) return 'G';
+  if(/\b2\s*-?\s*(POINT|PT|PTS)\b|TWO[\s-]*POINT|\b2PT/.test(K)) return '2';
+  if(/\b1\s*-?\s*(POINT|PT|PTS)\b|ONE[\s-]*POINT|\b1PT|\bPOINT/.test(K)) return '1';
+  return null;
+}
+function ssKoWon(v){ const K=ssUC(v); return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); }
+
+// ── Expected points (xP): every shot of a game scored once (cohesion-xp.js),
+// cached per events array + model so Team v Team, baseline and set modes
+// re-use it. Coordinate convention detected per game; level = meta.section.
+const SS_XP_CACHE=new WeakMap();
+function ssXpModel(){ const f=(typeof window!=='undefined'&&window.xpForShot)||null; return f?(f.model||window.XP_MODEL||null):null; }
+function ssXpLevel(meta){ const s=String((meta&&meta.section)||'').toLowerCase(); return (s==='club'||s==='county')?s:null; }
+// player identity: the "<TEAM> Player Labels" group, else e.player; trimmed
+function ssShotPlayer(e){
+  const L=e.labels||{}, t=ssUC(e.team);
+  let any=null;
+  for(const k of Object.keys(L)){ const K=ssUC(k); if(!/PLAYER LABELS$/.test(K)||!String(L[k]||'').trim()) continue;
+    if(t&&K.replace(/\s*PLAYER LABELS$/,'').trim()===t) return String(L[k]).trim();
+    if(any==null) any=String(L[k]).trim(); }
+  return (String(e.player||'').trim())||any||'';
+}
+function ssXpGame(meta, events){
+  const M=ssXpModel(); if(!M||!Array.isArray(events)) return null;
+  const c=SS_XP_CACHE.get(events);
+  if(c&&c.M===M&&c.n===events.length&&c.H===meta.homeTeam&&c.A===meta.awayTeam) return c.v;
+  const H=ssUC(meta.homeTeam);
+  let conv='tracker'; try{ if(typeof window.cohesionXpDetectConv==='function') conv=window.cohesionXpDetectConv(events); }catch(_){}
+  const level=ssXpLevel(meta), shots=[];
+  events.forEach(e=>{
+    if(!/SHOT (OPEN|DEAD)/.test(ssUC(e.code))) return;
+    let r=null;
+    try{ r=window.xpForShot(e.labels||{}, ssSideOf(e,H)?'home':'away', level, {conv, deadball:/DEAD ?BALL/.test(ssUC(e.code)), model:M}); }catch(_){ r=null; }
+    shots.push({e, xp:r?r.xp:null, pts:ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||''), player:ssShotPlayer(e)});
+  });
+  const v={conv, level, shots, version:M.version||'?'};
+  SS_XP_CACHE.set(events,{M,n:events.length,H:meta.homeTeam,A:meta.awayTeam,v});
+  return v;
+}
+// Per-game tallies for team T (uppercase). O = opponent name (uppercase).
+function ssGameTally(meta, events, T){
+  const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
+  if(T!==H&&T!==A) return null;
+  const O=(T===H)?A:H;
+  const g={ games:1,
+    shots:0, scores:0, pts:0, onePts:0, twoPts:0, goals:0,
+    att1:0, att1Scored:0, att2:0, att2Scored:0,
+    goalCh:0, goalScored:0, attemptData:false,
+    ownKO:0, ownKOWon:0, oppKO:0, oppKOWonByT:0, koData:false,
+    srcData:false, srcOwnKO:0, srcOppKO:0, srcTO:0, srcTotal:0,
+    ptsFromOwnKO:0, ptsConcededOwnKO:0,
+    tosConceded:0,
+    possCount:0, possDur:0, possDurOpp:0, possData:false,
+    scoreSeq:[] };
+  // Converted Gaelic Insights shots (cohesion-gi.js): count the derived
+  // SHOT OPEN PLAY / DEADBALL event and skip the superseded original "<Team>
+  // Shot" and the derived bare score companion — each shot and score once.
+  // Unconverted games have no derived events, so nothing is skipped.
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e);
+  const shotMode=ssShotMode(events);
+  events.forEach(e=>{
+    const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
+    if(!mineT&&!mineO) return;
+    if(giSup(e)||giComp(e)) return;
+    // shots + scores
+    if(ssIsShot(e,shotMode)&&mineT){
+      const out=ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'';
+      g.shots++;
+      const v=ssScoreVal(out);
+      if(v>0){ g.scores++; g.pts+=v; if(v===1) g.onePts++; else if(v===2) g.twoPts++; else if(v===3) g.goals++; }
+      // A goal chance = an explicit Goal Attempt label, OR any shot that
+      // ENDED as a goal or a save (those are chances by definition, even in
+      // XMLs that carry no attempt labels — fixes phantom 0% conversion).
+      const att=(e.labels||{})['Shot Attempts']||(e.labels||{})['Attempt'];
+      if(att) g.attemptData=true;
+      // per-type conversion: only shots that CARRY an attempt label count,
+      // so unlabelled games simply add nothing (→ n/a, not a fake 0%).
+      const aType=ssAttType(att);
+      if(aType==='1'){ g.att1++; if(v===1) g.att1Scored++; }
+      else if(aType==='2'){ g.att2++; if(v===2) g.att2Scored++; }
+      const attGoal=att&&/GOAL/.test(ssUC(att));
+      const isGoal=v===3, isSave=/SAVE/.test(ssUC(out));
+      if(attGoal||isGoal||isSave){ g.goalCh++; if(isGoal) g.goalScored++; }
+    }
+    // score sequence for momentum (both teams)
+    if(ssIsShot(e,shotMode)){
+      const v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(v>0) g.scoreSeq.push({t:(e.driveT!=null?e.driveT:e.start)||0, team:mineT?'T':'O', v});
+    }
+    // kickouts — the event's side is the KICKING team
+    if(ssIsKO(e)){
+      const out=ssLbl(e,SS_KO_GROUPS);
+      if(out){
+        g.koData=true;
+        const kickerWon=ssKoWon(out);
+        if(mineT){ g.ownKO++; if(kickerWon) g.ownKOWon++; }
+        else { g.oppKO++; if(!kickerWon) g.oppKOWonByT++; }
+      }
+    }
+    // score source (attached to shots/scores or SCORE SOURCE instances)
+    // (a converted GI shot carries its source as 'Shot Source Outcomes')
+    const src=ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?(e.labels||{})['Shot Source Outcomes']:null);
+    if(src){
+      const S=ssUC(src);
+      const val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(mineT&&val>0){
+        g.srcData=true; g.srcTotal++;
+        if(/OWN KICK/.test(S)){ g.srcOwnKO++; g.ptsFromOwnKO+=val; }
+        else if(/OPP KICK/.test(S)){ g.srcOppKO++; }
+        else if(/TURNOVER|F\/TO|U\/TO/.test(S)){ g.srcTO++; }
+      }
+      if(mineO&&val>0&&/OPP KICK/.test(S)){ g.ptsConcededOwnKO+=val; }   // they scored off OUR kickout
+    }
+    // turnovers conceded
+    if(ssIsTO(e)&&mineT) g.tosConceded++;
+    // possession instances
+    if(ssIsPoss(e)){
+      const dur=Math.max(0,((e.end!=null?e.end:0)-(e.start!=null?e.start:0)));
+      g.possData=true;
+      if(mineT){ g.possCount++; g.possDur+=dur; }
+      else g.possDurOpp+=dur;
+    }
+  });
+  // possession-derived ratios must only use games that HAVE possession
+  // data — otherwise all-games shots divide by few-games possessions.
+  g.possGames=g.possData?1:0;
+  g.shotsPossG=g.possData?g.shots:0;
+  g.tosPossG=g.possData?g.tosConceded:0;
+  // momentum from the chronological score sequence
+  g.scoreSeq.sort((x,y)=>x.t-y.t);
+  g.runs=0; g.runPts=0; g.runTwoPts=0;
+  let cur=0, curPts=0, curTwo=0;
+  const flush=()=>{ if(cur>=3){ g.runs++; g.runPts+=curPts; g.runTwoPts+=curTwo; } cur=0; curPts=0; curTwo=0; };
+  let last=null;
+  g.scoreSeq.forEach(s=>{
+    if(s.team==='T'){ if(last==='T'){ cur++; curPts+=s.v; if(s.v===2)curTwo++; } else { flush(); cur=1; curPts=s.v; curTwo=(s.v===2?1:0); } }
+    else { if(last==='T') flush(); }
+    last=s.team;
+  });
+  flush();
+  // expected points: T's located shots (for) and O's (conceded)
+  g.xp=0; g.xpShots=0; g.xpPts=0; g.xpMiss=0; g.xpAg=0; g.xpAgShots=0; g.xpGames=0; g.xpAgGames=0; g.xpData=false;
+  const X=ssXpGame(meta, events);
+  if(X){ X.shots.forEach(o=>{
+      if(ssSideOf(o.e,T)){ if(o.xp==null){ g.xpMiss++; return; } g.xp+=o.xp; g.xpShots++; g.xpPts+=o.pts; }
+      else if(ssSideOf(o.e,O)&&o.xp!=null){ g.xpAg+=o.xp; g.xpAgShots++; } });
+    g.xpGames=g.xpShots>0?1:0; g.xpAgGames=g.xpAgShots>0?1:0; g.xpData=g.xpShots>0||g.xpAgShots>0; }
+  return g;
+}
+// Player xP over a list of bundles for team T: shots, shots with xP, points
+// and xP from those shots. Names merge case-insensitively (most-used spelling shown).
+function ssPlayerXp(bundles, T){
+  const m={};
+  (bundles||[]).forEach(b=>{ if(!b||!b.meta) return;
+    const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam); if(T!==H&&T!==A) return;
+    const X=ssXpGame(b.meta,b.events); if(!X) return;
+    X.shots.forEach(o=>{ if(!ssSideOf(o.e,T)||!o.player) return;
+      const k=o.player.replace(/\s+/g,' ').trim().toLowerCase(); if(!k) return;
+      const r=m[k]||(m[k]={names:{},shots:0,xpShots:0,pts:0,xp:0});
+      r.names[o.player]=(r.names[o.player]||0)+1; r.shots++;
+      if(o.xp!=null){ r.xpShots++; r.xp+=o.xp; r.pts+=o.pts; } });
+  });
+  return Object.values(m).map(r=>({name:Object.entries(r.names).sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length)[0][0],
+    shots:r.shots, xpShots:r.xpShots, pts:r.pts, xp:r.xp, diff:r.pts-r.xp, perShot:r.xpShots?r.xp/r.xpShots:null}));
+}
+const SS_PLAYER_MIN=30;
+function ssSortPlayers(rows, key, dir){
+  const d=dir==='asc'?1:-1, val=r=>key==='name'?r.name.toLowerCase():(r[key]==null?-1e9:r[key]);
+  return rows.slice().sort((a,b)=>{ const x=val(a), y=val(b); return (x<y?-1:x>y?1:0)*d || b.xpShots-a.xpShots || a.name.localeCompare(b.name); });
+}
+function ssAggregate(tallies){
+  const a={games:0};
+  tallies.forEach(g=>{ if(!g) return; Object.keys(g).forEach(k=>{ if(typeof g[k]==='number') a[k]=(a[k]||0)+g[k]; else if(typeof g[k]==='boolean') a[k]=(a[k]||false)||g[k]; }); });
+  return a;
+}
+// metric list: [section, label, sub, fn(agg)->{v,txt} | null for n/a, fmt]
+function ssMetrics(){
+  const pct=(n,d)=>d>0?{v:n/d*100, txt:(n/d*100).toFixed(1)+'%'}:null;
+  const per=(n,g,dp)=>g>0?{v:n/g, txt:(n/g).toFixed(dp==null?1:dp)}:null;
+  const num=(n)=>({v:n, txt:String(n)});
+  const sgn=(v,dp)=>({v, txt:(v>=0?'+':'')+v.toFixed(dp)});
+  return [
+    ['KICKOUT','Own KO Win %','', a=>a.koData?pct(a.ownKOWon,a.ownKO):null],
+    ['KICKOUT','Opp KO Won %','', a=>a.koData?pct(a.oppKOWonByT,a.oppKO):null],
+    ['KICKOUT','Net Pts per KO','scored − conceded, per own KO', a=>(a.koData&&a.srcData&&a.ownKO>0)?{v:(a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO, txt:((a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO>=0?'+':'')+((a.ptsFromOwnKO-a.ptsConcededOwnKO)/a.ownKO).toFixed(3)}:null],
+    ['KICKOUT','Own KO → Scored','points', a=>a.srcData?num(a.ptsFromOwnKO):null],
+    ['KICKOUT','Own KO → Conceded','points', a=>a.srcData?num(a.ptsConcededOwnKO):null],
+    ['SHOOTING','Shot/Score %','', a=>pct(a.scores,a.shots)],
+    ['SHOOTING','Shots per Game','', a=>per(a.shots,a.games)],
+    ['SHOOTING','Total Pts per Game','', a=>per(a.pts,a.games,1)],
+    ['SHOOTING','1pt per Game','', a=>per(a.onePts,a.games,1)],
+    ['SHOOTING','2pt per Game','', a=>per(a.twoPts,a.games,2)],
+    ['SHOOTING','Goals per Game','', a=>per(a.goals,a.games,2)],
+    ['SHOOTING','1pt Conversion %','1pt scores ÷ labelled 1pt attempts', a=>a.att1>0?pct(a.att1Scored,a.att1):null],
+    ['SHOOTING','2pt Conversion %','2pt scores ÷ labelled 2pt attempts', a=>a.att2>0?pct(a.att2Scored,a.att2):null],
+    ['SHOOTING','Goal Chances per Game','', a=>(a.attemptData||a.goalCh>0)?per(a.goalCh,a.games):null],
+    ['SHOOTING','Goal Chance Conversion %','', a=>(a.goalCh>0)?pct(a.goalScored,a.goalCh):null],
+    ['EXPECTED POINTS','xP per Game','games with located shots', a=>a.xpGames>0?per(a.xp,a.xpGames,1):null],
+    ['EXPECTED POINTS','Points − xP per Game','scores from located shots − xP', a=>a.xpGames>0?sgn((a.xpPts-a.xp)/a.xpGames,2):null],
+    ['EXPECTED POINTS','xP per Shot','', a=>a.xpShots>0?per(a.xp,a.xpShots,3):null],
+    ['EXPECTED POINTS','xP Conceded per Game','from the opposition\'s located shots', a=>a.xpAgGames>0?per(a.xpAg,a.xpAgGames,1):null],
+    ['EXPECTED POINTS','xP Conceded per Shot','', a=>a.xpAgShots>0?per(a.xpAg,a.xpAgShots,3):null],
+    ['POSSESSION','Possession %','needs possession instances', a=>(a.possData&&(a.possDur+a.possDurOpp)>0)?pct(a.possDur,a.possDur+a.possDurOpp):null],
+    ['POSSESSION','Possessions per Game','possession-tracked games only', a=>a.possGames>0?per(a.possCount,a.possGames):null],
+    ['POSSESSION','Poss → Shot %','possession-tracked games only', a=>(a.possCount>0)?pct(a.shotsPossG,a.possCount):null],
+    ['POSSESSION','Turnover Rate %','turnovers per possession', a=>(a.possCount>0)?pct(a.tosPossG,a.possCount):null],
+    ['SCORE ORIGIN','From Own KO %','of sourced scores', a=>a.srcData?pct(a.srcOwnKO,a.srcTotal):null],
+    ['SCORE ORIGIN','From Opp KO %','', a=>a.srcData?pct(a.srcOppKO,a.srcTotal):null],
+    ['SCORE ORIGIN','From Turnovers %','', a=>a.srcData?pct(a.srcTO,a.srcTotal):null],
+    ['MOMENTUM','Runs of 3+ scores','total', a=>num(a.runs)],
+    ['MOMENTUM','Runs per Game','', a=>per(a.runs,a.games,1)],
+    ['MOMENTUM','Avg Pts per Run','', a=>a.runs>0?per(a.runPts,a.runs,1):null],
+    ['MOMENTUM','2pts in Runs','count', a=>num(a.runTwoPts)],
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME TYPES — pure classifier + filter helpers (headlessly tested).
+//  A game's type = session override (non-admin, this tab only)
+//               → saved meta.gameType (admin override, via gameAdmin)
+//               → automatic keyword rules on the competition name.
+// ═══════════════════════════════════════════════════════════════
+const SS_TYPES=[
+  {k:'preseason',    label:'Pre-season',         col:'#a78bfa'},
+  {k:'league',       label:'League',             col:'#4fc3f7'},
+  {k:'championship', label:'Championship',       col:'#fbbf24'},
+  {k:'challenge',    label:'Challenge/Friendly', col:'#94a3b8'},
+  {k:'unclassified', label:'Unclassified',       col:'#6d6d7a'}];
+const SS_TYPE_KEYS=SS_TYPES.map(t=>t.k);
+function ssTypeDef(k){ return SS_TYPES.find(t=>t.k===k)||SS_TYPES[SS_TYPES.length-1]; }
+function ssTypeLabel(k){ return ssTypeDef(k).label; }
+// accepts a key or a label in any case ('League', 'Challenge/Friendly', 'pre season')
+function ssNormType(v){
+  const s=String(v==null?'':v).toLowerCase().replace(/[^a-z]/g,'');
+  if(!s) return null;
+  if(s==='preseason') return 'preseason';
+  if(s==='league') return 'league';
+  if(s==='championship') return 'championship';
+  if(s==='challenge'||s==='friendly'||s==='challengefriendly') return 'challenge';
+  if(s==='unclassified') return 'unclassified';
+  return null;
+}
+// Ordered rules — FIRST match wins. Pre-season runs before League so
+// "FBD League" is pre-season; Challenge runs before League/Championship
+// so an explicit friendly is never promoted. Tested against every
+// competition string in games/*.json metadata + the upload dropdowns.
+const SS_TYPE_RULES=[
+  ['preseason',   'FBD',                   /\bFBD\b/],
+  ['preseason',   "O'Byrne Cup",           /\bO\s*['’`]?\s*BYRNE\b/],
+  ['preseason',   'McKenna Cup',           /\bMC\s*KENNA\b/],
+  ['preseason',   'McGrath Cup',           /\bMC\s*GRATH\b/],
+  ['preseason',   'Pre-season',            /\bPRE[\s-]*SEASON\b/],
+  ['challenge',   'Challenge',             /\bCHALLENGE\b/],
+  ['challenge',   'Friendly',              /\bFRIENDL(Y|IES)\b/],
+  ['challenge',   'In-house',              /\bIN[\s-]*HOUSE\b/],
+  ['league',      'National League',       /\bNATIONAL\s+(FOOTBALL\s+)?LEAGUE\b/],
+  ['league',      'NFL',                   /\bNFL\b/],
+  ['league',      'Division',              /\bDIV(ISION)?\b|\bD[1-4](\s*R\d+)?\b/],
+  ['league',      'League',                /\bLEAGUE\b/],
+  ['championship','Provincial',            /\b(CONNACHT|MUNSTER|LEINSTER|ULSTER)\b/],
+  ['championship','All-Ireland',           /\bALL[\s-]*IRELAND\b/],
+  ['championship','SFC',                   /SFC\b/],
+  ['championship','Championship',          /\bCHAMPIONSHIP\b/],
+  ['championship','Tailteann',             /\bTAILTEANN\b/],
+  ['championship','Sam Maguire',           /\bSAM\s+MAGUIRE\b/],
+  ['championship','Knockout round',        /\b(QF|SF|FINALS?|SEMI[\s-]*FINAL|QUARTER[\s-]*FINAL|QUALIFIERS?|PRELIM(INARY)?)\b/]];
+// competition decides; the round is only consulted when the competition is
+// BLANK (and then never via the bare QF/SF/Final rule — "Final" alone is not
+// a championship context).
+function ssClassifyCompetition(comp, round){
+  const C=ssUC(comp);
+  if(C){
+    for(const [type,rule,re] of SS_TYPE_RULES) if(re.test(C)) return {type, rule, from:'competition'};
+    return {type:'unclassified', rule:null, from:'competition'};
+  }
+  const R=ssUC(round);
+  if(R){
+    for(const [type,rule,re] of SS_TYPE_RULES){ if(rule==='Knockout round') continue; if(re.test(R)) return {type, rule, from:'round'}; }
+  }
+  return {type:'unclassified', rule:null, from:null};
+}
+function ssAutoType(g){ return ssClassifyCompetition(g&&g.competition, g&&g.round).type; }
+function ssTypeOf(g, sess){ return (sess&&g&&sess[g.id]&&ssNormType(sess[g.id]))||ssNormType(g&&g.gameType)||ssAutoType(g); }
+function ssTypeSource(g, sess){ return (sess&&sess[g.id]&&ssNormType(sess[g.id]))?'session':ssNormType(g.gameType)?'saved':'auto'; }
+// the saved override: a copy of the FULL meta with only gameType touched
+function ssMergeGameType(meta, key){
+  const m=Object.assign({}, meta||{});
+  const k=ssNormType(key);
+  if(k) m.gameType=k; else delete m.gameType;
+  return m;
+}
+// 'YYYY-MM-DD' from ISO or D/M/YYYY dates; '' when unknown
+function ssIsoDate(s){
+  const t=String(s||'').trim();
+  let m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t); if(m) return m[1]+'-'+m[2]+'-'+m[3];
+  m=/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(t); if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return '';
+}
+function ssYearOf(g){ const d=ssIsoDate(g.date); return d?d.slice(0,4):(/^\d{4}/.test(String(g.date||''))?String(g.date).slice(0,4):''); }
+// f = {types:Set|null (null = no type filter), compsOff:Set, year, from, to}
+function ssFilterGames(games, f, typeOf){
+  f=f||{};
+  return (games||[]).filter(g=>{
+    if(f.types&&!f.types.has(typeOf(g))) return false;
+    if(f.compsOff&&f.compsOff.has(g.competition||'')) return false;
+    if(f.year&&ssYearOf(g)!==f.year) return false;
+    if(f.from||f.to){
+      const d=ssIsoDate(g.date);
+      if(!d) return false;                          // undated games can't satisfy a date range
+      if(f.from&&d<f.from) return false;
+      if(f.to&&d>f.to) return false;
+    }
+    return true;
+  });
+}
+function ssTeamIn(g, T){ return ssUC(g.homeTeam)===T||ssUC(g.awayTeam)===T; }
+// candidates of a set = pool games the team played whose type is in the set;
+// the set's chosen games = candidates minus the ones unticked (set.off)
+function ssSetCandidates(pool, T, set, typeOf){ return (pool||[]).filter(g=>ssTeamIn(g,T)&&set.types.has(typeOf(g))); }
+function ssSetGames(pool, T, set, typeOf){ return ssSetCandidates(pool,T,set,typeOf).filter(g=>!(set.off&&set.off.has(g.id))); }
+function ssTypesText(types){ const ks=SS_TYPE_KEYS.filter(k=>types.has?types.has(k):types.includes(k)); return ks.length?ks.map(ssTypeLabel).join(' + '):'No types'; }
+function ssSetLabel(T, types, n){ return T+' · '+ssTypesText(types)+' ('+n+' game'+(n===1?'':'s')+')'; }
+function ssEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════════════
+//  PAGE — filters, gateway fetching, mirrored bars
+// ═══════════════════════════════════════════════════════════════
+// ── tabs: the hash selects the tab (#overview … #compare); pure helper ──
+const AN_TABS=['overview','match-reports','team-trends','momentum','players','compare'];
+function anTabFromHash(h){
+  const k=String(h||'').replace(/^#/,'').toLowerCase().trim();
+  return AN_TABS.includes(k)?k:'overview';
+}
+let TAB='overview';
+function anSetTab(tab){
+  TAB=AN_TABS.includes(tab)?tab:'overview';
+  document.body.dataset.tab=TAB;
+  document.querySelectorAll('#tabs a').forEach(a=>{ const on=a.dataset.tab===TAB; a.classList.toggle('on',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  // the game-type chips live in the Compare mode row; on Overview they sit
+  // (collapsed) inside "Games included" — the same element, so state is shared
+  const chips=ssEl('fTypesWrap'), slot=TAB==='overview'?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
+  if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
+  if(GAMES_READY){ renderTypeChips(); applyFilters(); }
+}
+let GAMES_READY=false;
+let GAMES=[], BUNDLES=new Map();
+let MODE='teams', IS_ADMIN=false;
+const TYPE_OFF=new Set(), COMP_OFF=new Set(), EXCLUDED=new Set();
+const SESSION_TYPES={};   // non-admin (or failed-save) overrides, this tab only
+const SETS=[{types:new Set(['league']), off:new Set()}, {types:new Set(['championship']), off:new Set()}];
+let ALL_COMPS=[];
+const typeOfG=g=>ssTypeOf(g, SESSION_TYPES);
+const ssEl=id=>document.getElementById(id);
+function metaOf(r){ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return null; } } return (m&&m.id)?m:null; }
+async function boot(){
+  try{
+    try{ IS_ADMIN=(cohesionRoles()||[]).map(r=>String(r).toLowerCase()).includes('admin'); }catch(_){ IS_ADMIN=false; }
+    const xpReady=(typeof window.cohesionXpReady==='function'?window.cohesionXpReady():Promise.resolve()).catch(()=>{});
+    const j=await cohesionRead({action:'listGames', section:cohesionSection()});
+    await xpReady;
+    GAMES=(j.games||[]).map(metaOf).filter(Boolean);
+    ALL_COMPS=[...new Set(GAMES.map(g=>g.competition||''))].sort((a,b)=>(a===''?1:b===''?-1:a.localeCompare(b)));
+    const years=[...new Set(GAMES.map(ssYearOf).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
+    ssEl('fYear').innerHTML='<option value="">All</option>'+years.map(y=>`<option>${y}</option>`).join('');
+    GAMES_READY=true;
+    renderTypeChips(); renderComps();
+    applyFilters();
+    ssEl('status').textContent=GAMES.length+' games available in this section.'+(IS_ADMIN?'':' Game-type changes you make here last for this session only (admins can save them).');
+  }catch(e){
+    ssEl('status').textContent='Could not load games: '+e.message;
+  }
+}
+function curFilter(){
+  return { types: ssSetsActive()?null:new Set(SS_TYPE_KEYS.filter(k=>!TYPE_OFF.has(k))),   // sets choose their own types
+           compsOff:COMP_OFF, year:ssEl('fYear').value, from:ssEl('fFrom').value, to:ssEl('fTo').value };
+}
+// set mode only exists on the Compare tab; everywhere else the chips apply
+function ssSetsActive(){ return MODE==='sets'&&TAB==='compare'; }
+function filteredGames(){ return ssFilterGames(GAMES, curFilter(), typeOfG); }
+function selectedGames(){ return filteredGames().filter(g=>!EXCLUDED.has(g.id)); }
+function renderTypeChips(){
+  const dis=ssSetsActive();
+  ssEl('fTypes').innerHTML=SS_TYPES.map(t=>`<button class="chip ${TYPE_OFF.has(t.k)?'':'on'}" style="--tc:${t.col}" ${dis?'disabled':''} onclick="toggleType('${t.k}')">${ssEsc(t.label)}</button>`).join('');
+  ssEl('fTypesNote').textContent=dis?'· chosen per set below':'';
+}
+function toggleType(k){ if(TYPE_OFF.has(k)) TYPE_OFF.delete(k); else TYPE_OFF.add(k); renderTypeChips(); applyFilters(); }
+function compName(c){ return c===''?'(no competition)':c; }
+function renderComps(){
+  ssEl('fComp').innerHTML=ALL_COMPS.map((c,i)=>`<label class="gitem"><input type="checkbox" data-i="${i}" ${COMP_OFF.has(c)?'':'checked'} onchange="compToggle(this)"> ${ssEsc(compName(c))} <span class="tbadge" style="--tc:${ssTypeDef(ssClassifyCompetition(c,'').type).col}">${ssEsc(ssTypeLabel(ssClassifyCompetition(c,'').type).toUpperCase())}</span></label>`).join('')||'<div class="gitem">No competitions.</div>';
+  const on=ALL_COMPS.filter(c=>!COMP_OFF.has(c));
+  ssEl('fCompSum').textContent=on.length===ALL_COMPS.length?'All ('+ALL_COMPS.length+')':on.length===0?'None':on.length===1?compName(on[0]):on.length+' of '+ALL_COMPS.length;
+}
+function compToggle(el){ const c=ALL_COMPS[+el.dataset.i]; if(el.checked) COMP_OFF.delete(c); else COMP_OFF.add(c); renderComps(); applyFilters(); }
+function compAll(on){ COMP_OFF.clear(); if(!on) ALL_COMPS.forEach(c=>COMP_OFF.add(c)); renderComps(); applyFilters(); }
+function clearFilters(){
+  TYPE_OFF.clear(); COMP_OFF.clear(); EXCLUDED.clear();
+  ssEl('fYear').value=''; ssEl('fFrom').value=''; ssEl('fTo').value='';
+  renderTypeChips(); renderComps(); applyFilters();
+}
+function setMode(m){
+  MODE=m==='sets'?'sets':'teams';
+  ssEl('mTeams').classList.toggle('on', MODE==='teams');
+  ssEl('mSets').classList.toggle('on', MODE==='sets');
+  ssEl('teamsCtl').style.display=MODE==='teams'?'':'none';
+  ssEl('setsCtl').style.display=MODE==='sets'?'':'none';
+  renderTypeChips(); applyFilters();
+}
+function typeSelectHTML(g){
+  const src=ssTypeSource(g, SESSION_TYPES), cur=src==='auto'?'':typeOfG(g);
+  return `<select class="tsel" data-id="${ssEsc(g.id)}" onchange="setGameType(this)" title="${IS_ADMIN?'Change and save this game\'s type':'Change this game\'s type for this session'}">`
+    +`<option value="" ${cur?'':'selected'}>Auto: ${ssEsc(ssTypeLabel(ssAutoType(g)))}</option>`
+    +SS_TYPES.map(t=>`<option value="${t.k}" ${cur===t.k?'selected':''}>${ssEsc(t.label)}</option>`).join('')+'</select>';
+}
+function applyFilters(){
+  const fg=filteredGames();
+  const nSel=fg.filter(g=>!EXCLUDED.has(g.id)).length;
+  ssEl('gCount').textContent=nSel===fg.length?String(fg.length):nSel+' of '+fg.length;
+  ssEl('gList').innerHTML=fg.map(g=>{
+    const k=typeOfG(g), src=ssTypeSource(g, SESSION_TYPES);
+    return `<div class="gitem"><label><input type="checkbox" data-id="${ssEsc(g.id)}" ${EXCLUDED.has(g.id)?'':'checked'} onchange="toggleGame(this)"> <span class="gt">${ssEsc(g.title||g.id)} <span style="color:var(--t3)">· ${ssEsc(g.competition||'')} ${ssEsc(g.date||'')}</span></span></label>`
+      +`<span class="tbadge" style="--tc:${ssTypeDef(k).col}">${ssEsc(ssTypeLabel(k).toUpperCase())}</span>`
+      +(src==='auto'?'':`<span class="tsrc">${src}</span>`)+typeSelectHTML(g)+'</div>';
+  }).join('')||'<div class="gitem">No games match.</div>';
+  ssEl('gNote').textContent=ssSetsActive()?'Sets draw only from ticked games.':'';
+  refreshTeams();
+}
+function gamesAll(on){ filteredGames().forEach(g=>{ if(on) EXCLUDED.delete(g.id); else EXCLUDED.add(g.id); }); applyFilters(); }
+function toggleGame(el){ const id=el.dataset.id; if(el.checked) EXCLUDED.delete(id); else EXCLUDED.add(id); applyFilters(); }
+async function setGameType(el){
+  const id=el.dataset.id, key=ssNormType(el.value)||'';
+  const g=GAMES.find(x=>x.id===id); if(!g) return;
+  const st=ssEl('status');
+  if(!IS_ADMIN){
+    if(key) SESSION_TYPES[id]=key; else delete SESSION_TYPES[id];
+    st.textContent='Type for '+(g.title||id)+' changed for this session only — ask an admin to save it.';
+    applyFilters(); return;
+  }
+  el.disabled=true; st.textContent='Saving type for '+(g.title||id)+'…';
+  try{
+    await ssSaveGameType(id, key);
+    delete SESSION_TYPES[id];
+    st.textContent='Saved: '+(g.title||id)+' is '+(key?ssTypeLabel(key):'auto ('+ssTypeLabel(ssAutoType(g))+')')+'.';
+  }catch(e){
+    if(key) SESSION_TYPES[id]=key; else delete SESSION_TYPES[id];
+    st.textContent='Could not save ('+e.message+') — applied for this session only.';
+  }
+  applyFilters();
+}
+// Admin-only write: re-read the CURRENT meta through the gateway, change only
+// gameType, and send the whole meta back through the service-role gameAdmin
+// function (updateMeta replaces games.meta, so every other field must ride along).
+async function ssSaveGameType(id, key){
+  const j=await cohesionRead({action:'gameBundle', id});
+  let fresh=j.meta; if(typeof fresh==='string'){ try{ fresh=JSON.parse(fresh); }catch(_){ fresh=null; } }
+  if(!fresh||typeof fresh!=='object') throw new Error('could not read the game\'s current metadata');
+  const merged=ssMergeGameType(fresh, key);
+  await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:id, meta:merged});
+  BUNDLES.set(id, {meta:merged, events:(j.events||[]).map(r=>r.data)});
+  const g=GAMES.find(x=>x.id===id);
+  if(g){ if(merged.gameType) g.gameType=merged.gameType; else delete g.gameType; }
+  return merged;
+}
+function refreshTeams(){
+  const teams=[...new Set(selectedGames().flatMap(g=>[ssUC(g.homeTeam),ssUC(g.awayTeam)]).filter(Boolean))].sort();
+  const a=ssEl('fTeamA'), b=ssEl('fTeamB'), s=ssEl('fTeamS');
+  const pa=a.value, pb=b.value, ps=s.value;
+  a.innerHTML=teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  b.innerHTML='<option value="__baseline__">— Baseline (all teams avg) —</option>'+teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  s.innerHTML=teams.map(t=>`<option>${ssEsc(t)}</option>`).join('');
+  if(teams.includes(pa)) a.value=pa;
+  if(pb==='__baseline__'||teams.includes(pb)) b.value=pb;
+  if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
+  refreshSets();
+}
+// ── same team, two game sets ──
+function refreshSets(){
+  if(MODE!=='sets') return;
+  const T=ssEl('fTeamS').value, pool=selectedGames();
+  SETS.forEach((set,i)=>{
+    ssEl('s'+i+'Types').innerHTML=SS_TYPES.map(t=>`<button class="chip ${set.types.has(t.k)?'on':''}" style="--tc:${t.col}" onclick="toggleSetType(${i},'${t.k}')">${ssEsc(t.label)}</button>`).join('');
+    const cand=T?ssSetCandidates(pool,T,set,typeOfG):[];
+    const n=cand.filter(g=>!set.off.has(g.id)).length;
+    ssEl('s'+i+'Sum').textContent=(n===cand.length?'All ':n+' of ')+cand.length+' game'+(cand.length===1?'':'s');
+    ssEl('s'+i+'Games').innerHTML=cand.map(g=>`<label class="gitem"><input type="checkbox" data-set="${i}" data-id="${ssEsc(g.id)}" ${set.off.has(g.id)?'':'checked'} onchange="toggleSetGame(this)"> ${ssEsc(g.title||g.id)} <span style="color:var(--t3)">· ${ssEsc(g.date||'')}</span> <span class="tbadge" style="--tc:${ssTypeDef(typeOfG(g)).col}">${ssEsc(ssTypeLabel(typeOfG(g)).toUpperCase())}</span></label>`).join('')
+      ||'<div class="gitem">No games for '+ssEsc(T||'this team')+' of these types in the filtered pool.</div>';
+  });
+}
+function toggleSetType(i,k){ const s=SETS[i].types; if(s.has(k)) s.delete(k); else s.add(k); refreshSets(); }
+function toggleSetGame(el){ const s=SETS[+el.dataset.set]; if(el.checked) s.off.delete(el.dataset.id); else s.off.add(el.dataset.id); refreshSets(); }
+function setGamesAll(i,on){
+  const T=ssEl('fTeamS').value, cand=ssSetCandidates(selectedGames(),T,SETS[i],typeOfG);
+  cand.forEach(g=>{ if(on) SETS[i].off.delete(g.id); else SETS[i].off.add(g.id); });
+  refreshSets();
+}
+async function fetchBundle(id){
+  if(BUNDLES.has(id)) return BUNDLES.get(id);
+  const j=await cohesionRead({action:'gameBundle', id});
+  const b={meta:j.meta, events:(j.events||[]).map(r=>r.data)};
+  BUNDLES.set(id,b);
+  return b;
+}
+// ── team colours from game metas, guarded for a dark page ──
+function ssHexRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(String(h||'').trim()); if(!m) return null; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
+function ssLum(rgb){ return (0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255; }
+function ssLighten(rgb,f){ return '#'+rgb.map(v=>Math.round(v+(255-v)*f).toString(16).padStart(2,'0')).join(''); }
+function ssTeamColor(T){
+  // most recent game the team appears in wins (metas are newest-first)
+  for(const g of GAMES){
+    if(ssUC(g.homeTeam)===T&&g.homeColor) { const rgb=ssHexRgb(g.homeColor); if(rgb) return {rgb, hex:g.homeColor}; }
+    if(ssUC(g.awayTeam)===T&&g.awayColor) { const rgb=ssHexRgb(g.awayColor); if(rgb) return {rgb, hex:g.awayColor}; }
+  }
+  return null;
+}
+function ssDisplayColors(TA, TB){
+  const fallbackA='#2dd4bf', fallbackB='#f5a623';
+  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); return L<0.28?ssLighten(c2.rgb,0.45):c2.hex; };   // navy/black lift to readable
+  let a=legible(ssTeamColor(TA))||fallbackA;
+  let b=(TB&&TB!=='__baseline__')?(legible(ssTeamColor(TB))||fallbackB):fallbackB;
+  const ra=ssHexRgb(a), rb=ssHexRgb(b);
+  if(ra&&rb){ const d=Math.hypot(ra[0]-rb[0],ra[1]-rb[1],ra[2]-rb[2]); if(d<90) b=fallbackB; }   // clash → B goes amber
+  if(a.toLowerCase()===fallbackB.toLowerCase()) a=fallbackA;   // degenerate: both resolved amber
+  return {a,b};
+}
+function teamAgg(bundles, T){
+  const tallies=bundles.map(b=>ssGameTally(b.meta,b.events,T)).filter(Boolean);
+  return {agg:ssAggregate(tallies), games:tallies.length};
+}
+async function loadBundles(games, st){
+  const out=[];
+  for(let i=0;i<games.length;i+=4){
+    if(st) st.textContent='Loading events… '+Math.min(i+4,games.length)+'/'+games.length;
+    const chunk=await Promise.all(games.slice(i,i+4).map(g=>fetchBundle(g.id)));
+    out.push(...chunk);
+  }
+  return out;
+}
+// Set mode, pure: aggregate ONE team over two game sets with the unchanged
+// engine. bundleOf(id) -> {meta, events}. Returns what render() needs.
+function ssSetsCompare(T, sets, pool, typeOf, bundleOf){
+  const res=sets.map(set=>{
+    const games=ssSetGames(pool, T, set, typeOf);
+    const r=teamAgg(games.map(g=>bundleOf(g.id)).filter(Boolean), T);
+    return {games, res:r, label:ssSetLabel(T, set.types, r.games), types:SS_TYPE_KEYS.filter(k=>set.types.has(k))};
+  });
+  const ids0=new Set(res[0].games.map(g=>g.id));
+  return {sets:res, overlap:res[1].games.filter(g=>ids0.has(g.id)).length};
+}
+async function runCompare(){
+  const st=ssEl('status');
+  if(MODE==='sets') return runSets();
+  const games=selectedGames();
+  if(!games.length){ st.textContent='No games selected.'; return; }
+  const A=ssEl('fTeamA').value, B=ssEl('fTeamB').value;
+  if(!A){ st.textContent='Pick Team A.'; return; }
+  if(A===B){ st.textContent='Pick two different teams.'; return; }
+  const btn=ssEl('goBtn'); btn.disabled=true;
+  try{
+    const bundles=await loadBundles(games, st);
+    const ra=teamAgg(bundles,A);
+    let rb, nameB;
+    if(B==='__baseline__'){
+      const teams=[...new Set(bundles.flatMap(b=>[ssUC(b.meta.homeTeam),ssUC(b.meta.awayTeam)]).filter(Boolean))];
+      // baseline = mean of each metric across teams that support it
+      rb={baseline:teams.map(t=>teamAgg(bundles,t))};
+      nameB='ALL TEAMS AVG';
+    } else { rb=teamAgg(bundles,B); nameB=B; }
+    const pl=[{team:A, label:A, rows:ssPlayerXp(bundles,A)}];
+    if(B!=='__baseline__') pl.push({team:B, label:B, rows:ssPlayerXp(bundles,B)});
+    render(A, ra, nameB, rb, games, {mode:'teams', keyA:A, keyB:B, players:pl});
+    st.textContent='';
+  }catch(e){ st.textContent='Could not compute: '+e.message; }
+  btn.disabled=false;
+}
+async function runSets(){
+  const st=ssEl('status');
+  const T=ssEl('fTeamS').value;
+  if(!T){ st.textContent='Pick a team.'; return; }
+  const pool=selectedGames();
+  for(let i=0;i<2;i++){
+    if(!SETS[i].types.size){ st.textContent='Set '+(i+1)+': pick at least one game type.'; return; }
+    if(!ssSetGames(pool,T,SETS[i],typeOfG).length){ st.textContent='Set '+(i+1)+' ('+ssTypesText(SETS[i].types)+') has no games for '+T+' in the filtered pool.'; return; }
+  }
+  const btn=ssEl('goBtn'); btn.disabled=true;
+  try{
+    const union=[...new Map(SETS.flatMap(s=>ssSetGames(pool,T,s,typeOfG)).map(g=>[g.id,g])).values()];
+    await loadBundles(union, st);
+    const out=ssSetsCompare(T, SETS, pool, typeOfG, id=>BUNDLES.get(id));
+    const [s1,s2]=out.sets;
+    // one player table for the team over every game in either set
+    const pl=[{team:T, label:T+' · all games in both sets ('+union.length+')', rows:ssPlayerXp(union.map(g=>BUNDLES.get(g.id)).filter(Boolean),T)}];
+    render(s1.label, s1.res, s2.label, s2.res, union, {mode:'sets', keyA:T, keyB:T, team:T, sets:out.sets, players:pl});
+    st.textContent=out.overlap?(out.overlap+' game'+(out.overlap===1?' is':'s are')+' in both sets (their types overlap).'):'';
+  }catch(e){ st.textContent='Could not compute: '+e.message; }
+  btn.disabled=false;
+}
+function metricFor(res, fn){
+  if(res.baseline){
+    const vals=res.baseline.map(r=>fn(r.agg)).filter(x=>x&&isFinite(x.v));
+    if(!vals.length) return null;
+    const mean=vals.reduce((s,x)=>s+x.v,0)/vals.length;
+    const sample=vals[0].txt;
+    const dec=sample.includes('%')?1:(sample.includes('.')?(sample.split('.')[1]||'').length:0);
+    return {v:mean, txt:(sample.startsWith('+')&&mean>=0?'+':'')+mean.toFixed(dec)+(sample.includes('%')?'%':'')};
+  }
+  return fn(res.agg);
+}
+let SS_LAST=null;   // snapshot of exactly what's on screen, for the exports
+function ssSnapGame(g){
+  return {id:g.id, title:g.title||((g.homeTeam||'?')+' v '+(g.awayTeam||'?')), home:g.homeTeam||'', away:g.awayTeam||'',
+          date:g.date||'', competition:g.competition||'', type:ssTypeLabel(typeOfG(g))};
+}
+// the active filters, as the exports print them
+function ssFilterSnap(){
+  const typesOn=SS_TYPE_KEYS.filter(k=>!TYPE_OFF.has(k));
+  const compsOn=ALL_COMPS.filter(c=>!COMP_OFF.has(c));
+  return { types:typesOn.map(ssTypeLabel), typesAll:typesOn.length===SS_TYPE_KEYS.length,
+           competitions:compsOn.map(compName), compsAll:compsOn.length===ALL_COMPS.length,
+           season:((ssEl('fYear')||{}).value)||'', from:((ssEl('fFrom')||{}).value)||'', to:((ssEl('fTo')||{}).value)||'',
+           excluded:filteredGames().filter(g=>EXCLUDED.has(g.id)).length };
+}
+// plain-ASCII lines describing mode + filters (safe for jsPDF helvetica)
+function ssFilterLines(snap){
+  const f=snap.filters||{}, L=[];
+  if(snap.mode==='sets'){
+    L.push('Mode: Same team, two game sets ('+snap.team+')');
+    (snap.sets||[]).forEach((s,i)=>L.push('Set '+(i+1)+': '+(s.types.length?s.types.join(' + '):'none')+' ('+s.games.length+' game'+(s.games.length===1?'':'s')+')'));
+  } else {
+    L.push('Mode: '+(snap.baseline?'Team v baseline (all teams avg)':'Team v Team'));
+    L.push('Game types: '+(f.typesAll?'All':((f.types||[]).length?f.types.join(', '):'None')));
+  }
+  L.push('Competitions: '+(f.compsAll?'All':((f.competitions||[]).length?f.competitions.join(', '):'None')));
+  L.push('Season: '+(f.season||'All'));
+  L.push('Dates: '+((f.from||f.to)?(f.from||'any')+' to '+(f.to||'any'):'Any'));
+  if(f.excluded) L.push(f.excluded+' filtered game'+(f.excluded===1?'':'s')+' unticked');
+  return L;
+}
+function render(nameA, ra, nameB, rb, games, opt){
+  opt=opt||{mode:'teams'};
+  const keyA=opt.keyA||nameA, keyB=rb.baseline?'__baseline__':(opt.keyB||nameB);
+  const cols=ssDisplayColors(keyA, keyB);
+  const board=ssEl('board');
+  board.style.setProperty('--colA', cols.a);
+  board.style.setProperty('--colB', cols.b);
+  board.style.display='block';
+  ssEl('nameA').textContent=nameA;
+  ssEl('nameB').textContent=nameB;
+  ssEl('vsLbl').textContent=opt.mode==='sets'?'SET v SET':'HEAD-TO-HEAD';
+  ssEl('gcA').textContent=opt.mode==='sets'?((ra.games||0)+' v '+(rb.games||0)+' games'):((ra.games||0)+' games'+(rb.baseline?'':' v '+(rb.games||0)));
+  ssEl('footNote').textContent=opt.mode==='sets'
+    ?'Each side aggregates only the games in its set that '+opt.team+' played. “n/a” means the source XMLs for those games don\'t carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.'
+    :'Numbers aggregate every selected game each team appears in. “n/a” means the source XMLs for those games don\'t carry the data that metric needs (e.g. possession durations or goal-chance attempts). Club/county scope follows your section.';
+  const secs={}, snapSecs=[];
+  ssMetrics().forEach(([sec,label,sub,fn])=>{
+    const a=metricFor(ra,fn), b=metricFor(rb,fn);
+    const max=Math.max(a&&isFinite(a.v)?Math.abs(a.v):0, b&&isFinite(b.v)?Math.abs(b.v):0)||1;
+    const barW=x=>x?Math.max(3,Math.abs(x.v)/max*100):0;
+    let ss=snapSecs.find(x=>x.name===sec); if(!ss){ ss={name:sec, rows:[]}; snapSecs.push(ss); }
+    ss.rows.push({label, sub, a:a?a.txt:null, b:b?b.txt:null, wa:barW(a), wb:barW(b)});
+    (secs[sec]=secs[sec]||[]).push(
+      `<div class="row">
+        <div class="val a ${a?'':'na'}">${a?a.txt:'n/a'}</div>
+        <div class="track a"><div class="bar" style="width:${barW(a)}%"></div></div>
+        <div class="lbl">${label}${sub?`<small>${sub}</small>`:''}</div>
+        <div class="track b"><div class="bar" style="width:${barW(b)}%"></div></div>
+        <div class="val b ${b?'':'na'}">${b?b.txt:'n/a'}</div>
+      </div>`);
+  });
+  ssEl('sections').innerHTML=Object.entries(secs)
+    .map(([s,rows])=>`<div class="sec"><h3>${s}</h3>${rows.join('')}</div>`).join('');
+  SS_LAST={ mode:opt.mode==='sets'?'sets':'teams', nameA, nameB, team:opt.team||null, baseline:!!rb.baseline,
+    gcount:ssEl('gcA').textContent,
+    cols, pcols:ssPrintColors(keyA, keyB),
+    games:(games||[]).map(ssSnapGame),
+    filters:ssFilterSnap(),
+    sets:opt.mode==='sets'?(opt.sets||[]).map(s=>({label:s.label, types:s.types.map(ssTypeLabel), games:s.games.map(ssSnapGame)})):null,
+    sections:snapSecs, players:null, xpVersion:(ssXpModel()||{}).version||null };
+  SS_PL=opt.players||[];
+  ssRenderPlayers();
+  ['pdfBtn','imgBtn'].forEach(id=>{ const el=ssEl(id); if(el){ el.disabled=false; el.title=''; } });
+}
+// ── Player xP table (sortable; players under SS_PLAYER_MIN shots greyed) ──
+let SS_PL=[], SS_PSORT={key:'xp', dir:'desc'};
+const SS_PCOLS=[['name','Player'],['shots','Shots (with xP)'],['pts','Points'],['xp','xP'],['diff','Points − xP'],['perShot','xP / shot']];
+const SS_PCAVEAT='Points and xP cover shots with a tagged location and attempt type. Players with fewer than '+SS_PLAYER_MIN+' such shots are greyed out: over a few dozen shots, finishing 3–6 points above or below xP is well within chance, so read those as noise, not skill.';
+function ssPlayerCells(r){ return [r.name, r.shots===r.xpShots?String(r.shots):r.shots+' ('+r.xpShots+')', String(r.pts), r.xpShots?r.xp.toFixed(1):'n/a',
+  r.xpShots?(r.diff>=0?'+':'')+r.diff.toFixed(1):'n/a', r.perShot!=null?r.perShot.toFixed(2):'n/a']; }
+function ssPlayerSnap(){
+  return SS_PL.map(gp=>({team:gp.team, label:gp.label, rows:ssSortPlayers(gp.rows.filter(r=>r.shots>0),SS_PSORT.key,SS_PSORT.dir)
+    .map(r=>({cells:ssPlayerCells(r), few:r.xpShots<SS_PLAYER_MIN, diff:r.xpShots?r.diff:null}))}));
+}
+function ssSortBy(k){ SS_PSORT=SS_PSORT.key===k?{key:k,dir:SS_PSORT.dir==='desc'?'asc':'desc'}:{key:k,dir:k==='name'?'asc':'desc'}; ssRenderPlayers(); }
+function ssRenderPlayers(){
+  const el=ssEl('players'); if(!el) return;
+  const snap=ssPlayerSnap();
+  if(SS_LAST) SS_LAST.players={groups:snap, sort:SS_PSORT, caveat:SS_PCAVEAT};
+  if(!snap.length){ el.innerHTML=''; return; }
+  const cols=SS_LAST?SS_LAST.cols:{a:'#2dd4bf',b:'#f5a623'};
+  const arrow=k=>SS_PSORT.key===k?(SS_PSORT.dir==='desc'?' ▾':' ▴'):'';
+  el.innerHTML='<div class="ptab"><h3>PLAYER EXPECTED POINTS</h3>'
+    +snap.map((gp,i)=>`<div class="pt-team" style="color:${i?cols.b:cols.a}">${ssEsc(gp.label)}</div>`
+      +(gp.rows.length?`<table><thead><tr>${SS_PCOLS.map(([k,l])=>`<th class="${SS_PSORT.key===k?'on':''}" onclick="ssSortBy('${k}')">${l}${arrow(k)}</th>`).join('')}</tr></thead><tbody>`
+        +gp.rows.map(r=>`<tr class="${r.few?'few':''}">${r.cells.map((c,j)=>`<td class="${j===4&&r.diff!=null?(r.diff>0.05?'pos':r.diff<-0.05?'neg':''):''}">${ssEsc(j===4?c.replace('-','−'):c)}</td>`).join('')}</tr>`).join('')
+        +'</tbody></table>':'<div class="cav">No tagged shooters for this team in these games.</div>')).join('')
+    +`<div class="cav">${ssEsc(SS_PCAVEAT)}${SS_LAST&&SS_LAST.xpVersion?' xP model v'+ssEsc(SS_LAST.xpVersion)+'.':''}</div></div>`;
+}
+// ═══════════════════════════════════════════════════════════════
+//  EXPORTS — PDF (white, print-friendly, native jsPDF + autoTable)
+//  and PNG (dark COHESION theme, hand-drawn canvas at 2x). Both read
+//  SS_LAST, the snapshot render() took of exactly what's on screen.
+// ═══════════════════════════════════════════════════════════════
+// print colours: same source as the page (game metas), but NOT lifted for
+// a dark background — navy stays navy on white paper.
+function ssPrintColors(TA, TB){
+  const fallbackA='#2dd4bf', fallbackB='#f5a623';
+  const hexOf=c2=>c2?('#'+c2.rgb.map(v=>v.toString(16).padStart(2,'0')).join('')):null;
+  let a=hexOf(ssTeamColor(TA))||fallbackA;
+  let b=(TB&&TB!=='__baseline__')?(hexOf(ssTeamColor(TB))||fallbackB):fallbackB;
+  const ra=ssHexRgb(a), rb=ssHexRgb(b);
+  if(ra&&rb){ const d=Math.hypot(ra[0]-rb[0],ra[1]-rb[1],ra[2]-rb[2]); if(d<90) b=fallbackB; }
+  if(a.toLowerCase()===fallbackB.toLowerCase()) a=fallbackA;
+  return {a,b};
+}
+const SS_PDF_GREY=[156,163,175];            // #9ca3af outline for anything light
+const ssRlum=rgb=>0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];
+const ssIsLight=rgb=>ssRlum(rgb)>=200;       // same rule as dashboard.html's PDF
+const ssPdfTextCol=rgb=>ssIsLight(rgb)?[122,128,140]:rgb;   // light text → substitute grey
+// helvetica (WinAnsi) can't draw arrows, minus signs, bullets or shapes:
+// map the ones we use to ASCII and drop anything else outside Latin-1.
+function ssPdfTxt(s){
+  return String(s==null?'':s)
+    .replace(/[→⟶➔]/g,'->').replace(/[←]/g,'<-').replace(/[−–—]/g,'-').replace(/÷/g,'/')
+    .replace(/×/g,'x').replace(/…/g,'...').replace(/[‘’]/g,"'").replace(/[“”]/g,'"')
+    .replace(/≥/g,'>=').replace(/≤/g,'<=')
+    .replace(/[^\x00-\xff]/g,'');
+}
+function ssSlug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'team'; }
+function ssExportName(snap, ext, now){
+  const d=now||new Date();
+  const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const teams=snap.mode==='sets'
+    ? ssSlug(snap.team)+'_'+ssSlug((snap.sets[0].types||[]).join(' '))+'_v_'+ssSlug((snap.sets[1].types||[]).join(' '))
+    : ssSlug(snap.nameA)+'_v_'+(snap.baseline?'baseline':ssSlug(snap.nameB));
+  return 'season_stats_'+teams+'_'+ds+'.'+ext;
+}
+function ssGameLine(g){ return [g.title, g.competition, g.date, g.type].filter(Boolean).join(' · '); }
+function ssFootNote(snap){
+  return (snap.mode==='sets'
+    ? 'Each side aggregates only the games in its set that '+snap.team+' played.'
+    : 'Numbers aggregate every selected game each team appears in.')
+    +' "n/a" means the source XMLs for those games do not carry the data that metric needs (e.g. possession durations or shot-attempt labels).';
+}
+
+function ssBuildPDF(snap, NS, now){
+  const teamsShown=2;   // Team A + Team B/baseline; wider layouts would go landscape
+  const doc=new NS.jsPDF({orientation:teamsShown>2?'landscape':'portrait', unit:'mm', format:'a4'});
+  const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight();
+  const ML=12, MR=12, MT=14, MB=14, CW=PW-ML-MR;
+  const C_TEXT=[30,30,40], C_T2=[100,100,115], C_ACC=[2,132,199], C_AMB=[180,83,9];
+  const cA=ssHexRgb(snap.pcols.a)||[45,212,191], cB=ssHexRgb(snap.pcols.b)||[245,166,35];
+  const painted=new Set();
+  const pageNo=()=>doc.internal.getCurrentPageInfo().pageNumber;
+  const paintWhite=()=>{ const n=pageNo(); if(painted.has(n)) return; painted.add(n);
+    doc.setFillColor(255,255,255); doc.rect(0,0,PW,PH,'F'); };
+  const T=(s,x,y,o)=>doc.text(ssPdfTxt(s),x,y,o);
+  // filled shape; anything light gets the grey outline so it survives on white
+  const fillBox=(x,y,w,h,rgb,r)=>{
+    doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+    const light=ssIsLight(rgb);
+    if(light){ doc.setDrawColor(...SS_PDF_GREY); doc.setLineWidth(0.25); }
+    const mode=light?'FD':'F';
+    if(r) doc.roundedRect(x,y,w,h,r,r,mode); else doc.rect(x,y,w,h,mode);
+  };
+  const cellBase={font:'helvetica', fontSize:8.5, textColor:C_TEXT, fillColor:[255,255,255],
+    lineColor:SS_PDF_GREY, lineWidth:0.2, cellPadding:1.6, valign:'middle'};
+
+  // ── header ──
+  paintWhite();
+  let y=MT;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(...C_ACC);
+  T('COHESION ANALYSIS · Season Stats', ML, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...C_T2);
+  const d=now||new Date();
+  T('Generated '+d.toISOString().slice(0,10), PW-MR, y, {align:'right'});
+  y+=8;
+  // team line(s) with outlined colour swatches
+  doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  if(snap.mode==='sets'){
+    // one line per set: the labels are long ("MAYO · League (5 games)")
+    [[snap.nameA,cA],[snap.nameB,cB]].forEach(([nm,c],i)=>{
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...C_T2); T('SET '+(i+1), ML, y);
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      fillBox(ML+12, y-3.4, 4, 4, c, 0.6);
+      doc.setTextColor(...ssPdfTextCol(c)); T(nm, ML+18, y);
+      y+=6;
+    });
+    y-=1;
+  } else {
+    fillBox(ML, y-3.4, 4, 4, cA, 0.6);
+    doc.setTextColor(...ssPdfTextCol(cA)); T(snap.nameA, ML+6, y);
+    let x=ML+6+doc.getTextWidth(ssPdfTxt(snap.nameA))+4;
+    doc.setTextColor(...C_T2); doc.setFont('helvetica','normal'); T('v', x, y); x+=5;
+    doc.setFont('helvetica','bold');
+    fillBox(x, y-3.4, 4, 4, cB, 0.6);
+    doc.setTextColor(...ssPdfTextCol(cB)); T(snap.nameB, x+6, y);
+    y+=5;
+  }
+  // filters + types, wrapped to the page width
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(...C_T2);
+  const filt=ssFilterLines(snap).concat([(snap.mode==='sets'?'Games: ':'Head-to-head: ')+(snap.gcount||'')]).join('   ·   ');
+  const fl=doc.splitTextToSize(ssPdfTxt(filt), CW);
+  fl.forEach((ln,i)=>T(ln, ML, y+i*3.8));
+  y+=fl.length*3.8+0.5;
+
+  // ── games included: one table (team mode) or one per set (set mode) ──
+  const gamesTable=(title, list)=>{
+    if(y+20>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    doc.autoTable({
+      startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+      head:[[{content:ssPdfTxt(title), colSpan:5, styles:{halign:'left', fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold'}}],
+            ['#','Game','Date','Competition','Type']],
+      body:list.length?list.map((g,i)=>[String(i+1), ssPdfTxt(g.title), ssPdfTxt(g.date||'-'), ssPdfTxt(g.competition||'-'), ssPdfTxt(g.type||'-')])
+                      :[['-','No games','','','']],
+      styles:cellBase,
+      headStyles:{fillColor:[243,244,246], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+      columnStyles:{0:{cellWidth:8, halign:'center'}, 2:{cellWidth:22}, 3:{cellWidth:44}, 4:{cellWidth:30}},
+      showHead:'everyPage', rowPageBreak:'avoid',
+      willDrawPage:paintWhite });
+    y=doc.lastAutoTable.finalY+4;
+  };
+  if(snap.mode==='sets') (snap.sets||[]).forEach((s,i)=>gamesTable('SET '+(i+1)+': '+s.label, s.games));
+  else gamesTable('GAMES INCLUDED ('+snap.games.length+')', snap.games);
+  y+=2;
+
+  // ── one table per section, mirrored bars drawn into the bar cells ──
+  const VALW=22, LBLW=58, BARW=(CW-2*VALW-LBLW)/2;
+  snap.sections.forEach(sec=>{
+    if(y+30>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    const rows=sec.rows;
+    doc.autoTable({
+      startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+      head:[[{content:sec.name, colSpan:5, styles:{halign:'center', fillColor:[254,243,199], textColor:C_AMB, fontStyle:'bold', fontSize:10}}],
+            [{content:ssPdfTxt(snap.nameA), colSpan:2, styles:{textColor:ssPdfTextCol(cA), halign:'left'}},
+             {content:'Metric', styles:{halign:'center'}},
+             {content:ssPdfTxt(snap.nameB), colSpan:2, styles:{textColor:ssPdfTextCol(cB), halign:'right'}}]],
+      body:rows.map(r=>[r.a==null?'n/a':ssPdfTxt(r.a), '', ssPdfTxt(r.label+(r.sub?'\n'+r.sub:'')), '', r.b==null?'n/a':ssPdfTxt(r.b)]),
+      styles:cellBase,
+      headStyles:{fillColor:[249,250,251], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+      columnStyles:{0:{cellWidth:VALW, halign:'left', fontStyle:'bold'}, 1:{cellWidth:BARW}, 2:{cellWidth:LBLW, halign:'center'},
+                    3:{cellWidth:BARW}, 4:{cellWidth:VALW, halign:'right', fontStyle:'bold'}},
+      showHead:'everyPage', rowPageBreak:'avoid',
+      willDrawPage:paintWhite,
+      didParseCell:h=>{
+        if(h.section!=='body') return;
+        const r=rows[h.row.index]; if(!r) return;
+        if(h.column.index===0) h.cell.styles.textColor=r.a==null?[160,160,170]:ssPdfTextCol(cA);
+        if(h.column.index===4) h.cell.styles.textColor=r.b==null?[160,160,170]:ssPdfTextCol(cB);
+        if((h.column.index===0&&r.a==null)||(h.column.index===4&&r.b==null)) h.cell.styles.fontStyle='normal';
+        if(h.column.index===2) h.cell.styles.fontSize=8;
+      },
+      didDrawCell:h=>{
+        if(h.section!=='body'||(h.column.index!==1&&h.column.index!==3)) return;
+        const r=rows[h.row.index]; if(!r) return;
+        const tx=h.cell.x+1.5, tw=h.cell.width-3, th=3.2, ty=h.cell.y+(h.cell.height-th)/2;
+        fillBox(tx, ty, tw, th, [243,244,246], 1.2);   // track (light → outlined)
+        const isA=h.column.index===1, w=tw*(isA?r.wa:r.wb)/100;
+        if(w>0) fillBox(isA?tx+tw-w:tx, ty, w, th, isA?cA:cB, 1.2);
+      } });
+    y=doc.lastAutoTable.finalY+5;
+  });
+
+  // ── player expected points (same order as on screen) ──
+  const PL=snap.players&&snap.players.groups||[];
+  if(PL.length){
+    if(y+30>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    PL.forEach((gp,gi)=>{
+      if(y+24>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+      const c=gi?cB:cA;
+      doc.autoTable({
+        startY:y, margin:{left:ML, right:MR, top:MT, bottom:MB}, theme:'grid',
+        head:[[{content:gi?'':'PLAYER EXPECTED POINTS', colSpan:6, styles:{halign:'center', fillColor:[254,243,199], textColor:C_AMB, fontStyle:'bold', fontSize:10}}],
+              [{content:ssPdfTxt(gp.label), colSpan:6, styles:{halign:'left', textColor:ssPdfTextCol(c), fontStyle:'bold'}}],
+              ['Player','Shots (with xP)','Points','xP','Points - xP','xP / shot']].filter((r,i)=>i||!gi),
+        body:gp.rows.length?gp.rows.map(r=>r.cells.map(ssPdfTxt)):[['No tagged shooters','','','','','']],
+        styles:cellBase,
+        headStyles:{fillColor:[249,250,251], textColor:C_TEXT, fontStyle:'bold', lineColor:SS_PDF_GREY, lineWidth:0.2},
+        columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
+        showHead:'everyPage', rowPageBreak:'avoid', willDrawPage:paintWhite,
+        didParseCell:h=>{
+          if(h.section!=='body') return;
+          const r=gp.rows[h.row.index]; if(!r) return;
+          if(r.few) h.cell.styles.textColor=[160,160,170];
+          else if(h.column.index===4&&r.diff!=null) h.cell.styles.textColor=r.diff>0.05?[21,128,61]:r.diff<-0.05?[185,28,28]:C_TEXT;
+        } });
+      y=doc.lastAutoTable.finalY+4;
+    });
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
+    const cl=doc.splitTextToSize(ssPdfTxt(snap.players.caveat+(snap.xpVersion?' xP model v'+snap.xpVersion+'.':'')), CW);
+    if(y+cl.length*3.4+4>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+    doc.text(cl, ML, y+2); y+=cl.length*3.4+4;
+  }
+
+  // ── note + footer on every page ──
+  if(y+12>PH-MB){ doc.addPage(); paintWhite(); y=MT; }
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...C_T2);
+  const note=ssFootNote(snap);
+  doc.text(doc.splitTextToSize(ssPdfTxt(note), CW), ML, y+3);
+  const n=doc.internal.getNumberOfPages();
+  for(let i=1;i<=n;i++){
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...C_T2);
+    T('COHESION ANALYSIS · Season Stats · '+snap.nameA+' v '+snap.nameB, ML, PH-6);
+    T('Page '+i+' / '+n, PW-MR, PH-6, {align:'right'});
+  }
+  return doc;
+}
+function ssExportPDF(){
+  if(!SS_LAST){ alert('Run a comparison first.'); return; }
+  const NS=window.jspdf||{};
+  if(!NS.jsPDF){ alert('PDF library not loaded — check your connection and reload.'); return; }
+  try{ ssBuildPDF(SS_LAST, NS).save(ssExportName(SS_LAST,'pdf')); }
+  catch(e){ alert('Could not build PDF: '+e.message); }
+}
+
+// ── PNG: dark COHESION theme, drawn by hand so fonts/colours are exact ──
+function ssThemeColors(){
+  const fb={bg:'#0b0b10',panel:'#14141c',card:'#1b1b25',border:'#2a2a36',t1:'#ececf1',t2:'#a0a0ae',t3:'#6d6d7a',accent:'#4fc3f7',amber:'#f5a623'};
+  try{
+    const cs=getComputedStyle(document.documentElement);
+    Object.keys(fb).forEach(k=>{ const v=cs.getPropertyValue('--'+k).trim(); if(v) fb[k]=v; });
+  }catch(_e){}
+  return fb;
+}
+function ssDrawImage(snap, ctx, C, now){
+  const W=1180, P=28, FC="'Barlow Condensed', 'Arial Narrow', sans-serif", FB="'Barlow', Arial, sans-serif";
+  const rr=(x,y,w,h,r)=>{ r=Math.min(r,h/2,w/2); ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); };
+  const text=(s,x,y,font,col,align)=>{ ctx.font=font; ctx.fillStyle=col; ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic'; ctx.fillText(s,x,y); };
+  const fit=(s,maxW)=>{ if(ctx.measureText(s).width<=maxW) return s; let t=s; while(t.length>1&&ctx.measureText(t+'…').width>maxW) t=t.slice(0,-1); return t+'…'; };
+  const colA=snap.cols.a, colB=snap.cols.b;
+  let y=P;
+  // header
+  ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,ctx.__H||99999);
+  ctx.font='800 26px '+FC; ctx.textAlign='left';
+  let x=P;
+  [['CO',C.t1],['HE',C.accent],['SION',C.t1]].forEach(([s,c])=>{ text(s,x,y+24,'800 26px '+FC,c); x+=ctx.measureText(s).width; });
+  text('ANALYSIS · SEASON STATS', x+12, y+23, '700 14px '+FC, C.t3);
+  const d=now||new Date();
+  text('Generated '+d.toISOString().slice(0,10), W-P, y+23, '400 12px '+FB, C.t3, 'right');
+  y+=40;
+  ctx.fillStyle=C.border; ctx.fillRect(P,y,W-2*P,1);
+  y+=18;
+  // head-to-head row (set labels are longer → smaller type)
+  const NF=snap.mode==='sets'?'800 24px ':'800 32px ';
+  ctx.font=NF+FC;
+  text(fit(snap.nameA,(W-2*P)/2-90), P, y+30, NF+FC, colA);
+  ctx.font=NF+FC;
+  text(fit(snap.nameB,(W-2*P)/2-90), W-P, y+30, NF+FC, colB, 'right');
+  text(snap.mode==='sets'?'SET v SET':'HEAD-TO-HEAD', W/2, y+14, '700 13px '+FC, C.t3, 'center');
+  text(snap.gcount||'', W/2, y+32, '400 12px '+FB, C.t3, 'center');
+  y+=50;
+  // filters panel: mode, types, competitions, season, dates (wrapped)
+  const wrap=(s,maxW)=>{ const words=String(s).split(' '), out=[]; let cur='';
+    words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>maxW&&cur){ out.push(cur); cur=w; } else cur=t; });
+    if(cur) out.push(cur); return out; };
+  ctx.font='400 13px '+FB;
+  const fLines=wrap(ssFilterLines(snap).join('   ·   '), W-2*P-36);
+  const fpH=40+fLines.length*18+6;
+  rr(P,y,W-2*P,fpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+  text('FILTERS', P+18, y+26, '700 13px '+FC, C.t2);
+  fLines.forEach((l,i)=>text(l, P+18, y+46+i*18, '400 13px '+FB, C.t3));
+  y+=fpH+14;
+  // games panel(s), two columns when long
+  const gamesPanel=(title, gl)=>{
+    const colsN=gl.length>6?2:1, perCol=Math.ceil(gl.length/colsN)||1, lh=20;
+    const gpH=44+perCol*lh+8;
+    rr(P,y,W-2*P,gpH,14); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+    ctx.font='700 13px '+FC;
+    text(fit(title, W-2*P-36), P+18, y+26, '700 13px '+FC, C.t2);
+    const colW=(W-2*P-36)/colsN;
+    ctx.font='400 13px '+FB;
+    if(!gl.length) text('No games', P+18, y+50, '400 13px '+FB, C.t3);
+    gl.forEach((g,i)=>{ const c=Math.floor(i/perCol), r=i%perCol;
+      ctx.font='400 13px '+FB;
+      text(fit(ssGameLine(g), colW-16), P+18+c*colW, y+50+r*lh, '400 13px '+FB, C.t2); });
+    y+=gpH+14;
+  };
+  if(snap.mode==='sets') (snap.sets||[]).forEach((s,i)=>gamesPanel('SET '+(i+1)+':  '+s.label, s.games));
+  else gamesPanel('GAMES INCLUDED ('+snap.games.length+')', snap.games);
+  // sections
+  const cw=W-2*P-36, VW=74, LW=210, GAP=10, BW=(cw-2*VW-LW-4*GAP)/2;
+  snap.sections.forEach(sec=>{
+    const rowsH=sec.rows.reduce((s,r)=>s+(r.sub?40:30),0);
+    const sh=14+26+rowsH+12;
+    rr(P,y,W-2*P,sh,16); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+    text(sec.name, W/2, y+14+15, '800 15px '+FC, C.amber, 'center');
+    let ry=y+14+26;
+    const x0=P+18;
+    sec.rows.forEach(r=>{
+      const rh=r.sub?40:30, cy=ry+rh/2;
+      const xA=x0, xTA=x0+VW+GAP, xL=xTA+BW+GAP, xTB=xL+LW+GAP, xB=xTB+BW+GAP;
+      text(r.a==null?'n/a':r.a, xA, cy+5, (r.a==null?'400':'700')+' 15px '+FC, r.a==null?C.t3:colA);
+      text(r.b==null?'n/a':r.b, xB+VW, cy+5, (r.b==null?'400':'700')+' 15px '+FC, r.b==null?C.t3:colB, 'right');
+      rr(xTA,cy-7,BW,14,7); ctx.fillStyle=C.card; ctx.fill();
+      rr(xTB,cy-7,BW,14,7); ctx.fillStyle=C.card; ctx.fill();
+      const wa=BW*r.wa/100, wb=BW*r.wb/100;
+      if(wa>0){ rr(xTA+BW-wa,cy-7,wa,14,7); ctx.fillStyle=colA; ctx.fill(); }
+      if(wb>0){ rr(xTB,cy-7,wb,14,7); ctx.fillStyle=colB; ctx.fill(); }
+      if(r.sub){
+        text(r.label, xL+LW/2, cy-2, '600 13px '+FB, C.t1, 'center');
+        ctx.font='400 11px '+FB; text(fit(r.sub,LW), xL+LW/2, cy+13, '400 11px '+FB, C.t3, 'center');
+      } else text(r.label, xL+LW/2, cy+5, '600 13px '+FB, C.t1, 'center');
+      ry+=rh;
+    });
+    y+=sh+14;
+  });
+  // player expected points
+  const PL=snap.players&&snap.players.groups||[];
+  if(PL.length){
+    const cw2=W-2*P-36, colX=[0,0.40,0.56,0.68,0.80,0.92].map(f=>P+18+f*cw2), rh=24;
+    ctx.font='400 12px '+FB;
+    const capLines=wrap(snap.players.caveat+(snap.xpVersion?' xP model v'+snap.xpVersion+'.':''), cw2);
+    const h2=14+26+PL.reduce((a,gp)=>a+30+22+Math.max(gp.rows.length,1)*rh+8,0)+capLines.length*16+14;
+    rr(P,y,W-2*P,h2,16); ctx.fillStyle=C.panel; ctx.fill(); ctx.strokeStyle=C.border; ctx.lineWidth=1; ctx.stroke();
+    text('PLAYER EXPECTED POINTS', W/2, y+14+15, '800 15px '+FC, C.amber, 'center');
+    let ty=y+14+26;
+    const hdr=['PLAYER','SHOTS (WITH XP)','POINTS','XP','POINTS − XP','XP / SHOT'];
+    PL.forEach((gp,gi)=>{
+      ctx.font='800 17px '+FC; text(fit(gp.label,cw2), P+18, ty+20, '800 17px '+FC, gi?colB:colA);
+      ty+=30;
+      hdr.forEach((hd,j)=>text(hd, j?colX[j]+(j<5?cw2*0.12:cw2*0.08)-6:colX[0], ty+14, '700 12px '+FC, C.t2, j?'right':'left'));
+      ctx.fillStyle=C.border; ctx.fillRect(P+18,ty+20,cw2,1);
+      ty+=22;
+      if(!gp.rows.length){ text('No tagged shooters for this team in these games.', P+18, ty+16, '400 13px '+FB, C.t3); ty+=rh; }
+      gp.rows.forEach(r=>{
+        r.cells.forEach((c,j)=>{
+          const col=r.few?C.t3:(j===4&&r.diff!=null?(r.diff>0.05?'#22c55e':r.diff<-0.05?'#ef4444':C.t1):C.t1);
+          ctx.font=(j?'600 13px ':'600 13px ')+FB;
+          const s2=j===4?c.replace('-','−'):c;
+          if(j) text(s2, colX[j]+(j<5?cw2*0.12:cw2*0.08)-6, ty+16, '600 13px '+FB, col, 'right');
+          else text(fit(s2, cw2*0.38), colX[0], ty+16, '600 13px '+FB, col);
+        });
+        ty+=rh; });
+      ty+=8;
+    });
+    capLines.forEach((l,i)=>text(l, P+18, ty+12+i*16, '400 12px '+FB, C.t3));
+    y+=h2+14;
+  }
+  // foot note
+  ctx.font='400 11px '+FB;
+  const note=ssFootNote(snap);
+  const words=note.split(' '), lines=[]; let cur='';
+  words.forEach(w=>{ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width>W-2*P-120&&cur){ lines.push(cur); cur=w; } else cur=t; });
+  if(cur) lines.push(cur);
+  lines.forEach((l,i)=>text(l, W/2, y+14+i*17, '400 11px '+FB, C.t3, 'center'));
+  y+=14+lines.length*17+P;
+  return {W, H:Math.ceil(y)};
+}
+async function ssExportImage(){
+  if(!SS_LAST){ alert('Run a comparison first.'); return; }
+  try{
+    if(document.fonts&&document.fonts.load){
+      try{ await Promise.all(["800 26px 'Barlow Condensed'","700 15px 'Barlow Condensed'","400 13px 'Barlow'","600 13px 'Barlow'"].map(f=>document.fonts.load(f))); }catch(_e){}
+    }
+    const C=ssThemeColors(), S=2;
+    // pass 1: measure height on a throwaway canvas; pass 2: draw at 2x
+    const m=document.createElement('canvas').getContext('2d');
+    const size=ssDrawImage(SS_LAST, m, C);
+    const cv=document.createElement('canvas');
+    cv.width=size.W*S; cv.height=size.H*S;
+    const ctx=cv.getContext('2d');
+    ctx.scale(S,S); ctx.__H=size.H;
+    ssDrawImage(SS_LAST, ctx, C);
+    cv.toBlob(b=>{
+      if(!b){ alert('Could not create image.'); return; }
+      const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=ssExportName(SS_LAST,'png');
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    },'image/png');
+  }catch(e){ alert('Could not build image: '+e.message); }
+}
+anSetTab(anTabFromHash(location.hash));
+window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash)));
+cohesionIdentityReady().then(boot);
+</script>
+</body>
+</html>
