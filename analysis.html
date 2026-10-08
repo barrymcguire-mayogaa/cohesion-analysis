@@ -839,6 +839,7 @@ function ssGameTally(meta, events, T){
       else if(ssSideOf(o.e,O)&&o.xp!=null){ g.xpAg+=o.xp; g.xpAgShots++; } });
     g.xpGames=g.xpShots>0?1:0; g.xpAgGames=g.xpAgShots>0?1:0; g.xpData=g.xpShots>0||g.xpAgShots>0; }
   ssOverviewTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
+  ssDefendTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
   return g;
 }
 // ═══════════════════════════════════════════════════════════════
@@ -971,8 +972,9 @@ function ssToKind(e){
   return 'play';
 }
 // third in the EVENT TEAM's view: 'DEF' | 'MID' | 'ATT' | null
-function ssToThird(e){
-  const K=ssUC(ssLblCI(e,SS_TO_LOC_GROUPS));
+function ssToThird(e){ return ssThirdTxt(ssLblCI(e,SS_TO_LOC_GROUPS)); }
+function ssThirdTxt(txt){
+  const K=ssUC(txt);
   if(!K) return null;
   if(/DEFENSIVE|\bDEF\b|\bOWN\b/.test(K)) return 'DEF';
   if(/MIDDLE|\bMID\b/.test(K)) return 'MID';
@@ -980,6 +982,8 @@ function ssToThird(e){
   return null;
 }
 function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
+const SS_TO_TYPES=[['F','Forced'],['U','Unforced'],['H','Handling'],['FA','Free against'],['X','Not typed']];
+function ssToType(e){ const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome); return /UNFORCED/.test(K)?'U':/FORCED/.test(K)?'F':/HANDLING/.test(K)?'H':/FREE AGAINST/.test(K)?'FA':'X'; }
 // ── SCORE SOURCE rows with no score value ──
 // A "<TEAM> SCORE SOURCE" row normally carries 'Score Source Score Outcomes'
 // (1 POINT / 2 POINT / GOAL). Rows without it (hand-coded files) take the
@@ -1067,6 +1071,9 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   // ── turnovers: one class per ball-loss (see the rule above) ──
   ['toLost','toWon','toLostDEF','toLostMID','toLostATT','toWonDEF','toWonMID','toWonATT','toLostLoc','toWonLoc',
    'toLostKo','toLostShot','toWonKo','toWonShot','toDupDropped','toGiShort'].forEach(k=>g[k]=0);
+  // the TYPE of each in-play turnover (Defending's type breakdown): F forced, U unforced, H handling,
+  // FA free against, X no type on the row (GI / GIU rows) or any other value
+  ['toWon','toLost'].forEach(p=>SS_TO_TYPES.forEach(t=>g[p+'Ty'+t[0]]=0));
   const giShort=ssGiShortTurnovers(events, T, O);
   const tos=[], hasKoRow={}, koRows={toLost:0, toWon:0};
   let typed=false, winnerCoded=false;
@@ -1089,6 +1096,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     if(x.kind==='ko'||x.kind==='koLen'){ koRows[P]++; return; }            // class (b)
     if(x.kind==='shot'){ g[P+'Shot']++; return; }                           // class (c)
     g[P]++;                                                                 // class (a): in-play
+    g[P+'Ty'+ssToType(x.e)]++;
     const raw=ssToThird(x.e), third=raw?(x.side==='T'?raw:ssFlipThird(raw)):null;
     if(third){ g[P+third]++; g[P+'Loc']++; }
   });
@@ -1104,6 +1112,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   if(!g.toShotGames){ g.toLostShot=0; g.toWonShot=0; }
   g.toGames=(g.toLost+g.toWon)>0?1:0;
   g.toLocGames=(g.toLostLoc+g.toWonLoc)>0?1:0;
+  g.toTypedGames=SS_TO_TYPES.some(t=>t[0]!=='X'&&(g['toWonTy'+t[0]]+g['toLostTy'+t[0]])>0)?1:0;
   // ── score source (points) and shot source (shots) for T ──
   // A game coded with SCORE SOURCE / SHOT SOURCE rows (Tracker, Code Room)
   // is read from those rows only: one SCORE SOURCE per score, one SHOT SOURCE
@@ -1155,6 +1164,111 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     SS_SRC_TO_KEYS.forEach(k=>{ g.toShotsCreated+=g['srcH:'+k]; g.toScoresCreated+=g['srcS:'+k]; });
     g.toWonCreateG=g.toWon;
   }
+  return g;
+}
+// ═══════════════════════════════════════════════════════════════
+//  DEFENDING TALLIES — fouls, cards, tackles and shot pressure, added to the
+//  same per-game tally (all numeric, so ssAggregate sums them).
+//
+//  ENCODING (checked against the Tracker's export code and real XMLs: seven
+//  Tracker club games, a GIU file and a Gaelic Insights file):
+//
+//  FOULS — code "<TEAM> FOUL" (Tracker; Code Room also "FOULS"), GIU
+//   "<Team> Foul". The row's team COMMITTED the foul. Tracker: mdFoulPick()
+//   "numbers flip to the fouling team — tag the fouler", openFaZoneModal()
+//   "Free conceded by <team>", and a free WON at a kickout logs the foul of
+//   "the other side" (fouler = _oppT). GIU: "Donegal Foul" (Own Third) inside a
+//   Kerry possession is followed by "Kerry Shot (F)"; "Kerry Foul" by "Donegal
+//   Shot (F)". Gaelic Insights has no foul rows (n/a).
+//   · 'Foul Areas' = DEFENSIVE / MIDDLE / ATTACKING THIRD, from the FOULING
+//     team's point of view (the kickout-free code mirrors the kicker's third
+//     for the other side). GIU: 'PitchArea' Own / Middle / Opp Third.
+//   · 'Foul Areas' = FREE AGAINST is not a third: it is the Tracker's "Free
+//     Against" end of a possession (the team in possession fouled). When the
+//     scorer then picks the third, the Tracker writes a SECOND "<TEAM> FOUL"
+//     row 2-6 s later carrying it — 14 of the 15 FREE AGAINST rows in the real
+//     games have that twin. The twin is the same foul, so a FREE AGAINST row
+//     with a later third-tagged FOUL row of the same team within
+//     SS_FA_PAIR_WINDOW seconds is dropped (each foul once); the kept row is
+//     counted as conceded in possession. Code Room writes one FOUL row beside a
+//     "TOs / FREE AGAINST" turnover, so nothing is doubled there.
+//   · 'Foul Outcomes' (optional) = DISSENT / 50M FREE / BREACH. The companion
+//     "<TEAM> 50M FREE" / "<TEAM> BREACH" rows describe the same foul and are
+//     not counted.
+//  CARDS — "<TEAM> CARD" (Code Room also "CARDS"), GIU "<Team> Card": the
+//   row's team RECEIVED it. 'Card Outcomes' = YELLOW / BLACK / RED CARD; GIU
+//   cards carry no colour.
+//  TACKLES — "<TEAM> TACKLE" (Code Room also "TACKLES"): the Tracker's built-in
+//   defensive tag ("attributed to the team WITHOUT the ball"), so the row's
+//   team MADE the tackle (real file: each TACKLE row sits inside the other
+//   side's TEAM POSSESSION). 'Tackle Outcomes' = CONTACT / CHANGE OF DIRECTION
+//   / FOUL CONCEDED (Code Room adds TACKLE FREE CONCEDED). It is an optional
+//   tag: 1 of the 7 real Tracker games has it; GIU and GI have none.
+//  SHOT PRESSURE — label 'Shot Pressure' on the shot row ("<TEAM> SHOT OPEN
+//   PLAY / DEADBALL"), = Low Pressure / Medium Pressure / High Pressure; it
+//   describes the pressure on THAT team's shot, so the Defending tab reads the
+//   OPPOSITION's shots. All 7 real Tracker games carry it (348 of 362 shots);
+//   GIU and GI shots have none (n/a).
+//  A game "tracks" fouls / tackles when either side has at least one such row.
+// ═══════════════════════════════════════════════════════════════
+const SS_FOUL_AREA_GROUPS=['Foul Areas','Foul Area','PitchArea'];
+const SS_FA_PAIR_WINDOW=8;   // seconds, FREE AGAINST row → its third-tagged twin
+const SS_PRESS=[['L','Low'],['M','Medium'],['H','High'],['N','Not tagged']];
+const SS_PRESS_FIELDS=['Sh','Sc','Pt','A1','S1','A2','S2','AG','SG','AU','SU'];
+function ssIsFoul(e){ return /(^|\s)FOULS?$/.test(ssUC(e&&e.code)); }
+function ssIsCard(e){ return /(^|\s)CARDS?$/.test(ssUC(e&&e.code)); }
+function ssIsTackle(e){ return /(^|\s)TACKLES?$/.test(ssUC(e&&e.code)); }
+function ssPressLevel(e){ const K=ssUC(ssLblCI(e,['Shot Pressure'])); return /^HIGH/.test(K)?'H':/^MED/.test(K)?'M':/^LOW/.test(K)?'L':'N'; }
+// The foul rows of a game that count, each foul once: [{e, side:'T'|'O', inPoss, third}]
+// (third in the FOULING team's view; inPoss = conceded while in possession, a Tracker "Free Against").
+function ssFoulRows(events, T, O, skip){
+  const rows=[];
+  (events||[]).forEach((e,i)=>{ if(!e||skip(e)||!ssIsFoul(e)) return;
+    const side=ssSideOf(e,T)?'T':ssSideOf(e,O)?'O':''; if(!side) return;
+    const area=ssLblCI(e,SS_FOUL_AREA_GROUPS);
+    rows.push({e, i, side, t:ssEvT(e), fa:/FREE AGAINST/.test(ssUC(area)), third:ssThirdTxt(area), inPoss:false, drop:false}); });
+  const taken=new Set();
+  rows.filter(r=>r.fa).sort((a,b)=>a.t-b.t||a.i-b.i).forEach(r=>{
+    let best=null;
+    rows.forEach(z=>{ if(z.fa||z.side!==r.side||taken.has(z)) return; const d=z.t-r.t;
+      if(d>=-1&&d<=SS_FA_PAIR_WINDOW&&(!best||Math.abs(d)<Math.abs(best.t-r.t))) best=z; });
+    if(best){ taken.add(best); best.inPoss=true; r.drop=true; } else r.inPoss=true;
+  });
+  return rows.filter(r=>!r.drop);
+}
+function ssDefendTally(meta, events, T, O, g, skip, shotMode){
+  ['fouls','foulsDEF','foulsMID','foulsATT','foulsLoc','foulsInPoss','foulsDissent','fouls50','foulsBreach','foulsDupDropped',
+   'cards','cardY','cardB','cardR','cardX','tackles','tklContact','tklCoD','tklFoul','tklOther'].forEach(k=>g[k]=0);
+  let anyFoul=false, anyCard=false, anyTackle=false, rawFouls=0;
+  const fr=ssFoulRows(events, T, O, skip);
+  fr.forEach(r=>{ anyFoul=true; if(r.side!=='T') return;
+    g.fouls++; if(r.third){ g['fouls'+r.third]++; g.foulsLoc++; } if(r.inPoss) g.foulsInPoss++;
+    const K=ssUC(ssLblCI(r.e,['Foul Outcomes','Foul Outcome']));
+    if(/DISSENT/.test(K)) g.foulsDissent++; else if(/50\s*M/.test(K)) g.fouls50++; else if(/BREACH/.test(K)) g.foulsBreach++; });
+  (events||[]).forEach(e=>{
+    if(!e||skip(e)) return;
+    const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O); if(!mineT&&!mineO) return;
+    if(ssIsFoul(e)){ if(mineT) rawFouls++; return; }
+    if(ssIsCard(e)){ anyCard=true; if(!mineT) return; g.cards++;
+      const K=ssUC(ssLblCI(e,['Card Outcomes','Card Outcome','Card'])); g[/YELLOW/.test(K)?'cardY':/BLACK/.test(K)?'cardB':/RED/.test(K)?'cardR':'cardX']++; return; }
+    if(ssIsTackle(e)){ anyTackle=true; if(!mineT) return; g.tackles++;
+      const K=ssUC(ssLblCI(e,['Tackle Outcomes','Tackle Outcome'])||(/TACKLE/.test(ssUC(e.category))?e.outcome:''));
+      g[/FOUL CONCEDED|FREE CONCEDED/.test(K)?'tklFoul':/CHANGE OF DIRECTION/.test(K)?'tklCoD':/CONTACT/.test(K)?'tklContact':'tklOther']++; return; }
+  });
+  g.foulsDupDropped=rawFouls-g.fouls;
+  g.foulGames=anyFoul?1:0; g.cardGames=anyCard?1:0; g.tackleGames=anyTackle?1:0;
+  // shot pressure on T's OWN shots, by level, with the attempt-type split
+  // (1-point attempt scored = a point, 2-point = a 2-pointer, goal = a goal; AU / SU = no attempt label, any score)
+  SS_PRESS.forEach(p=>SS_PRESS_FIELDS.forEach(f=>g['pr'+p[0]+f]=0));
+  (events||[]).forEach(e=>{
+    if(!e||skip(e)||!ssSideOf(e,T)||!ssIsShot(e,shotMode)) return;
+    const k='pr'+ssPressLevel(e), v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||''), a=ssAttType(ssL(e,'Shot Attempts')||ssL(e,'Attempt'));
+    g[k+'Sh']++; if(v>0){ g[k+'Sc']++; g[k+'Pt']+=v; }
+    if(a==='1'){ g[k+'A1']++; if(v===1) g[k+'S1']++; } else if(a==='2'){ g[k+'A2']++; if(v===2) g[k+'S2']++; }
+    else if(a==='G'){ g[k+'AG']++; if(v===3) g[k+'SG']++; } else { g[k+'AU']++; if(v>0) g[k+'SU']++; }
+  });
+  g.prTagged=g.prLSh+g.prMSh+g.prHSh;
+  g.prGames=g.prTagged>0?1:0;
   return g;
 }
 // Player xP over a list of bundles for team T: shots, shots with xP, points
