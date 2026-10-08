@@ -2482,8 +2482,16 @@ function ttPass(s, F){
   const ch=F.chips;
   if(!ch.has(s.v>0?'scored':'missed')) return false;
   if(ch.has('1')&&ch.has('2')&&ch.has('G')) return true;      // every type on = no type filter (untyped shots stay)
-  return !!s.att&&ch.has(s.att);
+  const t=ttShowType(s);                                       // same rule as the marker colour
+  return !!t&&ch.has(t);
 }
+// What a shot SHOWS as (marker colour and the 1-point / 2-point / Goal chips):
+// a SCORE shows as what was scored — a goal attempt that goes over the bar is
+// a 1-point score, so white and under the 1-point chip; a MISS shows as what
+// was attempted. '' when a miss has no attempt type.
+function ttShowType(s){ return s.v>0?(s.v>=3?'G':s.v===2?'2':'1'):(s.att||''); }
+// marker colour key: penalties stay purple; otherwise the shown type
+function ttShowKind(s){ return s.kind==='P'?'P':(ttShowType(s)||'?'); }
 function ttMapShots(shots, F){ return (shots||[]).filter(s=>s.x!=null&&ttPass(s,F)); }
 // KEY INSIGHTS. Type conversions as on Compare: a 1-point attempt scores with
 // a point, a 2-point attempt with a 2-pointer, a goal attempt with a goal.
@@ -2665,7 +2673,7 @@ function ttGlyph(m){   // m.x / m.y in drawn units
     ?sh(`class="tt-mh" fill="none" stroke="${TT_MK_INK}" stroke-opacity=".6" stroke-width=".72"`)+sh(`class="tt-mg" fill="${c}" stroke="${TT_MK_INK}" stroke-width=".26"`)
     :sh(`class="tt-mh" fill="none" stroke="${TT_MK_INK}" stroke-width=".96"`)+sh(`class="tt-mg" fill="${TT_MK_INK}" fill-opacity=".5" stroke="${c}" stroke-width=".44"`);
 }
-function ttShotMark(s){ return {x:s.x, y:s.y*(TT_MAP_H/100), scored:s.v>0, kind:s.kind, sq:!!s.dead}; }
+function ttShotMark(s){ return {x:s.x, y:s.y*(TT_MAP_H/100), scored:s.v>0, kind:ttShowKind(s), sq:!!s.dead}; }
 function ttDensityColour(t){ const st=[[255,236,110],[255,150,40],[226,36,28]], u=Math.max(0,Math.min(1,t))*2, i=Math.min(1,Math.floor(u)), f=u-i;
   return 'rgb('+st[i].map((v,k)=>Math.round(v+(st[i+1][k]-v)*f)).join(',')+')'; }
 function ttMapSVG(shots, F){
@@ -2729,7 +2737,8 @@ function ttMapKeyHTML(){
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${['1','2','G','P'].map(t=>gl(dot(TT_MK_COL[t]), TT_MK_LABEL[t])).join('')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'From play')}${gl(`<rect x="1.8" y="1.8" width="6.4" height="6.4" fill="${k}"/>`,'Dead ball')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Scored')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Missed')}</span></div>`;
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Scored')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Missed')}</span>`
+    +'<span class="tt-kg tt-knote">Colour = the score for scored shots, the attempt for missed shots</span></div>';
 }
 function ttMapSectionHTML(V, F, o){
   const S=V.S;
