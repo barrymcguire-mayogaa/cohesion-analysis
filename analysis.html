@@ -628,8 +628,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-zone .tt-zs{stroke-width:.4;}
 .tk-zkey .tk-zsw{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);}
 .tk-ztab td.na{font-size:.74rem;}
-.tk-ztab td.tk-arctd{font-size:.76rem;line-height:1.25;white-space:normal;color:var(--text);}
-.tk-ztab tr.zero td.tk-arctd{color:var(--muted);}
+.tk-ztab td.tk-arctd{font-size:.76rem;line-height:1.25;white-space:normal;color:var(--t1);}
+.tk-ztab tr.zero td.tk-arctd{color:var(--t3);}
 .tk-arcline{font-weight:700;}
 </style>
 </head>
@@ -3153,6 +3153,8 @@ function tdHTML(R, V, o){
 //    Tracker's 'Kickout Zones' "Zone N" — by more than a tolerance (TK_CHECK_TOL_M metres on
 //    the 45 / 65 m lines, TK_CHECK_TOL_X % of the width on the column lines). An inside-arc
 //    landing agrees with SHORT and with a tagged Zone 1-3. No label, no mismatch flag.
+//    Also flagged: a kicker-WON kickout tagged more than TK_ARC_TOL_M inside the arc ("won, but tagged n m inside
+//    the arc", tkArcWhy) — counted in the nearest zone outside the arc, never in Inside arc.
 //    Likely cause: Code Room saved landing Y on an older chart scale before 13 Sep 2026.
 //    A flag only: nothing is counted differently.
 //  · WHAT FOLLOWED = the tagged shot source: shots by the kickout's WINNER whose
@@ -3663,7 +3665,7 @@ function tkMapKeyHTML(pov){
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,pov?ssEsc('Filled = won by '+pov):'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,pov?'Hollow = won by the opposition (the kicking team)':'Lost')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing position disagrees with the tagged length/zone, or is out of range')}</span></div>`;
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing position disagrees with the tagged length/zone, is out of range, or is a won kickout tagged inside the arc')}</span></div>`;
 }
 // the tagged length / zone labels of a kickout, as coded (else the engine's reading)
 function tkTaggedTxt(k){
@@ -3676,7 +3678,7 @@ function tkCheckHTML(list, R, open){
   const c=(l,v)=>`<div class="tt-c" role="cell" data-l="${l}">${v}</div>`;
   return `<details class="tt-card tk-chk" id="tkChk"${open?' open':''}><summary>Landings to check (${n})</summary>`
     +`<div class="dnote tk-chkwhy">${ssEsc('Kickouts placed in Code Room before 13 Sep 2026 were saved on an older chart scale and can read too far down the pitch. Re-place them in Code Room to correct them.')}</div>`
-    +`<div class="dnote">${ssEsc('Kickouts whose landing position disagrees with the tagged length or zone (by more than '+TK_CHECK_TOL_M+' m), or is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line). A flag only: they are kept and counted as before (lengths by the tagged label, zones by the location). Both teams’ kickouts in the selected games are listed by game, then time, whatever the switch and the filters show.')}</div>`
+    +`<div class="dnote">${ssEsc('Kickouts whose landing position disagrees with the tagged length or zone (by more than '+TK_CHECK_TOL_M+' m), or is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line), or that the kicking team WON more than '+TK_ARC_TOL_M+' m inside the 40m arc (“won, but tagged n m inside the arc” — it is still counted, in the nearest zone outside the arc). A flag only: they are kept and counted (lengths by the tagged label, zones by the location and the Inside-arc rule). Both teams’ kickouts in the selected games are listed by game, then time, whatever the switch and the filters show.')}</div>`
     +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE','REASON',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
     +list.map((k,i)=>{ const m=R.gameOf.get(k.gid), own=k.team===R.team, kicker=own?R.team:(m?m.opp:k.team), clip=cpClip(k);
       return `<div class="tk-chkrow" role="row" data-chk="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Kicking team', ssEsc(kicker))+c('Time', ssEsc(ttClockTxt(k.e)))
