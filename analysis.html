@@ -547,6 +547,16 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .tt-zn,.tt-zt{font-size:2.3px;} .tt-zv.sm{font-size:3.5px;} .tt-zp.sm{font-size:2.8px;}
   .tt-ir{font-size:.9rem;padding:8px 2px;}
 }
+/* ── Team Trends › Kickouts ── */
+.tk-kpis{grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;padding:20px 18px;}
+.tk-kpis .kpi-t{font-size:17px;} .tk-kpis .kpi-v{font-size:50px;} .tk-kpis .kpi-v.na{font-size:34px;}
+.tk-kpis .kpi-d{font-size:.78rem;}
+.tk-side .seg button{padding:10px 14px;}
+@media (max-width:1100px){ .tk-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px;} }
+@media (max-width:640px){
+  .tk-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;} .tk-kpis .kpi-t{font-size:15px;min-height:36px;} .tk-kpis .kpi-v{font-size:40px;}
+  .tk-side .seg{width:100%;} .tk-side .seg button{flex:1;padding:10px 6px;}
+}
 </style>
 </head>
 <body>
@@ -636,7 +646,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     <div id="ttStatus" role="status"></div>
     <div class="ttsub" id="tt-attacking"><div id="ttBody"></div></div>
     <div class="ttsub" id="tt-defending"><div id="tdBody"></div></div>
-    <div class="ttsub" id="tt-kickouts"><div class="soon"><div class="tag">COMING SOON</div><h2>KICKOUTS</h2><p>Own and opposition kickouts game by game: win rates by length and zone, and what each kickout led to.</p></div></div>
+    <div class="ttsub" id="tt-kickouts"><div id="tkBody"></div></div>
     <div class="ttsub" id="tt-turnover"><div class="soon"><div class="tag">COMING SOON</div><h2>TURNOVER</h2><p>Turnovers won and lost game by game: where on the pitch, what kind, and what they led to.</p></div></div>
     <div id="ttTip" role="tooltip" hidden></div>
   </div>
@@ -2531,7 +2541,7 @@ const TT_MK_COL={'1':'#ffffff', '2':'#ff8c1a', 'G':'#b4ff00', 'P':'#b266ff', '?'
 const TT_MK_LABEL={'1':'1-point', '2':'2-point', 'G':'Goal', 'P':'Penalty', '?':'Type not tagged'};
 const TT_MK_HIT=2.2, TT_MK_R=0.95, TT_MK_INK='#0a0c10';
 function ttGlyph(m){   // m.x / m.y in drawn units
-  const c=TT_MK_COL[m.kind]||TT_MK_COL['?'], r=TT_MK_R, q=+(r*0.9).toFixed(3), n=v=>+v.toFixed(2);
+  const c=m.col||TT_MK_COL[m.kind]||TT_MK_COL['?'], r=TT_MK_R, q=+(r*0.9).toFixed(3), n=v=>+v.toFixed(2);
   const sh=a=>m.sq?`<rect x="${n(m.x-q)}" y="${n(m.y-q)}" width="${n(q*2)}" height="${n(q*2)}" ${a}/>`:`<circle cx="${n(m.x)}" cy="${n(m.y)}" r="${r}" ${a}/>`;
   return m.scored
     ?sh(`class="tt-mh" fill="none" stroke="${TT_MK_INK}" stroke-opacity=".6" stroke-width=".72"`)+sh(`class="tt-mg" fill="${c}" stroke="${TT_MK_INK}" stroke-width=".26"`)
@@ -3090,6 +3100,132 @@ function tkGameKos(meta, events){
   TK_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
   return v;
 }
+// win / lose tally of a list of kickouts; won = won by the KICKING team
+function tkTally(kos){
+  const o={n:0, won:0, types:{}}; TK_TYPES.forEach(t=>{ o.types[t[0]]={won:0, lost:0}; });
+  (kos||[]).forEach(k=>{ o.n++; if(k.won) o.won++; o.types[k.type][k.won?'won':'lost']++; });
+  o.lost=o.n-o.won; o.pct=ovPct(o.won, o.n);
+  return o;
+}
+// by length: S / M / L, X = no length (no label and no location), all
+function tkByLen(kos){
+  const r={}; TK_LENS.map(l=>l[0]).concat(['X']).forEach(k=>{ r[k]=tkTally((kos||[]).filter(q=>(q.len||'X')===k)); });
+  r.all=tkTally(kos);
+  return r;
+}
+// the six top cards. Opp KO Win % = the share of the OPPOSITION's kickouts the selected team won.
+function tkCards(own, opp, n, kb){
+  const L=own.len, has=own.koGames>0, oppN=opp.len.all.n, oppWon=opp.len.all.lost;
+  const c=(key,title,v,txt,detail,g,total)=>({key, title, v, txt:v==null?null:txt, detail:v==null?'':detail, basis:tdBasisTxt(g, n, kb, total)});
+  const len=(k,name)=>{ const o=L[k]; return Object.assign(c('len'+k, name+' KOs', has?o.n:null, String(o.n), o.n?ttPctTxt(o.pct)+' won · '+o.won+' of '+o.n:'none taken', own.koGames, true), {pct:has?o.pct:null, won:o.won}); };
+  return [
+    c('win','OVERALL KO WIN %', L.all.pct, ttPctTxt(L.all.pct), L.all.won+' of '+L.all.n+' own kickouts won', own.koGames),
+    c('taken','TOTAL KOs TAKEN', has?L.all.n:null, String(L.all.n), (has?(L.all.n/own.koGames).toFixed(1):'0')+' per game'+(L.X.n?' · '+L.X.n+' with no length':''), own.koGames, true),
+    len('S','SHORT'), len('M','MEDIUM'), len('L','LONG'),
+    c('opp','OPP KO WIN %', ovPct(oppWon, oppN), ttPctTxt(ovPct(oppWon, oppN)), oppWon+' of '+oppN+' opposition kickouts won', opp.koGames)];
+}
+// Everything Team Trends › Kickouts shows for team T over the basis games, or over `pick` (the games ticked
+// in the control row, oldest → newest). own = T's kickouts, opp = the opponents' kickouts in the same games.
+function tkCompute(T, games, basis, bundleOf, pick){
+  const list=ovTeamGames(games, T), base=ovBasisGames(list, basis).slice().reverse(), use=pick?pick.slice():base;   // oldest → newest
+  const bs=new Set(base.map(g=>g.id)), custom=!(use.length===bs.size&&use.every(g=>bs.has(g.id))), kb=custom?'sel':basis;
+  const rows=use.map(g=>{ const b=bundleOf(g.id), K=b&&b.meta&&Array.isArray(b.events)?tkGameKos(b.meta, b.events):null; return {g, K, m:ovMatch(g, null, null, T)}; });
+  const used=rows.filter(r=>r.K), n=used.length;
+  const side=k=>{
+    const mine=r=>r.K.kos.filter(q=>(q.team===T)===(k==='own'));
+    const kos=[].concat.apply([], used.map(mine));
+    const per=used.map(r=>{ const s=mine(r); return {id:r.g.id, n:s.length, located:s.filter(q=>q.x!=null).length, src:r.K.srcTagged}; });
+    return {side:k, kos, per, n, koGames:per.filter(p=>p.n>0).length, locGames:per.filter(p=>p.located>0).length, srcGames:per.filter(p=>p.n>0&&p.src).length,
+      located:kos.filter(q=>q.x!=null).length, len:tkByLen(kos)};
+  };
+  const own=side('own'), opp=side('opp'), dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return {team:T, basis, custom, kb, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
+    list, basisIds:base.map(g=>g.id), own, opp, gameOf:new Map(rows.map(r=>[r.g.id, r.m])), cards:tkCards(own, opp, n, kb)};
+}
+// the contest table of one side: a row per length (plus "no length" when there is one), and the total
+function tkContest(S){
+  const row=(k,label)=>Object.assign({k, label}, S.len[k]);
+  return {side:S.side, rows:TK_LENS.map(l=>row(l[0], l[1])).concat(S.len.X.n?[row('X','No length')]:[]), total:row('all','All kickouts'), koGames:S.koGames, n:S.n};
+}
+// the all-teams average: every team's own kickouts in every game of `games` that is loaded, pooled per length
+function tkAvgAll(games, bundleOf){
+  const teams=new Set(), kos=[]; let loaded=0, koGames=0;
+  (games||[]).forEach(g=>{ const b=bundleOf(g.id), K=b&&b.meta&&Array.isArray(b.events)?tkGameKos(b.meta, b.events):null; if(!K) return;
+    loaded++; if(K.kos.length) koGames++; K.kos.forEach(k=>{ teams.add(k.team); kos.push(k); }); });
+  return {games:(games||[]).length, loaded, koGames, teams:teams.size, kos:kos.length, len:tkByLen(kos)};
+}
+function tkAvgNote(A){
+  if(!A) return '';
+  if(!A.kos) return 'All-teams average: no kickout data in the '+A.games+' filtered game'+(A.games===1?'':'s')+'.';
+  return 'All-teams average = the win % of every team’s own kickouts, pooled: '+A.teams+' team'+(A.teams===1?'':'s')+', '+A.kos+' kickouts, from '+(A.koGames===A.games?'all '+A.games:A.koGames+' of '+A.games)+' filtered game'+(A.games===1?'':'s')
+    +(A.loaded<A.games?' ('+(A.games-A.loaded)+' could not be loaded)':'')+'.';
+}
+// zone table for a list of kickouts (one side). Follow-on figures count only kickouts of games with source tags (fN of them).
+function tkZoneStats(kos){
+  const mk=z=>{ const o={z, n:0, won:0, types:{}, fN:0, fShots:0, fScores:0, fPts:0, fWonShots:0, fWonScores:0, fLostShots:0, fLostScores:0}; TK_TYPES.forEach(t=>{ o.types[t[0]]={won:0, lost:0}; }); return o; };
+  const byKey={}, zones=TK_ZKEYS.map(z=>(byKey[z]=mk(z))), total=mk('all'); let unlocated=0;
+  const add=(Z,k)=>{ Z.n++; if(k.won) Z.won++; Z.types[k.type][k.won?'won':'lost']++;
+    if(k.follow){ Z.fN++; Z.fShots+=k.follow.shots; Z.fScores+=k.follow.scores; Z.fPts+=k.follow.pts;
+      if(k.won){ Z.fWonShots+=k.follow.shots; Z.fWonScores+=k.follow.scores; } else { Z.fLostShots+=k.follow.shots; Z.fLostScores+=k.follow.scores; } } };
+  (kos||[]).forEach(k=>{ if(k.zone==null){ unlocated++; return; } add(byKey[k.zone], k); add(total, k); });
+  const fin=Z=>Object.assign(Z, {lost:Z.n-Z.won, pct:ovPct(Z.won, Z.n), follow:Z.fN>0, fRate:Z.fN>0?ovPct(Z.fScores, Z.fShots):null});
+  zones.forEach(fin);
+  return {zones, byKey, total:fin(total), located:total.n, unlocated};
+}
+// landing-map filters. F = {res:'both'|'won'|'lost', types:Set of TK_TYPES keys, lens:Set of 'S','M','L'}
+function tkPass(k, F){
+  if(F.res==='won'&&!k.won) return false;
+  if(F.res==='lost'&&k.won) return false;
+  return F.types.has(k.type)&&F.lens.has(k.len);
+}
+function tkMapKos(kos, F){ return (kos||[]).filter(k=>k.x!=null&&tkPass(k,F)); }
+function tkInsights(kos){
+  const o={shown:0, won:0, len:{}}; TK_LENS.forEach(l=>{ o.len[l[0]]={n:0, won:0}; });
+  (kos||[]).forEach(k=>{ o.shown++; if(k.won) o.won++; const L=o.len[k.len]; if(L){ L.n++; if(k.won) L.won++; } });
+  TK_LENS.forEach(l=>{ const L=o.len[l[0]]; L.pct=ovPct(L.won, L.n); });
+  o.pct=ovPct(o.won, o.shown);
+  return o;
+}
+function tkLocNote(S){
+  const m=S.kos.length, n=S.n;
+  if(!n) return 'No games.';
+  if(!m) return 'No kickouts in '+(n===1?'this game':'these '+n+' games')+'.';
+  return 'Kickouts with a landing location: '+S.located+' of '+m+', from '+S.locGames+' of '+n+' game'+(n===1?'':'s')+'.'+(S.located<m?' Kickouts with no location still count in the cards and the contest table, by their length label.':'');
+}
+function tkFollowNote(S){
+  const n=S.n, k=S.srcGames;
+  return !n?'':!k?'What followed: n/a (no source tags) in '+(n===1?'this game':'these '+n+' games')+'.':'What followed (shots and scores) uses the tagged shot source, from '+k+' of '+n+' game'+(n===1?'':'s')+'.';
+}
+function tkView(R, side, F){
+  const k=side==='opp'?'opp':'own', S=R[k], mapKos=tkMapKos(S.kos, F);
+  return {side:k, S, contest:[tkContest(S), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos), mapKos, insights:tkInsights(mapKos), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
+}
+
+// ── Kickouts rendering (strings only; every interpolated value is escaped) ──
+function tkSideName(T, side){ return side==='opp'?'Opposition':T; }
+function tkCardsHTML(cards){
+  return '<div class="ov-kpis tk-kpis">'+cards.map(k=>`<div class="kpi" data-k="${ssEsc(k.key)}"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+}
+function tkHTML(R, V, o){
+  o=o||{}; const T=R.team, n=R.n, opp=V.side==='opp', SC=o.sel||null;
+  if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  const b=(k,l,on)=>`<button type="button" data-kside="${k}" class="${on?'on':''}" aria-pressed="${on?'true':'false'}">${l}</button>`;
+  let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="tkSelLine">${ssEsc(gsLineTxt(R, SC))}</small></div>`
+    +(SC?gsSelCtlHTML(T, SC, o.open||'', 'tk', 'Kickouts'):'')
+    +`<div class="tt-side tk-side"><span>KICKOUTS</span><div class="seg" role="group" aria-label="Own or opposition kickouts">${b('own','Own kickouts',!opp)}${b('opp','Opposition kickouts',opp)}</div>`
+    +`<small>${ssEsc('Own = '+T+'’s kickouts · Opposition = opponents’ kickouts in the same games. The switch drives the contest table, the zones and the landing map.')}</small></div></div>`;
+  if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
+  h+=tkCardsHTML(R.cards);
+  const tag=`<em>${opp?'OPPOSITION':'OWN'}</em>`;
+  h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2><div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
+  h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>`+tkZoneSecHTML(R, V);
+  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2><div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F)+'</div>';
+  h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event; “won” is always won by the kicking team, so OPP KO WIN % is the share of opposition kickouts the selected team won. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+function tkContestSecHTML(R, V, o){ return ''; }
+function tkZoneSecHTML(R, V){ return ''; }
+function tkMapSectionHTML(R, V, F){ return ''; }
 
 // ── Team Trends page wiring ──
 let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_SELC=null, TD_BASE=null, TD_SEL_TOKEN=0, TD_PR='all';   // TD_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
@@ -3141,7 +3277,7 @@ async function tdSelEnsure(){
 function tdToggle(kind, value, on){ if(!TD_BASE||!TD_LAST) return; gsToggle(TD_CH, TD_BASE.basisIds, kind, value, on); tdSelApply(); }
 function tdCmd(c){ if(!TD_BASE||!TD_LAST||!gsCmd(TD_CH, TD_BASE.list, TD_BASE.basisIds, c)) return; tdSelApply(); }
 function tdCloseDd(target){
-  [ssEl('tdBody'), ssEl('ttBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
+  [ssEl('tdBody'), ssEl('ttBody'), ssEl('tkBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
     sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); }); });
 }
 // ── Attacking's games selection: its own state, the shared dropdowns ──
@@ -3166,6 +3302,85 @@ async function ttSelEnsure(){
 }
 function ttSelToggle(kind, value, on){ if(!TT_BASE||!TT_LAST) return; gsToggle(TT_SEL, TT_BASE.basisIds, kind, value, on); ttSelApply(); }
 function ttSelCmd(c){ if(!TT_BASE||!TT_LAST||!gsCmd(TT_SEL, TT_BASE.list, TT_BASE.basisIds, c)) return; ttSelApply(); }
+// ── Kickouts: its own games selection, side switch, map filters and all-teams average ──
+let TK_LAST=null, TK_VIEW=null, TK_KEY='', TK_SEL=gsNew(), TK_SELC=null, TK_BASE=null, TK_SEL_TOKEN=0, TK_SIDE='own';   // TK_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
+let TK_AVG_ON=false, TK_AVG=null, TK_AVG_ST='', TK_AVG_TOKEN=0;   // TK_AVG = {key, v}: the average of one set of filtered games, kept until the filters change
+const TK_TRIED=new Set(), TK_AVG_TRIED=new Set();
+const TK_F={res:'both', types:new Set(TK_TYPES.map(t=>t[0])), lens:new Set(TK_LENS.map(l=>l[0]))};
+function tkSelCalc(){
+  const B=TK_BASE, bo=id=>BUNDLES.get(id);
+  TK_SELC=gsList(B.list, B.basisIds, TK_SEL, bo); TK_SELC.nBasis=B.basisIds.length;
+  TK_LAST=tkCompute(B.team, B.pool, B.basis, bo, TK_SELC.shown);
+  return TK_LAST;
+}
+function tkSelApply(){ tkSelCalc(); tkRender(); tkSelEnsure(); }
+// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw the sub-tab
+async function tkSelEnsure(){
+  const C=TK_SELC; if(!C||!C.pending.length||!TK_BASE) return;
+  const need=TK_BASE.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!TK_TRIED.has(g.id)); if(!need.length) return;
+  need.forEach(g=>TK_TRIED.add(g.id));
+  const my=++TK_SEL_TOKEN, key=TK_KEY;
+  try{ await ovLoad(need); }catch(_){ return; }
+  if(my!==TK_SEL_TOKEN||key!==TK_KEY||TT_SUB!=='kickouts'||TAB!=='team-trends') return;
+  tkSelApply();
+}
+function tkSelToggle(kind, value, on){ if(!TK_BASE||!TK_LAST) return; gsToggle(TK_SEL, TK_BASE.basisIds, kind, value, on); tkSelApply(); }
+function tkSelCmd(c){ if(!TK_BASE||!TK_LAST||!gsCmd(TK_SEL, TK_BASE.list, TK_BASE.basisIds, c)) return; tkSelApply(); }
+function tkAvgKey(){ return TK_BASE?TK_BASE.pool.map(g=>g.id).join(','):''; }
+function tkAvgCur(){ return TK_AVG_ON&&TK_AVG&&TK_AVG.key===tkAvgKey()?TK_AVG.v:null; }
+function tkOpts(){ return {sel:TK_SELC, F:TK_F, avgOn:TK_AVG_ON, avg:tkAvgCur(), avgSt:TK_AVG_ST}; }
+function tkKeepFocus(root, fn){
+  const a=document.activeElement, d=a&&root&&root.contains&&root.contains(a)&&a.dataset?a.dataset:null;
+  const sel=!d?'':d.kside?'[data-kside="'+d.kside+'"]':d.kchip?'[data-kg="'+d.kg+'"][data-kchip="'+d.kchip+'"]':d.kf?'[data-kf="'+d.kf+'"][data-kv="'+d.kv+'"]':d.kavg!=null?'[data-kavg]':'';
+  fn();
+  if(sel&&root.querySelector){ const el=root.querySelector(sel); if(el){ try{ el.focus({preventScroll:true}); }catch(_){ } } }
+}
+function tkRender(){
+  const body=ssEl('tkBody'); if(!body||!TK_LAST) return;
+  ttHideTip();
+  TK_VIEW=tkView(TK_LAST, TK_SIDE, TK_F);
+  const o=tkOpts(); o.open=tdOpenDd(body);           // an open games / competitions dropdown stays open
+  tdKeepFocus(body, ()=>tkKeepFocus(body, ()=>{ body.innerHTML=tkHTML(TK_LAST, TK_VIEW, o); }));
+  ttFitHits();
+}
+// a filter only re-draws the landing map and its insights; the average toggle only the contest table
+function tkRenderMap(){
+  const sec=ssEl('tkMapSec'); if(!sec||!TK_LAST){ tkRender(); return; }
+  ttHideTip();
+  TK_VIEW=tkView(TK_LAST, TK_SIDE, TK_F);
+  tkKeepFocus(sec, ()=>{ sec.innerHTML=tkMapSectionHTML(TK_LAST, TK_VIEW, TK_F); });
+  ttFitHits();
+}
+function tkRenderContest(){
+  const sec=ssEl('tkContestSec'); if(!sec||!TK_LAST||!TK_VIEW){ tkRender(); return; }
+  tkKeepFocus(sec, ()=>{ sec.innerHTML=tkContestSecHTML(TK_LAST, TK_VIEW, tkOpts()); });
+}
+function tkSetSide(s){ TK_SIDE=s==='opp'?'opp':'own'; tkRender(); }
+function tkSetFilter(f, v){
+  if(f==='res') TK_F.res=(v==='won'||v==='lost')?v:'both';
+  else if(f==='type'){ if(TK_F.types.has(v)) TK_F.types.delete(v); else if(TK_TYPES.some(t=>t[0]===v)) TK_F.types.add(v); }
+  else if(f==='len'){ if(TK_F.lens.has(v)) TK_F.lens.delete(v); else if(TK_LENS.some(l=>l[0]===v)) TK_F.lens.add(v); }
+  tkRenderMap();
+}
+// "Compare with all-teams average": needs every filtered game's bundle. Loaded only when the toggle is on,
+// each game once (BUNDLES keeps it), and the result is kept until the filters change.
+function tkSetAvg(on){ TK_AVG_ON=!!on; tkRenderContest(); if(TK_AVG_ON) return tkAvgEnsure(); }
+async function tkAvgEnsure(){
+  if(!TK_AVG_ON||!TK_BASE) return;
+  const key=tkAvgKey(), pool=TK_BASE.pool, bo=id=>BUNDLES.get(id);
+  if(TK_AVG&&TK_AVG.key===key) return;
+  const need=pool.filter(g=>!BUNDLES.has(g.id)&&!TK_AVG_TRIED.has(g.id)), my=++TK_AVG_TOKEN;
+  const live=()=>my===TK_AVG_TOKEN&&key===tkAvgKey()&&TK_AVG_ON;
+  if(need.length){
+    need.forEach(g=>TK_AVG_TRIED.add(g.id));
+    TK_AVG_ST='Loading every filtered game… 0/'+need.length; tkRenderContest();
+    try{ await ovLoad(need, (d,n)=>{ if(live()){ TK_AVG_ST='Loading every filtered game… '+d+'/'+n; const el=ssEl('tkAvgSt'); if(el) el.textContent=TK_AVG_ST; } }); }
+    catch(e){ if(live()){ TK_AVG_ST='Could not load every game: '+((e&&e.message)||e); tkRenderContest(); } return; }
+    if(!live()) return;
+  }
+  TK_AVG={key, v:tkAvgAll(pool, bo)}; TK_AVG_ST='';
+  if(TT_SUB==='kickouts'&&TAB==='team-trends') tkRenderContest();
+}
 let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null, TT_PIN=null;
 const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
 function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
@@ -3174,11 +3389,11 @@ async function ttRun(){
   if(TAB!=='team-trends'||!GAMES_READY) return;
   const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; TD_BASE=null; TD_SELC=null; TD_CHART=null; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; TD_BASE=null; TD_SELC=null; TD_CHART=null; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } TK_LAST=null; TK_VIEW=null; TK_KEY=''; TK_BASE=null; TK_SELC=null; { const d=ssEl('tkBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
   note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
-  if(TT_SUB!=='attacking'&&TT_SUB!=='defending') return;   // placeholders: nothing to load
+  if(TT_SUB!=='attacking'&&TT_SUB!=='defending'&&TT_SUB!=='kickouts') return;   // placeholders: nothing to load
   const need=use.filter(g=>!BUNDLES.has(g.id));
   try{
     if(need.length){
@@ -3195,6 +3410,12 @@ async function ttRun(){
     if(dk!==TD_KEY||!TD_LAST){ TD_KEY=dk; TD_CH=gsNew(); TD_TRIED.clear(); TD_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; tdSelCalc(); }
     else if(TD_SELC&&TD_SELC.pending.some(id=>BUNDLES.has(id))) tdSelCalc();
     tdRender(); tdSelEnsure(); return;
+  }
+  if(TT_SUB==='kickouts'){                         // same games; its own selection, result and (on demand) all-teams average
+    const kk=key+'#'+list.map(g=>g.id).join(',');
+    if(kk!==TK_KEY||!TK_LAST){ TK_KEY=kk; TK_SEL=gsNew(); TK_TRIED.clear(); TK_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; tkSelCalc(); }
+    else { TK_BASE.pool=pool; if(TK_SELC&&TK_SELC.pending.some(id=>BUNDLES.has(id))) tkSelCalc(); }
+    tkRender(); tkSelEnsure(); if(TK_AVG_ON) tkAvgEnsure(); return;
   }
   // a new team, basis or filter set (the basis games or the team's game list changed) resets the games selection
   const ak=key+'#'+list.map(g=>g.id).join(',');
@@ -3228,9 +3449,10 @@ function ttRenderMap(){
 }
 // keep every marker's transparent touch target at least ~24px across on screen, whatever the map's width
 function ttFitHits(){
-  const sec=ssEl('ttMapSec'), svg=sec&&sec.querySelector?sec.querySelector('svg.tt-locs'):null; if(!svg||!svg.getBoundingClientRect) return;
-  const w=svg.getBoundingClientRect().width; if(!(w>0)) return;
-  const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r));
+  ['ttMapSec','tkMapSec'].forEach(id=>{
+    const sec=ssEl(id), svg=sec&&sec.querySelector?sec.querySelector('svg.tt-locs'):null; if(!svg||!svg.getBoundingClientRect) return;
+    const w=svg.getBoundingClientRect().width; if(!(w>0)) return;
+    const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r)); });
 }
 function ttHitR(mapPx){ return +Math.max(TT_MK_R+0.35, Math.min(6, 12/(mapPx/100))).toFixed(2); }
 function ttSetSide(s){ TT_SIDE=s==='against'?'against':'for'; ttRender(); }
@@ -3244,13 +3466,15 @@ function ttSetFilter(f, v){
 function ttTipHTML(key, pinned){
   const p=String(key||'').split(':'), i=+p[1];
   if(p[0]==='dto'||p[0]==='dfl') return TD_LAST&&TD_CHART?tdTrendCardHTML(TD_CHART.rows[i], p[0]==='dto'?'to':'fouls', TD_LAST.team):'';
+  if(p[0]==='kz') return TK_LAST&&TK_VIEW?tkZoneCardHTML(TK_VIEW.zones.byKey[p[1]], TK_VIEW, TK_LAST):'';
+  if(p[0]==='ko') return TK_LAST&&TK_VIEW?tkKoCardHTML(TK_VIEW.mapKos[i], TK_LAST, {pinned:!!pinned}):'';
   if(!TT_LAST||!TT_VIEW) return '';
   if(p[0]==='trend') return ttTrendCardHTML(TT_LAST.trend[i], TT_SIDE, TT_LAST.team);
   if(p[0]==='zone') return ttZoneCardHTML(TT_VIEW.zones.zones[i-1]);
   if(p[0]==='shot') return ttShotCardHTML(TT_VIEW.mapShots[i], TT_LAST.gameOf, {pinned:!!pinned});
   return '';
 }
-function ttCanPin(el){ return !!(el&&el.dataset&&/^shot:/.test(el.dataset.tip||'')); }
+function ttCanPin(el){ return !!(el&&el.dataset&&/^(shot|ko):/.test(el.dataset.tip||'')); }   // shot markers and kickout markers pin
 function ttHideTip(){
   const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; }
   if(t&&t.classList) t.classList.remove('pin');
@@ -3351,7 +3575,8 @@ function ttPlMenuHTML(st){
 function ttPlDraw(st){ const m=ssEl('ttPlMenu'); if(m) m.innerHTML=ttPlMenuHTML(st); ttPlaceTip(); return st; }
 function ttPlJob(){   // the shots the open card is about
   if(TT_JOB) return TT_JOB;
-  const el=TT_PIN, i=el&&ttCanPin(el)?+String(el.dataset.tip).split(':')[1]:-1, s=TT_VIEW&&TT_VIEW.mapShots[i];
+  const el=TT_PIN, key=el&&ttCanPin(el)?String(el.dataset.tip).split(':'):null, i=key?+key[1]:-1;
+  const s=!key?null:key[0]==='ko'?(TK_VIEW&&TK_VIEW.mapKos[i]):(TT_VIEW&&TT_VIEW.mapShots[i]);   // a kickout is clipped from its own event, like a shot
   return s?(TT_JOB={shots:[s], bulk:false}):null;
 }
 async function ttPlOpen(){
@@ -3386,8 +3611,9 @@ function ttPlCreate(){
 }
 // "Add all shown (n)": every shot on the map goes to one playlist in ONE request
 const TT_PL_CONFIRM=40, TT_PL_MAX=500;   // ask first above 40; 500 = the function's cap per request
-function ttBulkCardHTML(n){
-  return `<div class="tt-ct">Add ${n} shot${n===1?'':'s'} to a playlist</div><div class="tt-cs">Every shot shown on the map, after the filters.</div>`
+function ttBulkCardHTML(n, noun){
+  noun=noun||'shot';
+  return `<div class="tt-ct">Add ${n} ${noun}${n===1?'':'s'} to a playlist</div><div class="tt-cs">Every ${noun} shown on the map, after the filters.</div>`
     +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
 function ttConfirm(title, message){
@@ -3395,12 +3621,13 @@ function ttConfirm(title, message){
   return Promise.resolve(typeof confirm==='function'?!!confirm(message):true);
 }
 async function ttPlAll(btn){
-  const view=TT_VIEW, shots=(view&&view.mapShots)||[], t=ssEl('ttTip'); if(!shots.length||!t) return;
-  if(shots.length>TT_PL_CONFIRM&&!(await ttConfirm('Add '+shots.length+' clips?', 'That adds all '+shots.length+' shots shown on the map as clips. Narrow the filters first for a shorter playlist.'))) return;
-  if(TT_VIEW!==view) return;                          // the filters changed while the question was open
+  const ko=!!(btn&&btn.dataset&&btn.dataset.kind==='ko'), noun=ko?'kickout':'shot';   // Kickouts' button adds the kickouts on its landing map
+  const view=ko?TK_VIEW:TT_VIEW, shots=(view&&(ko?view.mapKos:view.mapShots))||[], t=ssEl('ttTip'); if(!shots.length||!t) return;
+  if(shots.length>TT_PL_CONFIRM&&!(await ttConfirm('Add '+shots.length+' clips?', 'That adds all '+shots.length+' '+noun+'s shown on the map as clips. Narrow the filters first for a shorter playlist.'))) return;
+  if((ko?TK_VIEW:TT_VIEW)!==view) return;             // the filters changed while the question was open
   ttHideTip();
   TT_TIP=TT_PIN=btn; TT_JOB={shots:shots.slice(), bulk:true};
-  t.innerHTML=ttBulkCardHTML(shots.length); t.hidden=false;
+  t.innerHTML=ttBulkCardHTML(shots.length, noun); t.hidden=false;
   if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
   ttPlaceTip();
   if(shots.length>TT_PL_MAX){ ttPlDraw({phase:'error', msg:'That is more than '+TT_PL_MAX+' clips in one go — narrow the filters first.'}); return; }
@@ -3415,7 +3642,12 @@ function ttInit(){
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
     tdCloseDd(t);                                      // a click outside an open games / competitions dropdown closes it
     const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's
-    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:tdCmd)(b.dataset.tdc); return; }
+    const forTk=x=>!!(x&&x.closest&&x.closest('[data-gs="tk"]'));   // the Kickouts control row
+    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:forTk(b)?tkSelCmd:tdCmd)(b.dataset.tdc); return; }
+    if(b&&b.dataset.kside){ tkSetSide(b.dataset.kside); return; }
+    if(b&&b.dataset.kchip){ tkSetFilter(b.dataset.kg, b.dataset.kchip); return; }
+    if(b&&b.dataset.kf){ tkSetFilter(b.dataset.kf, b.dataset.kv); return; }
+    if(b&&b.dataset.kavg!=null){ tkSetAvg(!TK_AVG_ON); return; }
     if(b&&b.dataset.pr){ if(!b.disabled) tdSetPr(b.dataset.pr); return; }
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
@@ -3425,7 +3657,7 @@ function ttInit(){
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
-  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
+  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
   pane.addEventListener('focusin', e=>{ if(TT_PIN||TT_QUIET) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
@@ -3441,7 +3673,7 @@ function ttInit(){
   document.addEventListener('click', e=>{ if(!pane.contains(e.target)){ if(TT_TIP) ttHideTip(); tdCloseDd(null); } });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
-  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); }, 150); });
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
