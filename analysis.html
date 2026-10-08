@@ -339,6 +339,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 #ttStatus{font-size:.8rem;color:var(--t3);margin:0 2px;}
 #ttStatus:not(:empty){margin:12px 2px 0;}
 .tt-top{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;margin:18px 2px 0;}
+.tt-top2 .tt-who{flex:1 1 100%;}
+.tt-top .td-ctl{margin:0;flex:1 1 300px;min-width:0;}
 .tt-who{font:700 22px 'Barlow',sans-serif;min-width:0;overflow-wrap:anywhere;}
 .tt-who small{display:block;font:400 .78rem 'Barlow',sans-serif;color:var(--t3);margin-top:2px;}
 .tt-side{margin-left:auto;display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;justify-content:flex-end;}
@@ -2306,8 +2308,9 @@ function ttSideStats(t){
   return {shots:t.shots, scores:t.scores, pct:ovPct(t.scores, t.shots), xp:t.xpShots>0?t.xp:null, xpShots:t.xpShots, xpPts:t.xpPts, diff:t.xpShots>0?t.xpPts-t.xp:null};
 }
 // Everything Team Trends › Attacking shows for team T over the basis games.
-function ttCompute(T, games, basis, bundleOf){
-  const list=ovTeamGames(games, T), use=ovBasisGames(list, basis).slice().reverse();   // oldest → newest
+// pick (optional) = the games to cover instead of the basis games, oldest → newest (the games tick-list)
+function ttCompute(T, games, basis, bundleOf, pick){
+  const list=ovTeamGames(games, T), use=pick?pick.slice():ovBasisGames(list, basis).slice().reverse();   // oldest → newest
   const rows=use.map(g=>{ const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return {g, O:'', tT:null, tO:null, shots:[]};
     const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam), O=T===H?A:H;
     return {g, O, tT:ssTallyCached(b,T), tO:ssTallyCached(b,O), shots:ttGameShots(b.meta, b.events)}; });
@@ -2612,11 +2615,18 @@ function ttMapSectionHTML(V, F, o){
 }
 function ttHTML(R, V, o){
   o=o||{}; const T=R.team, F=o.F, n=R.n, ag=V.side==='against', who=ag?'the opposition':T, tcol=o.col||'#4fc3f7', col=o.mapCol||'#ffffff';
-  if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
-  const tag=`<em>${ag?'AGAINST':'FOR'}</em>`;
-  let h='<div class="tt-top"><div class="tt-who">'+ssEsc(T)+`<small>${ssEsc((R.basis==='all'?'All ':'Last ')+R.nBasis+' game'+(R.nBasis===1?'':'s')+(R.missing?' ('+R.missing+' not loaded)':'')+', oldest to newest')}</small></div>`
+  // SC = the games tick-list (gsList + nBasis); without it the sub-tab covers the basis games
+  const SC=o.sel||null, gl=k=>k+' game'+(k===1?'':'s');
+  if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  const tag=`<em>${ag?'AGAINST':'FOR'}</em>`, basisLbl=k=>(R.basis==='all'?'All ':'Last ')+gl(k), miss=R.missing?' ('+R.missing+' not loaded)':'';
+  const line=!SC?basisLbl(R.nBasis)+miss+', oldest to newest'
+    :SC.isBasis?basisLbl(SC.nBasis)+' · '+gl(R.nBasis)+' selected'+miss+', oldest to newest'
+    :gl(R.nBasis)+' selected'+miss+(R.nBasis?', oldest to newest':'')+' · your own pick (the GAMES basis is '+basisLbl(SC.nBasis).toLowerCase()+')';
+  let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="ttSelLine">${ssEsc(line)}</small></div>`
+    +(SC?ttSelCtlHTML(T, SC, o.open||''):'')
     +`<div class="tt-side"><span>SHOTS</span><div class="seg" role="group" aria-label="Shots for or against"><button type="button" data-side="for" class="${ag?'':'on'}" aria-pressed="${ag?'false':'true'}">For</button><button type="button" data-side="against" class="${ag?'on':''}" aria-pressed="${ag?'true':'false'}">Against</button></div>`
     +`<small>${ssEsc('For = '+T+'’s shots · Against = opponents’ shots in the same games')}</small></div></div>`;
+  if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
   // i. trend
   const anyXp=R.trend.some(m=>m.data&&m.for&&m.for.xp!=null), nData=R.trend.filter(m=>m.data).length;
   h+='<h2 class="ov-h">SCORING TREND</h2><div class="tt-card"><div class="tt-chart">'+ttTrendSVG(R.trend, o.W, {col:tcol})+'</div>'
@@ -2632,7 +2642,7 @@ function ttHTML(R, V, o){
     +`<div class="tt-card tt-ztabcard">${ttZoneTableHTML(Zs)}<div class="dnote">xP covers shots with a location and an attempt type; Points − xP compares the points from those shots with their xP.</div></div></div>`;
   // iv. locations
   h+=`<h2 class="ov-h">SHOT LOCATIONS ${tag}</h2><div id="ttMapSec">`+ttMapSectionHTML(V, F, {col})+'</div>';
-  h+=`<div class="foot">Team Trends covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. Each shot counts once. Attempt type is the tagged Shot Attempts label; open play / dead ball is the shot's code. “n/a” means those games don't carry the data needed.</div>`;
+  h+=`<div class="foot">Team Trends covers ${SC&&!SC.isBasis?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. Each shot counts once. Attempt type is the tagged Shot Attempts label; open play / dead ball is the shot's code. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 
@@ -2760,16 +2770,53 @@ function tdZoneHTML(T, Z, Ty){
 // filtered games; the default is the tab's basis games. They change these two charts only.
 // sel = {compOff:Set of unticked competitions, games:null (= the basis games) | Set of ticked game ids}
 function tdComp(g){ return String((g&&g.competition)||'').trim(); }
-function tdChart(T, list, basisIds, sel, bundleOf){
+// ── THE GAMES SELECTION (shared): the Competitions and Games check dropdowns ──
+// Used twice, each with its OWN state: Defending's two trend charts (TD_CH) and
+// the whole Attacking sub-tab (TT_SEL). sel = {compOff:Set of unticked
+// competitions, games:Set of ticked ids | null = the basis games}. list = ALL of
+// the team's filtered games (newest first), so older games can be ticked in.
+function gsNew(){ return {compOff:new Set(), games:null}; }
+function gsList(list, basisIds, sel, bundleOf){
   sel=sel||{}; const off=sel.compOff||new Set(), ticked=sel.games||new Set(basisIds||[]);
   const cn={}; (list||[]).forEach(g=>{ const c=tdComp(g); cn[c]=(cn[c]||0)+1; });
   const comps=Object.keys(cn).sort((a,b)=>a.localeCompare(b)).map(c=>({name:c, label:c||'No competition', n:cn[c], on:!off.has(c)}));
   const games=(list||[]).map(g=>({id:g.id, g, inComp:!off.has(tdComp(g)), on:ticked.has(g.id)}));   // newest first
   const shown=games.filter(x=>x.inComp&&x.on).map(x=>x.g).reverse();                              // oldest → newest
   const pending=shown.filter(g=>!bundleOf(g.id)).map(g=>g.id);
-  const rows=shown.map(g=>tdMatch(tdRow(T, g, bundleOf), T));
+  const bs=new Set(basisIds||[]);
+  return {comps, games, shown, pending, isDefault:!sel.games&&!off.size, avail:games.filter(x=>x.inComp).length,
+    isBasis:shown.length===bs.size&&shown.every(g=>bs.has(g.id))};
+}
+function gsToggle(sel, basisIds, kind, value, on){
+  if(kind==='comp'){ if(on) sel.compOff.delete(value); else sel.compOff.add(value); }
+  else if(kind==='game'){ if(!sel.games) sel.games=new Set(basisIds); if(on) sel.games.add(value); else sel.games.delete(value); }
+}
+// comp-all / comp-none / game-basis (reset) / game-all / game-none; all and none act on the games of the ticked competitions
+function gsCmd(sel, list, basisIds, c){
+  const inComp=list.filter(g=>!sel.compOff.has(tdComp(g))).map(g=>g.id);
+  if(c==='comp-all') sel.compOff.clear();
+  else if(c==='comp-none') sel.compOff=new Set(list.map(tdComp));
+  else if(c==='game-basis') sel.games=null;
+  else if(c==='game-all'){ sel.games=new Set([...(sel.games||basisIds), ...inComp]); }
+  else if(c==='game-none'){ const s=new Set(sel.games||basisIds); inComp.forEach(id=>s.delete(id)); sel.games=s; }
+  else return false;
+  return true;
+}
+function gsCtlHTML(T, C, open, o){   // o = {scope:'td'|'tt', n:games shown, btns:[[cmd,label]…], note}
+  const nc=C.comps.filter(c=>c.on).length, ck=(kind, val, on, dis, main, sub)=>`<label class="td-ck${dis?' off':''}"><input type="checkbox" data-tdk="${kind}" value="${ssEsc(val)}"${on?' checked':''}${dis?' disabled':''}><span>${ssEsc(main)}${sub?`<small>${ssEsc(sub)}</small>`:''}</span></label>`;
+  const btn=(c,l)=>`<button type="button" class="mini" data-tdc="${c}">${l}</button>`;
+  return `<div class="td-ctl" data-gs="${ssEsc(o.scope)}">`
+    +`<details class="ms td-dd" data-dd="comp"${open==='comp'?' open':''}><summary>${ssEsc('Competitions: '+(nc===C.comps.length?'All':nc+' of '+C.comps.length))}</summary><div class="msbody"><div class="msbar">${btn('comp-all','All')}${btn('comp-none','None')}</div>`
+    +C.comps.map(c=>ck('comp', c.name, c.on, false, c.label, c.n+' game'+(c.n===1?'':'s'))).join('')+'</div></details>'
+    +`<details class="ms td-dd" data-dd="game"${open==='game'?' open':''}><summary>${ssEsc('Games: '+o.n+' of '+C.avail)}</summary><div class="msbody"><div class="msbar">${o.btns.map(b=>btn(b[0], b[1])).join('')}</div>`
+    +C.games.map(x=>{ const t=tdGameTxt(x.g, T); return ck('game', x.id, x.on, !x.inComp, t.main, t.sub); }).join('')+'</div></details>'
+    +`<span class="td-ctlnote">${ssEsc(o.note)}</span></div>`;
+}
+function tdChart(T, list, basisIds, sel, bundleOf){
+  const L=gsList(list, basisIds, sel, bundleOf);
+  const rows=L.shown.map(g=>tdMatch(tdRow(T, g, bundleOf), T));
   const stat=get=>{ const v=rows.map(get).filter(x=>x!=null); return {n:v.length, total:v.reduce((a,b)=>a+b,0), avg:v.length?v.reduce((a,b)=>a+b,0)/v.length:null}; };
-  return {comps, games, rows, pending, isDefault:!sel.games&&!off.size, avail:games.filter(x=>x.inComp).length,
+  return {comps:L.comps, games:L.games, rows, pending:L.pending, isDefault:L.isDefault, avail:L.avail,
     to:stat(m=>m.to?m.to.won:null), fouls:stat(m=>m.fouls?m.fouls.n:null)};
 }
 const tdToOf=m=>m.to?m.to.won:null, tdFoulsOf=m=>m.fouls?m.fouls.n:null;
@@ -2828,15 +2875,15 @@ function tdTrendCardHTML(m, kind, T){
 function tdGameTxt(g, T){ const opp=String((ssUC(g.homeTeam)===T?g.awayTeam:g.homeTeam)||'Unknown').trim();
   return {main:(ovShortDate(g.date)||'date n/a')+' · vs '+opp, sub:[g.competition, g.round].filter(Boolean).join(' · ')}; }
 function tdCtlHTML(R, C, open){
-  const nc=C.comps.filter(c=>c.on).length, ck=(kind, val, on, dis, main, sub)=>`<label class="td-ck${dis?' off':''}"><input type="checkbox" data-tdk="${kind}" value="${ssEsc(val)}"${on?' checked':''}${dis?' disabled':''}><span>${ssEsc(main)}${sub?`<small>${ssEsc(sub)}</small>`:''}</span></label>`;
-  const btn=(c,l)=>`<button type="button" class="mini" data-tdc="${c}">${l}</button>`;
   const basisTxt=(R.basis==='all'?'all ':'the last ')+R.nBasis+' game'+(R.nBasis===1?'':'s');
-  return '<div class="td-ctl">'
-    +`<details class="ms td-dd" data-dd="comp"${open==='comp'?' open':''}><summary>${ssEsc('Competitions: '+(nc===C.comps.length?'All':nc+' of '+C.comps.length))}</summary><div class="msbody"><div class="msbar">${btn('comp-all','All')}${btn('comp-none','None')}</div>`
-    +C.comps.map(c=>ck('comp', c.name, c.on, false, c.label, c.n+' game'+(c.n===1?'':'s'))).join('')+'</div></details>'
-    +`<details class="ms td-dd" data-dd="game"${open==='game'?' open':''}><summary>${ssEsc('Games: '+C.rows.length+' of '+C.avail)}</summary><div class="msbody"><div class="msbar">${btn('game-basis','Basis games')}${btn('game-all','All')}${btn('game-none','None')}</div>`
-    +C.games.map(x=>{ const t=tdGameTxt(x.g, R.team); return ck('game', x.id, x.on, !x.inComp, t.main, t.sub); }).join('')+'</div></details>'
-    +`<span class="td-ctlnote">${ssEsc((C.isDefault?'Showing '+basisTxt+' (the GAMES basis).':'Showing '+C.rows.length+' chosen game'+(C.rows.length===1?'':'s')+'.')+' These two controls change only the two trend charts.')}</span></div>`;
+  return gsCtlHTML(R.team, C, open, {scope:'td', n:C.rows.length, btns:[['game-basis','Basis games'],['game-all','All'],['game-none','None']],
+    note:(C.isDefault?'Showing '+basisTxt+' (the GAMES basis).':'Showing '+C.rows.length+' chosen game'+(C.rows.length===1?'':'s')+'.')+' These two controls change only the two trend charts.'});
+}
+// Attacking: the same two dropdowns, for the WHOLE sub-tab
+function ttSelCtlHTML(T, SC, open){
+  const n=SC.shown.length;
+  return gsCtlHTML(T, SC, open, {scope:'tt', n, btns:[['game-all','Select all'],['game-none','Select none'],['game-basis','Reset to basis']],
+    note:n+' game'+(n===1?'':'s')+' selected'+(SC.pending.length?' ('+SC.pending.length+' loading…)':'')+'. These two controls apply to everything on Attacking.'});
 }
 function tdChartSecHTML(R, C, o){
   o=o||{}; const T=R.team, col=o.col||'#4fc3f7', fcol='#f5a623';
@@ -2917,9 +2964,9 @@ function tdHTML(R, V, o){
 
 // ── Team Trends page wiring ──
 let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_CH_TOKEN=0, TD_PR='all';
-let TD_CH={compOff:new Set(), games:null};         // the trend charts' own selection (null = the basis games)
+let TD_CH=gsNew();                                 // the trend charts' own selection (null = the basis games)
 const TD_TRIED=new Set();
-function tdResetChart(){ TD_CH={compOff:new Set(), games:null}; TD_TRIED.clear(); }
+function tdResetChart(){ TD_CH=gsNew(); TD_TRIED.clear(); }
 function tdOpts(){ const C=ssDisplayColors(TD_LAST.team, '__baseline__'); return {W:(TD_W=ttWidth('tdBody')), col:C.a}; }
 function tdChartCalc(){ TD_CHART=tdChart(TD_LAST.team, TD_LAST.list, TD_LAST.basisIds, TD_CH, id=>BUNDLES.get(id)); return TD_CHART; }
 function tdRender(){
@@ -2965,25 +3012,39 @@ async function tdChartEnsure(){
 }
 function tdToggle(kind, value, on){
   if(!TD_LAST) return;
-  if(kind==='comp'){ if(on) TD_CH.compOff.delete(value); else TD_CH.compOff.add(value); }
-  else if(kind==='game'){ if(!TD_CH.games) TD_CH.games=new Set(TD_LAST.basisIds); if(on) TD_CH.games.add(value); else TD_CH.games.delete(value); }
+  gsToggle(TD_CH, TD_LAST.basisIds, kind, value, on);
   tdRenderChart();
 }
 function tdCmd(c){
-  if(!TD_LAST) return;
-  const inComp=TD_LAST.list.filter(g=>!TD_CH.compOff.has(tdComp(g))).map(g=>g.id);
-  if(c==='comp-all') TD_CH.compOff.clear();
-  else if(c==='comp-none') TD_CH.compOff=new Set(TD_LAST.list.map(tdComp));
-  else if(c==='game-basis') TD_CH.games=null;
-  else if(c==='game-all'){ TD_CH.games=new Set([...(TD_CH.games||TD_LAST.basisIds), ...inComp]); }
-  else if(c==='game-none'){ const s=new Set(TD_CH.games||TD_LAST.basisIds); inComp.forEach(id=>s.delete(id)); TD_CH.games=s; }
-  else return;
+  if(!TD_LAST||!gsCmd(TD_CH, TD_LAST.list, TD_LAST.basisIds, c)) return;
   tdRenderChart();
 }
 function tdCloseDd(target){
-  const sec=ssEl('tdChartSec'); if(!sec||!sec.querySelectorAll) return;
-  sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); });
+  [ssEl('tdChartSec'), ssEl('ttBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
+    sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); }); });
 }
+// ── Attacking's games selection: its own state, the shared dropdowns ──
+let TT_SEL=gsNew(), TT_SELC=null, TT_BASE=null, TT_SEL_TOKEN=0;   // TT_BASE = {team, pool, basis, list, basisIds} of the current team / basis / filters
+const TT_TRIED=new Set();
+function ttSelCalc(){
+  const B=TT_BASE, bo=id=>BUNDLES.get(id);
+  TT_SELC=gsList(B.list, B.basisIds, TT_SEL, bo); TT_SELC.nBasis=B.basisIds.length;
+  TT_LAST=ttCompute(B.team, B.pool, B.basis, bo, TT_SELC.shown);
+  return TT_LAST;
+}
+function ttSelApply(){ ttSelCalc(); ttRender(); ttSelEnsure(); }
+// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw the sub-tab
+async function ttSelEnsure(){
+  const C=TT_SELC; if(!C||!C.pending.length||!TT_BASE) return;
+  const need=TT_BASE.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!TT_TRIED.has(g.id)); if(!need.length) return;
+  need.forEach(g=>TT_TRIED.add(g.id));
+  const my=++TT_SEL_TOKEN, key=TT_KEY;
+  try{ await ovLoad(need); }catch(_){ return; }
+  if(my!==TT_SEL_TOKEN||key!==TT_KEY||TT_SUB!=='attacking'||TAB!=='team-trends') return;
+  ttSelApply();
+}
+function ttSelToggle(kind, value, on){ if(!TT_BASE||!TT_LAST) return; gsToggle(TT_SEL, TT_BASE.basisIds, kind, value, on); ttSelApply(); }
+function ttSelCmd(c){ if(!TT_BASE||!TT_LAST||!gsCmd(TT_SEL, TT_BASE.list, TT_BASE.basisIds, c)) return; ttSelApply(); }
 let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null, TT_PIN=null;
 const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
 function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
@@ -2992,7 +3053,7 @@ async function ttRun(){
   if(TAB!=='team-trends'||!GAMES_READY) return;
   const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TD_LAST=null; TD_KEY=''; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
   note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
@@ -3012,12 +3073,14 @@ async function ttRun(){
     if(dk!==TD_KEY||!TD_LAST){ TD_LAST=tdCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TD_KEY=dk; tdResetChart(); }
     tdRender(); return;
   }
-  if(key!==TT_KEY||!TT_LAST){ TT_LAST=ttCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TT_KEY=key; }
-  ttRender();
+  // a new team, basis or filter set (the basis games or the team's game list changed) resets the games selection
+  const ak=key+'#'+list.map(g=>g.id).join(',');
+  if(ak!==TT_KEY||!TT_LAST){ TT_KEY=ak; TT_SEL=gsNew(); TT_TRIED.clear(); TT_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; ttSelCalc(); }
+  ttRender(); ttSelEnsure();
 }
 function ttWidth(id){ const b=ssEl(id||'ttBody'), w=b&&b.clientWidth; return w>0?w-38:760; }   // the card's padding and border
 function ttOnPitch(hex){ const c=ssHexRgb(hex); return c&&Math.hypot(c[0]-46,c[1]-122,c[2]-36)<95?'#ffffff':hex; }   // a green team would vanish on the grass
-function ttOpts(){ const C=ssDisplayColors(TT_LAST.team, '__baseline__'); return {F:TT_F, W:(TT_W=ttWidth()), col:C.a, mapCol:ttOnPitch(TT_SIDE==='against'?C.b:C.a)}; }
+function ttOpts(){ const C=ssDisplayColors(TT_LAST.team, '__baseline__'); return {F:TT_F, W:(TT_W=ttWidth()), col:C.a, mapCol:ttOnPitch(TT_SIDE==='against'?C.b:C.a), sel:TT_SELC}; }
 function ttKeepFocus(root, fn){
   const a=document.activeElement, sel=a&&root&&root.contains&&root.contains(a)&&a.dataset?(a.dataset.side?'[data-side="'+a.dataset.side+'"]':a.dataset.chip?'[data-chip="'+a.dataset.chip+'"]':a.dataset.f?'[data-f="'+a.dataset.f+'"][data-v="'+a.dataset.v+'"]':''):'';
   fn();
@@ -3027,8 +3090,8 @@ function ttRender(){
   const body=ssEl('ttBody'); if(!body||!TT_LAST) return;
   ttHideTip();
   TT_VIEW=ttView(TT_LAST, TT_SIDE, TT_F);
-  const o=ttOpts();
-  ttKeepFocus(body, ()=>{ body.innerHTML=ttHTML(TT_LAST, TT_VIEW, o); });
+  const o=ttOpts(); o.open=tdOpenDd(body);           // an open games / competitions dropdown stays open
+  tdKeepFocus(body, ()=>ttKeepFocus(body, ()=>{ body.innerHTML=ttHTML(TT_LAST, TT_VIEW, o); }));
   ttFitHits();
 }
 // a filter only re-draws the map and its insights
@@ -3228,7 +3291,8 @@ function ttInit(){
     if(inCard(e)){ ttTipClick(e); return; }             // the pinned card's own buttons
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
     tdCloseDd(t);                                      // a click outside an open chart dropdown closes it
-    if(b&&b.dataset.tdc){ tdCmd(b.dataset.tdc); return; }
+    const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's charts
+    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:tdCmd)(b.dataset.tdc); return; }
     if(b&&b.dataset.pr){ if(!b.disabled) tdSetPr(b.dataset.pr); return; }
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
@@ -3238,7 +3302,7 @@ function ttInit(){
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
-  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) tdToggle(t.dataset.tdk, t.value, !!t.checked); });
+  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
   pane.addEventListener('focusin', e=>{ if(TT_PIN||TT_QUIET) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
