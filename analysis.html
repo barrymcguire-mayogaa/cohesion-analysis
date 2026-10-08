@@ -429,6 +429,15 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-locnote{color:var(--t2);}
 #ttTip{position:fixed;z-index:8000;left:0;top:0;width:max-content;max-width:min(290px,calc(100vw - 16px));background:#0f1016;border:1px solid #3a3a48;border-radius:12px;padding:11px 13px;box-shadow:0 14px 36px rgba(0,0,0,.6);pointer-events:none;font-size:.82rem;color:var(--t2);}
 #ttTip[hidden]{display:none;}
+#ttTip.pin{pointer-events:auto;border-color:#5a5a6e;max-height:calc(100vh - 16px);overflow:auto;}
+.tt-hint{font-style:italic;}
+.tt-acts{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+.tt-btn{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 12px;border-radius:8px;border:1px solid #4a4a5c;background:#1b1c26;color:var(--t1);font:700 13px 'Barlow',sans-serif;text-decoration:none;cursor:pointer;}
+.tt-btn:hover,.tt-btn:focus-visible{border-color:var(--accent);color:var(--accent);outline:none;}
+.tt-btn.pri{background:var(--accent);border-color:var(--accent);color:#06121a;} .tt-btn.pri:hover,.tt-btn.pri:focus-visible{color:#06121a;filter:brightness(1.1);}
+.tt-btn[disabled]{opacity:.45;cursor:not-allowed;}
+.tt-x{margin-left:auto;min-width:34px;min-height:34px;border-radius:8px;border:1px solid transparent;background:none;color:var(--t3);font-size:14px;cursor:pointer;}
+.tt-x:hover,.tt-x:focus-visible{color:var(--t1);border-color:#4a4a5c;outline:none;}
 .tt-ct{font:700 16px 'Barlow',sans-serif;color:var(--t1);}
 .tt-cs{font-size:.74rem;color:var(--t3);margin:2px 0 7px;}
 .tt-cscore{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;white-space:nowrap;}
@@ -2317,17 +2326,32 @@ function ttMapSVG(shots, F){
     return h+'</g></svg>';
   }
   return h+'<g class="tt-marks">'+shots.map((s,i)=>{ const m=ttShotMark(s);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
-    return `<g class="tt-mk" data-tip="shot:${i}" tabindex="0" role="button" aria-label="${ssEsc((s.player||'Player not tagged')+', '+ttAttTxt(s)+', '+(s.out||'no outcome'))}"><circle class="tt-mx" cx="${+m.x.toFixed(2)}" cy="${+m.y.toFixed(2)}" r="${TT_MK_HIT}" fill="transparent"/>${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
+    return `<g class="tt-mk" data-tip="shot:${i}" tabindex="0" role="button" aria-label="${ssEsc((s.player||'Player not tagged')+', '+(s.kind==='?'?'attempt type not tagged':ttAttTxt(s))+', '+(s.out||'no outcome'))}"><circle class="tt-mx" cx="${+m.x.toFixed(2)}" cy="${+m.y.toFixed(2)}" r="${TT_MK_HIT}" fill="transparent"/>${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
-function ttAttTxt(s){ return (s.att==='1'?'1-point attempt':s.att==='2'?'2-point attempt':s.att==='G'?'Goal attempt':'Attempt type not tagged')+' · '+(s.dead?'dead ball':'open play'); }
-function ttShotCardHTML(s, gameOf){
+function ttAttTxt(s){ return (s.kind==='P'?'Penalty':s.att==='1'?'1-point attempt':s.att==='2'?'2-point attempt':s.att==='G'?'Goal attempt':'Not tagged'); }
+function ttPlayTxt(s){ return s.dead?'Dead ball'+(s.deadType&&s.deadType!=='Dead ball'?' · '+(s.deadType==='45'?'’45':s.deadType):''):'Open play'; }
+function ttClockTxt(e){ const h=String((e&&e.half)||'').trim(), c=String((e&&e.gameTime)||'').trim(); return [h,c].filter(Boolean).join(' · ')||'n/a'; }
+// The game's dashboard, opened at this shot (dashboard.html selects and cues ?ev=<event id>; &t= is the
+// fallback when an event has no id).
+function ttWatchUrl(s){
+  if(!s||!s.gid) return '';
+  const e=s.e||{}, id=e.id!=null&&String(e.id)!==''?String(e.id):'';
+  return 'dashboard.html?game='+encodeURIComponent(s.gid)+(id?'&ev='+encodeURIComponent(id):'&t='+Math.max(0,Math.round(+(e.driveT!=null?e.driveT:e.start)||0)));
+}
+// o.pinned: the card is pinned open, so it carries its buttons
+function ttShotCardHTML(s, gameOf, o){
   if(!s) return '';
-  const m=gameOf&&gameOf.get(s.gid);
-  return `<div class="tt-ct">${ssEsc(s.player||'Player not tagged')}</div>`
-    +`<div class="tt-cs">${m?ssEsc('vs '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):''}</div>`
-    +`<div class="tt-cr"><span>Outcome</span><b>${ssEsc(s.out||'n/a')}</b></div><div class="tt-cr"><span>xP</span><b class="${s.xp==null?'na':''}">${s.xp==null?'n/a':s.xp.toFixed(2)}</b></div>`
-    +`<div class="tt-cn">${ssEsc(ttAttTxt(s)+(s.zone?' · Zone '+s.zone:''))}</div>`;
+  o=o||{}; const m=gameOf&&gameOf.get(s.gid);
+  const row=(l,v,na)=>`<div class="tt-cr"><span>${l}</span><b${na?' class="na"':''}>${ssEsc(v)}</b></div>`;
+  let h=`<div class="tt-ct">${ssEsc(s.player||'Player not tagged')}</div>`
+    +`<div class="tt-cs">${m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):''}</div>`
+    +row('Attempt', ttAttTxt(s), s.kind==='?')+row('Result', s.out||'n/a', !s.out)+row('From', ttPlayTxt(s))+row('Time', ttClockTxt(s.e), ttClockTxt(s.e)==='n/a')
+    +row('xP', s.xp==null?'n/a':s.xp.toFixed(2), s.xp==null)
+    +(s.zone?`<div class="tt-cn">Zone ${s.zone}</div>`:'');
+  if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
+  return h+'<div class="tt-acts">'+ttShotActsHTML(s)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
+function ttShotActsHTML(s){ const u=ttWatchUrl(s); return u?`<a class="tt-btn" data-act="watch" href="${ssEsc(u)}" target="_blank" rel="noopener">Watch clip</a>`:''; }
 function ttInsightsHTML(I, nUn){
   const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`;
   return '<h3>KEY INSIGHTS</h3>'
@@ -2390,7 +2414,7 @@ function ttHTML(R, V, o){
 }
 
 // ── Team Trends page wiring ──
-let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null;
+let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null, TT_PIN=null;
 const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
 function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
 function ttSetBasis(b){ TT_BASIS=(b==='10'||b==='all')?b:'5'; anSyncBasis(); ttSchedule(); }
@@ -2456,46 +2480,76 @@ function ttSetFilter(f, v){
   ttRenderMap();
 }
 // hover / focus / tap cards: one floating card, filled from the data behind the hovered element
-function ttTipHTML(key){
+function ttTipHTML(key, pinned){
   if(!TT_LAST||!TT_VIEW) return '';
   const p=String(key||'').split(':'), i=+p[1];
   if(p[0]==='trend') return ttTrendCardHTML(TT_LAST.trend[i], TT_SIDE, TT_LAST.team);
   if(p[0]==='zone') return ttZoneCardHTML(TT_VIEW.zones.zones[i-1]);
-  if(p[0]==='shot') return ttShotCardHTML(TT_VIEW.mapShots[i], TT_LAST.gameOf);
+  if(p[0]==='shot') return ttShotCardHTML(TT_VIEW.mapShots[i], TT_LAST.gameOf, {pinned:!!pinned});
   return '';
 }
-function ttHideTip(){ const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; } if(TT_TIP&&TT_TIP.classList) TT_TIP.classList.remove('tip-on'); TT_TIP=null; }
-function ttShowTip(el){
+function ttCanPin(el){ return !!(el&&el.dataset&&/^shot:/.test(el.dataset.tip||'')); }
+function ttHideTip(){
+  const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; }
+  if(t&&t.classList) t.classList.remove('pin');
+  [TT_TIP, TT_PIN].forEach(el=>{ if(el&&el.classList){ el.classList.remove('tip-on'); el.classList.remove('pin'); } });
+  TT_TIP=null; TT_PIN=null;
+}
+// A pinned card stays put (hover / focus elsewhere no longer replaces it) and takes clicks, so its
+// buttons can be used. Only shot markers pin.
+function ttShowTip(el, pin){
   const t=ssEl('ttTip'); if(!t||!el) return;
-  const html=ttTipHTML(el.dataset.tip); if(!html){ ttHideTip(); return; }
-  if(TT_TIP&&TT_TIP!==el&&TT_TIP.classList) TT_TIP.classList.remove('tip-on');
-  TT_TIP=el; el.classList.add('tip-on');
+  pin=!!pin&&ttCanPin(el);
+  const html=ttTipHTML(el.dataset.tip, pin); if(!html){ ttHideTip(); return; }
+  [TT_TIP, TT_PIN].forEach(o=>{ if(o&&o!==el&&o.classList){ o.classList.remove('tip-on'); o.classList.remove('pin'); } });
+  TT_TIP=el; TT_PIN=pin?el:null; el.classList.add('tip-on'); if(pin) el.classList.add('pin'); else el.classList.remove('pin');
   t.innerHTML=html; t.hidden=false;
+  if(t.classList){ if(pin) t.classList.add('pin'); else t.classList.remove('pin'); }
+  if(t.setAttribute) t.setAttribute('role', pin?'dialog':'tooltip');
+  ttPlaceTip();
+}
+// the card is position:fixed and clamped to the viewport, so the map's edge can never clip it
+function ttPlaceTip(){
+  const t=ssEl('ttTip'), el=TT_TIP; if(!t||!el||t.hidden||!el.getBoundingClientRect) return;
   const r=el.getBoundingClientRect(), vw=document.documentElement.clientWidth, vh=window.innerHeight, w=t.offsetWidth, hh=t.offsetHeight;
   const tall=r.height>hh+80;                                   // a tall target (a trend column): sit beside its top, not above it
   let x=r.left+r.width/2-w/2, y=tall?r.top+10:r.top-hh-10;
   if(tall){ x=r.right+8; if(x+w>vw-8) x=r.left-w-8; }
-  if(y<8) y=Math.min(vh-hh-8, r.bottom+10);
-  t.style.left=Math.max(8, Math.min(vw-w-8, x))+'px'; t.style.top=Math.max(8, y)+'px';
+  if(y<8) y=r.bottom+10;
+  t.style.left=Math.max(8, Math.min(vw-w-8, x))+'px'; t.style.top=Math.max(8, Math.min(vh-hh-8, y))+'px';
+}
+function ttPinTip(el){ if(!ttCanPin(el)) return; if(TT_PIN===el){ ttHideTip(); return; } ttShowTip(el, true); }
+function ttTipClick(e){
+  const a=e.target&&e.target.closest?e.target.closest('[data-act]'):null; if(!a) return;
+  if(a.dataset.act==='close'){ const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } }
 }
 function ttInit(){
   const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
   const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
+  const inCard=e=>!!(e.target&&e.target.closest&&e.target.closest('#ttTip'));
   pane.addEventListener('click', e=>{
+    if(inCard(e)){ ttTipClick(e); return; }             // the pinned card's own buttons
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
     const tip=tipOf(e);
-    if(tip) ttShowTip(tip); else ttHideTip();        // a tap shows the card; a tap anywhere else closes it
+    if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
+    else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
-  pane.addEventListener('mouseover', e=>{ const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
-  pane.addEventListener('mouseout', e=>{ const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
-  pane.addEventListener('focusin', e=>{ const tip=tipOf(e); if(tip) ttShowTip(tip); });
-  pane.addEventListener('focusout', e=>{ if(tipOf(e)) ttHideTip(); });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape') ttHideTip(); });
+  pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
+  pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
+  pane.addEventListener('focusin', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
+  pane.addEventListener('focusout', e=>{ if(TT_PIN) return; if(tipOf(e)) ttHideTip(); });
+  pane.addEventListener('keydown', e=>{
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    const tip=tipOf(e); if(!tip||!ttCanPin(tip)||inCard(e)) return;
+    e.preventDefault(); ttShowTip(tip, true);        // keyboard: Enter pins, and focus moves into the card
+    const first=ssEl('ttTip').querySelector('.tt-acts a, .tt-acts button'); if(first){ try{ first.focus({preventScroll:true}); }catch(_){ } }
+  });
+  document.addEventListener('keydown', e=>{ if(e.key!=='Escape'||!TT_TIP) return; const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } });
   document.addEventListener('click', e=>{ if(TT_TIP&&!pane.contains(e.target)) ttHideTip(); });
-  window.addEventListener('scroll', ()=>{ if(TT_TIP) ttHideTip(); }, {passive:true});
+  window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
   window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='team-trends'&&TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); }, 150); });
 }
