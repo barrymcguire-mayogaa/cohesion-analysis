@@ -235,6 +235,18 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crloc-chip.on{background:var(--accent-bg);color:var(--accent);border-color:var(--accent);}
 .crloc-keys{font-size:10px;color:var(--t3);margin-top:2px;}
 /* below cohesionModal (z 10000) so the gate / delete confirmations show on top */
+.craa{width:400px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
+.craa-p{border-top:1px solid var(--border);padding:7px 0 1px;}
+.craa-p.dirty{box-shadow:inset 3px 0 0 var(--orange);padding-left:8px;}
+.craa-ph{display:flex;align-items:baseline;gap:8px;font-size:12px;margin-bottom:5px;color:var(--t2);}
+.craa-ph b{font:800 12px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t1);min-width:58px;}
+.craa-ph i{font-style:normal;font-family:'DM Mono',monospace;color:var(--t1);}
+.craa-prop{border:1px solid var(--accent);border-radius:8px;padding:7px 9px 2px;margin:6px 0;font-size:12.5px;color:var(--t1);}
+.craa-warn{font-size:11.5px;color:var(--orange);margin:6px 0;}
+.craa-live{font:11px 'DM Mono',monospace;color:var(--t2);margin:6px 0 4px;min-height:14px;}
+.craa-btn{display:inline-block;user-select:none;white-space:nowrap;}
+.craa-btn.dis{opacity:.45;cursor:not-allowed;}
+.craa-btn.dis:hover{border-color:var(--border);color:var(--t1);}
 .crlc{right:392px;width:380px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
 @media (max-width:1100px){.crlc{right:16px;}}
 .crlc-sec{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;}
@@ -534,7 +546,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -588,7 +600,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
@@ -773,7 +785,9 @@ function buildAngleBtns(){
   const A=crAngles().filter(a=>a&&a.youtubeId);
   if(GAME._local||A.length<2){ grp.innerHTML=''; grp.style.display='none'; return; }
   grp.style.display='flex';
-  grp.innerHTML=A.map((a,i)=>`<div class="crsz${i===crAngleIdx?' on':''}" onclick="crSwitchAngle(${i})" title="Switch camera — your position is kept">${esc(a.label||('Cam '+(i+1)))}</div>`).join('');
+  grp.innerHTML=A.map((a,i)=>`<div class="crsz${i===crAngleIdx?' on':''}" onclick="crSwitchAngle(${i})" title="Switch camera — your position is kept">${esc(a.label||('Cam '+(i+1)))}</div>`).join('')+crAABtnHtml();
+  if(!grp._aa){ grp._aa=true; grp.addEventListener('click', crAAGrpClick); }   // "Align this angle" (admins, 2+ angles)
+  if(crAA.open){ crAA.prop=null; crAARender(); }                               // the panel follows the camera being watched
 }
 function crSwitchAngle(i){
   const A=crAngles();
@@ -784,6 +798,261 @@ function crSwitchAngle(i){
   if(crRate!==1) setTimeout(()=>vrate(crRate),500);   // rate survives the source switch
   buildAngleBtns();
 }
+// ── ALIGN THIS ANGLE ──────────────────────────────────────────
+// A game's extra camera angles are lined up to Main only by their own period
+// start times (typed by hand in Admin, so often wrong). This panel fixes the
+// start times of the ONE angle being watched — it never touches the events
+// (that is Sync Mode), Main, or the other angles. Changes apply in memory at
+// once (driveToAngle / videoTimeToDrive read GAME.angles), so the user can
+// click events on this angle to verify, then save. Unsaved angle times count
+// as pending changes: crHasPending / crPendingCount include them and the
+// session save (crSaveAll) writes them, so the leave guard covers them too.
+// They are NOT kept in the crash backup (crBackup) — a 30-second redo.
+const CR_AA_P=[{k:'half1Start',n:'1st half'},{k:'half2Start',n:'2nd half'},{k:'et1Start',n:'ET1'},{k:'et2Start',n:'ET2'}];
+const CR_AA_MAINTIP="Main is the reference. Use Sync Mode to move events, or fix the game's start times in Admin";
+let crAA={open:false, base:null, prop:null, status:'', timer:null};
+function crAAIsAdmin(){ try{ return sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ return false; } }
+// The control exists only for an admin on a game with 2+ camera angles.
+function crAAAvailable(){ return !!GAME && !GAME._local && crAAIsAdmin() && Array.isArray(GAME.angles) && GAME.angles.filter(a=>a&&a.youtubeId).length>=2; }
+function crAASnap(a){ const o={}; CR_AA_P.forEach(p=>{ o[p.k]=a?a[p.k]:undefined; }); return o; }
+// Called when a game opens: remember every angle's start times as loaded.
+function crAAReset(){
+  if(crAA.timer){ clearInterval(crAA.timer); }
+  crAA={open:false, base:null, prop:null, status:'', timer:null};
+  const p=document.getElementById('crAA'); if(p) p.style.display='none';
+  if(GAME && !GAME._local && Array.isArray(GAME.angles)) crAA.base=GAME.angles.map(crAASnap);
+}
+function crAASame(a,b){ return (a??null)===(b??null); }
+// The start fields of angle i that differ from the loaded (or last saved) values.
+function crAAChanged(i){
+  const a=GAME&&Array.isArray(GAME.angles)?GAME.angles[i]:null, b=crAA.base&&crAA.base[i];
+  if(!a||!b||i===0) return [];
+  return CR_AA_P.filter(p=>!crAASame(a[p.k],b[p.k])).map(p=>p.k);
+}
+function crAADirtyIdx(){ const out=[]; if(!GAME||GAME._local||!crAA.base||!Array.isArray(GAME.angles)) return out; GAME.angles.forEach((a,i)=>{ if(crAAChanged(i).length) out.push(i); }); return out; }
+function crAAPendingN(){ return crAADirtyIdx().length; }
+// Periods offered: both halves always; extra time when Main has that period
+// (the angle maths only uses an angle's ET start when Main has one).
+function crAAPeriods(){ const m=crAngles()[0]||{}; return CR_AA_P.filter(p=>p.k==='half1Start'||p.k==='half2Start'||(+m[p.k]>0)); }
+function crAAMainStart(k){ const m=crAngles()[0]||{}; return +m[k]||0; }
+// Which period a Main-reference time falls in (the same rule as driveToAngle).
+function crAAPeriodOfDrive(driveT){
+  const m=crAngles()[0]||{};
+  if(m.et2Start&&driveT>=m.et2Start) return 'et2Start';
+  if(m.et1Start&&driveT>=m.et1Start) return 'et1Start';
+  if(driveT>=(m.half2Start||0)) return 'half2Start';
+  return 'half1Start';
+}
+function crAARawNow(){ return (YTP&&YTP.getCurrentTime?YTP.getCurrentTime():0)||0; }
+function crAAName(k){ const p=CR_AA_P.find(x=>x.k===k); return p?p.n:k; }
+function crAALabel(i){ const a=crAngles()[i]||{}; return a.label||('Cam '+(i+1)); }
+function crAAFmt(v){ return (v==null||isNaN(v))?'not set':((v<0?'−':'')+fmt(Math.abs(v))); }
+function crAAFmtD(d){ return (d<0?'−':'+')+fmt(Math.abs(d)); }
+function crAAChangeText(k,from,to){ return crAAName(k)+' start '+crAAFmt(from)+' → '+crAAFmt(to)+((from==null||to==null)?'':' ('+crAAFmtD(to-from)+')'); }
+// Set one start time on the watched angle (in memory). Never Main.
+function crAASet(k,v){
+  const i=crAngleIdx, a=GAME&&Array.isArray(GAME.angles)?GAME.angles[i]:null;
+  if(!crAAAvailable()||i===0||!a||!CR_AA_P.some(p=>p.k===k)||v==null||isNaN(v)) return false;
+  a[k]=Math.round(v);
+  crAA.prop=null; crAA.status='';
+  crAAAfterChange(); return true;
+}
+function crAAAfterChange(){
+  crUpdatePending();
+  if(typeof crSyncUpdate==='function') crSyncUpdate();
+  if(typeof crDrawTL==='function'&&typeof crView!=='undefined'&&crView==='tl') crDrawTL();
+  if(typeof sbTick==='function') sbTick();
+  crAARender();
+}
+// (1) "Set <period> start to the current video position": the raw player time on THIS angle.
+function crAASetNow(k){ return crAASet(k, crAARawNow()); }
+// (2) "Align using the selected event": start = video time − (event.driveT − Main's start of that period).
+// Returns {k, from, to} or {error}.
+function crAAEventCalc(k){
+  const e=EVENTS.find(x=>String(x._rowId)===String(activeId));
+  if(!e) return {error:'Select an event in the '+crAAName(k)+' first (click it in the list or the timeline).'};
+  const d=e.driveT||0, pk=crAAPeriodOfDrive(d);
+  if(pk!==k) return {error:'The selected event is in the '+crAAName(pk)+' — select a '+crAAName(k)+' event.'};
+  const a=crAngles()[crAngleIdx]||{};
+  return {k, from:a[k], to:Math.round(crAARawNow()-(d-crAAMainStart(k))), code:e.code||''};
+}
+function crAAPropose(k){
+  if(crAngleIdx===0||!crAAAvailable()) return null;
+  const r=crAAEventCalc(k);
+  if(r.error){ crAA.prop=null; crAA.status=r.error; crAARender(); return r; }
+  crAA.prop=r; crAA.status=''; crAARender(); return r;
+}
+function crAAApplyProp(){ const r=crAA.prop; if(!r) return false; return crAASet(r.k, r.to); }
+function crAANudge(k,d){ const a=crAngles()[crAngleIdx]||{}; return crAASet(k, (+a[k]||0)+d); }
+function crAARevert(){
+  const i=crAngleIdx, a=GAME&&Array.isArray(GAME.angles)?GAME.angles[i]:null, b=crAA.base&&crAA.base[i];
+  if(!a||!b||i===0) return;
+  CR_AA_P.forEach(p=>{ if(b[p.k]===undefined) delete a[p.k]; else a[p.k]=b[p.k]; });
+  crAA.prop=null; crAA.status='Reverted to the saved times.';
+  crAAAfterChange();
+}
+// Warnings only — nothing here blocks a save.
+function crAAWarnings(i){
+  const a=crAngles()[i]||{}, w=[], v=k=>(a[k]==null?null:+a[k]);
+  crAAPeriods().forEach(p=>{ if(v(p.k)!=null&&v(p.k)<0) w.push(p.n+' start is before the start of the video.'); });
+  const order=crAAPeriods().map(p=>p.k);
+  for(let j=1;j<order.length;j++){ const x=v(order[j-1]), y=v(order[j]); if(x!=null&&y!=null&&y<=x) w.push(crAAName(order[j])+' start should be after the '+crAAName(order[j-1])+' start.'); }
+  const dur=(YTP&&YTP.getDuration&&YTP.getDuration())||0;
+  if(dur>0) crAAPeriods().forEach(p=>{ if(v(p.k)!=null&&v(p.k)>dur) w.push(p.n+' start is beyond the end of this video ('+fmt(dur)+').'); });
+  return w;
+}
+// Merge the changed start fields of the given angles into a freshly read meta.
+// Everything else — other fields, other angles, Main, the legacy top-level
+// start times — is passed through exactly as read.
+function crAAMergeMeta(meta, idxs){
+  const m=Object.assign({}, meta||{});
+  if(!Array.isArray(m.angles)) throw new Error('this game no longer has camera angles — reload the page');
+  const A=m.angles.slice();
+  idxs.forEach(i=>{
+    const loc=GAME.angles[i]; if(!loc||i===0) return;
+    let j=(A[i]&&A[i].youtubeId===loc.youtubeId)?i:A.findIndex((x,n)=>n>0&&x&&x.youtubeId===loc.youtubeId);
+    if(j<=0) throw new Error('the camera angles were changed in Admin since this game was opened — reload the page');
+    const upd=Object.assign({}, A[j]);
+    crAAChanged(i).forEach(k=>{ upd[k]=loc[k]; });
+    A[j]=upd;
+  });
+  m.angles=A;
+  return m;
+}
+async function crAAWrite(idxs){
+  idxs=(idxs||[]).filter(i=>i>0&&crAAChanged(i).length);
+  if(!idxs.length) return;
+  let j;
+  try{ j=await cohesionRead({action:'gameBundle', id:GAME.id}); }
+  catch(e){ throw new Error('angle times not saved — could not re-read the game ('+e.message+')'); }
+  let fresh=j&&j.meta; if(typeof fresh==='string'){ try{ fresh=JSON.parse(fresh); }catch(_){ fresh=null; } }
+  if(!fresh||typeof fresh!=='object') throw new Error('angle times not saved — could not read the game\'s current metadata');
+  let merged;
+  try{ merged=crAAMergeMeta(fresh, idxs); }catch(e){ throw new Error('angle times not saved — '+e.message); }
+  try{ await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:GAME.id, meta:merged}); }
+  catch(e){ throw new Error('angle times not saved ('+e.message+')'); }
+  idxs.forEach(i=>{ crAA.base[i]=crAASnap(GAME.angles[i]); });
+  crUpdatePending();
+}
+// The session save: every angle with unsaved times, no extra prompt.
+async function crAASaveAll(){ const d=crAADirtyIdx(); if(d.length){ await crAAWrite(d); crAA.status='Angle times saved.'; crAARender(); } }
+// The panel's "Save angle times": the watched angle only, after an old → new confirm.
+async function crAASave(){
+  const i=crAngleIdx, ch=crAAChanged(i); if(i===0||!ch.length) return false;
+  const a=GAME.angles[i], b=crAA.base[i], warn=crAAWarnings(i);
+  const v=await cohesionModal({ title:'Save angle times?',
+    message:'<b>'+esc(crAALabel(i))+'</b> — '+esc(GAME.title||GAME.id||'')+'<br>'
+      +ch.map(k=>esc(crAAChangeText(k,b[k],a[k]))).join('<br>')
+      +(warn.length?'<br><br><span style="color:var(--orange,#f59e0b);">'+warn.map(esc).join('<br>')+'</span>':'')
+      +'<br><br>Only this camera angle changes. The events, Main and the other angles are not touched.',
+    buttons:[{label:'Cancel',value:'cancel'},{label:'Save angle times',value:'save',primary:true}] });
+  if(v!=='save') return false;
+  try{ await crAAWrite([i]); }
+  catch(e){ crAA.status=e.message; crAARender(); cohesionModal({title:'Angle times not saved', message:esc(e.message)}); return false; }
+  crAA.status='Saved. The dashboard and playlists use the new times from their next load.'; crAARender();
+  return true;
+}
+function crAABuild(){
+  let p=document.getElementById('crAA'); if(p) return p;
+  p=document.createElement('div'); p.id='crAA'; p.className='crfr craa';
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Align this angle');
+  p.addEventListener('click', crAAClick);
+  // a click must not leave the keyboard focus on a panel button: Space / arrows keep driving the video
+  p.addEventListener('mousedown', e=>{ if(e.preventDefault) e.preventDefault(); });
+  document.body.appendChild(p);
+  return p;
+}
+function crAARender(){
+  crAABtnSync();
+  if(!crAA.open) return;
+  const p=crAABuild(), i=crAngleIdx;
+  const head='<div class="crfr-h"><span>ALIGN THIS ANGLE</span><span class="crfr-sub">'+esc(crAALabel(i))+'</span><span class="crfr-x" data-act="close" title="Close (Esc)">✕</span></div>';
+  if(i===0||!crAAAvailable()){ p.innerHTML=head+'<div class="crlc-note">'+esc(CR_AA_MAINTIP)+'. Switch to another camera angle to line it up.</div>'; return; }
+  const a=crAngles()[i]||{}, m=crAngles()[0]||{}, b=(crAA.base&&crAA.base[i])||{}, ch=crAAChanged(i), warn=crAAWarnings(i);
+  const rows=crAAPeriods().map(pd=>{
+    const k=pd.k, n=esc(pd.n), dirty=ch.includes(k);
+    return '<div class="craa-p'+(dirty?' dirty':'')+'">'
+      +'<div class="craa-ph"><b>'+n+'</b><span>this angle <i>'+esc(crAAFmt(a[k]))+'</i> · Main '+esc(crAAFmt(m[k]))+(dirty?' · was '+esc(crAAFmt(b[k])):'')+'</span></div>'
+      +'<div class="crfr-row crfr-wrap">'
+        +[-5,-1,1,5].map(d=>'<button class="cbtn mini" data-act="nudge" data-k="'+k+'" data-d="'+d+'" title="Move the '+n+' start '+(d<0?'earlier':'later')+' by '+Math.abs(d)+'s">'+(d<0?'−':'+')+Math.abs(d)+'s</button>').join('')
+      +'</div>'
+      +'<div class="crfr-row crfr-wrap">'
+        +'<button class="cbtn mini" data-act="now" data-k="'+k+'" title="Scrub this angle to the '+n+' throw-in, then click">Set '+n+' start to the current video position</button>'
+        +'<button class="cbtn mini" data-act="event" data-k="'+k+'" title="Select a '+n+' event, scrub this angle to where it truly happens, then click">Align using the selected event</button>'
+      +'</div></div>';
+  }).join('');
+  const pr=crAA.prop;
+  const prop=pr?'<div class="craa-prop"><div>'+esc(crAAChangeText(pr.k,pr.from,pr.to))+'</div><div class="crlc-note">from '+esc(pr.code||'the selected event')+'</div>'
+    +'<div class="crfr-row"><button class="cbtn mini crfr-all" data-act="apply">Apply</button><button class="cbtn mini" data-act="unprop">Cancel</button></div></div>':'';
+  p.innerHTML=head
+    +'<div class="crlc-note">Lines up <b>'+esc(crAALabel(i))+'</b> only. The events, Main and the other angles are not changed.</div>'
+    +rows+prop
+    +(warn.length?'<div class="craa-warn">'+warn.map(esc).join('<br>')+'</div>':'')
+    +'<div class="craa-live" id="crAALive"></div>'
+    +'<div class="crlc-note">'+(ch.length?'Not saved yet — the new times are already in use here: click a few events on this angle to check.':'No unsaved changes for this angle.')+'</div>'
+    +'<div class="crfr-row crfr-btns"><button class="cbtn mini crfr-all" data-act="save"'+(ch.length?'':' disabled')+'>Save angle times</button><button class="cbtn mini" data-act="revert"'+(ch.length?'':' disabled')+'>Revert</button></div>'
+    +'<div class="crfr-status" id="crAAStatus">'+esc(crAA.status||'')+'</div>';
+  crAALive();
+}
+// Live check line: where the video is on this angle, and the Main time it maps to.
+function crAALive(){
+  const el=document.getElementById('crAALive'); if(!el||!crAA.open||crAngleIdx===0) return;
+  const vt=crAARawNow(), d=videoTimeToDrive(vt,crAngleIdx), k=crAAPeriodOfDrive(d);
+  el.textContent='Now: '+fmt(vt)+' on this angle = '+fmt(d)+' on Main ('+crAAName(k)+' '+fmt(Math.max(0,d-crAAMainStart(k)))+')';
+}
+function crAAClick(ev){
+  const t=ev.target&&ev.target.closest?ev.target.closest('[data-act]'):null; if(!t) return;
+  const act=t.getAttribute('data-act'), k=t.getAttribute('data-k');
+  if(act==='close') crAAClose();
+  else if(act==='now') crAASetNow(k);
+  else if(act==='event') crAAPropose(k);
+  else if(act==='apply') crAAApplyProp();
+  else if(act==='unprop'){ crAA.prop=null; crAARender(); }
+  else if(act==='nudge') crAANudge(k, +t.getAttribute('data-d'));
+  else if(act==='revert') crAARevert();
+  else if(act==='save') crAASave();
+  const ae=document.activeElement, p=document.getElementById('crAA');
+  if(ae&&ae.blur&&p&&p.contains&&p.contains(ae)) ae.blur();
+}
+function crAAOpen(){
+  if(!crAAAvailable()||crAngleIdx===0) return false;
+  const p=crAABuild(); p.style.display=''; crAA.open=true; crAA.prop=null; crAA.status='';
+  if(!crAA.timer) crAA.timer=setInterval(crAALive,500);
+  crAARender(); return true;
+}
+function crAAClose(){
+  const p=document.getElementById('crAA'); if(p) p.style.display='none';
+  crAA.open=false; crAA.prop=null;
+  if(crAA.timer){ clearInterval(crAA.timer); crAA.timer=null; }
+  if(document.activeElement&&document.activeElement.blur&&p&&p.contains&&p.contains(document.activeElement)) document.activeElement.blur();
+  crAABtnSync();
+}
+function crAAToggle(){ if(crAA.open) crAAClose(); else crAAOpen(); }
+// The toolbar button (next to the camera switcher): disabled on Main.
+function crAABtnHtml(){
+  if(!crAAAvailable()) return '';
+  const main=crAngleIdx===0, n=crAAPendingN();
+  return '<span class="vbtn craa-btn'+(main?' dis':'')+(crAA.open&&!main?' on':'')+'" id="crAABtn" data-aa="1" role="button" aria-disabled="'+(main?'true':'false')+'" title="'+esc(main?CR_AA_MAINTIP:'Align this angle — fix this camera angle\'s start times without moving the events')+'">⌖ Align this angle'+(n?' •':'')+'</span>';
+}
+function crAABtnSync(){
+  const b=document.getElementById('crAABtn'); if(!b||!b.classList) return;
+  b.classList.toggle('on', !!crAA.open&&crAngleIdx!==0);
+  b.textContent='⌖ Align this angle'+(crAAPendingN()?' •':'');   // • = unsaved angle times
+}
+function crAAGrpClick(ev){
+  const t=ev.target&&ev.target.closest?ev.target.closest('[data-aa]'):null; if(!t) return;
+  if(crAngleIdx===0) return;                       // disabled on Main (the tooltip says why)
+  crAAToggle();
+}
+// Window CAPTURE phase (like Find & Replace / Label Check): keys pressed with
+// the focus inside the panel never reach the coding hotkeys; Esc closes it.
+window.addEventListener('keydown', e=>{
+  if(!crAA.open) return;
+  const p=document.getElementById('crAA');
+  if(!(p && e.target && p.contains && p.contains(e.target))) return;
+  e.stopPropagation();
+  if(e.key==='Escape'){ e.preventDefault(); crAAClose(); }
+}, true);
 function buildPlayer(){
   if(GAME._local){ buildLocalPlayer(); return; }
   cohesionCreatePlayer({ mount:'vid', videoId:GAME.youtubeId,
@@ -2301,8 +2570,8 @@ function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 //    leave prompt). Existing rows edited get _dirty; new rows get _new and a
 //    temp _rowId; deleted existing rows go to crDeleted. Nothing hits the DB
 //    until save. ─────────────────────────────────────────────────────────────
-function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0; }
-function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length + crRosterPendingN(); }
+function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0 || crAAPendingN()>0; }
+function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length + crRosterPendingN() + crAAPendingN(); }
 function crUpdatePending(){
   const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
   const btn=document.getElementById('crSaveBtn'); if(!btn) return;
@@ -2372,6 +2641,7 @@ async function crSaveAll(){
   // be the only copy. It clears when the close dialog confirms the file exists.
   if(GAME&&GAME._local){ crExportXml(); EVENTS.forEach(e=>{ delete e._dirty; }); crUpdatePending(); return; }
   await crSaveRoster();                            // queued "+ add to team sheet" names (gameAdmin updateMeta)
+  await crAASaveAll();                             // unsaved "Align this angle" start times (gameAdmin updateMeta)
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
