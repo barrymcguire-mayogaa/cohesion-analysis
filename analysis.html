@@ -628,6 +628,9 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-zone .tt-zs{stroke-width:.4;}
 .tk-zkey .tk-zsw{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);}
 .tk-ztab td.na{font-size:.74rem;}
+.tk-ztab td.tk-arctd{font-size:.76rem;line-height:1.25;white-space:normal;color:var(--text);}
+.tk-ztab tr.zero td.tk-arctd{color:var(--muted);}
+.tk-arcline{font-weight:700;}
 </style>
 </head>
 <body>
@@ -3519,13 +3522,29 @@ const TK_ZG=(()=>{
   return {shape, lab};
 })();
 function tkZoneName(z){ return z==='arc'?'INSIDE ARC':'ZONE '+z; }
-function tkZoneWhere(z){ return z==='arc'?'inside the 40m arc, or behind the 20m line · counted as short':TT_COLS[(z-1)%3]+', '+['short: outside the arc, inside the 45m line','medium: 45m to 65m','long: beyond the 65m line'][Math.floor((z-1)/3)]; }
+// The Inside-arc area never holds a kickout the kicker won (the Inside-arc rule), so it has no won / taken and no win %:
+// it reads "n lost" with how they were lost, or from the selected team's side (pov) "n won by <team> inside the arc".
+// → {n, by:'1 free, 1 clean', short, text (after "Inside arc — "), full}
+function tkArcInfo(Z, pov){
+  const n=Z?Z.n:0, k=pov?'won':'lost';
+  const by=!n?'':TK_TYPES.filter(t=>Z.types[t[0]][k]>0).map(t=>Z.types[t[0]][k]+' '+t[1].toLowerCase()).join(', ');
+  if(!n) return {n, by, short:'–', text:'–', full:'Inside arc — –'};
+  const short=n+(pov?' won':' lost'), text=pov?n+' won by '+pov+' inside the arc ('+by+')':n+' lost · '+by;
+  return {n, by, short, text, full:pov?text:'Inside arc — '+text};
+}
+function tkZoneWhere(z){ return z==='arc'?'more than '+TK_ARC_TOL_M+' m inside the 40m arc, or behind the 20m line, and lost by the kicking team · counted as short':TT_COLS[(z-1)%3]+', '+['short: outside the arc, inside the 45m line','medium: 45m to 65m','long: beyond the 65m line'][Math.floor((z-1)/3)]; }
 // the length band's colour, stronger with the kicking team's win %
+const TK_ARC_RULE='A kickout must clear the 40m arc, so a landing within '+TK_ARC_TOL_M+' m of the arc line, or any landing inside it that the kicking team won, is counted in the nearest zone outside the arc (1, 2 or 3); only a kickout the kicking team lost further inside stays in Inside arc.';
 function tkZoneAlpha(p){ return +(0.2+0.55*Math.max(0, Math.min(1, (p||0)/100))).toFixed(2); }
 function tkZoneSVG(Zs, pov){
   let shapes='', labels='';
   Zs.zones.forEach(Z=>{
     const g=TK_ZG.lab[Z.z], col=TK_BAND[tkZoneLen(Z.z)==='S'&&Z.z==='arc'?'arc':tkZoneLen(Z.z)], nm=tkZoneName(Z.z), fig=Z.n?Z.won+'/'+Z.n:'–';
+    if(Z.z==='arc'){ const I=tkArcInfo(Z, pov);   // no won / taken, no win %; neutral shading
+      shapes+=`<g class="tt-zone tk-zone" data-tip="kz:arc" tabindex="0" role="img" aria-label="${ssEsc(nm+', '+tkZoneWhere('arc')+': '+(Z.n?I.text:'no kickouts'))}"><path class="tt-zs${Z.n?' tk-arcz':' none'}" d="${TK_ZG.shape.arc}"${Z.n?` fill="${TK_BAND.arc}" style="fill-opacity:.3"`:''}/></g>`;
+      labels+=`<text class="tt-zn" x="${tkPX(g.n[0])}" y="${tkPY(g.n[1])}" text-anchor="middle">${nm}</text><text class="tt-zv sm${Z.n?'':' na'}" x="${tkPX(g.v[0])}" y="${tkPY(g.v[1])}" text-anchor="middle">${ssEsc(I.short)}</text>`
+        +(Z.n?`<text class="tt-zp sm tk-arcby" x="${tkPX(g.p[0])}" y="${tkPY(g.p[1])}" text-anchor="middle">${ssEsc(I.by)}</text>`:'');
+      return; }
     const aria=nm+', '+tkZoneWhere(Z.z)+': '+(Z.n?(pov?pov+' won '+Z.won+' of '+Z.n+' opposition kickouts, ':Z.won+' won of '+Z.n+' kickouts, ')+ttPctTxt(Z.pct):'no kickouts');
     shapes+=`<g class="tt-zone tk-zone" data-tip="kz:${Z.z}" tabindex="0" role="img" aria-label="${ssEsc(aria)}"><path class="tt-zs${Z.n?'':' none'}" d="${TK_ZG.shape[Z.z]}"${Z.n?` fill="${col}" style="fill-opacity:${tkZoneAlpha(Z.pct)}"`:''}/></g>`;
     if(g.one){ labels+=`<text class="tt-zp sm one${Z.n?'':' na'}" x="${tkPX(g.one[0])}" y="${tkPY(g.one[1])}" text-anchor="middle">${nm} · ${Z.n?fig+' · '+ttPctTxt(Z.pct):'–'}</text>`; return; }
@@ -3537,7 +3556,7 @@ function tkZoneSVG(Zs, pov){
 }
 function tkZoneKeyHTML(pov){
   const sw=(c,l)=>`<span><i class="tk-zsw" style="background:${c}"></i>${l}</span>`;
-  return '<div class="tt-key tk-zkey">'+sw(TK_BAND.S,'Short')+sw(TK_BAND.M,'Medium')+sw(TK_BAND.L,'Long')+sw(TK_BAND.arc,'Inside arc')+`<span>${pov?ssEsc('figures = won by '+pov+' / opposition kickouts · stronger colour = '+pov+' won more'):'stronger colour = higher win %'}</span>`+'<span><i class="tt-sw none"></i>no kickouts</span></div>';
+  return '<div class="tt-key tk-zkey">'+sw(TK_BAND.S,'Short')+sw(TK_BAND.M,'Medium')+sw(TK_BAND.L,'Long')+sw(TK_BAND.arc,pov?'Inside arc (won there by '+ssEsc(pov)+')':'Inside arc (lost there, no win %)')+`<span>${pov?ssEsc('figures = won by '+pov+' / opposition kickouts · stronger colour = '+pov+' won more'):'stronger colour = higher win %'}</span>`+'<span><i class="tt-sw none"></i>no kickouts</span></div>';
 }
 // the hover / focus card of a zone: the contest, by type, and what followed (for the team that won each kickout)
 function tkZoneCardHTML(Z, V, R){
@@ -3545,10 +3564,14 @@ function tkZoneCardHTML(Z, V, R){
   const row=(l,v,na)=>`<div class="tt-cr"><span>${l}</span><b${na?' class="na"':''}>${ssEsc(v)}</b></div>`;
   const pov=V.pov||null, T=ssEsc(R.team);   // in both views the kickouts counted as won are the selected team's
   let h=`<div class="tt-ct">${ssEsc(tkZoneName(Z.z))}</div><div class="tt-cs">${ssEsc(tkZoneWhere(Z.z)+(pov?' · opposition kickouts':''))}</div>`;
-  if(!Z.n) return h+`<div class="tt-cna">No ${pov?'opposition ':''}kickouts landed here.</div>`;
+  if(!Z.n) return h+(Z.z==='arc'?`<div class="tt-cr tk-arcline"><span>Inside arc</span><b class="na">–</b></div>`:'')+`<div class="tt-cna">No ${pov?'opposition ':''}kickouts ${Z.z==='arc'?(pov?'won by '+T+' inside the arc':'lost inside the arc'):'landed here'}.</div>`;
+  if(Z.z==='arc'){ const I=tkArcInfo(Z, pov);
+    h+=`<div class="tt-cn tk-arcline">${ssEsc(I.full)}</div>`+row(pov?'Won by '+T+' inside the arc':'Lost inside the arc', String(Z.n))+TK_TYPES.filter(t=>Z.types[t[0]].won+Z.types[t[0]].lost>0).map(t=>row(t[1], String(Z.types[t[0]].won+Z.types[t[0]].lost))).join('')
+      +`<div class="tt-cn">${ssEsc(TK_ARC_RULE)}</div>`;
+  } else
   h+=row(pov?'Opposition kickouts':'Taken', String(Z.n))+row(pov?'Won by '+T:'Won', String(Z.won))+row(pov?T+' win %':'Win %', ttPctTxt(Z.pct));
-  if(pov) h+=`<div class="tt-cn tk-povline">${ssEsc(pov+' won '+ttPctTxt(Z.pct)+' of opposition kickouts landing here ('+Z.won+' of '+Z.n+').')}</div>`;
-  h+=`<div class="tt-cwho">By receipt type${pov?' (won = won by '+T+')':''}</div>`+TK_TYPES.filter(t=>Z.types[t[0]].won+Z.types[t[0]].lost>0).map(t=>row(t[1], Z.types[t[0]].won+' won · '+Z.types[t[0]].lost+' lost')).join('');
+  if(pov&&Z.z!=='arc') h+=`<div class="tt-cn tk-povline">${ssEsc(pov+' won '+ttPctTxt(Z.pct)+' of opposition kickouts landing here ('+Z.won+' of '+Z.n+').')}</div>`;
+  if(Z.z!=='arc') h+=`<div class="tt-cwho">By receipt type${pov?' (won = won by '+T+')':''}</div>`+TK_TYPES.filter(t=>Z.types[t[0]].won+Z.types[t[0]].lost>0).map(t=>row(t[1], Z.types[t[0]].won+' won · '+Z.types[t[0]].lost+' lost')).join('');
   h+=`<div class="tt-cwho">What followed${pov?' (shots by whichever team won it)':''}</div>`;
   if(!Z.follow) return h+row('Shots', 'n/a (no source tags)', true)+row('Scores', 'n/a (no source tags)', true)+row('Scoring rate', 'n/a (no source tags)', true)+`<div class="tt-cn">${ssEsc(V.followNote)}</div>`;
   h+=row('Shots', String(Z.fShots))+row('Scores', String(Z.fScores))+row('Scoring rate', Z.fShots?ttPctTxt(Z.fRate):'–', !Z.fShots)
@@ -3561,7 +3584,9 @@ function tkZoneTableHTML(Zs, pov){
     +(!o.n?'<td>–</td><td>–</td><td class="hide-sm">–</td>':!o.follow?'<td class="na">n/a</td><td class="na">n/a</td><td class="hide-sm na">n/a</td>':`<td>${o.fShots}</td><td>${o.fScores}</td><td class="hide-sm">${o.fShots?ttPctTxt(o.fRate):'–'}</td>`)+'</tr>';
   let h=(pov?`<div class="tk-tcap">${ssEsc('Opposition kickouts by landing zone — WON and WIN % are '+pov+'’s')}</div>`:'')
     +`<table class="tt-ztab tk-ztab"><thead><tr><th scope="col">ZONE</th><th scope="col">${pov?'OPP KOs':'TAKEN'}</th><th scope="col">WON</th><th scope="col">WIN %</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col" class="hide-sm">SCORE %</th></tr></thead><tbody>`;
-  Zs.zones.forEach(Z=>{ h+=tr(Z.z==='arc'?'Inside arc':'Zone '+Z.z, Z); });
+  const fol=o=>!o.n?'<td>–</td><td>–</td><td class="hide-sm">–</td>':!o.follow?'<td class="na">n/a</td><td class="na">n/a</td><td class="hide-sm na">n/a</td>':`<td>${o.fShots}</td><td>${o.fScores}</td><td class="hide-sm">${o.fShots?ttPctTxt(o.fRate):'–'}</td>`;
+  // Inside arc: no won / taken and no win % — "n lost · how" (own), "n won by <team> inside the arc (how)" (opposition)
+  Zs.zones.forEach(Z=>{ h+=Z.z==='arc'?`<tr class="tk-arcrow${Z.n?'':' zero'}"><th scope="row">Inside arc</th><td colspan="3" class="tk-arctd">${ssEsc(tkArcInfo(Z, pov).text)}</td>${fol(Z)}</tr>`:tr('Zone '+Z.z, Z); });
   return h+tr('All located', Zs.total, 'tot')+'</tbody></table>';
 }
 // "what followed" by length: shots after, scores, score %, and the split by which team won the kickout
@@ -3613,6 +3638,7 @@ function tkKoCardHTML(k, R, o){
     +row('Zone', k.zone==null?'n/a':k.zone==='arc'?'Inside arc':'Zone '+k.zone, k.zone==null)
     +row('Outcome', k.won?'Won by '+kicker:own||!R?'Lost':'Won by '+R.team)+row('Type', tkTypeName(k.type), k.type==='unspecified')
     +(k.lenFrom==='loc'?'<div class="tt-cn">Length from the landing distance (no length label).</div>':'')
+    +(k.arcMoved?`<div class="tt-cn tk-arcmv">${ssEsc('Tagged '+(k.dist<TK_START_M&&tkArcR(k.x, k.dist)>=TK_ARC_M?'behind the 20m line':'inside the arc')+'; counted in Zone '+k.zone+', the nearest zone outside it (a kickout must clear the arc).')}</div>`:'')
     +(k.check?`<div class="tt-cn tk-warn">Check tag:${k.checkWhy.map(w=>'<br>· '+ssEsc(w)).join('')}</div>`:'');
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
