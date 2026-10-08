@@ -4931,8 +4931,9 @@ function mmNet(R, gid){
 }
 // (b) the three cards. worst / best = the lowest / highest TOTAL net; high = the most points by both teams per game.
 // Each is {v, ivs:[the interval, or every interval tied on it]} or null: no data, every interval level on net, or no score at all.
+// Only the six regular intervals are ranked: ET1 / ET2 (index 6 / 7) are left out, because only some games have them.
 function mmCards(N){
-  const iv=N.ivs.filter(x=>x.n>0), EPS=1e-9;
+  const iv=N.ivs.filter(x=>x.n>0&&!(x.i>=6)), EPS=1e-9;
   if(!iv.length) return {worst:null, best:null, high:null, flat:false};
   const pick=(key, dir)=>{ const v=(dir>0?Math.max:Math.min).apply(null, iv.map(x=>x[key])); return {v, ivs:iv.filter(x=>Math.abs(x[key]-v)<EPS)}; };
   const flat=iv.every(x=>x.net===iv[0].net), any=iv.some(x=>x.tot>0);
@@ -5068,14 +5069,15 @@ function mmCardsHTML(R, V){
     const tie=c.ivs.length>1;
     return h+`<div class="mm-kl${tie?' multi':''}">${ssEsc(c.ivs.map(x=>x.label).join(' · '))}</div><div class="mm-kn">${ssEsc(big(c))}</div>`
       +c.ivs.map(x=>`<div class="mm-kd">${ssEsc((tie?x.label+': ':'')+fa(x))}</div>`).join('')+`<div class="mm-kx">${ssEsc((tie?c.ivs.length+' intervals tied. ':'')+extra(c))}</div></div>`; };
-  const none=!N.n?'No score data.':C.flat?'Every interval finished level on net ('+tvSigned(N.ivs[0].net)+').':'No score data.';
+  const none=!N.n?'No score data.':C.flat?'Every '+(N.ivs.length>6?'regular ':'')+'interval finished level on net ('+tvSigned(N.ivs[0].net)+').':'No score data.';
   const per=c=>multi&&c.ivs[0].n>1?' · '+tvSigned(Math.round(c.ivs[0].avgNet*10)/10, 1)+' per game':'';
   return '<div class="mm-cards">'
     +card('worst', 'WORST INTERVAL', C.worst, c=>'Net '+tvSigned(c.v)+per(c), none, c=>c.v<0?'The most negative net.':'No interval was lost — this is the lowest net.')
     +card('best', 'BEST INTERVAL', C.best, c=>'Net '+tvSigned(c.v)+per(c), none, c=>c.v>0?'The most positive net.':'No interval was won — this is the highest net.')
-    +card('high', 'HIGHEST-SCORING INTERVAL', C.high, c=>multi?f1(c.v)+' pts per game':c.ivs[0].tot+' pts', N.n?'No scores in '+(N.n===1?'this game':'these '+N.n+' games')+'.':'No score data.',
+    +card('high', 'HIGHEST-SCORING INTERVAL', C.high, c=>multi?f1(c.v)+' pts per game':c.ivs[0].tot+' pts', N.n?'No scores in '+(N.n===1?'this game':'these '+N.n+' games')+(N.ivs.length>6?' in normal time':'')+'.':'No score data.',
       c=>'Both teams’ points together'+(multi?', on average per game ('+c.ivs.map(x=>x.tot+' in '+mmGl(x.n)).join(' · ')+')':'')+'.')
-    +'</div>';
+    +'</div>'
+    +(N.ivs.length>6?'<div class="dnote mm-etn" id="mmCardEtNote">Extra time is shown in the chart but left out of these three cards.</div>':'');
 }
 // (c) the cumulative score: the team and the opposition along the game minute. One game = the running totals as steps, with the
 // goals and 2-pointers marked; several = the average per game at each minute. A hit band per minute carries the hover card.
