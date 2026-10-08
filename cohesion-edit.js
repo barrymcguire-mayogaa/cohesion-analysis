@@ -109,6 +109,71 @@
   };
   window.cohesionRead = function(payload){ return window.cohesionAuthFetch('data', payload); };
 
+  // ── SIGN-IN GATE ──────────────────────────────────────────────────
+  // Every page checks the sessionStorage marker 'cohesion_auth' before it
+  // draws. sessionStorage belongs to ONE TAB, so a page opened in a new tab,
+  // from a bookmark or from a pasted link has no marker even though the
+  // person is still signed in (the Identity session lives in localStorage and
+  // is shared by every tab). cohesionAuthGate() therefore, when the marker is
+  // missing:
+  //   1. looks for the live Identity session and, if there is one, writes the
+  //      markers again from ITS roles — the same derivation index.html uses
+  //      at sign-in (cohesionSessionMarkers) — and lets the page carry on;
+  //   2. otherwise sends the browser to index.html?next=<this page + query>,
+  //      and index.html comes back here after sign-in (it accepts only a
+  //      same-folder page name, see cohesionSafeNext there).
+  // The markers only decide what the UI shows. Every read and write goes
+  // through a Netlify function that verifies the JWT and its roles, so a
+  // marker that is wrong (or forged) gets no data.
+  window.cohesionSessionMarkers = function(user){   // = index.html at sign-in
+    const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
+    const lower = roles.map(r => String(r).toLowerCase());
+    return { auth: lower.includes('admin') ? 'admin' : 'viewer', roles: roles,
+      section: (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county' };
+  };
+  // The signed-in Identity user, synchronously: from the widget when it has
+  // already started, else from the session it keeps in localStorage (the
+  // record the widget itself restores from when it starts).
+  window.cohesionLiveUser = function(){
+    let u = null;
+    try {
+      const ni = window.netlifyIdentity;
+      u = (ni && ((ni.gotrue && ni.gotrue.currentUser && ni.gotrue.currentUser()) || (ni.currentUser && ni.currentUser()))) || null;
+    } catch (_) {}
+    if (!u) {
+      try {
+        const j = JSON.parse(localStorage.getItem('gotrue.user') || 'null');
+        if (j && typeof j === 'object' && j.token && (j.token.access_token || j.token.refresh_token)) u = j;
+      } catch (_) {}
+    }
+    return u;
+  };
+  // this page as a value for index.html?next= ('' when it cannot be one)
+  window.cohesionNextParam = function(loc){
+    loc = loc || window.location;
+    const page = String(loc.pathname || '').split('/').pop();
+    if (!/^[A-Za-z0-9_-]+\.html$/.test(page) || /^index\.html$/i.test(page)) return '';
+    return page + (loc.search || '') + (loc.hash || '');
+  };
+  // true: signed in, carry on. false: the browser is on its way to index.html.
+  window.cohesionAuthGate = function(){
+    try { if (sessionStorage.getItem('cohesion_auth')) return true; } catch (_) {}
+    const u = window.cohesionLiveUser();
+    if (u) {
+      try {
+        const m = window.cohesionSessionMarkers(u);
+        sessionStorage.setItem('cohesion_auth', m.auth);
+        sessionStorage.setItem('cohesion_roles', JSON.stringify(m.roles));
+        if (!sessionStorage.getItem('cohesion_section')) sessionStorage.setItem('cohesion_section', m.section);
+        if (u.email && !sessionStorage.getItem('cohesion_user')) sessionStorage.setItem('cohesion_user', u.email);
+        if (sessionStorage.getItem('cohesion_auth')) return true;
+      } catch (_) {}
+    }
+    const next = window.cohesionNextParam();
+    window.location.href = 'index.html' + (next ? '?next=' + encodeURIComponent(next) : '');
+    return false;
+  };
+
   // Section state: which side of the county/club wall the UI is showing.
   window.cohesionRoles = function(){
     try { return JSON.parse(sessionStorage.getItem('cohesion_roles')) || []; } catch (_) { return []; }

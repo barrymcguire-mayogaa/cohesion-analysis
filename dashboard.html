@@ -241,7 +241,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 </header>
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
-if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
 const isAdmin = sessionStorage.getItem('cohesion_auth') === 'admin';
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';

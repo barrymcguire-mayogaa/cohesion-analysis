@@ -723,7 +723,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-xml.js"></script>
 <script src="cohesion-player.js"></script>
 <script>
-if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
 
 // ═══════════════════════════════════════════════════════════════
 //  METRIC ENGINE — pure functions over (meta, events[]) so the whole

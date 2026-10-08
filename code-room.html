@@ -478,7 +478,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 </div>
 
 <script>
-if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
+if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
 if(sessionStorage.getItem('cohesion_auth') !== 'admin'){ document.body.innerHTML='<div style="padding:60px;text-align:center;font-family:Barlow,sans-serif;">Code Room is for admins/analysts only.</div>'; }
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL='https://uycptgjngtoxuawnsdzi.supabase.co';

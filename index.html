@@ -175,6 +175,24 @@ function togglePw(){
   }
 }
 
+// Where to go once signed in: the page named by ?next= (a gated page sends the browser here with
+// its own name and query when a tab has no session marker — cohesionAuthGate in cohesion-edit.js),
+// else the library. ONLY a page of this app is accepted: a bare file name in this folder ending in
+// .html, plus its query / hash. No scheme, host, slash, backslash, dot-dot, whitespace or control
+// character can pass, so the value can never lead off this site.
+function cohesionSafeNext(raw){
+  if(typeof raw !== 'string' || !raw || raw.length > 600) return '';
+  if(!/^[A-Za-z0-9_-]+\.html(?:[?#][A-Za-z0-9\-._~!$&'()*+,;=:@\/?%#\[\]]*)?$/.test(raw)) return '';
+  if(/^index\.html/i.test(raw)) return '';
+  try { if(new URL(raw, window.location.href).origin !== window.location.origin) return ''; } catch(_) { return ''; }
+  return raw;
+}
+function cohesionAfterLogin(){
+  let next = '';
+  try { next = cohesionSafeNext(new URLSearchParams(window.location.search).get('next')); } catch(_) {}
+  return next || 'library.html';
+}
+
 async function doLogin(){
   const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('passcode').value;
@@ -202,7 +220,7 @@ async function doLogin(){
     sessionStorage.setItem('cohesion_section',
       (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
     sessionStorage.setItem('cohesion_user', email);
-    window.location.href = 'library.html';
+    window.location.href = cohesionAfterLogin();
 
   } catch(e) {
     err.textContent = 'Incorrect email or password. Please try again.';
@@ -220,7 +238,7 @@ netlifyIdentity.on('init', user => {
     sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
     sessionStorage.setItem('cohesion_section',
       (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
-    window.location.href = 'library.html';
+    window.location.href = cohesionAfterLogin();
   }
 });
 

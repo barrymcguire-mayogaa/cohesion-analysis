@@ -506,8 +506,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ── Auth ──────────────────────────────────────────────────────
+if(typeof cohesionAuthGate==='function') cohesionAuthGate();   // restores a signed-in tab's marker, or goes to index.html?next=library.html (cohesion-edit.js)
 const auth = sessionStorage.getItem('cohesion_auth');
-if(!auth) window.location.href = 'index.html';
+if(!auth && typeof cohesionAuthGate!=='function') window.location.href = 'index.html';
 if(auth === 'admin') {
   document.getElementById('adminBtn').style.display = 'flex';
   document.getElementById('batchBtn').style.display = 'flex';
