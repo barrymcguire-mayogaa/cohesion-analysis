@@ -2971,6 +2971,126 @@ function tdHTML(R, V, o){
   return h;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  TEAM TRENDS › KICKOUTS — the selected team's own kickouts and the
+//  opposition's, over the ticked games. Pure helpers first, then the rendering;
+//  the wiring is shared with Attacking / Defending below.
+//
+//  ONE ROW PER KICKOUT (tkGameKos): the kickout EVENT itself ("<TEAM> KO",
+//  "<Team> Kickout") with an outcome — the same events the OWN / OPP KO WIN %
+//  cards count. The Tracker's "KICKOUT LOST" / "KO LOST <length>" turnover rows
+//  are copies of lost kickouts, not kickouts, and are never read here.
+//  · WON = won by the KICKING team (ssKoKickerWon, every vocabulary).
+//  · TYPE = how the ball was won: clean / break / free / sideline, read from the
+//    outcome (Tracker "KO BREAK WON", GIU "Kerry SL", GI "KT Won Clean");
+//    anything else is "unspecified".
+//  · LENGTH = the tagged label ('Kickout Locations' KO SHORT / MEDIUM / LONG, GI
+//    Kickout_Length Short / Mid-Range / Long, GIU KODistance SKO / MKO / LKO);
+//    with no label, from the landing distance by the Tracker's rule: under 45 m
+//    SHORT, under 65 m MEDIUM, else LONG.
+//  · LOCATION = exactly the dashboard's reading (dashCoordOf = ttCoordOf: the
+//    X-KOs / Y-KOs pair or its _away twin, rotated Sportscode games un-rotated).
+//    Both pairs are in the KICKER's frame: X = % across from the left touchline
+//    as the kicker looks out, Y = % of the full 137 m pitch from the kicking
+//    goal. Distance in metres = Y x 1.37 (the Tracker's own conversion).
+//  · ZONE (from the location only; the Tracker's koZoneFromPos plus the arc):
+//    rows by distance — under 45 m zones 1-3, 45 to 65 m zones 4-6, beyond 65 m
+//    zones 7-9; columns left / centre / right at X 33.3 and 66.7. A kickout that
+//    has not cleared the 40 m arc (inside the arc, or behind the 20 m line the
+//    arc ends on) is its own "Inside arc" area and counts as SHORT.
+//  · WHAT FOLLOWED = the tagged shot source: shots by the kickout's WINNER whose
+//    source is OWN KICKOUT (the kicker won it) or OPP KICKOUT (the receiver won
+//    it), after that kickout and before the next kickout of the game. A game
+//    with no source tags gives no follow-on figures (n/a), never a zero.
+// ═══════════════════════════════════════════════════════════════
+const TK_PITCH_M=137, TK_WIDTH_M=84, TK_ARC_M=40, TK_START_M=20, TK_SHORT_M=45, TK_MED_M=65, TK_VIEW_M=92;
+const TK_TYPES=[['clean','Clean'],['break','Break'],['free','Free'],['sideline','Sideline'],['unspecified','Unspecified']];
+const TK_LENS=[['S','Short'],['M','Medium'],['L','Long']];
+const TK_ZKEYS=['arc',1,2,3,4,5,6,7,8,9];
+const TK_SRC_LEAD=5;   // seconds a SCORE / SHOT SOURCE row may start before its kickout event
+function tkDist(y){ return y*TK_PITCH_M/100; }
+function tkLenOfDist(d){ return d<TK_SHORT_M?'S':d<TK_MED_M?'M':'L'; }
+// x = % across (0 = the kicker's left touchline), d = metres from the kicking goal
+function tkZoneOfM(x, d){
+  if(d<TK_START_M||Math.hypot((x-50)*TK_WIDTH_M/100, d)<TK_ARC_M) return 'arc';
+  return (d<TK_SHORT_M?0:d<TK_MED_M?1:2)*3+(x<33.3?0:x<66.7?1:2)+1;
+}
+function tkZoneOf(x, y){ return (x==null||y==null)?null:tkZoneOfM(x, tkDist(y)); }
+function tkZoneLen(z){ return z==null?null:z==='arc'||z<=3?'S':z<=6?'M':'L'; }
+function tkType(out, kicker, other){
+  let K=ssUC(out);
+  [kicker, other].forEach(n=>{ if(n&&(K===n||K.startsWith(n+' '))) K=K.slice(n.length).trim(); });   // GIU names the winner first
+  return /BREAK/.test(K)?'break':/FREE/.test(K)?'free':/SIDE\s*LINE|(^|\s)SL(\s|$)/.test(K)?'sideline':/CLEAN/.test(K)?'clean':'unspecified';
+}
+function tkLenLabel(e){
+  const K=ssUC(ssLblCI(e,['Kickout Locations','Kickout Location','KickoutLength','Kickout_Length','KODistance']));
+  return !K?null:/SHORT|^SKO$/.test(K)?'S':/MED|MID|^MKO$/.test(K)?'M':/LONG|^LKO$/.test(K)?'L':null;
+}
+// Every source-tagged shot of a game, both teams: {team, cat, v, t}. Read as the Overview reads them:
+// a game coded with SCORE SOURCE / SHOT SOURCE rows from those rows (one per score, one per missed
+// shot), any other game from the source label on the shot itself.
+function tkSrcItems(events, teams, skip, shotMode){
+  const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))), items=[];
+  teams.forEach(T=>{
+    const rec=rowMode?ssScoreSourceValues(events, T, skip, shotMode):null;
+    events.forEach(e=>{
+      if(skip(e)||!ssSideOf(e,T)) return;
+      const c=ssUC(e.code); let cat=null, v=0;
+      if(rowMode){
+        const sc=/SCORE SOURCE/.test(c); if(!sc&&!/SHOT SOURCE/.test(c)) return;
+        cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source']));
+        if(sc){ v=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||''); if(!(v>0)&&rec.has(e)) v=rec.get(e); }
+      } else {
+        if(!ssIsShot(e,shotMode)) return;
+        cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
+        v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      }
+      // a source ROW starts with its possession, often a second or two BEFORE the kickout event that began it
+      // (the two are logged separately), so a row may lead its kickout by up to TK_SRC_LEAD seconds
+      if(cat) items.push({team:T, cat, v, t:ssEvT(e)+(rowMode?TK_SRC_LEAD:0), row:rowMode});
+    });
+  });
+  return items;
+}
+// Every kickout of a game, both teams, in time order; cached per events array.
+// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, t, id, follow}], srcTagged, srcUnmatched, conv}
+const TK_CACHE=new WeakMap();
+function tkGameKos(meta, events){
+  if(!meta||!Array.isArray(events)) return null;
+  const c=TK_CACHE.get(events);
+  if(c&&c.n===events.length&&c.H===meta.homeTeam&&c.A===meta.awayTeam&&c.id===meta.id) return c.v;
+  const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const skip=e=>giSup(e)||(typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e));
+  let conv='tracker'; try{ if(typeof window.cohesionXpDetectConv==='function') conv=window.cohesionXpDetectConv(events); }catch(_){ }
+  const kos=[];
+  events.forEach((e,i)=>{
+    if(!e||skip(e)||!ssIsKO(e)||ssIsTO(e)) return;       // a turnover row is never a kickout
+    const out=ssLbl(e,SS_KO_GROUPS); if(!out) return;
+    const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
+    const opp=team===H?A:H, won=ssKoKickerWon(out, team, opp), co=ttCoordOf(e, conv), lab=tkLenLabel(e);
+    const dist=co?tkDist(co.y):null, zone=co?tkZoneOf(co.x, co.y):null;
+    kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone,
+      t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
+  });
+  kos.sort((a,b)=>a.t-b.t||a.i-b.i);
+  const items=tkSrcItems(events, [H,A], skip, ssShotMode(events)), srcTagged=items.length>0;
+  let srcUnmatched=0;
+  if(srcTagged){
+    kos.forEach(k=>{ k.follow={shots:0, scores:0, pts:0}; });
+    items.forEach(it=>{
+      if(it.cat!=='OWN KO'&&it.cat!=='OPP KO') return;
+      let k=null; for(const q of kos){ if(q.t<=it.t) k=q; else break; }               // the last kickout before the shot
+      if(!k||(k.won?k.team:k.opp)!==it.team||(it.cat==='OWN KO')!==k.won){ srcUnmatched++; return; }
+      k.follow.shots++; if(it.v>0){ k.follow.scores++; k.follow.pts+=it.v; }
+    });
+  }
+  const v={kos, srcTagged, srcUnmatched, conv};
+  TK_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
+  return v;
+}
+
 // ── Team Trends page wiring ──
 let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_SELC=null, TD_BASE=null, TD_SEL_TOKEN=0, TD_PR='all';   // TD_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
 let TD_CH=gsNew();                                 // Defending's own games selection (games:null = the basis games)
