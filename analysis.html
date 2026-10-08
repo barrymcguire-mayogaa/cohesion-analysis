@@ -589,7 +589,22 @@ if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
 const SS_SHOT_GROUPS=['Shot Outcomes','ShotOutcome','Outcome'];
 const SS_KO_GROUPS=['Kickout Outcomes','KickoutOutcome','PO_Result'];
 const SS_SRC_GROUPS=['Score Source Outcomes','Source'];
-function ssLbl(e,groups){ const L=e.labels||{}; for(const g of groups){ if(L[g]) return L[g]; } return null; }
+// Label lookup: group names are matched trimmed and case-insensitively (real files carry "shot outcomes",
+// "Shot Outcomes " …); the first group of `groups` with a value wins, an exact-name hit first.
+function ssLbl(e,groups){
+  const L=(e&&e.labels)||{}; let ks=null;
+  for(const g of groups){
+    if(L[g]) return L[g];
+    const w=ssUC(g); ks=ks||Object.keys(L);
+    for(const k of ks){ if(L[k]&&k!==g&&ssUC(k)===w) return L[k]; }
+  }
+  return null;
+}
+function ssL(e,name){ return ssLbl(e,[name]); }
+// exact-name lookup, kept ONLY for Compare's legacy Score Origin fields (see ssTally): reading that group
+// case-insensitively would add one real row ("score source outcomes" = OWN KO, cla-bam) to srcTotal and
+// move Compare's From Own KO / Opp KO / Turnover % off origin/main. The newer src* fields are case-insensitive.
+function ssLblExact(e,groups){ const L=(e&&e.labels)||{}; for(const g of groups){ if(L[g]) return L[g]; } return null; }
 function ssUC(s){ return String(s||'').toUpperCase().trim(); }
 function ssSideOf(e, T){
   const t=ssUC(e.team); if(t) return t===T;
@@ -609,7 +624,7 @@ function ssSideOf(e, T){
 const SS_SHOT_NOT=/SOURCE|ASSIST|ATTEMPT/;
 function ssPrimaryShot(e){ const c=ssUC(e.code); return !SS_SHOT_NOT.test(c)&&(/SHOT (OPEN PLAY|DEAD ?BALL)/.test(c)||/(^|\s)SHOT$/.test(c)
   ||/\sSHOT\s*\(\s*[PF]\s*\)$|\sSHOT SIDELINE$/.test(c)
-  ||(/\s(45|PENALTY)$/.test(c)&&!/\sOUT FOR 45$/.test(c)&&!!String((e.labels||{})['ShotOutcome']||'').trim())); }
+  ||(/\s(45|PENALTY)$/.test(c)&&!/\sOUT FOR 45$/.test(c)&&!!String(ssL(e,'ShotOutcome')||'').trim())); }
 function ssShotMode(events){ return (events||[]).some(ssPrimaryShot)?'primary':'broad'; }
 function ssIsShot(e,mode){
   if(mode!=='broad') return ssPrimaryShot(e);
@@ -721,7 +736,7 @@ function ssGameTally(meta, events, T){
       // A goal chance = an explicit Goal Attempt label, OR any shot that
       // ENDED as a goal or a save (those are chances by definition, even in
       // XMLs that carry no attempt labels — fixes phantom 0% conversion).
-      const att=(e.labels||{})['Shot Attempts']||(e.labels||{})['Attempt'];
+      const att=ssL(e,'Shot Attempts')||ssL(e,'Attempt');
       if(att) g.attemptData=true;
       // per-type conversion: only shots that CARRY an attempt label count,
       // so unlabelled games simply add nothing (→ n/a, not a fake 0%).
@@ -749,10 +764,10 @@ function ssGameTally(meta, events, T){
     }
     // score source (attached to shots/scores or SCORE SOURCE instances)
     // (a converted GI shot carries its source as 'Shot Source Outcomes')
-    const src=ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?(e.labels||{})['Shot Source Outcomes']:null);
+    const src=ssLblExact(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?ssLblExact(e,['Shot Source Outcomes']):null);   // exact on purpose: see ssLblExact
     if(src){
       const S=ssUC(src);
-      const val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      const val=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
       if(mineT&&val>0){
         g.srcData=true; g.srcTotal++;
         if(/OWN KICK/.test(S)){ g.srcOwnKO++; g.ptsFromOwnKO+=val; }
@@ -914,9 +929,9 @@ function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.co
 // are ignored so converted and unconverted games read the same.
 const SS_GI_SHORT_WINDOW=10;   // seconds, shot start → turnover start; must be LESS than this
 function ssEvT(e){ return e.start!=null?+e.start:(+e.driveT||0); }
-function ssGiDerived(e){ return !!String((e.labels||{})['GI Source ID']||'').trim(); }
+function ssGiDerived(e){ return !!String(ssL(e,'GI Source ID')||'').trim(); }
 function ssIsGiRawShot(e){ const c=String(e.code||''); return /^\s*\S.*\s+shot\s*$/i.test(c)&&!/SOURCE|ASSIST/i.test(c)&&!ssGiDerived(e); }
-function ssGiShotOutcome(e){ return ssUC((e.labels||{})['Outcome']||e.outcome); }
+function ssGiShotOutcome(e){ return ssUC(ssL(e,'Outcome')||e.outcome); }
 function ssGiShortTurnovers(events, T, O){
   const out=new Set();
   const side=e=>ssSideOf(e,T)?'T':ssSideOf(e,O)?'O':'';
@@ -962,7 +977,7 @@ function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
 const SS_SRC_PAIR_WINDOW=15;   // seconds outside the row's span
 function ssScoreSourceValues(events, T, skip, shotMode){
   const own=(events||[]).filter(e=>!skip(e)&&ssSideOf(e,T));
-  const explicit=e=>ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+  const explicit=e=>ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
   const rows=own.filter(e=>/SCORE SOURCE/.test(ssUC(e.code))).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
   const out=new Map();
   if(!rows.some(r=>!(explicit(r.e)>0))) return out;
@@ -990,7 +1005,7 @@ function ssScoreSourceValues(events, T, skip, shotMode){
 function ssShotDead(e){
   const c=ssUC(e&&e.code);
   if(/DEAD ?BALL|\(\s*F\s*\)$|\sSHOT SIDELINE$|\s45$|\sPENALTY$/.test(c)) return true;
-  if(/(^|\s)SHOT$/.test(c)){ const d=ssUC((e.labels||{})['Description']||e.subtype); return !!d&&d!=='PLAY'; }
+  if(/(^|\s)SHOT$/.test(c)){ const d=ssUC(ssL(e,'Description')||e.subtype); return !!d&&d!=='PLAY'; }
   return false;
 }
 // SCORE SOURCE row → the scoring shot it belongs to (Team Trends' Play v Dead
@@ -1004,7 +1019,7 @@ function ssScoreSourceShots(events, T, skip, shotMode){
   const scores=own.filter(e=>ssIsShot(e,shotMode)).map(e=>({e, t:ssEvT(e), v:ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'')})).filter(x=>x.v>0).sort((a,b)=>a.t-b.t);
   const out=new Map(), used=new Set();
   rows.forEach(r=>{
-    const a=r.t, b=Math.max(a, r.e.end!=null?+r.e.end:a), want=ssScoreVal((r.e.labels||{})['Score Source Score Outcomes']||ssLbl(r.e,SS_SHOT_GROUPS)||r.e.outcome||'');
+    const a=r.t, b=Math.max(a, r.e.end!=null?+r.e.end:a), want=ssScoreVal(ssL(r.e,'Score Source Score Outcomes')||ssLbl(r.e,SS_SHOT_GROUPS)||r.e.outcome||'');
     let best=-1, bd=Infinity;
     scores.forEach((sc,j)=>{ if(used.has(j)||(want>0&&sc.v!==want)) return;
       const d=sc.t<a?a-sc.t:sc.t>b?sc.t-b:0;
@@ -1087,7 +1102,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
       if(!isScoreRow&&!isShotRow) return;
       cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source']));
       if(isScoreRow){
-        val=ssScoreVal((e.labels||{})['Score Source Score Outcomes']||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+        val=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
         if(!(val>0)&&cat){ if(recovered.has(e)){ val=recovered.get(e); g.srcValRecovered++; } else g.srcValMissing++; }   // value from the matched score
       }
     } else {
@@ -2024,7 +2039,7 @@ function ttGameShots(meta, events){
     if(!e||giSup(e)||giComp(e)||!ssIsShot(e,mode)) return;
     const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
     const L=e.labels||{}, out=String(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'').trim(), val=ssScoreVal(out);
-    const att=ssAttType(L['Shot Attempts']||L['Attempt']), co=ttCoordOf(e, conv);
+    const att=ssAttType(ssL(e,'Shot Attempts')||ssL(e,'Attempt')), co=ttCoordOf(e, conv);
     const zm=/ZONE\s*(\d+)/i.exec(ssLblCI(e,['Shot Zones']));
     let zone=null, zoneFrom=null;
     if(zm&&+zm[1]>=1&&+zm[1]<=9){ zone=+zm[1]; zoneFrom='label'; }
