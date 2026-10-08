@@ -5028,6 +5028,7 @@ function mmNetSVG(N, W, o){
   const small=W<560, H=small?250:300, mL=38, mR=10, mT=28, mB=48, pw=W-mL-mR, ph=H-mT-mB, iv=N.ivs, n=iv.length; if(!n) return '';
   const val=x=>o.avg?x.avgNet:x.net, vs=iv.map(val), hi=Math.max.apply(null, vs.concat([0])), lo=Math.min.apply(null, vs.concat([0])), ax=ttNice(Math.max(hi, -lo)), st=ax.step;
   const top=hi>0?Math.ceil((hi+0.5)/st)*st:st, bot=lo<0?-Math.ceil((-lo+0.5)/st)*st:-st, Y=v=>mT+(top-v)/(top-bot)*ph, band=pw/n, bw=Math.min(band*0.6, 96);
+  const tight=band<52;   // a phone: the labels shrink so that neighbours never touch
   const f1=v=>o.avg?(Math.round(v*10)/10).toFixed(1):String(v), sg=v=>tvSigned(o.avg?Math.round(v*10)/10:v, o.avg?1:0);
   let h=`<svg class="tt-trend mm-net" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="${ssEsc('Net score margin per interval'+(o.avg?', average per game':''))}">`;
   for(let v=bot; v<=top+1e-9; v+=st) h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tt-ax" x="${mL-7}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${v>0?'+':v<0?'−':''}${Math.abs(v)}</text>`;
@@ -5037,8 +5038,8 @@ function mmNetSVG(N, W, o){
     h+=`<g class="tt-hit" data-tip="mmi:${i}" tabindex="0" role="img" aria-label="${ssEsc(x.label+': '+(o.team||'team')+' '+f1(o.avg?x.avgF:x.f)+', opposition '+f1(o.avg?x.avgA:x.a)+', net '+sg(v))}"><rect class="tt-band" x="${(cx-band/2).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}"/>`
       +`<rect class="mm-bar ${c}" x="${(cx-bw/2).toFixed(1)}" y="${(v>=0?y0-bh:y0).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="3"/>`
       +`<text class="mm-val ${c}" x="${cx.toFixed(1)}" y="${(v>=0?y0-bh-7:y0+bh+16).toFixed(1)}" text-anchor="middle">${sg(v)}</text></g>`
-      +`<text class="mm-xl" x="${cx.toFixed(1)}" y="${H-mB+19}" text-anchor="middle">${ssEsc(small?x.short:x.label)}</text>`
-      +`<text class="tt-ax" x="${cx.toFixed(1)}" y="${H-mB+35}" text-anchor="middle">${f1(o.avg?x.avgF:x.f)} v ${f1(o.avg?x.avgA:x.a)}</text>`; });
+      +`<text class="mm-xl" x="${cx.toFixed(1)}" y="${H-mB+19}" text-anchor="middle"${tight?' style="font-size:10px"':''}>${ssEsc(small?x.short:x.label)}</text>`
+      +`<text class="tt-ax" x="${cx.toFixed(1)}" y="${H-mB+35}" text-anchor="middle"${tight?' style="font-size:9px"':''}>${f1(o.avg?x.avgF:x.f)} v ${f1(o.avg?x.avgA:x.a)}</text>`; });
   return h+`<line class="mm-zero" x1="${mL}" x2="${W-mR}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}"/></svg>`;
 }
 function mmEtNote(R, V){
