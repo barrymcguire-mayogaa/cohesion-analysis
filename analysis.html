@@ -3302,46 +3302,44 @@ function tkContestSecHTML(R, V, o){
     +(oppN?T+' won '+oppWon+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(ovPct(oppWon, oppN))+'). ':'')
     +'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
 }
-// ii. zones — the kickout pitch, drawn TO SCALE from the kicking goal (top) to the far 45m line: 84 m wide,
-// 92 m long (the stretch the Tracker's kickout map and the dashboard's show), 1 m = TK_K units both ways.
-const TK_PM=1.2, TK_K=(100-2*TK_PM)/TK_WIDTH_M, TK_PH=+(2*TK_PM+TK_VIEW_M*TK_K).toFixed(2);
+// ii. zones — the kickout pitch, drawn TO SCALE from the kicking team's 20m line (the top edge, as in the
+// reference picture) to the far 45m line: 84 m wide, 72 m long (20 m → 92 m out), 1 m = TK_K units both ways.
+// Nothing behind the 20m line is drawn: a kickout tagged there is an Inside-arc kickout, and its marker
+// sits clamped on the top edge.
+const TK_PM=1.2, TK_K=(100-2*TK_PM)/TK_WIDTH_M, TK_PH=+(2*TK_PM+(TK_VIEW_M-TK_START_M)*TK_K).toFixed(2);
 function tkPX(x){ return +(TK_PM+x*(100-2*TK_PM)/100).toFixed(2); }                                  // x = % across
-function tkPY(d){ return +(TK_PM+Math.max(0, Math.min(TK_VIEW_M, d))*TK_K).toFixed(2); }             // d = metres from the kicking goal (clamped to the view)
+function tkPY(d){ return +(TK_PM+(Math.max(TK_START_M, Math.min(TK_VIEW_M, d))-TK_START_M)*TK_K).toFixed(2); }   // d = metres from the kicking goal (clamped to the view: 20 m → 92 m)
 function tkArcD(x){ const lat=(x-50)*TK_WIDTH_M/100; return Math.sqrt(Math.max(0, TK_ARC_M*TK_ARC_M-lat*lat)); }   // the 40m arc's distance out at x
 const TK_ARC_X=(()=>{ const h=Math.sqrt(TK_ARC_M*TK_ARC_M-TK_START_M*TK_START_M)/TK_WIDTH_M*100; return [50-h, 50+h]; })();   // where the arc meets the 20m line
 let TK_PITCH=null;
 function tkPitchArt(){
   if(TK_PITCH!=null) return TK_PITCH;
   const W='rgba(255,255,255,.92)', mx=m=>+(TK_PM+m*TK_K).toFixed(2), ln=(d,o)=>`<line x1="${tkPX(0)}" y1="${tkPY(d)}" x2="${tkPX(100)}" y2="${tkPY(d)}" stroke="${W}" stroke-width="${o&&o.w||.7}"${o&&o.dash?' stroke-dasharray="2.6,2"':''}/>`;
-  let s=''; const band=TK_VIEW_M/10;
-  for(let i=0;i<10;i++) s+=`<rect x="${tkPX(0)}" y="${tkPY(i*band)}" width="${+(100-2*TK_PM).toFixed(2)}" height="${+(band*TK_K+.02).toFixed(2)}" fill="${i%2?'#2e7a24':'#35862a'}"/>`;
-  const r13=+(13*TK_K).toFixed(2), r40=+(TK_ARC_M*TK_K).toFixed(2), c=TK_WIDTH_M/2;
-  s+=`<rect x="${tkPX(0)}" y="${tkPY(0)}" width="${+(100-2*TK_PM).toFixed(2)}" height="${+(TK_VIEW_M*TK_K).toFixed(2)}" fill="none" stroke="${W}" stroke-width="1"/>`
-    +`<rect x="${mx(c-7)}" y="${tkPY(0)}" width="${+(14*TK_K).toFixed(2)}" height="${+(4.5*TK_K).toFixed(2)}" fill="none" stroke="${W}" stroke-width=".7"/>`
-    +`<line x1="${mx(c-9.5)}" y1="${tkPY(0)}" x2="${mx(c-9.5)}" y2="${tkPY(13)}" stroke="${W}" stroke-width=".7"/><line x1="${mx(c+9.5)}" y1="${tkPY(0)}" x2="${mx(c+9.5)}" y2="${tkPY(13)}" stroke="${W}" stroke-width=".7"/>`
-    +`<circle cx="${mx(c)}" cy="${tkPY(11)}" r=".6" fill="${W}"/>`
-    +ln(13)+ln(20)
-    +`<path d="M ${mx(c-13)} ${tkPY(20)} A ${r13} ${r13} 0 0 0 ${mx(c+13)} ${tkPY(20)}" fill="none" stroke="${W}" stroke-width=".8"/>`
-    +`<path d="M ${tkPX(TK_ARC_X[0])} ${tkPY(20)} A ${r40} ${r40} 0 0 0 ${tkPX(TK_ARC_X[1])} ${tkPY(20)}" fill="none" stroke="${W}" stroke-width="1"/>`
-    +ln(TK_SHORT_M)+ln(TK_MED_M)+ln(TK_PITCH_M/2, {w:.9, dash:true})+ln(TK_PITCH_M-TK_MED_M);
+  let s=''; const len=TK_VIEW_M-TK_START_M, band=len/10;
+  for(let i=0;i<10;i++) s+=`<rect x="${tkPX(0)}" y="${tkPY(TK_START_M+i*band)}" width="${+(100-2*TK_PM).toFixed(2)}" height="${+(band*TK_K+.02).toFixed(2)}" fill="${i%2?'#2e7a24':'#35862a'}"/>`;
+  const r13=+(13*TK_K).toFixed(2), r40=+(TK_ARC_M*TK_K).toFixed(2), c=TK_WIDTH_M/2, y20=tkPY(TK_START_M);
+  s+=`<path d="M ${mx(c-13)} ${y20} A ${r13} ${r13} 0 0 0 ${mx(c+13)} ${y20}" fill="none" stroke="${W}" stroke-width=".8"/>`
+    +`<path d="M ${tkPX(TK_ARC_X[0])} ${y20} A ${r40} ${r40} 0 0 0 ${tkPX(TK_ARC_X[1])} ${y20}" fill="none" stroke="${W}" stroke-width="1"/>`
+    +ln(TK_SHORT_M)+ln(TK_MED_M)+ln(TK_PITCH_M/2, {w:.9, dash:true})+ln(TK_PITCH_M-TK_MED_M)
+    +`<rect x="${tkPX(0)}" y="${y20}" width="${+(100-2*TK_PM).toFixed(2)}" height="${+(len*TK_K).toFixed(2)}" fill="none" stroke="${W}" stroke-width="1"/>`;
   return TK_PITCH=s;
 }
 function tkPitchOpen(cls, label){ return `<svg class="tt-pitch ${cls}" viewBox="0 0 100 ${TK_PH}" role="group" aria-label="${ssEsc(label)}"><rect x="0" y="0" width="100" height="${TK_PH}" fill="#256e17"/>${tkPitchArt()}`; }
-// the ten areas, in drawn units, on the drawn lines: the Inside-arc area (behind the 20m line + inside the arc),
+// the ten areas, in drawn units, on the drawn lines: the Inside-arc area (inside the arc; the top edge is the 20m line),
 // zones 1-3 between the arc and the 45m line, 4-6 from 45m to 65m, 7-9 beyond 65m; thirds at X 33.3 / 66.7
 const TK_ZG=(()=>{
   const X=tkPX, Y=tkPY, x=[0,33.3,66.7,100], r=+(TK_ARC_M*TK_K).toFixed(2), A=`A${r} ${r} 0 0 `, ya=Y(tkArcD(33.3)), yb=Y(tkArcD(66.7)), aL=X(TK_ARC_X[0]), aR=X(TK_ARC_X[1]), y20=Y(TK_START_M), y45=Y(TK_SHORT_M);
   const rect=(c,d0,d1)=>`M${X(x[c])} ${Y(d0)}H${X(x[c+1])}V${Y(d1)}H${X(x[c])}Z`;
-  const shape={arc:`M${X(0)} ${Y(0)}H${X(100)}V${y20}H${aR}${A}1 ${aL} ${y20}H${X(0)}Z`,
+  const shape={arc:`M${aL} ${y20}H${aR}${A}1 ${aL} ${y20}Z`,
     1:`M${X(0)} ${y20}H${aL}${A}0 ${X(33.3)} ${ya}V${y45}H${X(0)}Z`, 2:`M${X(33.3)} ${ya}${A}0 ${X(66.7)} ${yb}V${y45}H${X(33.3)}Z`, 3:`M${X(66.7)} ${yb}${A}0 ${aR} ${y20}H${X(100)}V${y45}H${X(66.7)}Z`};
   for(let c=0;c<3;c++){ shape[4+c]=rect(c, TK_SHORT_M, TK_MED_M); shape[7+c]=rect(c, TK_MED_M, TK_VIEW_M); }
   // label anchors: [x %, metres out] for the name, the won/taken figure and the win %; a = text-anchor
-  const mid=c=>(x[c]+x[c+1])/2, lab={arc:{n:[50,24.2], v:[50,28.6], p:[50,31.9], a:'middle', sm:true}, 1:{n:[2.2,32.2], v:[2.2,38.4], p:[2.2,43.2], a:'start'}, 2:{one:[50,43.9]}, 3:{n:[97.8,32.2], v:[97.8,38.4], p:[97.8,43.2], a:'end'}};
+  const mid=c=>(x[c]+x[c+1])/2, lab={arc:{n:[50,23.4], v:[50,27.6], p:[50,31], a:'middle', sm:true}, 1:{n:[2.2,31.4], v:[2.2,37.8], p:[2.2,42.8], a:'start'}, 2:{one:[50,43.6]}, 3:{n:[97.8,31.4], v:[97.8,37.8], p:[97.8,42.8], a:'end'}};
   for(let c=0;c<3;c++){ lab[4+c]={n:[x[c]+1.6,48.7], v:[mid(c),57.2], p:[mid(c),61.6], a:'middle'}; lab[7+c]={n:[x[c]+1.6,76.2], v:[mid(c),83.4], p:[mid(c),87.8], a:'middle'}; }
   return {shape, lab};
 })();
 function tkZoneName(z){ return z==='arc'?'INSIDE ARC':'ZONE '+z; }
-function tkZoneWhere(z){ return z==='arc'?'not beyond the 40m arc · counted as short':TT_COLS[(z-1)%3]+', '+['short: outside the arc, inside the 45m line','medium: 45m to 65m','long: beyond the 65m line'][Math.floor((z-1)/3)]; }
+function tkZoneWhere(z){ return z==='arc'?'inside the 40m arc, or behind the 20m line · counted as short':TT_COLS[(z-1)%3]+', '+['short: outside the arc, inside the 45m line','medium: 45m to 65m','long: beyond the 65m line'][Math.floor((z-1)/3)]; }
 // the length band's colour, stronger with the kicking team's win %
 function tkZoneAlpha(p){ return +(0.2+0.55*Math.max(0, Math.min(1, (p||0)/100))).toFixed(2); }
 function tkZoneSVG(Zs){
@@ -3355,7 +3353,7 @@ function tkZoneSVG(Zs){
       +`<text class="tt-zv${g.sm?' sm':''}${Z.n?'':' na'}" x="${tkPX(g.v[0])}" y="${tkPY(g.v[1])}" text-anchor="${g.a}">${fig}</text>`
       +(Z.n?`<text class="tt-zp${g.sm?' sm':''}" x="${tkPX(g.p[0])}" y="${tkPY(g.p[1])}" text-anchor="${g.a}">${ttPctTxt(Z.pct)}</text>`:'');
   });
-  return tkPitchOpen('tt-zones tk-zones','Kickout zones, kicking goal at the top')+shapes+'<g class="tt-zl" aria-hidden="true">'+labels+'</g></svg>';
+  return tkPitchOpen('tt-zones tk-zones','Kickout zones, from the kicking team’s 20m line (top) to the far 45m line')+shapes+'<g class="tt-zl" aria-hidden="true">'+labels+'</g></svg>';
 }
 function tkZoneKeyHTML(){
   const sw=(c,l)=>`<span><i class="tk-zsw" style="background:${c}"></i>${l}</span>`;
@@ -3388,7 +3386,7 @@ function tkZoneSecHTML(R, V){
   const Zs=V.zones;
   return '<div class="tt-zrow"><div class="tt-card tt-mapcard">'
     +(Zs.located?`<div class="tt-pitchbox tk-pitchbox">${tkZoneSVG(Zs)}</div>${tkZoneKeyHTML()}`:'<div class="tt-empty">n/a — no kickout landing locations in these games.</div>')
-    +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc('Won / taken and win % of the kicking team per landing zone, kicking goal at the top, drawn to scale (40m arc, 45m, 65m and the dashed halfway line). Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.')}</div></div>`
+    +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc('Won / taken and win % of the kicking team per landing zone. The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.')}</div></div>`
     +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs)}<div class="dnote tk-fnote">${ssEsc(V.followNote+' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.')}</div></div></div>`;
 }
 // iii. landing locations — every located kickout on the same pitch. FILL = won by the kicker (hollow = lost),
@@ -3401,7 +3399,7 @@ function tkOutcomeTxt(k){ return (k.won?'Won':'Lost')+' · '+tkTypeName(k.type).
 function tkMapSVG(kos){
   const X=tkPX, Y=tkPY, g='stroke="rgba(255,255,255,.3)" stroke-width=".35" stroke-dasharray="1.2 1.4"';
   // the thirds, faintly, so a marker's zone can be read off the map
-  let h=tkPitchOpen('tt-locs tk-locs','Kickout landing locations, kicking goal at the top')
+  let h=tkPitchOpen('tt-locs tk-locs','Kickout landing locations, from the kicking team’s 20m line (top) to the far 45m line')
     +`<line x1="${X(33.3)}" y1="${Y(tkArcD(33.3))}" x2="${X(33.3)}" y2="${Y(TK_VIEW_M)}" ${g}/><line x1="${X(66.7)}" y1="${Y(tkArcD(66.7))}" x2="${X(66.7)}" y2="${Y(TK_VIEW_M)}" ${g}/>`;
   return h+'<g class="tt-marks">'+kos.map((k,i)=>{ const m=tkKoMark(k);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
     return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+tkOutcomeTxt(k).toLowerCase())}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
@@ -3447,7 +3445,7 @@ function tkMapSectionHTML(R, V, F){
   return tkFiltersHTML(F)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
     +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
     +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos)}</div>${tkMapKeyHTML()}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
-    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?' Positions are in the kicking team’s frame (its goal at the top); a landing beyond the far 45m line is drawn on the bottom edge.':''))}</div></div>`
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge.':''))}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located)}</aside></div>`;
 }
 
