@@ -3213,7 +3213,9 @@ function tkContest(S){
   const row=(k,label)=>Object.assign({k, label}, S.len[k]);
   return {side:S.side, rows:TK_LENS.map(l=>row(l[0], l[1])).concat(S.len.X.n?[row('X','No length')]:[]), total:row('all','All kickouts'), koGames:S.koGames, n:S.n};
 }
-// the all-teams average: every team's own kickouts in every game of `games` that is loaded, pooled per length
+// the all-teams average: every team's own kickouts in every game of `games` that is loaded, POOLED per length —
+// total won ÷ total taken over all of them (one tally, tkByLen), never the mean of each team's or each game's %,
+// so a team with 3 kickouts does not weigh the same as one with 30.
 function tkAvgAll(games, bundleOf){
   const teams=new Set(), kos=[]; let loaded=0, koGames=0;
   (games||[]).forEach(g=>{ const b=bundleOf(g.id), K=b&&b.meta&&Array.isArray(b.events)?tkGameKos(b.meta, b.events):null; if(!K) return;
@@ -3223,7 +3225,7 @@ function tkAvgAll(games, bundleOf){
 function tkAvgNote(A){
   if(!A) return '';
   if(!A.kos) return 'All-teams average: no kickout data in the '+A.games+' filtered game'+(A.games===1?'':'s')+'.';
-  return 'All-teams average = the win % of every team’s own kickouts, pooled: '+A.teams+' team'+(A.teams===1?'':'s')+', '+A.kos+' kickouts, from '+(A.koGames===A.games?'all '+A.games:A.koGames+' of '+A.games)+' filtered game'+(A.games===1?'':'s')
+  return 'All-teams average (pooled: all kickouts won ÷ all taken, per length — not an average of each team’s %): '+A.teams+' team'+(A.teams===1?'':'s')+', '+(A.koGames===A.games?'all '+A.games:A.koGames+' of '+A.games)+' filtered game'+(A.games===1?'':'s')+', '+A.len.all.won+' of '+A.kos+' kickouts won'
     +(A.loaded<A.games?' ('+(A.games-A.loaded)+' could not be loaded)':'')+'.';
 }
 // zone table for a list of kickouts (one side). Follow-on figures count only kickouts of games with source tags (fN of them).
@@ -3307,7 +3309,7 @@ function tkContestTableHTML(C, title, sub, A){
       +(A?`<div class="tt-c tk-cavg" role="cell" data-l="All-teams average"><b>${a&&a.n?ttPctTxt(a.pct):'n/a'}</b>${a&&a.n?` <small>${a.won}/${a.n}</small>`:''}</div>`:'')
       +TK_TYPES.map(t=>ty(r,t)).join('')+'</div>'; };
   h+=`<div class="tk-ctab${A?' has-avg':''}" role="table" aria-label="${ssEsc(title)}"><div class="tk-crow tk-chd" role="row"><div role="columnheader">LENGTH</div><div role="columnheader">WON / TAKEN</div><div role="columnheader">WIN %</div>`
-    +(A?'<div role="columnheader">ALL-TEAMS AVG</div>':'')+TK_TYPES.map(t=>`<div role="columnheader">${ssEsc(t[1].toUpperCase())}</div>`).join('')+'</div>';
+    +(A?'<div role="columnheader" title="Pooled: all kickouts won ÷ all taken">ALL-TEAMS AVG <small>(pooled)</small></div>':'')+TK_TYPES.map(t=>`<div role="columnheader">${ssEsc(t[1].toUpperCase())}</div>`).join('')+'</div>';
   C.rows.forEach(r=>{ h+=line(r); });
   return h+line(C.total, ' tk-ctot')+'</div></div>';
 }
