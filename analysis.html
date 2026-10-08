@@ -557,6 +557,30 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .tk-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;} .tk-kpis .kpi-t{font-size:15px;min-height:36px;} .tk-kpis .kpi-v{font-size:40px;}
   .tk-side .seg{width:100%;} .tk-side .seg button{flex:1;padding:10px 6px;}
 }
+.tk-contest{padding:14px 18px 14px;}
+.tk-avgbar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin-bottom:12px;}
+.tk-avgbar .chip{padding:9px 13px;}
+.tk-cblock+.tk-cblock{margin-top:20px;}
+.tk-ch{font:700 15px 'Barlow',sans-serif;color:var(--t1);margin:0 0 2px;overflow-wrap:anywhere;}
+.tk-ch small{font:400 .76rem 'Barlow',sans-serif;color:var(--t3);margin-left:8px;}
+.tk-crow{display:grid;grid-template-columns:minmax(104px,1.1fr) minmax(78px,.8fr) minmax(120px,1.3fr) repeat(5,minmax(0,1fr));gap:10px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--border);font:400 14px 'Barlow',sans-serif;color:var(--t2);font-variant-numeric:tabular-nums;}
+.tk-ctab.has-avg .tk-crow{grid-template-columns:minmax(104px,1.1fr) minmax(78px,.8fr) minmax(120px,1.3fr) minmax(96px,.9fr) repeat(5,minmax(0,1fr));}
+.tk-crow b{color:var(--t1);font-weight:700;} .tk-crow .tt-c{min-width:0;} .tk-crow .na{color:var(--t3);}
+.tk-crow.zero,.tk-crow.zero b{color:var(--t3);}
+.tk-chd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--accent);}
+.tk-cname{display:flex;align-items:center;gap:9px;min-width:0;font-weight:700;color:var(--t1);}
+.tk-cname i{flex:0 0 13px;height:13px;border-radius:2px;}
+.tk-cpct{display:flex;align-items:center;gap:8px;} .tk-cpct b{min-width:2.6em;} .tk-cpct .tt-bar{flex:1;}
+.tk-cavg b{color:var(--amber);} .tk-cavg small{color:var(--t3);}
+.tk-ctot{border-top:2px solid #3a3a48;border-bottom:0;}
+@media (max-width:860px){
+  .tk-chd{display:none;}
+  .tk-crow,.tk-ctab.has-avg .tk-crow{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px 8px;padding:12px 0;}
+  .tk-cname{grid-column:1 / -1;font-size:15px;}
+  .tk-crow>.tt-c::before{content:attr(data-l);display:block;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);text-transform:uppercase;margin-bottom:2px;}
+  .tk-cpct{display:block;} .tk-cpct .tt-bar{display:none;}
+  .tk-contest{padding:12px;}
+}
 </style>
 </head>
 <body>
@@ -3223,7 +3247,35 @@ function tkHTML(R, V, o){
   h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event; “won” is always won by the kicking team, so OPP KO WIN % is the share of opposition kickouts the selected team won. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
-function tkContestSecHTML(R, V, o){ return ''; }
+// i. contest outcomes: a row per length, for the switched side first and the other side below it
+const TK_BAND={S:'#e2571c', M:'#d4a017', L:'#4cc76a', X:'#7b7b88', all:'transparent', arc:'#dfe7ee'};
+function tkContestTableHTML(C, title, sub, A){
+  let h=`<div class="tk-cblock" data-side="${ssEsc(C.side)}"><div class="tk-ch">${ssEsc(title)}${sub?`<small>${ssEsc(sub)}</small>`:''}</div>`;
+  if(!C.koGames) return h+`<div class="tt-empty">n/a — no kickout data in ${C.n===1?'this game':'these '+C.n+' games'}.</div></div>`;
+  const ty=(r,t)=>{ const v=r.types[t[0]], z=!(v.won+v.lost); return `<div class="tt-c${z?' zero':''}" role="cell" data-l="${t[1]} (won · lost)">${z?'<span class="na">–</span>':`<b>${v.won}</b> W · <b>${v.lost}</b> L`}</div>`; };
+  const line=(r,cls)=>{ const a=A?A.len[r.k]:null;
+    return `<div class="tk-crow${cls||''}${r.n?'':' zero'}" role="row" data-k="${ssEsc(r.k)}"><div class="tk-cname" role="rowheader"><i style="background:${TK_BAND[r.k]||'transparent'}"></i><span>${ssEsc(r.label)}</span></div>`
+      +`<div class="tt-c" role="cell" data-l="Won / taken"><b>${r.won}</b> / ${r.n}</div>`
+      +`<div class="tt-c tk-cpct" role="cell" data-l="Win %"><b>${r.n?ttPctTxt(r.pct):'–'}</b><span class="tt-bar" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${r.k==='all'?'var(--accent)':TK_BAND[r.k]}"></i></span></div>`
+      +(A?`<div class="tt-c tk-cavg" role="cell" data-l="All-teams average"><b>${a&&a.n?ttPctTxt(a.pct):'n/a'}</b>${a&&a.n?` <small>${a.won}/${a.n}</small>`:''}</div>`:'')
+      +TK_TYPES.map(t=>ty(r,t)).join('')+'</div>'; };
+  h+=`<div class="tk-ctab${A?' has-avg':''}" role="table" aria-label="${ssEsc(title)}"><div class="tk-crow tk-chd" role="row"><div role="columnheader">LENGTH</div><div role="columnheader">WON / TAKEN</div><div role="columnheader">WIN %</div>`
+    +(A?'<div role="columnheader">ALL-TEAMS AVG</div>':'')+TK_TYPES.map(t=>`<div role="columnheader">${ssEsc(t[1].toUpperCase())}</div>`).join('')+'</div>';
+  C.rows.forEach(r=>{ h+=line(r); });
+  return h+line(C.total, ' tk-ctot')+'</div></div>';
+}
+function tkContestSecHTML(R, V, o){
+  o=o||{}; const T=R.team, own=V.side==='own', A=o.avgOn?(o.avg||null):null, C1=V.contest[0], C2=V.contest[1], oppC=own?C2:C1;
+  const oppWon=oppC.total.lost, oppN=oppC.total.n;
+  let h='<div class="tt-card tk-contest">'
+    +`<div class="tk-avgbar"><button type="button" class="chip${o.avgOn?' on':''}" data-kavg="1" aria-pressed="${o.avgOn?'true':'false'}">Compare with all-teams average</button>`
+    +`<span class="td-ctlnote" id="tkAvgSt" role="status">${ssEsc(o.avgOn?(o.avgSt||tkAvgNote(A)):'')}</span></div>`;
+  h+=tkContestTableHTML(C1, own?T+' — own kickouts':'Opposition kickouts', own?'':'in '+T+'’s games (the opposition total)', A);
+  h+=tkContestTableHTML(C2, own?'Opposition kickouts':T+' — own kickouts', own?'in the same games (the opposition total)':'in the same games', A);
+  return h+`<div class="dnote">${ssEsc('Won / taken and win % are the kicking team’s. Each type column is how the ball was won: W = won by the kicking team, L = lost. '
+    +(oppN?T+' won '+oppWon+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(ovPct(oppWon, oppN))+'). ':'')
+    +'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
+}
 function tkZoneSecHTML(R, V){ return ''; }
 function tkMapSectionHTML(R, V, F){ return ''; }
 
