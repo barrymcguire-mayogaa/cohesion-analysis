@@ -601,6 +601,17 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .tk-contest{padding:12px;}
 }
 .tk-pitchbox{max-width:540px;}
+.tk-warn{color:#ffd23f;font-weight:600;}
+.tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
+.tk-chk>.dnote{margin:8px 0 10px;}
+.tk-chkrow{display:grid;grid-template-columns:1.5fr 1.3fr .9fr 1.3fr 1.2fr .6fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tk-chkhd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
+.tk-chkact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;min-width:210px;} .tk-chkact .tt-btn{padding:5px 10px;white-space:nowrap;}
+@media (max-width:860px){
+  .tk-chkhd{display:none;} .tk-chkrow{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0;}
+  .tk-chkrow .tt-c::before{content:attr(data-l);display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);}
+  .tk-chkact{grid-column:1/-1;justify-content:flex-start;min-width:0;} .tk-chkact::before{display:none!important;}
+}
 .tk-zone .tt-zs{stroke-width:.4;}
 .tk-zkey .tk-zsw{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);}
 .tk-ztab td.na{font-size:.74rem;}
@@ -3058,6 +3069,11 @@ function tdHTML(R, V, o){
 //    zones 7-9; columns left / centre / right at X 33.3 and 66.7. A kickout that
 //    has not cleared the 40 m arc (inside the arc, or behind the 20 m line the
 //    arc ends on) is its own "Inside arc" area and counts as SHORT.
+//  · OUT OF RANGE = a landing more than 92 m from the kicking goal (beyond the far
+//    45 m line, where no kickout lands). The kickout is KEPT and counted as tagged
+//    (long, zones 7-9) but flagged `far`: a "check tag" ring on the landing map, a
+//    line on its card and a row in the "Landings to check" list (both sides' kickouts
+//    of the selected games, whatever the switch and the map filters say).
 //  · WHAT FOLLOWED = the tagged shot source: shots by the kickout's WINNER whose
 //    source is OWN KICKOUT (the kicker won it) or OPP KICKOUT (the receiver won
 //    it), after that kickout and before the next kickout of the game. A game
@@ -3113,7 +3129,7 @@ function tkSrcItems(events, teams, skip, shotMode){
   return items;
 }
 // Every kickout of a game, both teams, in time order; cached per events array.
-// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, t, id, follow}], srcTagged, srcUnmatched, conv}
+// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, far, t, id, follow}], srcTagged, srcUnmatched, conv}
 const TK_CACHE=new WeakMap();
 function tkGameKos(meta, events){
   if(!meta||!Array.isArray(events)) return null;
@@ -3131,7 +3147,7 @@ function tkGameKos(meta, events){
     const opp=team===H?A:H, won=ssKoKickerWon(out, team, opp), co=ttCoordOf(e, conv), lab=tkLenLabel(e);
     const dist=co?tkDist(co.y):null, zone=co?tkZoneOf(co.x, co.y):null;
     kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
-      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone,
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, far:dist!=null&&dist>TK_VIEW_M,
       t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
   });
   kos.sort((a,b)=>a.t-b.t||a.i-b.i);
@@ -3246,9 +3262,14 @@ function tkFollowNote(S){
   const n=S.n, k=S.srcGames;
   return !n?'':!k?'What followed: n/a (no source tags) in '+(n===1?'this game':'these '+n+' games')+'.':'What followed (shots and scores) uses the tagged shot source, from '+k+' of '+n+' game'+(n===1?'':'s')+'.';
 }
+// the out-of-range landings of the selected games, BOTH sides: by game (oldest first), then in time order
+function tkCheckList(R){
+  const ord=new Map(); let i=0; R.gameOf.forEach((m,id)=>ord.set(id, i++));
+  return R.own.kos.concat(R.opp.kos).filter(k=>k.far).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
+}
 function tkView(R, side, F){
   const k=side==='opp'?'opp':'own', S=R[k], mapKos=tkMapKos(S.kos, F);
-  return {side:k, S, contest:[tkContest(S), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos), mapKos, insights:tkInsights(mapKos), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
+  return {side:k, S, contest:[tkContest(S), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos), mapKos, check:tkCheckList(R), insights:tkInsights(mapKos), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
 }
 
 // ── Kickouts rendering (strings only; every interpolated value is escaped) ──
@@ -3269,7 +3290,7 @@ function tkHTML(R, V, o){
   const tag=`<em>${opp?'OPPOSITION':'OWN'}</em>`;
   h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2><div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
   h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>`+tkZoneSecHTML(R, V);
-  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2><div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F)+'</div>';
+  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2><div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
   h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event; “won” is always won by the kicking team, so OPP KO WIN % is the share of opposition kickouts the selected team won. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
@@ -3393,6 +3414,7 @@ function tkZoneSecHTML(R, V){
 // COLOUR = how the ball was won. One small uniform size on a dark halo, like the shot markers.
 const TK_MK_COL={clean:'#ffffff', break:'#ff8c1a', free:'#b266ff', sideline:'#4fc3f7', unspecified:'#9aa3ad'};
 const TK_LEN_NAME={S:'Short', M:'Medium', L:'Long'};
+const TK_FAR_R=1.85, TK_FAR_COL='#ffd23f';   // the "check tag" ring round an out-of-range landing
 function tkTypeName(t){ const d=TK_TYPES.find(x=>x[0]===t); return d?d[1]:'Unspecified'; }
 function tkKoMark(k){ return {x:tkPX(k.x), y:tkPY(k.dist), scored:k.won, col:TK_MK_COL[k.type]||TK_MK_COL.unspecified}; }
 function tkOutcomeTxt(k){ return (k.won?'Won':'Lost')+' · '+tkTypeName(k.type).toLowerCase(); }
@@ -3402,8 +3424,9 @@ function tkMapSVG(kos){
   let h=tkPitchOpen('tt-locs tk-locs','Kickout landing locations, from the kicking team’s 20m line (top) to the far 45m line')
     +`<line x1="${X(33.3)}" y1="${Y(tkArcD(33.3))}" x2="${X(33.3)}" y2="${Y(TK_VIEW_M)}" ${g}/><line x1="${X(66.7)}" y1="${Y(tkArcD(66.7))}" x2="${X(66.7)}" y2="${Y(TK_VIEW_M)}" ${g}/>`;
   return h+'<g class="tt-marks">'+kos.map((k,i)=>{ const m=tkKoMark(k);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
-    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+tkOutcomeTxt(k).toLowerCase())}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
+    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+tkOutcomeTxt(k).toLowerCase()+(k.far?', landing out of range, check tag':''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.far?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
+function tkFarTxt(k){ return 'Landing position looks out of range ('+Math.round(k.dist)+' m) — check tag'; }
 // o.pinned: the card is pinned open, so it carries its buttons (the same ones as a shot's card)
 function tkKoCardHTML(k, R, o){
   if(!k) return '';
@@ -3415,7 +3438,8 @@ function tkKoCardHTML(k, R, o){
     +row('Length', k.len?TK_LEN_NAME[k.len]+(k.dist!=null?' · '+Math.round(k.dist)+' m':''):'n/a', !k.len)
     +row('Zone', k.zone==null?'n/a':k.zone==='arc'?'Inside arc':'Zone '+k.zone, k.zone==null)
     +row('Outcome', k.won?'Won by '+kicker:'Lost')+row('Type', tkTypeName(k.type), k.type==='unspecified')
-    +(k.lenFrom==='loc'?'<div class="tt-cn">Length from the landing distance (no length label).</div>':'');
+    +(k.lenFrom==='loc'?'<div class="tt-cn">Length from the landing distance (no length label).</div>':'')
+    +(k.far?`<div class="tt-cn tk-warn">${ssEsc(tkFarTxt(k))}</div>`:'');
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
@@ -3438,15 +3462,36 @@ function tkMapKeyHTML(){
   const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span></div>`;
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span>`
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing out of range (beyond the far 45m line)')}</span></div>`;
 }
-function tkMapSectionHTML(R, V, F){
-  const S=V.S, nShown=V.mapKos.length;   // located kickouts that pass the filters = what the button adds
+// the tagged length / zone labels of a kickout, as coded (else the engine's reading)
+function tkTaggedTxt(k){
+  const L=String(ssLblCI(k.e,['Kickout Locations','Kickout Location','KickoutLength','Kickout_Length','KODistance'])||'').trim(), Z=String(ssLblCI(k.e,['Kickout Zones','Kickout Zone'])||'').trim();
+  return [L||(k.len?TK_LEN_NAME[k.len]+' (from the distance)':''), Z||(k.zone==null?'':k.zone==='arc'?'Inside arc':'Zone '+k.zone)].filter(Boolean).join(' · ')||'n/a';
+}
+// "Landings to check (n)": the flagged kickouts, each with Watch clip and (with a video) Add to playlist. Nothing when n = 0.
+function tkCheckHTML(list, R, open){
+  const n=(list||[]).length; if(!n) return '';
+  const c=(l,v)=>`<div class="tt-c" role="cell" data-l="${l}">${v}</div>`;
+  return `<details class="tt-card tk-chk" id="tkChk"${open?' open':''}><summary>Landings to check (${n})</summary>`
+    +`<div class="dnote">${ssEsc('Kickouts whose tagged landing is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line) — almost certainly a mis-placed tag. They are kept and counted as tagged (long); both teams’ kickouts in the selected games are listed, whatever the switch and the filters show.')}</div>`
+    +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
+    +list.map((k,i)=>{ const m=R.gameOf.get(k.gid), own=k.team===R.team, kicker=own?R.team:(m?m.opp:k.team), clip=cpClip(k);
+      return `<div class="tk-chkrow" role="row" data-chk="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Kicking team', ssEsc(kicker))+c('Time', ssEsc(ttClockTxt(k.e)))
+        +c('Tagged', ssEsc(tkTaggedTxt(k)))+c('Outcome', ssEsc(k.out||tkOutcomeTxt(k)))+c('Distance', `<b>${Math.round(k.dist)} m</b>`)
+        +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="chk-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
+        +(clip?`<button type="button" class="tt-btn pri" data-act="chk-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; }).join('')
+    +'</div></details>';
+}
+function tkMapSectionHTML(R, V, F, o){
+  const S=V.S, nShown=V.mapKos.length, nFar=V.mapKos.filter(k=>k.far).length;   // located kickouts that pass the filters = what the button adds
   return tkFiltersHTML(F)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
     +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
     +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos)}</div>${tkMapKeyHTML()}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
-    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge.':''))}</div></div>`
-    +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located)}</aside></div>`;
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge'+(nFar?' with a dashed “check tag” ring ('+nFar+' shown)':'')+'.':''))}</div></div>`
+    +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located)}</aside></div>`
+    +tkCheckHTML(V.check, R, !!(o&&o.chkOpen));
 }
 
 // ── Team Trends page wiring ──
@@ -3550,7 +3595,8 @@ function tkSelToggle(kind, value, on){ if(!TK_BASE||!TK_LAST) return; gsToggle(T
 function tkSelCmd(c){ if(!TK_BASE||!TK_LAST||!gsCmd(TK_SEL, TK_BASE.list, TK_BASE.basisIds, c)) return; tkSelApply(); }
 function tkAvgKey(){ return TK_BASE?TK_BASE.pool.map(g=>g.id).join(','):''; }
 function tkAvgCur(){ return TK_AVG_ON&&TK_AVG&&TK_AVG.key===tkAvgKey()?TK_AVG.v:null; }
-function tkOpts(){ return {sel:TK_SELC, F:TK_F, avgOn:TK_AVG_ON, avg:tkAvgCur(), avgSt:TK_AVG_ST}; }
+function tkChkOpen(){ const d=ssEl('tkChk'); return !!(d&&d.open); }   // the "Landings to check" list stays open across a re-draw
+function tkOpts(){ return {sel:TK_SELC, F:TK_F, avgOn:TK_AVG_ON, avg:tkAvgCur(), avgSt:TK_AVG_ST, chkOpen:tkChkOpen()}; }
 function tkKeepFocus(root, fn){
   const a=document.activeElement, d=a&&root&&root.contains&&root.contains(a)&&a.dataset?a.dataset:null;
   const sel=!d?'':d.kside?'[data-kside="'+d.kside+'"]':d.kchip?'[data-kg="'+d.kg+'"][data-kchip="'+d.kchip+'"]':d.kf?'[data-kf="'+d.kf+'"][data-kv="'+d.kv+'"]':d.kavg!=null?'[data-kavg]':'';
@@ -3570,7 +3616,8 @@ function tkRenderMap(){
   const sec=ssEl('tkMapSec'); if(!sec||!TK_LAST){ tkRender(); return; }
   ttHideTip();
   TK_VIEW=tkView(TK_LAST, TK_SIDE, TK_F);
-  tkKeepFocus(sec, ()=>{ sec.innerHTML=tkMapSectionHTML(TK_LAST, TK_VIEW, TK_F); });
+  const o={chkOpen:tkChkOpen()};
+  tkKeepFocus(sec, ()=>{ sec.innerHTML=tkMapSectionHTML(TK_LAST, TK_VIEW, TK_F, o); });
   ttFitHits();
 }
 function tkRenderContest(){
@@ -3856,6 +3903,20 @@ async function ttPlAll(btn){
   if(shots.length>TT_PL_MAX){ ttPlDraw({phase:'error', msg:'That is more than '+TT_PL_MAX+' clips in one go — narrow the filters first.'}); return; }
   return ttPlOpen();
 }
+// a row of "Landings to check": Watch clip plays it in the clip player (Previous / Next step through the list);
+// Add to playlist opens the same menu as a marker's card, anchored on the button
+function tkCheckAct(btn){
+  const list=(TK_VIEW&&TK_VIEW.check)||[], k=list[+btn.dataset.i], t=ssEl('ttTip'); if(!k) return;
+  if(btn.dataset.act==='chk-watch') return cpOpen('ko', k, btn, list);
+  if(!t) return;
+  ttHideTip();
+  TT_TIP=TT_PIN=btn; TT_JOB={shots:[k], bulk:false};
+  t.innerHTML=`<div class="tt-ct">${ssEsc(k.team+' kickout')}</div><div class="tt-cs">${ssEsc(tkFarTxt(k))}</div>`
+    +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
+  t.hidden=false; if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
+  ttPlaceTip();
+  return ttPlOpen();
+}
 // ═══════════════════════════════════════════════════════════════
 //  CLIP PLAYER — "Watch clip" on a pinned shot / kickout card plays that clip in a window on this
 //  page. The clip is the playlist clip (ttClipOf = the dashboard's dashClipOf), loaded exactly as
@@ -3993,12 +4054,13 @@ function cpClick(ev){
   if(a.dataset.act==='pl'&&!TT_JOB){ const cur=cpCur(); TT_JOB={shots:[cur.s], bulk:false}; }   // the same job, menu and clip as the card's button
   if(a.dataset.act!=='close') ttTipClick(ev);
 }
-// kind: 'shot' | 'ko'; item: the shot / kickout to open at; opener: its marker
-function cpOpen(kind, item, opener){
+// kind: 'shot' | 'ko'; item: the shot / kickout to open at; opener: its marker (or button);
+// items: the list to step through when it is not the map's (the "Landings to check" list)
+function cpOpen(kind, item, opener, items){
   cpClose();
   kind=kind==='ko'?'ko':'shot';
   const view=kind==='ko'?TK_VIEW:TT_VIEW, R=kind==='ko'?TK_LAST:TT_LAST;
-  const list=cpList(view&&(kind==='ko'?view.mapKos:view.mapShots), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
+  const list=cpList(items||(view&&(kind==='ko'?view.mapKos:view.mapShots)), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
   if(i<0) return false;                                 // no video for this one: nothing to play
   ttHideTip();
   const el=document.createElement('div');
@@ -4041,6 +4103,7 @@ function ttInit(){
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
     if(b&&b.dataset.act==='pl-all'){ if(!b.disabled) ttPlAll(b); return; }
+    if(b&&(b.dataset.act==='chk-watch'||b.dataset.act==='chk-pl')){ if(!b.disabled) tkCheckAct(b); return; }
     const tip=tipOf(e);
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
