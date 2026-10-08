@@ -2613,15 +2613,19 @@ function ttMapSectionHTML(V, F, o){
     +`<div class="dnote tt-locnote">${ssEsc(V.locNote)}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${ttInsightsHTML(V.insights, S.shots.length-S.located)}</aside></div>`;
 }
+// the header line under the team name (Attacking and Defending): the basis, or the user's own pick
+function gsLineTxt(R, SC){
+  const gl=k=>k+' game'+(k===1?'':'s'), basisLbl=k=>(R.basis==='all'?'All ':'Last ')+gl(k), miss=R.missing?' ('+R.missing+' not loaded)':'';
+  return !SC?basisLbl(R.nBasis)+miss+', oldest to newest'
+    :SC.isBasis?basisLbl(SC.nBasis)+' · '+gl(R.nBasis)+' selected'+miss+', oldest to newest'
+    :gl(R.nBasis)+' selected'+miss+(R.nBasis?', oldest to newest':'')+' · your own pick (the GAMES basis is '+basisLbl(SC.nBasis).toLowerCase()+')';
+}
 function ttHTML(R, V, o){
   o=o||{}; const T=R.team, F=o.F, n=R.n, ag=V.side==='against', who=ag?'the opposition':T, tcol=o.col||'#4fc3f7', col=o.mapCol||'#ffffff';
   // SC = the games tick-list (gsList + nBasis); without it the sub-tab covers the basis games
   const SC=o.sel||null, gl=k=>k+' game'+(k===1?'':'s');
   if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
-  const tag=`<em>${ag?'AGAINST':'FOR'}</em>`, basisLbl=k=>(R.basis==='all'?'All ':'Last ')+gl(k), miss=R.missing?' ('+R.missing+' not loaded)':'';
-  const line=!SC?basisLbl(R.nBasis)+miss+', oldest to newest'
-    :SC.isBasis?basisLbl(SC.nBasis)+' · '+gl(R.nBasis)+' selected'+miss+', oldest to newest'
-    :gl(R.nBasis)+' selected'+miss+(R.nBasis?', oldest to newest':'')+' · your own pick (the GAMES basis is '+basisLbl(SC.nBasis).toLowerCase()+')';
+  const tag=`<em>${ag?'AGAINST':'FOR'}</em>`, line=gsLineTxt(R, SC);
   let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="ttSelLine">${ssEsc(line)}</small></div>`
     +(SC?ttSelCtlHTML(T, SC, o.open||''):'')
     +`<div class="tt-side"><span>SHOTS</span><div class="seg" role="group" aria-label="Shots for or against"><button type="button" data-side="for" class="${ag?'':'on'}" aria-pressed="${ag?'false':'true'}">For</button><button type="button" data-side="against" class="${ag?'on':''}" aria-pressed="${ag?'true':'false'}">Against</button></div>`
@@ -2682,7 +2686,11 @@ function tdMatch(r, T){
   m.cards=m.loaded&&(t.foulGames||t.cardGames)?{n:t.cards, y:t.cardY, b:t.cardB, r:t.cardR, x:t.cardX}:null;
   return m;
 }
-function tdBasisTxt(nWith, n, basis, total){ const s=ovBasisTxt(nWith, n, basis); return total?s.replace(/^Avg/,'Total'):s; }
+// basis 'sel' = the user's own pick of games (not the basis games)
+function tdBasisTxt(nWith, n, basis, total){
+  const s=basis==='sel'&&n&&nWith===n?'Avg · '+n+' selected game'+(n===1?'':'s'):ovBasisTxt(nWith, n, basis);
+  return total?s.replace(/^Avg/,'Total'):s;
+}
 function tdKpis(a, n, basis){
   const pg=v=>v==null?null:v.toFixed(1), num=v=>v==null?null:String(v);
   const kpi=(key,title,v,txt,detail,gk,total)=>({key, title, v, txt, detail:v==null?'':detail, basis:tdBasisTxt(a[gk]||0, n, basis, total)});
@@ -2728,14 +2736,16 @@ function tdPressure(aO, n){
   return {n, shots:all.shots, tagged, games:aO.prGames||0, shotGames:aO.shotGames||0, all,
     rows:SS_PRESS.map(p=>Object.assign(tdLevel(aO,[p[0]]), {k:p[0], label:p[0]==='N'?p[1]:p[1]+' pressure'})).map(r=>Object.assign(r, {share:ovPct(r.shots, all.shots)}))};
 }
-// Everything Team Trends › Defending shows for team T over the basis games.
-function tdCompute(T, games, basis, bundleOf){
-  const list=ovTeamGames(games, T), use=ovBasisGames(list, basis).slice().reverse();   // oldest → newest
+// Everything Team Trends › Defending shows for team T over the basis games, or over `pick`
+// (the games ticked in the control row, oldest → newest) when it is given.
+function tdCompute(T, games, basis, bundleOf, pick){
+  const list=ovTeamGames(games, T), base=ovBasisGames(list, basis).slice().reverse(), use=pick?pick.slice():base;   // oldest → newest
+  const bs=new Set(base.map(g=>g.id)), custom=!(use.length===bs.size&&use.every(g=>bs.has(g.id))), kb=custom?'sel':basis;
   const rows=use.map(g=>tdRow(T, g, bundleOf)), used=rows.filter(r=>r.tT&&r.tO), n=used.length;
   const aT=ssAggregate(used.map(r=>r.tT)), aO=ssAggregate(used.map(r=>r.tO));
   const dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
-  return {team:T, basis, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
-    list, basisIds:use.map(g=>g.id), kpis:tdKpis(aT, n, basis), zone:tdZone(used, aT, n), types:tdTypes(used, aT, n),
+  return {team:T, basis, custom, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
+    list, basisIds:base.map(g=>g.id), kpis:tdKpis(aT, n, kb), zone:tdZone(used, aT, n), types:tdTypes(used, aT, n),
     shooting:tdShooting(aO, n), pressure:tdPressure(aO, n), aggT:aT, aggO:aO};
 }
 // ── Defending rendering (strings only; every interpolated value is escaped) ──
@@ -2766,12 +2776,10 @@ function tdZoneHTML(T, Z, Ty){
     +`<div class="dnote">${ssEsc('Type of '+Ty.typed+' of the '+Ty.won+' in-play turnovers won'+(Ty.untyped?' ('+Ty.untyped+' not typed)':'')+' · '+ovFromNote(Ty.games, Ty.n)+'. The type is the one tagged when the opposition lost the ball; a free against is a free the opposition conceded while in possession.')}</div>`;
   return h+'</div></div>';
 }
-// iii / iv. the two trend charts and their own controls. The controls pick games out of ALL the team's
-// filtered games; the default is the tab's basis games. They change these two charts only.
-// sel = {compOff:Set of unticked competitions, games:null (= the basis games) | Set of ticked game ids}
+// iii / iv. the two trend charts, over the games ticked in the header's control row
 function tdComp(g){ return String((g&&g.competition)||'').trim(); }
 // ── THE GAMES SELECTION (shared): the Competitions and Games check dropdowns ──
-// Used twice, each with its OWN state: Defending's two trend charts (TD_CH) and
+// Used twice, each with its OWN state: the whole Defending sub-tab (TD_CH) and
 // the whole Attacking sub-tab (TT_SEL). sel = {compOff:Set of unticked
 // competitions, games:Set of ticked ids | null = the basis games}. list = ALL of
 // the team's filtered games (newest first), so older games can be ticked in.
@@ -2874,20 +2882,17 @@ function tdTrendCardHTML(m, kind, T){
 }
 function tdGameTxt(g, T){ const opp=String((ssUC(g.homeTeam)===T?g.awayTeam:g.homeTeam)||'Unknown').trim();
   return {main:(ovShortDate(g.date)||'date n/a')+' · vs '+opp, sub:[g.competition, g.round].filter(Boolean).join(' · ')}; }
-function tdCtlHTML(R, C, open){
-  const basisTxt=(R.basis==='all'?'all ':'the last ')+R.nBasis+' game'+(R.nBasis===1?'':'s');
-  return gsCtlHTML(R.team, C, open, {scope:'td', n:C.rows.length, btns:[['game-basis','Basis games'],['game-all','All'],['game-none','None']],
-    note:(C.isDefault?'Showing '+basisTxt+' (the GAMES basis).':'Showing '+C.rows.length+' chosen game'+(C.rows.length===1?'':'s')+'.')+' These two controls change only the two trend charts.'});
-}
-// Attacking: the same two dropdowns, for the WHOLE sub-tab
-function ttSelCtlHTML(T, SC, open){
+// the control row of a sub-tab's header: the two dropdowns, for the WHOLE sub-tab (name = 'Attacking' | 'Defending')
+function gsSelCtlHTML(T, SC, open, scope, name){
   const n=SC.shown.length;
-  return gsCtlHTML(T, SC, open, {scope:'tt', n, btns:[['game-all','Select all'],['game-none','Select none'],['game-basis','Reset to basis']],
-    note:n+' game'+(n===1?'':'s')+' selected'+(SC.pending.length?' ('+SC.pending.length+' loading…)':'')+'. These two controls apply to everything on Attacking.'});
+  return gsCtlHTML(T, SC, open, {scope, n, btns:[['game-all','Select all'],['game-none','Select none'],['game-basis','Reset to basis']],
+    note:n+' game'+(n===1?'':'s')+' selected'+(SC.pending.length?' ('+SC.pending.length+' loading…)':'')+'. These two controls apply to everything on '+name+'.'});
 }
+function ttSelCtlHTML(T, SC, open){ return gsSelCtlHTML(T, SC, open, 'tt', 'Attacking'); }
+function tdCtlHTML(T, SC, open){ return gsSelCtlHTML(T, SC, open, 'td', 'Defending'); }
 function tdChartSecHTML(R, C, o){
   o=o||{}; const T=R.team, col=o.col||'#4fc3f7', fcol='#f5a623';
-  let h=tdCtlHTML(R, C, o.open||'');
+  let h='';
   const card=(title, sub, S, svg, c, note, unit)=>`<div class="tt-card td-tcard"><h4 class="td-ct">${title} <small>${sub}</small></h4>`
     +(!C.rows.length?'<div class="tt-empty">No games selected — tick at least one competition and one game.</div>'
       :`<div class="tt-chart">${svg}</div><div class="tt-key"><span><i class="tt-sw" style="background:${c}"></i>${ssEsc(T)} ${unit}</span>`
@@ -2952,28 +2957,39 @@ function tdPrSecHTML(R, f){
 }
 function tdHTML(R, V, o){
   o=o||{}; const T=R.team, n=R.n;
-  if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
-  let h='<div class="tt-top"><div class="tt-who">'+ssEsc(T)+`<small>${ssEsc((R.basis==='all'?'All ':'Last ')+R.nBasis+' game'+(R.nBasis===1?'':'s')+(R.missing?' ('+R.missing+' not loaded)':'')+' · defending')}</small></div></div>`;
+  // SC = the games tick-list (gsList + nBasis); without it the sub-tab covers the basis games
+  const SC=o.sel||null;
+  if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="tdSelLine">${ssEsc(gsLineTxt(R, SC))}</small></div>`
+    +(SC?tdCtlHTML(T, SC, o.open||''):'')+'</div>';
+  if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
   h+=tdKpisHTML(R.kpis);
   h+='<h2 class="ov-h">TURNOVER ZONE IMPACT</h2>'+tdZoneHTML(T, R.zone, R.types);
   h+='<h2 class="ov-h">GAME BY GAME</h2><div id="tdChartSec">'+(V&&V.chart?tdChartSecHTML(R, V.chart, o):'')+'</div>';
   h+='<h2 class="ov-h">OPPOSITION SHOOTING v PRESSURE</h2><div id="tdPrSec">'+tdPrSecHTML(R, V&&V.pr)+'</div>';
-  h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once; a free conceded while in possession (a Tracker “Free Against”) is both a foul and one in-play turnover lost. “n/a” means those games don't carry the data needed.</div>`;
+  h+=`<div class="foot">Defending covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once; a free conceded while in possession (a Tracker “Free Against”) is both a foul and one in-play turnover lost. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 
 // ── Team Trends page wiring ──
-let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_CH_TOKEN=0, TD_PR='all';
-let TD_CH=gsNew();                                 // the trend charts' own selection (null = the basis games)
+let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_SELC=null, TD_BASE=null, TD_SEL_TOKEN=0, TD_PR='all';   // TD_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
+let TD_CH=gsNew();                                 // Defending's own games selection (games:null = the basis games)
 const TD_TRIED=new Set();
-function tdResetChart(){ TD_CH=gsNew(); TD_TRIED.clear(); }
-function tdOpts(){ const C=ssDisplayColors(TD_LAST.team, '__baseline__'); return {W:(TD_W=ttWidth('tdBody')), col:C.a}; }
-function tdChartCalc(){ TD_CHART=tdChart(TD_LAST.team, TD_LAST.list, TD_LAST.basisIds, TD_CH, id=>BUNDLES.get(id)); return TD_CHART; }
+function tdOpts(){ const C=ssDisplayColors(TD_LAST.team, '__baseline__'); return {W:(TD_W=ttWidth('tdBody')), col:C.a, sel:TD_SELC}; }
+// the ticked games drive the whole sub-tab: the tick-list, the result and the two trend charts
+function tdSelCalc(){
+  const B=TD_BASE, bo=id=>BUNDLES.get(id);
+  TD_SELC=gsList(B.list, B.basisIds, TD_CH, bo); TD_SELC.nBasis=B.basisIds.length;
+  TD_LAST=tdCompute(B.team, B.pool, B.basis, bo, TD_SELC.shown);
+  TD_CHART=tdChart(B.team, B.list, B.basisIds, TD_CH, bo);
+  return TD_LAST;
+}
+function tdSelApply(){ tdSelCalc(); tdRender(); tdSelEnsure(); }
 function tdRender(){
   const body=ssEl('tdBody'); if(!body||!TD_LAST) return;
   ttHideTip();
-  body.innerHTML=tdHTML(TD_LAST, {chart:tdChartCalc(), pr:TD_PR}, tdOpts());
-  tdChartEnsure();
+  const o=tdOpts(); o.open=tdOpenDd(body);           // an open games / competitions dropdown stays open
+  tdKeepFocus(body, ()=>{ body.innerHTML=tdHTML(TD_LAST, {chart:TD_CHART, pr:TD_PR}, o); });
 }
 // re-draw a part of the page, keeping the focus on the control that was used and the open dropdown's scroll
 function tdKeepFocus(root, fn){
@@ -2992,35 +3008,20 @@ function tdSetPr(v){
   tdKeepFocus(sec, ()=>{ sec.innerHTML=tdPrSecHTML(TD_LAST, TD_PR); });
 }
 function tdOpenDd(sec){ const d=sec&&sec.querySelector?sec.querySelector('details.td-dd[open]'):null; return d?d.dataset.dd:''; }
-// the chart controls only re-draw the chart section
-function tdRenderChart(){
-  const sec=ssEl('tdChartSec'); if(!sec||!TD_LAST){ tdRender(); return; }
-  ttHideTip();
-  const open=tdOpenDd(sec), o=tdOpts(); tdChartCalc();
-  tdKeepFocus(sec, ()=>{ sec.innerHTML=tdChartSecHTML(TD_LAST, TD_CHART, {W:o.W, col:o.col, open}); });
-  tdChartEnsure();
-}
-// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw the charts
-async function tdChartEnsure(){
-  const C=TD_CHART; if(!C||!C.pending.length||!TD_LAST) return;
-  const need=TD_LAST.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!TD_TRIED.has(g.id)); if(!need.length) return;
+// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw the sub-tab
+async function tdSelEnsure(){
+  const C=TD_SELC; if(!C||!C.pending.length||!TD_BASE) return;
+  const need=TD_BASE.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!TD_TRIED.has(g.id)); if(!need.length) return;
   need.forEach(g=>TD_TRIED.add(g.id));
-  const my=++TD_CH_TOKEN, key=TD_KEY;
+  const my=++TD_SEL_TOKEN, key=TD_KEY;
   try{ await ovLoad(need); }catch(_){ return; }
-  if(my!==TD_CH_TOKEN||key!==TD_KEY||TT_SUB!=='defending'||TAB!=='team-trends') return;
-  tdRenderChart();
+  if(my!==TD_SEL_TOKEN||key!==TD_KEY||TT_SUB!=='defending'||TAB!=='team-trends') return;
+  tdSelApply();
 }
-function tdToggle(kind, value, on){
-  if(!TD_LAST) return;
-  gsToggle(TD_CH, TD_LAST.basisIds, kind, value, on);
-  tdRenderChart();
-}
-function tdCmd(c){
-  if(!TD_LAST||!gsCmd(TD_CH, TD_LAST.list, TD_LAST.basisIds, c)) return;
-  tdRenderChart();
-}
+function tdToggle(kind, value, on){ if(!TD_BASE||!TD_LAST) return; gsToggle(TD_CH, TD_BASE.basisIds, kind, value, on); tdSelApply(); }
+function tdCmd(c){ if(!TD_BASE||!TD_LAST||!gsCmd(TD_CH, TD_BASE.list, TD_BASE.basisIds, c)) return; tdSelApply(); }
 function tdCloseDd(target){
-  [ssEl('tdChartSec'), ssEl('ttBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
+  [ssEl('tdBody'), ssEl('ttBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
     sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); }); });
 }
 // ── Attacking's games selection: its own state, the shared dropdowns ──
@@ -3053,7 +3054,7 @@ async function ttRun(){
   if(TAB!=='team-trends'||!GAMES_READY) return;
   const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; TD_BASE=null; TD_SELC=null; TD_CHART=null; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
   note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
@@ -3070,8 +3071,10 @@ async function ttRun(){
   const key=T+'|'+TT_BASIS+'|'+use.map(g=>g.id).join(',');
   if(TT_SUB==='defending'){                        // same games, same cached tallies; its own result
     const dk=key+'#'+list.map(g=>g.id).join(',');
-    if(dk!==TD_KEY||!TD_LAST){ TD_LAST=tdCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TD_KEY=dk; tdResetChart(); }
-    tdRender(); return;
+    // a new team, basis or filter set resets Defending's games selection; a game that finished loading while away is counted in
+    if(dk!==TD_KEY||!TD_LAST){ TD_KEY=dk; TD_CH=gsNew(); TD_TRIED.clear(); TD_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; tdSelCalc(); }
+    else if(TD_SELC&&TD_SELC.pending.some(id=>BUNDLES.has(id))) tdSelCalc();
+    tdRender(); tdSelEnsure(); return;
   }
   // a new team, basis or filter set (the basis games or the team's game list changed) resets the games selection
   const ak=key+'#'+list.map(g=>g.id).join(',');
@@ -3290,8 +3293,8 @@ function ttInit(){
   pane.addEventListener('click', e=>{
     if(inCard(e)){ ttTipClick(e); return; }             // the pinned card's own buttons
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
-    tdCloseDd(t);                                      // a click outside an open chart dropdown closes it
-    const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's charts
+    tdCloseDd(t);                                      // a click outside an open games / competitions dropdown closes it
+    const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's
     if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:tdCmd)(b.dataset.tdc); return; }
     if(b&&b.dataset.pr){ if(!b.disabled) tdSetPr(b.dataset.pr); return; }
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
