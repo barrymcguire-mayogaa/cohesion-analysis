@@ -621,10 +621,6 @@ function ssLbl(e,groups){
   return null;
 }
 function ssL(e,name){ return ssLbl(e,[name]); }
-// exact-name lookup, kept ONLY for Compare's legacy Score Origin fields (see ssTally): reading that group
-// case-insensitively would add one real row ("score source outcomes" = OWN KO, cla-bam) to srcTotal and
-// move Compare's From Own KO / Opp KO / Turnover % off origin/main. The newer src* fields are case-insensitive.
-function ssLblExact(e,groups){ const L=(e&&e.labels)||{}; for(const g of groups){ if(L[g]) return L[g]; } return null; }
 function ssUC(s){ return String(s||'').toUpperCase().trim(); }
 function ssSideOf(e, T){
   const t=ssUC(e.team); if(t) return t===T;
@@ -784,17 +780,19 @@ function ssGameTally(meta, events, T){
     }
     // score source (attached to shots/scores or SCORE SOURCE instances)
     // (a converted GI shot carries its source as 'Shot Source Outcomes')
-    const src=ssLblExact(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?ssLblExact(e,['Shot Source Outcomes']):null);   // exact on purpose: see ssLblExact
+    // group names read case-insensitively like everywhere else; short source
+    // values ("OWN KO", "OPP KO") count as kickout sources too
+    const src=ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?ssLbl(e,['Shot Source Outcomes']):null);
     if(src){
       const S=ssUC(src);
       const val=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
       if(mineT&&val>0){
         g.srcData=true; g.srcTotal++;
-        if(/OWN KICK/.test(S)){ g.srcOwnKO++; g.ptsFromOwnKO+=val; }
-        else if(/OPP KICK/.test(S)){ g.srcOppKO++; }
+        if(/OWN (KICK|KO\b)/.test(S)){ g.srcOwnKO++; g.ptsFromOwnKO+=val; }
+        else if(/OPP(OSITION)? (KICK|KO\b)/.test(S)){ g.srcOppKO++; }
         else if(/TURNOVER|F\/TO|U\/TO/.test(S)){ g.srcTO++; }
       }
-      if(mineO&&val>0&&/OPP KICK/.test(S)){ g.ptsConcededOwnKO+=val; }   // they scored off OUR kickout
+      if(mineO&&val>0&&/OPP(OSITION)? (KICK|KO\b)/.test(S)){ g.ptsConcededOwnKO+=val; }   // they scored off OUR kickout
     }
     // turnovers conceded BY T (Compare's Turnover Rate % = these ÷ T's
     // possessions, possession-tracked games only). Every turnover row counts,
