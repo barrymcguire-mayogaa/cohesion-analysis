@@ -100,16 +100,16 @@ html,body{max-width:100%;overflow-x:hidden;}
 body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-reports,body[data-tab=team-trends] #pane-team-trends,
 body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
-body:not([data-tab=overview]) .only-overview{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=match-reports]) .only-team{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]) .only-data{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=team-trends]) .only-basis{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
 .soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -323,6 +323,143 @@ body.mr-lock{overflow:hidden;}
   .mr-modal{padding:8px;} .mr-mhd{padding:8px 8px 8px 12px;} .mr-mbody{padding:8px;}
   .mr-mft{padding:8px;} .mr-mft button{flex:1 1 100%;} .mr-mft button.link{margin-left:0;}
 }
+/* ── TEAM TRENDS ── */
+.subtabs{display:flex;gap:2px 38px;flex-wrap:wrap;margin:22px 0 0;padding:0 16px;border-bottom:1px solid var(--border);}
+.subtabs a{font:800 19px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;padding:6px 2px 11px;position:relative;white-space:nowrap;opacity:.8;}
+.subtabs a:hover,.subtabs a.on{opacity:1;}
+.subtabs a.on::after{content:'';position:absolute;left:-12px;right:-12px;bottom:-1px;height:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 10px var(--accent);}
+.ttsub{display:none;}
+body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,body[data-sub=kickouts] #tt-kickouts,body[data-sub=turnover] #tt-turnover{display:block;}
+#ttStatus{font-size:.8rem;color:var(--t3);margin:0 2px;}
+#ttStatus:not(:empty){margin:12px 2px 0;}
+.tt-top{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;margin:18px 2px 0;}
+.tt-who{font:700 22px 'Barlow',sans-serif;min-width:0;overflow-wrap:anywhere;}
+.tt-who small{display:block;font:400 .78rem 'Barlow',sans-serif;color:var(--t3);margin-top:2px;}
+.tt-side{margin-left:auto;display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;justify-content:flex-end;}
+.tt-side>span,.tt-fg>span{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);}
+.tt-side small{flex:1 1 100%;text-align:right;font-size:.7rem;color:var(--t3);}
+.tt-side .seg button{padding:10px 18px;}
+.ov-h em{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.12em;font-style:normal;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:2px 9px;margin-left:8px;vertical-align:middle;white-space:nowrap;}
+.tt-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px 18px;min-width:0;}
+.tt-empty{color:var(--t3);font-size:.92rem;padding:26px 6px;text-align:center;}
+.tt-chart{min-width:0;overflow:hidden;}
+.tt-trend{display:block;max-width:100%;height:auto;}
+.tt-grid{stroke:#2a2a36;stroke-width:1;}
+.tt-ax{font:500 11px 'Barlow',sans-serif;fill:var(--t3);}
+.tt-axt{font-weight:700;letter-spacing:.08em;font-size:10px;}
+.tt-xl{font-weight:700;fill:var(--t2);}
+.tt-na{font-size:12px;}
+.tt-l-team{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round;}
+.tt-l-opp{fill:none;stroke:#9a9aa8;stroke-width:2;stroke-opacity:.55;stroke-linejoin:round;}
+.tt-l-xp{fill:none;stroke-width:2.4;stroke-dasharray:1 6;stroke-linecap:round;}
+.tt-d-team{stroke:#0b0b10;stroke-width:1.5;}
+.tt-d-opp{fill:#14141c;stroke:#9a9aa8;stroke-opacity:.8;stroke-width:1.6;}
+.tt-d-xp{fill:#14141c;stroke-width:1.6;}
+.tt-band{fill:#fff;fill-opacity:0;}
+.tt-hit{cursor:pointer;outline:none;}
+.tt-hit:hover .tt-band,.tt-hit:focus .tt-band,.tt-hit.tip-on .tt-band{fill-opacity:.055;}
+.tt-hit:focus-visible .tt-band{stroke:var(--accent);stroke-width:1.5;}
+.tt-key{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;font-size:.76rem;color:var(--t2);margin-top:10px;}
+.tt-key span{display:inline-flex;align-items:center;gap:6px;}
+.tt-key svg{width:12px;height:12px;flex:0 0 12px;}
+.tt-sw{display:inline-block;width:22px;height:3px;border-radius:2px;}
+.tt-sw.opp{background:#9a9aa8;opacity:.6;}
+.tt-sw.dot{height:0;border-top:3px dotted currentColor;background:none;}
+.tt-sw.none{width:14px;height:10px;background:rgba(0,0,0,.2);border:1px dashed rgba(255,255,255,.5);}
+.tt-ramp{display:inline-block;width:110px;height:10px;border-radius:3px;background:linear-gradient(90deg,rgb(16,22,38),rgb(255,208,52));border:1px solid var(--border);}
+.tt-ramp.den{background:linear-gradient(90deg,rgba(255,236,110,.25),rgb(255,150,40),rgb(226,36,28));}
+.tt-src{padding:8px 18px 14px;}
+.tt-srow{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(150px,1.5fr) .6fr .6fr .6fr .7fr minmax(190px,1.7fr);gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border);font:600 15px 'Barlow',sans-serif;}
+.tt-shd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--accent);padding-top:8px;padding-bottom:8px;}
+.tt-shd>div:nth-child(n+3):nth-child(-n+6),.tt-srow>.tt-c:nth-child(n+3):nth-child(-n+6){text-align:center;}
+.tt-sname{display:flex;align-items:center;gap:10px;min-width:0;letter-spacing:.02em;}
+.tt-sname i{flex:0 0 15px;height:15px;border-radius:2px;}
+.tt-share{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap;}
+.tt-share b{font-size:17px;min-width:44px;}
+.tt-share span{font-size:.78rem;color:var(--t2);font-weight:400;}
+.tt-bar{flex:1 1 100%;height:5px;background:var(--card);border-radius:3px;overflow:hidden;}
+.tt-bar i{display:block;height:100%;border-radius:3px;}
+.tt-pts{font-size:17px;font-weight:700;}
+.tt-pdc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.8rem;font-weight:400;color:var(--t2);}
+.tt-pdc small{color:var(--t3);}
+.tt-pd{flex:0 0 56px;display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--card);}
+.tt-pd i{background:var(--teal);} .tt-pd u{background:var(--amber);}
+.tt-srow .na{color:var(--t3);font-weight:400;}
+.tt-srow.zero{color:var(--t3);}
+.tt-stot{border-bottom:0;border-top:2px solid #3a3a48;font-weight:800;}
+.tt-zrow,.tt-maprow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px;align-items:start;}
+.tt-pitchbox{max-width:660px;margin:0 auto;}
+.tt-pitch{display:block;width:100%;height:auto;border-radius:10px;}
+.tt-zs{stroke:rgba(255,255,255,.85);stroke-width:.35;fill-opacity:.6;}
+.tt-zs.none{fill:#000;fill-opacity:.16;stroke-dasharray:1.2 1;stroke-opacity:.55;}
+.tt-zone{cursor:pointer;outline:none;}
+.tt-zone:hover .tt-zs,.tt-zone:focus .tt-zs,.tt-zone.tip-on .tt-zs{stroke:#fff;stroke-width:.9;fill-opacity:.74;}
+.tt-zl{pointer-events:none;}
+.tt-zl text{fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.6);stroke-width:.5px;font-family:'Barlow',sans-serif;}
+.tt-zn{font-size:1.9px;font-weight:700;letter-spacing:.12px;fill-opacity:.92;}
+.tt-zt{font-size:1.9px;font-weight:700;letter-spacing:.1px;fill:#ffe9a3 !important;}
+.tt-zv{font-size:4.6px;font-weight:800;}
+.tt-zv.sm{font-size:3.2px;}
+.tt-zv.na{fill-opacity:.6;font-weight:600;}
+.tt-zp{font-size:3.1px;font-weight:600;}
+.tt-zp.sm{font-size:2.5px;}
+.tt-ztabcard{overflow-x:auto;}
+.tt-ztab{width:100%;border-collapse:collapse;font-size:.84rem;font-variant-numeric:tabular-nums;}
+.tt-ztab th,.tt-ztab td{padding:6px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+.tt-ztab thead th{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
+.tt-ztab th:first-child{text-align:left;font-weight:600;}
+.tt-ztab tr.zsub th{padding-left:16px;font-weight:400;color:var(--t2);font-size:.78rem;}
+.tt-ztab tr.zsub td{color:var(--t2);font-size:.78rem;}
+.tt-ztab tr.zero td,.tt-ztab tr.zero th{color:var(--t3);}
+.tt-ztab tr.tot th,.tt-ztab tr.tot td{border-top:2px solid #3a3a48;border-bottom:0;font-weight:800;}
+.tt-ztab td.na{color:var(--t3);} .tt-ztab td.pos{color:var(--green);} .tt-ztab td.neg{color:var(--red);}
+.tt-filters{display:flex;gap:12px 22px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}
+.tt-fg{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.tt-fg .seg{flex-wrap:wrap;}
+.tt-fg .chip{padding:9px 13px;}
+.tt-mk{cursor:pointer;outline:none;}
+.tt-mk *{pointer-events:all;}
+.tt-mk:hover *,.tt-mk:focus *,.tt-mk.tip-on *{stroke:#fff;stroke-width:.9;}
+.tt-ins h3{margin:0 0 8px;font:700 21px 'Barlow',sans-serif;color:var(--accent);}
+.tt-ir{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:.95rem;color:var(--t2);}
+.tt-ir b{font:700 19px 'Barlow',sans-serif;color:var(--t1);font-variant-numeric:tabular-nums;}
+.tt-ir b.na{color:var(--t3);font-weight:400;font-size:16px;}
+.tt-locnote{color:var(--t2);}
+#ttTip{position:fixed;z-index:8000;left:0;top:0;width:max-content;max-width:min(290px,calc(100vw - 16px));background:#0f1016;border:1px solid #3a3a48;border-radius:12px;padding:11px 13px;box-shadow:0 14px 36px rgba(0,0,0,.6);pointer-events:none;font-size:.82rem;color:var(--t2);}
+#ttTip[hidden]{display:none;}
+.tt-ct{font:700 16px 'Barlow',sans-serif;color:var(--t1);}
+.tt-cs{font-size:.74rem;color:var(--t3);margin:2px 0 7px;}
+.tt-cscore{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;white-space:nowrap;}
+.tt-cscore b{font:700 17px 'Barlow',sans-serif;color:var(--t1);}
+.tt-cscore em{margin-left:auto;font:800 16px 'Barlow',sans-serif;font-style:normal;padding-left:10px;}
+.tt-cscore em.W{color:#22c55e;} .tt-cscore em.D{color:#f59223;} .tt-cscore em.L{color:#ef4444;}
+.tt-cwho{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);text-transform:uppercase;margin:6px 0 2px;}
+.tt-cr,.tt-csub{display:flex;justify-content:space-between;gap:18px;padding:2px 0;}
+.tt-cr b,.tt-csub b{color:var(--t1);font-weight:700;font-variant-numeric:tabular-nums;text-align:right;}
+.tt-cr b.na{color:var(--t3);font-weight:400;} .tt-cr b.pos{color:var(--green);} .tt-cr b.neg{color:var(--red);}
+.tt-csub{border-top:1px solid var(--border);margin-top:5px;padding-top:6px;}
+.tt-csub+.tt-csub{border-top:0;margin-top:0;padding-top:2px;}
+.tt-cn,.tt-cna{font-size:.72rem;color:var(--t3);margin-top:6px;line-height:1.4;}
+@media (max-width:1000px){
+  .tt-zrow,.tt-maprow{grid-template-columns:minmax(0,1fr);gap:14px;}
+}
+@media (max-width:760px){
+  .subtabs{gap:2px 22px;padding:0 4px;margin-top:16px;} .subtabs a{font-size:16px;padding-bottom:9px;} .subtabs a.on::after{left:-4px;right:-4px;}
+  .tt-who{font-size:18px;} .tt-side{margin-left:0;justify-content:flex-start;} .tt-side small{text-align:left;}
+  .tt-card{padding:12px 12px;} .tt-src{padding:4px 12px 12px;}
+  .tt-shd{display:none;}
+  .tt-srow{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 6px;padding:12px 0;}
+  .tt-sname{grid-column:1 / -1;font-size:15px;}
+  .tt-srow>.tt-c{text-align:left !important;}
+  .tt-srow>.tt-c::before{content:attr(data-l);display:block;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);text-transform:uppercase;margin-bottom:2px;}
+  .tt-share,.tt-pdc{grid-column:1 / -1;}
+  .tt-share::before,.tt-pdc::before{flex:1 1 100%;}
+  .tt-ztab{font-size:.76rem;} .tt-ztab th,.tt-ztab td{padding:5px 3px;} .tt-ztab .hide-sm{display:none;}
+  .tt-ztab thead th{font-size:9.5px;letter-spacing:.02em;}
+  .tt-filters{gap:10px 14px;} .tt-fg .seg button{padding:10px 10px;} .tt-fg .chip{padding:9px 11px;}
+  .tt-zn,.tt-zt{font-size:2.3px;} .tt-zv.sm{font-size:3.5px;} .tt-zp.sm{font-size:2.8px;}
+  .tt-ir{font-size:.9rem;padding:8px 2px;}
+}
 </style>
 </head>
 <body>
@@ -377,8 +514,8 @@ body.mr-lock{overflow:hidden;}
   <!-- OVERVIEW controls: one team v its opponents -->
   <div class="filters only-team" id="ovCtl">
     <div class="fg"><label for="fTeamO">TEAM</label><select id="fTeamO"></select></div>
-    <div class="fg only-overview"><label>GAMES</label><div class="seg" id="ovBasis"><button type="button" data-basis="5">Last 5</button><button type="button" data-basis="10" class="on">Last 10</button><button type="button" data-basis="all">All</button></div></div>
-    <div class="fg ov-basisnote only-overview"><div class="fnote" id="ovBasisNote"></div></div>
+    <div class="fg only-basis"><label>GAMES</label><div class="seg" id="ovBasis"><button type="button" data-basis="5">Last 5</button><button type="button" data-basis="10" class="on">Last 10</button><button type="button" data-basis="all">All</button></div></div>
+    <div class="fg ov-basisnote only-basis"><div class="fnote" id="ovBasisNote"></div></div>
   </div>
   <details class="gamespick only-data" id="gamesPick"><summary><span class="only-team">Game types · </span>Games included (<span id="gCount">0</span>) — untick any to exclude, change a game's type on the right</summary>
     <div id="ovTypesSlot"></div>
@@ -402,7 +539,20 @@ body.mr-lock{overflow:hidden;}
       <aside class="mr-card" id="mrCard" aria-live="polite"></aside>
     </div>
   </div>
-  <div class="pane" id="pane-team-trends"><div class="soon"><div class="tag">COMING SOON</div><h2>TEAM TRENDS</h2><p>How one team's key numbers move game by game across the season, against its own average.</p></div></div>
+  <div class="pane" id="pane-team-trends">
+    <nav class="subtabs" id="ttTabs" aria-label="Team Trends sections">
+      <a href="#team-trends/attacking" data-sub="attacking">ATTACKING</a>
+      <a href="#team-trends/defending" data-sub="defending">DEFENDING</a>
+      <a href="#team-trends/kickouts" data-sub="kickouts">KICKOUTS</a>
+      <a href="#team-trends/turnover" data-sub="turnover">TURNOVER</a>
+    </nav>
+    <div id="ttStatus" role="status"></div>
+    <div class="ttsub" id="tt-attacking"><div id="ttBody"></div></div>
+    <div class="ttsub" id="tt-defending"><div class="soon"><div class="tag">COMING SOON</div><h2>DEFENDING</h2><p>What the team concedes game by game: shots and scores against, where they come from and how they start.</p></div></div>
+    <div class="ttsub" id="tt-kickouts"><div class="soon"><div class="tag">COMING SOON</div><h2>KICKOUTS</h2><p>Own and opposition kickouts game by game: win rates by length and zone, and what each kickout led to.</p></div></div>
+    <div class="ttsub" id="tt-turnover"><div class="soon"><div class="tag">COMING SOON</div><h2>TURNOVER</h2><p>Turnovers won and lost game by game: where on the pitch, what kind, and what they led to.</p></div></div>
+    <div id="ttTip" role="tooltip" hidden></div>
+  </div>
   <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
   <div class="pane" id="pane-players"><div class="soon"><div class="tag">COMING SOON</div><h2>PLAYERS</h2><p>Player-level shooting, scoring and expected points across the selected games.</p></div></div>
   <div class="pane" id="pane-compare">
@@ -1146,18 +1296,34 @@ function ssEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 // ═══════════════════════════════════════════════════════════════
 // ── tabs: the hash selects the tab (#overview … #compare); pure helper ──
 const AN_TABS=['overview','match-reports','team-trends','momentum','players','compare'];
+// Team Trends has sub-tabs: #team-trends/attacking … (#team-trends alone keeps the last one)
+const TT_SUBS=['attacking','defending','kickouts','turnover'];
 function anTabFromHash(h){
-  const k=String(h||'').replace(/^#/,'').toLowerCase().trim();
+  const k=String(h||'').replace(/^#/,'').toLowerCase().trim().split('/')[0];
   return AN_TABS.includes(k)?k:'overview';
 }
-let TAB='overview';
-function anSetTab(tab){
+function anSubFromHash(h){
+  const m=/^#?team-trends\/([a-z-]+)\s*$/i.exec(String(h||'').trim()), k=m?m[1].toLowerCase():'';
+  return TT_SUBS.includes(k)?k:null;
+}
+let TAB='overview', TT_SUB='attacking';
+// GAMES basis (Last 5 / Last 10 / All): one control, one remembered value per
+// tab — Overview starts on the last 10, Team Trends on the last 5.
+let OV_BASIS='10', TT_BASIS='5';
+function anBasis(){ return TAB==='team-trends'?TT_BASIS:OV_BASIS; }
+function anSyncBasis(){ const v=anBasis(); document.querySelectorAll('#ovBasis button').forEach(x=>{ x.classList.toggle('on', x.dataset.basis===v); x.setAttribute('aria-pressed', x.dataset.basis===v?'true':'false'); }); }
+function anSetBasis(b){ if(TAB==='team-trends') ttSetBasis(b); else ovSetBasis(b); }
+function anSetTab(tab, sub){
   TAB=AN_TABS.includes(tab)?tab:'overview';
-  document.body.dataset.tab=TAB;
+  if(TT_SUBS.includes(sub)) TT_SUB=sub;
+  document.body.dataset.tab=TAB; document.body.dataset.sub=TT_SUB;
   document.querySelectorAll('#tabs a').forEach(a=>{ const on=a.dataset.tab===TAB; a.classList.toggle('on',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  document.querySelectorAll('#ttTabs a').forEach(a=>{ const on=a.dataset.sub===TT_SUB; a.classList.toggle('on',on); if(on) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  anSyncBasis();
+  if(TAB==='team-trends'){ try{ const want='#team-trends/'+TT_SUB; if(typeof history!=='undefined'&&history.replaceState&&location.hash!==want) history.replaceState(null,'',want); }catch(_){ } }
   // the game-type chips live in the Compare mode row; on Overview they sit
   // (collapsed) inside "Games included" — the same element, so state is shared
-  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
+  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
   if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
   if(GAMES_READY){ renderTypeChips(); applyFilters(); }
 }
@@ -1291,7 +1457,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule(); mrSchedule();
+  ovSchedule(); mrSchedule(); ttSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -1723,7 +1889,7 @@ function ovHTML(R){
 }
 
 // ── Overview page wiring ──
-let OV_BASIS='10', OV_TOKEN=0, OV_TIMER=null, OV_LAST=null;
+let OV_TOKEN=0, OV_TIMER=null, OV_LAST=null;
 function ovStore(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); }catch(_){ } return null; }
 function ovFillTeams(teams, games){
   const s=ssEl('fTeamO'); if(!s) return;
@@ -1737,7 +1903,7 @@ function ovFillTeams(teams, games){
 function ovSchedule(){ if(TAB!=='overview'||!GAMES_READY) return; clearTimeout(OV_TIMER); OV_TIMER=setTimeout(ovRun, 40); }
 function ovSetBasis(b){
   OV_BASIS=(b==='5'||b==='all')?b:'10';
-  document.querySelectorAll('#ovBasis button').forEach(x=>x.classList.toggle('on', x.dataset.basis===OV_BASIS));
+  anSyncBasis();
   ovSchedule();
 }
 // polite concurrency: 4 bundles at a time, with a progress callback
@@ -1746,6 +1912,11 @@ async function ovLoad(games, onProgress){
   const worker=async()=>{ while(next<games.length){ const g=games[next++]; await fetchBundle(g.id); done++; if(onProgress) onProgress(done, games.length); } };
   await Promise.all(Array.from({length:Math.min(4, games.length)}, worker));
 }
+// the line beside the GAMES control (list = the team's games newest first, use = the basis slice)
+function ovBasisNoteTxt(T, list, use, basis){
+  return (basis==='all'||use.length===list.length?'All '+use.length:'Last '+use.length+' of '+list.length)+' '+T+' game'+(list.length===1?'':'s')+' in the current filters'
+    +(use.length?' · '+[ovShortDate(use[use.length-1].date), ovShortDate(use[0].date)].filter(Boolean).filter((d,i,a)=>a.indexOf(d)===i).join(' – '):'');
+}
 async function ovRun(){
   if(TAB!=='overview'||!GAMES_READY) return;
   const my=++OV_TOKEN, st=ssEl('ovStatus'), body=ssEl('ovBody'), note=ssEl('ovBasisNote');
@@ -1753,8 +1924,7 @@ async function ovRun(){
   if(!T){ body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, OV_BASIS);
-  note.textContent=(OV_BASIS==='all'||use.length===list.length?'All '+use.length:'Last '+use.length+' of '+list.length)+' '+T+' game'+(list.length===1?'':'s')+' in the current filters'
-    +(use.length?' · '+[ovShortDate(use[use.length-1].date), ovShortDate(use[0].date)].filter(Boolean).filter((d,i,a)=>a.indexOf(d)===i).join(' – '):'');
+  note.textContent=ovBasisNoteTxt(T, list, use, OV_BASIS);
   const need=use.filter(g=>!BUNDLES.has(g.id));
   try{
     if(need.length){
@@ -1768,8 +1938,504 @@ async function ovRun(){
   body.innerHTML=ovHTML(OV_LAST);
 }
 function ovInit(){
-  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); });
-  document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>ovSetBasis(b.dataset.basis)));
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); });
+  document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>anSetBasis(b.dataset.basis)));
+}
+// ═══════════════════════════════════════════════════════════════
+//  TEAM TRENDS — one team game by game. Sub-tabs ATTACKING · DEFENDING ·
+//  KICKOUTS · TURNOVER (#team-trends/<sub>); Attacking is built, the others
+//  are placeholders. Pure helpers first (headlessly tested), then the page
+//  wiring. Scores, sources and xP come from the same cached per-game tallies
+//  as Overview (ssTallyCached); the shot list of a game (ttGameShots) is
+//  cached per bundle too, so the sub-tab, the For / Against switch and the
+//  map filters only re-draw — nothing is refetched or recounted.
+//
+//  SHOTS: every primary shot once (ssIsShot; superseded Gaelic Insights
+//  originals and bare score companions skipped). Attempt type = the 'Shot
+//  Attempts' label only; open play / dead ball = the code (ssShotDead).
+//  FOR = the selected team's shots, AGAINST = its opponents' shots in the
+//  same games.
+//
+//  ZONES: the tracker's nine Shot Zones on the attacking half, goal at the
+//  top — rows: inside the 20m line (1-3), 20m to 45m (4-6), beyond the 45m
+//  (7-9); columns: left / centre / right third. A shot's zone is its 'Shot
+//  Zones' label; a located shot with no label takes the zone of its location
+//  (cohesionXpDetectConv.zoneOf, the mapping the xP convention check uses).
+//  Zones 4 and 6 are cut by the 40m arc, so each shows 1-point attempts
+//  (inside the arc) and 2-point attempts (outside it) separately, by the
+//  shot's attempt label.
+//
+//  LOCATIONS plot exactly as on the dashboard: ttCoordOf is dashCoordOf
+//  (first X-/Y- label pair, rotated Sportscode games un-rotated, clamped),
+//  the pitch is the dashboard's own drawing (locPitchSvg) at the dashboard
+//  map's aspect, and ttGlyph draws dashMapSvg's markers (circle 1pt, diamond
+//  2pt, triangle goal, square dead-ball 1pt; filled = scored; size = xP).
+// ═══════════════════════════════════════════════════════════════
+const TT_VB_H=75, TT_MAP_H=83.2, TT_STR=TT_MAP_H/TT_VB_H;   // = dashMapSvg('shot'): art 100x75, drawn 100x83.2
+function ttZoneOf(xt, yt){
+  const f=(typeof window!=='undefined'&&window.cohesionXpDetectConv&&window.cohesionXpDetectConv.zoneOf)||null;
+  if(f) return f(xt, yt);
+  const band=yt<31?0:yt<70.2?1:2, col=xt<33.3?0:xt<66.7?1:2; return band*3+col+1;
+}
+function ttCoordOf(e, conv){
+  if(e&&e.x!=null&&e.y!=null) return {x:e.x, y:e.y};
+  const L=(e&&e.labels)||{}, keys=Object.keys(L);
+  for(const k of keys){
+    const m=/^x([-_ ].*)$/i.exec(k); if(!m) continue;
+    const yk=keys.find(k2=>/^y/i.test(k2)&&k2.slice(1).toLowerCase()===m[1].toLowerCase());
+    if(!yk) continue;
+    let x=parseFloat(L[k]), y=parseFloat(L[yk]);
+    if(isFinite(x)&&isFinite(y)){
+      if(conv==='sportscode_rot'){ const x0=x; x=100-y; y=100-x0; }
+      return {x:Math.max(0,Math.min(100,x)), y:Math.max(0,Math.min(100,y))};
+    }
+  }
+  return null;
+}
+function ttXpScale(xp){ return xp==null?1:0.6+0.7*Math.sqrt(Math.max(0,Math.min(xp,2.2))); }   // = dashXpScale
+// Every primary shot of a game, both teams, cached per events array + model.
+const TT_SHOT_CACHE=new WeakMap();
+function ttGameShots(meta, events){
+  if(!meta||!Array.isArray(events)) return [];
+  const M=ssXpModel(), c=TT_SHOT_CACHE.get(events);
+  if(c&&c.M===M&&c.n===events.length&&c.H===meta.homeTeam&&c.A===meta.awayTeam) return c.v;
+  const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e);
+  const mode=ssShotMode(events), X=ssXpGame(meta, events), xpOf=new Map();
+  if(X) X.shots.forEach(o=>xpOf.set(o.e, o.xp));
+  let conv=X?X.conv:'tracker';
+  if(!X){ try{ if(typeof window.cohesionXpDetectConv==='function') conv=window.cohesionXpDetectConv(events); }catch(_){ } }
+  const v=[];
+  events.forEach(e=>{
+    if(!e||giSup(e)||giComp(e)||!ssIsShot(e,mode)) return;
+    const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
+    const L=e.labels||{}, out=String(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'').trim(), val=ssScoreVal(out);
+    const att=ssAttType(L['Shot Attempts']||L['Attempt']), co=ttCoordOf(e, conv);
+    const zm=/ZONE\s*(\d+)/i.exec(ssLblCI(e,['Shot Zones']));
+    let zone=null, zoneFrom=null;
+    if(zm&&+zm[1]>=1&&+zm[1]<=9){ zone=+zm[1]; zoneFrom='label'; }
+    else if(co){ zone=ttZoneOf(co.x, co.y); zoneFrom='loc'; }
+    const xp=xpOf.has(e)?xpOf.get(e):null, dead=ssShotDead(e);
+    v.push({e, gid:meta.id, team, player:ssShotPlayer(e), dead, att, v:val, out, x:co?co.x:null, y:co?co.y:null, zone, zoneFrom, xp:xp==null?null:xp,
+      // the dashboard's marker shape (dashMapData)
+      shape:(att==='G'||ssUC(out)==='GOAL')?'tri':(att==='2'||val===2)?'dia':'cir'});
+  });
+  TT_SHOT_CACHE.set(events, {M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, v});
+  return v;
+}
+// per-source table from an aggregate of tallies
+function ttSources(a, n){
+  const tagged=a.srcShotsTagged||0, f=p=>k=>a[p+k]||0;
+  const rows=SS_SRC_CATS.map(c=>({k:c.k, label:c.label, col:c.col, extra:!!c.extra, shots:f('srcH:')(c.k), scores:f('srcS:')(c.k), one:f('src1:')(c.k), two:f('src2:')(c.k), goals:f('srcG:')(c.k),
+      pts:f('srcP:')(c.k), play:f('srcPl:')(c.k), dead:f('srcDb:')(c.k), playPts:f('srcPlP:')(c.k), deadPts:f('srcDbP:')(c.k)}))
+    .filter(r=>!r.extra||r.shots>0).map(r=>Object.assign(r, {pct:tagged>0?r.shots/tagged*100:null, unsplit:r.scores-r.play-r.dead}));
+  const total={shots:0, scores:0, one:0, two:0, goals:0, pts:0, play:0, dead:0, playPts:0, deadPts:0, unsplit:0};
+  rows.forEach(r=>Object.keys(total).forEach(k=>total[k]+=r[k]));
+  return {rows, total, tagged, allShots:a.shots||0, allScores:a.scores||0, allPts:a.pts||0, games:a.srcShotGames||0, n};
+}
+function ttSideStats(t){
+  if(!t) return null;
+  return {shots:t.shots, scores:t.scores, pct:ovPct(t.scores, t.shots), xp:t.xpShots>0?t.xp:null, xpShots:t.xpShots, xpPts:t.xpPts, diff:t.xpShots>0?t.xpPts-t.xp:null};
+}
+// Everything Team Trends › Attacking shows for team T over the basis games.
+function ttCompute(T, games, basis, bundleOf){
+  const list=ovTeamGames(games, T), use=ovBasisGames(list, basis).slice().reverse();   // oldest → newest
+  const rows=use.map(g=>{ const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return {g, O:'', tT:null, tO:null, shots:[]};
+    const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam), O=T===H?A:H;
+    return {g, O, tT:ssTallyCached(b,T), tO:ssTallyCached(b,O), shots:ttGameShots(b.meta, b.events)}; });
+  const used=rows.filter(r=>r.tT&&r.tO), n=used.length;
+  const trend=rows.map(r=>{ const m=ovMatch(r.g, r.tT, r.tO, T);
+    return Object.assign(m, {for:m.data?ttSideStats(r.tT):null, against:m.data?ttSideStats(r.tO):null}); });
+  const gameOf=new Map(trend.map(m=>[m.id, m]));
+  const side=k=>{
+    const mine=r=>r.shots.filter(s=>s.team===(k==='for'?T:r.O));
+    const shots=[].concat.apply([], used.map(mine));
+    const per=used.map(r=>{ const s=mine(r); return {id:r.g.id, shots:s.length, located:s.filter(x=>x.x!=null).length}; });
+    return {shots, per, n, shotGames:per.filter(p=>p.shots>0).length, locGames:per.filter(p=>p.located>0).length,
+      located:shots.filter(s=>s.x!=null).length, unlocatedInLocGames:per.filter(p=>p.located>0).reduce((a,p)=>a+p.shots-p.located,0),
+      src:ttSources(ssAggregate(used.map(r=>k==='for'?r.tT:r.tO)), n)};
+  };
+  const dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return {team:T, basis, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
+    trend, gameOf, for:side('for'), against:side('against')};
+}
+// zone table for a list of shots
+function ttZoneStats(shots){
+  const mk=()=>({shots:0, scores:0, pts:0, xp:0, xpShots:0, xpPts:0});
+  const add=(o,s)=>{ o.shots++; if(s.v>0){ o.scores++; o.pts+=s.v; } if(s.xp!=null){ o.xp+=s.xp; o.xpShots++; o.xpPts+=s.v; } };
+  const fin=o=>Object.assign(o, {pct:ovPct(o.scores,o.shots), pps:o.shots?o.pts/o.shots:null, perShot:o.xpShots?o.xp/o.xpShots:null, diff:o.xpShots?o.xpPts-o.xp:null});
+  const zones=[]; for(let z=1;z<=9;z++) zones.push(Object.assign(mk(), {z, sub:(z===4||z===6)?{'1':mk(), '2':mk(), other:0}:null}));
+  const total=mk(); let unzoned=0, fromLabel=0, fromLoc=0;
+  (shots||[]).forEach(s=>{
+    if(!s.zone){ unzoned++; return; }
+    if(s.zoneFrom==='label') fromLabel++; else fromLoc++;
+    const Z=zones[s.zone-1]; add(Z,s); add(total,s);
+    if(Z.sub){ if(s.att==='1'||s.att==='2') add(Z.sub[s.att], s); else Z.sub.other++; }
+  });
+  zones.forEach(Z=>{ fin(Z); if(Z.sub){ fin(Z.sub['1']); fin(Z.sub['2']); } });
+  return {zones, total:fin(total), zoned:total.shots, unzoned, fromLabel, fromLoc};
+}
+// shot-map filters. F = {view:'loc'|'den', play:'both'|'open'|'dead', chips:Set of 'scored','missed','1','2','G'}
+const TT_CHIPS=[['scored','Scored'],['missed','Missed'],['1','1-point'],['2','2-point'],['G','Goal']];
+function ttPass(s, F){
+  if(F.play==='open'&&s.dead) return false;
+  if(F.play==='dead'&&!s.dead) return false;
+  const ch=F.chips;
+  if(!ch.has(s.v>0?'scored':'missed')) return false;
+  if(ch.has('1')&&ch.has('2')&&ch.has('G')) return true;      // every type on = no type filter (untyped shots stay)
+  return !!s.att&&ch.has(s.att);
+}
+function ttMapShots(shots, F){ return (shots||[]).filter(s=>s.x!=null&&ttPass(s,F)); }
+// KEY INSIGHTS. Type conversions as on Compare: a 1-point attempt scores with
+// a point, a 2-point attempt with a 2-pointer, a goal attempt with a goal.
+function ttInsights(shots){
+  const o={attempts:0, scored:0, a1:0, s1:0, a2:0, s2:0, ag:0, sg:0, untyped:0};
+  (shots||[]).forEach(s=>{ o.attempts++; if(s.v>0) o.scored++;
+    if(s.att==='1'){ o.a1++; if(s.v===1) o.s1++; } else if(s.att==='2'){ o.a2++; if(s.v===2) o.s2++; } else if(s.att==='G'){ o.ag++; if(s.v===3) o.sg++; } else o.untyped++; });
+  return Object.assign(o, {pct:ovPct(o.scored,o.attempts), p1:ovPct(o.s1,o.a1), p2:ovPct(o.s2,o.a2), pg:ovPct(o.sg,o.ag)});
+}
+function ttLocNote(S){
+  const n=S.n, k=S.locGames, m=n-k;
+  if(!n) return 'No games.';
+  if(!k) return 'No shot locations tagged in '+(n===1?'this game':'these '+n+' games')+'.';
+  return 'Shot locations from '+(m?k+' of '+n:'all '+n)+' game'+(n===1?'':'s')+(m?' — '+m+' game'+(m===1?' has':'s have')+' no locations tagged':'')
+    +(S.unlocatedInLocGames?' · '+S.unlocatedInLocGames+' shot'+(S.unlocatedInLocGames===1?'':'s')+' in those games had no location':'')+'.';
+}
+// shot density on the drawn map (100 x 83.2): a Gaussian kernel summed on a grid
+function ttDensity(shots, cell, sigma){
+  cell=cell||2; sigma=sigma||4.2;
+  const nx=Math.ceil(100/cell), ny=Math.ceil(TT_MAP_H/cell), g=new Float64Array(nx*ny), R=Math.ceil(3*sigma/cell);
+  (shots||[]).forEach(s=>{ const px=s.x, py=s.y*TT_MAP_H/100, ci=Math.floor(px/cell), cj=Math.floor(py/cell);
+    for(let j=Math.max(0,cj-R);j<=Math.min(ny-1,cj+R);j++) for(let i=Math.max(0,ci-R);i<=Math.min(nx-1,ci+R);i++){
+      const dx=(i+.5)*cell-px, dy=(j+.5)*cell-py; g[j*nx+i]+=Math.exp(-(dx*dx+dy*dy)/(2*sigma*sigma)); } });
+  let max=0; for(let i=0;i<g.length;i++) if(g[i]>max) max=g[i];
+  return {nx, ny, cell, g, max};
+}
+function ttView(R, side, F){
+  const S=R[side==='against'?'against':'for'], mapShots=ttMapShots(S.shots, F).slice().sort((p,q)=>(q.xp||0)-(p.xp||0));
+  return {side:side==='against'?'against':'for', S, zones:ttZoneStats(S.shots), mapShots, insights:ttInsights(mapShots), locNote:ttLocNote(S)};
+}
+
+// ── rendering (strings only; every interpolated value is escaped) ──
+function ttPctTxt(v){ return v==null?'n/a':Math.round(v)+'%'; }
+function ttF1(v){ return v==null?'n/a':v.toFixed(1); }
+function ttSideName(T, side, opp){ return side==='against'?(opp?opp:'Opposition'):T; }
+function ttNice(max){ const m=Math.max(4, max), step=m<=10?2:m<=20?4:m<=30?5:m<=60?10:20; return {top:Math.ceil((m+0.5)/step)*step, step}; }
+// i. scoring trend: inline SVG drawn at W css px (the page passes the container width)
+function ttTrendSVG(trend, W, o){
+  o=o||{}; W=Math.max(280, Math.round(W||760));
+  const small=W<560, H=small?250:320, mL=34, mR=12, mT=26, mB=small?44:48, pw=W-mL-mR, ph=H-mT-mB, n=trend.length;
+  if(!n) return '';
+  const xp=m=>m.data&&m.for&&m.for.xp!=null?m.for.xp:null;
+  let hi=0; trend.forEach(m=>{ if(m.data) hi=Math.max(hi, m.team.t, m.opposition.t, xp(m)||0); });
+  const ax=ttNice(hi), band=pw/n, X=i=>mL+(i+.5)*band, Y=v=>mT+ph-(v/ax.top)*ph, col=o.col||'#4fc3f7';
+  const path=get=>{ let d='', pen=false; trend.forEach((m,i)=>{ const v=get(m); if(v==null){ pen=false; return; } d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); pen=true; }); return d; };
+  let h=`<svg class="tt-trend" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="Scoring trend, oldest game on the left">`;
+  for(let v=0; v<=ax.top; v+=ax.step) h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tt-ax" x="${mL-7}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${v}</text>`;
+  h+=`<text class="tt-ax tt-axt" x="${mL-7}" y="${mT-13}" text-anchor="end">PTS</text>`;
+  h+=`<path class="tt-l-opp" d="${path(m=>m.data?m.opposition.t:null)}"/><path class="tt-l-xp" stroke="${col}" d="${path(xp)}"/><path class="tt-l-team" stroke="${col}" d="${path(m=>m.data?m.team.t:null)}"/>`;
+  const every=Math.max(1, Math.ceil((small?46:58)/band)), chars=Math.max(3, Math.floor(band*every/(small?6.4:7.2)));
+  trend.forEach((m,i)=>{
+    const x=X(i), lab='vs '+m.opp+(m.data?', '+ovScoreTxt(m.team)+' v '+ovScoreTxt(m.opposition):', score not available');
+    h+=`<g class="tt-hit" data-tip="trend:${i}" tabindex="0" role="img" aria-label="${ssEsc(lab)}"><rect class="tt-band" x="${(x-band/2).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}"/>`;
+    if(m.data){ const xv=xp(m);
+      h+=`<circle class="tt-d-opp" cx="${x.toFixed(1)}" cy="${Y(m.opposition.t).toFixed(1)}" r="4"/>`
+        +(xv==null?'':`<circle class="tt-d-xp" cx="${x.toFixed(1)}" cy="${Y(xv).toFixed(1)}" r="3.5" stroke="${col}"/>`)
+        +`<circle class="tt-d-team" cx="${x.toFixed(1)}" cy="${Y(m.team.t).toFixed(1)}" r="5.5" fill="${col}"/>`;
+    } else h+=`<text class="tt-ax tt-na" x="${x.toFixed(1)}" y="${(mT+ph/2).toFixed(1)}" text-anchor="middle">n/a</text>`;
+    h+='</g>';
+    if(i%every===(n-1)%every){ const nm=m.opp.length>chars?m.opp.slice(0,Math.max(2,chars-1)).trim()+'…':m.opp, d=ssIsoDate(m.date);
+      h+=`<text class="tt-ax tt-xl" x="${x.toFixed(1)}" y="${H-mB+18}" text-anchor="middle">${ssEsc(nm)}</text>`
+        +`<text class="tt-ax" x="${x.toFixed(1)}" y="${H-mB+33}" text-anchor="middle">${d?ssEsc((+d.slice(8,10))+' '+OV_MONTHS[+d.slice(5,7)-1].slice(0,3)):''}</text>`; }
+  });
+  return h+'</svg>';
+}
+function ttTrendCardHTML(m, side, T){
+  if(!m) return '';
+  const sub=[m.competition, m.round].filter(Boolean).join(' · ');
+  let h=`<div class="tt-ct">vs ${ssEsc(m.opp)}</div><div class="tt-cs">${ssEsc([sub, ovFmtDate(m.date)||'date n/a'].filter(Boolean).join(' · '))}</div>`;
+  if(!m.data) return h+'<div class="tt-cna">Score n/a — this game has no shot data.</div>';
+  h+=`<div class="tt-cscore"><b>${ssEsc(ovScoreTxt(m.team))}</b><span>v ${ssEsc(ovScoreTxt(m.opposition))}</span><em class="${m.res}">${m.res}</em></div>`;
+  const s=m[side==='against'?'against':'for'], row=(l,v,c)=>`<div class="tt-cr"><span>${l}</span><b${c?' class="'+c+'"':''}>${ssEsc(v)}</b></div>`;
+  h+=`<div class="tt-cwho">${ssEsc(ttSideName(T, side, m.opp))} ${side==='against'?'(against)':''}</div>`
+    +row('Shots', String(s.shots))+row('Scores', String(s.scores))+row('Shooting %', ttPctTxt(s.pct))
+    +row('xP', s.xp==null?'n/a':s.xp.toFixed(1), s.xp==null?'na':'')
+    +(s.xp==null?'':row('Points − xP', mrSigned(s.diff), s.diff>=0.05?'pos':s.diff<=-0.05?'neg':''));
+  if(s.xp==null) h+='<div class="tt-cn">No located shots with an attempt type, so no xP.</div>';
+  else if(s.xpShots<s.shots) h+=`<div class="tt-cn">xP from ${s.xpShots} of ${s.shots} shots (${s.xpPts} pts from those).</div>`;
+  return h;
+}
+// ii. where attacks started
+function ttSourceHTML(src, who){
+  if(!(src.tagged>0)) return `<div class="tt-card tt-empty">n/a — no shot-source tags for ${ssEsc(who)} in ${src.n===1?'this game':'these '+src.n+' games'}.</div>`;
+  const pd=r=>!r.scores?'<span class="na">–</span>'
+    :`<span class="tt-pd" aria-hidden="true"><i style="flex:${r.play}"></i><u style="flex:${r.dead}"></u></span><span>${r.play} play · ${r.dead} dead ball${r.unsplit?' <small>('+r.unsplit+' not matched)</small>':''}</span>`;
+  const z=v=>v?String(v):'<span class="na">0</span>';
+  const line=(r, cls, name, share)=>`<div class="tt-srow${cls}" role="row"><div class="tt-sname" role="cell">${name}</div>`
+    +`<div class="tt-c tt-share" role="cell" data-l="Share of shots">${share}</div>`
+    +`<div class="tt-c" role="cell" data-l="1-pointers">${z(r.one)}</div><div class="tt-c" role="cell" data-l="2-pointers">${z(r.two)}</div><div class="tt-c" role="cell" data-l="Goals">${z(r.goals)}</div>`
+    +`<div class="tt-c tt-pts" role="cell" data-l="Points">${r.pts}</div><div class="tt-c tt-pdc" role="cell" data-l="Play v dead ball (scores)">${pd(r)}</div></div>`;
+  let h='<div class="tt-card tt-src" role="table" aria-label="Where attacks started">'
+    +'<div class="tt-srow tt-shd" role="row"><div role="columnheader">SOURCE</div><div role="columnheader">SHARE OF SHOTS</div><div role="columnheader">1-PT</div><div role="columnheader">2-PT</div><div role="columnheader">GOALS</div><div role="columnheader">POINTS</div><div role="columnheader">PLAY v DEAD BALL</div></div>';
+  src.rows.forEach(r=>{ h+=line(r, r.shots?'':' zero', `<i style="background:${r.col}"></i><span>${ssEsc(r.label)}</span>`,
+    `<b>${ttPctTxt(r.pct)}</b><span>${r.shots} shot${r.shots===1?'':'s'}</span><span class="tt-bar" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${r.col}"></i></span>`); });
+  h+=line(src.total, ' tt-stot', '<span>TOTAL</span>', `<b>100%</b><span>${src.total.shots} shot${src.total.shots===1?'':'s'}</span>`);
+  return h+`<div class="dnote">${ssEsc('Share of the '+src.tagged+' shots with a source tag ('+src.allShots+' shots in all) · '+ovFromNote(src.games, src.n)+'. Scores and points are the tagged scores from each source ('+src.total.pts+' of '+src.allPts+' pts); Play v Dead Ball says whether the scoring shot was from open play or a dead ball (free, 45, mark, penalty, sideline).')}</div></div>`;
+}
+// the dashboard's shot pitch (art in a 100 x 75 box); a plain outline if the shared graphics are not loaded
+let TT_PITCH=null;
+function ttPitchArt(){
+  if(TT_PITCH!=null) return TT_PITCH;
+  let s='';
+  try{ if(typeof cohesionGraphics==='function') s=String(cohesionGraphics({game:{}, events:[]}).locPitchSvg('shot')).replace(/^<svg[^>]*>/,'').replace('<g id="mapMarks"></g></svg>',''); }catch(_){ s=''; }
+  if(!s||/<\/svg>/.test(s)) s='<rect x="1.2" y="1.2" width="97.6" height="72.6" fill="#2e7a24" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>';
+  return TT_PITCH=s;
+}
+function ttPitchOpen(cls, label){ return `<svg class="tt-pitch ${cls}" viewBox="0 0 100 ${TT_MAP_H}" role="group" aria-label="${ssEsc(label)}"><rect x="0" y="0" width="100" height="${TT_MAP_H}" fill="#256e17"/><g transform="scale(1,${TT_STR.toFixed(4)})">${ttPitchArt()}`; }
+// iii. zones — geometry in the pitch art's own units, on its drawn lines:
+// touchlines 1.2 / 98.8, end line 1.2, 20m line 22.9, 45m line 52, thirds at
+// 33.3 / 66.7 (where a shot's X is plotted), and the drawn 40m arc.
+const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=52, y3=73.8, rx=46.4, ry=46.2, ax0=8.4, ax1=91.2, cx=(ax0+ax1)/2;
+  const cy=y1-ry*Math.sqrt(1-Math.pow((cx-ax0)/rx,2)), yAt=x=>cy+ry*Math.sqrt(1-Math.pow((x-cx)/rx,2));
+  const ya=+yAt(x1).toFixed(2), yb=+yAt(x2).toFixed(2), A=`A${rx} ${ry} 0 0 `;
+  const rect=(a,b,c,d)=>`M${a} ${b}H${c}V${d}H${a}Z`;
+  return {cols:[x0,x1,x2,x3], rows:[y0,y1,y2,y3],
+    shape:{1:rect(x0,y0,x1,y1), 2:rect(x1,y0,x2,y1), 3:rect(x2,y0,x3,y1), 5:rect(x1,y1,x2,y2), 7:rect(x0,y2,x1,y3), 8:rect(x1,y2,x2,y3), 9:rect(x2,y2,x3,y3),
+      '4:1':`M${ax0} ${y1}H${x1}V${ya}${A}1 ${ax0} ${y1}Z`, '4:2':`M${x0} ${y1}H${ax0}${A}0 ${x1} ${ya}V${y2}H${x0}Z`,
+      '6:1':`M${x2} ${y1}H${ax1}${A}1 ${x2} ${yb}Z`, '6:2':`M${x3} ${y1}H${ax1}${A}1 ${x2} ${yb}V${y2}H${x3}Z`},
+    // label anchors (art units): zone name, and the centre of each block
+    name:{1:[2.4,4.4], 2:[34.5,4.4], 3:[67.9,4.4], 4:[2.4,26.1], 5:[34.5,26.1], 6:[97.6,26.1], 7:[2.4,55.2], 8:[34.5,55.2], 9:[67.9,55.2]},
+    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], 5:[50,39], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
+})();
+const TT_ROWS=['inside the 20m line','between the 20m and 45m lines','beyond the 45m line'], TT_COLS=['left','centre','right'];
+function ttZoneWhere(z){ return TT_COLS[(z-1)%3]+', '+TT_ROWS[Math.floor((z-1)/3)]; }
+// colour by % scored: dark (0%) → gold (100%)
+function ttHeat(p){ const t=Math.max(0,Math.min(1,(p||0)/100)), a=[16,22,38], b=[255,208,52]; return 'rgb('+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')+')'; }
+function ttZoneSVG(Zs){
+  const Y=v=>(v*TT_STR).toFixed(2);
+  const block=(o,key)=>`<path class="tt-zs${o.shots?'':' none'}" d="${TT_ZG.shape[key]}"${o.shots?' fill="'+ttHeat(o.pct)+'"':''}/>`;
+  let shapes='', labels='';
+  Zs.zones.forEach(Z=>{
+    const nm=TT_ZG.name[Z.z], lab='Zone '+Z.z+', '+ttZoneWhere(Z.z)+': '+(Z.shots?Z.scores+' scored from '+Z.shots+' shots, '+ttPctTxt(Z.pct):'no shots');
+    shapes+=`<g class="tt-zone" data-tip="zone:${Z.z}" tabindex="0" role="img" aria-label="${ssEsc(lab)}">`+(Z.sub?block(Z.sub['1'],Z.z+':1')+block(Z.sub['2'],Z.z+':2'):block(Z,String(Z.z)))+'</g>';
+    labels+=`<text class="tt-zn" x="${nm[0]}" y="${Y(nm[1])}"${Z.z===6?' text-anchor="end"':''}>ZONE ${Z.z}</text>`;
+    const txt=(o,key,tag)=>{ const m=TT_ZG.mid[key], big=!tag;
+      return (tag?`<text class="tt-zt" x="${m[0]}" y="${Y(m[1]-3.1)}" text-anchor="middle">${tag}</text>`:'')
+        +`<text class="${big?'tt-zv':'tt-zv sm'}${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1]+(big?0:.3))}" text-anchor="middle">${o.shots?o.scores+'/'+o.shots:'–'}</text>`
+        +(o.shots?`<text class="${big?'tt-zp':'tt-zp sm'}" x="${m[0]}" y="${Y(m[1]+(big?4.1:3.2))}" text-anchor="middle">${ttPctTxt(o.pct)}</text>`:''); };
+    labels+=Z.sub?txt(Z.sub['1'],Z.z+':1','1-PT')+txt(Z.sub['2'],Z.z+':2','2-PT'):txt(Z,String(Z.z),'');
+  });
+  return ttPitchOpen('tt-zones','Shooting zones, goal at the top')+shapes+'</g><g class="tt-zl" aria-hidden="true">'+labels+'</g></svg>';
+}
+function ttZoneCardHTML(Z){
+  if(!Z) return '';
+  const row=(l,v,c)=>`<div class="tt-cr"><span>${l}</span><b${c?' class="'+c+'"':''}>${ssEsc(v)}</b></div>`;
+  const dc=d=>d==null?'na':d>=0.05?'pos':d<=-0.05?'neg':'';
+  let h=`<div class="tt-ct">ZONE ${Z.z}</div><div class="tt-cs">${ssEsc(ttZoneWhere(Z.z))}</div>`;
+  if(!Z.shots) return h+'<div class="tt-cna">No shots from this zone.</div>';
+  h+=row('Shots', String(Z.shots))+row('Scores', String(Z.scores))+row('% return', ttPctTxt(Z.pct))+row('Points', String(Z.pts))
+    +row('xP total', Z.xpShots?Z.xp.toFixed(1):'n/a', Z.xpShots?'':'na')+row('xP per shot', Z.perShot==null?'n/a':Z.perShot.toFixed(2), Z.perShot==null?'na':'')
+    +row('Points − xP', Z.diff==null?'n/a':mrSigned(Z.diff), dc(Z.diff));
+  if(Z.xpShots&&Z.xpShots<Z.shots) h+=`<div class="tt-cn">xP from ${Z.xpShots} of ${Z.shots} shots (${Z.xpPts} pts from those).</div>`;
+  if(Z.sub){ const s=(l,o)=>`<div class="tt-csub"><span>${l}</span><b>${o.shots?o.scores+'/'+o.shots+' · '+ttPctTxt(o.pct)+' · '+o.pts+' pts'+(o.xpShots?' · xP '+o.xp.toFixed(1):''):'none'}</b></div>`;
+    h+=s('1-pt attempts', Z.sub['1'])+s('2-pt attempts', Z.sub['2'])+(Z.sub.other?`<div class="tt-cn">${Z.sub.other} other shot${Z.sub.other===1?'':'s'} (goal attempt or no attempt type) count in the zone only.</div>`:''); }
+  return h;
+}
+function ttZoneTableHTML(Zs){
+  const dc=d=>d==null?'na':d>=0.05?'pos':d<=-0.05?'neg':'';
+  const tr=(name,o,cls)=>`<tr class="${cls||''}${o.shots?'':' zero'}"><th scope="row">${name}</th><td>${o.shots}</td><td>${o.scores}</td><td>${o.shots?ttPctTxt(o.pct):'–'}</td><td>${o.pts}</td>`
+    +`<td class="${o.xpShots?'':'na'}">${o.xpShots?o.xp.toFixed(1):(o.shots?'n/a':'–')}</td><td class="hide-sm ${o.perShot==null?'na':''}">${o.perShot==null?(o.shots?'n/a':'–'):o.perShot.toFixed(2)}</td><td class="${dc(o.diff)}">${o.diff==null?(o.shots?'n/a':'–'):mrSigned(o.diff)}</td></tr>`;
+  let h='<table class="tt-ztab"><thead><tr><th scope="col">ZONE</th><th scope="col">SHOTS</th><th scope="col">SCORES</th><th scope="col">%</th><th scope="col">PTS</th><th scope="col">xP</th><th scope="col" class="hide-sm">xP / SHOT</th><th scope="col">PTS − xP</th></tr></thead><tbody>';
+  Zs.zones.forEach(Z=>{ h+=tr('Zone '+Z.z, Z); if(Z.sub) h+=tr('1-pt attempts', Z.sub['1'], 'zsub')+tr('2-pt attempts', Z.sub['2'], 'zsub'); });
+  return h+tr('All zones', Zs.total, 'tot')+'</tbody></table>';
+}
+// iv. shot locations
+function ttGlyph(m, c){   // = the marker strings of dashMapSvg('shot'); m.y is in drawn units
+  const x=m.x, y=m.y, fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
+  const k=ttXpScale(m.xp), f=v=>(v*k).toFixed(3);
+  if(m.shape==='tri') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y+(+f(1.35))} L ${x-f(1.7)} ${y+(+f(1.35))} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  if(m.shape==='dia') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y} L ${x} ${y+(+f(1.85))} L ${x-f(1.7)} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  if(m.db) return `<rect x="${x-f(1.3)}" y="${y-f(1.3)}" width="${f(2.6)}" height="${f(2.6)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${f(1.4)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+}
+function ttShotMark(s){ return {x:s.x, y:s.y*(TT_MAP_H/100), scored:s.v>0, shape:s.shape, db:s.dead, xp:s.xp}; }
+function ttDensityColour(t){ const st=[[255,236,110],[255,150,40],[226,36,28]], u=Math.max(0,Math.min(1,t))*2, i=Math.min(1,Math.floor(u)), f=u-i;
+  return 'rgb('+st[i].map((v,k)=>Math.round(v+(st[i+1][k]-v)*f)).join(',')+')'; }
+function ttMapSVG(shots, F, col){
+  let h=ttPitchOpen('tt-locs', F.view==='den'?'Shot density, goal at the top':'Shot locations, goal at the top')+'</g>';
+  if(F.view==='den'){
+    const D=ttDensity(shots);
+    h+='<defs><filter id="ttBlur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.1"/></filter></defs><g class="tt-den" filter="url(#ttBlur)">';
+    if(D.max>0) for(let j=0;j<D.ny;j++) for(let i=0;i<D.nx;i++){ const t=D.g[j*D.nx+i]/D.max; if(t<0.06) continue;
+      h+=`<rect x="${i*D.cell}" y="${(j*D.cell).toFixed(1)}" width="${D.cell}" height="${D.cell}" fill="${ttDensityColour(t)}" fill-opacity="${Math.min(.9,.18+.8*Math.pow(t,.7)).toFixed(2)}"/>`; }
+    return h+'</g></svg>';
+  }
+  return h+'<g class="tt-marks">'+shots.map((s,i)=>`<g class="tt-mk" data-tip="shot:${i}" tabindex="0" role="img" aria-label="${ssEsc((s.player||'Player not tagged')+', '+(s.out||'no outcome'))}">${ttGlyph(ttShotMark(s), col)}</g>`).join('')+'</g></svg>';
+}
+function ttAttTxt(s){ return (s.att==='1'?'1-point attempt':s.att==='2'?'2-point attempt':s.att==='G'?'Goal attempt':'Attempt type not tagged')+' · '+(s.dead?'dead ball':'open play'); }
+function ttShotCardHTML(s, gameOf){
+  if(!s) return '';
+  const m=gameOf&&gameOf.get(s.gid);
+  return `<div class="tt-ct">${ssEsc(s.player||'Player not tagged')}</div>`
+    +`<div class="tt-cs">${m?ssEsc('vs '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):''}</div>`
+    +`<div class="tt-cr"><span>Outcome</span><b>${ssEsc(s.out||'n/a')}</b></div><div class="tt-cr"><span>xP</span><b class="${s.xp==null?'na':''}">${s.xp==null?'n/a':s.xp.toFixed(2)}</b></div>`
+    +`<div class="tt-cn">${ssEsc(ttAttTxt(s)+(s.zone?' · Zone '+s.zone:''))}</div>`;
+}
+function ttInsightsHTML(I, nUn){
+  const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`;
+  return '<h3>KEY INSIGHTS</h3>'
+    +r('Attempts', I.attempts)+r('Scored', I.scored)+r('Overall Conversion', ttPctTxt(I.pct), I.pct==null)
+    +r('1-point attempts', I.a1)+r('1-point scoring %', ttPctTxt(I.p1), I.p1==null)
+    +r('2-point attempts', I.a2)+r('2-point scoring %', ttPctTxt(I.p2), I.p2==null)
+    +r('Goal attempts', I.ag)+r('Goal scoring %', ttPctTxt(I.pg), I.pg==null)
+    +`<div class="dnote">${ssEsc('Counts the shots shown on the map (located shots that pass the filters).'+(I.untyped?' '+I.untyped+' of them '+(I.untyped===1?'has':'have')+' no attempt type.':'')+(nUn?' '+nUn+' shot'+(nUn===1?'':'s')+' with no location '+(nUn===1?'is':'are')+' not on the map.':''))}</div>`;
+}
+function ttFiltersHTML(F){
+  const b=(f,v,l,on)=>`<button type="button" data-f="${f}" data-v="${v}" class="${on?'on':''}" aria-pressed="${on?'true':'false'}">${l}</button>`;
+  return '<div class="tt-filters">'
+    +`<div class="tt-fg"><span>VIEW</span><div class="seg" role="group" aria-label="Map view">${b('view','loc','Locations',F.view!=='den')}${b('view','den','Density',F.view==='den')}</div></div>`
+    +`<div class="tt-fg"><span>PLAY</span><div class="seg" role="group" aria-label="Open play or dead ball">${b('play','open','Open Play',F.play==='open')}${b('play','dead','Dead Ball',F.play==='dead')}${b('play','both','Both',F.play!=='open'&&F.play!=='dead')}</div></div>`
+    +`<div class="tt-fg"><span>SHOW</span><div class="chips" role="group" aria-label="Outcome and attempt type">${TT_CHIPS.map(([k,l])=>`<button type="button" class="chip${F.chips.has(k)?' on':''}" data-chip="${k}" aria-pressed="${F.chips.has(k)?'true':'false'}">${l}</button>`).join('')}</div></div>`
+    +'</div>';
+}
+function ttMapSectionHTML(V, F, o){
+  const S=V.S, gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, c=o.col;
+  const key=F.view==='den'
+    ?`<div class="tt-key"><span>Fewer shots</span><i class="tt-ramp den"></i><span>More shots</span></div>`
+    :`<div class="tt-key">${gl(`<circle cx="5" cy="5" r="3.2" fill="${c}"/>`,'1-pt')}${gl(`<path d="M5 1L9 5L5 9L1 5Z" fill="${c}"/>`,'2-pt')}${gl(`<path d="M5 1L9 8.2L1 8.2Z" fill="${c}"/>`,'Goal attempt')}${gl(`<rect x="2" y="2" width="6" height="6" fill="${c}"/>`,'Dead-ball 1-pt')}`
+      +`${gl(`<circle cx="5" cy="5" r="3.2" fill="${c}"/>`,'Scored')}${gl(`<circle cx="5" cy="5" r="2.8" fill="none" stroke="${c}" stroke-width="1.6"/>`,'Missed')}<span>Bigger marker = higher xP</span></div>`;
+  return ttFiltersHTML(F)+'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
+    +(S.located?`<div class="tt-pitchbox">${ttMapSVG(V.mapShots, F, c)}</div>${key}`:'<div class="tt-empty">n/a — no shot locations to plot.</div>')
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote)}</div></div>`
+    +`<aside class="tt-card tt-ins" aria-live="polite">${ttInsightsHTML(V.insights, S.shots.length-S.located)}</aside></div>`;
+}
+function ttHTML(R, V, o){
+  o=o||{}; const T=R.team, F=o.F, n=R.n, ag=V.side==='against', who=ag?'the opposition':T, tcol=o.col||'#4fc3f7', col=o.mapCol||'#ffffff';
+  if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  const tag=`<em>${ag?'AGAINST':'FOR'}</em>`;
+  let h='<div class="tt-top"><div class="tt-who">'+ssEsc(T)+`<small>${ssEsc((R.basis==='all'?'All ':'Last ')+R.nBasis+' game'+(R.nBasis===1?'':'s')+(R.missing?' ('+R.missing+' not loaded)':'')+', oldest to newest')}</small></div>`
+    +`<div class="tt-side"><span>SHOTS</span><div class="seg" role="group" aria-label="Shots for or against"><button type="button" data-side="for" class="${ag?'':'on'}" aria-pressed="${ag?'false':'true'}">For</button><button type="button" data-side="against" class="${ag?'on':''}" aria-pressed="${ag?'true':'false'}">Against</button></div>`
+    +`<small>${ssEsc('For = '+T+'’s shots · Against = opponents’ shots in the same games')}</small></div></div>`;
+  // i. trend
+  const anyXp=R.trend.some(m=>m.data&&m.for&&m.for.xp!=null), nData=R.trend.filter(m=>m.data).length;
+  h+='<h2 class="ov-h">SCORING TREND</h2><div class="tt-card"><div class="tt-chart">'+ttTrendSVG(R.trend, o.W, {col:tcol})+'</div>'
+    +`<div class="tt-key"><span><i class="tt-sw" style="background:${tcol}"></i>${ssEsc(T)} points</span><span><i class="tt-sw opp"></i>Opposition points</span><span><i class="tt-sw dot" style="color:${tcol}"></i>${ssEsc(T)} xP</span></div>`
+    +`<div class="dnote">${ssEsc('Total points per game (goal = 3). '+(nData<R.trend.length?(R.trend.length-nData)+' game'+(R.trend.length-nData===1?' has':'s have')+' no shot data (n/a). ':'')+(anyXp?'xP is drawn only for games with located shots. ':'No xP: no located shots in these games. ')+'Hover, focus or tap a game for its detail.')}</div></div>`;
+  // ii. sources
+  h+=`<h2 class="ov-h">WHERE ATTACKS STARTED ${tag}</h2>`+ttSourceHTML(V.S.src, who);
+  // iii. zones
+  const Zs=V.zones;
+  h+=`<h2 class="ov-h">SHOOTING ZONES ${tag}</h2><div class="tt-zrow"><div class="tt-card tt-mapcard">`
+    +(Zs.zoned?`<div class="tt-pitchbox">${ttZoneSVG(Zs)}</div><div class="tt-key"><span>0% scored</span><i class="tt-ramp"></i><span>100%</span><span><i class="tt-sw none"></i>no shots</span></div>`:'<div class="tt-empty">n/a — no shot zones or locations in these games.</div>')
+    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4 and 6 are split on the 40m arc: 1-point attempts inside it, 2-point attempts outside. '+Zs.zoned+' of '+V.S.shots.length+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
+    +`<div class="tt-card tt-ztabcard">${ttZoneTableHTML(Zs)}<div class="dnote">xP covers shots with a location and an attempt type; Points − xP compares the points from those shots with their xP.</div></div></div>`;
+  // iv. locations
+  h+=`<h2 class="ov-h">SHOT LOCATIONS ${tag}</h2><div id="ttMapSec">`+ttMapSectionHTML(V, F, {col})+'</div>';
+  h+=`<div class="foot">Team Trends covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. Each shot counts once. Attempt type is the tagged Shot Attempts label; open play / dead ball is the shot's code. “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+
+// ── Team Trends page wiring ──
+let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null;
+const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
+function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
+function ttSetBasis(b){ TT_BASIS=(b==='10'||b==='all')?b:'5'; anSyncBasis(); ttSchedule(); }
+async function ttRun(){
+  if(TAB!=='team-trends'||!GAMES_READY) return;
+  const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
+  const T=ssEl('fTeamO').value, pool=selectedGames();
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  ovStore('cohesion_analysis_team', T);
+  const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
+  note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
+  if(TT_SUB!=='attacking') return;                 // placeholders: nothing to load
+  const need=use.filter(g=>!BUNDLES.has(g.id));
+  try{
+    if(need.length){
+      st.textContent='Loading match events… 0/'+need.length;
+      await ovLoad(need, (d,n)=>{ if(my===TT_TOKEN) st.textContent='Loading match events… '+d+'/'+n; });
+    }
+  }catch(e){ if(my===TT_TOKEN) st.textContent='Could not load games: '+e.message; return; }
+  if(my!==TT_TOKEN) return;   // a newer team / basis / filter superseded this run
+  st.textContent='';
+  const key=T+'|'+TT_BASIS+'|'+use.map(g=>g.id).join(',');
+  if(key!==TT_KEY||!TT_LAST){ TT_LAST=ttCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TT_KEY=key; }
+  ttRender();
+}
+function ttWidth(){ const b=ssEl('ttBody'), w=b&&b.clientWidth; return w>0?w-38:760; }   // the card's padding and border
+function ttOnPitch(hex){ const c=ssHexRgb(hex); return c&&Math.hypot(c[0]-46,c[1]-122,c[2]-36)<95?'#ffffff':hex; }   // a green team would vanish on the grass
+function ttOpts(){ const C=ssDisplayColors(TT_LAST.team, '__baseline__'); return {F:TT_F, W:(TT_W=ttWidth()), col:C.a, mapCol:ttOnPitch(TT_SIDE==='against'?C.b:C.a)}; }
+function ttKeepFocus(root, fn){
+  const a=document.activeElement, sel=a&&root&&root.contains&&root.contains(a)&&a.dataset?(a.dataset.side?'[data-side="'+a.dataset.side+'"]':a.dataset.chip?'[data-chip="'+a.dataset.chip+'"]':a.dataset.f?'[data-f="'+a.dataset.f+'"][data-v="'+a.dataset.v+'"]':''):'';
+  fn();
+  if(sel){ const el=root.querySelector(sel); if(el){ try{ el.focus({preventScroll:true}); }catch(_){ } } }
+}
+function ttRender(){
+  const body=ssEl('ttBody'); if(!body||!TT_LAST) return;
+  ttHideTip();
+  TT_VIEW=ttView(TT_LAST, TT_SIDE, TT_F);
+  const o=ttOpts();
+  ttKeepFocus(body, ()=>{ body.innerHTML=ttHTML(TT_LAST, TT_VIEW, o); });
+}
+// a filter only re-draws the map and its insights
+function ttRenderMap(){
+  const sec=ssEl('ttMapSec'); if(!sec||!TT_LAST){ ttRender(); return; }
+  ttHideTip();
+  TT_VIEW=ttView(TT_LAST, TT_SIDE, TT_F);
+  const o=ttOpts();
+  ttKeepFocus(sec, ()=>{ sec.innerHTML=ttMapSectionHTML(TT_VIEW, TT_F, {col:o.mapCol}); });
+}
+function ttSetSide(s){ TT_SIDE=s==='against'?'against':'for'; ttRender(); }
+function ttSetFilter(f, v){
+  if(f==='view') TT_F.view=v==='den'?'den':'loc';
+  else if(f==='play') TT_F.play=(v==='open'||v==='dead')?v:'both';
+  else if(f==='chip'){ if(TT_F.chips.has(v)) TT_F.chips.delete(v); else if(TT_CHIPS.some(c=>c[0]===v)) TT_F.chips.add(v); }
+  ttRenderMap();
+}
+// hover / focus / tap cards: one floating card, filled from the data behind the hovered element
+function ttTipHTML(key){
+  if(!TT_LAST||!TT_VIEW) return '';
+  const p=String(key||'').split(':'), i=+p[1];
+  if(p[0]==='trend') return ttTrendCardHTML(TT_LAST.trend[i], TT_SIDE, TT_LAST.team);
+  if(p[0]==='zone') return ttZoneCardHTML(TT_VIEW.zones.zones[i-1]);
+  if(p[0]==='shot') return ttShotCardHTML(TT_VIEW.mapShots[i], TT_LAST.gameOf);
+  return '';
+}
+function ttHideTip(){ const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; } if(TT_TIP&&TT_TIP.classList) TT_TIP.classList.remove('tip-on'); TT_TIP=null; }
+function ttShowTip(el){
+  const t=ssEl('ttTip'); if(!t||!el) return;
+  const html=ttTipHTML(el.dataset.tip); if(!html){ ttHideTip(); return; }
+  if(TT_TIP&&TT_TIP!==el&&TT_TIP.classList) TT_TIP.classList.remove('tip-on');
+  TT_TIP=el; el.classList.add('tip-on');
+  t.innerHTML=html; t.hidden=false;
+  const r=el.getBoundingClientRect(), vw=document.documentElement.clientWidth, vh=window.innerHeight, w=t.offsetWidth, hh=t.offsetHeight;
+  const tall=r.height>hh+80;                                   // a tall target (a trend column): sit beside its top, not above it
+  let x=r.left+r.width/2-w/2, y=tall?r.top+10:r.top-hh-10;
+  if(tall){ x=r.right+8; if(x+w>vw-8) x=r.left-w-8; }
+  if(y<8) y=Math.min(vh-hh-8, r.bottom+10);
+  t.style.left=Math.max(8, Math.min(vw-w-8, x))+'px'; t.style.top=Math.max(8, y)+'px';
+}
+function ttInit(){
+  const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
+  const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
+  pane.addEventListener('click', e=>{
+    const t=e.target, b=t&&t.closest?t.closest('button'):null;
+    if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
+    if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
+    if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
+    const tip=tipOf(e);
+    if(tip) ttShowTip(tip); else ttHideTip();        // a tap shows the card; a tap anywhere else closes it
+  });
+  pane.addEventListener('mouseover', e=>{ const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
+  pane.addEventListener('mouseout', e=>{ const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
+  pane.addEventListener('focusin', e=>{ const tip=tipOf(e); if(tip) ttShowTip(tip); });
+  pane.addEventListener('focusout', e=>{ if(tipOf(e)) ttHideTip(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') ttHideTip(); });
+  document.addEventListener('click', e=>{ if(TT_TIP&&!pane.contains(e.target)) ttHideTip(); });
+  window.addEventListener('scroll', ()=>{ if(TT_TIP) ttHideTip(); }, {passive:true});
+  let rz=null;
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='team-trends'&&TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
@@ -2567,9 +3233,9 @@ async function ssExportImage(){
     },'image/png');
   }catch(e){ alert('Could not build image: '+e.message); }
 }
-ovInit(); mrInit();
-anSetTab(anTabFromHash(location.hash));
-window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash)));
+ovInit(); mrInit(); ttInit();
+anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
+window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
 </script>
 </body>
