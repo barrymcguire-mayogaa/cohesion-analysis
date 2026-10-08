@@ -616,7 +616,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-tcap{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);margin-bottom:6px;} .tk-povline{color:var(--t1);}
 .tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
 .tk-chk>.dnote{margin:8px 0 10px;}
-.tk-chkrow{display:grid;grid-template-columns:1.5fr 1.3fr .9fr 1.3fr 1.2fr .6fr 236px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tk-chkn{font:600 13px 'Barlow',sans-serif;letter-spacing:0;text-transform:none;color:#ffd23f;margin-left:8px;white-space:nowrap;}
+.tk-chkrow{display:grid;grid-template-columns:1.3fr 1.1fr .8fr 1.1fr 1.1fr .5fr 1.9fr 236px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
 .tk-chkhd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
 .tk-chkact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;} .tk-chkact .tt-btn{padding:5px 10px;white-space:nowrap;}
 @media (max-width:860px){
@@ -3135,6 +3136,13 @@ function tdHTML(R, V, o){
 //    (long, zones 7-9) but flagged `far`: a "check tag" ring on the landing map, a
 //    line on its card and a row in the "Landings to check" list (both sides' kickouts
 //    of the selected games, whatever the switch and the map filters say).
+//  · CHECK = the wider flag the UI uses (`check`, reasons in `checkWhy`): out of range, OR the
+//    landing disagrees with a TAGGED label — the length label (short / medium / long) or the
+//    Tracker's 'Kickout Zones' "Zone N" — by more than a tolerance (TK_CHECK_TOL_M metres on
+//    the 45 / 65 m lines, TK_CHECK_TOL_X % of the width on the column lines). An inside-arc
+//    landing agrees with SHORT and with a tagged Zone 1-3. No label, no mismatch flag.
+//    Likely cause: Code Room saved landing Y on an older chart scale before 13 Sep 2026.
+//    A flag only: nothing is counted differently.
 //  · WHAT FOLLOWED = the tagged shot source: shots by the kickout's WINNER whose
 //    source is OWN KICKOUT (the kicker won it) or OPP KICKOUT (the receiver won
 //    it), after that kickout and before the next kickout of the game. A game
@@ -3148,6 +3156,7 @@ const TK_PITCH_M=137, TK_WIDTH_M=84, TK_ARC_M=40, TK_START_M=20, TK_SHORT_M=45, 
 const TK_TYPES=[['clean','Clean'],['break','Break'],['free','Free'],['sideline','Sideline'],['unspecified','Unspecified']];
 const TK_LENS=[['S','Short'],['M','Medium'],['L','Long']];
 const TK_ZKEYS=['arc',1,2,3,4,5,6,7,8,9];
+const TK_CHECK_TOL_M=2, TK_CHECK_TOL_X=2;   // "check" tolerance: metres past a 45 / 65 m line, % of the pitch width past a column line
 const TK_SRC_LEAD=5;   // seconds a SCORE / SHOT SOURCE row may start before its kickout event
 function tkDist(y){ return y*TK_PITCH_M/100; }
 function tkLenOfDist(d){ return d<TK_SHORT_M?'S':d<TK_MED_M?'M':'L'; }
@@ -3166,6 +3175,19 @@ function tkType(out, kicker, other){
 function tkLenLabel(e){
   const K=ssUC(ssLblCI(e,['Kickout Locations','Kickout Location','KickoutLength','Kickout_Length','KODistance']));
   return !K?null:/SHORT|^SKO$/.test(K)?'S':/MED|MID|^MKO$/.test(K)?'M':/LONG|^LKO$/.test(K)?'L':null;
+}
+function tkZoneLabel(e){ const m=/ZONE\s*([1-9])\b/.exec(ssUC(ssLblCI(e,['Kickout Zones','Kickout Zone'])||'')); return m?+m[1]:null; }
+// how far (m) a landing at d is outside length row r (0 short, 1 medium, 2 long); how far (% of width) x is outside column c
+function tkRowGap(r, d){ return r===0?Math.max(0, d-TK_SHORT_M):r===1?(d<TK_SHORT_M?TK_SHORT_M-d:Math.max(0, d-TK_MED_M)):Math.max(0, TK_MED_M-d); }
+function tkColGap(c, x){ return c===0?Math.max(0, x-33.3):c===1?(x<33.3?33.3-x:Math.max(0, x-66.7)):Math.max(0, 66.7-x); }
+// the reasons a located kickout needs its tag checked ([] = none). lab = the tagged length ('S','M','L' or null), zN = the tagged zone (1-9 or null)
+function tkCheckWhy(x, dist, zone, lab, zN){
+  const why=[]; if(dist==null||zone==null) return why;
+  const nm={S:'short', M:'medium', L:'long'}, m=Math.round(dist);
+  if(dist>TK_VIEW_M) why.push('out of range ('+m+' m)');
+  if(lab&&tkZoneLen(zone)!==lab&&tkRowGap('SML'.indexOf(lab), dist)>TK_CHECK_TOL_M) why.push('tagged '+nm[lab].toUpperCase()+' but lands at '+m+' m ('+nm[tkZoneLen(zone)]+')');
+  if(zN&&zone!==zN&&!(zone==='arc'&&zN<=3)&&(tkRowGap(Math.floor((zN-1)/3), dist)>TK_CHECK_TOL_M||tkColGap((zN-1)%3, x)>TK_CHECK_TOL_X)) why.push('tagged Zone '+zN+' but lands '+(zone==='arc'?'inside the arc':'in Zone '+zone));
+  return why;
 }
 // Every source-tagged shot of a game, both teams: {team, cat, v, t}. Read as the Overview reads them:
 // a game coded with SCORE SOURCE / SHOT SOURCE rows from those rows (one per score, one per missed
@@ -3196,7 +3218,7 @@ function tkSrcItems(events, teams, skip, shotMode){
   return items;
 }
 // Every kickout of a game, both teams, in time order; cached per events array.
-// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, far, t, id, follow}], srcTagged, srcUnmatched, conv}
+// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, far, check, checkWhy, t, id, follow}], srcTagged, srcUnmatched, conv}
 const TK_CACHE=new WeakMap();
 function tkGameKos(meta, events){
   if(!meta||!Array.isArray(events)) return null;
@@ -3212,9 +3234,9 @@ function tkGameKos(meta, events){
     const out=ssLbl(e,SS_KO_GROUPS); if(!out) return;
     const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
     const opp=team===H?A:H, won=ssKoKickerWon(out, team, opp), co=ttCoordOf(e, conv), lab=tkLenLabel(e);
-    const dist=co?tkDist(co.y):null, zone=co?tkZoneOf(co.x, co.y):null;
+    const dist=co?tkDist(co.y):null, zone=co?tkZoneOf(co.x, co.y):null, checkWhy=co?tkCheckWhy(co.x, dist, zone, lab, tkZoneLabel(e)):[];
     kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
-      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, far:dist!=null&&dist>TK_VIEW_M,
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, far:dist!=null&&dist>TK_VIEW_M, check:checkWhy.length>0, checkWhy,
       t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
   });
   kos.sort((a,b)=>a.t-b.t||a.i-b.i);
@@ -3355,7 +3377,7 @@ function tkFollowNote(S){
 // the out-of-range landings of the selected games, BOTH sides: by game (oldest first), then in time order
 function tkCheckList(R){
   const ord=new Map(); let i=0; R.gameOf.forEach((m,id)=>ord.set(id, i++));
-  return R.own.kos.concat(R.opp.kos).filter(k=>k.far).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
+  return R.own.kos.concat(R.opp.kos).filter(k=>k.check).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
 }
 function tkView(R, side, F){
   // flip / pov: the Opposition view reads the opposition's kickouts from the selected team's side
@@ -3382,7 +3404,7 @@ function tkHTML(R, V, o){
   const pov=tkPovHTML(V);
   h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2>${pov}<div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
   h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>${pov}`+tkZoneSecHTML(R, V);
-  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2>${pov}<div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
+  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}${V.check.length?` <small class="tk-chkn">${V.check.length} landing${V.check.length===1?'':'s'} to check</small>`:''}</h2>${pov}<div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
   h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event. On Own kickouts “won” = won by the kicking team (${ssEsc(T)}); on Opposition kickouts everything is read from ${ssEsc(T)}’s side — “won” = ${ssEsc(T)} won the opposition’s kickout — so that view’s total is the OPP KO WIN % card. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
@@ -3527,7 +3549,7 @@ function tkZoneSecHTML(R, V){
 // COLOUR = how the ball was won. One small uniform size on a dark halo, like the shot markers.
 const TK_MK_COL={clean:'#ffffff', break:'#ff8c1a', free:'#b266ff', sideline:'#4fc3f7', unspecified:'#9aa3ad'};
 const TK_LEN_NAME={S:'Short', M:'Medium', L:'Long'};
-const TK_FAR_R=1.85, TK_FAR_COL='#ffd23f';   // the "check tag" ring round an out-of-range landing
+const TK_FAR_R=1.85, TK_FAR_COL='#ffd23f';   // the "check tag" ring round a landing to check (k.check)
 function tkTypeName(t){ const d=TK_TYPES.find(x=>x[0]===t); return d?d[1]:'Unspecified'; }
 function tkKoMark(k, flip){ return {x:tkPX(k.x), y:tkPY(k.dist), scored:tkWon(k, flip), col:TK_MK_COL[k.type]||TK_MK_COL.unspecified}; }
 // pov = the selected team, when the kickout is the opposition's: the winner is named
@@ -3538,9 +3560,9 @@ function tkMapSVG(kos, pov){
   let h=tkPitchOpen('tt-locs tk-locs','Kickout landing locations, from the kicking team’s 20m line (top) to the far 45m line')
     +`<line x1="${X(33.3)}" y1="${Y(tkArcD(33.3))}" x2="${X(33.3)}" y2="${Y(TK_VIEW_M)}" ${g}/><line x1="${X(66.7)}" y1="${Y(tkArcD(66.7))}" x2="${X(66.7)}" y2="${Y(TK_VIEW_M)}" ${g}/>`;
   return h+'<g class="tt-marks">'+kos.map((k,i)=>{ const m=tkKoMark(k, !!pov);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
-    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+(pov?tkOutcomeTxt(k, pov).replace(/^W/,'w'):tkOutcomeTxt(k).toLowerCase())+(k.far?', landing out of range, check tag':''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.far?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
+    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+(pov?tkOutcomeTxt(k, pov).replace(/^W/,'w'):tkOutcomeTxt(k).toLowerCase())+(k.check?', check tag: '+k.checkWhy.join('; '):''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.check?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
-function tkFarTxt(k){ return 'Landing position looks out of range ('+Math.round(k.dist)+' m) — check tag'; }
+function tkCheckTxt(k){ return 'Check tag: '+(k.checkWhy||[]).join('; '); }
 // o.pinned: the card is pinned open, so it carries its buttons (the same ones as a shot's card)
 function tkKoCardHTML(k, R, o){
   if(!k) return '';
@@ -3553,7 +3575,7 @@ function tkKoCardHTML(k, R, o){
     +row('Zone', k.zone==null?'n/a':k.zone==='arc'?'Inside arc':'Zone '+k.zone, k.zone==null)
     +row('Outcome', k.won?'Won by '+kicker:own||!R?'Lost':'Won by '+R.team)+row('Type', tkTypeName(k.type), k.type==='unspecified')
     +(k.lenFrom==='loc'?'<div class="tt-cn">Length from the landing distance (no length label).</div>':'')
-    +(k.far?`<div class="tt-cn tk-warn">${ssEsc(tkFarTxt(k))}</div>`:'');
+    +(k.check?`<div class="tt-cn tk-warn">Check tag:${k.checkWhy.map(w=>'<br>· '+ssEsc(w)).join('')}</div>`:'');
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
@@ -3577,7 +3599,7 @@ function tkMapKeyHTML(pov){
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,pov?ssEsc('Filled = won by '+pov):'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,pov?'Hollow = won by the opposition (the kicking team)':'Lost')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing out of range (beyond the far 45m line)')}</span></div>`;
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing position disagrees with the tagged length/zone, or is out of range')}</span></div>`;
 }
 // the tagged length / zone labels of a kickout, as coded (else the engine's reading)
 function tkTaggedTxt(k){
@@ -3589,22 +3611,23 @@ function tkCheckHTML(list, R, open){
   const n=(list||[]).length; if(!n) return '';
   const c=(l,v)=>`<div class="tt-c" role="cell" data-l="${l}">${v}</div>`;
   return `<details class="tt-card tk-chk" id="tkChk"${open?' open':''}><summary>Landings to check (${n})</summary>`
-    +`<div class="dnote">${ssEsc('Kickouts whose tagged landing is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line) — almost certainly a mis-placed tag. They are kept and counted as tagged (long); both teams’ kickouts in the selected games are listed, whatever the switch and the filters show.')}</div>`
-    +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
+    +`<div class="dnote tk-chkwhy">${ssEsc('Kickouts placed in Code Room before 13 Sep 2026 were saved on an older chart scale and can read too far down the pitch. Re-place them in Code Room to correct them.')}</div>`
+    +`<div class="dnote">${ssEsc('Kickouts whose landing position disagrees with the tagged length or zone (by more than '+TK_CHECK_TOL_M+' m), or is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line). A flag only: they are kept and counted as before (lengths by the tagged label, zones by the location). Both teams’ kickouts in the selected games are listed by game, then time, whatever the switch and the filters show.')}</div>`
+    +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE','REASON',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
     +list.map((k,i)=>{ const m=R.gameOf.get(k.gid), own=k.team===R.team, kicker=own?R.team:(m?m.opp:k.team), clip=cpClip(k);
       return `<div class="tk-chkrow" role="row" data-chk="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Kicking team', ssEsc(kicker))+c('Time', ssEsc(ttClockTxt(k.e)))
-        +c('Tagged', ssEsc(tkTaggedTxt(k)))+c('Outcome', ssEsc(k.out||tkOutcomeTxt(k)))+c('Distance', `<b>${Math.round(k.dist)} m</b>`)
+        +c('Tagged', ssEsc(tkTaggedTxt(k)))+c('Outcome', ssEsc(k.out||tkOutcomeTxt(k)))+c('Distance', `<b>${Math.round(k.dist)} m</b>`)+c('Reason', ssEsc(k.checkWhy.join('; ')))
         +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="chk-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
         +(clip?`<button type="button" class="tt-btn pri" data-act="chk-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; }).join('')
     +'</div></details>';
 }
 function tkMapSectionHTML(R, V, F, o){
-  const S=V.S, nShown=V.mapKos.length, nFar=V.mapKos.filter(k=>k.far).length;   // located kickouts that pass the filters = what the button adds
+  const S=V.S, nShown=V.mapKos.length, nFar=V.mapKos.filter(k=>k.check).length;   // located kickouts that pass the filters = what the button adds
   const pov=V.pov||null;
   return tkFiltersHTML(F, pov)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
     +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
     +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos, pov)}</div>${tkMapKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
-    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?(pov?' Filled = '+pov+' won the opposition’s kickout.':'')+' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge'+(nFar?' with a dashed “check tag” ring ('+nFar+' shown)':'')+'.':''))}</div></div>`
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?(pov?' Filled = '+pov+' won the opposition’s kickout.':'')+' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge.'+(nFar?' A dashed “check tag” ring marks a landing to check ('+nFar+' shown).':''):''))}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located, pov)}</aside></div>`
     +tkCheckHTML(V.check, R, !!(o&&o.chkOpen));
 }
@@ -4026,7 +4049,7 @@ function tkCheckAct(btn){
   if(!t) return;
   ttHideTip();
   TT_TIP=TT_PIN=btn; TT_JOB={shots:[k], bulk:false};
-  t.innerHTML=`<div class="tt-ct">${ssEsc(k.team+' kickout')}</div><div class="tt-cs">${ssEsc(tkFarTxt(k))}</div>`
+  t.innerHTML=`<div class="tt-ct">${ssEsc(k.team+' kickout')}</div><div class="tt-cs">${ssEsc(tkCheckTxt(k))}</div>`
     +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
   t.hidden=false; if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
   ttPlaceTip();
