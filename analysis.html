@@ -133,6 +133,12 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
 .kpi-v{font:800 58px 'Barlow',sans-serif;line-height:1.1;margin:2px 0 6px;}
 .kpi-v.na{color:var(--t3);font-weight:600;font-size:40px;line-height:1.6;}
 .kpi-d{font-size:.74rem;color:var(--t2);min-height:1.1em;}
+.kpi-s{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:.74rem;color:var(--t2);}
+.kpi-sr{display:flex;gap:8px;align-items:baseline;line-height:1.5;}
+.kpi-sr span{flex:1;min-width:0;}
+.kpi-sr b{color:var(--t1);font-variant-numeric:tabular-nums;}
+.kpi-sr i{font-style:normal;color:var(--t3);min-width:2.6em;text-align:right;font-variant-numeric:tabular-nums;}
+.kpi-sn{font-size:.68rem;color:var(--t3);margin-top:3px;}
 .kpi-b{font-size:.7rem;color:var(--t3);margin-top:4px;text-transform:uppercase;letter-spacing:.05em;}
 .ov-h{font:700 23px 'Barlow',sans-serif;letter-spacing:.01em;margin:34px 2px 16px;color:var(--t1);}
 .ov-donuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;}
@@ -1292,7 +1298,8 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
 //   defensive tag ("attributed to the team WITHOUT the ball"), so the row's
 //   team MADE the tackle (real file: each TACKLE row sits inside the other
 //   side's TEAM POSSESSION). 'Tackle Outcomes' = CONTACT / CHANGE OF DIRECTION
-//   / FOUL CONCEDED (Code Room adds TACKLE FREE CONCEDED). It is an optional
+//   / FOUL CONCEDED (Code Room adds TACKLE FREE CONCEDED, counted on its own:
+//   tklFree). It is an optional
 //   tag: 1 of the 7 real Tracker games has it; GIU and GI have none.
 //  SHOT PRESSURE — label 'Shot Pressure' on the shot row ("<TEAM> SHOT OPEN
 //   PLAY / DEADBALL"), = Low Pressure / Medium Pressure / High Pressure; it
@@ -1330,7 +1337,7 @@ function ssFoulRows(events, T, O, skip){
 }
 function ssDefendTally(meta, events, T, O, g, skip, shotMode){
   ['fouls','foulsDEF','foulsMID','foulsATT','foulsLoc','foulsInPoss','foulsDissent','fouls50','foulsBreach','foulsDupDropped',
-   'cards','cardY','cardB','cardR','cardX','tackles','tklContact','tklCoD','tklFoul','tklOther'].forEach(k=>g[k]=0);
+   'cards','cardY','cardB','cardR','cardX','tackles','tklContact','tklCoD','tklFoul','tklFree','tklOther'].forEach(k=>g[k]=0);
   let anyFoul=false, anyCard=false, anyTackle=false, rawFouls=0;
   const fr=ssFoulRows(events, T, O, skip);
   fr.forEach(r=>{ anyFoul=true; if(r.side!=='T') return;
@@ -1345,10 +1352,11 @@ function ssDefendTally(meta, events, T, O, g, skip, shotMode){
       const K=ssUC(ssLblCI(e,['Card Outcomes','Card Outcome','Card'])); g[/YELLOW/.test(K)?'cardY':/BLACK/.test(K)?'cardB':/RED/.test(K)?'cardR':'cardX']++; return; }
     if(ssIsTackle(e)){ anyTackle=true; if(!mineT) return; g.tackles++;
       const K=ssUC(ssLblCI(e,['Tackle Outcomes','Tackle Outcome'])||(/TACKLE/.test(ssUC(e.category))?e.outcome:''));
-      g[/FOUL CONCEDED|FREE CONCEDED/.test(K)?'tklFoul':/CHANGE OF DIRECTION/.test(K)?'tklCoD':/CONTACT/.test(K)?'tklContact':'tklOther']++; return; }
+      g[/FREE CONCEDED/.test(K)?'tklFree':/FOUL CONCEDED/.test(K)?'tklFoul':/CHANGE OF DIRECTION/.test(K)?'tklCoD':/CONTACT/.test(K)?'tklContact':'tklOther']++; return; }
   });
   g.foulsDupDropped=rawFouls-g.fouls;
   g.foulGames=anyFoul?1:0; g.cardGames=anyCard?1:0; g.tackleGames=anyTackle?1:0;
+  g.tklOutGames=(g.tklContact+g.tklCoD+g.tklFoul+g.tklFree)>0?1:0;   // the team's tackles carry an outcome in this game
   // shot pressure on T's OWN shots, by level, with the attempt-type split
   // (1-point attempt scored = a point, 2-point = a 2-pointer, goal = a goal; AU / SU = no attempt label, any score)
   SS_PRESS.forEach(p=>SS_PRESS_FIELDS.forEach(f=>g['pr'+p[0]+f]=0));
@@ -2670,8 +2678,13 @@ function tdKpis(a, n, basis){
   const kpi=(key,title,v,txt,detail,gk,total)=>({key, title, v, txt, detail:v==null?'':detail, basis:tdBasisTxt(a[gk]||0, n, basis, total)});
   const tk=a.tackleGames>0?a.tackles/a.tackleGames:null, to=a.toGames>0?a.toWon/a.toGames:null, fl=a.foulGames>0?a.fouls/a.foulGames:null;
   const toT=a.toGames>0?a.toWon:null, flT=a.foulGames>0?a.fouls:null;
+  // the tackle-outcome split, only when games carry 'Tackle Outcomes'
+  const tkTagged=(a.tklContact||0)+(a.tklCoD||0)+(a.tklFoul||0)+(a.tklFree||0);
+  const split=(tk!=null&&(a.tklOutGames||0)>0)?{tagged:tkTagged, total:a.tackles||0, games:a.tklOutGames, n,
+    rows:[['contact','Contact',a.tklContact||0],['cod','Change of direction',a.tklCoD||0],['foul','Foul conceded',a.tklFoul||0]].concat(a.tklFree?[['free','Tackle free conceded',a.tklFree]]:[]).map(r=>({k:r[0], label:r[1], n:r[2], pct:ovPct(r[2], tkTagged)})),
+    note:'Outcome of '+tkTagged+' of '+(a.tackles||0)+' tackle'+(a.tackles===1?'':'s')+' · '+ovFromNote(a.tklOutGames, n)}:null;
   return [
-    kpi('tackles','AVG TACKLES / GAME', tk, pg(tk), (a.tackles||0)+' tackle'+(a.tackles===1?'':'s'), 'tackleGames'),
+    Object.assign(kpi('tackles','AVG TACKLES / GAME', tk, pg(tk), (a.tackles||0)+' tackle'+(a.tackles===1?'':'s'), 'tackleGames'), {split}),
     kpi('toAvg','AVG TOs WON / GAME', to, pg(to), 'in-play turnovers', 'toGames'),
     kpi('toTot','TOTAL TOs WON', toT, num(toT), (a.toLost||0)+' lost in play', 'toGames', true),
     kpi('foulAvg','AVG FOULS CONCEDED / GAME', fl, pg(fl), (a.foulsInPoss||0)+' in possession (free against)', 'foulGames'),
@@ -2716,8 +2729,11 @@ function tdCompute(T, games, basis, bundleOf){
     shooting:tdShooting(aO, n), pressure:tdPressure(aO, n), aggT:aT, aggO:aO};
 }
 // ── Defending rendering (strings only; every interpolated value is escaped) ──
+function tdSplitHTML(S){
+  return '<div class="kpi-s">'+S.rows.map(r=>`<div class="kpi-sr" data-k="${ssEsc(r.k)}"><span>${ssEsc(r.label)}</span><b>${ssEsc(r.n)}</b><i>${ssEsc(ttPctTxt(r.pct))}</i></div>`).join('')+`<div class="kpi-sn">${ssEsc(S.note)}</div></div>`;
+}
 function tdKpisHTML(kpis){
-  return '<div class="ov-kpis td-kpis">'+kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+  return '<div class="ov-kpis td-kpis">'+kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div>${k.split?tdSplitHTML(k.split):''}<div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
 }
 // ii. turnover zone impact: the Overview's to-scale pitch, one number per third
 const TD_THIRD={DEF:'DEFENSIVE THIRD', MID:'MIDDLE THIRD', ATT:'ATTACKING THIRD'};
