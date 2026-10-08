@@ -3142,7 +3142,8 @@ function tdHTML(R, V, o){
 //    rows by distance — under 45 m zones 1-3, 45 to 65 m zones 4-6, beyond 65 m
 //    zones 7-9; columns left / centre / right at X 33.3 and 66.7. A kickout that
 //    has not cleared the 40 m arc (inside the arc, or behind the 20 m line the
-//    arc ends on) is its own "Inside arc" area and counts as SHORT.
+//    arc ends on) is its own "Inside arc" area and counts as SHORT —
+//    but only when the kicker LOST it more than TK_ARC_TOL_M inside: see THE INSIDE-ARC RULE (tkZoneFor).
 //  · OUT OF RANGE = a landing more than 92 m from the kicking goal (beyond the far
 //    45 m line, where no kickout lands). The kickout is KEPT and counted as tagged
 //    (long, zones 7-9) but flagged `far`: a "check tag" ring on the landing map, a
@@ -3448,7 +3449,7 @@ function tkHTML(R, V, o){
   h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2>${pov}<div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
   h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>${pov}`+tkZoneSecHTML(R, V);
   h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}${V.check.length?` <small class="tk-chkn">${V.check.length} landing${V.check.length===1?'':'s'} to check</small>`:''}</h2>${pov}<div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
-  h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event. On Own kickouts “won” = won by the kicking team (${ssEsc(T)}); on Opposition kickouts everything is read from ${ssEsc(T)}’s side — “won” = ${ssEsc(T)} won the opposition’s kickout — so that view’s total is the OPP KO WIN % card. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
+  h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event. On Own kickouts “won” = won by the kicking team (${ssEsc(T)}); on Opposition kickouts everything is read from ${ssEsc(T)}’s side — “won” = ${ssEsc(T)} won the opposition’s kickout — so that view’s total is the OPP KO WIN % card. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location. ${ssEsc(TK_ARC_RULE)} “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 // the Opposition view's direction, said once above each of its sections
@@ -3489,7 +3490,7 @@ function tkContestSecHTML(R, V, o){
 }
 // ii. zones — the kickout pitch, drawn TO SCALE from the kicking team's 20m line (the top edge, as in the
 // reference picture) to the far 45m line: 84 m wide, 72 m long (20 m → 92 m out), 1 m = TK_K units both ways.
-// Nothing behind the 20m line is drawn: a kickout tagged there is an Inside-arc kickout, and its marker
+// Nothing behind the 20m line is drawn: a kickout tagged there follows the Inside-arc rule, and its marker
 // sits clamped on the top edge.
 const TK_PM=1.2, TK_K=(100-2*TK_PM)/TK_WIDTH_M, TK_PH=+(2*TK_PM+(TK_VIEW_M-TK_START_M)*TK_K).toFixed(2);
 function tkPX(x){ return +(TK_PM+x*(100-2*TK_PM)/100).toFixed(2); }                                  // x = % across
@@ -3603,11 +3604,11 @@ function tkFollowLenHTML(FL, R, V){
     +`<div class="dnote">${ssEsc('Every kickout with a length, located or not. Shots after = shots by whichever team won the kickout, from that kickout, before the next one; the last two columns split them: OWN = '+R.team+'’s shots · scores after the kickouts it won, OPP = the opposition’s after the ones they won.')}</div>`;
 }
 function tkZoneSecHTML(R, V){
-  const Zs=V.zones, pov=V.pov||null, scale='The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.';
+  const Zs=V.zones, pov=V.pov||null, scale='The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); '+TK_ARC_RULE+' Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.';
   return '<div class="tt-zrow"><div class="tt-card tt-mapcard">'
     +(Zs.located?`<div class="tt-pitchbox tk-pitchbox">${tkZoneSVG(Zs, pov)}</div>${tkZoneKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations in these games.</div>')
     +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc((pov?'Each zone shows the opposition kickouts landing there that '+pov+' won / all of them, and '+pov+'’s win % (e.g. “4/11 · 36%” = '+pov+' won 36% of opposition kickouts landing here). The opposition kicks from the top. ':'Won / taken and win % of the kicking team per landing zone. ')+scale)}</div></div>`
-    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs, pov)}<div class="dnote tk-fnote">${ssEsc(V.followNote+(pov?' Shots after = shots by WHICHEVER team won that kickout ('+pov+' after the ones it won, the opposition after the ones they kept) whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots. A zone’s card splits them by team.':' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.'))}</div>${tkFollowLenHTML(V.followLen, R, V)}</div></div>`;
+    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs, pov)}<div class="dnote tk-arcnote">${ssEsc('Inside arc has no won / taken or win %: '+(pov?'it lists the opposition kickouts '+pov+' won inside the arc':'it lists the kickouts lost there')+'. They count in “All located” (zones 1 to 9 + Inside arc = all located).')}</div><div class="dnote tk-fnote">${ssEsc(V.followNote+(pov?' Shots after = shots by WHICHEVER team won that kickout ('+pov+' after the ones it won, the opposition after the ones they kept) whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots. A zone’s card splits them by team.':' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.'))}</div>${tkFollowLenHTML(V.followLen, R, V)}</div></div>`;
 }
 // iii. landing locations — every located kickout on the same pitch. FILL = won by the kicker (hollow = lost); in the
 // Opposition view (pov = the selected team) FILL = won by the selected team, hollow = kept by the opposition.
@@ -3693,7 +3694,7 @@ function tkMapSectionHTML(R, V, F, o){
   return tkFiltersHTML(F, pov)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
     +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
     +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos, pov)}</div>${tkMapKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
-    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?(pov?' Filled = '+pov+' won the opposition’s kickout.':'')+' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge.'+(nFar?' A dashed “check tag” ring marks a landing to check ('+nFar+' shown).':''):''))}</div></div>`
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?(pov?' Filled = '+pov+' won the opposition’s kickout.':'')+' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, a kickout counted in the nearest zone outside the arc keeps its tagged position, one beyond the far 45m line on the bottom edge.'+(nFar?' A dashed “check tag” ring marks a landing to check ('+nFar+' shown).':''):''))}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located, pov)}</aside></div>`
     +tkCheckHTML(V.check, R, !!(o&&o.chkOpen));
 }
