@@ -707,6 +707,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .mm-line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round;} .mm-line.opp{stroke-width:2.5;}
 .mm-mk{stroke:#0b0b10;stroke-width:1.5;}
 .mm-minband{fill:#fff;fill-opacity:0;} .tt-hit:hover .mm-minband,.tt-hit:focus .mm-minband,.tt-hit.tip-on .mm-minband{fill-opacity:.09;}
+.mm-htband{fill:#fff;fill-opacity:.06;}
+.mm-def{font-size:.76rem;color:var(--t2);text-align:center;margin:0 0 8px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -5091,7 +5093,55 @@ function mmCumSecHTML(R, V, o){
       :'The average points per game on the board at each minute, over '+mmGl(C.n)+'. The games share one clock: the 2nd half starts at minute '+C.ht+', the longest 1st half of the selection, and a game holds its total once its own half is over.')
       +(C.e1End!=null?' Extra time runs from FT (minute '+C.ft+').':'')+' Hover, focus or tap a minute for both totals and the margin.')}</div></div>`;
 }
-function mmMomSecHTML(){ return ''; }
+// (d) MATCH MOMENTUM, drawn here from the dashboard's numbers (mmMom): the team's value per 2-minute window up, the opposition's
+// down; the scores carry the dashboard's markers (goal, 2-pointer, point) on the one-game view; a hit band per window.
+function mmMomMark(kind, x, y){
+  const n=v=>v.toFixed(1);
+  return kind==='goal'?`<circle cx="${n(x)}" cy="${n(y)}" r="5" fill="#00a57a" stroke="#eafff7" stroke-width="1.2"/><circle cx="${n(x)}" cy="${n(y)}" r="1.8" fill="#eafff7"/>`
+    :kind==='2pt'?`<path d="M${n(x-4)} ${n(y+5)}V${n(y-6)}L${n(x+6)} ${n(y-1.5)}L${n(x-4)} ${n(y+1.5)}" fill="#f97316" stroke="#f97316" stroke-width="1.2" stroke-linejoin="round"/>`
+    :`<path d="M${n(x-4)} ${n(y+5)}V${n(y-6)}H${n(x+5)}V${n(y+0.5)}H${n(x-4)}" fill="#f4f4f6" stroke="#f4f4f6" stroke-width="1.2" stroke-linejoin="round"/>`;
+}
+function mmMomSVG(M, W, o){
+  o=o||{}; W=Math.max(280, Math.round(W||760)); if(!M||!M.n) return '';
+  const small=W<560, H=small?250:320, mL=34, mR=12, mT=26, mB=36, pw=W-mL-mR, ph=H-mT-mB, nW=M.nW, bw=pw/nW, n1=v=>v.toFixed(1);
+  const stack={}; M.markers.forEach(k=>{ const key=(k.mine?'u':'d')+k.w; stack[key]=(stack[key]||0)+1; });
+  const maxS=Math.max.apply(null, Object.keys(stack).map(k=>stack[k]).concat([0])), maxV=Math.max.apply(null, M.up.concat(M.down, [5]));
+  const zeroY=mT+ph/2, sc=(ph/2-6-maxS*13)/maxV, step=maxV<=10?5:10;
+  let h=`<svg class="tt-trend mm-mom" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="${ssEsc('Match momentum per 2-minute window'+(M.single?'':', average per game')+': '+(o.team||'team')+' above the line, the opposition below')}">`;
+  for(let v=-Math.floor(maxV/step)*step; v<=maxV; v+=step){ const y=zeroY-v*sc; h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${n1(y)}" y2="${n1(y)}"/><text class="tt-ax" x="${mL-7}" y="${n1(y+4)}" text-anchor="end">${Math.abs(v)}</text>`; }
+  const hx=m=>mL+(m/2)*bw;
+  if(M.ht[0]/2<nW){ if(M.ht[1]>M.ht[0]) h+=`<rect class="mm-htband" x="${n1(hx(M.ht[0]))}" y="${mT-6}" width="${n1(hx(Math.min(M.ht[1], nW*2))-hx(M.ht[0]))}" height="${ph+6}"/>`;
+    else h+=`<line class="mm-div" x1="${n1(hx(M.ht[0]))}" x2="${n1(hx(M.ht[0]))}" y1="${mT-6}" y2="${mT+ph}"/>`;
+    h+=`<text class="mm-dl" x="${n1(hx((M.ht[0]+Math.min(M.ht[1], nW*2))/2))}" y="${mT-10}" text-anchor="middle">HT</text>`; }
+  for(let w=0; w<nW; w++){ const x=mL+w*bw+1, wd=Math.max(2, bw-2), u=M.up[w], d=M.down[w];
+    if(u) h+=`<rect x="${n1(x)}" y="${n1(zeroY-u*sc)}" width="${n1(wd)}" height="${n1(Math.max(1, u*sc-1))}" fill="${o.col}"/>`;
+    if(d) h+=`<rect x="${n1(x)}" y="${n1(zeroY+1)}" width="${n1(wd)}" height="${n1(Math.max(1, d*sc-1))}" fill="${o.ocol}"/>`; }
+  h+=`<line class="mm-zero" x1="${mL}" x2="${W-mR}" y1="${n1(zeroY)}" y2="${n1(zeroY)}"/>`;
+  const seen={};
+  M.markers.forEach(k=>{ const key=(k.mine?'u':'d')+k.w, n=(seen[key]=(seen[key]||0)+1), x=mL+k.w*bw+bw/2;
+    h+=mmMomMark(k.kind, x, k.mine?zeroY-M.up[k.w]*sc-9-(n-1)*13:zeroY+M.down[k.w]*sc+10+(n-1)*13); });
+  for(let m=0; m<=nW*2; m+=10) h+=`<text class="tt-ax" x="${n1(hx(m))}" y="${H-mB+17}" text-anchor="middle">${m}</text>`;
+  h+=`<text class="tt-ax" x="${n1(mL+pw/2)}" y="${H-4}" text-anchor="middle">Match minute</text>`;
+  const t=v=>M.single?String(v):v.toFixed(1);
+  for(let w=0; w<nW; w++) h+=`<g class="tt-hit" data-tip="mmm:${w}"${w%5===0?' tabindex="0"':''} role="img" aria-label="${ssEsc('Minutes '+w*2+' to '+(w*2+2)+': '+(o.team||'team')+' '+t(M.up[w])+', opposition '+t(M.down[w]))}"><rect class="mm-minband" x="${n1(mL+w*bw)}" y="${mT}" width="${n1(bw)}" height="${ph}"/></g>`;
+  return h+'</svg>';
+}
+const MM_MOM_DEF='Momentum value per 2-minute window — turnover won: 1 · wide / missed shot: 2 · point: 3 · 2-pointer: 4 · goal: 5';
+function mmMomSecHTML(R, V, o){
+  o=o||{}; const M=V.M, T=R.team, m=V.gid?R.gameOf.get(V.gid):null, opp=m?m.opp:'Opposition';
+  if(!M||!M.n) return `<div class="tt-card"><div class="tt-empty">${ssEsc('Match momentum n/a — '+(V.single?'this game has':'these games have')+' no shots or turnovers with a game minute.')}</div></div>`;
+  const mk=k=>`<svg viewBox="-8 -8 16 16" aria-hidden="true">${mmMomMark(k, 0, 0)}</svg>`;
+  return '<div class="tt-card mm-card">'
+    +`<div class="mm-ch"><h4 class="td-ct">${M.single?'MATCH MOMENTUM':'AVERAGE MATCH MOMENTUM'} <small>${ssEsc((M.single?'':'per game · ')+mmWhoTxt(R, V))}</small></h4></div>`
+    +`<div class="mm-def">${ssEsc(MM_MOM_DEF)}</div>`
+    +`<div class="tt-chart">${mmMomSVG(M, o.W, {col:o.col, ocol:o.ocol, team:T})}</div>`
+    +`<div class="tt-key"><span><i class="mm-sq" style="background:${o.col}"></i>▲ ${ssEsc(T)}</span><span><i class="mm-sq" style="background:${o.ocol}"></i>▼ ${ssEsc(opp)}</span>`
+    +(M.single?`<span>${mk('goal')}Goal</span><span>${mk('2pt')}2-pointer</span><span>${mk('1pt')}Point</span>`:'')+'</div>'
+    +`<div class="dnote">${ssEsc((M.single?'The dashboard’s MATCH MOMENTUM for this game (the same numbers), with '+T+' above the line.'
+      :'The dashboard’s MATCH MOMENTUM, averaged: the value of each 2-minute window added over '+mmGl(M.n)+(M.n<M.of?' ('+ovFromNote(M.n, M.of)+')':'')+' and divided by '+M.n+', each game on its own clock (half-time fell between minute '+M.ht[0]+' and '+M.ht[1]+'). Pick a game in VIEW to see its own momentum with its scores marked.')
+      +' A turnover counts for the team that won the ball. Extra time is not charted.'
+      +(M.filled?' '+(M.single?'This game has':M.filled+' of these games have')+' no per-event game clock, so the minute is the event’s time from the start of its period.':'')+' Hover, focus or tap a window for its values.')}</div></div>`;
+}
 function mmLogSecHTML(){ return ''; }
 function mmHTML(R, V, o){
   o=o||{}; const T=R.team, SC=o.sel||null;
@@ -5224,7 +5274,14 @@ function mmTipMore(kind, i, R, V, U){
     return U.head('Minute '+i+(i<=C.ht?' · 1st half':i<=C.ft?' · 2nd half':' · extra time'), T+' · '+mmWhoTxt(R, V)+(C.single?'':' · average per game'))+U.row(T, t(f))+U.row(opp, t(a))+U.row('Margin', tvSigned(d, C.single?0:1), U.cls(d)); }
   return mmTipMom(kind, i, R, V, U);
 }
-function mmTipMom(){ return ''; }
+function mmTipMom(kind, i, R, V, U){
+  const T=R.team, m=V.gid?R.gameOf.get(V.gid):null, opp=m?m.opp:'Opposition';
+  if(kind==='mmm'){ const M=V.M; if(!M||!M.n||!(i>=0&&i<M.nW)) return ''; const t=v=>M.single?String(v):v.toFixed(1), d=M.up[i]-M.down[i];
+    const sc=mine=>{ const k=M.markers.filter(x=>x.w===i&&x.mine===mine).map(x=>x.kind==='goal'?'goal':x.kind==='2pt'?'2-pointer':'point'); return k.length?k.join(', '):'–'; };
+    return U.head('Minutes '+i*2+'–'+(i*2+2), T+' · '+mmWhoTxt(R, V)+(M.single?'':' · average per game'))+U.row(T+' momentum', t(M.up[i]))+U.row(opp+' momentum', t(M.down[i]))+U.row('Difference', tvSigned(M.single?d:Math.round(d*10)/10, M.single?0:1), U.cls(d))
+      +(M.single?'<div class="tt-cwho">Scores in the window</div>'+U.row(T, sc(true))+U.row(opp, sc(false)):''); }
+  return '';
+}
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
 //  home-away filters over ALL of its filtered games, the 10 most recent
