@@ -626,6 +626,56 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .tk-chkact{grid-column:1/-1;justify-content:flex-start;min-width:0;} .tk-chkact::before{display:none!important;}
 }
 .tk-zone .tt-zs{stroke-width:.4;}
+/* Team Trends › Turnover */
+.tv-kpis .kpi-t{font-size:17px;} .tv-kpis .kpi-v{font-size:50px;} .tv-kpis .kpi-v.na{font-size:34px;} .tv-kpis .kpi-d{font-size:.78rem;}
+.kpi-v.tv-pos{color:#22c55e;} .kpi-v.tv-neg{color:#ef4444;}
+.tv-duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:start;}
+.tv-big{border-width:1.5px;}
+.tv-big.won{border-color:#1c8a41;box-shadow:0 0 0 1px rgba(34,197,94,.25),0 0 16px rgba(34,197,94,.38);}
+.tv-big.lost{border-color:#b3262b;box-shadow:0 0 0 1px rgba(239,68,68,.25),0 0 16px rgba(239,68,68,.4);}
+.tv-big.won .td-ct,.tv-big.won .tv-bn{color:#22c55e;} .tv-big.lost .td-ct,.tv-big.lost .tv-bn{color:#ef4444;}
+.tv-bh{text-align:center;} .tv-bh .td-ct{margin-bottom:0;}
+.tv-bn{font:800 64px 'Barlow',sans-serif;line-height:1.1;} .tv-bn.na{color:var(--t3)!important;font-weight:600;font-size:40px;line-height:1.6;}
+.tv-bp{font-size:.8rem;color:var(--t2);}
+.tv-sh{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);text-transform:uppercase;margin:16px 0 6px;overflow-wrap:anywhere;}
+.tv-bty .tt-empty{padding:14px 6px;}
+.tv-cres{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.tv-cre{border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;min-width:0;background:rgba(255,255,255,.012);}
+.tv-cl{font:700 13px 'Barlow',sans-serif;color:var(--t2);letter-spacing:.02em;}
+.tv-cv{font:800 40px 'Barlow',sans-serif;line-height:1.15;} .tv-cv.na{color:var(--t3);font-weight:600;font-size:26px;line-height:1.75;}
+.tv-cd{font-size:.76rem;color:var(--t2);min-height:1.1em;}
+.ov-h em.tv-em.won{color:#22c55e;border-color:#22c55e;} .ov-h em.tv-em.lost{color:#ef4444;border-color:#ef4444;}
+.tv-resbar{display:flex;gap:8px 18px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;} .tv-resbar small{color:var(--t3);font-size:.76rem;padding-bottom:4px;}
+.tv-seg button{padding:10px 22px;}
+.tv-resbar.won .tv-seg button.on{background:#22c55e;color:#04220f;} .tv-resbar.lost .tv-seg button.on{background:#ef4444;color:#fff;}
+.tv-pitch{max-width:420px;margin:0 auto 16px;}
+.tv-pitch .pz-col{padding:2px;} .tv-pitch .pz-c{font:700 15px 'Barlow',sans-serif;min-height:0;}
+.tv-pitch .pz-dir{margin-top:7px;font-size:11px;}
+.tv-thirds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.tv-third{text-align:center;border-top-width:3px;padding:14px 12px;}
+.tv-third.won{border-top-color:#22c55e;} .tv-third.lost{border-top-color:#ef4444;}
+.tv-tn{font:700 15px 'Barlow',sans-serif;color:var(--t2);letter-spacing:.03em;}
+.tv-tv{font:800 52px 'Barlow',sans-serif;line-height:1.12;} .tv-third.won .tv-tv{color:#22c55e;} .tv-third.lost .tv-tv{color:#ef4444;}
+.tv-tv.na{color:var(--t3)!important;font-weight:600;font-size:30px;line-height:1.9;}
+.tv-tp{font-size:.8rem;color:var(--t2);min-height:1.1em;} .tv-tt{font-size:.76rem;color:var(--t3);margin-top:6px;min-height:1.2em;line-height:1.4;}
+.tv-znote{margin-top:10px;}
+.tv-log{margin-top:16px;} .tv-log>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--accent);}
+.tv-lf{margin:14px 0 8px;} .tv-allbar{margin:0 0 0 auto;}
+.tv-row{display:grid;grid-template-columns:1.5fr .9fr 1fr 1.1fr 1fr 1.3fr 236px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tv-row .tt-c{min-width:0;overflow-wrap:anywhere;}
+.tv-hd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
+.tv-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+.tt-cr b.tv-w{color:#22c55e;} .tt-cr b.tv-l{color:#ef4444;}
+@media (max-width:860px){
+  .tv-duo,.tv-thirds{grid-template-columns:minmax(0,1fr);gap:14px;}
+  .tv-hd{display:none;} .tv-row{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0;}
+  .tv-row .tt-c::before{content:attr(data-l);display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);}
+  .tv-allbar{margin:0;flex:1 1 100%;justify-content:flex-start;}
+}
+@media (max-width:760px){
+  .tv-kpis .kpi:last-child{grid-column:1 / -1;} .tv-kpis .kpi-t{font-size:15px;min-height:36px;} .tv-kpis .kpi-v{font-size:40px;}
+  .tv-bn{font-size:52px;} .tv-seg button{padding:10px 18px;}
+}
 .tk-zkey .tk-zsw{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.35);}
 .tk-ztab td.na{font-size:.74rem;}
 .tk-ztab td.tk-arctd{font-size:.76rem;line-height:1.25;white-space:normal;color:var(--t1);}
@@ -721,7 +771,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     <div class="ttsub" id="tt-attacking"><div id="ttBody"></div></div>
     <div class="ttsub" id="tt-defending"><div id="tdBody"></div></div>
     <div class="ttsub" id="tt-kickouts"><div id="tkBody"></div></div>
-    <div class="ttsub" id="tt-turnover"><div class="soon"><div class="tag">COMING SOON</div><h2>TURNOVER</h2><p>Turnovers won and lost game by game: where on the pitch, what kind, and what they led to.</p></div></div>
+    <div class="ttsub" id="tt-turnover"><div id="tvBody"></div></div>
     <div id="ttTip" role="tooltip" hidden></div>
   </div>
   <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
@@ -2970,23 +3020,28 @@ function tdChart(T, list, basisIds, sel, bundleOf){
 }
 const tdToOf=m=>m.to?m.to.won:null, tdFoulsOf=m=>m.fouls?m.fouls.n:null;
 // one series, oldest game on the left; o = {get, avg, col, unit, tip, label}
+// or several lines on one chart: o.series = [{get, avg, col, label}…] (Turnover: won and lost), o.aria(m) = a point's label
 function tdTrendSVG(rows, W, o){
   o=o||{}; W=Math.max(280, Math.round(W||760));
   const small=W<560, H=small?220:270, mL=34, mR=12, mT=28, mB=small?44:48, pw=W-mL-mR, ph=H-mT-mB, n=rows.length;
   if(!n) return '';
-  let hi=0; rows.forEach(m=>{ const v=o.get(m); if(v!=null) hi=Math.max(hi, v); });
-  const ax=ttNice(hi), band=pw/n, X=i=>mL+(i+.5)*band, Y=v=>mT+ph-(v/ax.top)*ph, col=o.col||'#4fc3f7';
+  const SR=o.series||[{get:o.get, avg:o.avg, col:o.col||'#4fc3f7'}], multi=SR.length>1;
+  let hi=0; rows.forEach(m=>SR.forEach(s=>{ const v=s.get(m); if(v!=null) hi=Math.max(hi, v); }));
+  const ax=ttNice(hi), band=pw/n, X=i=>mL+(i+.5)*band, Y=v=>mT+ph-(v/ax.top)*ph;
   let h=`<svg class="tt-trend td-trend" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="${ssEsc((o.label||'Trend')+', oldest game on the left')}">`;
   for(let v=0; v<=ax.top; v+=ax.step) h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tt-ax" x="${mL-7}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${v}</text>`;
   h+=`<text class="tt-ax tt-axt" x="4" y="${mT-14}">${ssEsc(o.unit||'')}</text>`;
-  if(o.avg!=null) h+=`<line class="td-avg" stroke="${col}" x1="${mL}" x2="${W-mR}" y1="${Y(o.avg).toFixed(1)}" y2="${Y(o.avg).toFixed(1)}"/>`;
-  let d='', pen=false; rows.forEach((m,i)=>{ const v=o.get(m); if(v==null){ pen=false; return; } d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); pen=true; });
-  h+=`<path class="tt-l-team" stroke="${col}" d="${d}"/>`;
+  SR.forEach(s=>{ if(s.avg!=null) h+=`<line class="td-avg" stroke="${s.col}" x1="${mL}" x2="${W-mR}" y1="${Y(s.avg).toFixed(1)}" y2="${Y(s.avg).toFixed(1)}"/>`; });
+  SR.forEach(s=>{ let d='', pen=false; rows.forEach((m,i)=>{ const v=s.get(m); if(v==null){ pen=false; return; } d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); pen=true; });
+    h+=`<path class="tt-l-team" stroke="${s.col}" d="${d}"/>`; });
   const every=Math.max(1, Math.ceil((small?46:58)/band)), chars=Math.max(3, Math.floor(band*every/(small?6.4:7.2)));
   rows.forEach((m,i)=>{
-    const x=X(i), v=o.get(m), lab='vs '+m.opp+', '+(v==null?(o.label||'value')+' not available':v+' '+(o.label||''));
+    const x=X(i), vs=SR.map(s=>s.get(m)), v=vs.some(q=>q!=null)?vs[0]:null, top=Math.max.apply(null, vs.map(q=>q==null?-1:q));
+    const lab=o.aria?o.aria(m):'vs '+m.opp+', '+(v==null?(o.label||'value')+' not available':v+' '+(o.label||''));
     h+=`<g class="tt-hit" data-tip="${o.tip}:${i}" tabindex="0" role="img" aria-label="${ssEsc(lab)}"><rect class="tt-band" x="${(x-band/2).toFixed(1)}" y="${mT}" width="${band.toFixed(1)}" height="${ph}"/>`;
-    if(v!=null) h+=`<circle class="tt-d-team" cx="${x.toFixed(1)}" cy="${Y(v).toFixed(1)}" r="5.5" fill="${col}"/>`+(band>=22?`<text class="tt-ax td-val" x="${x.toFixed(1)}" y="${(Y(v)-10).toFixed(1)}" text-anchor="middle">${v}</text>`:'');
+    // the value sits above its dot; with two lines the lower one sits below its dot (one label when they are level)
+    if(vs.some(q=>q!=null)) SR.forEach((s,k)=>{ const q=vs[k]; if(q==null) return; const up=!multi||q===top, dup=multi&&k>0&&vs.slice(0,k).includes(q);
+      h+=`<circle class="tt-d-team" cx="${x.toFixed(1)}" cy="${Y(q).toFixed(1)}" r="${k?4.5:5.5}" fill="${s.col}"/>`+(band>=22&&!dup?`<text class="tt-ax td-val" x="${x.toFixed(1)}" y="${(Y(q)+(up?-10:19)).toFixed(1)}" text-anchor="middle"${multi?` style="fill:${s.col}"`:''}>${q}</text>`:''); });
     else h+=`<text class="tt-ax tt-na" x="${x.toFixed(1)}" y="${(mT+ph/2).toFixed(1)}" text-anchor="middle">${m.loaded?'n/a':'…'}</text>`;
     h+='</g>';
     if(i%every===(n-1)%every){ const nm=m.opp.length>chars?m.opp.slice(0,Math.max(2,chars-1)).trim()+'…':m.opp, dt=ssIsoDate(m.date);
@@ -3705,6 +3760,256 @@ function tkMapSectionHTML(R, V, F, o){
     +tkCheckHTML(V.check, R, !!(o&&o.chkOpen));
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  TEAM TRENDS › TURNOVER — the selected team's in-play turnovers, won and
+//  lost, over the ticked games. Pure helpers first, then the rendering; the
+//  wiring is shared with Attacking / Defending / Kickouts below.
+//
+//  DEFINITIONS (the engine's classes — see TURNOVERS in the engine; the totals,
+//  the types, the thirds and the creation figures are the SAME per-game tallies
+//  the Overview and Defending read, so the three pages always agree):
+//  · IN-PLAY TURNOVER = forced, unforced, handling, free against (a Tracker
+//    "<TEAM> FOUL / FREE AGAINST" foul counts once, see TRACKER FREE AGAINST) and
+//    any untyped turnover row. Kickouts lost and shot attempts turned over are
+//    separate classes and are NOT counted here.
+//  · WON = in-play turnovers the selected team won; LOST = those it lost; NET =
+//    won − lost. Per game = ÷ the games that carry turnover rows.
+//  · TYPE = the type tagged on the losing team's row; GI / GIU rows carry none.
+//  · THIRD = the tagged third, converted to the SELECTED team's view for both
+//    won and lost (the opposition's attacking third is its defensive third).
+//    % = share of the turnovers WITH a tagged third.
+//  · CREATED = shots / scores whose tagged source is Forced TO, Unforced TO, a
+//    plain Turnover or Free Won ÷ in-play turnovers won, over the games that
+//    have both source tags and turnover rows (the Overview's creation rate). The
+//    selected team's on the Won side, the OPPOSITION's on the Lost side.
+//  ONE ROW PER TURNOVER (tvGameTos) lists the same turnovers one by one, for the
+//  thirds' type lines, the log and its clips. The clip of a turnover is its own
+//  row; the clip of a Tracker free-against foul is the FOUL row.
+//  · WHAT FOLLOWED (per row) = a source-tagged shot of the team that won the
+//    ball (source as above) is attached to the LATEST in-play turnover that team
+//    won before it, at most TV_FOLLOW_MAX_S seconds earlier; a shot with none is
+//    left unattached (srcUnmatched). A game with no source tags → n/a.
+// ═══════════════════════════════════════════════════════════════
+const TV_THIRDS=['DEF','MID','ATT'];
+const TV_THIRD_NAME={DEF:'Defensive third', MID:'Middle third', ATT:'Attacking third'};
+const TV_TYPE_COL={F:'#2fa58d', U:'#3fa63f', H:'#8a6bb0', FA:'#c9504f', X:'#7b7b88'};
+const TV_COL={won:'#22c55e', lost:'#ef4444'}, TV_RGB={won:'34,197,94', lost:'239,68,68'};
+const TV_FOLLOW_MAX_S=300;
+function tvTypeName(t){ const d=SS_TO_TYPES.find(x=>x[0]===t); return d?d[1]:'Not typed'; }
+// Every in-play turnover of a game, both teams, in time order; cached per events array. The same rows and rules as
+// ssOverviewTally (which only counts them).
+// → {tos:[{e, i, gid, evTeam, loser, winner, type, raw (third in evTeam's view), t, tl, faFoul, player, follow}], srcTagged, srcUnmatched}
+const TV_CACHE=new WeakMap();
+function tvGameTos(meta, events){
+  if(!meta||!Array.isArray(events)) return null;
+  const c=TV_CACHE.get(events);
+  if(c&&c.n===events.length&&c.H===meta.homeTeam&&c.A===meta.awayTeam&&c.id===meta.id) return c.v;
+  const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const skip=e=>giSup(e)||(typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e));
+  const giShort=ssGiShortTurnovers(events, H, A), tos=[];
+  const mk=(e, i, evTeam, loser, type, raw, t, tl, faFoul)=>({e, i, gid:meta.id, evTeam, loser, winner:loser===H?A:H, type, raw:raw||null, t, tl, faFoul, player:ssShotPlayer(e), follow:null});
+  events.forEach((e,i)=>{
+    if(!e||skip(e)||!ssIsTO(e)) return;
+    const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
+    if(giShort.has(e)||ssToKind(e)!=='play') return;                        // a kickout lost / a shot attempt: not in play
+    const t=ssEvT(e);
+    tos.push(mk(e, i, team, ssToWinnerCoded(e)?(team===H?A:H):team, ssToType(e), ssToThird(e), t, t, false));
+  });
+  // Tracker "Free Against" fouls: one in-play turnover each, unless the game's own "TOs / FREE AGAINST" row is it
+  const faTos=tos.filter(x=>x.type==='FA').map(x=>({loser:x.loser, t:x.t, used:false}));
+  ssFoulRows(events, H, A, skip).filter(r=>r.inPoss).sort((a,b)=>a.faT-b.faT||a.i-b.i).forEach(r=>{
+    const side=r.side==='T'?H:A; let best=null, bd=0;
+    faTos.forEach(z=>{ if(z.used||z.loser!==side) return; const d=Math.min(Math.abs(z.t-r.faT), Math.abs(z.t-r.t));
+      if(d<=SS_FA_TO_WINDOW&&(!best||d<bd)){ best=z; bd=d; } });
+    if(best){ best.used=true; return; }
+    tos.push(mk(r.e, r.i, side, side, 'FA', r.third, r.t, r.faT, true));      // the clip is the foul event
+  });
+  tos.sort((a,b)=>a.t-b.t||a.i-b.i);
+  const items=tkSrcItems(events, [H,A], skip, ssShotMode(events)), srcTagged=items.length>0;
+  let srcUnmatched=0;
+  if(srcTagged){
+    tos.forEach(k=>{ k.follow={shots:0, scores:0, pts:0}; });
+    const seq=tos.slice().sort((a,b)=>a.tl-b.tl||a.i-b.i);
+    items.forEach(it=>{
+      if(!SS_SRC_TO_KEYS.includes(it.cat)) return;
+      let k=null; for(const q of seq){ if(q.tl>it.t) break; if(q.winner===it.team) k=q; }   // the last turnover that team won before the shot
+      if(!k||it.t-k.tl>TV_FOLLOW_MAX_S){ srcUnmatched++; return; }
+      k.follow.shots++; if(it.v>0){ k.follow.scores++; k.follow.pts+=it.v; }
+    });
+  }
+  const v={tos, srcTagged, srcUnmatched};
+  TV_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
+  return v;
+}
+// one game: the match card (ovMatch) plus its turnover numbers from the cached tallies; to = null when the game has no turnover rows
+function tvMatch(r, T){
+  const m=ovMatch(r.g, r.tT, r.tO, T), t=r.tT, o=r.tO;
+  m.loaded=!!(t&&o);
+  const ty=p=>{ const x={}; SS_TO_TYPES.forEach(q=>{ x[q[0]]=t[p+'Ty'+q[0]]||0; }); return x; };
+  m.to=m.loaded&&t.toGames?{won:t.toWon, lost:t.toLost, net:t.toWon-t.toLost, wonTy:ty('toWon'), lostTy:ty('toLost'),
+    cre:t.toCreateGames?{shots:t.toShotsCreated, scores:t.toScoresCreated}:null, creO:o.toCreateGames?{shots:o.toShotsCreated, scores:o.toScoresCreated}:null}:null;
+  return m;
+}
+function tvSigned(v, dp){ const a=Math.abs(v), s=dp?a.toFixed(dp):String(a); return (v>0?'+':v<0?'−':'')+s; }
+// the five cards
+function tvKpis(W, L, n, kb){
+  const g=W.games, has=g>0, net=W.total-L.total, C=W.cre, cg=C.games>0;
+  const c=(key,title,v,txt,detail,games)=>({key, title, v, txt:v==null?null:txt, detail:v==null?'':detail, basis:tdBasisTxt(games, n, kb, true)});
+  return [
+    c('won','TOs WON', has?W.total:null, String(W.total), ttF1(W.perGame)+' per game · in play', g),
+    c('lost','TOs LOST', has?L.total:null, String(L.total), ttF1(L.perGame)+' per game · in play', g),
+    c('net','NET TOs', has?net:null, tvSigned(net), (has?tvSigned(net/g, 1):'0')+' per game · won − lost', g),
+    c('shots','SHOTS FROM TOs WON', cg?C.shots:null, String(C.shots), ttPctTxt(C.shotPct)+' of '+C.base+' TOs won', C.games),
+    c('scores','SCORES FROM TOs WON', cg?C.scores:null, String(C.scores), ttPctTxt(C.scorePct)+' of TOs won · '+C.pts+' pt'+(C.pts===1?'':'s'), C.games)];
+}
+// Everything Team Trends › Turnover shows for team T over the basis games, or over `pick` (the games ticked in the
+// control row, oldest → newest). won / lost = the two sides of the page; tos = the rows of the log (T's view).
+function tvCompute(T, games, basis, bundleOf, pick){
+  const list=ovTeamGames(games, T), base=ovBasisGames(list, basis).slice().reverse(), use=pick?pick.slice():base;   // oldest → newest
+  const bs=new Set(base.map(g=>g.id)), custom=!(use.length===bs.size&&use.every(g=>bs.has(g.id))), kb=custom?'sel':basis;
+  const rows=use.map(g=>{ const r=tdRow(T, g, bundleOf), b=bundleOf(g.id); r.K=r.tT&&r.tO?tvGameTos(b.meta, b.events):null; r.m=tvMatch(r, T); return r; });
+  const used=rows.filter(r=>r.tT&&r.tO), n=used.length;
+  const aT=ssAggregate(used.map(r=>r.tT)), aO=ssAggregate(used.map(r=>r.tO));
+  const tos=[]; let srcUnmatched=0;
+  used.forEach(r=>{ if(!r.K) return; srcUnmatched+=r.K.srcUnmatched;
+    r.K.tos.forEach(k=>tos.push(Object.assign({}, k, {won:k.winner===T, third:k.raw?(k.evTeam===T?k.raw:ssFlipThird(k.raw)):null, src:r.K.srcTagged}))); });
+  const keys=SS_TO_TYPES.filter(t=>t[0]!=='X');
+  const side=(k, P, c, cT)=>{   // P = the tally prefix; c = the aggregate the creation is read from (the team that WON these turnovers)
+    const total=aT[P]||0, g=aT.toGames||0, typed=keys.reduce((s,t)=>s+(aT[P+'Ty'+t[0]]||0),0), loc=aT[P+'Loc']||0, mine=tos.filter(x=>x.won===(k==='won'));
+    const pts=used.reduce((s,r)=>{ const t=r[cT]; return s+(t.toCreateGames?SS_SRC_TO_KEYS.reduce((q,x)=>q+(t['srcP:'+x]||0),0):0); },0);
+    return {k, total, games:g, perGame:g>0?total/g:null, typed, untyped:aT[P+'TyX']||0, typeGames:used.filter(r=>keys.some(t=>r.tT[P+'Ty'+t[0]]>0)).length,
+      types:keys.map(t=>({k:t[0], label:t[1], n:aT[P+'Ty'+t[0]]||0, pct:ovPct(aT[P+'Ty'+t[0]]||0, typed)})),
+      cre:{shots:c.toShotsCreated||0, scores:c.toScoresCreated||0, pts, base:c.toWonCreateG||0, games:c.toCreateGames||0, poss:used.filter(r=>r[cT].toCreateGames&&r[cT].srcPossGames).length,
+        shotPct:ovPct(c.toShotsCreated||0, c.toWonCreateG||0), scorePct:ovPct(c.toScoresCreated||0, c.toWonCreateG||0)},
+      loc, locGames:used.filter(r=>r.tT[P+'Loc']>0).length, faFoul:aT[P+'FaFoul']||0,
+      thirds:TV_THIRDS.map(z=>{ const ty={}; SS_TO_TYPES.forEach(t=>{ ty[t[0]]=0; }); mine.forEach(x=>{ if(x.third===z) ty[x.type]++; });
+        return {k:z, n:aT[P+z]||0, pct:ovPct(aT[P+z]||0, loc), types:ty}; })};
+  };
+  const won=side('won','toWon', aT, 'tT'), lost=side('lost','toLost', aO, 'tO');
+  const dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return {team:T, basis, custom, kb, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
+    list, basisIds:base.map(g=>g.id), gameOf:new Map(rows.map(r=>[r.g.id, r.m])), trend:rows.map(r=>r.m), won, lost, tos, srcUnmatched,
+    srcGames:used.filter(r=>r.K&&r.K.srcTagged&&r.K.tos.length).length, kpis:tvKpis(won, lost, n, kb), aggT:aT, aggO:aO};
+}
+// the Won | Lost switch and the log's filters. F = {res:'won'|'lost', third:'all'|'DEF'|'MID'|'ATT'|'none', types:Set of SS_TO_TYPES keys}
+function tvFilter(F){
+  F=F||{}; const all=SS_TO_TYPES.map(t=>t[0]);
+  return {res:F.res==='lost'?'lost':'won', third:['DEF','MID','ATT','none'].includes(F.third)?F.third:'all', types:F.types instanceof Set?F.types:new Set(all)};
+}
+// → {res, S (that side's summary), all (its turnovers), rows (those the log shows: by game oldest first, then time)}
+function tvView(R, F){
+  F=tvFilter(F); const all=R.tos.filter(x=>x.won===(F.res==='won'));
+  const rows=all.filter(x=>(F.third==='all'||(F.third==='none'?!x.third:x.third===F.third))&&F.types.has(x.type));
+  return {res:F.res, F, S:R[F.res], all, rows};
+}
+// ── Turnover rendering (strings only; every interpolated value is escaped) ──
+function tvKpisHTML(kpis){
+  return '<div class="ov-kpis tv-kpis">'+kpis.map(k=>`<div class="kpi" data-k="${ssEsc(k.key)}"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}${k.key==='net'&&k.v?(k.v>0?' tv-pos':' tv-neg'):''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+}
+// i. the trend: both lines per game (won green, lost red), dashed averages
+const tvWonOf=m=>m.to?m.to.won:null, tvLostOf=m=>m.to?m.to.lost:null;
+function tvTrendSecHTML(R, o){
+  o=o||{}; const T=R.team, W=R.won, L=R.lost, rows=R.trend, k=rows.filter(m=>m.to).length, gl=n=>n+' game'+(n===1?'':'s');
+  const svg=tdTrendSVG(rows, o.W, {series:[{get:tvWonOf, avg:W.perGame, col:TV_COL.won},{get:tvLostOf, avg:L.perGame, col:TV_COL.lost}], unit:'TOs', tip:'tvt', label:'Turnovers won and lost',
+    aria:m=>'vs '+m.opp+', '+(m.to?m.to.won+' turnovers won, '+m.to.lost+' lost':m.loaded?'turnovers not available':'still loading')});
+  const avg=(S, name)=>`<span><i class="tt-sw td-avgsw" style="color:${TV_COL[S.k]}"></i>${S.perGame==null?name+' average n/a':name+' average '+S.perGame.toFixed(1)+' per game'}</span>`;
+  return '<div class="tt-card td-tcard tv-tcard"><h4 class="td-ct">TURNOVERS WON AND LOST <small>in play, per game, oldest to newest</small></h4>'
+    +`<div class="tt-chart">${svg}</div><div class="tt-key"><span><i class="tt-sw" style="background:${TV_COL.won}"></i>${ssEsc(T)} TOs won</span><span><i class="tt-sw" style="background:${TV_COL.lost}"></i>${ssEsc(T)} TOs lost</span>${avg(W,'Won')}${avg(L,'Lost')}</div>`
+    +`<div class="dnote">${ssEsc(!k?'No turnover data in '+(rows.length===1?'this game':'these '+gl(rows.length))+'.':W.total+' won and '+L.total+' lost in '+gl(k)+(k<rows.length?' ('+ovFromNote(k, rows.length)+'; the others show n/a)':'')+'. Hover, focus or tap a game for its detail.')}</div></div>`;
+}
+function tvTypeLine(ty){ const p=SS_TO_TYPES.filter(t=>ty[t[0]]>0).map(t=>t[1]+' '+ty[t[0]]); return p.length?p.join(' · '):'–'; }
+// the game card of a trend point
+function tvTrendCardHTML(m, T){
+  if(!m) return '';
+  const sub=[m.competition, m.round].filter(Boolean).join(' · '), row=(l,v,c)=>`<div class="tt-cr"><span>${ssEsc(l)}</span><b${c?' class="'+c+'"':''}>${ssEsc(String(v))}</b></div>`;
+  let h=`<div class="tt-ct">vs ${ssEsc(m.opp)}</div><div class="tt-cs">${ssEsc([sub, ovFmtDate(m.date)||'date n/a'].filter(Boolean).join(' · '))}</div>`;
+  if(!m.loaded) return h+'<div class="tt-cna">This game is still loading.</div>';
+  h+=m.data?`<div class="tt-cscore"><b>${ssEsc(ovScoreTxt(m.team))}</b><span>v ${ssEsc(ovScoreTxt(m.opposition))}</span><em class="${m.res}">${m.res}</em></div>`:'<div class="tt-cna">Score n/a — this game has no shot data.</div>';
+  const t=m.to;
+  if(!t) return h+'<div class="tt-cna">Turnovers n/a — this game has no turnover rows.</div>';
+  const typed=ty=>SS_TO_TYPES.some(q=>q[0]!=='X'&&ty[q[0]]>0), cre=c=>c?c.shots+' shot'+(c.shots===1?'':'s')+' · '+c.scores+' score'+(c.scores===1?'':'s'):'n/a (no source tags)';
+  h+=`<div class="tt-cwho">${ssEsc(T)} · turnovers in play</div>`+row('TOs won', t.won, 'tv-w')+row('TOs lost', t.lost, 'tv-l')+row('Net', tvSigned(t.net));
+  h+='<div class="tt-cwho">By type</div>'+((typed(t.wonTy)||typed(t.lostTy))?row('Won', tvTypeLine(t.wonTy))+row('Lost', tvTypeLine(t.lostTy)):'<div class="tt-cn">Types not tagged in this game.</div>');
+  return h+'<div class="tt-cwho">Created from turnovers won</div>'+row(T, cre(t.cre), t.cre?'':'na')+row(m.opp, cre(t.creO), t.creO?'':'na');
+}
+// ii. the two big cards: the turnovers won (the selected team's creation) and lost (the opposition's creation)
+function tvBigHTML(S, T, n){
+  const won=S.k==='won', C=S.cre, has=S.games>0, col=TV_COL[S.k];
+  const cre=(label, v, pct, extra)=>`<div class="tv-cre"><div class="tv-cl">${label}</div><div class="tv-cv${C.games?'':' na'}">${C.games?v:'n/a'}</div><div class="tv-cd">${C.games?ssEsc(ttPctTxt(pct)+' of '+C.base+' TOs '+(won?'won':'lost')+(extra||'')):''}</div></div>`;
+  let h=`<div class="tt-card tv-big ${S.k}" data-side="${S.k}"><div class="tv-bh"><h4 class="td-ct">TURNOVERS ${won?'WON':'LOST'} <small>in play</small></h4>`
+    +`<div class="tv-bn${has?'':' na'}">${has?S.total:'n/a'}</div><div class="tv-bp">${has?ssEsc(ttF1(S.perGame)+' per game · '+ovFromNote(S.games, n)):ssEsc('No turnover data in '+(n===1?'this game':'these '+n+' games'))}</div></div>`;
+  h+='<div class="tv-bty"><div class="tv-sh">BY TYPE</div>';
+  if(!(S.typed>0)) h+=`<div class="tt-empty">n/a — no turnover types tagged${has?' (these games’ turnover rows carry no type)':''}.</div>`;
+  else h+=S.types.map(r=>`<div class="td-brow${r.n?'':' zero'}" data-ty="${r.k}"><div class="td-bl"><i style="background:${TV_TYPE_COL[r.k]}"></i><span>${ssEsc(r.label)}</span></div>`
+      +`<div class="td-bt" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${col}"></i></div><div class="td-bv"><b>${r.n}</b>${ovPctTxt(r.pct)}</div></div>`).join('')
+    +`<div class="dnote">${ssEsc('Type of '+S.typed+' of the '+S.total+(S.untyped?' ('+S.untyped+' not typed)':'')+' · '+ovFromNote(S.typeGames, n)+(S.faFoul?' · '+S.faFoul+' free against from Tracker foul rows':'')+'.')}</div>`;
+  h+=`</div><div class="tv-sh">${won?ssEsc(T+' — created from them'):'OPPOSITION — created from them'}</div><div class="tv-cres">`
+    +cre('SHOTS CREATED', C.shots, C.shotPct)+cre('SCORES CREATED', C.scores, C.scorePct, ' · '+C.pts+' pt'+(C.pts===1?'':'s'))+'</div>'
+    +`<div class="dnote">${ssEsc(C.games?(won?T+'’s':'The opposition’s')+' shots / scores whose tagged source is a turnover or a free won ÷ in-play TOs '+(won?'won':'lost')+' · '+ovFromNote(C.games, n)+ovPossNote(C.poss)+'.'
+      :'Creation n/a — no source tags with turnovers in '+(n===1?'this game':'these '+n+' games')+'.')}</div></div>`;
+  return h;
+}
+// iii. the three thirds (the selected team's view), for the Won | Lost switch: a small to-scale pitch strip, then the cards
+function tvThirdsHTML(R, V){
+  const S=V.S, T=R.team, res=V.res, any=S.loc>0, rgb=TV_RGB[res], max=Math.max.apply(null, S.thirds.map(t=>t.n).concat([1]));
+  const cell=t=>{ const a=any?(0.12+0.68*t.n/max).toFixed(2):'0'; return `<div class="pz-col tv-pz" data-z="${t.k}" style="background:linear-gradient(rgba(${rgb},${a}),rgba(${rgb},${a})),rgba(11,11,16,.5)"><div class="pz-c">${any?ovPctTxt(t.pct):'n/a'}</div></div>`; };
+  let h=`<div class="pitchwrap tv-pitch" role="img" aria-label="${ssEsc('Turnovers '+res+' by third, '+T+' attacking left to right: '+(any?S.thirds.map(t=>TV_THIRD_NAME[t.k]+' '+t.n).join(', '):'no tagged thirds'))}"><div class="pitch">${ovPitchSVG()}<div class="pz">${S.thirds.map(cell).join('')}</div></div>`
+    +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div></div>`;
+  h+='<div class="tv-thirds">'+S.thirds.map(t=>{ const typed=SS_TO_TYPES.some(q=>q[0]!=='X'&&t.types[q[0]]>0);
+    return `<div class="tt-card tv-third ${res}" data-z="${t.k}"><div class="tv-tn">${TD_THIRD[t.k]}</div><div class="tv-tv${any?'':' na'}">${any?t.n:'n/a'}</div>`
+      +`<div class="tv-tp">${any?ssEsc(ovPctTxt(t.pct)+' of the '+S.loc+' with a third'):''}</div><div class="tv-tt">${!any?'':!t.n?'–':typed?ssEsc(tvTypeLine(t.types)):'types not tagged'}</div></div>`; }).join('')+'</div>';
+  const n=R.n, what='turnovers '+res;
+  return h+`<div class="pz-note tv-znote">${ssEsc(!S.games?'No turnover data in '+(n===1?'this game':'these '+n+' games')+'.'
+    :'In-play '+what+' by '+T+', in the third where the ball was '+res+', from '+T+'’s point of view (the opposition’s attacking third is '+T+'’s defensive third). '
+      +S.loc+' of the '+S.total+' '+what+' had a tagged third · '+ovFromNote(S.locGames, n)+'; % = share of those '+S.loc+'.')}</div>`;
+}
+// iv. the log: one row per turnover behind the Won | Lost switch, with its clip
+function tvFollowTxt(k){
+  const f=k.follow; if(!f) return 'n/a (no source tags)';
+  if(!f.shots) return '–';
+  if(f.shots===1) return f.scores?'Score · '+f.pts+' pt'+(f.pts===1?'':'s'):'Shot · no score';
+  return f.shots+' shots · '+f.scores+' score'+(f.scores===1?'':'s')+(f.scores?' ('+f.pts+' pts)':'');
+}
+function tvThirdTxt(z){ return z?TV_THIRD_NAME[z]:'Not tagged'; }
+function tvLogHTML(R, V, o){
+  o=o||{}; const F=V.F, res=V.res, n=V.rows.length, tot=V.all.length, T=R.team;
+  const b=(v,l)=>`<button type="button" data-tvf="third" data-tvv="${v}" class="${F.third===v?'on':''}" aria-pressed="${F.third===v?'true':'false'}">${l}</button>`;
+  const chip=t=>`<button type="button" class="chip${F.types.has(t[0])?' on':''}" data-tvchip="${t[0]}" aria-pressed="${F.types.has(t[0])?'true':'false'}">${ssEsc(t[1])}</button>`;
+  const c=(l,v)=>`<div class="tt-c" role="cell" data-l="${l}">${v}</div>`;
+  let h=`<details class="tt-card tv-log" id="tvLog"${o.logOpen?' open':''}><summary>Turnover log — ${n===tot?n:n+' of '+tot} turnover${tot===1?'':'s'} ${res}</summary>`
+    +'<div class="tt-filters tv-lf">'
+    +`<div class="tt-fg"><span>THIRD</span><div class="seg" role="group" aria-label="Third of the pitch">${b('all','All')}${b('DEF','Defensive')}${b('MID','Middle')}${b('ATT','Attacking')}${b('none','Not tagged')}</div></div>`
+    +`<div class="tt-fg"><span>TYPE</span><div class="chips" role="group" aria-label="Turnover type">${SS_TO_TYPES.map(chip).join('')}</div></div>`
+    +`<div class="tt-allbar tv-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="to" aria-haspopup="menu"${n?'':' disabled aria-disabled="true"'}>Add all shown (${n}) to playlist</button></div></div>`;
+  if(!n) return h+`<div class="tt-empty">${tot?'No turnovers match these filters.':'No turnovers '+res+' in these games.'}</div></details>`;
+  h+='<div class="tv-tab" role="table" aria-label="Turnover log"><div class="tv-row tv-hd" role="row">'+['GAME','TIME','THIRD','TYPE','PLAYER','WHAT FOLLOWED',''].map(x=>`<div role="columnheader">${x}</div>`).join('')+'</div>'
+    +V.rows.map((k,i)=>{ const m=R.gameOf.get(k.gid), clip=cpClip(k);
+      return `<div class="tv-row" role="row" data-tv="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Time', ssEsc(ttClockTxt(k.e)))
+        +c('Third', ssEsc(tvThirdTxt(k.third)))+c('Type', `<i class="tv-dot" style="background:${TV_TYPE_COL[k.type]}"></i>`+ssEsc(tvTypeName(k.type)+(k.faFoul?' (foul)':'')))+c('Player', ssEsc(k.player||'–'))+c('What followed', ssEsc(tvFollowTxt(k)))
+        +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="tv-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
+        +(clip?`<button type="button" class="tt-btn pri" data-act="tv-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; }).join('')+'</div>';
+  return h+`<div class="dnote">${ssEsc('One row per in-play turnover '+res+' by '+T+', by game (oldest first), then time. The third is from '+T+'’s point of view; the player is the one tagged on the row. What followed = the shot / score of the team that won the ball whose tagged source is that turnover ('+(res==='won'?T+'’s':'the opposition’s')+'); a game with no source tags shows n/a. A free against marked (foul) comes from a Tracker foul row, and its clip is that foul.')}</div></details>`;
+}
+function tvResSecHTML(R, V, o){
+  const b=(v,l)=>`<button type="button" data-tvf="res" data-tvv="${v}" class="${V.res===v?'on':''}" aria-pressed="${V.res===v?'true':'false'}">${l}</button>`;
+  return `<h2 class="ov-h">WHERE ON THE PITCH <em class="tv-em ${V.res}">${V.res==='won'?'WON':'LOST'}</em></h2><div class="tv-resbar ${V.res}"><div class="tt-fg"><span>TURNOVERS</span><div class="seg tv-seg" role="group" aria-label="Turnovers won or lost">${b('won','Won')}${b('lost','Lost')}</div></div>`
+    +`<small>${ssEsc('The switch drives the pitch, the three cards and the log.')}</small></div>`+tvThirdsHTML(R, V)+tvLogHTML(R, V, o);
+}
+function tvHTML(R, V, o){
+  o=o||{}; const T=R.team, n=R.n, SC=o.sel||null;
+  if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="tvSelLine">${ssEsc(gsLineTxt(R, SC))}</small></div>`
+    +(SC?gsSelCtlHTML(T, SC, o.open||'', 'tv', 'Turnover'):'')+'</div>';
+  if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
+  h+=tvKpisHTML(R.kpis);
+  h+='<h2 class="ov-h">GAME BY GAME</h2><div id="tvChartSec">'+tvTrendSecHTML(R, o)+'</div>';
+  h+='<h2 class="ov-h">WON v LOST</h2><div class="tv-duo">'+tvBigHTML(R.won, T, n)+tvBigHTML(R.lost, T, n)+'</div>';
+  h+='<div id="tvResSec">'+tvResSecHTML(R, V, o)+'</div>';
+  h+=`<div class="foot">Turnover covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. In-play turnovers only (forced, unforced, handling, free against, untyped); kickouts lost and shot attempts turned over are separate and not counted here. Gaelic Insights and GIU turnover rows carry no type; a GIU game’s source is derived from its possession rows where it has them. “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+
 // ── Team Trends page wiring ──
 let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_SELC=null, TD_BASE=null, TD_SEL_TOKEN=0, TD_PR='all';   // TD_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
 let TD_CH=gsNew();                                 // Defending's own games selection (games:null = the basis games)
@@ -3755,7 +4060,7 @@ async function tdSelEnsure(){
 function tdToggle(kind, value, on){ if(!TD_BASE||!TD_LAST) return; gsToggle(TD_CH, TD_BASE.basisIds, kind, value, on); tdSelApply(); }
 function tdCmd(c){ if(!TD_BASE||!TD_LAST||!gsCmd(TD_CH, TD_BASE.list, TD_BASE.basisIds, c)) return; tdSelApply(); }
 function tdCloseDd(target){
-  [ssEl('tdBody'), ssEl('ttBody'), ssEl('tkBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
+  [ssEl('tdBody'), ssEl('ttBody'), ssEl('tkBody'), ssEl('tvBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
     sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); }); });
 }
 // ── Attacking's games selection: its own state, the shared dropdowns ──
@@ -3861,6 +4166,72 @@ async function tkAvgEnsure(){
   TK_AVG={key, v:tkAvgAll(pool, bo)}; TK_AVG_ST='';
   if(TT_SUB==='kickouts'&&TAB==='team-trends') tkRenderContest();
 }
+// ── Turnover: its own games selection, the Won | Lost switch and the log's filters ──
+let TV_LAST=null, TV_VIEW=null, TV_KEY='', TV_SEL=gsNew(), TV_SELC=null, TV_BASE=null, TV_SEL_TOKEN=0, TV_W=0;   // TV_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
+const TV_TRIED=new Set();
+const TV_F={res:'won', third:'all', types:new Set(SS_TO_TYPES.map(t=>t[0]))};
+function tvSelCalc(){
+  const B=TV_BASE, bo=id=>BUNDLES.get(id);
+  TV_SELC=gsList(B.list, B.basisIds, TV_SEL, bo); TV_SELC.nBasis=B.basisIds.length;
+  TV_LAST=tvCompute(B.team, B.pool, B.basis, bo, TV_SELC.shown);
+  return TV_LAST;
+}
+function tvSelApply(){ tvSelCalc(); tvRender(); tvSelEnsure(); }
+// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw the sub-tab
+async function tvSelEnsure(){
+  const C=TV_SELC; if(!C||!C.pending.length||!TV_BASE) return;
+  const need=TV_BASE.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!TV_TRIED.has(g.id)); if(!need.length) return;
+  need.forEach(g=>TV_TRIED.add(g.id));
+  const my=++TV_SEL_TOKEN, key=TV_KEY;
+  try{ await ovLoad(need); }catch(_){ return; }
+  if(my!==TV_SEL_TOKEN||key!==TV_KEY||TT_SUB!=='turnover'||TAB!=='team-trends') return;
+  tvSelApply();
+}
+function tvSelToggle(kind, value, on){ if(!TV_BASE||!TV_LAST) return; gsToggle(TV_SEL, TV_BASE.basisIds, kind, value, on); tvSelApply(); }
+function tvSelCmd(c){ if(!TV_BASE||!TV_LAST||!gsCmd(TV_SEL, TV_BASE.list, TV_BASE.basisIds, c)) return; tvSelApply(); }
+function tvLogOpen(){ const d=ssEl('tvLog'); return !!(d&&d.open); }   // the log stays open across a re-draw
+function tvKeepFocus(root, fn){
+  const a=document.activeElement, d=a&&root&&root.contains&&root.contains(a)&&a.dataset?a.dataset:null;
+  const sel=!d?'':d.tvf?'[data-tvf="'+d.tvf+'"][data-tvv="'+d.tvv+'"]':d.tvchip?'[data-tvchip="'+d.tvchip+'"]':'';
+  fn();
+  if(sel&&root.querySelector){ const el=root.querySelector(sel); if(el){ try{ el.focus({preventScroll:true}); }catch(_){ } } }
+}
+function tvRender(){
+  const body=ssEl('tvBody'); if(!body||!TV_LAST) return;
+  ttHideTip();
+  TV_VIEW=tvView(TV_LAST, TV_F);
+  const o={sel:TV_SELC, W:(TV_W=ttWidth('tvBody')), logOpen:tvLogOpen(), open:tdOpenDd(body)};   // an open games / competitions dropdown stays open
+  tdKeepFocus(body, ()=>tvKeepFocus(body, ()=>{ body.innerHTML=tvHTML(TV_LAST, TV_VIEW, o); }));
+}
+// the Won | Lost switch and the log's filters only re-draw the pitch, the three cards and the log (nothing is fetched)
+function tvRenderRes(){
+  const sec=ssEl('tvResSec'); if(!sec||!TV_LAST){ tvRender(); return; }
+  ttHideTip();
+  const o={logOpen:tvLogOpen()};
+  TV_VIEW=tvView(TV_LAST, TV_F);
+  tvKeepFocus(sec, ()=>{ sec.innerHTML=tvResSecHTML(TV_LAST, TV_VIEW, o); });
+}
+function tvSetFilter(f, v){
+  if(f==='res') TV_F.res=v==='lost'?'lost':'won';
+  else if(f==='third') TV_F.third=tvFilter({third:v}).third;
+  else if(f==='type'){ if(TV_F.types.has(v)) TV_F.types.delete(v); else if(SS_TO_TYPES.some(t=>t[0]===v)) TV_F.types.add(v); }
+  tvRenderRes();
+}
+// a row of the log: Watch clip plays it in the clip player (Previous / Next step through the rows shown);
+// Add to playlist opens the same menu as a marker's card, anchored on the button
+function tvAct(btn){
+  const list=(TV_VIEW&&TV_VIEW.rows)||[], k=list[+btn.dataset.i], t=ssEl('ttTip'); if(!k) return;
+  if(btn.dataset.act==='tv-watch') return cpOpen('to', k, btn, list);
+  if(!t) return;
+  ttHideTip();
+  TT_TIP=TT_PIN=btn; TT_JOB={shots:[k], bulk:false};
+  const I=cpInfo('to', k, TV_LAST);
+  t.innerHTML=`<div class="tt-ct">${ssEsc(I.title)}</div><div class="tt-cs">${ssEsc([I.sub, I.sum].filter(Boolean).join(' · '))}</div>`
+    +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
+  t.hidden=false; if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
+  ttPlaceTip();
+  return ttPlOpen();
+}
 let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null, TT_PIN=null;
 const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
 function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
@@ -3869,11 +4240,10 @@ async function ttRun(){
   if(TAB!=='team-trends'||!GAMES_READY) return;
   const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; TD_BASE=null; TD_SELC=null; TD_CHART=null; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } TK_LAST=null; TK_VIEW=null; TK_KEY=''; TK_BASE=null; TK_SELC=null; { const d=ssEl('tkBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TT_BASE=null; TT_SELC=null; TD_LAST=null; TD_KEY=''; TD_BASE=null; TD_SELC=null; TD_CHART=null; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } TK_LAST=null; TK_VIEW=null; TK_KEY=''; TK_BASE=null; TK_SELC=null; { const d=ssEl('tkBody'); if(d) d.innerHTML=''; } TV_LAST=null; TV_VIEW=null; TV_KEY=''; TV_BASE=null; TV_SELC=null; { const d=ssEl('tvBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
   note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
-  if(TT_SUB!=='attacking'&&TT_SUB!=='defending'&&TT_SUB!=='kickouts') return;   // placeholders: nothing to load
   const need=use.filter(g=>!BUNDLES.has(g.id));
   try{
     if(need.length){
@@ -3896,6 +4266,12 @@ async function ttRun(){
     if(kk!==TK_KEY||!TK_LAST){ TK_KEY=kk; TK_SEL=gsNew(); TK_TRIED.clear(); TK_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; tkSelCalc(); }
     else { TK_BASE.pool=pool; if(TK_SELC&&TK_SELC.pending.some(id=>BUNDLES.has(id))) tkSelCalc(); }
     tkRender(); tkSelEnsure(); if(TK_AVG_ON) tkAvgEnsure(); return;
+  }
+  if(TT_SUB==='turnover'){                         // same games, same cached tallies; its own selection and result
+    const vk=key+'#'+list.map(g=>g.id).join(',');
+    if(vk!==TV_KEY||!TV_LAST){ TV_KEY=vk; TV_SEL=gsNew(); TV_TRIED.clear(); TV_BASE={team:T, pool, basis:TT_BASIS, list, basisIds:use.map(g=>g.id)}; tvSelCalc(); }
+    else if(TV_SELC&&TV_SELC.pending.some(id=>BUNDLES.has(id))) tvSelCalc();
+    tvRender(); tvSelEnsure(); return;
   }
   // a new team, basis or filter set (the basis games or the team's game list changed) resets the games selection
   const ak=key+'#'+list.map(g=>g.id).join(',');
@@ -3946,6 +4322,7 @@ function ttSetFilter(f, v){
 function ttTipHTML(key, pinned){
   const p=String(key||'').split(':'), i=+p[1];
   if(p[0]==='dto'||p[0]==='dfl') return TD_LAST&&TD_CHART?tdTrendCardHTML(TD_CHART.rows[i], p[0]==='dto'?'to':'fouls', TD_LAST.team):'';
+  if(p[0]==='tvt') return TV_LAST?tvTrendCardHTML(TV_LAST.trend[i], TV_LAST.team):'';
   if(p[0]==='kz') return TK_LAST&&TK_VIEW?tkZoneCardHTML(TK_VIEW.zones.byKey[p[1]], TK_VIEW, TK_LAST):'';
   if(p[0]==='ko') return TK_LAST&&TK_VIEW?tkKoCardHTML(TK_VIEW.mapKos[i], TK_LAST, {pinned:!!pinned}):'';
   if(!TT_LAST||!TT_VIEW) return '';
@@ -4092,9 +4469,9 @@ function ttPlCreate(){
 }
 // "Add all shown (n)": every shot on the map goes to one playlist in ONE request
 const TT_PL_CONFIRM=40, TT_PL_MAX=500;   // ask first above 40; 500 = the function's cap per request
-function ttBulkCardHTML(n, noun){
+function ttBulkCardHTML(n, noun, where){
   noun=noun||'shot';
-  return `<div class="tt-ct">Add ${n} ${noun}${n===1?'':'s'} to a playlist</div><div class="tt-cs">Every ${noun} shown on the map, after the filters.</div>`
+  return `<div class="tt-ct">Add ${n} ${noun}${n===1?'':'s'} to a playlist</div><div class="tt-cs">Every ${noun} shown ${where||'on the map'}, after the filters.</div>`
     +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
 function ttConfirm(title, message){
@@ -4102,13 +4479,13 @@ function ttConfirm(title, message){
   return Promise.resolve(typeof confirm==='function'?!!confirm(message):true);
 }
 async function ttPlAll(btn){
-  const ko=!!(btn&&btn.dataset&&btn.dataset.kind==='ko'), noun=ko?'kickout':'shot';   // Kickouts' button adds the kickouts on its landing map
-  const view=ko?TK_VIEW:TT_VIEW, shots=(view&&(ko?view.mapKos:view.mapShots))||[], t=ssEl('ttTip'); if(!shots.length||!t) return;
-  if(shots.length>TT_PL_CONFIRM&&!(await ttConfirm('Add '+shots.length+' clips?', 'That adds all '+shots.length+' '+noun+'s shown on the map as clips. Narrow the filters first for a shorter playlist.'))) return;
-  if((ko?TK_VIEW:TT_VIEW)!==view) return;             // the filters changed while the question was open
+  const dk=btn&&btn.dataset?btn.dataset.kind:'', kind=dk==='ko'?'ko':dk==='to'?'to':'shot', noun=kind==='ko'?'kickout':kind==='to'?'turnover':'shot';   // Kickouts' button adds the kickouts on its landing map, Turnover's the rows of its log
+  const where=kind==='to'?'in the log':'on the map', view=cpViewOf(kind), shots=cpItemsOf(kind)||[], t=ssEl('ttTip'); if(!shots.length||!t) return;
+  if(shots.length>TT_PL_CONFIRM&&!(await ttConfirm('Add '+shots.length+' clips?', 'That adds all '+shots.length+' '+noun+'s shown '+where+' as clips. Narrow the filters first for a shorter playlist.'))) return;
+  if(cpViewOf(kind)!==view) return;                   // the filters changed while the question was open
   ttHideTip();
   TT_TIP=TT_PIN=btn; TT_JOB={shots:shots.slice(), bulk:true};
-  t.innerHTML=ttBulkCardHTML(shots.length, noun); t.hidden=false;
+  t.innerHTML=ttBulkCardHTML(shots.length, noun, where); t.hidden=false;
   if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
   ttPlaceTip();
   if(shots.length>TT_PL_MAX){ ttPlDraw({phase:'error', msg:'That is more than '+TT_PL_MAX+' clips in one go — narrow the filters first.'}); return; }
@@ -4147,8 +4524,14 @@ function cpList(items, gameOf, clipOf){   // items with no video are left out, s
     return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
 }
 // the window's header: who, "v Opponent · date", and the event in a line
+function cpViewOf(kind){ return kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:TT_VIEW; }
+function cpResOf(kind){ return kind==='ko'?TK_LAST:kind==='to'?TV_LAST:TT_LAST; }
+function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'?v.mapKos:kind==='to'?v.rows:v.mapShots):null; }
 function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
+  if(kind==='to'){ const T=R?R.team:s.winner;   // a turnover (or the foul behind a Tracker free against), from the selected team's side
+    return {title:'Turnover '+(s.won?'won':'lost')+' by '+T, sub:m?'v '+m.opp+' · '+date:'',
+      sum:[tvTypeName(s.type)+(s.faFoul?' (foul)':''), tvThirdTxt(s.third)].concat(s.player?[s.player]:[]).concat(when).join(' · ')}; }
   if(kind==='ko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
     return {title:kicker+' kickout', sub:m?'v '+(own?m.opp:R.team)+' · '+date:'',
       sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s, own||!R?null:R.team)].concat(when).join(' · ')}; }
@@ -4173,7 +4556,7 @@ function cpFocusCard(){ const c=ssEl('cpCard'); if(c&&c.focus){ try{ c.focus({pr
 function cpShow(i){
   const m=CP; if(!m||!m.list[i]) return;
   m.i=i; TT_JOB=null;                                   // the playlist menu is about the clip on screen
-  const cur=m.list[i], I=cpInfo(m.kind, cur.s, m.kind==='ko'?TK_LAST:TT_LAST), set=(id,t)=>{ const x=ssEl(id); if(x) x.textContent=t; };
+  const cur=m.list[i], I=cpInfo(m.kind, cur.s, cpResOf(m.kind)), set=(id,t)=>{ const x=ssEl(id); if(x) x.textContent=t; };
   set('cpTitle', I.title); set('cpSub', I.sub); set('cpSum', I.sum); set('cpPos', cpPosTxt(i, m.list.length)); cpSay('');
   const pm=ssEl('ttPlMenu'); if(pm) pm.innerHTML='';
   const pv=ssEl('cpPrev'), nx=ssEl('cpNext'), da=ssEl('cpDash');
@@ -4213,10 +4596,10 @@ function cpToggle(){
   try{ if(st===1) p.pauseVideo(); else p.playVideo(); }catch(_){ }
 }
 function cpMarker(m){   // the marker of the clip on screen, else the one the window was opened from
-  const cur=m.list[m.i], view=m.kind==='ko'?TK_VIEW:TT_VIEW, arr=view&&(m.kind==='ko'?view.mapKos:view.mapShots);
+  const cur=m.list[m.i], arr=cpItemsOf(m.kind);
   if(cur&&cur.s===m.first&&m.opener&&m.opener.isConnected!==false) return m.opener;
   let el=null;
-  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
+  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=m.kind==='to'?document.querySelector('#tvResSec [data-act="tv-watch"][data-i="'+cur.idx+'"]'):document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
   return el||m.opener||null;
 }
 function cpClose(){
@@ -4265,13 +4648,13 @@ function cpClick(ev){
   if(a.dataset.act==='pl'&&!TT_JOB){ const cur=cpCur(); TT_JOB={shots:[cur.s], bulk:false}; }   // the same job, menu and clip as the card's button
   if(a.dataset.act!=='close') ttTipClick(ev);
 }
-// kind: 'shot' | 'ko'; item: the shot / kickout to open at; opener: its marker (or button);
+// kind: 'shot' | 'ko' | 'to' (a turnover of the Turnover log); item: the shot / kickout to open at; opener: its marker (or button);
 // items: the list to step through when it is not the map's (the "Landings to check" list)
 function cpOpen(kind, item, opener, items){
   cpClose();
-  kind=kind==='ko'?'ko':'shot';
-  const view=kind==='ko'?TK_VIEW:TT_VIEW, R=kind==='ko'?TK_LAST:TT_LAST;
-  const list=cpList(items||(view&&(kind==='ko'?view.mapKos:view.mapShots)), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
+  kind=kind==='ko'?'ko':kind==='to'?'to':'shot';
+  const R=cpResOf(kind);
+  const list=cpList(items||cpItemsOf(kind), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
   if(i<0) return false;                                 // no video for this one: nothing to play
   ttHideTip();
   const el=document.createElement('div');
@@ -4304,7 +4687,11 @@ function ttInit(){
     tdCloseDd(t);                                      // a click outside an open games / competitions dropdown closes it
     const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's
     const forTk=x=>!!(x&&x.closest&&x.closest('[data-gs="tk"]'));   // the Kickouts control row
-    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:forTk(b)?tkSelCmd:tdCmd)(b.dataset.tdc); return; }
+    const forTv=x=>!!(x&&x.closest&&x.closest('[data-gs="tv"]'));   // the Turnover control row
+    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:forTk(b)?tkSelCmd:forTv(b)?tvSelCmd:tdCmd)(b.dataset.tdc); return; }
+    if(b&&b.dataset.tvf){ tvSetFilter(b.dataset.tvf, b.dataset.tvv); return; }
+    if(b&&b.dataset.tvchip){ tvSetFilter('type', b.dataset.tvchip); return; }
+    if(b&&(b.dataset.act==='tv-watch'||b.dataset.act==='tv-pl')){ if(!b.disabled) tvAct(b); return; }
     if(b&&b.dataset.kside){ tkSetSide(b.dataset.kside); return; }
     if(b&&b.dataset.kchip){ tkSetFilter(b.dataset.kg, b.dataset.kchip); return; }
     if(b&&b.dataset.kf){ tkSetFilter(b.dataset.kf, b.dataset.kv); return; }
@@ -4319,7 +4706,7 @@ function ttInit(){
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
-  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
+  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:t.closest&&t.closest('[data-gs="tv"]')?tvSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
   pane.addEventListener('focusin', e=>{ if(TT_PIN||TT_QUIET) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
@@ -4335,7 +4722,7 @@ function ttInit(){
   document.addEventListener('click', e=>{ if(!pane.contains(e.target)){ if(TT_TIP) ttHideTip(); tdCloseDd(null); } });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
-  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); }, 150); });
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
