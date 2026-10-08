@@ -515,6 +515,16 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 @media (max-width:760px){
   .subtabs{gap:2px 22px;padding:0 4px;margin-top:16px;} .subtabs a{font-size:16px;padding-bottom:9px;} .subtabs a.on::after{left:-4px;right:-4px;}
   .tt-who{font-size:18px;} .tt-side{margin-left:0;justify-content:flex-start;} .tt-side small{text-align:left;}
+  .td-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .td-stat b{font-size:28px;}
+  .td-prhd{display:none;}
+  .td-prow{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 0;} .td-prow .td-pv{grid-column:2;grid-row:1;} .td-prow .td-ptrack{grid-column:1 / -1;height:18px;}
+  .td-brow,.td-split .td-brow,.td-prdet .td-brow{grid-template-columns:minmax(0,108px) minmax(0,1fr) auto;gap:8px;}
+  .td-ctl{gap:8px;} .td-ctl details{flex:1 1 100%;} .td-ctl .ms>summary{white-space:normal;} .td-ctl .ms .msbody{right:0;min-width:0;max-width:none;}
+  .td-prhead .seg{width:100%;} .td-prhead .seg button{flex:1;padding:10px 4px;}
+  .td-detp b{font-size:40px;}
+}
+@media (max-width:640px){
+  .td-kpis .kpi:last-child{grid-column:1 / -1;}
   .tt-card{padding:12px 12px;} .tt-src{padding:4px 12px 12px;}
   .tt-shd{display:none;}
   .tt-srow{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 6px;padding:12px 0;}
@@ -2723,7 +2733,7 @@ function tdTrendSVG(rows, W, o){
   const ax=ttNice(hi), band=pw/n, X=i=>mL+(i+.5)*band, Y=v=>mT+ph-(v/ax.top)*ph, col=o.col||'#4fc3f7';
   let h=`<svg class="tt-trend td-trend" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="${ssEsc((o.label||'Trend')+', oldest game on the left')}">`;
   for(let v=0; v<=ax.top; v+=ax.step) h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="tt-ax" x="${mL-7}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${v}</text>`;
-  h+=`<text class="tt-ax tt-axt" x="${mL-7}" y="${mT-14}" text-anchor="end">${ssEsc(o.unit||'')}</text>`;
+  h+=`<text class="tt-ax tt-axt" x="4" y="${mT-14}">${ssEsc(o.unit||'')}</text>`;
   if(o.avg!=null) h+=`<line class="td-avg" stroke="${col}" x1="${mL}" x2="${W-mR}" y1="${Y(o.avg).toFixed(1)}" y2="${Y(o.avg).toFixed(1)}"/>`;
   let d='', pen=false; rows.forEach((m,i)=>{ const v=o.get(m); if(v==null){ pen=false; return; } d+=(pen?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1); pen=true; });
   h+=`<path class="tt-l-team" stroke="${col}" d="${d}"/>`;
