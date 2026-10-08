@@ -438,6 +438,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-btn[disabled]{opacity:.45;cursor:not-allowed;}
 .tt-x{margin-left:auto;min-width:34px;min-height:34px;border-radius:8px;border:1px solid transparent;background:none;color:var(--t3);font-size:14px;cursor:pointer;}
 .tt-x:hover,.tt-x:focus-visible{color:var(--t1);border-color:#4a4a5c;outline:none;}
+.tt-allbar{display:flex;justify-content:flex-end;margin:-4px 0 10px;}
 .tt-plm:empty{display:none;} .tt-plm{margin-top:10px;padding-top:9px;border-top:1px solid #2c2c38;}
 .tt-plh{font:700 12px 'Barlow',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;}
 .tt-pll{display:flex;flex-direction:column;gap:4px;max-height:196px;overflow:auto;}
@@ -2390,7 +2391,9 @@ function ttMapSectionHTML(V, F, o){
   const key=F.view==='den'
     ?`<div class="tt-key"><span>Fewer shots</span><i class="tt-ramp den"></i><span>More shots</span></div>`
     :ttMapKeyHTML();
-  return ttFiltersHTML(F)+'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
+  const nShown=V.mapShots.length;   // located shots that pass the filters = what the button adds
+  return ttFiltersHTML(F)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
+    +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
     +(S.located?`<div class="tt-pitchbox">${ttMapSVG(V.mapShots, F)}</div>${key}`:'<div class="tt-empty">n/a — no shot locations to plot.</div>')
     +`<div class="dnote tt-locnote">${ssEsc(V.locNote)}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${ttInsightsHTML(V.insights, S.shots.length-S.located)}</aside></div>`;
@@ -2627,6 +2630,28 @@ function ttPlCreate(){
   if(!name){ ttPlDraw({phase:'new', msg:'Give the playlist a name.'}); return; }
   return ttPlSend({action:'save', name, scope, section:cohesionSection(), data:{items:job.clips}}, name);
 }
+// "Add all shown (n)": every shot on the map goes to one playlist in ONE request
+const TT_PL_CONFIRM=40, TT_PL_MAX=500;   // ask first above 40; 500 = the function's cap per request
+function ttBulkCardHTML(n){
+  return `<div class="tt-ct">Add ${n} shot${n===1?'':'s'} to a playlist</div><div class="tt-cs">Every shot shown on the map, after the filters.</div>`
+    +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
+}
+function ttConfirm(title, message){
+  if(typeof cohesionModal==='function') return cohesionModal({title, message, buttons:[{label:'Add them', value:true, primary:true}, {label:'Cancel', value:false}]});
+  return Promise.resolve(typeof confirm==='function'?!!confirm(message):true);
+}
+async function ttPlAll(btn){
+  const view=TT_VIEW, shots=(view&&view.mapShots)||[], t=ssEl('ttTip'); if(!shots.length||!t) return;
+  if(shots.length>TT_PL_CONFIRM&&!(await ttConfirm('Add '+shots.length+' clips?', 'That adds all '+shots.length+' shots shown on the map as clips. Narrow the filters first for a shorter playlist.'))) return;
+  if(TT_VIEW!==view) return;                          // the filters changed while the question was open
+  ttHideTip();
+  TT_TIP=TT_PIN=btn; TT_JOB={shots:shots.slice(), bulk:true};
+  t.innerHTML=ttBulkCardHTML(shots.length); t.hidden=false;
+  if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
+  ttPlaceTip();
+  if(shots.length>TT_PL_MAX){ ttPlDraw({phase:'error', msg:'That is more than '+TT_PL_MAX+' clips in one go — narrow the filters first.'}); return; }
+  return ttPlOpen();
+}
 function ttInit(){
   const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
   const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
@@ -2637,6 +2662,7 @@ function ttInit(){
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
+    if(b&&b.dataset.act==='pl-all'){ if(!b.disabled) ttPlAll(b); return; }
     const tip=tipOf(e);
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it

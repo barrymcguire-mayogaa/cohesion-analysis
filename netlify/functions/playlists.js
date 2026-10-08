@@ -28,7 +28,7 @@ const supabase = createClient(
 );
 
 // ── clips (the dashboard's dashClipOf shape) ────────────────────────────
-const MAX_APPEND = 200;
+const MAX_APPEND = 500;
 const str = (v, n) => String(v == null ? '' : v).slice(0, n);
 // Whitelist a clip's fields; null when it could not be played.
 function cleanClip(c) {
