@@ -100,16 +100,16 @@ html,body{max-width:100%;overflow-x:hidden;}
 body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-reports,body[data-tab=team-trends] #pane-team-trends,
 body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=team-trends]) .only-basis{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]) .only-team{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]) .only-data{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-basis{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
 .soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -774,7 +774,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     <div class="ttsub" id="tt-turnover"><div id="tvBody"></div></div>
     <div id="ttTip" role="tooltip" hidden></div>
   </div>
-  <div class="pane" id="pane-momentum"><div class="soon"><div class="tag">COMING SOON</div><h2>MOMENTUM</h2><p>Scoring runs and the flow of each game: when a team scored in bursts and when it was held scoreless.</p></div></div>
+  <div class="pane" id="pane-momentum"><div id="mmStatus" role="status"></div><div id="mmBody"></div></div>
   <div class="pane" id="pane-players"><div class="soon"><div class="tag">COMING SOON</div><h2>PLAYERS</h2><p>Player-level shooting, scoring and expected points across the selected games.</p></div></div>
   <div class="pane" id="pane-compare">
   <div class="board" id="board">
@@ -1744,11 +1744,11 @@ function anSubFromHash(h){
 }
 let TAB='overview', TT_SUB='attacking';
 // GAMES basis (Last 5 / Last 10 / All): one control, one remembered value per
-// tab — Overview starts on the last 10, Team Trends on the last 5.
+// tab — Overview starts on the last 10, Team Trends and Momentum on the last 5.
 let OV_BASIS='10', TT_BASIS='5';
-function anBasis(){ return TAB==='team-trends'?TT_BASIS:OV_BASIS; }
+function anBasis(){ return TAB==='team-trends'?TT_BASIS:TAB==='momentum'?MM_BASIS:OV_BASIS; }
 function anSyncBasis(){ const v=anBasis(); document.querySelectorAll('#ovBasis button').forEach(x=>{ x.classList.toggle('on', x.dataset.basis===v); x.setAttribute('aria-pressed', x.dataset.basis===v?'true':'false'); }); }
-function anSetBasis(b){ if(TAB==='team-trends') ttSetBasis(b); else ovSetBasis(b); }
+function anSetBasis(b){ if(TAB==='team-trends') ttSetBasis(b); else if(TAB==='momentum') mmSetBasis(b); else ovSetBasis(b); }
 function anSetTab(tab, sub){
   TAB=AN_TABS.includes(tab)?tab:'overview';
   if(TT_SUBS.includes(sub)) TT_SUB=sub;
@@ -1759,8 +1759,10 @@ function anSetTab(tab, sub){
   if(TAB==='team-trends'){ try{ const want='#team-trends/'+TT_SUB; if(typeof history!=='undefined'&&history.replaceState&&location.hash!==want) history.replaceState(null,'',want); }catch(_){ } }
   // the game-type chips live in the Compare mode row; on Overview they sit
   // (collapsed) inside "Games included" — the same element, so state is shared
-  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
+  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends'||TAB==='momentum')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
   if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
+  // the one floating card (hover cards, the playlist menu) sits in the pane on show: Team Trends or Momentum
+  { const tip=ssEl('ttTip'), host=ssEl(TAB==='momentum'?'pane-momentum':'pane-team-trends'); if(tip&&host&&tip.parentNode&&tip.parentNode!==host){ ttHideTip(); host.appendChild(tip); } }
   if(GAMES_READY){ renderTypeChips(); applyFilters(); }
 }
 let GAMES_READY=false;
@@ -1893,7 +1895,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule(); mrSchedule(); ttSchedule();
+  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -2389,7 +2391,7 @@ async function ovRun(){
   body.innerHTML=ovHTML(OV_LAST);
 }
 function ovInit(){
-  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); });
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); });
   document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>anSetBasis(b.dataset.basis)));
 }
 // ═══════════════════════════════════════════════════════════════
@@ -4060,7 +4062,7 @@ async function tdSelEnsure(){
 function tdToggle(kind, value, on){ if(!TD_BASE||!TD_LAST) return; gsToggle(TD_CH, TD_BASE.basisIds, kind, value, on); tdSelApply(); }
 function tdCmd(c){ if(!TD_BASE||!TD_LAST||!gsCmd(TD_CH, TD_BASE.list, TD_BASE.basisIds, c)) return; tdSelApply(); }
 function tdCloseDd(target){
-  [ssEl('tdBody'), ssEl('ttBody'), ssEl('tkBody'), ssEl('tvBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
+  [ssEl('tdBody'), ssEl('ttBody'), ssEl('tkBody'), ssEl('tvBody'), ssEl('mmBody')].forEach(sec=>{ if(!sec||!sec.querySelectorAll) return;
     sec.querySelectorAll('details.td-dd[open]').forEach(d=>{ if(!target||!d.contains(target)) d.removeAttribute('open'); }); });
 }
 // ── Attacking's games selection: its own state, the shared dropdowns ──
@@ -4321,6 +4323,7 @@ function ttSetFilter(f, v){
 // hover / focus / tap cards: one floating card, filled from the data behind the hovered element
 function ttTipHTML(key, pinned){
   const p=String(key||'').split(':'), i=+p[1];
+  if(/^mm[a-z]$/.test(p[0])) return MM_LAST&&MM_VIEW?mmTipHTML(p[0], i, MM_LAST, MM_VIEW):'';
   if(p[0]==='dto'||p[0]==='dfl') return TD_LAST&&TD_CHART?tdTrendCardHTML(TD_CHART.rows[i], p[0]==='dto'?'to':'fouls', TD_LAST.team):'';
   if(p[0]==='tvt') return TV_LAST?tvTrendCardHTML(TV_LAST.trend[i], TV_LAST.team):'';
   if(p[0]==='kz') return TK_LAST&&TK_VIEW?tkZoneCardHTML(TK_VIEW.zones.byKey[p[1]], TK_VIEW, TK_LAST):'';
@@ -4524,9 +4527,9 @@ function cpList(items, gameOf, clipOf){   // items with no video are left out, s
     return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
 }
 // the window's header: who, "v Opponent · date", and the event in a line
-function cpViewOf(kind){ return kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:TT_VIEW; }
-function cpResOf(kind){ return kind==='ko'?TK_LAST:kind==='to'?TV_LAST:TT_LAST; }
-function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'?v.mapKos:kind==='to'?v.rows:v.mapShots):null; }
+function cpViewOf(kind){ return kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:kind==='ms'?MM_VIEW:TT_VIEW; }   // 'ms' = a shot of Momentum's scoring log
+function cpResOf(kind){ return kind==='ko'?TK_LAST:kind==='to'?TV_LAST:kind==='ms'?MM_LAST:TT_LAST; }
+function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'?v.mapKos:(kind==='to'||kind==='ms')?v.rows:v.mapShots):null; }
 function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
   if(kind==='to'){ const T=R?R.team:s.winner;   // a turnover (or the foul behind a Tracker free against), from the selected team's side
@@ -4599,7 +4602,7 @@ function cpMarker(m){   // the marker of the clip on screen, else the one the wi
   const cur=m.list[m.i], arr=cpItemsOf(m.kind);
   if(cur&&cur.s===m.first&&m.opener&&m.opener.isConnected!==false) return m.opener;
   let el=null;
-  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=m.kind==='to'?document.querySelector('#tvResSec [data-act="tv-watch"][data-i="'+cur.idx+'"]'):document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
+  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=m.kind==='to'?document.querySelector('#tvResSec [data-act="tv-watch"][data-i="'+cur.idx+'"]'):m.kind==='ms'?document.querySelector('#mmLogSec [data-act="mm-watch"][data-i="'+cur.idx+'"]'):document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
   return el||m.opener||null;
 }
 function cpClose(){
@@ -4652,7 +4655,7 @@ function cpClick(ev){
 // items: the list to step through when it is not the map's (the "Landings to check" list)
 function cpOpen(kind, item, opener, items){
   cpClose();
-  kind=kind==='ko'?'ko':kind==='to'?'to':'shot';
+  kind=kind==='ko'?'ko':kind==='to'?'to':kind==='ms'?'ms':'shot';
   const R=cpResOf(kind);
   const list=cpList(items||cpItemsOf(kind), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
   if(i<0) return false;                                 // no video for this one: nothing to play
@@ -4678,9 +4681,12 @@ function ttPinItem(){
   return s?{kind, s, el}:null;
 }
 function ttInit(){
-  const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
+  // one set of delegated listeners per pane: Team Trends and Momentum share the floating card and the games dropdowns
+  const panes=[ssEl('pane-team-trends'), ssEl('pane-momentum')].filter(p=>p&&p.addEventListener); if(!panes.length) return;
+  const within=t=>panes.some(p=>p.contains&&p.contains(t));
   const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
   const inCard=e=>!!(e.target&&e.target.closest&&e.target.closest('#ttTip'));
+  panes.forEach(pane=>{
   pane.addEventListener('click', e=>{
     if(inCard(e)){ ttTipClick(e); return; }             // the pinned card's own buttons
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
@@ -4688,7 +4694,10 @@ function ttInit(){
     const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's
     const forTk=x=>!!(x&&x.closest&&x.closest('[data-gs="tk"]'));   // the Kickouts control row
     const forTv=x=>!!(x&&x.closest&&x.closest('[data-gs="tv"]'));   // the Turnover control row
-    if(b&&b.dataset.tdc){ (forTt(b)?ttSelCmd:forTk(b)?tkSelCmd:forTv(b)?tvSelCmd:tdCmd)(b.dataset.tdc); return; }
+    const forMm=x=>!!(x&&x.closest&&x.closest('[data-gs="mm"]'));   // Momentum's control row
+    if(b&&b.dataset.mmf){ if(!b.disabled) mmSetFilter(b.dataset.mmf, b.dataset.mmv); return; }
+    if(b&&(b.dataset.act==='mm-watch'||b.dataset.act==='mm-pl')){ if(!b.disabled) mmAct(b); return; }
+    if(b&&b.dataset.tdc){ (forMm(b)?mmSelCmd:forTt(b)?ttSelCmd:forTk(b)?tkSelCmd:forTv(b)?tvSelCmd:tdCmd)(b.dataset.tdc); return; }
     if(b&&b.dataset.tvf){ tvSetFilter(b.dataset.tvf, b.dataset.tvv); return; }
     if(b&&b.dataset.tvchip){ tvSetFilter('type', b.dataset.tvchip); return; }
     if(b&&(b.dataset.act==='tv-watch'||b.dataset.act==='tv-pl')){ if(!b.disabled) tvAct(b); return; }
@@ -4706,7 +4715,8 @@ function ttInit(){
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
-  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:t.closest&&t.closest('[data-gs="tv"]')?tvSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
+  pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.mmsel){ mmSetFilter(t.dataset.mmsel, t.value); return; }
+    if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="mm"]')?mmSelToggle:t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:t.closest&&t.closest('[data-gs="tv"]')?tvSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
   pane.addEventListener('focusin', e=>{ if(TT_PIN||TT_QUIET) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
@@ -4718,11 +4728,12 @@ function ttInit(){
     e.preventDefault(); ttShowTip(tip, true);        // keyboard: Enter pins, and focus moves into the card
     const card=ssEl('ttTip'), first=card&&card.querySelector?card.querySelector('.tt-acts a, .tt-acts button'):null; if(first){ try{ first.focus({preventScroll:true}); }catch(_){ } }
   });
+  });
   document.addEventListener('keydown', e=>{ if(e.key!=='Escape'||!TT_TIP) return; const back=TT_PIN; ttHideTip(); ttRefocus(back); });
-  document.addEventListener('click', e=>{ if(!pane.contains(e.target)){ if(TT_TIP) ttHideTip(); tdCloseDd(null); } });
+  document.addEventListener('click', e=>{ if(!within(e.target)){ if(TT_TIP) ttHideTip(); tdCloseDd(null); } });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
-  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='momentum'){ if(MM_LAST&&ttWidth('mmBody')!==MM_W) mmRender(); return; } if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MOMENTUM — one team's scoring through the game: the net score per
@@ -4950,6 +4961,141 @@ function mmView(R, F){
 }
 function mmMinTxt(s){ return MM_PTXT[s.p]+' '+Math.floor(s.min)+'’'; }
 function mmScoreTxt(x){ return x.g+'-'+String(x.p).padStart(2,'0'); }
+// ── Momentum rendering (strings only; every interpolated value is escaped) ──
+const MM_COL={pos:'#22c55e', neg:'#ef4444', high:'#4fc3f7'};
+function mmGl(n){ return n+' game'+(n===1?'':'s'); }
+function mmLevelTxt(level){ return level==='mixed'?'Club and county games together · intervals by position in the half':level==='county'?'County games · 12-minute intervals':level==='club'?'Club games · 10-minute intervals':''; }
+// the VIEW row: all the selected games, or one of them (the sections below follow it)
+function mmViewBarHTML(R, V){
+  const T=R.team, opt=r=>{ const t=tdGameTxt(r.g, T); return `<option value="${ssEsc(r.g.id)}"${V.gid===r.g.id?' selected':''}>${ssEsc(t.main+(r.m.data?' · '+mmScoreTxt(r.m.team)+' v '+mmScoreTxt(r.m.opposition):''))}</option>`; };
+  const notes=[mmLevelTxt(V.N.level||R.level)];
+  if(R.n<R.nBasis) notes.push(ovFromNote(R.n, R.nBasis)+(R.noData?' · '+mmGl(R.noData)+' with no score data left out':'')+(R.missing?' · '+R.missing+' still loading':''));
+  return '<div class="mm-view"><div class="tt-fg"><label for="mmViewSel">VIEW</label><select id="mmViewSel" data-mmsel="game">'
+    +`<option value=""${V.gid?'':' selected'}>${ssEsc('All selected games ('+R.n+')')}</option>`+R.used.slice().reverse().map(opt).join('')+'</select></div>'
+    +`<small id="mmViewNote">${ssEsc(notes.filter(Boolean).join(' · '))}</small></div>`;
+}
+function mmWhoTxt(R, V){ const m=V.gid?R.gameOf.get(V.gid):null; return m?'v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a'):(R.n===1?'1 game':'all '+R.n+' selected games'); }
+function mmNetSecHTML(){ return ''; }
+function mmCardsHTML(){ return ''; }
+function mmCumSecHTML(){ return ''; }
+function mmMomSecHTML(){ return ''; }
+function mmLogSecHTML(){ return ''; }
+function mmHTML(R, V, o){
+  o=o||{}; const T=R.team, SC=o.sel||null;
+  if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="mmSelLine">${ssEsc(gsLineTxt(R, SC))}</small></div>`
+    +(SC?gsSelCtlHTML(T, SC, o.open||'', 'mm', 'Momentum'):'')+'</div>';
+  if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
+  if(!R.n) return h+`<div class="soon"><p>${ssEsc(R.missing===R.nBasis?'Loading '+mmGl(R.missing)+'…':'Momentum n/a — '+(R.nBasis===1?'this game has':'these '+R.nBasis+' games have')+' no score data (no shot rows).')}</p></div>`;
+  h+=mmViewBarHTML(R, V);
+  h+='<h2 class="ov-h">NET SCORE MARGIN PER INTERVAL</h2><div id="mmNetSec">'+mmNetSecHTML(R, V, o)+'</div>';
+  h+='<div id="mmCardSec">'+mmCardsHTML(R, V)+'</div>';
+  h+='<h2 class="ov-h">CUMULATIVE SCORE TIMELINE</h2><div id="mmCumSec">'+mmCumSecHTML(R, V, o)+'</div>';
+  h+='<h2 class="ov-h">MATCH MOMENTUM</h2><div id="mmMomSec">'+mmMomSecHTML(R, V, o)+'</div>';
+  h+='<h2 class="ov-h">SCORING EVENT LOG</h2><div id="mmLogSec">'+mmLogSecHTML(R, V, o)+'</div>';
+  h+=`<div class="foot">Momentum covers ${R.custom?'the '+mmGl(R.n)+' selected of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+mmGl(R.n)} in the current filters with score data. Every shot is counted once; a goal is 3 points, a 2-pointer 2. County games are split into 12-minute intervals and club games into 10-minute intervals, three per half — the third runs to the end of the half, added time included — and extra time adds ET1 and ET2. The game minute is the game clock of each event; a game without one uses the event's time from the start of its period. “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+
+// ── Momentum page wiring: its own basis, games selection and view; nothing is refetched on a view switch ──
+let MM_BASIS='5', MM_TOKEN=0, MM_TIMER=null, MM_LAST=null, MM_VIEW=null, MM_KEY='', MM_SEL=gsNew(), MM_SELC=null, MM_BASE=null, MM_SEL_TOKEN=0, MM_W=0;   // MM_BASE = {team, pool, basis, list, basisIds}, as TT_BASE
+const MM_TRIED=new Set();
+const MM_F={game:null, avg:false, logGame:null, scores:true, team:'both'};
+function mmSchedule(){ if(TAB!=='momentum'||!GAMES_READY) return; clearTimeout(MM_TIMER); MM_TIMER=setTimeout(mmRun, 40); }
+function mmSetBasis(b){ MM_BASIS=(b==='10'||b==='all')?b:'5'; anSyncBasis(); mmSchedule(); }
+function mmSelCalc(){
+  const B=MM_BASE, bo=id=>BUNDLES.get(id);
+  MM_SELC=gsList(B.list, B.basisIds, MM_SEL, bo); MM_SELC.nBasis=B.basisIds.length;
+  MM_LAST=mmCompute(B.team, B.pool, B.basis, bo, MM_SELC.shown);
+  return MM_LAST;
+}
+function mmSelApply(){ mmSelCalc(); mmRender(); mmSelEnsure(); }
+// a ticked game from outside the basis may not be loaded yet: fetch it ONCE (BUNDLES keeps it), then re-draw
+async function mmSelEnsure(){
+  const C=MM_SELC; if(!C||!C.pending.length||!MM_BASE) return;
+  const need=MM_BASE.list.filter(g=>C.pending.includes(g.id)&&!BUNDLES.has(g.id)&&!MM_TRIED.has(g.id)); if(!need.length) return;
+  need.forEach(g=>MM_TRIED.add(g.id));
+  const my=++MM_SEL_TOKEN, key=MM_KEY;
+  try{ await ovLoad(need); }catch(_){ return; }
+  if(my!==MM_SEL_TOKEN||key!==MM_KEY||TAB!=='momentum') return;
+  mmSelApply();
+}
+function mmSelToggle(kind, value, on){ if(!MM_BASE||!MM_LAST) return; gsToggle(MM_SEL, MM_BASE.basisIds, kind, value, on); mmSelApply(); }
+function mmSelCmd(c){ if(!MM_BASE||!MM_LAST||!gsCmd(MM_SEL, MM_BASE.list, MM_BASE.basisIds, c)) return; mmSelApply(); }
+async function mmRun(){
+  if(TAB!=='momentum'||!GAMES_READY) return;
+  const my=++MM_TOKEN, st=ssEl('mmStatus'), body=ssEl('mmBody'), note=ssEl('ovBasisNote');
+  const T=ssEl('fTeamO').value, pool=selectedGames();
+  if(!T){ MM_LAST=null; MM_VIEW=null; MM_KEY=''; MM_BASE=null; MM_SELC=null; body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  ovStore('cohesion_analysis_team', T);
+  const list=ovTeamGames(pool, T), use=ovBasisGames(list, MM_BASIS);
+  note.textContent=ovBasisNoteTxt(T, list, use, MM_BASIS);
+  const need=use.filter(g=>!BUNDLES.has(g.id));
+  try{
+    if(need.length){
+      st.textContent='Loading match events… 0/'+need.length;
+      await ovLoad(need, (d,n)=>{ if(my===MM_TOKEN) st.textContent='Loading match events… '+d+'/'+n; });
+    }
+  }catch(e){ if(my===MM_TOKEN) st.textContent='Could not load games: '+e.message; return; }
+  if(my!==MM_TOKEN) return;   // a newer team / basis / filter superseded this run
+  st.textContent='';
+  // a new team, basis or filter set resets the games selection and the view; a game that finished loading while away is counted in
+  const key=T+'|'+MM_BASIS+'|'+use.map(g=>g.id).join(',')+'#'+list.map(g=>g.id).join(',');
+  if(key!==MM_KEY||!MM_LAST){ MM_KEY=key; MM_SEL=gsNew(); MM_TRIED.clear(); MM_F.game=null; MM_F.logGame=null; MM_BASE={team:T, pool, basis:MM_BASIS, list, basisIds:use.map(g=>g.id)}; mmSelCalc(); }
+  else if(MM_SELC&&MM_SELC.pending.some(id=>BUNDLES.has(id))) mmSelCalc();
+  mmRender(); mmSelEnsure();
+}
+// the colours: the selected team, and the opposition (the opponent's own colour when one game is on show)
+function mmOpts(){
+  const R=MM_LAST, V=MM_VIEW, m=V&&V.gid?R.gameOf.get(V.gid):null, C=ssDisplayColors(R.team, m?ssUC(m.opp):'__baseline__');
+  const lm=V&&V.log?V.log.m:null, L=lm?ssDisplayColors(R.team, ssUC(lm.opp)):C;
+  return {W:(MM_W=ttWidth('mmBody')), col:C.a, ocol:C.b, lcol:L.a, locol:L.b, sel:MM_SELC};
+}
+function mmKeepFocus(root, fn){
+  const a=document.activeElement, d=a&&root&&root.contains&&root.contains(a)&&a.dataset?a.dataset:null;
+  const sel=!d?'':d.mmsel?'[data-mmsel="'+d.mmsel+'"]':d.mmf?'[data-mmf="'+d.mmf+'"][data-mmv="'+d.mmv+'"]':'';
+  fn();
+  if(sel&&root.querySelector){ const el=root.querySelector(sel); if(el){ try{ el.focus({preventScroll:true}); }catch(_){ } } }
+}
+function mmRender(){
+  const body=ssEl('mmBody'); if(!body||!MM_LAST) return;
+  ttHideTip();
+  MM_VIEW=mmView(MM_LAST, MM_F); MM_VIEW.rows=MM_VIEW.log?MM_VIEW.log.rows:[];
+  const o=mmOpts(); o.open=tdOpenDd(body);            // an open games / competitions dropdown stays open
+  tdKeepFocus(body, ()=>mmKeepFocus(body, ()=>{ body.innerHTML=mmHTML(MM_LAST, MM_VIEW, o); }));
+}
+// one section only (the Total | Average switch, the log's filters and its game): nothing else is re-drawn, nothing is fetched
+function mmRenderSec(id, html){
+  const sec=ssEl(id); if(!sec||!MM_LAST){ mmRender(); return; }
+  ttHideTip();
+  MM_VIEW=mmView(MM_LAST, MM_F); MM_VIEW.rows=MM_VIEW.log?MM_VIEW.log.rows:[];
+  const o=mmOpts();
+  mmKeepFocus(sec, ()=>{ sec.innerHTML=html(MM_LAST, MM_VIEW, o); });
+}
+function mmSetFilter(f, v){
+  if(f==='game'){ MM_F.game=v||null; mmRender(); }                                   // the VIEW: every section follows it
+  else if(f==='avg'){ MM_F.avg=v==='avg'; mmRenderSec('mmNetSec', mmNetSecHTML); }
+  else if(f==='logGame'){ MM_F.logGame=v||null; mmRenderSec('mmLogSec', mmLogSecHTML); }
+  else if(f==='scores'){ MM_F.scores=v!=='all'; mmRenderSec('mmLogSec', mmLogSecHTML); }
+  else if(f==='team'){ MM_F.team=mmLogFilter({team:v}).team; mmRenderSec('mmLogSec', mmLogSecHTML); }
+}
+// a row of the log: Watch clip plays it in the clip player (Previous / Next step through the rows shown);
+// Add to playlist opens the same menu as a marker's card, anchored on the button
+function mmAct(btn){
+  const list=(MM_VIEW&&MM_VIEW.rows)||[], k=list[+btn.dataset.i], t=ssEl('ttTip'); if(!k) return;
+  if(btn.dataset.act==='mm-watch') return cpOpen('ms', k, btn, list);
+  if(!t) return;
+  ttHideTip();
+  TT_TIP=TT_PIN=btn; TT_JOB={shots:[k], bulk:false};
+  const I=cpInfo('ms', k, MM_LAST);
+  t.innerHTML=`<div class="tt-ct">${ssEsc(I.title)}</div><div class="tt-cs">${ssEsc([I.sub, I.sum].filter(Boolean).join(' · '))}</div>`
+    +'<div class="tt-acts"><button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
+  t.hidden=false; if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
+  ttPlaceTip();
+  return ttPlOpen();
+}
+// the hover / focus / tap cards of Momentum (the shared floating card)
+function mmTipHTML(){ return ''; }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
 //  home-away filters over ALL of its filtered games, the 10 most recent
