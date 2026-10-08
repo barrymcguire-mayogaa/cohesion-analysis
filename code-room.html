@@ -369,10 +369,10 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <button class="vbtn" style="border-color:var(--green);color:var(--green)" onclick="openAdd()">＋ Add event here</button>
             <span style="width:1px;height:20px;background:var(--border);margin:0 3px;"></span>
             <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;">SIZE</span>
-            <div class="crsz" onclick="crSetH(340)">S</div>
-            <div class="crsz" onclick="crSetH(480)">M</div>
-            <div class="crsz" onclick="crSetH(620)">L</div>
-            <div class="crsz" onclick="crSetH(760)">Xl</div>
+            <div class="crsz" data-crh="340" onclick="crSetH(340)">S</div>
+            <div class="crsz" data-crh="480" onclick="crSetH(480)">M</div>
+            <div class="crsz" data-crh="620" onclick="crSetH(620)">L</div>
+            <div class="crsz" data-crh="760" onclick="crSetH(760)">Xl</div>
             <span class="vtime" id="vtime">0:00</span>
             <button class="vbtn" id="sbBtn" onclick="sbToggle()" title="Scoreboard overlay — live score and half clock over the video. Turn off when the footage has its own scoreboard.">🏁</button>
           </div>
@@ -624,7 +624,8 @@ function crSetH(px, skipSave){
   px=Math.max(180, Math.min(crVidMaxH(), Math.round(px)));
   vid.style.height=px+'px';
   if(!skipSave){ try{ localStorage.setItem('cr_vidH', px); }catch(_){} }
-  document.querySelectorAll('.crsz').forEach((b,i)=>b.classList.toggle('on', CR_HS[i]===px));
+  // only the SIZE buttons (data-crh = their height): the camera-angle buttons share the .crsz look and keep their own highlight
+  document.querySelectorAll('.crsz[data-crh]').forEach(b=>b.classList.toggle('on', +b.dataset.crh===px));
 }
 function initVH(){
   const vid=document.getElementById('vid'), h=document.getElementById('crdh');
@@ -634,7 +635,7 @@ function initVH(){
   if(h && !h._init){ h._init=true;
     let drag=false, sy=0, sh=0;
     h.addEventListener('pointerdown',e=>{ drag=true; sy=e.clientY; sh=vid.offsetHeight; h.classList.add('act'); vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
-    window.addEventListener('pointermove',e=>{ if(!drag)return; const nh=Math.max(180, Math.min(crVidMaxH(), sh+(e.clientY-sy))); vid.style.height=nh+'px'; document.querySelectorAll('.crsz').forEach(b=>b.classList.remove('on')); });
+    window.addEventListener('pointermove',e=>{ if(!drag)return; const nh=Math.max(180, Math.min(crVidMaxH(), sh+(e.clientY-sy))); vid.style.height=nh+'px'; document.querySelectorAll('.crsz[data-crh]').forEach(b=>b.classList.remove('on')); });
     const hUp=()=>{ if(!drag)return; drag=false; h.classList.remove('act'); vid.style.pointerEvents=''; document.body.style.userSelect=''; try{ localStorage.setItem('cr_vidH', vid.offsetHeight); }catch(_){} };
     window.addEventListener('pointerup',hUp); window.addEventListener('pointercancel',hUp);
   }
