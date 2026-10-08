@@ -4725,6 +4725,232 @@ function ttInit(){
   window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
+//  MOMENTUM — one team's scoring through the game: the net score per
+//  interval, the best / worst / highest-scoring interval, the cumulative
+//  score timeline, the dashboard's MATCH MOMENTUM and the scoring log with
+//  its shot momentum. Pure helpers first (headlessly tested), then the page
+//  wiring. Every shot is counted once (ttGameShots: the primary shot, with
+//  superseded Gaelic Insights originals and bare score companions skipped),
+//  so an interval's points add up to the score Overview and Match Reports show.
+//
+//  THE GAME MINUTE is the dashboard's: the period (1H / 2H / ET1 / ET2) and
+//  the clock within it come from the event's game clock (e.gameTime
+//  "1H mm:ss" …, written at import). An event with no game clock falls back
+//  to its time relative to the period's start, found as the dashboard's
+//  scoreboard finds it (sbHalves / sbET: the earliest THROW-IN of the period,
+//  else the start saved with the game, else the period's earliest event).
+//  Along the game the 2nd half starts where the 1st ended (h1len = the last
+//  1st-half minute, rounded up, at least 30: the dashboard's rule), so added
+//  time is never squeezed out.
+//
+//  THE INTERVALS: three per half, six per game, by the clock of the half.
+//    county (35-minute halves): 12-minute intervals
+//      [0–12) [12–24) [24–end of the half, added time included]
+//      labelled 0–12 · 12–24 · 24–HT · 35–47 · 47–59 · 59–FT
+//    club (30-minute halves): 10-minute intervals
+//      [0–10) [10–20) [20–end of the half, added time included]
+//      labelled 0–10 · 10–20 · 20–HT · 30–40 · 40–50 · 50–FT
+//  A boundary minute belongs to the LATER interval (12:00 is in 12–24).
+//  Extra time, when played, adds ET1 and ET2 as one interval each.
+//  LEVEL: a game of the club section is a club game; otherwise it is a county
+//  game when both teams are counties (the xP model's rule), else a club game.
+//  A selection that mixes club and county games is added up by interval INDEX
+//  (1–6) and labelled generically ("1st third of 1H" …).
+// ═══════════════════════════════════════════════════════════════
+const MM_COUNTIES=new Set(('ANTRIM ARMAGH CARLOW CAVAN CLARE CORK DERRY DONEGAL DOWN DUBLIN FERMANAGH GALWAY KERRY KILDARE KILKENNY LAOIS LEITRIM LIMERICK LONGFORD LOUTH MAYO MEATH MONAGHAN OFFALY ROSCOMMON SLIGO TIPPERARY TYRONE WATERFORD WESTMEATH WEXFORD WICKLOW LONDON').split(' ').concat(['NEW YORK']));
+const MM_IV={county:{step:12, half:35}, club:{step:10, half:30}};
+const MM_PER=['h1','h2','e1','e2'], MM_PTXT={h1:'1H', h2:'2H', e1:'ET1', e2:'ET2'};
+function mmLevel(meta){
+  if(String((meta&&meta.section)||'').toLowerCase()==='club') return 'club';
+  return [meta&&meta.homeTeam, meta&&meta.awayTeam].every(t=>MM_COUNTIES.has(ssUC(t)))?'county':'club';
+}
+// = the dashboard's sbPeriodOf: which period an event's half label means
+function mmPeriodOf(half){
+  const h=String(half||'');
+  if(/ET/i.test(h)||/extra/i.test(h)) return /2nd|\b2\b|ET\s*2/i.test(h)?'e2':'e1';
+  return /2nd|\b2H\b/i.test(h)?'h2':'h1';
+}
+// = the dashboard's sbHalves + sbET: where each period starts on the events' own time line. One
+// addition for the clock fallback only: with no 2nd-half throw-in, the earliest event marked 2nd half.
+function mmStarts(meta, events){
+  const G=meta||{}, A=(G.angles&&G.angles[0])||G, tOf=e=>(e.driveT??e.start)??0, isTI=e=>/THROW.?IN$/i.test(String(e.code||''));
+  const ti={h1:null,h2:null,e1:null,e2:null}, ev={h1:null,h2:null,e1:null,e2:null};
+  (events||[]).forEach(e=>{ if(!e) return; const k=mmPeriodOf(e.half), t=tOf(e);
+    if(ev[k]==null||t<ev[k]) ev[k]=t;
+    if(isTI(e)&&(ti[k]==null||t<ti[k])) ti[k]=t; });
+  let h1=ti.h1, h2=ti.h2;
+  if(h1!=null&&h2==null){   // halves not marked: the 2nd half = the next throw-in well after the 1st
+    (events||[]).forEach(e=>{ if(!e||!isTI(e)) return; const k=mmPeriodOf(e.half); if(k==='e1'||k==='e2') return; const t=tOf(e); if(t>h1+1200&&(h2==null||t<h2)) h2=t; });
+    if(h2==null) h2=ev.h2;
+  }
+  if(h1==null){
+    h1=A.half1Start??G.half1Start; h2=A.half2Start??G.half2Start;
+    if(h1==null||(!h1&&!h2)){ if(h1==null||!h1) h1=ev.h1||0; if(h2==null||!h2) h2=ev.h2; }
+    h1=h1||0; h2=(h2&&h2>0)?h2:null;
+  }
+  const set=v=>(v!=null&&+v>0)?+v:null;
+  const e1=ti.e1??set(A.et1Start??G.et1Start)??ev.e1; let e2=ti.e2??set(A.et2Start??G.et2Start)??ev.e2;
+  if(e1!=null&&e2!=null&&e2<=e1) e2=null;
+  // EXTRA TIME THE FILE DOES NOT MARK (Analysis only — the dashboard keeps such a game in its 2nd half): when no event is
+  // marked as extra time and the game has no saved ET start, a THROW-IN more than a half and five minutes after the
+  // 2nd-half throw-in starts ET1, and the next THROW-IN at least five minutes later starts ET2. etInferred says so.
+  if(e1==null&&ev.e2==null&&h2!=null){
+    const lim=h2+(MM_IV[mmLevel(G)].half+5)*60; let x1=null, x2=null;
+    (events||[]).forEach(e=>{ if(!e||!isTI(e)) return; const t=tOf(e); if(t>lim&&(x1==null||t<x1)) x1=t; });
+    if(x1!=null){ (events||[]).forEach(e=>{ if(!e||!isTI(e)) return; const t=tOf(e); if(t>=x1+300&&(x2==null||t<x2)) x2=t; }); return {h1, h2, e1:x1, e2:x2, etInferred:true}; }
+  }
+  return {h1, h2:h2??null, e1:e1??null, e2:e2??null, etInferred:false};
+}
+// an event's period and the minute within it → {p:'h1'|'h2'|'e1'|'e2', min, src:'clock'|'time'}; null when it has neither
+function mmClock(e, S){
+  if(S&&S.etInferred&&e){ const t=e.driveT??e.start; if(t!=null&&t>=S.e1){ const p=S.e2!=null&&t>=S.e2?'e2':'e1'; return {p, min:(t-S[p])/60, src:'time'}; } }
+  const m=/^\s*(1H|2H|ET\s*1|ET\s*2)\s+(\d+):(\d+)/i.exec((e&&e.gameTime)||'');
+  if(m){ const k=m[1].toUpperCase().replace(/\s/g,''); return {p:k==='1H'?'h1':k==='2H'?'h2':k==='ET1'?'e1':'e2', min:+m[2]+(+m[3])/60, src:'clock'}; }
+  const t=e?(e.driveT??e.start):null; if(t==null||!S) return null;
+  const okE=v=>v!=null&&t>=v&&(S.h2==null||v>S.h2);   // as the scoreboard: extra time only once it starts after the 2nd half
+  let p=okE(S.e2)?'e2':okE(S.e1)?'e1':(S.h2!=null&&t>=S.h2)?'h2':'h1';
+  const lab=mmPeriodOf(e.half);                       // tagged a moment before its period's throw-in: that period, minute 0
+  if(MM_PER.indexOf(lab)>MM_PER.indexOf(p)&&S[lab]!=null) return {p:lab, min:0, src:'time'};
+  return {p, min:Math.max(0, (t-(S[p]||0))/60), src:'time'};
+}
+// the interval index of a period minute: 0–2 = the 1st half, 3–5 = the 2nd half, 6 = ET1, 7 = ET2
+function mmIvOf(p, min, step){ return p==='e1'?6:p==='e2'?7:(p==='h2'?3:0)+Math.max(0, Math.min(2, Math.floor(min/step))); }
+// labels for n intervals; level 'county' | 'club' | 'mixed'
+function mmIvLabels(level, n){
+  let L;
+  if(level==='mixed') L=['1H','2H'].reduce((a,h)=>a.concat(['1st','2nd','3rd'].map((o,i)=>({label:o+' third of '+h, short:h+' · '+(i+1)}))), []);
+  else { const c=MM_IV[level]||MM_IV.club, s=c.step, h=c.half; L=['0–'+s, s+'–'+2*s, 2*s+'–HT', h+'–'+(h+s), (h+s)+'–'+(h+2*s), (h+2*s)+'–FT'].map(x=>({label:x, short:x})); }
+  return L.concat([{label:'ET1', short:'ET1'},{label:'ET2', short:'ET2'}]).slice(0, n==null?6:n);
+}
+// Every shot of a game, both teams, in time order, with its period, minute, game minute and interval. Cached per events array.
+const MM_CACHE=new WeakMap();
+function mmGame(meta, events){
+  if(!meta||!Array.isArray(events)) return null;
+  const M=ssXpModel(), c=MM_CACHE.get(events);
+  if(c&&c.M===M&&c.n===events.length&&c.H===meta.homeTeam&&c.A===meta.awayTeam&&c.sec===meta.section) return c.v;
+  const level=mmLevel(meta), step=MM_IV[level].step, S=mmStarts(meta, events), H=ssUC(meta.homeTeam);
+  const len={h1:0,h2:0,e1:0,e2:0}, cnt={h1:0,h2:0,e1:0,e2:0};
+  events.forEach(e=>{ if(!e) return; const k=mmClock(e, S); if(!k) return; cnt[k.p]++; len[k.p]=Math.max(len[k.p], Math.ceil(k.min)); });
+  const h1len=Math.max(30, len.h1), h2len=Math.max(30, len.h2), e1len=Math.max(10, len.e1), e2len=Math.max(10, len.e2);   // h1len = the dashboard's
+  const off={h1:0, h2:h1len, e1:h1len+h2len, e2:h1len+h2len+e1len}, et={e1:cnt.e1>0, e2:cnt.e2>0};
+  let noClock=0, nC=0, nT=0;
+  const shots=[];
+  ttGameShots(meta, events).forEach((s,i)=>{ const k=mmClock(s.e, S); if(!k){ noClock++; return; }
+    if(k.src==='clock') nC++; else nT++;
+    shots.push(Object.assign({}, s, {i, side:s.team===H?'h':'a', p:k.p, min:k.min, gmin:off[k.p]+k.min, iv:mmIvOf(k.p, k.min, step), clock:k.src})); });
+  shots.sort((a,b)=>(MM_PER.indexOf(a.p)-MM_PER.indexOf(b.p))||(a.min-b.min)||(a.i-b.i));
+  const v={level, step, starts:S, h1len, h2len, e1len, e2len, et, off, end:h1len+h2len+(et.e1?e1len:0)+(et.e2?e2len:0), shots, noClock, clock:nC&&nT?'mixed':nT?'time':nC?'clock':null};
+  MM_CACHE.set(events, {M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, sec:meta.section, v});
+  return v;
+}
+// the points of team T (f) and of its opponent (a) per interval of one game
+function mmGameIv(K, T){
+  const n=K.et.e2?8:K.et.e1?7:6, iv=Array.from({length:n}, ()=>({f:0, a:0}));
+  K.shots.forEach(s=>{ if(!s.v) return; const x=iv[Math.min(s.iv, n-1)]; if(s.team===T) x.f+=s.v; else x.a+=s.v; });
+  return iv;
+}
+// Everything Momentum needs for team T over the basis games, or over `pick` (the ticked games, oldest → newest).
+// rows = every game; used = those with score data (at least one shot); a game with none is left out and counted.
+function mmCompute(T, games, basis, bundleOf, pick){
+  const list=ovTeamGames(games, T), base=ovBasisGames(list, basis).slice().reverse(), use=pick?pick.slice():base;
+  const bs=new Set(base.map(g=>g.id)), custom=!(use.length===bs.size&&use.every(g=>bs.has(g.id))), kb=custom?'sel':basis;
+  const rows=use.map(g=>{ const r=tdRow(T, g, bundleOf), b=bundleOf(g.id); r.b=b||null; r.loaded=!!(r.tT&&r.tO);
+    r.K=r.loaded?mmGame(b.meta, b.events):null; r.has=!!(r.K&&r.K.shots.length); r.iv=r.has?mmGameIv(r.K, T):null;
+    r.m=ovMatch(g, r.tT, r.tO, T); r.m.loaded=r.loaded; r.m.level=r.K?r.K.level:null; return r; });
+  const used=rows.filter(r=>r.has), lv=[...new Set(used.map(r=>r.K.level))], dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return {team:T, basis, custom, kb, nTeamGames:list.length, nBasis:use.length, n:used.length, missing:rows.filter(r=>!r.loaded).length, noData:rows.filter(r=>r.loaded&&!r.has).length,
+    level:lv.length>1?'mixed':(lv[0]||null), from:dates[0]||'', to:dates[dates.length-1]||'', list, basisIds:base.map(g=>g.id), gameOf:new Map(rows.map(r=>[r.g.id, r.m])), rows, used};
+}
+const mmUse=(R, gid)=>gid?R.used.filter(r=>r.g.id===gid):R.used;
+// (a) the net score per interval: one game (gid) or every used game — totals and the average per game
+function mmNet(R, gid){
+  const use=mmUse(R, gid), single=!!gid;
+  if(!use.length) return {single, n:0, level:null, mixed:false, ivs:[]};
+  const lv=[...new Set(use.map(r=>r.K.level))], level=lv.length>1?'mixed':lv[0], nI=Math.max.apply(null, use.map(r=>r.iv.length));
+  const ivs=mmIvLabels(level, nI).map((L,i)=>{ const gs=use.filter(r=>r.iv.length>i), n=gs.length, f=gs.reduce((s,r)=>s+r.iv[i].f,0), a=gs.reduce((s,r)=>s+r.iv[i].a,0);
+    return {i, label:L.label, short:L.short, half:i<3?1:i<6?2:3, f, a, net:f-a, tot:f+a, n, avgF:n?f/n:null, avgA:n?a/n:null, avgNet:n?(f-a)/n:null, avgTot:n?(f+a)/n:null,
+      games:gs.map(r=>({id:r.g.id, opp:r.m.opp, date:r.m.date, f:r.iv[i].f, a:r.iv[i].a}))}; });
+  return {single, n:use.length, level, mixed:level==='mixed', step:level==='mixed'?null:MM_IV[level].step, ivs};
+}
+// (b) the three cards. worst / best = the lowest / highest TOTAL net; high = the most points by both teams per game.
+// Each is {v, ivs:[the interval, or every interval tied on it]} or null: no data, every interval level on net, or no score at all.
+function mmCards(N){
+  const iv=N.ivs.filter(x=>x.n>0), EPS=1e-9;
+  if(!iv.length) return {worst:null, best:null, high:null, flat:false};
+  const pick=(key, dir)=>{ const v=(dir>0?Math.max:Math.min).apply(null, iv.map(x=>x[key])); return {v, ivs:iv.filter(x=>Math.abs(x[key]-v)<EPS)}; };
+  const flat=iv.every(x=>x.net===iv[0].net), any=iv.some(x=>x.tot>0);
+  return {worst:flat?null:pick('net',-1), best:flat?null:pick('net',1), high:any?pick('avgTot',1):null, flat};
+}
+// (c) the cumulative score. One game: its running totals, score by score (pts) — the x of a score is the dashboard's game
+// minute. Several games: each is laid on the same clock (the 2nd half starts at the longest 1st half of the selection, extra
+// time after the longest 2nd half) and F[x] / A[x] = the AVERAGE points per game on the board at the end of minute x.
+function mmCum(R, gid){
+  const use=mmUse(R, gid), single=!!gid, n=use.length; if(!n) return null;
+  const mx=k=>Math.max.apply(null, use.map(r=>r.K[k])), e1=use.some(r=>r.K.et.e1), e2=use.some(r=>r.K.et.e2);
+  const H1=mx('h1len'), H2=mx('h2len'), E1=e1?Math.max.apply(null, use.filter(r=>r.K.et.e1).map(r=>r.K.e1len)):0, E2=e2?Math.max.apply(null, use.filter(r=>r.K.et.e2).map(r=>r.K.e2len)):0;
+  const off={h1:0, h2:H1, e1:H1+H2, e2:H1+H2+E1}, end=Math.ceil(H1+H2+E1+E2), T=R.team, F=new Array(end+1).fill(0), A=new Array(end+1).fill(0), pts=[];
+  use.forEach(r=>{ let f=0, a=0; r.K.shots.forEach(s=>{ if(!s.v) return; const x=off[s.p]+s.min, mine=s.team===T; if(mine) f+=s.v; else a+=s.v;
+    if(single) pts.push({x, mine, v:s.v, f, a, s});
+    for(let q=Math.min(end, Math.ceil(x)); q<=end; q++){ if(mine) F[q]+=s.v; else A[q]+=s.v; } }); });
+  if(n>1) for(let q=0; q<=end; q++){ F[q]/=n; A[q]/=n; }
+  return {single, n, ht:H1, ft:H1+H2, e1End:e1?H1+H2+E1:null, end, F, A, pts, f:F[end], a:A[end]};
+}
+// (d) MATCH MOMENTUM — the dashboard's own numbers (cohesion-graphics.js dashMomentumData: turnover won 1 · missed shot 2 ·
+// point 3 · 2-pointer 4 · goal 5, per 2-minute window of the game minute; extra time is not charted). The game is prepared
+// as the dashboard prepares it; an event with no game clock is given the fallback clock first, so such a game still draws.
+const MM_MOM=new WeakMap();
+function mmMomGame(b, K){
+  if(!b||!K||typeof cohesionGraphics!=='function'||typeof cohGfxPrepare!=='function') return null;
+  const c=MM_MOM.get(b.events); if(c&&c.n===b.events.length&&c.meta===b.meta) return c.v;
+  let filled=0, v=null;
+  try{
+    const evs=b.events.map(e=>{ if(!e||/^\s*(1H|2H|ET)/i.test(e.gameTime||'')) return e; const k=mmClock(e, K.starts); if(!k) return e;
+      const sec=Math.floor(k.min*60); filled++; return Object.assign({}, e, {gameTime:MM_PTXT[k.p]+' '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0')}); });
+    const D=cohesionGraphics(cohGfxPrepare({meta:b.meta, events:evs})).dashMomentumData();
+    if(D) v={h:D.H2, a:D.A2, markers:D.markers, h1len:D.h1len, nW:D.nW, filled};
+  }catch(_){ v=null; }
+  MM_MOM.set(b.events, {n:b.events.length, meta:b.meta, v});
+  return v;
+}
+// → team T up, the opposition down. One game: its windows and score markers. Several: the AVERAGE value of each window over the
+// games that have momentum data (each game on its own clock, as the dashboard draws it); ht = [earliest, latest] half-time.
+function mmMom(R, gid){
+  const use=mmUse(R, gid), single=!!gid, T=R.team, gs=[];
+  use.forEach(r=>{ const D=mmMomGame(r.b, r.K); if(D) gs.push({r, D, home:ssUC(r.b.meta.homeTeam)===T}); });
+  const n=gs.length; if(!n) return {single, n:0, of:use.length};
+  const nW=Math.max.apply(null, gs.map(g=>g.D.nW)), up=new Array(nW).fill(0), down=new Array(nW).fill(0);
+  gs.forEach(g=>{ const u=g.home?g.D.h:g.D.a, d=g.home?g.D.a:g.D.h; for(let w=0; w<g.D.nW; w++){ up[w]+=u[w]/n; down[w]+=d[w]/n; } });
+  const hl=gs.map(g=>g.D.h1len);
+  return {single, n, of:use.length, nW, up, down, ht:[Math.min.apply(null, hl), Math.max.apply(null, hl)], filled:gs.filter(g=>g.D.filled>0).length,
+    markers:single?gs[0].D.markers.map(k=>({w:k.w, mine:(k.s==='h')===gs[0].home, kind:k.kind})):[]};
+}
+// (e) the scoring log of ONE game: every shot in time order with the running score after it, from team T's side.
+// SHOT MOMENTUM is the Mayo dashboard's: the points each team scored in the 2-minute window the row falls in
+// (window = floor(round(game minute) / 2), i.e. rounded minutes 0–1, 2–3 …), the team to the right, the opposition to the left.
+// F = {scores:true = scores only | false = all shots, team:'both'|'team'|'opp'}
+function mmLogFilter(F){ F=F||{}; return {scores:F.scores!==false, team:F.team==='team'||F.team==='opp'?F.team:'both'}; }
+function mmLog(R, gid, F){
+  const r=R.used.find(x=>x.g.id===gid); if(!r) return null;
+  F=mmLogFilter(F); const T=R.team, f={g:0,p:0,t:0}, a={g:0,p:0,t:0}, win={};
+  const all=r.K.shots.map(s=>{ const mine=s.team===T, sc=mine?f:a, w=Math.floor(Math.round(s.gmin)/2);
+    if(s.v===3) sc.g++; else sc.p+=s.v; sc.t+=s.v;
+    if(s.v){ const x=win[w]||(win[w]={f:0, a:0}); if(mine) x.f+=s.v; else x.a+=s.v; }
+    return Object.assign({}, s, {mine, w, f:{g:f.g, p:f.p, t:f.t}, a:{g:a.g, p:a.p, t:a.t}, margin:f.t-a.t}); });
+  all.forEach(s=>{ s.sm=win[s.w]||{f:0, a:0}; });
+  const rows=all.filter(s=>(!F.scores||s.v>0)&&(F.team==='both'||(F.team==='team')===s.mine));
+  let top=3; Object.keys(win).forEach(k=>{ top=Math.max(top, win[k].f, win[k].a); });
+  return {gid, m:R.gameOf.get(gid), K:r.K, F, all, rows, win, top, f, a};
+}
+// the view: which game the page follows (null = all the selected games), and the log's game (the view's, else the picked one,
+// else the most recent game with score data). F = {game, avg, logGame, scores, team}
+function mmView(R, F){
+  F=F||{}; const has=id=>!!id&&R.used.some(r=>r.g.id===id), gid=has(F.game)?F.game:null, last=R.used.length?R.used[R.used.length-1].g.id:null;
+  const logGid=gid||(has(F.logGame)?F.logGame:last), N=mmNet(R, gid);
+  return {gid, single:!!gid, avg:!gid&&!!F.avg&&N.n>1, N, cards:mmCards(N), C:mmCum(R, gid), M:mmMom(R, gid), logGid, log:logGid?mmLog(R, logGid, F):null, rows:[]};
+}
+function mmMinTxt(s){ return MM_PTXT[s.p]+' '+Math.floor(s.min)+'’'; }
+function mmScoreTxt(x){ return x.g+'-'+String(x.p).padStart(2,'0'); }
+// ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
 //  home-away filters over ALL of its filtered games, the 10 most recent
 //  matches (+10 per "Show more"), a Key Match Analysis card for the selected

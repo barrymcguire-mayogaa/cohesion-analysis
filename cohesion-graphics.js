@@ -709,7 +709,11 @@ function dashShareStatsCard(){
 // ── MATCH MOMENTUM from the game's XML events (light theme for the PDF):
 // TO won: 1 · missed shot: 2 · point: 3 · 2-pointer: 4 · goal: 5. Home up,
 // away down, both in their (pack-aware) colours; scores carry markers.
-function dashBuildMomentumCanvas(){
+// The numbers behind the chart (no drawing), so another page can show the SAME momentum:
+// items = every counted event {s:'h'|'a', m:game minute, v:value, kind?}, H2 / A2 = the value per
+// 2-minute window for home / away, markers = the scores, h1len = where the 2nd half starts.
+// The game minute is the per-half clock (e.gameTime '1H mm:ss' / '2H mm:ss'); extra time is not charted.
+function dashMomentumData(){
   const up=s=>String(s||'').toUpperCase();
   const shotOut=e=>up((e.labels||{})['Shot Outcomes']||(e.labels||{})['ShotOutcome']||(e.labels||{})['Outcome']||e.outcome||'');
   const minOf=e=>{ const m=/^([12])H\s+(\d+):(\d+)/.exec(e.gameTime||''); if(!m) return null;
@@ -740,6 +744,11 @@ function dashBuildMomentumCanvas(){
     if(it.s==='h') H2[w]+=it.v; else A2[w]+=it.v;
     if(it.kind) markers.push({w, s:it.s, kind:it.kind});
   });
+  return {items, h1len, maxMin, nW, H2, A2, markers};
+}
+function dashBuildMomentumCanvas(){
+  const D=dashMomentumData(); if(!D) return null;
+  const {h1len, nW, H2, A2, markers}=D;
   const packH=cohPackTeam(GAME.homeTeam), packA=cohPackTeam(GAME.awayTeam);
   const colH=GAME.homeColor||(packH&&packH.primary)||cohTeamColourDefault(GAME.homeTeam)||'#2ecc71';
   const colA=GAME.awayColor||(packA&&packA.primary)||cohTeamColourDefault(GAME.awayTeam)||'#e74c3c';
@@ -2228,7 +2237,7 @@ function dashXpSectionHtml(){
 }
 // ═════════════ END — moved unchanged from dashboard.html ═════════════
 return { setContext, giSup, statPeriodNow,
-  esc, _tnorm, _statSideMap, statSide, statQOf, statPred, setStatPeriod, tallyOutcome, koWonCount, codeCount, statNav, statSection, statRows, pct, sumKeys, locPitchSvg, locShotGlyph, koPlotY, dashCoordOf, dashXpInvalidate, dashCoordConv, dashXpModel, dashXpLevel, dashShotPts, dashXpAll, dashXpOf, DASH_XP_CATS, dashXpSummary, dashXpF, dashXpSigned, dashXpScale, locEvents, openLocMap, closeLocMap, locSetTeam, renderLocMap, cohPacksLoad, cohPacksStore, cohPackTeam, cohTeamColourDefault, cohImportTeamPack, dashComputeStats, dashBuildStatsCanvas, dashShareStatsCard, dashBuildMomentumCanvas, dashBuildWormCanvas, dashBuildXpWormCanvas, dashMapData, dashMapSvg, dashSvgImg, dashGlyph, dashXpSizeKey, dashBuildMapCanvas, dashBuildShotMixCanvas, dashBuildPossDoughnut, dashBuildKoRetentionCanvas, dashBuildScoreSourceCanvas, dashExportPDF, dashDlBlob, dashTeamHexes, dashTeamSecondary, dashLoadImg, dashHexLum, dashHexMix, dashFileStem, dashBusy, dashBuildMapsImage, dashDownloadMapsImage, dashInfographicData, dashBuildInfographic, dashDownloadInfographic, dashXpChartSvg, dashXpSectionHtml };
+  esc, _tnorm, _statSideMap, statSide, statQOf, statPred, setStatPeriod, tallyOutcome, koWonCount, codeCount, statNav, statSection, statRows, pct, sumKeys, locPitchSvg, locShotGlyph, koPlotY, dashCoordOf, dashXpInvalidate, dashCoordConv, dashXpModel, dashXpLevel, dashShotPts, dashXpAll, dashXpOf, DASH_XP_CATS, dashXpSummary, dashXpF, dashXpSigned, dashXpScale, locEvents, openLocMap, closeLocMap, locSetTeam, renderLocMap, cohPacksLoad, cohPacksStore, cohPackTeam, cohTeamColourDefault, cohImportTeamPack, dashComputeStats, dashBuildStatsCanvas, dashShareStatsCard, dashMomentumData, dashBuildMomentumCanvas, dashBuildWormCanvas, dashBuildXpWormCanvas, dashMapData, dashMapSvg, dashSvgImg, dashGlyph, dashXpSizeKey, dashBuildMapCanvas, dashBuildShotMixCanvas, dashBuildPossDoughnut, dashBuildKoRetentionCanvas, dashBuildScoreSourceCanvas, dashExportPDF, dashDlBlob, dashTeamHexes, dashTeamSecondary, dashLoadImg, dashHexLum, dashHexMix, dashFileStem, dashBusy, dashBuildMapsImage, dashDownloadMapsImage, dashInfographicData, dashBuildInfographic, dashDownloadInfographic, dashXpChartSvg, dashXpSectionHtml };
 }
 // the names the dashboard keeps as page globals (its inline handlers and its
 // Stats / Events views call them directly)
