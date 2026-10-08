@@ -473,6 +473,29 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .td-avg{stroke-width:1.5;stroke-opacity:.38;stroke-dasharray:7 6;}
 .td-val{font-weight:700;fill:var(--t1);font-size:12px;}
 .td-avgsw{background:none !important;border-top:2px dashed currentColor;opacity:.6;height:0 !important;border-radius:0 !important;}
+.td-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.td-stat{min-width:0;border:1px solid var(--border);border-radius:12px;padding:10px 8px 11px;text-align:center;background:rgba(255,255,255,.012);}
+.td-stat span{display:block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);}
+.td-stat b{display:block;font:800 36px 'Barlow',sans-serif;line-height:1.2;}
+.td-stat small{display:block;font-size:.72rem;color:var(--t2);overflow-wrap:anywhere;}
+.td-split{margin-top:12px;} .td-split .td-brow,.td-prdet .td-brow{grid-template-columns:minmax(0,128px) minmax(0,1fr) auto;}
+.td-prrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:16px;margin-top:16px;align-items:start;}
+.td-prhead{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;margin-bottom:8px;}
+.td-prhead .td-ct{margin:0;}
+.td-prhead .seg button:disabled{opacity:.35;cursor:default;}
+.td-prhd,.td-prow{display:grid;grid-template-columns:minmax(0,138px) minmax(0,1fr) 112px;gap:12px;align-items:center;}
+.td-prhd{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);padding:4px 0 6px;}
+.td-prhd span:last-child,.td-pv{text-align:right;}
+.td-prow{padding:11px 0;border-top:1px solid var(--border);transition:opacity .12s;}
+.td-prow.dim{opacity:.32;} .td-prow.zero{color:var(--t3);}
+.td-ptrack{height:22px;background:var(--card);border-radius:6px;overflow:hidden;}
+.td-pbar{height:100%;border-radius:6px;overflow:hidden;min-width:2px;}
+.td-pbar i{display:block;height:100%;}
+.td-pv{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.td-pv b{font-size:1rem;color:var(--t1);} .td-pv em{font-style:normal;display:inline-block;min-width:44px;color:var(--t2);font-size:.86rem;} .td-pv em.na{color:var(--t3);}
+.td-detp{display:flex;align-items:baseline;gap:8px;} .td-detp b{font:800 48px 'Barlow',sans-serif;line-height:1.1;} .td-detp span{color:var(--t2);font-size:.9rem;}
+.td-dets{font-size:.8rem;color:var(--t2);margin:2px 0 12px;}
+.td-detsub{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);margin-bottom:2px;}
 .td-zrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start;}
 .td-types{margin-top:30px;}
 .td-ct{margin:0 0 10px;font:700 18px 'Barlow',sans-serif;color:var(--accent);letter-spacing:.01em;}
@@ -487,7 +510,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .td-bv b{color:var(--t1);font-size:1rem;margin-right:7px;}
 @media (max-width:1000px){
   .tt-zrow,.tt-maprow{grid-template-columns:minmax(0,1fr);gap:14px;}
-  .td-zrow{grid-template-columns:minmax(0,1fr);gap:14px;} .td-types{margin-top:0;}
+  .td-zrow,.td-prrow{grid-template-columns:minmax(0,1fr);gap:14px;} .td-types{margin-top:0;}
 }
 @media (max-width:760px){
   .subtabs{gap:2px 22px;padding:0 4px;margin-top:16px;} .subtabs a{font-size:16px;padding-bottom:9px;} .subtabs a.on::after{left:-4px;right:-4px;}
@@ -2771,6 +2794,56 @@ function tdChartSecHTML(R, C, o){
       part(C.fouls,'foul')+' The card lists the fouls by area and outcome where tagged, and the cards.', 'fouls conceded');
   return h;
 }
+// v. opposition shooting v pressure
+const TD_PR_COL={L:'#f3d27a', M:'#f5a623', H:'#e2571c', N:'#7b7b88'};
+const TD_PR_FILTERS=[['all','All'],['L','Low'],['M','Medium'],['H','High']];
+function tdPrFilter(v){ return TD_PR_FILTERS.some(f=>f[0]===v)?v:'all'; }
+// the level the filter points at (All = every shot faced, tagged or not)
+function tdPrDetail(P, f){
+  const r=f==='all'?null:P.rows.find(x=>x.k===f);
+  return r?Object.assign({}, r, {title:r.label.toUpperCase(), f}):Object.assign({}, P.all, {title:'ALL SHOTS FACED', f:'all', k:'all'});
+}
+function tdTypeRowsHTML(D, col){
+  const rows=[['1-point attempts', D.a1, D.s1, D.p1],['2-point attempts', D.a2, D.s2, D.p2],['Goal attempts', D.ag, D.sg, D.pg]];
+  if(D.au) rows.push(['No attempt type', D.au, D.su, D.pu]);
+  return rows.map(r=>`<div class="td-brow${r[1]?'':' zero'}"><div class="td-bl"><span>${r[0]}</span></div>`
+    +`<div class="td-bt" aria-hidden="true"><i style="width:${r[3]==null?0:r[3].toFixed(1)}%;background:${col}"></i></div>`
+    +`<div class="td-bv"><b>${r[1]?r[2]+' / '+r[1]:'–'}</b>${r[1]?ovPctTxt(r[3]):''}</div></div>`).join('');
+}
+function tdShootHTML(S){
+  if(!(S.shots>0)) return `<div class="tt-card tt-empty">n/a — no opposition shots in ${S.n===1?'this game':'these '+S.n+' games'}.</div>`;
+  const tile=(l,v,d)=>`<div class="td-stat"><span>${l}</span><b>${ssEsc(v)}</b><small>${ssEsc(d)}</small></div>`;
+  return '<div class="tt-card td-shoot"><h4 class="td-ct">OPPOSITION SHOOTING ACCURACY</h4><div class="td-stats">'
+    +tile('SHOTS FACED', String(S.shots), ttF1(S.games?S.shots/S.games:null)+' per game')
+    +tile('SCORES CONCEDED', String(S.scores), S.goals+' goal'+(S.goals===1?'':'s')+' · '+S.twoPts+' two-pointer'+(S.twoPts===1?'':'s')+' · '+S.onePts+' point'+(S.onePts===1?'':'s'))
+    +tile('% SCORED', ttPctTxt(S.pct), S.scores+' of '+S.shots+' shots')
+    +tile('POINTS CONCEDED / GAME', ttF1(S.ppg), S.pts+' pts in '+S.games+' game'+(S.games===1?'':'s'))
+    +'</div><div class="td-split">'+tdTypeRowsHTML(S, '#9a9aa8')+'</div>'
+    +`<div class="dnote">${ssEsc('The opposition’s shots · '+ovFromNote(S.games, S.n)+'. Attempt type is the tagged Shot Attempts label, scored / attempts: a 1-point attempt scores with a point, a 2-point attempt with a 2-pointer, a goal attempt with a goal (so the three rows need not add up to the scores conceded).')}</div></div>`;
+}
+function tdPrBarsHTML(P, f){
+  const has=P.tagged>0, max=Math.max(1, ...P.rows.map(r=>r.shots));
+  let h='<div class="tt-card td-prbars"><div class="td-prhead"><h4 class="td-ct">SHOT PRESSURE</h4>'
+    +'<div class="seg" role="group" aria-label="Pressure level">'+TD_PR_FILTERS.map(x=>`<button type="button" data-pr="${x[0]}" class="${f===x[0]?'on':''}" aria-pressed="${f===x[0]?'true':'false'}"${has||x[0]==='all'?'':' disabled'}>${x[1]}</button>`).join('')+'</div></div>';
+  if(!has) return h+`<div class="tt-empty">n/a — no Shot Pressure tags on the opposition’s shots in ${P.n===1?'this game':'these '+P.n+' games'}.</div><div class="dnote">${ssEsc('Pressure tagged on 0 of '+P.shots+' shots · '+ovFromNote(0, P.n)+'.')}</div></div>`;
+  h+='<div class="td-prhd" aria-hidden="true"><span>PRESSURE</span><span>SHOTS FACED · SOLID = SCORED</span><span>SCORES / SHOTS</span></div>';
+  h+=P.rows.map(r=>`<div class="td-prow${f!=='all'&&f!==r.k?' dim':''}${f===r.k?' on':''}${r.shots?'':' zero'}" data-level="${r.k}"><div class="td-bl"><i style="background:${TD_PR_COL[r.k]}"></i><span>${ssEsc(r.label)}</span></div>`
+      +`<div class="td-ptrack" role="img" aria-label="${ssEsc(r.label+': '+r.scores+' scores from '+r.shots+' shots, '+ovPctTxt(r.pct)+' scored')}"><div class="td-pbar" style="width:${(r.shots/max*100).toFixed(1)}%;background:${TD_PR_COL[r.k]}47"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${TD_PR_COL[r.k]}"></i></div></div>`
+      +`<div class="td-pv"><b>${r.scores} / ${r.shots}</b><em class="${r.pct==null?'na':''}">${ovPctTxt(r.pct)}</em></div></div>`).join('');
+  return h+`<div class="dnote">${ssEsc('Pressure tagged on '+P.tagged+' of '+P.shots+' shots · '+ovFromNote(P.games, P.n)+'. Pressure is the Shot Pressure label on each opposition shot. Bar length = shots faced at that level; the solid part = the shots that scored.')}</div></div>`;
+}
+function tdPrDetailHTML(P, f){
+  const D=tdPrDetail(P, f), col=D.k==='all'?'#9a9aa8':TD_PR_COL[D.k];
+  let h=`<aside class="tt-card td-prdet" aria-live="polite"><h4 class="td-ct">${ssEsc(D.title)}</h4>`;
+  if(!(D.shots>0)) return h+'<div class="tt-empty">No shots at this level.</div></aside>';
+  h+=`<div class="td-detp"><b>${ovPctTxt(D.pct)}</b><span>scored</span></div><div class="td-dets">${ssEsc(D.scores+' scores from '+D.shots+' shots · '+D.pts+' pts conceded')}</div>`
+    +'<div class="td-detsub">ATTEMPTS BY TYPE · SCORED / ATTEMPTS</div>'+tdTypeRowsHTML(D, col);
+  return h+'</aside>';
+}
+function tdPrSecHTML(R, f){
+  f=tdPrFilter(f);
+  return tdShootHTML(R.shooting)+'<div class="td-prrow">'+tdPrBarsHTML(R.pressure, f)+tdPrDetailHTML(R.pressure, f)+'</div>';
+}
 function tdHTML(R, V, o){
   o=o||{}; const T=R.team, n=R.n;
   if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
@@ -2778,12 +2851,13 @@ function tdHTML(R, V, o){
   h+=tdKpisHTML(R.kpis);
   h+='<h2 class="ov-h">TURNOVER ZONE IMPACT</h2>'+tdZoneHTML(T, R.zone, R.types);
   h+='<h2 class="ov-h">GAME BY GAME</h2><div id="tdChartSec">'+(V&&V.chart?tdChartSecHTML(R, V.chart, o):'')+'</div>';
+  h+='<h2 class="ov-h">OPPOSITION SHOOTING v PRESSURE</h2><div id="tdPrSec">'+tdPrSecHTML(R, V&&V.pr)+'</div>';
   h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 
 // ── Team Trends page wiring ──
-let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_CH_TOKEN=0;
+let TD_LAST=null, TD_KEY='', TD_W=0, TD_CHART=null, TD_CH_TOKEN=0, TD_PR='all';
 let TD_CH={compOff:new Set(), games:null};         // the trend charts' own selection (null = the basis games)
 const TD_TRIED=new Set();
 function tdResetChart(){ TD_CH={compOff:new Set(), games:null}; TD_TRIED.clear(); }
@@ -2792,7 +2866,7 @@ function tdChartCalc(){ TD_CHART=tdChart(TD_LAST.team, TD_LAST.list, TD_LAST.bas
 function tdRender(){
   const body=ssEl('tdBody'); if(!body||!TD_LAST) return;
   ttHideTip();
-  body.innerHTML=tdHTML(TD_LAST, {chart:tdChartCalc()}, tdOpts());
+  body.innerHTML=tdHTML(TD_LAST, {chart:tdChartCalc(), pr:TD_PR}, tdOpts());
   tdChartEnsure();
 }
 // re-draw a part of the page, keeping the focus on the control that was used and the open dropdown's scroll
@@ -2804,6 +2878,12 @@ function tdKeepFocus(root, fn){
   if(top&&root.querySelector){ const b=root.querySelector('details.td-dd[open] .msbody'); if(b) b.scrollTop=top; }
   if(want&&root.querySelectorAll){ const el=Array.from(root.querySelectorAll('[data-'+want[0]+']')).find(x=>x.dataset[want[0]]===want[1]&&(want.length<3||x.value===want[2]));
     if(el){ try{ el.focus({preventScroll:true}); }catch(_){ } } }
+}
+// the pressure filter only re-draws the pressure section
+function tdSetPr(v){
+  TD_PR=tdPrFilter(v);
+  const sec=ssEl('tdPrSec'); if(!sec||!TD_LAST){ tdRender(); return; }
+  tdKeepFocus(sec, ()=>{ sec.innerHTML=tdPrSecHTML(TD_LAST, TD_PR); });
 }
 function tdOpenDd(sec){ const d=sec&&sec.querySelector?sec.querySelector('details.td-dd[open]'):null; return d?d.dataset.dd:''; }
 // the chart controls only re-draw the chart section
@@ -3090,6 +3170,7 @@ function ttInit(){
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
     tdCloseDd(t);                                      // a click outside an open chart dropdown closes it
     if(b&&b.dataset.tdc){ tdCmd(b.dataset.tdc); return; }
+    if(b&&b.dataset.pr){ if(!b.disabled) tdSetPr(b.dataset.pr); return; }
     if(b&&b.dataset.side){ ttSetSide(b.dataset.side); return; }
     if(b&&b.dataset.chip){ ttSetFilter('chip', b.dataset.chip); return; }
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
