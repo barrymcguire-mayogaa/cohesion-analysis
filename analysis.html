@@ -861,6 +861,8 @@ function ssGameTally(meta, events, T){
     //    it — so that row is conceded by the OTHER team;
     //  · a "KO LOST <length>" row is skipped when the team also has "KICKOUT
     //    LOST" rows in the game (the Tracker writes each lost kickout twice).
+    // A Tracker "Free Against" foul (no turnover row) is added once after the
+    // tallies below (g.toLostFaFoul).
     if(ssIsTO(e)){
       const tLost=mineT!==ssToWinnerCoded(e);
       if(tLost&&!(mineT&&toKoRowT&&ssToKind(e)==='koLen')) g.tosConceded++;
@@ -899,6 +901,8 @@ function ssGameTally(meta, events, T){
     g.xpGames=g.xpShots>0?1:0; g.xpAgGames=g.xpAgShots>0?1:0; g.xpData=g.xpShots>0||g.xpAgShots>0; }
   ssOverviewTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
   ssDefendTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
+  // Compare's turnovers conceded: a Tracker free-against foul has no turnover row, so add it once
+  g.tosConceded+=g.toLostFaFoul; g.tosPossG=g.possData?g.tosConceded:0;
   return g;
 }
 // ═══════════════════════════════════════════════════════════════
@@ -976,6 +980,19 @@ function ssSrcCat(txt){
 //  (c) SHOT ATTEMPT turned over — a Tracker / Code Room "SHOT ATTEMPT" row,
 //      or, in Gaelic Insights games only, a "Turnover Won" inferred from a
 //      short shot (ssGiShortTurnovers below).
+// TRACKER FREE AGAINST: when a possession ends "Free Against" the Tracker
+// writes NO "TOs" row, only a "<TEAM> FOUL" row with 'Foul Areas' = FREE
+// AGAINST (TEAM had the ball and conceded the free), usually followed 2-6 s
+// later by a twin FOUL row carrying the third (ssFoulRows keeps one of the
+// pair). Each such foul is ONE in-play turnover of type "Free against": LOST
+// by the fouling team, WON by the other side. Its third is the twin's 'Foul
+// Areas' (the fouling team's view, converted to the selected team's view like
+// any turnover); no twin → unlocated. It is NOT added when the game also has a
+// "TOs / FREE AGAINST" row of the same losing team starting within
+// SS_FA_TO_WINDOW seconds of the FREE AGAINST row or of its twin (Code Room
+// writes that row itself): each turnover row absorbs at most one foul. The foul
+// stays counted once in fouls conceded. g.toLostFaFoul / g.toWonFaFoul = how
+// many of the in-play turnovers came from these fouls.
 // The HEADLINE numbers (TOs WON / GAME, TOs WON / TOs LOST, the thirds, and
 // the base of the creation %) are IN-PLAY ONLY. Classes (b) and (c) are shown
 // as their own lines.
@@ -993,7 +1010,8 @@ function ssSrcCat(txt){
 // SHOT ATTEMPTS TURNED OVER are known only where the format can say so: a game
 // whose turnover rows carry a type (Tracker / Code Room), or a GI game (by the
 // short-shot inference). GIU turnovers carry no type → n/a for those games.
-// (Compare's Turnover Rate % keeps its own definition: every turnover row.)
+// (Compare's Turnover Rate % keeps its own definition: every turnover row,
+//  plus the Tracker free-against fouls above, once each.)
 const SS_TO_OUT_GROUPS=['Turnover Outcomes','Turnover Outcome','TurnoverOutcome'];
 const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone','TurnoverZone','PitchArea'];
 function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.code)); }
@@ -1159,6 +1177,19 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     const raw=ssToThird(x.e), third=raw?(x.side==='T'?raw:ssFlipThird(raw)):null;
     if(third){ g[P+third]++; g[P+'Loc']++; }
   });
+  // Tracker "Free Against" fouls: each is one in-play turnover (see TRACKER FREE AGAINST above)
+  ['toLostFaFoul','toWonFaFoul','toFaFoulDup'].forEach(k=>g[k]=0);
+  const faTos=tos.filter(x=>x.kind==='play'&&ssToType(x.e)==='FA').map(x=>({loser:((x.side==='T')!==ssToWinnerCoded(x.e))?'T':'O', t:ssEvT(x.e), used:false}));
+  ssFoulRows(events, T, O, skip).filter(r=>r.inPoss).sort((a,b)=>a.faT-b.faT||a.i-b.i).forEach(r=>{
+    let best=null, bd=0;
+    faTos.forEach(z=>{ if(z.used||z.loser!==r.side) return; const d=Math.min(Math.abs(z.t-r.faT), Math.abs(z.t-r.t));
+      if(d<=SS_FA_TO_WINDOW&&(!best||d<bd)){ best=z; bd=d; } });
+    if(best){ best.used=true; g.toFaFoulDup++; return; }                    // the game's own "TOs / FREE AGAINST" row is this turnover
+    const P=r.side==='T'?'toLost':'toWon';
+    g[P]++; g[P+'TyFA']++; g[P+'FaFoul']++;
+    const third=r.third?(r.side==='T'?r.third:ssFlipThird(r.third)):null;
+    if(third){ g[P+third]++; g[P+'Loc']++; }
+  });
   // kickouts lost: kickout outcomes when the game has them, else turnover rows
   if(g.koData){ g.toLostKo=g.ownKO-g.ownKOWon; g.toWonKo=g.oppKOWonByT; g.toKoSource='kickout outcomes'; }
   else if(koRows.toLost+koRows.toWon>0){ g.toLostKo=koRows.toLost; g.toWonKo=koRows.toWon; g.toKoSource='turnover rows'; }
@@ -1272,26 +1303,28 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
 // ═══════════════════════════════════════════════════════════════
 const SS_FOUL_AREA_GROUPS=['Foul Areas','Foul Area','PitchArea'];
 const SS_FA_PAIR_WINDOW=8;   // seconds, FREE AGAINST row → its third-tagged twin
+const SS_FA_TO_WINDOW=8;     // seconds either way, FREE AGAINST foul (or its twin) ↔ a "TOs / FREE AGAINST" row of the same team
 const SS_PRESS=[['L','Low'],['M','Medium'],['H','High'],['N','Not tagged']];
 const SS_PRESS_FIELDS=['Sh','Sc','Pt','A1','S1','A2','S2','AG','SG','AU','SU'];
 function ssIsFoul(e){ return /(^|\s)FOULS?$/.test(ssUC(e&&e.code)); }
 function ssIsCard(e){ return /(^|\s)CARDS?$/.test(ssUC(e&&e.code)); }
 function ssIsTackle(e){ return /(^|\s)TACKLES?$/.test(ssUC(e&&e.code)); }
 function ssPressLevel(e){ const K=ssUC(ssLblCI(e,['Shot Pressure'])); return /^HIGH/.test(K)?'H':/^MED/.test(K)?'M':/^LOW/.test(K)?'L':'N'; }
-// The foul rows of a game that count, each foul once: [{e, side:'T'|'O', inPoss, third}]
-// (third in the FOULING team's view; inPoss = conceded while in possession, a Tracker "Free Against").
+// The foul rows of a game that count, each foul once: [{e, side:'T'|'O', inPoss, third, faT}]
+// (third in the FOULING team's view; inPoss = conceded while in possession, a Tracker "Free Against",
+//  faT = the start of its FREE AGAINST row). An inPoss foul is also an in-play turnover (ssOverviewTally).
 function ssFoulRows(events, T, O, skip){
   const rows=[];
   (events||[]).forEach((e,i)=>{ if(!e||skip(e)||!ssIsFoul(e)) return;
     const side=ssSideOf(e,T)?'T':ssSideOf(e,O)?'O':''; if(!side) return;
     const area=ssLblCI(e,SS_FOUL_AREA_GROUPS);
-    rows.push({e, i, side, t:ssEvT(e), fa:/FREE AGAINST/.test(ssUC(area)), third:ssThirdTxt(area), inPoss:false, drop:false}); });
+    rows.push({e, i, side, t:ssEvT(e), fa:/FREE AGAINST/.test(ssUC(area)), third:ssThirdTxt(area), inPoss:false, drop:false, faT:ssEvT(e)}); });
   const taken=new Set();
   rows.filter(r=>r.fa).sort((a,b)=>a.t-b.t||a.i-b.i).forEach(r=>{
     let best=null;
     rows.forEach(z=>{ if(z.fa||z.side!==r.side||taken.has(z)) return; const d=z.t-r.t;
       if(d>=-1&&d<=SS_FA_PAIR_WINDOW&&(!best||Math.abs(d)<Math.abs(best.t-r.t))) best=z; });
-    if(best){ taken.add(best); best.inPoss=true; r.drop=true; } else r.inPoss=true;
+    if(best){ taken.add(best); best.inPoss=true; best.faT=r.t; r.drop=true; } else r.inPoss=true;
   });
   return rows.filter(r=>!r.drop);
 }
@@ -2862,7 +2895,7 @@ function tdHTML(R, V, o){
   h+='<h2 class="ov-h">TURNOVER ZONE IMPACT</h2>'+tdZoneHTML(T, R.zone, R.types);
   h+='<h2 class="ov-h">GAME BY GAME</h2><div id="tdChartSec">'+(V&&V.chart?tdChartSecHTML(R, V.chart, o):'')+'</div>';
   h+='<h2 class="ov-h">OPPOSITION SHOOTING v PRESSURE</h2><div id="tdPrSec">'+tdPrSecHTML(R, V&&V.pr)+'</div>';
-  h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once. “n/a” means those games don't carry the data needed.</div>`;
+  h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once; a free conceded while in possession (a Tracker “Free Against”) is both a foul and one in-play turnover lost. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
 
