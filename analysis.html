@@ -602,6 +602,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 }
 .tk-pitchbox{max-width:540px;}
 .tk-warn{color:#ffd23f;font-weight:600;}
+.tk-pov{margin:-4px 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(79,195,247,.08);border-radius:0 8px 8px 0;font-size:.82rem;color:var(--t1);}
+.tk-tcap{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);margin-bottom:6px;} .tk-povline{color:var(--t1);}
 .tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
 .tk-chk>.dnote{margin:8px 0 10px;}
 .tk-chkrow{display:grid;grid-template-columns:1.5fr 1.3fr .9fr 1.3fr 1.2fr .6fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
@@ -3051,7 +3053,11 @@ function tdHTML(R, V, o){
 //  "<Team> Kickout") with an outcome — the same events the OWN / OPP KO WIN %
 //  cards count. The Tracker's "KICKOUT LOST" / "KO LOST <length>" turnover rows
 //  are copies of lost kickouts, not kickouts, and are never read here.
-//  · WON = won by the KICKING team (ssKoKickerWon, every vocabulary).
+//  · WON = won by the KICKING team (ssKoKickerWon, every vocabulary) on each kickout
+//    row (k.won) and in the Own view. The OPPOSITION view (sections 4-6) is read from
+//    the SELECTED team's side (`flip`): won = the selected team won the opposition's
+//    kickout (= !k.won), win % = the share of opposition kickouts it won — the same
+//    figure as the OPP KO WIN % card. Receipt types follow the same direction.
 //  · TYPE = how the ball was won: clean / break / free / sideline, read from the
 //    outcome (Tracker "KO BREAK WON", GIU "Kerry SL", GI "KT Won Clean");
 //    anything else is "unspecified".
@@ -3166,17 +3172,19 @@ function tkGameKos(meta, events){
   TK_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
   return v;
 }
-// win / lose tally of a list of kickouts; won = won by the KICKING team
-function tkTally(kos){
+// win / lose tally of a list of kickouts; won = won by the KICKING team, or with `flip` by the RECEIVING team
+// (the selected team, on the opposition's kickouts)
+function tkWon(k, flip){ return flip?!k.won:!!k.won; }
+function tkTally(kos, flip){
   const o={n:0, won:0, types:{}}; TK_TYPES.forEach(t=>{ o.types[t[0]]={won:0, lost:0}; });
-  (kos||[]).forEach(k=>{ o.n++; if(k.won) o.won++; o.types[k.type][k.won?'won':'lost']++; });
+  (kos||[]).forEach(k=>{ const w=tkWon(k, flip); o.n++; if(w) o.won++; o.types[k.type][w?'won':'lost']++; });
   o.lost=o.n-o.won; o.pct=ovPct(o.won, o.n);
   return o;
 }
 // by length: S / M / L, X = no length (no label and no location), all
-function tkByLen(kos){
-  const r={}; TK_LENS.map(l=>l[0]).concat(['X']).forEach(k=>{ r[k]=tkTally((kos||[]).filter(q=>(q.len||'X')===k)); });
-  r.all=tkTally(kos);
+function tkByLen(kos, flip){
+  const r={}; TK_LENS.map(l=>l[0]).concat(['X']).forEach(k=>{ r[k]=tkTally((kos||[]).filter(q=>(q.len||'X')===k), flip); });
+  r.all=tkTally(kos, flip);
   return r;
 }
 // the six top cards. Opp KO Win % = the share of the OPPOSITION's kickouts the selected team won.
@@ -3209,9 +3217,10 @@ function tkCompute(T, games, basis, bundleOf, pick){
     list, basisIds:base.map(g=>g.id), own, opp, gameOf:new Map(rows.map(r=>[r.g.id, r.m])), cards:tkCards(own, opp, n, kb)};
 }
 // the contest table of one side: a row per length (plus "no length" when there is one), and the total
-function tkContest(S){
-  const row=(k,label)=>Object.assign({k, label}, S.len[k]);
-  return {side:S.side, rows:TK_LENS.map(l=>row(l[0], l[1])).concat(S.len.X.n?[row('X','No length')]:[]), total:row('all','All kickouts'), koGames:S.koGames, n:S.n};
+// (flip: the side's kickouts read from the receiving team's side — the Opposition view)
+function tkContest(S, flip){
+  const len=flip?tkByLen(S.kos, true):S.len, row=(k,label)=>Object.assign({k, label}, len[k]);
+  return {side:S.side, flip:!!flip, rows:TK_LENS.map(l=>row(l[0], l[1])).concat(S.len.X.n?[row('X','No length')]:[]), total:row('all','All kickouts'), koGames:S.koGames, n:S.n};
 }
 // the all-teams average: every team's own kickouts in every game of `games` that is loaded, POOLED per length —
 // total won ÷ total taken over all of them (one tally, tkByLen), never the mean of each team's or each game's %,
@@ -3229,27 +3238,30 @@ function tkAvgNote(A){
     +(A.loaded<A.games?' ('+(A.games-A.loaded)+' could not be loaded)':'')+'.';
 }
 // zone table for a list of kickouts (one side). Follow-on figures count only kickouts of games with source tags (fN of them).
-function tkZoneStats(kos){
+// The follow-on shots are always those of whichever team WON the kickout; fWon* = after the kickouts counted as won
+// (by the kicker, or with `flip` by the receiving team), fLost* = after the others.
+function tkZoneStats(kos, flip){
   const mk=z=>{ const o={z, n:0, won:0, types:{}, fN:0, fShots:0, fScores:0, fPts:0, fWonShots:0, fWonScores:0, fLostShots:0, fLostScores:0}; TK_TYPES.forEach(t=>{ o.types[t[0]]={won:0, lost:0}; }); return o; };
   const byKey={}, zones=TK_ZKEYS.map(z=>(byKey[z]=mk(z))), total=mk('all'); let unlocated=0;
-  const add=(Z,k)=>{ Z.n++; if(k.won) Z.won++; Z.types[k.type][k.won?'won':'lost']++;
+  const add=(Z,k)=>{ const w=tkWon(k, flip); Z.n++; if(w) Z.won++; Z.types[k.type][w?'won':'lost']++;
     if(k.follow){ Z.fN++; Z.fShots+=k.follow.shots; Z.fScores+=k.follow.scores; Z.fPts+=k.follow.pts;
-      if(k.won){ Z.fWonShots+=k.follow.shots; Z.fWonScores+=k.follow.scores; } else { Z.fLostShots+=k.follow.shots; Z.fLostScores+=k.follow.scores; } } };
+      if(w){ Z.fWonShots+=k.follow.shots; Z.fWonScores+=k.follow.scores; } else { Z.fLostShots+=k.follow.shots; Z.fLostScores+=k.follow.scores; } } };
   (kos||[]).forEach(k=>{ if(k.zone==null){ unlocated++; return; } add(byKey[k.zone], k); add(total, k); });
   const fin=Z=>Object.assign(Z, {lost:Z.n-Z.won, pct:ovPct(Z.won, Z.n), follow:Z.fN>0, fRate:Z.fN>0?ovPct(Z.fScores, Z.fShots):null});
   zones.forEach(fin);
   return {zones, byKey, total:fin(total), located:total.n, unlocated};
 }
 // landing-map filters. F = {res:'both'|'won'|'lost', types:Set of TK_TYPES keys, lens:Set of 'S','M','L'}
-function tkPass(k, F){
-  if(F.res==='won'&&!k.won) return false;
-  if(F.res==='lost'&&k.won) return false;
+function tkPass(k, F, flip){
+  const w=tkWon(k, flip);
+  if(F.res==='won'&&!w) return false;
+  if(F.res==='lost'&&w) return false;
   return F.types.has(k.type)&&F.lens.has(k.len);
 }
-function tkMapKos(kos, F){ return (kos||[]).filter(k=>k.x!=null&&tkPass(k,F)); }
-function tkInsights(kos){
+function tkMapKos(kos, F, flip){ return (kos||[]).filter(k=>k.x!=null&&tkPass(k,F,flip)); }
+function tkInsights(kos, flip){
   const o={shown:0, won:0, len:{}}; TK_LENS.forEach(l=>{ o.len[l[0]]={n:0, won:0}; });
-  (kos||[]).forEach(k=>{ o.shown++; if(k.won) o.won++; const L=o.len[k.len]; if(L){ L.n++; if(k.won) L.won++; } });
+  (kos||[]).forEach(k=>{ const w=tkWon(k, flip); o.shown++; if(w) o.won++; const L=o.len[k.len]; if(L){ L.n++; if(w) L.won++; } });
   TK_LENS.forEach(l=>{ const L=o.len[l[0]]; L.pct=ovPct(L.won, L.n); });
   o.pct=ovPct(o.won, o.shown);
   return o;
@@ -3270,8 +3282,9 @@ function tkCheckList(R){
   return R.own.kos.concat(R.opp.kos).filter(k=>k.far).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
 }
 function tkView(R, side, F){
-  const k=side==='opp'?'opp':'own', S=R[k], mapKos=tkMapKos(S.kos, F);
-  return {side:k, S, contest:[tkContest(S), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos), mapKos, check:tkCheckList(R), insights:tkInsights(mapKos), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
+  // flip / pov: the Opposition view reads the opposition's kickouts from the selected team's side
+  const k=side==='opp'?'opp':'own', flip=k==='opp', S=R[k], mapKos=tkMapKos(S.kos, F, flip);
+  return {side:k, flip, pov:flip?R.team:null, S, contest:[tkContest(S, flip), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos, flip), mapKos, check:tkCheckList(R), insights:tkInsights(mapKos, flip), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
 }
 
 // ── Kickouts rendering (strings only; every interpolated value is escaped) ──
@@ -3286,15 +3299,20 @@ function tkHTML(R, V, o){
   let h=`<div class="tt-top${SC?' tt-top2':''}"><div class="tt-who">`+ssEsc(T)+`<small id="tkSelLine">${ssEsc(gsLineTxt(R, SC))}</small></div>`
     +(SC?gsSelCtlHTML(T, SC, o.open||'', 'tk', 'Kickouts'):'')
     +`<div class="tt-side tk-side"><span>KICKOUTS</span><div class="seg" role="group" aria-label="Own or opposition kickouts">${b('own','Own kickouts',!opp)}${b('opp','Opposition kickouts',opp)}</div>`
-    +`<small>${ssEsc('Own = '+T+'’s kickouts · Opposition = opponents’ kickouts in the same games. The switch drives the contest table, the zones and the landing map.')}</small></div></div>`;
+    +`<small>${ssEsc('Own = '+T+'’s kickouts · Opposition = opponents’ kickouts in the same games, read from '+T+'’s side (won = '+T+' won it). The switch drives the contest table, the zones and the landing map.')}</small></div></div>`;
   if(!R.nBasis) return h+'<div class="soon"><p>No games selected — tick at least one competition and one game, or reset to the basis.</p></div>';
   h+=tkCardsHTML(R.cards);
   const tag=`<em>${opp?'OPPOSITION':'OWN'}</em>`;
-  h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2><div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
-  h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>`+tkZoneSecHTML(R, V);
-  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2><div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
-  h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event; “won” is always won by the kicking team, so OPP KO WIN % is the share of opposition kickouts the selected team won. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
+  const pov=tkPovHTML(V);
+  h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2>${pov}<div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
+  h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>${pov}`+tkZoneSecHTML(R, V);
+  h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}</h2>${pov}<div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
+  h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event. On Own kickouts “won” = won by the kicking team (${ssEsc(T)}); on Opposition kickouts everything is read from ${ssEsc(T)}’s side — “won” = ${ssEsc(T)} won the opposition’s kickout — so that view’s total is the OPP KO WIN % card. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location only. “n/a” means those games don't carry the data needed.</div>`;
   return h;
+}
+// the Opposition view's direction, said once above each of its sections
+function tkPovHTML(V){
+  return V&&V.pov?`<div class="tk-pov" role="note">${ssEsc('Opposition kickouts, from '+V.pov+'’s side: “won” = '+V.pov+' won the opposition’s kickout · win % = the share of opposition kickouts '+V.pov+' won.')}</div>`:'';
 }
 // i. contest outcomes: a row per length, for the switched side first and the other side below it
 const TK_BAND={S:'#e2571c', M:'#d4a017', L:'#4cc76a', X:'#7b7b88', all:'transparent', arc:'#dfe7ee'};
@@ -3302,14 +3320,14 @@ function tkContestTableHTML(C, title, sub, A){
   let h=`<div class="tk-cblock" data-side="${ssEsc(C.side)}"><div class="tk-ch">${ssEsc(title)}${sub?`<small>${ssEsc(sub)}</small>`:''}</div>`;
   if(!C.koGames) return h+`<div class="tt-empty">n/a — no kickout data in ${C.n===1?'this game':'these '+C.n+' games'}.</div></div>`;
   const ty=(r,t)=>{ const v=r.types[t[0]], z=!(v.won+v.lost); return `<div class="tt-c${z?' zero':''}" role="cell" data-l="${t[1]} (won · lost)">${z?'<span class="na">–</span>':`<b>${v.won}</b> W · <b>${v.lost}</b> L`}</div>`; };
-  const line=(r,cls)=>{ const a=A?A.len[r.k]:null;
+  const line=(r,cls)=>{ const a0=A?A.len[r.k]:null, a=a0&&C.flip?{n:a0.n, won:a0.n-a0.won, pct:a0.n?100-a0.pct:null}:a0;   // a flipped table compares with the receiving teams' pooled share
     return `<div class="tk-crow${cls||''}${r.n?'':' zero'}" role="row" data-k="${ssEsc(r.k)}"><div class="tk-cname" role="rowheader"><i style="background:${TK_BAND[r.k]||'transparent'}"></i><span>${ssEsc(r.label)}</span></div>`
       +`<div class="tt-c" role="cell" data-l="Won / taken"><b>${r.won}</b> / ${r.n}</div>`
       +`<div class="tt-c tk-cpct" role="cell" data-l="Win %"><b>${r.n?ttPctTxt(r.pct):'–'}</b><span class="tt-bar" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${r.k==='all'?'var(--accent)':TK_BAND[r.k]}"></i></span></div>`
       +(A?`<div class="tt-c tk-cavg" role="cell" data-l="All-teams average"><b>${a&&a.n?ttPctTxt(a.pct):'n/a'}</b>${a&&a.n?` <small>${a.won}/${a.n}</small>`:''}</div>`:'')
       +TK_TYPES.map(t=>ty(r,t)).join('')+'</div>'; };
   h+=`<div class="tk-ctab${A?' has-avg':''}" role="table" aria-label="${ssEsc(title)}"><div class="tk-crow tk-chd" role="row"><div role="columnheader">LENGTH</div><div role="columnheader">WON / TAKEN</div><div role="columnheader">WIN %</div>`
-    +(A?'<div role="columnheader" title="Pooled: all kickouts won ÷ all taken">ALL-TEAMS AVG <small>(pooled)</small></div>':'')+TK_TYPES.map(t=>`<div role="columnheader">${ssEsc(t[1].toUpperCase())}</div>`).join('')+'</div>';
+    +(A?`<div role="columnheader" title="${C.flip?'Pooled, receiving side: all kickouts won by the receiving team ÷ all taken':'Pooled: all kickouts won ÷ all taken'}">ALL-TEAMS AVG <small>(pooled${C.flip?', receiving side':''})</small></div>`:'')+TK_TYPES.map(t=>`<div role="columnheader">${ssEsc(t[1].toUpperCase())}</div>`).join('')+'</div>';
   C.rows.forEach(r=>{ h+=line(r); });
   return h+line(C.total, ' tk-ctot')+'</div></div>';
 }
@@ -3319,11 +3337,14 @@ function tkContestSecHTML(R, V, o){
   let h='<div class="tt-card tk-contest">'
     +`<div class="tk-avgbar"><button type="button" class="chip${o.avgOn?' on':''}" data-kavg="1" aria-pressed="${o.avgOn?'true':'false'}">Compare with all-teams average</button>`
     +`<span class="td-ctlnote" id="tkAvgSt" role="status">${ssEsc(o.avgOn?(o.avgSt||tkAvgNote(A)):'')}</span></div>`;
-  h+=tkContestTableHTML(C1, own?T+' — own kickouts':'Opposition kickouts', own?'':'in '+T+'’s games (the opposition total)', A);
+  h+=tkContestTableHTML(C1, own?T+' — own kickouts':'Opposition kickouts — won by '+T, own?'':'in '+T+'’s games · won / taken and win % are '+T+'’s', A);
   h+=tkContestTableHTML(C2, own?'Opposition kickouts':T+' — own kickouts', own?'in the same games (the opposition total)':'in the same games', A);
-  return h+`<div class="dnote">${ssEsc('Won / taken and win % are the kicking team’s. Each type column is how the ball was won: W = won by the kicking team, L = lost. '
-    +(oppN?T+' won '+oppWon+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(ovPct(oppWon, oppN))+'). ':'')
-    +'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
+  const note=own?'Won / taken and win % are the kicking team’s. Each type column is how the ball was won: W = won by the kicking team, L = lost. '
+      +(oppN?T+' won '+oppWon+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(ovPct(oppWon, oppN))+'). ':'')
+    :'Both tables are read from '+T+'’s side. Opposition kickouts: won / taken = the opposition kickouts '+T+' won, win % = '+T+'’s share of them; in each type column W = won by '+T+', L = won by the opposition (the kicking team). '
+      +(oppN?T+' won '+C1.total.won+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(C1.total.pct)+') — the OPP KO WIN % card. ':'')
+      +(A?'The all-teams average beside the opposition rows is the pooled receiving-side share (all kickouts won by the receiving team ÷ all taken). ':'');
+  return h+`<div class="dnote">${ssEsc(note+'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
 }
 // ii. zones — the kickout pitch, drawn TO SCALE from the kicking team's 20m line (the top edge, as in the
 // reference picture) to the far 45m line: 84 m wide, 72 m long (20 m → 92 m out), 1 m = TK_K units both ways.
@@ -3365,11 +3386,11 @@ function tkZoneName(z){ return z==='arc'?'INSIDE ARC':'ZONE '+z; }
 function tkZoneWhere(z){ return z==='arc'?'inside the 40m arc, or behind the 20m line · counted as short':TT_COLS[(z-1)%3]+', '+['short: outside the arc, inside the 45m line','medium: 45m to 65m','long: beyond the 65m line'][Math.floor((z-1)/3)]; }
 // the length band's colour, stronger with the kicking team's win %
 function tkZoneAlpha(p){ return +(0.2+0.55*Math.max(0, Math.min(1, (p||0)/100))).toFixed(2); }
-function tkZoneSVG(Zs){
+function tkZoneSVG(Zs, pov){
   let shapes='', labels='';
   Zs.zones.forEach(Z=>{
     const g=TK_ZG.lab[Z.z], col=TK_BAND[tkZoneLen(Z.z)==='S'&&Z.z==='arc'?'arc':tkZoneLen(Z.z)], nm=tkZoneName(Z.z), fig=Z.n?Z.won+'/'+Z.n:'–';
-    const aria=nm+', '+tkZoneWhere(Z.z)+': '+(Z.n?Z.won+' won of '+Z.n+' kickouts, '+ttPctTxt(Z.pct):'no kickouts');
+    const aria=nm+', '+tkZoneWhere(Z.z)+': '+(Z.n?(pov?pov+' won '+Z.won+' of '+Z.n+' opposition kickouts, ':Z.won+' won of '+Z.n+' kickouts, ')+ttPctTxt(Z.pct):'no kickouts');
     shapes+=`<g class="tt-zone tk-zone" data-tip="kz:${Z.z}" tabindex="0" role="img" aria-label="${ssEsc(aria)}"><path class="tt-zs${Z.n?'':' none'}" d="${TK_ZG.shape[Z.z]}"${Z.n?` fill="${col}" style="fill-opacity:${tkZoneAlpha(Z.pct)}"`:''}/></g>`;
     if(g.one){ labels+=`<text class="tt-zp sm one${Z.n?'':' na'}" x="${tkPX(g.one[0])}" y="${tkPY(g.one[1])}" text-anchor="middle">${nm} · ${Z.n?fig+' · '+ttPctTxt(Z.pct):'–'}</text>`; return; }
     labels+=`<text class="tt-zn" x="${tkPX(g.n[0])}" y="${tkPY(g.n[1])}" text-anchor="${g.a==='middle'&&Z.z!=='arc'?'start':g.a}">${nm}</text>`
@@ -3378,55 +3399,59 @@ function tkZoneSVG(Zs){
   });
   return tkPitchOpen('tt-zones tk-zones','Kickout zones, from the kicking team’s 20m line (top) to the far 45m line')+shapes+'<g class="tt-zl" aria-hidden="true">'+labels+'</g></svg>';
 }
-function tkZoneKeyHTML(){
+function tkZoneKeyHTML(pov){
   const sw=(c,l)=>`<span><i class="tk-zsw" style="background:${c}"></i>${l}</span>`;
-  return '<div class="tt-key tk-zkey">'+sw(TK_BAND.S,'Short')+sw(TK_BAND.M,'Medium')+sw(TK_BAND.L,'Long')+sw(TK_BAND.arc,'Inside arc')+'<span>stronger colour = higher win %</span><span><i class="tt-sw none"></i>no kickouts</span></div>';
+  return '<div class="tt-key tk-zkey">'+sw(TK_BAND.S,'Short')+sw(TK_BAND.M,'Medium')+sw(TK_BAND.L,'Long')+sw(TK_BAND.arc,'Inside arc')+`<span>${pov?ssEsc('figures = won by '+pov+' / opposition kickouts · stronger colour = '+pov+' won more'):'stronger colour = higher win %'}</span>`+'<span><i class="tt-sw none"></i>no kickouts</span></div>';
 }
 // the hover / focus card of a zone: the contest, by type, and what followed (for the team that won each kickout)
 function tkZoneCardHTML(Z, V, R){
   if(!Z) return '';
   const row=(l,v,na)=>`<div class="tt-cr"><span>${l}</span><b${na?' class="na"':''}>${ssEsc(v)}</b></div>`;
-  const kicker=V.side==='own'?R.team:'the opposition', other=V.side==='own'?'the opposition':R.team;
-  let h=`<div class="tt-ct">${ssEsc(tkZoneName(Z.z))}</div><div class="tt-cs">${ssEsc(tkZoneWhere(Z.z))}</div>`;
-  if(!Z.n) return h+'<div class="tt-cna">No kickouts landed here.</div>';
-  h+=row('Taken', String(Z.n))+row('Won', String(Z.won))+row('Win %', ttPctTxt(Z.pct));
-  h+='<div class="tt-cwho">By receipt type</div>'+TK_TYPES.filter(t=>Z.types[t[0]].won+Z.types[t[0]].lost>0).map(t=>row(t[1], Z.types[t[0]].won+' won · '+Z.types[t[0]].lost+' lost')).join('');
-  h+='<div class="tt-cwho">What followed</div>';
+  const pov=V.pov||null, T=ssEsc(R.team);   // in both views the kickouts counted as won are the selected team's
+  let h=`<div class="tt-ct">${ssEsc(tkZoneName(Z.z))}</div><div class="tt-cs">${ssEsc(tkZoneWhere(Z.z)+(pov?' · opposition kickouts':''))}</div>`;
+  if(!Z.n) return h+`<div class="tt-cna">No ${pov?'opposition ':''}kickouts landed here.</div>`;
+  h+=row(pov?'Opposition kickouts':'Taken', String(Z.n))+row(pov?'Won by '+T:'Won', String(Z.won))+row(pov?T+' win %':'Win %', ttPctTxt(Z.pct));
+  if(pov) h+=`<div class="tt-cn tk-povline">${ssEsc(pov+' won '+ttPctTxt(Z.pct)+' of opposition kickouts landing here ('+Z.won+' of '+Z.n+').')}</div>`;
+  h+=`<div class="tt-cwho">By receipt type${pov?' (won = won by '+T+')':''}</div>`+TK_TYPES.filter(t=>Z.types[t[0]].won+Z.types[t[0]].lost>0).map(t=>row(t[1], Z.types[t[0]].won+' won · '+Z.types[t[0]].lost+' lost')).join('');
+  h+=`<div class="tt-cwho">What followed${pov?' (shots by whichever team won it)':''}</div>`;
   if(!Z.follow) return h+row('Shots', 'n/a (no source tags)', true)+row('Scores', 'n/a (no source tags)', true)+row('Scoring rate', 'n/a (no source tags)', true)+`<div class="tt-cn">${ssEsc(V.followNote)}</div>`;
   h+=row('Shots', String(Z.fShots))+row('Scores', String(Z.fScores))+row('Scoring rate', Z.fShots?ttPctTxt(Z.fRate):'–', !Z.fShots)
-    +`<div class="tt-csub"><span>${ssEsc('After the '+Z.won+' won by '+kicker)}</span><b>${Z.fWonShots} shot${Z.fWonShots===1?'':'s'} · ${Z.fWonScores} score${Z.fWonScores===1?'':'s'}</b></div>`
-    +`<div class="tt-csub"><span>${ssEsc('After the '+Z.lost+' won by '+other)}</span><b>${Z.fLostShots} shot${Z.fLostShots===1?'':'s'} · ${Z.fLostScores} score${Z.fLostScores===1?'':'s'}</b></div>`;
+    +`<div class="tt-csub"><span>${ssEsc((pov?pov+' shots after':'After')+' the '+Z.won+' won by '+R.team)}</span><b>${Z.fWonShots} shot${Z.fWonShots===1?'':'s'} · ${Z.fWonScores} score${Z.fWonScores===1?'':'s'}</b></div>`
+    +`<div class="tt-csub"><span>${ssEsc((pov?'Opposition shots after':'After')+' the '+Z.lost+' won by the opposition')}</span><b>${Z.fLostShots} shot${Z.fLostShots===1?'':'s'} · ${Z.fLostScores} score${Z.fLostScores===1?'':'s'}</b></div>`;
   return h+`<div class="tt-cn">${ssEsc('Shots by the team that won each kickout, tagged as from that kickout, before the next kickout.'+(Z.fN<Z.n?' From '+Z.fN+' of the '+Z.n+' kickouts here (games with source tags).':''))}</div>`;
 }
-function tkZoneTableHTML(Zs){
+function tkZoneTableHTML(Zs, pov){
   const tr=(name,o,cls)=>`<tr class="${cls||''}${o.n?'':' zero'}"><th scope="row">${name}</th><td>${o.n}</td><td>${o.won}</td><td>${o.n?ttPctTxt(o.pct):'–'}</td>`
     +(!o.n?'<td>–</td><td>–</td><td class="hide-sm">–</td>':!o.follow?'<td class="na">n/a</td><td class="na">n/a</td><td class="hide-sm na">n/a</td>':`<td>${o.fShots}</td><td>${o.fScores}</td><td class="hide-sm">${o.fShots?ttPctTxt(o.fRate):'–'}</td>`)+'</tr>';
-  let h='<table class="tt-ztab tk-ztab"><thead><tr><th scope="col">ZONE</th><th scope="col">TAKEN</th><th scope="col">WON</th><th scope="col">WIN %</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col" class="hide-sm">SCORE %</th></tr></thead><tbody>';
+  let h=(pov?`<div class="tk-tcap">${ssEsc('Opposition kickouts by landing zone — WON and WIN % are '+pov+'’s')}</div>`:'')
+    +`<table class="tt-ztab tk-ztab"><thead><tr><th scope="col">ZONE</th><th scope="col">${pov?'OPP KOs':'TAKEN'}</th><th scope="col">WON</th><th scope="col">WIN %</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col" class="hide-sm">SCORE %</th></tr></thead><tbody>`;
   Zs.zones.forEach(Z=>{ h+=tr(Z.z==='arc'?'Inside arc':'Zone '+Z.z, Z); });
   return h+tr('All located', Zs.total, 'tot')+'</tbody></table>';
 }
 function tkZoneSecHTML(R, V){
-  const Zs=V.zones;
+  const Zs=V.zones, pov=V.pov||null, scale='The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.';
   return '<div class="tt-zrow"><div class="tt-card tt-mapcard">'
-    +(Zs.located?`<div class="tt-pitchbox tk-pitchbox">${tkZoneSVG(Zs)}</div>${tkZoneKeyHTML()}`:'<div class="tt-empty">n/a — no kickout landing locations in these games.</div>')
-    +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc('Won / taken and win % of the kicking team per landing zone. The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.')}</div></div>`
-    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs)}<div class="dnote tk-fnote">${ssEsc(V.followNote+' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.')}</div></div></div>`;
+    +(Zs.located?`<div class="tt-pitchbox tk-pitchbox">${tkZoneSVG(Zs, pov)}</div>${tkZoneKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations in these games.</div>')
+    +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc((pov?'Each zone shows the opposition kickouts landing there that '+pov+' won / all of them, and '+pov+'’s win % (e.g. “4/11 · 36%” = '+pov+' won 36% of opposition kickouts landing here). The opposition kicks from the top. ':'Won / taken and win % of the kicking team per landing zone. ')+scale)}</div></div>`
+    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs, pov)}<div class="dnote tk-fnote">${ssEsc(V.followNote+(pov?' Shots after = shots by WHICHEVER team won that kickout ('+pov+' after the ones it won, the opposition after the ones they kept) whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots. A zone’s card splits them by team.':' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.'))}</div></div></div>`;
 }
-// iii. landing locations — every located kickout on the same pitch. FILL = won by the kicker (hollow = lost),
+// iii. landing locations — every located kickout on the same pitch. FILL = won by the kicker (hollow = lost); in the
+// Opposition view (pov = the selected team) FILL = won by the selected team, hollow = kept by the opposition.
 // COLOUR = how the ball was won. One small uniform size on a dark halo, like the shot markers.
 const TK_MK_COL={clean:'#ffffff', break:'#ff8c1a', free:'#b266ff', sideline:'#4fc3f7', unspecified:'#9aa3ad'};
 const TK_LEN_NAME={S:'Short', M:'Medium', L:'Long'};
 const TK_FAR_R=1.85, TK_FAR_COL='#ffd23f';   // the "check tag" ring round an out-of-range landing
 function tkTypeName(t){ const d=TK_TYPES.find(x=>x[0]===t); return d?d[1]:'Unspecified'; }
-function tkKoMark(k){ return {x:tkPX(k.x), y:tkPY(k.dist), scored:k.won, col:TK_MK_COL[k.type]||TK_MK_COL.unspecified}; }
-function tkOutcomeTxt(k){ return (k.won?'Won':'Lost')+' · '+tkTypeName(k.type).toLowerCase(); }
-function tkMapSVG(kos){
+function tkKoMark(k, flip){ return {x:tkPX(k.x), y:tkPY(k.dist), scored:tkWon(k, flip), col:TK_MK_COL[k.type]||TK_MK_COL.unspecified}; }
+// pov = the selected team, when the kickout is the opposition's: the winner is named
+function tkOutcomeTxt(k, pov){ return (pov?(k.won?'Won by the opposition':'Won by '+pov):(k.won?'Won':'Lost'))+' · '+tkTypeName(k.type).toLowerCase(); }
+function tkMapSVG(kos, pov){
   const X=tkPX, Y=tkPY, g='stroke="rgba(255,255,255,.3)" stroke-width=".35" stroke-dasharray="1.2 1.4"';
   // the thirds, faintly, so a marker's zone can be read off the map
   let h=tkPitchOpen('tt-locs tk-locs','Kickout landing locations, from the kicking team’s 20m line (top) to the far 45m line')
     +`<line x1="${X(33.3)}" y1="${Y(tkArcD(33.3))}" x2="${X(33.3)}" y2="${Y(TK_VIEW_M)}" ${g}/><line x1="${X(66.7)}" y1="${Y(tkArcD(66.7))}" x2="${X(66.7)}" y2="${Y(TK_VIEW_M)}" ${g}/>`;
-  return h+'<g class="tt-marks">'+kos.map((k,i)=>{ const m=tkKoMark(k);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
-    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+tkOutcomeTxt(k).toLowerCase()+(k.far?', landing out of range, check tag':''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.far?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
+  return h+'<g class="tt-marks">'+kos.map((k,i)=>{ const m=tkKoMark(k, !!pov);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
+    return `<g class="tt-mk" data-tip="ko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+(pov?tkOutcomeTxt(k, pov).replace(/^W/,'w'):tkOutcomeTxt(k).toLowerCase())+(k.far?', landing out of range, check tag':''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.far?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
 function tkFarTxt(k){ return 'Landing position looks out of range ('+Math.round(k.dist)+' m) — check tag'; }
 // o.pinned: the card is pinned open, so it carries its buttons (the same ones as a shot's card)
@@ -3439,32 +3464,32 @@ function tkKoCardHTML(k, R, o){
     +row('Time', clock, clock==='n/a')+row('Kicking team', kicker)
     +row('Length', k.len?TK_LEN_NAME[k.len]+(k.dist!=null?' · '+Math.round(k.dist)+' m':''):'n/a', !k.len)
     +row('Zone', k.zone==null?'n/a':k.zone==='arc'?'Inside arc':'Zone '+k.zone, k.zone==null)
-    +row('Outcome', k.won?'Won by '+kicker:'Lost')+row('Type', tkTypeName(k.type), k.type==='unspecified')
+    +row('Outcome', k.won?'Won by '+kicker:own||!R?'Lost':'Won by '+R.team)+row('Type', tkTypeName(k.type), k.type==='unspecified')
     +(k.lenFrom==='loc'?'<div class="tt-cn">Length from the landing distance (no length label).</div>':'')
     +(k.far?`<div class="tt-cn tk-warn">${ssEsc(tkFarTxt(k))}</div>`:'');
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
-function tkInsightsHTML(I, nUn){
-  const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`;
-  return '<h3>KEY INSIGHTS</h3>'+r('Kickouts shown', I.shown)+r('Won', I.won)+r('Win %', ttPctTxt(I.pct), I.pct==null)
+function tkInsightsHTML(I, nUn, pov){
+  const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`, P=pov?ssEsc(pov):'';
+  return '<h3>KEY INSIGHTS</h3>'+r(pov?'Opposition kickouts shown':'Kickouts shown', I.shown)+r(pov?'Won by '+P:'Won', I.won)+r(pov?P+' win %':'Win %', ttPctTxt(I.pct), I.pct==null)
     +TK_LENS.map(l=>{ const o=I.len[l[0]]; return r(l[1], o.n?o.won+' / '+o.n+' · '+ttPctTxt(o.pct):'–', !o.n); }).join('')
-    +`<div class="dnote">${ssEsc('Counts the kickouts shown on the map (located kickouts that pass the filters); won = won by the kicking team.'+(nUn?' '+nUn+' kickout'+(nUn===1?'':'s')+' with no location '+(nUn===1?'is':'are')+' not on the map.':''))}</div>`;
+    +`<div class="dnote">${ssEsc((pov?'Counts the opposition kickouts shown on the map (located kickouts that pass the filters); won = won by '+pov+', so each line is '+pov+'’s wins / opposition kickouts of that length.':'Counts the kickouts shown on the map (located kickouts that pass the filters); won = won by the kicking team.')+(nUn?' '+nUn+' kickout'+(nUn===1?'':'s')+' with no location '+(nUn===1?'is':'are')+' not on the map.':''))}</div>`;
 }
-function tkFiltersHTML(F){
+function tkFiltersHTML(F, pov){
   const b=(v,l,on)=>`<button type="button" data-kf="res" data-kv="${v}" class="${on?'on':''}" aria-pressed="${on?'true':'false'}">${l}</button>`;
   const chip=(g,k,l,on)=>`<button type="button" class="chip${on?' on':''}" data-kg="${g}" data-kchip="${k}" aria-pressed="${on?'true':'false'}">${l}</button>`;
   return '<div class="tt-filters">'
-    +`<div class="tt-fg"><span>RESULT</span><div class="seg" role="group" aria-label="Won or lost by the kicking team">${b('won','Won',F.res==='won')}${b('lost','Lost',F.res==='lost')}${b('both','Both',F.res!=='won'&&F.res!=='lost')}</div></div>`
+    +`<div class="tt-fg"><span>${pov?ssEsc('RESULT FOR '+pov):'RESULT'}</span><div class="seg" role="group" aria-label="${pov?ssEsc('Won or lost by '+pov):'Won or lost by the kicking team'}">${b('won','Won',F.res==='won')}${b('lost','Lost',F.res==='lost')}${b('both','Both',F.res!=='won'&&F.res!=='lost')}</div></div>`
     +`<div class="tt-fg"><span>TYPE</span><div class="chips" role="group" aria-label="Receipt type">${TK_TYPES.map(t=>chip('type', t[0], t[1], F.types.has(t[0]))).join('')}</div></div>`
     +`<div class="tt-fg"><span>LENGTH</span><div class="chips" role="group" aria-label="Kickout length">${TK_LENS.map(l=>chip('len', l[0], l[1], F.lens.has(l[0]))).join('')}</div></div>`
     +'</div>';
 }
-function tkMapKeyHTML(){
+function tkMapKeyHTML(pov){
   const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span>`
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,pov?ssEsc('Filled = won by '+pov):'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,pov?'Hollow = won by the opposition (the kicking team)':'Lost')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag: landing out of range (beyond the far 45m line)')}</span></div>`;
 }
 // the tagged length / zone labels of a kickout, as coded (else the engine's reading)
@@ -3488,11 +3513,12 @@ function tkCheckHTML(list, R, open){
 }
 function tkMapSectionHTML(R, V, F, o){
   const S=V.S, nShown=V.mapKos.length, nFar=V.mapKos.filter(k=>k.far).length;   // located kickouts that pass the filters = what the button adds
-  return tkFiltersHTML(F)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
+  const pov=V.pov||null;
+  return tkFiltersHTML(F, pov)+`<div class="tt-allbar"><button type="button" class="tt-btn" data-act="pl-all" data-kind="ko" aria-haspopup="menu"${nShown?'':' disabled aria-disabled="true"'}>Add all shown (${nShown}) to playlist</button></div>`
     +'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
-    +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos)}</div>${tkMapKeyHTML()}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
-    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge'+(nFar?' with a dashed “check tag” ring ('+nFar+' shown)':'')+'.':''))}</div></div>`
-    +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located)}</aside></div>`
+    +(S.located?`<div class="tt-pitchbox tk-pitchbox">${tkMapSVG(V.mapKos, pov)}</div>${tkMapKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations to plot.</div>')
+    +`<div class="dnote tt-locnote">${ssEsc(V.locNote+(S.located?(pov?' Filled = '+pov+' won the opposition’s kickout.':'')+' Positions are in the kicking team’s frame (its 20m line at the top); a landing behind the 20m line is drawn on the top edge, one beyond the far 45m line on the bottom edge'+(nFar?' with a dashed “check tag” ring ('+nFar+' shown)':'')+'.':''))}</div></div>`
+    +`<aside class="tt-card tt-ins" aria-live="polite">${tkInsightsHTML(V.insights, S.kos.length-S.located, pov)}</aside></div>`
     +tkCheckHTML(V.check, R, !!(o&&o.chkOpen));
 }
 
@@ -3942,7 +3968,7 @@ function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
   if(kind==='ko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
     return {title:kicker+' kickout', sub:m?'v '+(own?m.opp:R.team)+' · '+date:'',
-      sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s)].concat(when).join(' · ')}; }
+      sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s, own||!R?null:R.team)].concat(when).join(' · ')}; }
   return {title:s.player||'Player not tagged', sub:m?'v '+m.opp+' · '+date:'',
     sum:[s.kind==='?'?'Attempt not tagged':ttAttTxt(s), s.out||'Result n/a', ttPlayTxt(s)].concat(when).join(' · ')};
 }
