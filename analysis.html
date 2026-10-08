@@ -568,7 +568,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     </nav>
     <div id="ttStatus" role="status"></div>
     <div class="ttsub" id="tt-attacking"><div id="ttBody"></div></div>
-    <div class="ttsub" id="tt-defending"><div class="soon"><div class="tag">COMING SOON</div><h2>DEFENDING</h2><p>What the team concedes game by game: shots and scores against, where they come from and how they start.</p></div></div>
+    <div class="ttsub" id="tt-defending"><div id="tdBody"></div></div>
     <div class="ttsub" id="tt-kickouts"><div class="soon"><div class="tag">COMING SOON</div><h2>KICKOUTS</h2><p>Own and opposition kickouts game by game: win rates by length and zone, and what each kickout led to.</p></div></div>
     <div class="ttsub" id="tt-turnover"><div class="soon"><div class="tag">COMING SOON</div><h2>TURNOVER</h2><p>Turnovers won and lost game by game: where on the pitch, what kind, and what they led to.</p></div></div>
     <div id="ttTip" role="tooltip" hidden></div>
@@ -2536,7 +2536,114 @@ function ttHTML(R, V, o){
   return h;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  TEAM TRENDS › DEFENDING — what the selected team does without the ball,
+//  over the same basis games. Pure helpers first, then the rendering; the
+//  wiring is shared with Attacking below. Everything is read from the cached
+//  per-game tallies (ssTallyCached): the team's own tally for turnovers won,
+//  fouls, cards and tackles, the OPPONENT's tally for the shots faced and the
+//  pressure on them. Encoding rules: see DEFENDING TALLIES in the engine.
+//
+//  DEFINITIONS
+//  · TOs WON = IN-PLAY turnovers the team forced or won (forced, unforced,
+//    handling, free against, untyped) — the Overview's headline number.
+//    Kickouts won from the opposition and shot attempts turned over stay
+//    separate. The third is converted to the selected team's view.
+//  · FOULS CONCEDED = the team's own FOUL rows, each foul once.
+//  · TACKLES = the team's own TACKLE rows; n/a where no game tracks them.
+//  · SHOTS FACED = the opposition's primary shots; pressure = their 'Shot
+//    Pressure' label. Attempt types score as on Attacking / Compare: a 1-point
+//    attempt with a point, a 2-point attempt with a 2-pointer, a goal attempt
+//    with a goal.
+//  · Averages divide by the games that carry that data ("from x of y games").
+// ═══════════════════════════════════════════════════════════════
+function tdRow(T, g, bundleOf){
+  const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return {g, O:'', tT:null, tO:null};
+  const H=ssUC(b.meta.homeTeam), A=ssUC(b.meta.awayTeam), O=T===H?A:H;
+  return {g, O, tT:ssTallyCached(b,T), tO:ssTallyCached(b,O)};
+}
+// one game: the match card (ovMatch) plus its defending numbers; null = that game does not carry the data
+function tdMatch(r, T){
+  const m=ovMatch(r.g, r.tT, r.tO, T), t=r.tT, o=r.tO;
+  m.loaded=!!(t&&o);
+  m.to=m.loaded&&t.toGames?{won:t.toWon, lost:t.toLost, koWon:t.toKoGames?t.toWonKo:null, DEF:t.toWonDEF, MID:t.toWonMID, ATT:t.toWonATT, loc:t.toWonLoc}:null;
+  m.fouls=m.loaded&&t.foulGames?{n:t.fouls, DEF:t.foulsDEF, MID:t.foulsMID, ATT:t.foulsATT, loc:t.foulsLoc, inPoss:t.foulsInPoss,
+    dissent:t.foulsDissent, f50:t.fouls50, breach:t.foulsBreach, won:o.fouls}:null;
+  m.cards=m.loaded&&(t.foulGames||t.cardGames)?{n:t.cards, y:t.cardY, b:t.cardB, r:t.cardR, x:t.cardX}:null;
+  return m;
+}
+function tdBasisTxt(nWith, n, basis, total){ const s=ovBasisTxt(nWith, n, basis); return total?s.replace(/^Avg/,'Total'):s; }
+function tdKpis(a, n, basis){
+  const pg=v=>v==null?null:v.toFixed(1), num=v=>v==null?null:String(v);
+  const kpi=(key,title,v,txt,detail,gk,total)=>({key, title, v, txt, detail:v==null?'':detail, basis:tdBasisTxt(a[gk]||0, n, basis, total)});
+  const tk=a.tackleGames>0?a.tackles/a.tackleGames:null, to=a.toGames>0?a.toWon/a.toGames:null, fl=a.foulGames>0?a.fouls/a.foulGames:null;
+  const toT=a.toGames>0?a.toWon:null, flT=a.foulGames>0?a.fouls:null;
+  return [
+    kpi('tackles','AVG TACKLES / GAME', tk, pg(tk), (a.tackles||0)+' tackle'+(a.tackles===1?'':'s'), 'tackleGames'),
+    kpi('toAvg','AVG TOs WON / GAME', to, pg(to), 'in-play turnovers', 'toGames'),
+    kpi('toTot','TOTAL TOs WON', toT, num(toT), (a.toLost||0)+' lost in play', 'toGames', true),
+    kpi('foulAvg','AVG FOULS CONCEDED / GAME', fl, pg(fl), (a.foulsInPoss||0)+' in possession (free against)', 'foulGames'),
+    kpi('foulTot','TOTAL FOULS CONCEDED', flT, num(flT), (a.cardY||0)+' yellow · '+(a.cardB||0)+' black · '+(a.cardR||0)+' red'+(a.cardX?' · '+a.cardX+' other':''), 'foulGames', true)];
+}
+// where the team wins the ball: in-play turnovers WON per third, in the team's view
+function tdZone(used, a, n){
+  const loc=a.toWonLoc||0;
+  return {data:(a.toGames||0)>0, games:a.toGames||0, n, won:a.toWon||0, loc, locGames:used.filter(r=>r.tT.toWonLoc>0).length,
+    thirds:['DEF','MID','ATT'].map(k=>({k, won:a['toWon'+k]||0, pct:ovPct(a['toWon'+k]||0, loc)}))};
+}
+// the type of the turnovers won (the type sits on the losing team's row)
+function tdTypes(used, a, n){
+  const keys=SS_TO_TYPES.filter(t=>t[0]!=='X'), typed=keys.reduce((s,t)=>s+(a['toWonTy'+t[0]]||0),0);
+  return {typed, untyped:a.toWonTyX||0, won:a.toWon||0, n, games:used.filter(r=>keys.some(t=>r.tT['toWonTy'+t[0]]>0)).length, toGames:a.toGames||0,
+    rows:keys.map(t=>({k:t[0], label:t[1], n:a['toWonTy'+t[0]]||0, pct:ovPct(a['toWonTy'+t[0]]||0, typed)}))};
+}
+// shots of one or more pressure levels, from an aggregate of the SHOOTING team's tallies
+function tdLevel(a, keys){
+  const f=x=>keys.reduce((s,k)=>s+(a['pr'+k+x]||0),0);
+  const o={shots:f('Sh'), scores:f('Sc'), pts:f('Pt'), a1:f('A1'), s1:f('S1'), a2:f('A2'), s2:f('S2'), ag:f('AG'), sg:f('SG'), au:f('AU'), su:f('SU')};
+  return Object.assign(o, {pct:ovPct(o.scores,o.shots), p1:ovPct(o.s1,o.a1), p2:ovPct(o.s2,o.a2), pg:ovPct(o.sg,o.ag), pu:ovPct(o.su,o.au)});
+}
+const TD_PR_ALL=SS_PRESS.map(p=>p[0]);
+function tdShooting(aO, n){
+  const all=tdLevel(aO, TD_PR_ALL), games=aO.shotGames||0;
+  return Object.assign(all, {n, games, ppg:games>0?all.pts/games:null, goals:aO.goals||0, twoPts:aO.twoPts||0, onePts:aO.onePts||0});
+}
+function tdPressure(aO, n){
+  const all=tdLevel(aO, TD_PR_ALL), tagged=aO.prTagged||0;
+  return {n, shots:all.shots, tagged, games:aO.prGames||0, shotGames:aO.shotGames||0, all,
+    rows:SS_PRESS.map(p=>Object.assign(tdLevel(aO,[p[0]]), {k:p[0], label:p[0]==='N'?p[1]:p[1]+' pressure'})).map(r=>Object.assign(r, {share:ovPct(r.shots, all.shots)}))};
+}
+// Everything Team Trends › Defending shows for team T over the basis games.
+function tdCompute(T, games, basis, bundleOf){
+  const list=ovTeamGames(games, T), use=ovBasisGames(list, basis).slice().reverse();   // oldest → newest
+  const rows=use.map(g=>tdRow(T, g, bundleOf)), used=rows.filter(r=>r.tT&&r.tO), n=used.length;
+  const aT=ssAggregate(used.map(r=>r.tT)), aO=ssAggregate(used.map(r=>r.tO));
+  const dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
+  return {team:T, basis, nTeamGames:list.length, nBasis:use.length, n, missing:use.length-n, from:dates[0]||'', to:dates[dates.length-1]||'',
+    list, basisIds:use.map(g=>g.id), kpis:tdKpis(aT, n, basis), zone:tdZone(used, aT, n), types:tdTypes(used, aT, n),
+    shooting:tdShooting(aO, n), pressure:tdPressure(aO, n), aggT:aT, aggO:aO};
+}
+// ── Defending rendering (strings only; every interpolated value is escaped) ──
+function tdKpisHTML(kpis){
+  return '<div class="ov-kpis td-kpis">'+kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+}
+function tdHTML(R, V, o){
+  o=o||{}; const T=R.team, n=R.n;
+  if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
+  let h='<div class="tt-top"><div class="tt-who">'+ssEsc(T)+`<small>${ssEsc((R.basis==='all'?'All ':'Last ')+R.nBasis+' game'+(R.nBasis===1?'':'s')+(R.missing?' ('+R.missing+' not loaded)':'')+' · defending')}</small></div></div>`;
+  h+=tdKpisHTML(R.kpis);
+  h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once. “n/a” means those games don't carry the data needed.</div>`;
+  return h;
+}
+
 // ── Team Trends page wiring ──
+let TD_LAST=null, TD_KEY='', TD_W=0;
+function tdOpts(){ const C=ssDisplayColors(TD_LAST.team, '__baseline__'); return {W:(TD_W=ttWidth('tdBody')), col:C.a}; }
+function tdRender(){
+  const body=ssEl('tdBody'); if(!body||!TD_LAST) return;
+  ttHideTip();
+  body.innerHTML=tdHTML(TD_LAST, null, tdOpts());
+}
 let TT_TOKEN=0, TT_TIMER=null, TT_LAST=null, TT_VIEW=null, TT_SIDE='for', TT_KEY='', TT_W=0, TT_TIP=null, TT_PIN=null;
 const TT_F={view:'loc', play:'both', chips:new Set(TT_CHIPS.map(c=>c[0]))};
 function ttSchedule(){ if(TAB!=='team-trends'||!GAMES_READY) return; clearTimeout(TT_TIMER); TT_TIMER=setTimeout(ttRun, 40); }
@@ -2545,11 +2652,11 @@ async function ttRun(){
   if(TAB!=='team-trends'||!GAMES_READY) return;
   const my=++TT_TOKEN, st=ssEl('ttStatus'), body=ssEl('ttBody'), note=ssEl('ovBasisNote');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ TT_LAST=null; TT_VIEW=null; TT_KEY=''; TD_LAST=null; TD_KEY=''; { const d=ssEl('tdBody'); if(d) d.innerHTML=''; } body.innerHTML=''; note.textContent=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const list=ovTeamGames(pool, T), use=ovBasisGames(list, TT_BASIS);
   note.textContent=ovBasisNoteTxt(T, list, use, TT_BASIS);
-  if(TT_SUB!=='attacking') return;                 // placeholders: nothing to load
+  if(TT_SUB!=='attacking'&&TT_SUB!=='defending') return;   // placeholders: nothing to load
   const need=use.filter(g=>!BUNDLES.has(g.id));
   try{
     if(need.length){
@@ -2560,10 +2667,15 @@ async function ttRun(){
   if(my!==TT_TOKEN) return;   // a newer team / basis / filter superseded this run
   st.textContent='';
   const key=T+'|'+TT_BASIS+'|'+use.map(g=>g.id).join(',');
+  if(TT_SUB==='defending'){                        // same games, same cached tallies; its own result
+    const dk=key+'#'+list.map(g=>g.id).join(',');
+    if(dk!==TD_KEY||!TD_LAST){ TD_LAST=tdCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TD_KEY=dk; }
+    tdRender(); return;
+  }
   if(key!==TT_KEY||!TT_LAST){ TT_LAST=ttCompute(T, pool, TT_BASIS, id=>BUNDLES.get(id)); TT_KEY=key; }
   ttRender();
 }
-function ttWidth(){ const b=ssEl('ttBody'), w=b&&b.clientWidth; return w>0?w-38:760; }   // the card's padding and border
+function ttWidth(id){ const b=ssEl(id||'ttBody'), w=b&&b.clientWidth; return w>0?w-38:760; }   // the card's padding and border
 function ttOnPitch(hex){ const c=ssHexRgb(hex); return c&&Math.hypot(c[0]-46,c[1]-122,c[2]-36)<95?'#ffffff':hex; }   // a green team would vanish on the grass
 function ttOpts(){ const C=ssDisplayColors(TT_LAST.team, '__baseline__'); return {F:TT_F, W:(TT_W=ttWidth()), col:C.a, mapCol:ttOnPitch(TT_SIDE==='against'?C.b:C.a)}; }
 function ttKeepFocus(root, fn){
@@ -2797,7 +2909,7 @@ function ttInit(){
   document.addEventListener('click', e=>{ if(TT_TIP&&!pane.contains(e.target)) ttHideTip(); });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
-  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='team-trends'&&TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); }, 150); });
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
