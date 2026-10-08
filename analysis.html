@@ -167,10 +167,10 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
 .tp-row span{font-size:.92rem;color:var(--t2);}
 .tp-note{font-size:.68rem;color:var(--t3);margin:16px 4px 0;line-height:1.45;}
 .pitchwrap{min-width:0;display:flex;flex-direction:column;}
-.pz-heads{display:grid;grid-template-columns:repeat(3,1fr);height:30px;align-items:center;text-align:center;font:600 15px 'Barlow',sans-serif;color:var(--t2);letter-spacing:.03em;}
-.pitch{position:relative;flex:1;min-height:440px;border-radius:2px;overflow:hidden;}
+.pz-heads{display:grid;grid-template-columns:45fr 55fr 45fr;height:30px;align-items:center;text-align:center;font:600 15px 'Barlow',sans-serif;color:var(--t2);letter-spacing:.03em;}
+.pitch{position:relative;width:100%;aspect-ratio:145/88;border-radius:2px;overflow:hidden;}
 .pitch-bg{position:absolute;inset:0;width:100%;height:100%;display:block;}
-.pz{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);}
+.pz{position:absolute;inset:0;display:grid;grid-template-columns:45fr 55fr 45fr;}
 .pz-col{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.55);padding:6px 2px;min-width:0;}
 .pz-l{font:700 22px 'Barlow',sans-serif;}
 .pz-l:nth-of-type(4){margin-top:26px;}
@@ -198,7 +198,7 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
   .ov-h{font-size:19px;margin:26px 2px 12px;}
   .dcard{padding:16px 14px;}
   .ov-to{gap:10px;} .tpanel{padding:10px 9px 12px;} .tp-name{font-size:16px;padding:5px 12px;} .tp-h{font-size:13.5px;margin-top:14px;} .tp-row span{font-size:.8rem;}
-  .pz-heads{font-size:10.5px;letter-spacing:0;} .pitch{min-height:340px;}
+  .pz-heads{font-size:10.5px;letter-spacing:0;} .pitch{aspect-ratio:145/88;}
   .pz-l{font-size:14px;} .pz-p{font-size:30px;} .pz-c{font-size:16px;min-height:20px;} .pz-l:nth-of-type(4){margin-top:18px;}
   .ov-basisnote{padding-top:0;}
 }
@@ -1818,19 +1818,32 @@ function ovDonutCard(title, set, unit, note){
   const legend=set.items.map(it=>`<li class="${it.v>0?'':'zero'}"><i style="background:${it.col}"></i><span class="lg-l">${ssEsc(it.label)}</span><span class="lg-v">${it.pct==null?'–':Math.round(it.pct)+'%'}<small>${it.v}</small></span></li>`).join('');
   return `<div class="dcard"><div class="dchart">${ovDonutSVG(set, unit)}</div><div class="dkey"><h4>${ssEsc(title)}</h4><ul>${legend}</ul><div class="dnote">${ssEsc(note)}</div></div></div>`;
 }
+// Horizontal full pitch, drawn TO SCALE: 145 m x 88 m, 10 units per metre.
+// Thirds split AT THE 45 m LINES (0-45 / 45-100 / 100-145 m). Each end: small
+// rectangle 4.5 x 14 m, large rectangle 13 x 19 m, penalty spot at 11 m, the
+// 13 m and 20 m lines, the 13 m "D" on the 20 m line and the 40 m arc (radius
+// 40 m from the goal-line midpoint, drawn only OUTSIDE the 20 m line). Middle:
+// the two 65 m lines solid, halfway dashed. Nothing else.
 function ovPitchSVG(){
-  const L='stroke="#fff" stroke-opacity=".34" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"';
-  const end=flip=>{ const x=v=>flip?1450-v:v, sw=flip?0:1;
-    return `<line x1="${x(130)}" y1="0" x2="${x(130)}" y2="900" ${L}/><line x1="${x(200)}" y1="0" x2="${x(200)}" y2="900" ${L}/>`
-      +`<line x1="${x(450)}" y1="0" x2="${x(450)}" y2="900" ${L}/><line x1="${x(650)}" y1="0" x2="${x(650)}" y2="900" ${L}/>`
-      +`<rect x="${Math.min(x(0),x(45))}" y="380" width="45" height="140" ${L}/><rect x="${Math.min(x(0),x(130))}" y="355" width="130" height="190" ${L}/>`
-      +`<path d="M${x(200)},320 A130,130 0 0 ${sw} ${x(200)},580" ${L}/><path d="M${x(0)},50 A400,400 0 0 ${sw} ${x(0)},850" ${L}/>`; };
-  return `<svg class="pitch-bg" viewBox="0 0 1450 900" preserveAspectRatio="none" aria-hidden="true">`
-    +`<rect x="0" y="0" width="483.4" height="900" fill="#7f3639"/><rect x="483.3" y="0" width="483.4" height="900" fill="#9c5320"/><rect x="966.6" y="0" width="483.4" height="900" fill="#2f772e"/>`
+  const W=1450, H=880, cy=H/2;
+  const L='stroke="#fff" stroke-opacity=".42" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"';
+  const arcY=Math.sqrt(400*400-200*200);              // where the 40 m arc meets the 20 m line
+  const end=flip=>{ const x=v=>flip?W-v:v, sw=flip?0:1, rx=(a,b)=>Math.min(x(a),x(b));
+    return `<rect x="${rx(0,45)}" y="${cy-70}" width="45" height="140" ${L}/>`
+      +`<rect x="${rx(0,130)}" y="${cy-95}" width="130" height="190" ${L}/>`
+      +`<circle cx="${x(110)}" cy="${cy}" r="3" fill="#fff" fill-opacity=".5"/>`
+      +`<line x1="${x(130)}" y1="0" x2="${x(130)}" y2="${H}" ${L}/>`
+      +`<line x1="${x(200)}" y1="0" x2="${x(200)}" y2="${H}" ${L}/>`
+      +`<path d="M${x(200)},${cy-130} A130,130 0 0 ${sw} ${x(200)},${cy+130}" ${L}/>`
+      +`<path d="M${x(200)},${(cy-arcY).toFixed(1)} A400,400 0 0 ${sw} ${x(200)},${(cy+arcY).toFixed(1)}" ${L}/>`
+      +`<line x1="${x(650)}" y1="0" x2="${x(650)}" y2="${H}" ${L}/>`; };
+  const B='stroke="#d9d9d9" stroke-opacity=".8" stroke-width="2.5" vector-effect="non-scaling-stroke"';
+  return `<svg class="pitch-bg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">`
+    +`<rect x="0" y="0" width="450" height="${H}" fill="#7a393b"/><rect x="450" y="0" width="550" height="${H}" fill="#93562c"/><rect x="1000" y="0" width="450" height="${H}" fill="#3f6f33"/>`
     +end(false)+end(true)
-    +`<line x1="725" y1="0" x2="725" y2="900" ${L} stroke-dasharray="10 8"/>`
-    +`<line x1="483.3" y1="0" x2="483.3" y2="900" stroke="#f2c9a0" stroke-opacity=".7" stroke-width="2" vector-effect="non-scaling-stroke"/><line x1="966.6" y1="0" x2="966.6" y2="900" stroke="#f2c9a0" stroke-opacity=".7" stroke-width="2" vector-effect="non-scaling-stroke"/>`
-    +`<rect x="1" y="1" width="1448" height="898" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+    +`<line x1="725" y1="0" x2="725" y2="${H}" ${L} stroke-dasharray="12 9"/>`
+    +`<line x1="450" y1="0" x2="450" y2="${H}" ${B}/><line x1="1000" y1="0" x2="1000" y2="${H}" ${B}/>`
+    +`<rect x="1" y="1" width="${W-2}" height="${H-2}" fill="none" ${B}/></svg>`;
 }
 function ovPctTxt(v){ return v==null?'n/a':Math.round(v)+'%'; }
 // One side panel. Headlines are IN-PLAY turnovers; under each sit the two
@@ -2065,7 +2078,7 @@ function ttZoneStats(shots){
   const mk=()=>({shots:0, scores:0, pts:0, xp:0, xpShots:0, xpPts:0});
   const add=(o,s)=>{ o.shots++; if(s.v>0){ o.scores++; o.pts+=s.v; } if(s.xp!=null){ o.xp+=s.xp; o.xpShots++; o.xpPts+=s.v; } };
   const fin=o=>Object.assign(o, {pct:ovPct(o.scores,o.shots), pps:o.shots?o.pts/o.shots:null, perShot:o.xpShots?o.xp/o.xpShots:null, diff:o.xpShots?o.xpPts-o.xp:null});
-  const zones=[]; for(let z=1;z<=9;z++) zones.push(Object.assign(mk(), {z, sub:(z===4||z===6)?{'1':mk(), '2':mk(), other:0}:null}));
+  const zones=[]; for(let z=1;z<=9;z++) zones.push(Object.assign(mk(), {z, sub:(z===4||z===5||z===6)?{'1':mk(), '2':mk(), other:0}:null}));
   const total=mk(); let unzoned=0, fromLabel=0, fromLoc=0;
   (shots||[]).forEach(s=>{
     if(!s.zone){ unzoned++; return; }
@@ -2201,12 +2214,14 @@ const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=
   const ya=+yAt(x1).toFixed(2), yb=+yAt(x2).toFixed(2), A=`A${rx} ${ry} 0 0 `;
   const rect=(a,b,c,d)=>`M${a} ${b}H${c}V${d}H${a}Z`;
   return {cols:[x0,x1,x2,x3], rows:[y0,y1,y2,y3],
-    shape:{1:rect(x0,y0,x1,y1), 2:rect(x1,y0,x2,y1), 3:rect(x2,y0,x3,y1), 5:rect(x1,y1,x2,y2), 7:rect(x0,y2,x1,y3), 8:rect(x1,y2,x2,y3), 9:rect(x2,y2,x3,y3),
+    shape:{1:rect(x0,y0,x1,y1), 2:rect(x1,y0,x2,y1), 3:rect(x2,y0,x3,y1), 7:rect(x0,y2,x1,y3), 8:rect(x1,y2,x2,y3), 9:rect(x2,y2,x3,y3),
       '4:1':`M${ax0} ${y1}H${x1}V${ya}${A}1 ${ax0} ${y1}Z`, '4:2':`M${x0} ${y1}H${ax0}${A}0 ${x1} ${ya}V${y2}H${x0}Z`,
-      '6:1':`M${x2} ${y1}H${ax1}${A}1 ${x2} ${yb}Z`, '6:2':`M${x3} ${y1}H${ax1}${A}1 ${x2} ${yb}V${y2}H${x3}Z`},
+      '6:1':`M${x2} ${y1}H${ax1}${A}1 ${x2} ${yb}Z`,
+      // zone 5: inside the 40m arc = 1-point; the small strip between the arc and the 45m line = 2-point
+      '5:1':`M${x1} ${y1}H${x2}V${yb}${A}1 ${x1} ${ya}Z`, '5:2':`M${x1} ${ya}${A}0 ${x2} ${yb}V${y2}H${x1}Z`, '6:2':`M${x3} ${y1}H${ax1}${A}1 ${x2} ${yb}V${y2}H${x3}Z`},
     // label anchors (art units): zone name, and the centre of each block
     name:{1:[2.4,4.4], 2:[34.5,4.4], 3:[67.9,4.4], 4:[2.4,26.1], 5:[34.5,26.1], 6:[97.6,26.1], 7:[2.4,55.2], 8:[34.5,55.2], 9:[67.9,55.2]},
-    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], 5:[50,39], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
+    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], '5:1':[50,36.5], '5:2':[50,50.6], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
 })();
 const TT_ROWS=['inside the 20m line','between the 20m and 45m lines','beyond the 45m line'], TT_COLS=['left','centre','right'];
 function ttZoneWhere(z){ return TT_COLS[(z-1)%3]+', '+TT_ROWS[Math.floor((z-1)/3)]; }
@@ -2221,6 +2236,7 @@ function ttZoneSVG(Zs){
     shapes+=`<g class="tt-zone" data-tip="zone:${Z.z}" tabindex="0" role="img" aria-label="${ssEsc(lab)}">`+(Z.sub?block(Z.sub['1'],Z.z+':1')+block(Z.sub['2'],Z.z+':2'):block(Z,String(Z.z)))+'</g>';
     labels+=`<text class="tt-zn" x="${nm[0]}" y="${Y(nm[1])}"${Z.z===6?' text-anchor="end"':''}>ZONE ${Z.z}</text>`;
     const txt=(o,key,tag)=>{ const m=TT_ZG.mid[key], big=!tag;
+      if(key==='5:2') return `<text class="tt-zp sm one${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1])}" text-anchor="middle">${tag} ${o.shots?o.scores+'/'+o.shots+' · '+ttPctTxt(o.pct):'–'}</text>`;   // thin strip: one line
       return (tag?`<text class="tt-zt" x="${m[0]}" y="${Y(m[1]-3.1)}" text-anchor="middle">${tag}</text>`:'')
         +`<text class="${big?'tt-zv':'tt-zv sm'}${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1]+(big?0:.3))}" text-anchor="middle">${o.shots?o.scores+'/'+o.shots:'–'}</text>`
         +(o.shots?`<text class="${big?'tt-zp':'tt-zp sm'}" x="${m[0]}" y="${Y(m[1]+(big?4.1:3.2))}" text-anchor="middle">${ttPctTxt(o.pct)}</text>`:''); };
@@ -2328,7 +2344,7 @@ function ttHTML(R, V, o){
   const Zs=V.zones;
   h+=`<h2 class="ov-h">SHOOTING ZONES ${tag}</h2><div class="tt-zrow"><div class="tt-card tt-mapcard">`
     +(Zs.zoned?`<div class="tt-pitchbox">${ttZoneSVG(Zs)}</div><div class="tt-key"><span>0% scored</span><i class="tt-ramp"></i><span>100%</span><span><i class="tt-sw none"></i>no shots</span></div>`:'<div class="tt-empty">n/a — no shot zones or locations in these games.</div>')
-    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4 and 6 are split on the 40m arc: 1-point attempts inside it, 2-point attempts outside. '+Zs.zoned+' of '+V.S.shots.length+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
+    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4, 5 and 6 are split on the 40m arc: 1-point attempts inside it, 2-point attempts outside (in Zone 5 that is the small strip between the arc and the 45m line). '+Zs.zoned+' of '+V.S.shots.length+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
     +`<div class="tt-card tt-ztabcard">${ttZoneTableHTML(Zs)}<div class="dnote">xP covers shots with a location and an attempt type; Points − xP compares the points from those shots with their xP.</div></div></div>`;
   // iv. locations
   h+=`<h2 class="ov-h">SHOT LOCATIONS ${tag}</h2><div id="ttMapSec">`+ttMapSectionHTML(V, F, {col})+'</div>';
