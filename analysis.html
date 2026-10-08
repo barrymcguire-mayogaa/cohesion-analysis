@@ -329,6 +329,25 @@ body.mr-lock{overflow:hidden;}
   .mr-modal{padding:8px;} .mr-mhd{padding:8px 8px 8px 12px;} .mr-mbody{padding:8px;}
   .mr-mft{padding:8px;} .mr-mft button{flex:1 1 100%;} .mr-mft button.link{margin-left:0;}
 }
+/* ── clip player (Team Trends: Watch clip) — the Match Reports window, 16:9 ── */
+.cp-card{width:min(960px,100%,calc((100vh - 250px)*16/9));min-width:min(320px,100%);outline:none;overflow:auto;}
+.cp-ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.cp-ht b{font:700 18px 'Barlow',sans-serif;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cp-ht span{font-size:.8rem;color:var(--t3);} .cp-ht span:empty{display:none;}
+.cp-ht small{font-size:.86rem;color:var(--t2);line-height:1.35;}
+.cp-vid{position:relative;flex:0 0 auto;width:100%;aspect-ratio:16/9;background:#000;}
+.cp-vid>*{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;}
+.cp-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--border);}
+.cp-nav{display:flex;align-items:center;gap:8px;margin-right:auto;}
+.cp-pos{min-width:70px;text-align:center;font:700 13px 'Barlow',sans-serif;color:var(--t2);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.cp-bar .tt-btn{min-height:40px;white-space:nowrap;} .cp-bar .cp-dash{background:transparent;border-color:transparent;color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
+.cp-msg{padding:0 12px 10px;font-size:.8rem;color:#ff8a8a;} .cp-msg:empty{display:none;}
+.cp-plm{margin:0;padding:10px 12px 12px;border-top:1px solid var(--border);}
+@media (max-width:640px){
+  .cp-modal{padding:0;align-items:flex-start;} .cp-card{width:100%;max-height:100%;border-radius:0;border-left:0;border-right:0;}
+  .cp-bar{padding:8px;gap:6px;} .cp-nav{flex:1 1 100%;margin:0;justify-content:space-between;} .cp-nav .tt-btn{flex:0 0 auto;min-width:104px;}
+  .cp-bar>.tt-btn{flex:1 1 30%;padding:6px 8px;}
+}
 /* ── TEAM TRENDS ── */
 .subtabs{display:flex;gap:2px 38px;flex-wrap:wrap;margin:22px 0 0;padding:0 16px;border-bottom:1px solid var(--border);}
 .subtabs a{font:800 19px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;padding:6px 2px 11px;position:relative;white-space:nowrap;opacity:.8;}
@@ -702,6 +721,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-graphics.js"></script>
 <script src="cohesion-xml.js"></script>
+<script src="cohesion-player.js"></script>
 <script>
 if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';
 
@@ -2594,7 +2614,7 @@ function ttAttTxt(s){ return (s.kind==='P'?'Penalty':s.att==='1'?'1-point attemp
 function ttPlayTxt(s){ return s.dead?'Dead ball'+(s.deadType&&s.deadType!=='Dead ball'?' · '+(s.deadType==='45'?'’45':s.deadType):''):'Open play'; }
 function ttClockTxt(e){ const h=String((e&&e.half)||'').trim(), c=String((e&&e.gameTime)||'').trim(); return [h,c].filter(Boolean).join(' · ')||'n/a'; }
 // The game's dashboard, opened at this shot (dashboard.html selects and cues ?ev=<event id>; &t= is the
-// fallback when an event has no id).
+// fallback when an event has no id). The clip player's "Open in dashboard" link.
 function ttWatchUrl(s){
   if(!s||!s.gid) return '';
   const e=s.e||{}, id=e.id!=null&&String(e.id)!==''?String(e.id):'';
@@ -2613,7 +2633,9 @@ function ttShotCardHTML(s, gameOf, o){
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(s)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
-function ttShotActsHTML(s){ const u=ttWatchUrl(s); return '<button type="button" class="tt-btn pri" data-act="pl" aria-haspopup="menu">Add to playlist</button>'+(!u?'':`<a class="tt-btn" data-act="watch" href="${ssEsc(u)}" target="_blank" rel="noopener">Watch clip</a>`); }
+// Watch clip plays the clip in the clip player on this page (cpOpen); with no video link there is nothing to play
+function ttShotActsHTML(s){ return '<button type="button" class="tt-btn pri" data-act="pl" aria-haspopup="menu">Add to playlist</button>'
+  +`<button type="button" class="tt-btn" data-act="watch"${cpClip(s)?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`; }
 function ttInsightsHTML(I, nUn){
   const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`;
   return '<h3>KEY INSIGHTS</h3>'
@@ -3714,6 +3736,7 @@ function ttTipClick(e){
   const a=e.target&&e.target.closest?e.target.closest('[data-act]'):null; if(!a) return;
   const act=a.dataset.act;
   if(act==='close'){ const back=TT_PIN; ttHideTip(); ttRefocus(back); }
+  else if(act==='watch'){ const it=a.disabled?null:ttPinItem(); if(it) cpOpen(it.kind, it.s, it.el); }
   else if(act==='pl') ttPlOpen();
   else if(act==='pl-pick') ttPlPick(a.dataset.id);
   else if(act==='pl-new'){ ttPlDraw({phase:'new'}); const n=ssEl('ttPlName'); if(n&&n.focus){ try{ n.focus({preventScroll:true}); }catch(_){ } } }
@@ -3834,6 +3857,171 @@ async function ttPlAll(btn){
   ttPlaceTip();
   if(shots.length>TT_PL_MAX){ ttPlDraw({phase:'error', msg:'That is more than '+TT_PL_MAX+' clips in one go — narrow the filters first.'}); return; }
   return ttPlOpen();
+}
+// ═══════════════════════════════════════════════════════════════
+//  CLIP PLAYER — "Watch clip" on a pinned shot / kickout card plays that clip in a window on this
+//  page. The clip is the playlist clip (ttClipOf = the dashboard's dashClipOf), loaded exactly as
+//  playlists.html loads it, through the shared player seam (cohesion-player.js) and its 8-method
+//  contract only. Previous / Next step through the playable clips shown on that map (after the
+//  filters and the games selection): by game, oldest first, then in time order within the game.
+//  ONE player per open window: clips are swapped with loadVideoById; closing pauses it and removes
+//  its frame (the contract has no destroy — taking the iframe out of the page is what stops it).
+// ═══════════════════════════════════════════════════════════════
+let CP=null, CP_SEQ=0;
+const CP_NOVIDEO='No video linked to this game';
+function cpClip(s){ const b=s&&BUNDLES.get(s.gid); return b&&b.meta?ttClipOf(s, b.meta):null; }
+function cpList(items, gameOf, clipOf){   // items with no video are left out, so Previous / Next skip them
+  const out=[]; (items||[]).forEach((s,idx)=>{ const clip=clipOf(s); if(clip) out.push({s, clip, idx}); });
+  const day=x=>{ const m=gameOf&&gameOf.get(x.s.gid); return (m&&(ssIsoDate(m.date)||String(m.date||'')))||''; };
+  return out.sort((a,b)=>{ const da=day(a), db=day(b), ga=String(a.s.gid), gb=String(b.s.gid);
+    return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
+}
+// the window's header: who, "v Opponent · date", and the event in a line
+function cpInfo(kind, s, R){
+  const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
+  if(kind==='ko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
+    return {title:kicker+' kickout', sub:m?'v '+(own?m.opp:R.team)+' · '+date:'',
+      sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s)].concat(when).join(' · ')}; }
+  return {title:s.player||'Player not tagged', sub:m?'v '+m.opp+' · '+date:'',
+    sum:[s.kind==='?'?'Attempt not tagged':ttAttTxt(s), s.out||'Result n/a', ttPlayTxt(s)].concat(when).join(' · ')};
+}
+function cpArgs(c){ return {videoId:c.videoId, startSeconds:Math.max(0,Math.floor(c.start||0)), endSeconds:Math.max(1,Math.ceil(c.end||((c.start||0)+8)))}; }   // = playlists.html playClip
+function cpPosTxt(i, n){ return (i+1)+' of '+n; }
+function cpHTML(){
+  return '<div class="mr-mcard cp-card" id="cpCard" tabindex="-1"><div class="mr-mhd"><div class="cp-ht"><b id="cpTitle"></b><span id="cpSub"></span><small id="cpSum"></small></div>'
+    +'<button type="button" class="mr-mx" data-cp="close" aria-label="Close clip player">×</button></div>'
+    +'<div class="cp-vid" id="cpVid"></div>'
+    +'<div class="cp-bar"><div class="cp-nav"><button type="button" class="tt-btn" id="cpPrev" data-cp="prev" aria-label="Previous clip">‹ Previous</button><span class="cp-pos" id="cpPos" aria-live="polite"></span>'
+    +'<button type="button" class="tt-btn" id="cpNext" data-cp="next" aria-label="Next clip">Next ›</button></div>'
+    +'<button type="button" class="tt-btn" data-cp="replay">Replay clip</button><button type="button" class="tt-btn pri" data-act="pl" aria-haspopup="menu">Add to playlist</button>'
+    +'<a class="tt-btn cp-dash" id="cpDash" href="#" target="_blank" rel="opener">Open in dashboard</a></div>'
+    +'<div class="cp-msg" id="cpMsg" role="status"></div><div class="tt-plm cp-plm" id="ttPlMenu" aria-live="polite"></div></div>';
+}
+function cpSay(t){ const x=ssEl('cpMsg'); if(x) x.textContent=t||''; }
+function cpCur(){ return CP?CP.list[CP.i]:null; }
+function cpFocusCard(){ const c=ssEl('cpCard'); if(c&&c.focus){ try{ c.focus({preventScroll:true}); }catch(_){ } } }
+function cpShow(i){
+  const m=CP; if(!m||!m.list[i]) return;
+  m.i=i; TT_JOB=null;                                   // the playlist menu is about the clip on screen
+  const cur=m.list[i], I=cpInfo(m.kind, cur.s, m.kind==='ko'?TK_LAST:TT_LAST), set=(id,t)=>{ const x=ssEl(id); if(x) x.textContent=t; };
+  set('cpTitle', I.title); set('cpSub', I.sub); set('cpSum', I.sum); set('cpPos', cpPosTxt(i, m.list.length)); cpSay('');
+  const pm=ssEl('ttPlMenu'); if(pm) pm.innerHTML='';
+  const pv=ssEl('cpPrev'), nx=ssEl('cpNext'), da=ssEl('cpDash');
+  if(pv) pv.disabled=i<=0; if(nx) nx.disabled=i>=m.list.length-1;      // no wrapping at the ends
+  if(da&&da.setAttribute) da.setAttribute('href', ttWatchUrl(cur.s));
+  if(m.el&&m.el.setAttribute) m.el.setAttribute('aria-label', 'Clip player: '+I.title+(I.sub?' '+I.sub:''));
+  cpLoad();
+}
+function cpStep(d){ const m=CP; if(!m) return; const j=m.i+d; if(j<0||j>=m.list.length) return; cpShow(j); }
+function cpLoad(){
+  const m=CP, cur=cpCur(); if(!m||!cur) return;
+  m.done=false;
+  if(m.player){ try{ m.player.loadVideoById(cpArgs(cur.clip)); }catch(_){ } return; }
+  if(m.making) return;                                  // still constructing: onReady loads whichever clip is current
+  m.making=true;
+  if(typeof cohesionCreatePlayer!=='function'){ cpSay('The video player could not be loaded — use Open in dashboard.'); return; }
+  const box=ssEl('cpVid'), mount='cpMount'+(++CP_SEQ);  // a fresh mount per window, so a late construction can never land in another one
+  if(box) box.innerHTML='<div id="'+mount+'"></div>';
+  try{
+    cohesionCreatePlayer({ mount,
+      playerVars:{rel:0, modestbranding:1, enablejsapi:1, playsinline:1, origin:location.origin},
+      onReady:p=>{ if(CP!==m){ try{ if(p&&p.pauseVideo) p.pauseVideo(); }catch(_){ } return; }   // closed meanwhile
+        m.player=p; cpLoad(); },
+      onError:()=>{ if(CP===m) cpSay('This video could not be played here — try Open in dashboard.'); } });
+  }catch(e){ cpSay('The video player could not be started — use Open in dashboard.'); }
+}
+// stop at the clip's end, once (as playlists.html does); after that the native controls are free
+function cpTick(){
+  const m=CP, p=m&&m.player, cur=cpCur(); if(!p||!cur||m.done) return;
+  let t=0; try{ t=p.getCurrentTime()||0; }catch(_){ }
+  if(t>cpArgs(cur.clip).endSeconds+0.4){ m.done=true; try{ p.pauseVideo(); }catch(_){ } }
+}
+function cpReplay(){ cpLoad(); }
+function cpToggle(){
+  const p=CP&&CP.player; if(!p) return;
+  let st=-1; try{ st=p.getPlayerState(); }catch(_){ }
+  try{ if(st===1) p.pauseVideo(); else p.playVideo(); }catch(_){ }
+}
+function cpMarker(m){   // the marker of the clip on screen, else the one the window was opened from
+  const cur=m.list[m.i], view=m.kind==='ko'?TK_VIEW:TT_VIEW, arr=view&&(m.kind==='ko'?view.mapKos:view.mapShots);
+  if(cur&&cur.s===m.first&&m.opener&&m.opener.isConnected!==false) return m.opener;
+  let el=null;
+  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
+  return el||m.opener||null;
+}
+function cpClose(){
+  const m=CP; if(!m) return;
+  CP=null; TT_JOB=null;
+  clearInterval(m.iv);
+  document.removeEventListener('keydown', m.onKey, true);
+  try{ if(m.player&&m.player.pauseVideo) m.player.pauseVideo(); }catch(_){ }   // the sound stops now…
+  m.player=null;
+  const box=ssEl('cpVid'); if(box) box.innerHTML='';                            // …and the frame goes with the window
+  if(m.el.parentNode) m.el.parentNode.removeChild(m.el);
+  m.inert.forEach(x=>{ x.inert=false; });
+  if(document.body.classList) document.body.classList.remove('mr-lock');
+  ttRefocus(cpMarker(m));
+}
+function cpKey(ev){
+  const m=CP; if(!m) return;
+  ev.stopPropagation(); if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();   // nothing on the page behind hears a key
+  const t=ev.target, tag=String((t&&t.tagName)||'').toUpperCase(), k=ev.key;
+  if(k==='Escape'){ ev.preventDefault(); cpClose(); return; }
+  if(k==='Tab'){ cpTrap(ev); return; }
+  if(ev.ctrlKey||ev.metaKey||ev.altKey) return;
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'){ if(k==='Enter'&&t.id==='ttPlName'){ ev.preventDefault(); ttPlCreate(); } return; }
+  if(k==='ArrowLeft'){ ev.preventDefault(); cpStep(-1); }
+  else if(k==='ArrowRight'){ ev.preventDefault(); cpStep(1); }
+  else if((k===' '||k==='Spacebar')&&tag!=='BUTTON'&&tag!=='A'){ ev.preventDefault(); cpToggle(); }   // on a button, Space presses the button
+}
+function cpTrap(ev){   // Tab stays inside the window
+  const m=CP, el=m&&m.el; if(!el||!el.querySelectorAll) return;
+  const f=Array.from(el.querySelectorAll('button:not([disabled]), a[href], input, select, iframe')), i=f.indexOf(document.activeElement);
+  if(!f.length){ ev.preventDefault(); return; }
+  if(ev.shiftKey?i<=0:(i<0||i===f.length-1)){ ev.preventDefault(); try{ f[ev.shiftKey?f.length-1:0].focus(); }catch(_){ } }
+}
+function cpClick(ev){
+  const m=CP, t=ev.target; if(!m) return;
+  if(t===m.el){ cpClose(); return; }                    // the backdrop
+  const b=t&&t.closest?t.closest('[data-cp]'):null;
+  if(b){ if(b.disabled) return;
+    const a=b.dataset.cp;
+    if(a==='close'){ cpClose(); return; }
+    if(a==='prev') cpStep(-1); else if(a==='next') cpStep(1); else if(a==='replay') cpReplay();
+    if(ev.detail||b.disabled) cpFocusCard();            // a mouse / touch press: Space is play / pause again
+    return; }
+  if(t&&t.closest&&t.closest('#cpDash')){ try{ if(m.player) m.player.pauseVideo(); }catch(_){ } return; }
+  const a=t&&t.closest?t.closest('[data-act]'):null; if(!a) return;
+  if(a.dataset.act==='pl'&&!TT_JOB){ const cur=cpCur(); TT_JOB={shots:[cur.s], bulk:false}; }   // the same job, menu and clip as the card's button
+  if(a.dataset.act!=='close') ttTipClick(ev);
+}
+// kind: 'shot' | 'ko'; item: the shot / kickout to open at; opener: its marker
+function cpOpen(kind, item, opener){
+  cpClose();
+  kind=kind==='ko'?'ko':'shot';
+  const view=kind==='ko'?TK_VIEW:TT_VIEW, R=kind==='ko'?TK_LAST:TT_LAST;
+  const list=cpList(view&&(kind==='ko'?view.mapKos:view.mapShots), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
+  if(i<0) return false;                                 // no video for this one: nothing to play
+  ttHideTip();
+  const el=document.createElement('div');
+  el.className='mr-modal cp-modal'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true');
+  el.innerHTML=cpHTML();
+  const m=CP={el, kind, list, i, first:item, opener:opener||null, player:null, making:false, done:false, inert:[]};
+  m.onKey=cpKey;
+  document.addEventListener('keydown', m.onKey, true);
+  el.addEventListener('click', cpClick);
+  document.body.appendChild(el); if(document.body.classList) document.body.classList.add('mr-lock');
+  Array.from(document.body.children||[]).forEach(x=>{ if(x!==el&&!x.inert){ x.inert=true; m.inert.push(x); } });   // the page behind: no focus, no clicks
+  m.iv=setInterval(cpTick, 250);
+  cpFocusCard();
+  cpShow(i);
+  return true;
+}
+// the pinned card's item: {kind, s}
+function ttPinItem(){
+  const el=TT_PIN, key=el&&ttCanPin(el)?String(el.dataset.tip).split(':'):null; if(!key) return null;
+  const kind=key[0]==='ko'?'ko':'shot', s=kind==='ko'?(TK_VIEW&&TK_VIEW.mapKos[+key[1]]):(TT_VIEW&&TT_VIEW.mapShots[+key[1]]);
+  return s?{kind, s, el}:null;
 }
 function ttInit(){
   const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
