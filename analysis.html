@@ -709,6 +709,24 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .mm-minband{fill:#fff;fill-opacity:0;} .tt-hit:hover .mm-minband,.tt-hit:focus .mm-minband,.tt-hit.tip-on .mm-minband{fill-opacity:.09;}
 .mm-htband{fill:#fff;fill-opacity:.06;}
 .mm-def{font-size:.76rem;color:var(--t2);text-align:center;margin:0 0 8px;line-height:1.5;}
+.mm-lf{margin:0 0 10px;align-items:flex-end;} .mm-pick{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.mm-row{display:grid;grid-template-columns:62px 1.15fr 1.15fr 1fr .9fr 1.15fr .6fr 150px 226px;gap:8px;align-items:center;padding:6px 0 6px 10px;border-bottom:1px solid var(--border);border-left:3px solid transparent;font-size:.82rem;}
+.mm-row .tt-c{min-width:0;overflow-wrap:anywhere;} .mm-row b{color:var(--t1);}
+.mm-hd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
+.mm-brk{padding:7px 0;border-bottom:1px solid var(--border);text-align:center;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.14em;color:var(--t3);text-transform:uppercase;}
+.mm-pill{display:inline-block;padding:1px 8px;border-radius:999px;font:700 12px 'Barlow',sans-serif;white-space:nowrap;}
+.mm-pill.v3{background:rgba(245,166,35,.18);color:#f5a623;} .mm-pill.v2{background:rgba(79,195,247,.16);color:#4fc3f7;} .mm-pill.v1{background:rgba(34,197,94,.15);color:#22c55e;} .mm-pill.v0{background:rgba(255,255,255,.06);color:var(--t2);}
+.mm-mg.pos{color:#22c55e;} .mm-mg.neg{color:#ef4444;}
+.mm-sm{display:grid;grid-template-columns:14px 1fr 1fr 14px;gap:3px;align-items:center;font:700 11px 'Barlow',sans-serif;color:var(--t2);font-variant-numeric:tabular-nums;}
+.mm-sm span{display:block;height:9px;background:rgba(255,255,255,.05);position:relative;} .mm-sm span i{position:absolute;top:0;bottom:0;border-radius:1px;}
+.mm-sm .l{border-right:1px solid #8a8a98;} .mm-sm .l i{right:0;} .mm-sm .r i{left:0;} .mm-sm em{font-style:normal;text-align:center;}
+@media (max-width:980px){
+  .mm-hd{display:none;} .mm-row{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0 10px 10px;}
+  .mm-row .tt-c::before{content:attr(data-l);display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);}
+  .mm-row .mm-smc,.mm-row .tk-chkact{grid-column:1 / -1;} .mm-row .tk-chkact{justify-content:flex-start;} .mm-row .tk-chkact::before{display:none;}
+  .mm-sm{max-width:260px;}
+  .mm-pick,.mm-pick select{width:100%;}
+}
 </style>
 </head>
 <body>
@@ -5142,7 +5160,40 @@ function mmMomSecHTML(R, V, o){
       +' A turnover counts for the team that won the ball. Extra time is not charted.'
       +(M.filled?' '+(M.single?'This game has':M.filled+' of these games have')+' no per-event game clock, so the minute is the event’s time from the start of its period.':'')+' Hover, focus or tap a window for its values.')}</div></div>`;
 }
-function mmLogSecHTML(){ return ''; }
+// (e) the scoring log of one game: a row per score (or per shot), with the running score, the margin and the shot momentum of its
+// 2-minute window; Watch clip steps through the rows shown, Add to playlist adds the row's clip
+function mmSmHTML(s, L, o){
+  const x=s.sm, pc=v=>Math.min(100, v/L.top*100).toFixed(0), lo=s.w*2;
+  return `<div class="mm-sm" role="img" aria-label="${ssEsc('Minutes '+lo+' and '+(lo+1)+': '+o.team+' '+x.f+' pt'+(x.f===1?'':'s')+', '+o.opp+' '+x.a)}" title="${ssEsc('Minutes '+lo+'–'+(lo+1))}"><em>${x.a||''}</em>`
+    +`<span class="l"><i style="width:${pc(x.a)}%;background:${o.ocol}"></i></span><span class="r"><i style="width:${pc(x.f)}%;background:${o.col}"></i></span><em>${x.f||''}</em></div>`;
+}
+function mmLogSecHTML(R, V, o){
+  o=o||{}; const L=V.log, T=R.team;
+  if(!L) return '<div class="tt-card"><div class="tt-empty">No game with score data.</div></div>';
+  const F=L.F, m=L.m, opp=m?m.opp:'Opposition', col=o.lcol||'#2dd4bf', ocol=o.locol||'#f5a623', n=L.rows.length, base=F.scores?L.all.filter(s=>s.v>0).length:L.all.length;
+  const b=(f,v,l,on)=>`<button type="button" data-mmf="${f}" data-mmv="${v}" class="${on?'on':''}" aria-pressed="${on?'true':'false'}">${l}</button>`;
+  const opt=r=>{ const t=tdGameTxt(r.g, T); return `<option value="${ssEsc(r.g.id)}"${L.gid===r.g.id?' selected':''}>${ssEsc(t.main)}</option>`; };
+  const c=(l,v,k)=>`<div class="tt-c${k?' '+k:''}" role="cell" data-l="${l}">${v}</div>`;
+  let h='<div class="tt-card mm-card mm-log">'
+    +`<div class="mm-ch"><h4 class="td-ct">${ssEsc(T+' v '+opp)} <small>${ssEsc([m?(ovShortDate(m.date)||'date n/a'):'', m&&m.data?mmScoreTxt(m.team)+' ('+m.team.t+') v '+mmScoreTxt(m.opposition)+' ('+m.opposition.t+')':''].filter(Boolean).join(' · '))}</small></h4></div>`
+    +'<div class="tt-filters mm-lf">'
+    +(V.single?'':`<div class="mm-pick"><label for="mmLogSel">GAME</label><select id="mmLogSel" data-mmsel="logGame">${R.used.slice().reverse().map(opt).join('')}</select></div>`)
+    +`<div class="tt-fg"><span>SHOW</span><div class="seg" role="group" aria-label="Scores only or all shots">${b('scores','scores','Scores only',F.scores)}${b('scores','all','All shots',!F.scores)}</div></div>`
+    +`<div class="tt-fg"><span>TEAM</span><div class="seg" role="group" aria-label="Team">${b('team','both','Both',F.team==='both')}${b('team','team',ssEsc(T),F.team==='team')}${b('team','opp',ssEsc(opp),F.team==='opp')}</div></div></div>`;
+  if(!n) return h+`<div class="tt-empty">${base?'No rows match these filters.':'No scores in this game.'}</div></div>`;
+  h+='<div class="mm-tab" role="table" aria-label="Scoring event log"><div class="mm-row mm-hd" role="row">'+['MIN','TEAM','PLAYER','ATTEMPT','OUTCOME','RUNNING SCORE','MARGIN','SHOT MOMENTUM',''].map(x=>`<div role="columnheader">${x}</div>`).join('')+'</div>';
+  const BRK={h2:'Half time', e1:'Full time · extra time', e2:'Extra time · half time'};
+  L.rows.forEach((s,i)=>{ const clip=cpClip(s), prev=i?L.rows[i-1]:null;
+    if(prev&&prev.p!==s.p) h+=`<div class="mm-brk" role="row"><span role="cell">${BRK[s.p]||''}</span></div>`;
+    h+=`<div class="mm-row" role="row" data-mm="${i}" style="border-left-color:${s.mine?col:ocol}">`+c('Min', '<b>'+ssEsc(mmMinTxt(s))+'</b>')+c('Team', ssEsc(s.mine?T:opp))+c('Player', ssEsc(s.player||'–'))
+      +c('Attempt', ssEsc(s.kind==='?'?'Not tagged':ttAttTxt(s)))+c('Outcome', `<span class="mm-pill v${s.v}">${ssEsc(s.out||'n/a')}</span>`)
+      +c('Running score', '<b>'+ssEsc(mmScoreTxt(s.f))+'</b> v '+ssEsc(mmScoreTxt(s.a)))+c('Margin', `<b class="mm-mg ${s.margin>0?'pos':s.margin<0?'neg':''}">${s.margin?ssEsc(tvSigned(s.margin)):'Level'}</b>`)
+      +c('Shot momentum', mmSmHTML(s, L, {team:T, opp, col, ocol}), 'mm-smc')
+      +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="mm-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
+      +(clip?`<button type="button" class="tt-btn pri" data-act="mm-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; });
+  return h+'</div>'+`<div class="dnote">${ssEsc((n===base?n:n+' of '+base)+(F.scores?' score':' shot')+(base===1?'':'s')+', in time order. The running score is '+T+' first, after the row’s shot. Shot momentum (the Mayo dashboard’s definition): the points each team scored in the 2-minute window the row falls in — '+opp+' to the left, '+T+' to the right — so rows of the same window show the same bar.'
+    +(L.K.clock!=='clock'?' This game has no per-event game clock: the minute is the event’s time from the start of its period.':'')+(L.K.starts.etInferred?' Extra time is not marked in this game’s file: it was found from the throw-ins after full time.':''))}</div></div>`;
+}
 function mmHTML(R, V, o){
   o=o||{}; const T=R.team, SC=o.sel||null;
   if(!R.nBasis&&!(SC&&SC.games.length)) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
