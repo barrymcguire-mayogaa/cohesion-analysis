@@ -460,8 +460,22 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-csub{border-top:1px solid var(--border);margin-top:5px;padding-top:6px;}
 .tt-csub+.tt-csub{border-top:0;margin-top:0;padding-top:2px;}
 .tt-cn,.tt-cna{font-size:.72rem;color:var(--t3);margin-top:6px;line-height:1.4;}
+/* Defending */
+.td-zrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start;}
+.td-types{margin-top:30px;}
+.td-ct{margin:0 0 10px;font:700 18px 'Barlow',sans-serif;color:var(--accent);letter-spacing:.01em;}
+.td-brow{display:grid;grid-template-columns:minmax(0,112px) minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border);}
+.td-brow:first-of-type{border-top:0;}
+.td-brow.zero{color:var(--t3);}
+.td-bl{display:flex;gap:8px;align-items:center;font:600 14px 'Barlow',sans-serif;min-width:0;}
+.td-bl i{flex:0 0 12px;height:12px;border-radius:2px;}
+.td-bt{height:14px;background:var(--card);border-radius:7px;overflow:hidden;}
+.td-bt i{display:block;height:100%;border-radius:7px;}
+.td-bv{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.84rem;color:var(--t2);min-width:70px;text-align:right;}
+.td-bv b{color:var(--t1);font-size:1rem;margin-right:7px;}
 @media (max-width:1000px){
   .tt-zrow,.tt-maprow{grid-template-columns:minmax(0,1fr);gap:14px;}
+  .td-zrow{grid-template-columns:minmax(0,1fr);gap:14px;} .td-types{margin-top:0;}
 }
 @media (max-width:760px){
   .subtabs{gap:2px 22px;padding:0 4px;margin-top:16px;} .subtabs a{font-size:16px;padding-bottom:9px;} .subtabs a.on::after{left:-4px;right:-4px;}
@@ -2627,11 +2641,33 @@ function tdCompute(T, games, basis, bundleOf){
 function tdKpisHTML(kpis){
   return '<div class="ov-kpis td-kpis">'+kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
 }
+// ii. turnover zone impact: the Overview's to-scale pitch, one number per third
+const TD_THIRD={DEF:'DEFENSIVE THIRD', MID:'MIDDLE THIRD', ATT:'ATTACKING THIRD'};
+const TD_TYPE_COL={F:'#2fa58d', U:'#3fa63f', H:'#8a6bb0', FA:'#c9504f'};
+function tdZoneHTML(T, Z, Ty){
+  const any=Z.loc>0;
+  const cell=t=>`<div class="pz-col"><div class="pz-l">TOs WON</div><div class="pz-p ${any?'':'na'}">${any?t.won:'n/a'}</div><div class="pz-c">${any?ovPctTxt(t.pct):''}</div></div>`;
+  const note=!Z.data?'No turnover data in '+(Z.n===1?'this game':'these '+Z.n+' games')+'.'
+    :'In-play turnovers won by '+T+', placed in the third where the ball was won, from '+T+'’s point of view (the opposition’s attacking third is '+T+'’s defensive third). % = share of the turnovers won with a tagged third: '
+      +Z.loc+' of '+Z.won+' had one · '+ovFromNote(Z.locGames, Z.n)+'.';
+  let h='<div class="td-zrow"><div class="pitchwrap td-pitch"><div class="pz-heads">'+Z.thirds.map(t=>`<span>${TD_THIRD[t.k]}</span>`).join('')+'</div>'
+    +'<div class="pitch">'+ovPitchSVG()+'<div class="pz">'+Z.thirds.map(cell).join('')+'</div></div>'
+    +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div>`
+    +`<div class="pz-note">${ssEsc(note)}</div></div>`;
+  h+='<div class="tt-card td-types"><h4 class="td-ct">TURNOVERS WON BY TYPE</h4>';
+  if(!(Ty.typed>0)) h+=`<div class="tt-empty">n/a — no turnover types tagged in ${Ty.n===1?'this game':'these '+Ty.n+' games'}.</div>`;
+  else h+=Ty.rows.map(r=>`<div class="td-brow${r.n?'':' zero'}"><div class="td-bl"><i style="background:${TD_TYPE_COL[r.k]}"></i><span>${ssEsc(r.label)}</span></div>`
+      +`<div class="td-bt" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${TD_TYPE_COL[r.k]}"></i></div>`
+      +`<div class="td-bv"><b>${r.n}</b>${ovPctTxt(r.pct)}</div></div>`).join('')
+    +`<div class="dnote">${ssEsc('Type of '+Ty.typed+' of the '+Ty.won+' in-play turnovers won'+(Ty.untyped?' ('+Ty.untyped+' not typed)':'')+' · '+ovFromNote(Ty.games, Ty.n)+'. The type is the one tagged when the opposition lost the ball; a free against is a free the opposition conceded while in possession.')}</div>`;
+  return h+'</div></div>';
+}
 function tdHTML(R, V, o){
   o=o||{}; const T=R.team, n=R.n;
   if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
   let h='<div class="tt-top"><div class="tt-who">'+ssEsc(T)+`<small>${ssEsc((R.basis==='all'?'All ':'Last ')+R.nBasis+' game'+(R.nBasis===1?'':'s')+(R.missing?' ('+R.missing+' not loaded)':'')+' · defending')}</small></div></div>`;
   h+=tdKpisHTML(R.kpis);
+  h+='<h2 class="ov-h">TURNOVER ZONE IMPACT</h2>'+tdZoneHTML(T, R.zone, R.types);
   h+=`<div class="foot">Defending covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters. TOs won are in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts won and shot attempts turned over are separate. Fouls are the team's own FOUL rows, each foul once. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
