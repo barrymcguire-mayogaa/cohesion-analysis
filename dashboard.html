@@ -481,6 +481,24 @@ function init(){
   if(GAME.et2Start){document.getElementById('etBtn2').style.display='';}
   gameFormat=detectFormat(ALL);populatePl();renderChips();applyF();initDH();initTL();setH(240);
   makeYTP();   // the player seam waits for the IFrame API itself
+  try{ dashDeepLink(); }catch(e){ console.warn('deep link ignored:', e); }   // never breaks a normal load
+}
+// ── Deep link: dashboard.html?game=<id>&ev=<event id> opens the game with that event selected
+// and the video cued at it (&t=<seconds on the main angle> cues a time instead). No parameter,
+// or an id this game does not have, is a normal load.
+function dashDeepLink(){
+  const q=new URLSearchParams(window.location.search), evId=q.get('ev'), tRaw=q.get('t');
+  const ev=evId?ALL.find(e=>e.id!=null&&String(e.id)===evId):null;
+  if(ev){
+    const codes=[]; filtered.forEach(x=>{ if(!codes.includes(x.code)) codes.push(x.code); });
+    const gi=codes.indexOf(ev.code); if(gi>=0) EG.add(gi);            // open its group, so the selected row shows
+    pickI(ev.id);                                                     // select + seek (queued until the player is ready)
+    const row=document.querySelector('.ev-inst.on'); if(row&&row.scrollIntoView){ try{ row.scrollIntoView({block:'center'}); }catch(_){ } }
+    return true;
+  }
+  const t=(tRaw==null||tRaw==='')?NaN:Number(tRaw);
+  if(Number.isFinite(t)&&t>=0){ seekV(t); return true; }
+  return false;
 }
 function buildHTML(H,A){
   return`<div class="left-panel">
