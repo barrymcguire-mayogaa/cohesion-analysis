@@ -523,8 +523,17 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .td-detp{display:flex;align-items:baseline;gap:8px;} .td-detp b{font:800 48px 'Barlow',sans-serif;line-height:1.1;} .td-detp span{color:var(--t2);font-size:.9rem;}
 .td-dets{font-size:.8rem;color:var(--t2);margin:2px 0 12px;}
 .td-detsub{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);margin-bottom:2px;}
-.td-zrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start;}
-.td-types{margin-top:30px;}
+/* Turnover zone impact: the pitch at about half its old size (still 145 x 88, the Overview's markings and 45/55/45
+   columns), the type card beside it at the same height; the note runs under both. Full width again below 1000px. */
+.td-zrow{display:grid;grid-template-columns:minmax(0,470px) minmax(0,1fr);gap:10px 16px;align-items:stretch;}
+.td-types{margin-top:26px;display:flex;flex-direction:column;justify-content:center;}
+.td-znote{grid-column:1 / -1;margin-top:0;}
+@media (min-width:1001px){
+  .td-pitch .pz-heads{height:26px;font-size:12px;}
+  .td-pitch .pz-col{padding:3px 2px;}
+  .td-pitch .pz-l{font-size:13px;} .td-pitch .pz-p{font-size:31px;line-height:1.2;} .td-pitch .pz-p.na{font-size:17px;line-height:2;} .td-pitch .pz-c{font-size:15px;min-height:18px;}
+  .td-pitch .pz-dir{margin-top:8px;font-size:11px;}
+}
 .td-ct{margin:0 0 10px;font:700 18px 'Barlow',sans-serif;color:var(--accent);letter-spacing:.01em;}
 .td-brow{display:grid;grid-template-columns:minmax(0,112px) minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border);}
 .td-brow:first-of-type{border-top:0;}
@@ -537,7 +546,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .td-bv b{color:var(--t1);font-size:1rem;margin-right:7px;}
 @media (max-width:1000px){
   .tt-zrow,.tt-maprow{grid-template-columns:minmax(0,1fr);gap:14px;}
-  .td-zrow,.td-prrow{grid-template-columns:minmax(0,1fr);gap:14px;} .td-types{margin-top:0;}
+  .td-zrow,.td-prrow{grid-template-columns:minmax(0,1fr);gap:14px;} .td-types{margin-top:0;display:block;}
 }
 @media (max-width:760px){
   .subtabs{gap:2px 22px;padding:0 4px;margin-top:16px;} .subtabs a{font-size:16px;padding-bottom:9px;} .subtabs a.on::after{left:-4px;right:-4px;}
@@ -603,13 +612,13 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-pitchbox{max-width:540px;}
 .tk-warn{color:#ffd23f;font-weight:600;}
 .tk-pov{margin:-4px 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(79,195,247,.08);border-radius:0 8px 8px 0;font-size:.82rem;color:var(--t1);}
-.tk-flcap{margin-top:16px;color:var(--accent);} .tk-lsw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;} .tk-fltab small{color:var(--t3);font-weight:400;}
+.tk-flcap{margin-top:16px;color:var(--accent);} .tk-lsw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;} .tk-fltab thead th{white-space:normal;line-height:1.15;vertical-align:bottom;} .tk-fltab small{color:var(--t3);font-weight:400;}
 .tk-tcap{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);margin-bottom:6px;} .tk-povline{color:var(--t1);}
 .tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
 .tk-chk>.dnote{margin:8px 0 10px;}
-.tk-chkrow{display:grid;grid-template-columns:1.5fr 1.3fr .9fr 1.3fr 1.2fr .6fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tk-chkrow{display:grid;grid-template-columns:1.5fr 1.3fr .9fr 1.3fr 1.2fr .6fr 236px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
 .tk-chkhd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
-.tk-chkact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;min-width:210px;} .tk-chkact .tt-btn{padding:5px 10px;white-space:nowrap;}
+.tk-chkact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;} .tk-chkact .tt-btn{padding:5px 10px;white-space:nowrap;}
 @media (max-width:860px){
   .tk-chkhd{display:none;} .tk-chkrow{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0;}
   .tk-chkrow .tt-c::before{content:attr(data-l);display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);}
@@ -2886,15 +2895,14 @@ function tdZoneHTML(T, Z, Ty){
       +Z.loc+' of '+Z.won+' had one · '+ovFromNote(Z.locGames, Z.n)+'.';
   let h='<div class="td-zrow"><div class="pitchwrap td-pitch"><div class="pz-heads">'+Z.thirds.map(t=>`<span>${TD_THIRD[t.k]}</span>`).join('')+'</div>'
     +'<div class="pitch">'+ovPitchSVG()+'<div class="pz">'+Z.thirds.map(cell).join('')+'</div></div>'
-    +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div>`
-    +`<div class="pz-note">${ssEsc(note)}</div></div>`;
+    +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div></div>`;
   h+='<div class="tt-card td-types"><h4 class="td-ct">TURNOVERS WON BY TYPE</h4>';
   if(!(Ty.typed>0)) h+=`<div class="tt-empty">n/a — no turnover types tagged in ${Ty.n===1?'this game':'these '+Ty.n+' games'}.</div>`;
   else h+=Ty.rows.map(r=>`<div class="td-brow${r.n?'':' zero'}"><div class="td-bl"><i style="background:${TD_TYPE_COL[r.k]}"></i><span>${ssEsc(r.label)}</span></div>`
       +`<div class="td-bt" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${TD_TYPE_COL[r.k]}"></i></div>`
       +`<div class="td-bv"><b>${r.n}</b>${ovPctTxt(r.pct)}</div></div>`).join('')
     +`<div class="dnote">${ssEsc('Type of '+Ty.typed+' of the '+Ty.won+' in-play turnovers won'+(Ty.untyped?' ('+Ty.untyped+' not typed)':'')+' · '+ovFromNote(Ty.games, Ty.n)+'. The type is the one tagged when the opposition lost the ball; a free against is a free the opposition conceded while in possession.')}</div>`;
-  return h+'</div></div>';
+  return h+`</div><div class="pz-note td-znote">${ssEsc(note)}</div></div>`;
 }
 // iii / iv. the two trend charts, over the games ticked in the header's control row
 function tdComp(g){ return String((g&&g.competition)||'').trim(); }
@@ -3503,9 +3511,9 @@ function tkFollowLenHTML(FL, R, V){
   const tr=(o,cls)=>`<tr class="${cls||''}${o.n?'':' zero'}"><th scope="row">${o.k==='all'?'':`<i class="tk-lsw" style="background:${TK_BAND[o.k]}"></i>`}${ssEsc(o.label)}</th><td>${o.fN}${o.fN<o.n?`<small> of ${o.n}</small>`:''}</td>`
     +(!o.follow?'<td>–</td><td>–</td><td>–</td><td class="hide-sm">–</td><td class="hide-sm">–</td>':`<td>${o.fShots}</td><td>${o.fScores}</td><td>${o.fShots?ttPctTxt(o.fRate):'–'}</td><td class="hide-sm">${sp(o.fWonShots, o.fWonScores)}</td><td class="hide-sm">${sp(o.fLostShots, o.fLostScores)}</td>`)+'</tr>';
   return `<div class="tk-tcap tk-flcap">WHAT FOLLOWED, BY LENGTH${V.pov?' — OPPOSITION KICKOUTS':''}</div>`
-    +`<table class="tt-ztab tk-ztab tk-fltab"><thead><tr><th scope="col">LENGTH</th><th scope="col">${V.pov?'OPP KOs':'KOs'}</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col">SCORE %</th><th scope="col" class="hide-sm">${T} (SHOTS · SCORES)</th><th scope="col" class="hide-sm">OPPOSITION (SHOTS · SCORES)</th></tr></thead><tbody>`
+    +`<table class="tt-ztab tk-ztab tk-fltab"><thead><tr><th scope="col">LENGTH</th><th scope="col">${V.pov?'OPP KOs':'KOs'}</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col">SCORE %</th><th scope="col" class="hide-sm" title="${T}: shots · scores after the kickouts it won">OWN SHOTS · SCORES</th><th scope="col" class="hide-sm" title="The opposition: shots · scores after the kickouts they won">OPP SHOTS · SCORES</th></tr></thead><tbody>`
     +FL.rows.map(r=>tr(r)).join('')+tr(FL.total,'tot')+'</tbody></table>'
-    +`<div class="dnote">${ssEsc('Every kickout with a length, located or not. Shots after = shots by whichever team won the kickout, from that kickout, before the next one; the last two columns split them: '+R.team+'’s shots after the kickouts it won, the opposition’s after the ones they won.')}</div>`;
+    +`<div class="dnote">${ssEsc('Every kickout with a length, located or not. Shots after = shots by whichever team won the kickout, from that kickout, before the next one; the last two columns split them: OWN = '+R.team+'’s shots · scores after the kickouts it won, OPP = the opposition’s after the ones they won.')}</div>`;
 }
 function tkZoneSecHTML(R, V){
   const Zs=V.zones, pov=V.pov||null, scale='The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.';
