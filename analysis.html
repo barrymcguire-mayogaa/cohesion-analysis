@@ -603,6 +603,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-pitchbox{max-width:540px;}
 .tk-warn{color:#ffd23f;font-weight:600;}
 .tk-pov{margin:-4px 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(79,195,247,.08);border-radius:0 8px 8px 0;font-size:.82rem;color:var(--t1);}
+.tk-flcap{margin-top:16px;color:var(--accent);} .tk-lsw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;} .tk-fltab small{color:var(--t3);font-weight:400;}
 .tk-tcap{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);margin-bottom:6px;} .tk-povline{color:var(--t1);}
 .tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
 .tk-chk>.dnote{margin:8px 0 10px;}
@@ -1140,6 +1141,46 @@ function ssThirdTxt(txt){
 function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
 const SS_TO_TYPES=[['F','Forced'],['U','Unforced'],['H','Handling'],['FA','Free against'],['X','Not typed']];
 function ssToType(e){ const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome); return /UNFORCED/.test(K)?'U':/FORCED/.test(K)?'F':/HANDLING/.test(K)?'H':/FREE AGAINST/.test(K)?'FA':'X'; }
+// ── GIU: a shot's SOURCE derived from the possession it falls in ──
+// A GIU file has no source tag on its shots, but every "<Team> Poss" row carries a PossFrom label
+// (Own Kickout / Opp Kickout / Turnover / Throw Up), which ssSrcCat reads like any source value.
+// RULE, per shot (of the game's counted shots, either team):
+//   1. the shot's time falls inside the span (start … end) of one of ITS team's Poss rows → that row
+//      (the latest-starting one, should two overlap);
+//   2. else the latest Poss row of its team that starts before the shot, provided no opposing Poss row
+//      starts after it and before the shot (i.e. it is still that team's possession);
+//   3. else the shot is UNMATCHED: it gets no source (it is counted in `unmatched`, never guessed).
+// Used ONLY when the game has no source tags at all — no SCORE / SHOT SOURCE rows and no source label
+// on any event — and has Poss rows with a PossFrom label; any other game returns null and is untouched.
+// → {map: Map(shot event → PossFrom text), shots, matched, unmatched, inside (rule 1), before (rule 2), poss}
+const SS_POSS_SRC=new WeakMap();
+const SS_SRC_LABELS=['Shot Source Outcomes','Score Source Outcomes','Source'];
+function ssPossSrc(events, skip, shotMode){
+  if(!Array.isArray(events)) return null;
+  const hit=SS_POSS_SRC.get(events); if(hit&&hit.n===events.length) return hit.v;
+  let v=null;
+  const live=events.filter(e=>e&&!skip(e));
+  if(!live.some(e=>/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))||!!ssLblCI(e, SS_SRC_LABELS))){
+    const poss=[];
+    events.forEach((e,i)=>{ if(!e) return; const c=ssUC(e.code); if(!/\sPOSS$/.test(c)) return;
+      const team=ssUC(e.team)||c.replace(/\s+POSS$/,''), st=ssEvT(e); if(!team) return;
+      poss.push({team, from:ssLblCI(e,['PossFrom'])||'', s:st, en:e.end!=null?Math.max(st, +e.end):st, i}); });
+    if(poss.some(q=>q.from)){
+      poss.sort((a,b)=>a.s-b.s||a.i-b.i);
+      const teams=Array.from(new Set(poss.map(q=>q.team))), map=new Map(); let shots=0, inside=0, before=0;
+      live.forEach(e=>{ if(!ssIsShot(e, shotMode)) return; shots++;
+        const T=teams.find(n=>ssSideOf(e,n)), t=ssEvT(e); if(!T) return;
+        let P=null, mine=null, opp=null;
+        for(const q of poss){ if(q.s>t) break; if(q.team===T){ mine=q; if(t<=q.en) P=q; } else opp=q; }
+        const in1=!!P; if(!P&&mine&&(!opp||mine.s>=opp.s)) P=mine;
+        if(!P||!P.from) return;
+        map.set(e, P.from); if(in1) inside++; else before++; });
+      v={map, shots, matched:map.size, unmatched:shots-map.size, inside, before, poss:poss.length};
+    }
+  }
+  SS_POSS_SRC.set(events, {n:events.length, v});
+  return v;
+}
 // ── SCORE SOURCE rows with no score value ──
 // A "<TEAM> SCORE SOURCE" row normally carries 'Score Source Score Outcomes'
 // (1 POINT / 2 POINT / GOAL). Rows without it (hand-coded files) take the
@@ -1297,6 +1338,8 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
   const recovered=rowMode?ssScoreSourceValues(events, T, skip, shotMode):new Map();
   const rowShot=rowMode?ssScoreSourceShots(events, T, skip, shotMode):null;
+  const possSrc=rowMode?null:ssPossSrc(events, skip, shotMode);   // GIU: the source of a shot from its possession row (only a game with no source tags at all)
+  g.srcPossShots=0;
   events.forEach(e=>{
     if(skip(e)||!ssSideOf(e,T)) return;
     const c=ssUC(e.code);
@@ -1312,6 +1355,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     } else {
       if(!ssIsShot(e,shotMode)) return;
       cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
+      if(!cat&&possSrc&&possSrc.map.has(e)){ cat=ssSrcCat(possSrc.map.get(e)); if(cat) g.srcPossShots++; }
       val=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
     }
     if(!cat) return;
@@ -1322,6 +1366,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
       if(sh){ const d=ssShotDead(sh); g[(d?'srcDb:':'srcPl:')+cat]++; g[(d?'srcDbP:':'srcPlP:')+cat]+=val; } }
   });
   g.srcShotGames=g.srcShotsTagged>0?1:0;
+  g.srcPossGames=g.srcPossShots>0?1:0;       // games whose sources were derived from possession rows
   g.srcScoreGames=g.srcScoresTagged>0?1:0;
   // ── creation after a turnover: shots / scores whose TAGGED source is an
   // in-play turnover (SS_SRC_TO_KEYS) ÷ IN-PLAY turnovers won, over games that
@@ -2116,10 +2161,12 @@ function ovCompute(T, games, basis, bundleOf){
     from:dates[0]||'', to:dates[dates.length-1]||'',
     recent:list.slice(0,5).map(g=>{ const r=rows.find(x=>x.g===g)||per(g); return ovMatch(g, r.tT, r.tO, T); }),
     kpis:ovKpis(aT, n, basis),
-    scoreSrc:Object.assign(ovSourceSet(aT,'srcP:',aT.srcPtsTagged), {games:aT.srcScoreGames||0, scores:aT.srcScoresTagged||0, allPts:aT.pts||0}),
-    shotSrc:Object.assign(ovSourceSet(aT,'srcH:',aT.srcShotsTagged), {games:aT.srcShotGames||0, allShots:aT.shots||0}),
+    scoreSrc:Object.assign(ovSourceSet(aT,'srcP:',aT.srcPtsTagged), {games:aT.srcScoreGames||0, scores:aT.srcScoresTagged||0, allPts:aT.pts||0, poss:aT.srcPossGames||0}),
+    shotSrc:Object.assign(ovSourceSet(aT,'srcH:',aT.srcShotsTagged), {games:aT.srcShotGames||0, allShots:aT.shots||0, poss:aT.srcPossGames||0}),
     to:ovTurnovers(aT, aO), aggT:aT, aggO:aO };
 }
+// a source read from GIU possession rows (ssPossSrc) is said wherever it is shown
+function ovPossNote(k){ return k>0?' · in '+k+' game'+(k===1?'':'s')+' (GIU) the source is derived from the possession each shot falls in':''; }
 function ovFromNote(nWith, n){ return !n?'':!nWith?'no data in '+(n===1?'this game':'these '+n+' games'):nWith===n?'all '+n+' game'+(n===1?'':'s'):'from '+nWith+' of '+n+' games'; }
 
 // ── rendering (strings only; every interpolated value is escaped) ──
@@ -2211,8 +2258,8 @@ function ovHTML(R){
   // c. doughnuts
   const sc=R.scoreSrc, sh=R.shotSrc;
   h+='<h2 class="ov-h">HOW SCORES AND SHOTS WERE BUILT</h2><div class="ov-donuts">'
-    +ovDonutCard('SCORE SOURCE', sc, 'pts', sc.total>0?('Share of points · '+sc.total+' of '+sc.allPts+' pts tagged · '+ovFromNote(sc.games,n)):('No score-source tags · '+ovFromNote(0,n)))
-    +ovDonutCard('SHOT SOURCE', sh, 'shots', sh.total>0?('Share of shots · '+sh.total+' tagged ('+sh.allShots+' shots) · '+ovFromNote(sh.games,n)):('No shot-source tags · '+ovFromNote(0,n)))
+    +ovDonutCard('SCORE SOURCE', sc, 'pts', sc.total>0?('Share of points · '+sc.total+' of '+sc.allPts+' pts tagged · '+ovFromNote(sc.games,n)+ovPossNote(sc.poss)):('No score-source tags · '+ovFromNote(0,n)))
+    +ovDonutCard('SHOT SOURCE', sh, 'shots', sh.total>0?('Share of shots · '+sh.total+' tagged ('+sh.allShots+' shots) · '+ovFromNote(sh.games,n)+ovPossNote(sh.poss)):('No shot-source tags · '+ovFromNote(0,n)))
     +'</div>';
   // d. turnovers
   const to=R.to, names={DEF:'DEFENSIVE THIRD', MID:'MIDDLE THIRD', ATT:'OFFENSIVE THIRD'};
@@ -2372,7 +2419,7 @@ function ttSources(a, n){
     .filter(r=>!r.extra||r.shots>0).map(r=>Object.assign(r, {pct:tagged>0?r.shots/tagged*100:null, unsplit:r.scores-r.play-r.dead}));
   const total={shots:0, scores:0, one:0, two:0, goals:0, pts:0, play:0, dead:0, playPts:0, deadPts:0, unsplit:0};
   rows.forEach(r=>Object.keys(total).forEach(k=>total[k]+=r[k]));
-  return {rows, total, tagged, allShots:a.shots||0, allScores:a.scores||0, allPts:a.pts||0, games:a.srcShotGames||0, n};
+  return {rows, total, tagged, allShots:a.shots||0, allScores:a.scores||0, allPts:a.pts||0, games:a.srcShotGames||0, poss:a.srcPossGames||0, n};
 }
 function ttSideStats(t){
   if(!t) return null;
@@ -2522,7 +2569,7 @@ function ttSourceHTML(src, who){
   src.rows.forEach(r=>{ h+=line(r, r.shots?'':' zero', `<i style="background:${r.col}"></i><span>${ssEsc(r.label)}</span>`,
     `<b>${ttPctTxt(r.pct)}</b><span>${r.shots} shot${r.shots===1?'':'s'}</span><span class="tt-bar" aria-hidden="true"><i style="width:${r.pct==null?0:r.pct.toFixed(1)}%;background:${r.col}"></i></span>`); });
   h+=line(src.total, ' tt-stot', '<span>TOTAL</span>', `<b>100%</b><span>${src.total.shots} shot${src.total.shots===1?'':'s'}</span>`);
-  return h+`<div class="dnote">${ssEsc('Share of the '+src.tagged+' shots with a source tag ('+src.allShots+' shots in all) · '+ovFromNote(src.games, src.n)+'. Scores and points are the tagged scores from each source ('+src.total.pts+' of '+src.allPts+' pts); Play v Dead Ball says whether the scoring shot was from open play or a dead ball (free, 45, mark, penalty, sideline).')}</div></div>`;
+  return h+`<div class="dnote">${ssEsc('Share of the '+src.tagged+' shots with a source tag ('+src.allShots+' shots in all) · '+ovFromNote(src.games, src.n)+ovPossNote(src.poss)+'. Scores and points are the tagged scores from each source ('+src.total.pts+' of '+src.allPts+' pts); Play v Dead Ball says whether the scoring shot was from open play or a dead ball (free, 45, mark, penalty, sideline).')}</div></div>`;
 }
 // the dashboard's shot pitch (art in a 100 x 75 box); a plain outline if the shared graphics are not loaded
 let TT_PITCH=null;
@@ -3084,6 +3131,10 @@ function tdHTML(R, V, o){
 //    source is OWN KICKOUT (the kicker won it) or OPP KICKOUT (the receiver won
 //    it), after that kickout and before the next kickout of the game. A game
 //    with no source tags gives no follow-on figures (n/a), never a zero.
+//    A GIU game has no source tags, but its "<Team> Poss" rows carry PossFrom: each
+//    shot then takes the source of the possession it falls in (ssPossSrc — the rule
+//    and its unmatched count are documented there), only when the game has no source
+//    tags at all. The same derived source feeds the Overview / Attacking source tables.
 // ═══════════════════════════════════════════════════════════════
 const TK_PITCH_M=137, TK_WIDTH_M=84, TK_ARC_M=40, TK_START_M=20, TK_SHORT_M=45, TK_MED_M=65, TK_VIEW_M=92;
 const TK_TYPES=[['clean','Clean'],['break','Break'],['free','Free'],['sideline','Sideline'],['unspecified','Unspecified']];
@@ -3113,6 +3164,7 @@ function tkLenLabel(e){
 // shot), any other game from the source label on the shot itself.
 function tkSrcItems(events, teams, skip, shotMode){
   const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))), items=[];
+  const poss=rowMode?null:ssPossSrc(events, skip, shotMode);   // GIU: derived from the possession rows (ssPossSrc)
   teams.forEach(T=>{
     const rec=rowMode?ssScoreSourceValues(events, T, skip, shotMode):null;
     events.forEach(e=>{
@@ -3125,6 +3177,7 @@ function tkSrcItems(events, teams, skip, shotMode){
       } else {
         if(!ssIsShot(e,shotMode)) return;
         cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
+        if(!cat&&poss&&poss.map.has(e)) cat=ssSrcCat(poss.map.get(e));
         v=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
       }
       // a source ROW starts with its possession, often a second or two BEFORE the kickout event that began it
@@ -3168,7 +3221,9 @@ function tkGameKos(meta, events){
       k.follow.shots++; if(it.v>0){ k.follow.scores++; k.follow.pts+=it.v; }
     });
   }
-  const v={kos, srcTagged, srcUnmatched, conv};
+  // srcFrom: 'tags' = the tagged source, 'poss' = derived from GIU possession rows (possSrc = its match counts)
+  const possSrc=srcTagged?ssPossSrc(events, skip, ssShotMode(events)):null;
+  const v={kos, srcTagged, srcUnmatched, conv, srcFrom:!srcTagged?null:possSrc?'poss':'tags', possSrc:possSrc?{shots:possSrc.shots, matched:possSrc.matched, unmatched:possSrc.unmatched, inside:possSrc.inside, before:possSrc.before}:null};
   TK_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
   return v;
 }
@@ -3208,8 +3263,8 @@ function tkCompute(T, games, basis, bundleOf, pick){
   const side=k=>{
     const mine=r=>r.K.kos.filter(q=>(q.team===T)===(k==='own'));
     const kos=[].concat.apply([], used.map(mine));
-    const per=used.map(r=>{ const s=mine(r); return {id:r.g.id, n:s.length, located:s.filter(q=>q.x!=null).length, src:r.K.srcTagged}; });
-    return {side:k, kos, per, n, koGames:per.filter(p=>p.n>0).length, locGames:per.filter(p=>p.located>0).length, srcGames:per.filter(p=>p.n>0&&p.src).length,
+    const per=used.map(r=>{ const s=mine(r); return {id:r.g.id, n:s.length, located:s.filter(q=>q.x!=null).length, src:r.K.srcTagged, poss:r.K.srcFrom==='poss'}; });
+    return {side:k, kos, per, n, koGames:per.filter(p=>p.n>0).length, locGames:per.filter(p=>p.located>0).length, srcGames:per.filter(p=>p.n>0&&p.src).length, possGames:per.filter(p=>p.n>0&&p.poss).length,
       located:kos.filter(q=>q.x!=null).length, len:tkByLen(kos)};
   };
   const own=side('own'), opp=side('opp'), dates=use.map(g=>ssIsoDate(g.date)).filter(Boolean).sort();
@@ -3251,6 +3306,19 @@ function tkZoneStats(kos, flip){
   zones.forEach(fin);
   return {zones, byKey, total:fin(total), located:total.n, unlocated};
 }
+// what followed, by LENGTH — every kickout with a length, located or not (a GIU game has lengths but no locations).
+// Counts only kickouts of games with source data (fN of n); won / lost as in tkZoneStats.
+function tkFollowByLen(kos, flip){
+  const mk=(k,label)=>({k, label, n:0, won:0, fN:0, fShots:0, fScores:0, fPts:0, fWonShots:0, fWonScores:0, fLostShots:0, fLostScores:0});
+  const rows=TK_LENS.map(l=>mk(l[0], l[1])), by={}, total=mk('all','All kickouts'); rows.forEach(r=>{ by[r.k]=r; });
+  const add=(Z,k)=>{ const w=tkWon(k, flip); Z.n++; if(w) Z.won++; if(!k.follow) return;
+    Z.fN++; Z.fShots+=k.follow.shots; Z.fScores+=k.follow.scores; Z.fPts+=k.follow.pts;
+    if(w){ Z.fWonShots+=k.follow.shots; Z.fWonScores+=k.follow.scores; } else { Z.fLostShots+=k.follow.shots; Z.fLostScores+=k.follow.scores; } };
+  (kos||[]).forEach(k=>{ if(by[k.len]) add(by[k.len], k); add(total, k); });
+  const fin=Z=>Object.assign(Z, {lost:Z.n-Z.won, follow:Z.fN>0, fRate:Z.fN>0?ovPct(Z.fScores, Z.fShots):null});
+  rows.forEach(fin);
+  return {rows, total:fin(total), any:total.fN>0};
+}
 // landing-map filters. F = {res:'both'|'won'|'lost', types:Set of TK_TYPES keys, lens:Set of 'S','M','L'}
 function tkPass(k, F, flip){
   const w=tkWon(k, flip);
@@ -3274,7 +3342,7 @@ function tkLocNote(S){
 }
 function tkFollowNote(S){
   const n=S.n, k=S.srcGames;
-  return !n?'':!k?'What followed: n/a (no source tags) in '+(n===1?'this game':'these '+n+' games')+'.':'What followed (shots and scores) uses the tagged shot source, from '+k+' of '+n+' game'+(n===1?'':'s')+'.';
+  return !n?'':!k?'What followed: n/a (no source tags) in '+(n===1?'this game':'these '+n+' games')+'.':'What followed (shots and scores) uses the tagged shot source, from '+k+' of '+n+' game'+(n===1?'':'s')+'.'+(S.possGames?' In '+S.possGames+' of them (GIU) the source is derived from the possession each shot falls in (PossFrom).':'');
 }
 // the out-of-range landings of the selected games, BOTH sides: by game (oldest first), then in time order
 function tkCheckList(R){
@@ -3284,7 +3352,7 @@ function tkCheckList(R){
 function tkView(R, side, F){
   // flip / pov: the Opposition view reads the opposition's kickouts from the selected team's side
   const k=side==='opp'?'opp':'own', flip=k==='opp', S=R[k], mapKos=tkMapKos(S.kos, F, flip);
-  return {side:k, flip, pov:flip?R.team:null, S, contest:[tkContest(S, flip), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos, flip), mapKos, check:tkCheckList(R), insights:tkInsights(mapKos, flip), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
+  return {side:k, flip, pov:flip?R.team:null, S, contest:[tkContest(S, flip), tkContest(R[k==='own'?'opp':'own'])], zones:tkZoneStats(S.kos, flip), followLen:tkFollowByLen(S.kos, flip), mapKos, check:tkCheckList(R), insights:tkInsights(mapKos, flip), locNote:tkLocNote(S), followNote:tkFollowNote(S)};
 }
 
 // ── Kickouts rendering (strings only; every interpolated value is escaped) ──
@@ -3428,12 +3496,23 @@ function tkZoneTableHTML(Zs, pov){
   Zs.zones.forEach(Z=>{ h+=tr(Z.z==='arc'?'Inside arc':'Zone '+Z.z, Z); });
   return h+tr('All located', Zs.total, 'tot')+'</tbody></table>';
 }
+// "what followed" by length: shots after, scores, score %, and the split by which team won the kickout
+function tkFollowLenHTML(FL, R, V){
+  if(!FL||!FL.any) return '';
+  const T=ssEsc(R.team), sp=(a,b)=>`${a} · ${b}`;
+  const tr=(o,cls)=>`<tr class="${cls||''}${o.n?'':' zero'}"><th scope="row">${o.k==='all'?'':`<i class="tk-lsw" style="background:${TK_BAND[o.k]}"></i>`}${ssEsc(o.label)}</th><td>${o.fN}${o.fN<o.n?`<small> of ${o.n}</small>`:''}</td>`
+    +(!o.follow?'<td>–</td><td>–</td><td>–</td><td class="hide-sm">–</td><td class="hide-sm">–</td>':`<td>${o.fShots}</td><td>${o.fScores}</td><td>${o.fShots?ttPctTxt(o.fRate):'–'}</td><td class="hide-sm">${sp(o.fWonShots, o.fWonScores)}</td><td class="hide-sm">${sp(o.fLostShots, o.fLostScores)}</td>`)+'</tr>';
+  return `<div class="tk-tcap tk-flcap">WHAT FOLLOWED, BY LENGTH${V.pov?' — OPPOSITION KICKOUTS':''}</div>`
+    +`<table class="tt-ztab tk-ztab tk-fltab"><thead><tr><th scope="col">LENGTH</th><th scope="col">${V.pov?'OPP KOs':'KOs'}</th><th scope="col">SHOTS AFTER</th><th scope="col">SCORES</th><th scope="col">SCORE %</th><th scope="col" class="hide-sm">${T} (SHOTS · SCORES)</th><th scope="col" class="hide-sm">OPPOSITION (SHOTS · SCORES)</th></tr></thead><tbody>`
+    +FL.rows.map(r=>tr(r)).join('')+tr(FL.total,'tot')+'</tbody></table>'
+    +`<div class="dnote">${ssEsc('Every kickout with a length, located or not. Shots after = shots by whichever team won the kickout, from that kickout, before the next one; the last two columns split them: '+R.team+'’s shots after the kickouts it won, the opposition’s after the ones they won.')}</div>`;
+}
 function tkZoneSecHTML(R, V){
   const Zs=V.zones, pov=V.pov||null, scale='The map starts at the kicking team’s 20m line (top edge) and runs to the far 45m line, drawn to scale (40m arc, 45m, 65m and the dashed halfway line); a kickout tagged behind the 20m line counts as Inside arc. Short = zones 1 to 3 and the Inside-arc area, medium = 4 to 6, long = 7 to 9. Hover, focus or tap a zone for its detail.';
   return '<div class="tt-zrow"><div class="tt-card tt-mapcard">'
     +(Zs.located?`<div class="tt-pitchbox tk-pitchbox">${tkZoneSVG(Zs, pov)}</div>${tkZoneKeyHTML(pov)}`:'<div class="tt-empty">n/a — no kickout landing locations in these games.</div>')
     +`<div class="dnote tk-locnote">${ssEsc(V.locNote)}</div><div class="dnote">${ssEsc((pov?'Each zone shows the opposition kickouts landing there that '+pov+' won / all of them, and '+pov+'’s win % (e.g. “4/11 · 36%” = '+pov+' won 36% of opposition kickouts landing here). The opposition kicks from the top. ':'Won / taken and win % of the kicking team per landing zone. ')+scale)}</div></div>`
-    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs, pov)}<div class="dnote tk-fnote">${ssEsc(V.followNote+(pov?' Shots after = shots by WHICHEVER team won that kickout ('+pov+' after the ones it won, the opposition after the ones they kept) whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots. A zone’s card splits them by team.':' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.'))}</div></div></div>`;
+    +`<div class="tt-card tt-ztabcard">${tkZoneTableHTML(Zs, pov)}<div class="dnote tk-fnote">${ssEsc(V.followNote+(pov?' Shots after = shots by WHICHEVER team won that kickout ('+pov+' after the ones it won, the opposition after the ones they kept) whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots. A zone’s card splits them by team.':' Shots after = shots by the team that won the kickout whose tagged source is that kickout, before the next kickout; score % = scores ÷ those shots.'))}</div>${tkFollowLenHTML(V.followLen, R, V)}</div></div>`;
 }
 // iii. landing locations — every located kickout on the same pitch. FILL = won by the kicker (hollow = lost); in the
 // Opposition view (pov = the selected team) FILL = won by the selected team, hollow = kept by the opposition.
