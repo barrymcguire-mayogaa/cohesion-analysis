@@ -696,6 +696,14 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .mm-view .tt-fg,.mm-view select{flex:1 1 100%;width:100%;} .mm-view small{padding-bottom:0;}
   .mm-ch .seg{width:100%;} .mm-ch .seg button{flex:1;}
 }
+.mm-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px;}
+.mm-kc{text-align:center;border-top-width:3px;padding:14px 12px;}
+.mm-kc.worst{border-top-color:#ef4444;} .mm-kc.best{border-top-color:#22c55e;} .mm-kc.high{border-top-color:#4fc3f7;}
+.mm-kt{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t2);}
+.mm-kl{font:800 34px 'Barlow',sans-serif;line-height:1.2;margin-top:4px;overflow-wrap:anywhere;} .mm-kl.multi{font-size:22px;line-height:1.35;padding:6px 0;} .mm-kl.na{color:var(--t3);font-weight:600;font-size:26px;line-height:1.6;}
+.mm-kn{font:800 22px 'Barlow',sans-serif;} .mm-kc.worst .mm-kn{color:#ef4444;} .mm-kc.best .mm-kn{color:#22c55e;} .mm-kc.high .mm-kn{color:#4fc3f7;}
+.mm-kd{font-size:.8rem;color:var(--t2);margin-top:2px;line-height:1.45;} .mm-kx{font-size:.74rem;color:var(--t3);margin-top:6px;line-height:1.4;min-height:1.1em;}
+@media (max-width:860px){ .mm-cards{grid-template-columns:minmax(0,1fr);gap:12px;} .mm-kl{font-size:28px;} }
 </style>
 </head>
 <body>
@@ -5026,7 +5034,25 @@ function mmNetSecHTML(R, V, o){
     +`<div class="tt-key"><span><i class="mm-sq" style="background:${MM_COL.pos}"></i>${ssEsc(T)} outscored the opposition</span><span><i class="mm-sq" style="background:${MM_COL.neg}"></i>${ssEsc(T)} was outscored</span></div>`
     +`<div class="dnote">${ssEsc(T+'’s points minus the opposition’s in each interval — '+(V.single?'this game':V.avg?'the average per game over '+mmGl(N.n):'the total over '+mmGl(N.n))+'. Under each interval: '+T+'’s points v the opposition’s. Hover, focus or tap a bar for its detail.'+mmEtNote(R, V))}</div></div>`;
 }
-function mmCardsHTML(){ return ''; }
+// (b) the three cards: worst (red), best (green), highest-scoring (blue). Ties name every tied interval; no data and "all level" say so.
+function mmCardsHTML(R, V){
+  const N=V.N, C=V.cards, T=R.team, multi=!V.single&&N.n>1, f1=v=>(Math.round(v*10)/10).toFixed(1);
+  const fa=x=>T+' '+x.f+' v '+x.a+(multi&&x.n>1?' · '+f1(x.avgF)+' v '+f1(x.avgA)+' per game':'');
+  const card=(k, title, c, big, none, extra)=>{
+    let h=`<div class="tt-card mm-kc ${k}" data-k="${k}"><div class="mm-kt">${title}</div>`;
+    if(!c) return h+`<div class="mm-kl na">n/a</div><div class="mm-kx">${ssEsc(none)}</div></div>`;
+    const tie=c.ivs.length>1;
+    return h+`<div class="mm-kl${tie?' multi':''}">${ssEsc(c.ivs.map(x=>x.label).join(' · '))}</div><div class="mm-kn">${ssEsc(big(c))}</div>`
+      +c.ivs.map(x=>`<div class="mm-kd">${ssEsc((tie?x.label+': ':'')+fa(x))}</div>`).join('')+`<div class="mm-kx">${ssEsc((tie?c.ivs.length+' intervals tied. ':'')+extra(c))}</div></div>`; };
+  const none=!N.n?'No score data.':C.flat?'Every interval finished level on net ('+tvSigned(N.ivs[0].net)+').':'No score data.';
+  const per=c=>multi&&c.ivs[0].n>1?' · '+tvSigned(Math.round(c.ivs[0].avgNet*10)/10, 1)+' per game':'';
+  return '<div class="mm-cards">'
+    +card('worst', 'WORST INTERVAL', C.worst, c=>'Net '+tvSigned(c.v)+per(c), none, c=>c.v<0?'The most negative net.':'No interval was lost — this is the lowest net.')
+    +card('best', 'BEST INTERVAL', C.best, c=>'Net '+tvSigned(c.v)+per(c), none, c=>c.v>0?'The most positive net.':'No interval was won — this is the highest net.')
+    +card('high', 'HIGHEST-SCORING INTERVAL', C.high, c=>multi?f1(c.v)+' pts per game':c.ivs[0].tot+' pts', N.n?'No scores in '+(N.n===1?'this game':'these '+N.n+' games')+'.':'No score data.',
+      c=>'Both teams’ points together'+(multi?', on average per game ('+c.ivs.map(x=>x.tot+' in '+mmGl(x.n)).join(' · ')+')':'')+'.')
+    +'</div>';
+}
 function mmCumSecHTML(){ return ''; }
 function mmMomSecHTML(){ return ''; }
 function mmLogSecHTML(){ return ''; }
