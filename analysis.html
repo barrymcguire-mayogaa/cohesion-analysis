@@ -2530,10 +2530,13 @@ function ttPlaceTip(){
   t.style.left=Math.max(8, Math.min(vw-w-8, x))+'px'; t.style.top=Math.max(8, Math.min(vh-hh-8, y))+'px';
 }
 function ttPinTip(el){ if(!ttCanPin(el)) return; if(TT_PIN===el){ ttHideTip(); return; } ttShowTip(el, true); }
+// hand the focus back to the marker a closed card belonged to, without its focus re-opening the card
+let TT_QUIET=false;
+function ttRefocus(el){ if(!el||!el.focus) return; TT_QUIET=true; try{ el.focus({preventScroll:true}); }catch(_){ } TT_QUIET=false; }
 function ttTipClick(e){
   const a=e.target&&e.target.closest?e.target.closest('[data-act]'):null; if(!a) return;
   const act=a.dataset.act;
-  if(act==='close'){ const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } }
+  if(act==='close'){ const back=TT_PIN; ttHideTip(); ttRefocus(back); }
   else if(act==='pl') ttPlOpen();
   else if(act==='pl-pick') ttPlPick(a.dataset.id);
   else if(act==='pl-new'){ ttPlDraw({phase:'new'}); const n=ssEl('ttPlName'); if(n&&n.focus){ try{ n.focus({preventScroll:true}); }catch(_){ } } }
@@ -2669,16 +2672,16 @@ function ttInit(){
   });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
-  pane.addEventListener('focusin', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
+  pane.addEventListener('focusin', e=>{ if(TT_PIN||TT_QUIET) return; const tip=tipOf(e); if(tip) ttShowTip(tip); });
   pane.addEventListener('focusout', e=>{ if(TT_PIN) return; if(tipOf(e)) ttHideTip(); });
   pane.addEventListener('keydown', e=>{
     if(e.key!=='Enter'&&e.key!==' ') return;
     if(inCard(e)){ if(e.key==='Enter'&&e.target&&e.target.id==='ttPlName'){ e.preventDefault(); ttPlCreate(); } return; }
     const tip=tipOf(e); if(!tip||!ttCanPin(tip)) return;
     e.preventDefault(); ttShowTip(tip, true);        // keyboard: Enter pins, and focus moves into the card
-    const first=ssEl('ttTip').querySelector('.tt-acts a, .tt-acts button'); if(first){ try{ first.focus({preventScroll:true}); }catch(_){ } }
+    const card=ssEl('ttTip'), first=card&&card.querySelector?card.querySelector('.tt-acts a, .tt-acts button'):null; if(first){ try{ first.focus({preventScroll:true}); }catch(_){ } }
   });
-  document.addEventListener('keydown', e=>{ if(e.key!=='Escape'||!TT_TIP) return; const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } });
+  document.addEventListener('keydown', e=>{ if(e.key!=='Escape'||!TT_TIP) return; const back=TT_PIN; ttHideTip(); ttRefocus(back); });
   document.addEventListener('click', e=>{ if(TT_TIP&&!pane.contains(e.target)) ttHideTip(); });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
