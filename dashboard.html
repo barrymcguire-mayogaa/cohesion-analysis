@@ -948,6 +948,7 @@ function dashClipOf(e){
   const clip={ videoId:vid, gameId:GAME.id, gameTitle:GAME.title||'', driveT:e.driveT||0,
            start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+  if(e.id!=null&&e.id!=='') clip.eventId=String(e.id);   // lets a playlist recognise the same event twice
   if(idx>0) clip.angle=(ang&&ang.label)||('Cam '+(idx+1));
   return clip;
 }

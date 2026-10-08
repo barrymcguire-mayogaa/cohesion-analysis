@@ -438,6 +438,14 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-btn[disabled]{opacity:.45;cursor:not-allowed;}
 .tt-x{margin-left:auto;min-width:34px;min-height:34px;border-radius:8px;border:1px solid transparent;background:none;color:var(--t3);font-size:14px;cursor:pointer;}
 .tt-x:hover,.tt-x:focus-visible{color:var(--t1);border-color:#4a4a5c;outline:none;}
+.tt-plm:empty{display:none;} .tt-plm{margin-top:10px;padding-top:9px;border-top:1px solid #2c2c38;}
+.tt-plh{font:700 12px 'Barlow',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;}
+.tt-pll{display:flex;flex-direction:column;gap:4px;max-height:196px;overflow:auto;}
+.tt-pll button{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-height:36px;padding:7px 10px;border-radius:8px;border:1px solid #2c2c38;background:#171821;color:var(--t1);font:600 13px 'Barlow',sans-serif;text-align:left;cursor:pointer;}
+.tt-pll button:hover,.tt-pll button:focus-visible{border-color:var(--accent);outline:none;}
+.tt-pll button small{color:var(--t3);font-weight:400;white-space:nowrap;} .tt-pll button.new{color:var(--accent);border-style:dashed;}
+.tt-plnew{display:flex;flex-wrap:wrap;gap:6px;} .tt-plnew input,.tt-plnew select{flex:1 1 120px;min-width:0;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid #4a4a5c;background:#171821;color:var(--t1);font:400 14px 'Barlow',sans-serif;}
+.tt-plmsg{font-size:.8rem;color:var(--t2);padding:4px 0;line-height:1.4;} .tt-plmsg.ok{color:var(--green);font-weight:700;} .tt-plmsg.err{color:var(--red);}
 .tt-ct{font:700 16px 'Barlow',sans-serif;color:var(--t1);}
 .tt-cs{font-size:.74rem;color:var(--t3);margin:2px 0 7px;}
 .tt-cscore{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;white-space:nowrap;}
@@ -2351,7 +2359,7 @@ function ttShotCardHTML(s, gameOf, o){
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
   return h+'<div class="tt-acts">'+ttShotActsHTML(s)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
-function ttShotActsHTML(s){ const u=ttWatchUrl(s); return u?`<a class="tt-btn" data-act="watch" href="${ssEsc(u)}" target="_blank" rel="noopener">Watch clip</a>`:''; }
+function ttShotActsHTML(s){ const u=ttWatchUrl(s); return '<button type="button" class="tt-btn pri" data-act="pl" aria-haspopup="menu">Add to playlist</button>'+(!u?'':`<a class="tt-btn" data-act="watch" href="${ssEsc(u)}" target="_blank" rel="noopener">Watch clip</a>`); }
 function ttInsightsHTML(I, nUn){
   const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`;
   return '<h3>KEY INSIGHTS</h3>'
@@ -2493,7 +2501,7 @@ function ttHideTip(){
   const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; }
   if(t&&t.classList) t.classList.remove('pin');
   [TT_TIP, TT_PIN].forEach(el=>{ if(el&&el.classList){ el.classList.remove('tip-on'); el.classList.remove('pin'); } });
-  TT_TIP=null; TT_PIN=null;
+  TT_TIP=null; TT_PIN=null; TT_JOB=null;
 }
 // A pinned card stays put (hover / focus elsewhere no longer replaces it) and takes clicks, so its
 // buttons can be used. Only shot markers pin.
@@ -2502,7 +2510,7 @@ function ttShowTip(el, pin){
   pin=!!pin&&ttCanPin(el);
   const html=ttTipHTML(el.dataset.tip, pin); if(!html){ ttHideTip(); return; }
   [TT_TIP, TT_PIN].forEach(o=>{ if(o&&o!==el&&o.classList){ o.classList.remove('tip-on'); o.classList.remove('pin'); } });
-  TT_TIP=el; TT_PIN=pin?el:null; el.classList.add('tip-on'); if(pin) el.classList.add('pin'); else el.classList.remove('pin');
+  TT_TIP=el; TT_PIN=pin?el:null; TT_JOB=null; el.classList.add('tip-on'); if(pin) el.classList.add('pin'); else el.classList.remove('pin');
   t.innerHTML=html; t.hidden=false;
   if(t.classList){ if(pin) t.classList.add('pin'); else t.classList.remove('pin'); }
   if(t.setAttribute) t.setAttribute('role', pin?'dialog':'tooltip');
@@ -2521,7 +2529,103 @@ function ttPlaceTip(){
 function ttPinTip(el){ if(!ttCanPin(el)) return; if(TT_PIN===el){ ttHideTip(); return; } ttShowTip(el, true); }
 function ttTipClick(e){
   const a=e.target&&e.target.closest?e.target.closest('[data-act]'):null; if(!a) return;
-  if(a.dataset.act==='close'){ const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } }
+  const act=a.dataset.act;
+  if(act==='close'){ const back=TT_PIN; ttHideTip(); if(back&&back.focus){ try{ back.focus({preventScroll:true}); }catch(_){ } } }
+  else if(act==='pl') ttPlOpen();
+  else if(act==='pl-pick') ttPlPick(a.dataset.id);
+  else if(act==='pl-new'){ ttPlDraw({phase:'new'}); const n=ssEl('ttPlName'); if(n&&n.focus){ try{ n.focus({preventScroll:true}); }catch(_){ } } }
+  else if(act==='pl-create') ttPlCreate();
+}
+// ── playlists: add the shot(s) behind the pinned card to a playlist ──
+// Writes go through netlify/functions/playlists.js, which is the authority: only an admin may create
+// or add (a member can only list), a personal playlist belongs to its owner, and the county / club
+// wall applies. A clip has the dashboard's shape (dashClipOf, main camera) so playlists.html plays it.
+let TT_PL=null, TT_JOB=null;
+function ttDriveT(meta, e){   // = the dashboard's driveT: its Visual Sync correction applied to the raw start
+  const segs=meta&&meta.visualSync&&meta.visualSync.syncSegments&&meta.visualSync.syncSegments.main;
+  if(segs&&typeof e.start==='number'&&typeof cohGfxVisualSyncPeriod==='function'){ const g=segs[cohGfxVisualSyncPeriod(e.half)]; if(g&&g.length) return Math.max(0, Math.round(e.start+(g[g.length-1].offset||0))); }
+  return e.driveT||0;
+}
+function ttClipOf(s, meta){
+  const e=s&&s.e; if(!e||!meta) return null;
+  const vid=(meta.angles&&meta.angles[0]&&meta.angles[0].youtubeId)||meta.youtubeId||''; if(!vid) return null;   // no video: nothing to play
+  const driveT=ttDriveT(meta, e), start=Math.max(0, driveT), dur=(e.end!=null&&e.start!=null)?Math.max(1, e.end-e.start):6;
+  const clip={videoId:vid, gameId:meta.id, gameTitle:meta.title||'', driveT, start, end:start+dur,
+    label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||''};
+  if(e.id!=null&&e.id!=='') clip.eventId=String(e.id);
+  return clip;
+}
+function ttClipKey(c){ return c.gameId+'|'+(c.eventId!=null?'id|'+c.eventId:'t|'+ssUC(c.code)+'|'+Math.round(c.driveT)); }
+function ttClipsOf(shots, bundleOf){
+  const clips=[], seen=new Set(); let noVideo=0;
+  (shots||[]).forEach(s=>{ const b=bundleOf(s.gid), c=b&&b.meta?ttClipOf(s, b.meta):null; if(!c){ noVideo++; return; }
+    const k=ttClipKey(c); if(seen.has(k)) return; seen.add(k); clips.push(c); });
+  return {clips, noVideo};
+}
+// the caller's playlists in this section, fetched once and cached (a failed fetch is retried next time)
+function ttPlLists(){
+  if(!TT_PL) TT_PL=cohesionAuthFetch('playlists', {action:'list', section:cohesionSection()})
+    .then(j=>(j.playlists||[]).map(p=>({id:p.id, name:p.name, scope:p.scope, n:((p.data&&p.data.items)||[]).length})))
+    .catch(e=>{ TT_PL=null; throw e; });
+  return TT_PL;
+}
+function ttPlErrTxt(e){ const m=String((e&&e.message)||e||'error');
+  return /not signed in|session not verified|authentication required/i.test(m)?'You are not signed in — sign out and back in, then retry.'
+    :/forbidden|admin role|not your/i.test(m)?'No permission: '+m.replace(/^Forbidden:\s*/i,'')+'.':'Could not save: '+m; }
+function ttPlResultTxt(name, r, bulk, noVideo){
+  const tail=noVideo?' · '+noVideo+' with no video left out':'';
+  if(!bulk) return (r.added?'Added to ':'Already in ')+name;
+  return 'Added '+r.added+(r.skipped?', '+r.skipped+' already there':'')+' — '+name+tail;
+}
+function ttPlMenuHTML(st){
+  const msg=(t,c)=>`<div class="tt-plmsg ${c||''}" role="status">${ssEsc(t)}</div>`;
+  if(st.phase==='loading') return msg('Loading playlists…');
+  if(st.phase==='busy') return msg('Adding…');
+  if(st.phase==='error') return msg(st.msg, 'err');
+  if(st.phase==='done') return msg(st.msg, 'ok');
+  if(st.phase==='new') return '<div class="tt-plh">New playlist</div><div class="tt-plnew"><input id="ttPlName" type="text" maxlength="80" placeholder="Playlist name" aria-label="Playlist name" autocomplete="off">'
+    +'<select id="ttPlScope" aria-label="Who can see it"><option value="club">Club-wide</option><option value="personal">Just me</option></select>'
+    +'<button type="button" class="tt-btn pri" data-act="pl-create">Create and add</button><button type="button" class="tt-btn" data-act="pl">Back</button></div>'+(st.msg?msg(st.msg,'err'):'');
+  return `<div class="tt-plh">${ssEsc(st.title||'Add to…')}</div><div class="tt-pll" role="menu">`
+    +(st.lists||[]).map(p=>`<button type="button" role="menuitem" data-act="pl-pick" data-id="${ssEsc(p.id)}"><span>${ssEsc(p.name)}</span><small>${p.n} clip${p.n===1?'':'s'}${p.scope==='personal'?' · just me':''}</small></button>`).join('')
+    +((st.lists||[]).length?'':'<div class="tt-plmsg">No playlists yet.</div>')
+    +'<button type="button" role="menuitem" class="new" data-act="pl-new">New playlist…</button></div>';
+}
+function ttPlDraw(st){ const m=ssEl('ttPlMenu'); if(m) m.innerHTML=ttPlMenuHTML(st); ttPlaceTip(); return st; }
+function ttPlJob(){   // the shots the open card is about
+  if(TT_JOB) return TT_JOB;
+  const el=TT_PIN, i=el&&ttCanPin(el)?+String(el.dataset.tip).split(':')[1]:-1, s=TT_VIEW&&TT_VIEW.mapShots[i];
+  return s?(TT_JOB={shots:[s], bulk:false}):null;
+}
+async function ttPlOpen(){
+  const job=ttPlJob(); if(!job) return;
+  if(!mrIsAdmin()){ ttPlDraw({phase:'error', msg:'No permission: only analysts (admin sign-in) can add clips to playlists.'}); return; }
+  const C=ttClipsOf(job.shots, id=>BUNDLES.get(id)); job.clips=C.clips; job.noVideo=C.noVideo;
+  if(!C.clips.length){ ttPlDraw({phase:'error', msg:job.bulk?'None of these games has a video link.':'This game has no video link.'}); return; }
+  ttPlDraw({phase:'loading'});
+  let lists;
+  try{ lists=await ttPlLists(); }catch(e){ if(TT_JOB===job) ttPlDraw({phase:'error', msg:ttPlErrTxt(e).replace(/^Could not save/,'Could not load playlists')}); return; }
+  if(TT_JOB!==job) return;
+  job.lists=lists;
+  ttPlDraw({phase:'list', lists, title:job.bulk?'Add '+C.clips.length+' clip'+(C.clips.length===1?'':'s')+' to…':'Add to…'});
+}
+async function ttPlSend(payload, name){
+  const job=TT_JOB; if(!job||!job.clips||job.busy) return;
+  job.busy=true; ttPlDraw({phase:'busy'});
+  try{
+    const r=await cohesionAuthFetch('playlists', payload), lists=TT_PL?await TT_PL.catch(()=>null):null;
+    const res=payload.action==='append'?r:{added:job.clips.length, skipped:0, total:job.clips.length};
+    if(lists){ const p=lists.find(x=>String(x.id)===String(r.id)); if(p) p.n=res.total; else lists.push({id:r.id, name, scope:payload.scope, n:res.total}); }
+    job.busy=false;
+    if(TT_JOB===job) ttPlDraw({phase:'done', msg:ttPlResultTxt(r.name||name, res, job.bulk, job.noVideo)});
+  }catch(e){ job.busy=false; if(TT_JOB===job) ttPlDraw({phase:'error', msg:ttPlErrTxt(e)}); }
+}
+function ttPlPick(id){ const job=TT_JOB, p=job&&(job.lists||[]).find(x=>String(x.id)===String(id)); if(!p||!job.clips) return; return ttPlSend({action:'append', id:p.id, items:job.clips}, p.name); }
+function ttPlCreate(){
+  const job=TT_JOB, n=ssEl('ttPlName'), sc=ssEl('ttPlScope'); if(!job||!job.clips) return;
+  const name=String((n&&n.value)||'').trim().slice(0,80), scope=sc&&sc.value==='personal'?'personal':'club';
+  if(!name){ ttPlDraw({phase:'new', msg:'Give the playlist a name.'}); return; }
+  return ttPlSend({action:'save', name, scope, section:cohesionSection(), data:{items:job.clips}}, name);
 }
 function ttInit(){
   const pane=ssEl('pane-team-trends'); if(!pane||!pane.addEventListener) return;
@@ -2543,7 +2647,8 @@ function ttInit(){
   pane.addEventListener('focusout', e=>{ if(TT_PIN) return; if(tipOf(e)) ttHideTip(); });
   pane.addEventListener('keydown', e=>{
     if(e.key!=='Enter'&&e.key!==' ') return;
-    const tip=tipOf(e); if(!tip||!ttCanPin(tip)||inCard(e)) return;
+    if(inCard(e)){ if(e.key==='Enter'&&e.target&&e.target.id==='ttPlName'){ e.preventDefault(); ttPlCreate(); } return; }
+    const tip=tipOf(e); if(!tip||!ttCanPin(tip)) return;
     e.preventDefault(); ttShowTip(tip, true);        // keyboard: Enter pins, and focus moves into the card
     const first=ssEl('ttTip').querySelector('.tt-acts a, .tt-acts button'); if(first){ try{ first.focus({preventScroll:true}); }catch(_){ } }
   });
