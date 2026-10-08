@@ -704,6 +704,9 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .mm-kn{font:800 22px 'Barlow',sans-serif;} .mm-kc.worst .mm-kn{color:#ef4444;} .mm-kc.best .mm-kn{color:#22c55e;} .mm-kc.high .mm-kn{color:#4fc3f7;}
 .mm-kd{font-size:.8rem;color:var(--t2);margin-top:2px;line-height:1.45;} .mm-kx{font-size:.74rem;color:var(--t3);margin-top:6px;line-height:1.4;min-height:1.1em;}
 @media (max-width:860px){ .mm-cards{grid-template-columns:minmax(0,1fr);gap:12px;} .mm-kl{font-size:28px;} }
+.mm-line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round;} .mm-line.opp{stroke-width:2.5;}
+.mm-mk{stroke:#0b0b10;stroke-width:1.5;}
+.mm-minband{fill:#fff;fill-opacity:0;} .tt-hit:hover .mm-minband,.tt-hit:focus .mm-minband,.tt-hit.tip-on .mm-minband{fill-opacity:.09;}
 </style>
 </head>
 <body>
@@ -5053,7 +5056,41 @@ function mmCardsHTML(R, V){
       c=>'Both teams’ points together'+(multi?', on average per game ('+c.ivs.map(x=>x.tot+' in '+mmGl(x.n)).join(' · ')+')':'')+'.')
     +'</div>';
 }
-function mmCumSecHTML(){ return ''; }
+// (c) the cumulative score: the team and the opposition along the game minute. One game = the running totals as steps, with the
+// goals and 2-pointers marked; several = the average per game at each minute. A hit band per minute carries the hover card.
+function mmCumSVG(C, W, o){
+  o=o||{}; W=Math.max(280, Math.round(W||760)); if(!C) return '';
+  const small=W<560, H=small?250:320, mL=34, mR=14, mT=26, mB=34, pw=W-mL-mR, ph=H-mT-mB, end=C.end, ax=ttNice(Math.max(C.f, C.a));
+  const X=m=>mL+(Math.min(m, end)/end)*pw, Y=v=>mT+ph-(v/ax.top)*ph, n1=v=>v.toFixed(1);
+  let h=`<svg class="tt-trend mm-cum" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="group" aria-label="${ssEsc('Cumulative score by game minute'+(C.single?'':', average per game'))}">`;
+  for(let v=0; v<=ax.top; v+=ax.step) h+=`<line class="tt-grid" x1="${mL}" x2="${W-mR}" y1="${n1(Y(v))}" y2="${n1(Y(v))}"/><text class="tt-ax" x="${mL-7}" y="${n1(Y(v)+4)}" text-anchor="end">${v}</text>`;
+  h+=`<text class="tt-ax tt-axt" x="4" y="${mT-13}">${C.single?'PTS':'AVG PTS'}</text>`;
+  for(let m=0; m<=end; m+=10) h+=`<text class="tt-ax" x="${n1(X(m))}" y="${H-mB+17}" text-anchor="middle">${m}’</text>`;
+  [[C.ht,'HT'],[C.e1End!=null?C.ft:null,'FT']].forEach(d=>{ if(d[0]!=null) h+=`<line class="mm-div" x1="${n1(X(d[0]))}" x2="${n1(X(d[0]))}" y1="${mT-6}" y2="${mT+ph}"/><text class="mm-dl" x="${n1(X(d[0]))}" y="${mT-10}" text-anchor="middle">${d[1]}</text>`; });
+  const path=mine=>{ let d='M'+n1(X(0))+' '+n1(Y(0));
+    if(C.single){ C.pts.forEach(p=>{ if(p.mine===mine) d+='H'+n1(X(p.x))+'V'+n1(Y(mine?p.f:p.a)); }); return d+'H'+n1(X(end)); }
+    const S=mine?C.F:C.A; for(let q=1; q<=end; q++) d+='L'+n1(X(q))+' '+n1(Y(S[q])); return d; };
+  h+=`<path class="mm-line opp" stroke="${o.ocol}" d="${path(false)}"/><path class="mm-line" stroke="${o.col}" d="${path(true)}"/>`;
+  if(C.single) C.pts.forEach(p=>{ const x=X(p.x), y=Y(p.mine?p.f:p.a), c=p.mine?o.col:o.ocol;
+    h+=p.v===3?`<circle class="mm-mk" cx="${n1(x)}" cy="${n1(y)}" r="6.5" fill="${c}"/><circle cx="${n1(x)}" cy="${n1(y)}" r="2.2" fill="#0b0b10"/>`
+      :p.v===2?`<path class="mm-mk" fill="${c}" d="M${n1(x)} ${n1(y-6.5)}L${n1(x+6.5)} ${n1(y)}L${n1(x)} ${n1(y+6.5)}L${n1(x-6.5)} ${n1(y)}Z"/>`
+      :`<circle cx="${n1(x)}" cy="${n1(y)}" r="2.6" fill="${c}"/>`; });
+  for(let q=1; q<=end; q++){ const x0=X(q-1), f=C.F[q], a=C.A[q], t=v=>C.single?String(v):v.toFixed(1);
+    h+=`<g class="tt-hit" data-tip="mmc:${q}"${q%5===0||q===end?' tabindex="0"':''} role="img" aria-label="${ssEsc('Minute '+q+': '+(o.team||'team')+' '+t(f)+', opposition '+t(a))}"><rect class="mm-minband" x="${n1(x0)}" y="${mT}" width="${n1(X(q)-x0)}" height="${ph}"/></g>`; }
+  return h+'</svg>';
+}
+function mmCumSecHTML(R, V, o){
+  o=o||{}; const C=V.C, T=R.team, m=V.gid?R.gameOf.get(V.gid):null, opp=m?m.opp:'Opposition'; if(!C) return '<div class="tt-card"><div class="tt-empty">No score data.</div></div>';
+  const t=v=>C.single?String(v):v.toFixed(1), mk=(d)=>`<svg viewBox="0 0 14 14" aria-hidden="true">${d}</svg>`;
+  return '<div class="tt-card mm-card">'
+    +`<div class="mm-ch"><h4 class="td-ct">${C.single?'RUNNING SCORE':'AVERAGE RUNNING SCORE'} <small>${ssEsc((C.single?'':'per game · ')+mmWhoTxt(R, V))}</small></h4></div>`
+    +`<div class="tt-chart">${mmCumSVG(C, o.W, {col:o.col, ocol:o.ocol, team:T})}</div>`
+    +`<div class="tt-key"><span><i class="tt-sw" style="background:${o.col}"></i>${ssEsc(T+' '+t(C.f))}</span><span><i class="tt-sw" style="background:${o.ocol}"></i>${ssEsc(opp+' '+t(C.a))}</span>`
+    +(C.single?`<span>${mk('<circle cx="7" cy="7" r="6" fill="currentColor"/><circle cx="7" cy="7" r="2" fill="#0b0b10"/>')}Goal</span><span>${mk('<path d="M7 1L13 7L7 13L1 7Z" fill="currentColor"/>')}2-pointer</span><span>${mk('<circle cx="7" cy="7" r="2.6" fill="currentColor"/>')}Point</span>`:'')+'</div>'
+    +`<div class="dnote">${ssEsc((C.single?'The points on the board after each score, by game minute (the 2nd half starts where the 1st ended, minute '+C.ht+').'
+      :'The average points per game on the board at each minute, over '+mmGl(C.n)+'. The games share one clock: the 2nd half starts at minute '+C.ht+', the longest 1st half of the selection, and a game holds its total once its own half is over.')
+      +(C.e1End!=null?' Extra time runs from FT (minute '+C.ft+').':'')+' Hover, focus or tap a minute for both totals and the margin.')}</div></div>`;
+}
 function mmMomSecHTML(){ return ''; }
 function mmLogSecHTML(){ return ''; }
 function mmHTML(R, V, o){
@@ -5181,7 +5218,13 @@ function mmTipHTML(kind, i, R, V){
     return h; }
   return mmTipMore(kind, i, R, V, {row, cls, f1, head});
 }
-function mmTipMore(){ return ''; }
+function mmTipMore(kind, i, R, V, U){
+  const T=R.team, m=V.gid?R.gameOf.get(V.gid):null, opp=m?m.opp:'Opposition';
+  if(kind==='mmc'){ const C=V.C; if(!C||!(i>=0&&i<=C.end)) return ''; const f=C.F[i], a=C.A[i], t=v=>C.single?String(v):v.toFixed(1), d=C.single?f-a:Math.round((f-a)*10)/10;
+    return U.head('Minute '+i+(i<=C.ht?' · 1st half':i<=C.ft?' · 2nd half':' · extra time'), T+' · '+mmWhoTxt(R, V)+(C.single?'':' · average per game'))+U.row(T, t(f))+U.row(opp, t(a))+U.row('Margin', tvSigned(d, C.single?0:1), U.cls(d)); }
+  return mmTipMom(kind, i, R, V, U);
+}
+function mmTipMom(){ return ''; }
 // ═══════════════════════════════════════════════════════════════
 //  MATCH REPORTS — every game of the selected team: search and W/D/L /
 //  home-away filters over ALL of its filtered games, the 10 most recent
