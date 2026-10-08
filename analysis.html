@@ -419,7 +419,9 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-fg .chip{padding:9px 13px;}
 .tt-mk{cursor:pointer;outline:none;}
 .tt-mk *{pointer-events:all;}
-.tt-mk:hover *,.tt-mk:focus *,.tt-mk.tip-on *{stroke:#fff;stroke-width:.9;}
+.tt-mk:hover .tt-mh,.tt-mk:focus .tt-mh,.tt-mk.tip-on .tt-mh{stroke:#fff;stroke-opacity:1;stroke-width:1.5;}
+.tt-mk.pin .tt-mh{stroke:#ffd54a;stroke-opacity:1;stroke-width:1.7;}
+.tt-mkey{gap:6px 22px;} .tt-mkey .tt-kg{gap:6px 13px;flex-wrap:wrap;}
 .tt-ins h3{margin:0 0 8px;font:700 21px 'Barlow',sans-serif;color:var(--accent);}
 .tt-ir{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 2px;border-bottom:1px solid var(--border);font-size:.95rem;color:var(--t2);}
 .tt-ir b{font:700 19px 'Barlow',sans-serif;color:var(--t1);font-variant-numeric:tabular-nums;}
@@ -1007,6 +1009,14 @@ function ssShotDead(e){
   if(/DEAD ?BALL|\(\s*F\s*\)$|\sSHOT SIDELINE$|\s45$|\sPENALTY$/.test(c)) return true;
   if(/(^|\s)SHOT$/.test(c)){ const d=ssUC(ssL(e,'Description')||e.subtype); return !!d&&d!=='PLAY'; }
   return false;
+}
+// What kind of dead ball a dead-ball shot is: 'Free' | '45' | 'Mark' | 'Sideline' | 'Penalty' | 'Dead ball'
+// ('' for a shot from play). The tagged 'Deadball Shot Type' label first, then the code, then GI's Description.
+function ssDeadType(e){
+  if(!ssShotDead(e)) return '';
+  const pick=t=>{ const K=ssUC(t); return !K?'':/PENALT/.test(K)?'Penalty':/(^|[^0-9])45([^0-9]|$)|FORTY/.test(K)?'45':/MARK/.test(K)?'Mark':/SIDE\s*LINE/.test(K)?'Sideline':/FREE/.test(K)?'Free':''; };
+  const c=ssUC(e.code), tail=/\sPENALTY$/.test(c)?'PENALTY':/\s45$/.test(c)?'45':/\sSHOT SIDELINE$/.test(c)?'SIDELINE':/\(\s*F\s*\)$/.test(c)?'FREE':'';
+  return pick(ssL(e,'Deadball Shot Type'))||pick(tail)||pick(ssL(e,'Description')||e.subtype)||'Dead ball';
 }
 // SCORE SOURCE row → the scoring shot it belongs to (Team Trends' Play v Dead
 // Ball split). Same walk as ssScoreSourceValues: rows and T's scoring primary
@@ -2020,7 +2030,6 @@ function ttCoordOf(e, conv){
   }
   return null;
 }
-function ttXpScale(xp){ return xp==null?1:0.6+0.7*Math.sqrt(Math.max(0,Math.min(xp,2.2))); }   // = dashXpScale
 // Every primary shot of a game, both teams, cached per events array + model.
 const TT_SHOT_CACHE=new WeakMap();
 function ttGameShots(meta, events){
@@ -2044,10 +2053,10 @@ function ttGameShots(meta, events){
     let zone=null, zoneFrom=null;
     if(zm&&+zm[1]>=1&&+zm[1]<=9){ zone=+zm[1]; zoneFrom='label'; }
     else if(co){ zone=ttZoneOf(co.x, co.y); zoneFrom='loc'; }
-    const xp=xpOf.has(e)?xpOf.get(e):null, dead=ssShotDead(e);
-    v.push({e, gid:meta.id, team, player:ssShotPlayer(e), dead, att, v:val, out, x:co?co.x:null, y:co?co.y:null, zone, zoneFrom, xp:xp==null?null:xp,
-      // the dashboard's marker shape (dashMapData)
-      shape:(att==='G'||ssUC(out)==='GOAL')?'tri':(att==='2'||val===2)?'dia':'cir'});
+    const xp=xpOf.has(e)?xpOf.get(e):null, dead=ssShotDead(e), deadType=ssDeadType(e);
+    v.push({e, gid:meta.id, team, player:ssShotPlayer(e), dead, deadType, att, v:val, out, x:co?co.x:null, y:co?co.y:null, zone, zoneFrom, xp:xp==null?null:xp,
+      // the map marker's colour key: P penalty, else the tagged attempt type, '?' when it is not tagged
+      kind:deadType==='Penalty'?'P':(att||'?')});
   });
   TT_SHOT_CACHE.set(events, {M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, v});
   return v;
@@ -2282,18 +2291,23 @@ function ttZoneTableHTML(Zs){
   return h+tr('All zones', Zs.total, 'tot')+'</tbody></table>';
 }
 // iv. shot locations
-function ttGlyph(m, c){   // = the marker strings of dashMapSvg('shot'); m.y is in drawn units
-  const x=m.x, y=m.y, fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
-  const k=ttXpScale(m.xp), f=v=>(v*k).toFixed(3);
-  if(m.shape==='tri') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y+(+f(1.35))} L ${x-f(1.7)} ${y+(+f(1.35))} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-  if(m.shape==='dia') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y} L ${x} ${y+(+f(1.85))} L ${x-f(1.7)} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-  if(m.db) return `<rect x="${x-f(1.3)}" y="${y-f(1.3)}" width="${f(2.6)}" height="${f(2.6)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
-  return `<circle cx="${x}" cy="${y}" r="${f(1.4)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+// Markers: COLOUR = attempt type, SHAPE = from play (circle) v dead ball (square), FILL = scored v
+// missed. One small uniform size; every marker sits on a dark halo so white / bright ones read on
+// the grass and overlapping ones stay apart. Identical for the For and the Against view.
+const TT_MK_COL={'1':'#ffffff', '2':'#ff8c1a', 'G':'#b4ff00', 'P':'#b266ff', '?':'#9aa3ad'};
+const TT_MK_LABEL={'1':'1-point', '2':'2-point', 'G':'Goal', 'P':'Penalty', '?':'Type not tagged'};
+const TT_MK_HIT=2.2, TT_MK_R=0.95, TT_MK_INK='#0a0c10';
+function ttGlyph(m){   // m.x / m.y in drawn units
+  const c=TT_MK_COL[m.kind]||TT_MK_COL['?'], r=TT_MK_R, q=+(r*0.9).toFixed(3), n=v=>+v.toFixed(2);
+  const sh=a=>m.sq?`<rect x="${n(m.x-q)}" y="${n(m.y-q)}" width="${n(q*2)}" height="${n(q*2)}" ${a}/>`:`<circle cx="${n(m.x)}" cy="${n(m.y)}" r="${r}" ${a}/>`;
+  return m.scored
+    ?sh(`class="tt-mh" fill="none" stroke="${TT_MK_INK}" stroke-opacity=".6" stroke-width=".72"`)+sh(`class="tt-mg" fill="${c}" stroke="${TT_MK_INK}" stroke-width=".26"`)
+    :sh(`class="tt-mh" fill="none" stroke="${TT_MK_INK}" stroke-width=".96"`)+sh(`class="tt-mg" fill="${TT_MK_INK}" fill-opacity=".5" stroke="${c}" stroke-width=".44"`);
 }
-function ttShotMark(s){ return {x:s.x, y:s.y*(TT_MAP_H/100), scored:s.v>0, shape:s.shape, db:s.dead, xp:s.xp}; }
+function ttShotMark(s){ return {x:s.x, y:s.y*(TT_MAP_H/100), scored:s.v>0, kind:s.kind, sq:!!s.dead}; }
 function ttDensityColour(t){ const st=[[255,236,110],[255,150,40],[226,36,28]], u=Math.max(0,Math.min(1,t))*2, i=Math.min(1,Math.floor(u)), f=u-i;
   return 'rgb('+st[i].map((v,k)=>Math.round(v+(st[i+1][k]-v)*f)).join(',')+')'; }
-function ttMapSVG(shots, F, col){
+function ttMapSVG(shots, F){
   let h=ttPitchOpen('tt-locs', F.view==='den'?'Shot density, goal at the top':'Shot locations, goal at the top')+'</g>';
   if(F.view==='den'){
     const D=ttDensity(shots);
@@ -2302,7 +2316,8 @@ function ttMapSVG(shots, F, col){
       h+=`<rect x="${i*D.cell}" y="${(j*D.cell).toFixed(1)}" width="${D.cell}" height="${D.cell}" fill="${ttDensityColour(t)}" fill-opacity="${Math.min(.9,.18+.8*Math.pow(t,.7)).toFixed(2)}"/>`; }
     return h+'</g></svg>';
   }
-  return h+'<g class="tt-marks">'+shots.map((s,i)=>`<g class="tt-mk" data-tip="shot:${i}" tabindex="0" role="img" aria-label="${ssEsc((s.player||'Player not tagged')+', '+(s.out||'no outcome'))}">${ttGlyph(ttShotMark(s), col)}</g>`).join('')+'</g></svg>';
+  return h+'<g class="tt-marks">'+shots.map((s,i)=>{ const m=ttShotMark(s);   // .tt-mx = the transparent touch target (ttFitHits keeps it >= 24px on screen)
+    return `<g class="tt-mk" data-tip="shot:${i}" tabindex="0" role="button" aria-label="${ssEsc((s.player||'Player not tagged')+', '+ttAttTxt(s)+', '+(s.out||'no outcome'))}"><circle class="tt-mx" cx="${+m.x.toFixed(2)}" cy="${+m.y.toFixed(2)}" r="${TT_MK_HIT}" fill="transparent"/>${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
 function ttAttTxt(s){ return (s.att==='1'?'1-point attempt':s.att==='2'?'2-point attempt':s.att==='G'?'Goal attempt':'Attempt type not tagged')+' · '+(s.dead?'dead ball':'open play'); }
 function ttShotCardHTML(s, gameOf){
@@ -2330,14 +2345,21 @@ function ttFiltersHTML(F){
     +`<div class="tt-fg"><span>SHOW</span><div class="chips" role="group" aria-label="Outcome and attempt type">${TT_CHIPS.map(([k,l])=>`<button type="button" class="chip${F.chips.has(k)?' on':''}" data-chip="${k}" aria-pressed="${F.chips.has(k)?'true':'false'}">${l}</button>`).join('')}</div></div>`
     +'</div>';
 }
+function ttMapKeyHTML(){
+  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
+  const dot=c=>`<circle cx="5" cy="5" r="3.6" fill="${c}" stroke="${ink}" stroke-width="1"/>`;
+  return '<div class="tt-key tt-mkey">'
+    +`<span class="tt-kg">${['1','2','G','P'].map(t=>gl(dot(TT_MK_COL[t]), TT_MK_LABEL[t])).join('')}</span>`
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'From play')}${gl(`<rect x="1.8" y="1.8" width="6.4" height="6.4" fill="${k}"/>`,'Dead ball')}</span>`
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,'Scored')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Missed')}</span></div>`;
+}
 function ttMapSectionHTML(V, F, o){
-  const S=V.S, gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, c=o.col;
+  const S=V.S;
   const key=F.view==='den'
     ?`<div class="tt-key"><span>Fewer shots</span><i class="tt-ramp den"></i><span>More shots</span></div>`
-    :`<div class="tt-key">${gl(`<circle cx="5" cy="5" r="3.2" fill="${c}"/>`,'1-pt')}${gl(`<path d="M5 1L9 5L5 9L1 5Z" fill="${c}"/>`,'2-pt')}${gl(`<path d="M5 1L9 8.2L1 8.2Z" fill="${c}"/>`,'Goal attempt')}${gl(`<rect x="2" y="2" width="6" height="6" fill="${c}"/>`,'Dead-ball 1-pt')}`
-      +`${gl(`<circle cx="5" cy="5" r="3.2" fill="${c}"/>`,'Scored')}${gl(`<circle cx="5" cy="5" r="2.8" fill="none" stroke="${c}" stroke-width="1.6"/>`,'Missed')}<span>Bigger marker = higher xP</span></div>`;
+    :ttMapKeyHTML();
   return ttFiltersHTML(F)+'<div class="tt-maprow"><div class="tt-card tt-mapcard">'
-    +(S.located?`<div class="tt-pitchbox">${ttMapSVG(V.mapShots, F, c)}</div>${key}`:'<div class="tt-empty">n/a — no shot locations to plot.</div>')
+    +(S.located?`<div class="tt-pitchbox">${ttMapSVG(V.mapShots, F)}</div>${key}`:'<div class="tt-empty">n/a — no shot locations to plot.</div>')
     +`<div class="dnote tt-locnote">${ssEsc(V.locNote)}</div></div>`
     +`<aside class="tt-card tt-ins" aria-live="polite">${ttInsightsHTML(V.insights, S.shots.length-S.located)}</aside></div>`;
 }
@@ -2408,6 +2430,7 @@ function ttRender(){
   TT_VIEW=ttView(TT_LAST, TT_SIDE, TT_F);
   const o=ttOpts();
   ttKeepFocus(body, ()=>{ body.innerHTML=ttHTML(TT_LAST, TT_VIEW, o); });
+  ttFitHits();
 }
 // a filter only re-draws the map and its insights
 function ttRenderMap(){
@@ -2416,7 +2439,15 @@ function ttRenderMap(){
   TT_VIEW=ttView(TT_LAST, TT_SIDE, TT_F);
   const o=ttOpts();
   ttKeepFocus(sec, ()=>{ sec.innerHTML=ttMapSectionHTML(TT_VIEW, TT_F, {col:o.mapCol}); });
+  ttFitHits();
 }
+// keep every marker's transparent touch target at least ~24px across on screen, whatever the map's width
+function ttFitHits(){
+  const sec=ssEl('ttMapSec'), svg=sec&&sec.querySelector?sec.querySelector('svg.tt-locs'):null; if(!svg||!svg.getBoundingClientRect) return;
+  const w=svg.getBoundingClientRect().width; if(!(w>0)) return;
+  const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r));
+}
+function ttHitR(mapPx){ return +Math.max(TT_MK_R+0.35, Math.min(6, 12/(mapPx/100))).toFixed(2); }
 function ttSetSide(s){ TT_SIDE=s==='against'?'against':'for'; ttRender(); }
 function ttSetFilter(f, v){
   if(f==='view') TT_F.view=v==='den'?'den':'loc';
