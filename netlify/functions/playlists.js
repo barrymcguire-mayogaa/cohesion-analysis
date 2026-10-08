@@ -11,6 +11,9 @@
  *   { action:'list' }                                   -> club + caller's personal playlists
  *   { action:'save', name, scope, data, id? }           -> insert (no id) or update own/club
  *   { action:'delete', id }                             -> delete a club or own personal playlist
+ *   { action:'append', id, items:[clip…] }              -> add clips to an existing playlist in ONE write,
+ *                                                          skipping clips it already holds -> { added, skipped, total }
+ *                                                          (admin only, same owner / section rules as an update)
  *
  * scope: 'club' (any admin can use/edit) | 'personal' (owner = caller email).
  */
@@ -23,6 +26,33 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// ── clips (the dashboard's dashClipOf shape) ────────────────────────────
+const MAX_APPEND = 200;
+const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+// Whitelist a clip's fields; null when it could not be played.
+function cleanClip(c) {
+  if (!c || typeof c !== 'object') return null;
+  const start = Number(c.start), end = Number(c.end), driveT = Number(c.driveT);
+  if (typeof c.videoId !== 'string' || !c.videoId.trim() || c.gameId == null || c.gameId === '') return null;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return null;
+  const out = { videoId: str(c.videoId, 40), gameId: str(c.gameId, 80), gameTitle: str(c.gameTitle, 200),
+    driveT: Number.isFinite(driveT) && driveT >= 0 ? driveT : start, start, end,
+    label: str(c.label, 200), code: str(c.code, 120), player: str(c.player, 120) };
+  if (c.eventId != null && c.eventId !== '') out.eventId = str(c.eventId, 80);
+  if (typeof c.angle === 'string' && c.angle) out.angle = str(c.angle, 40);
+  return out;
+}
+// The same event twice = same game + same event id, or (clips saved before event ids
+// were stored) same game + same code + same main-angle second.
+function clipKeys(c) {
+  if (!c || c.gameId == null) return [];
+  const g = String(c.gameId), keys = [];
+  if (c.eventId != null && c.eventId !== '') keys.push(g + '|id|' + c.eventId);
+  const t = Number(c.driveT);
+  if (Number.isFinite(t)) keys.push(g + '|t|' + String(c.code || '').toUpperCase().trim() + '|' + Math.round(t));
+  return keys;
+}
 
 exports.handler = async (event, context) => {
   try {
@@ -153,6 +183,40 @@ exports.handler = async (event, context) => {
       return { statusCode: 200, body: JSON.stringify({ ok: true, id: ins.id }) };
     }
 
+    // ── append: add a batch of clips to an existing playlist, without duplicates ──
+    // Admin only (the gate above); same owner and section rules as updating it via 'save'.
+    if (action === 'append') {
+      const { id } = body;
+      if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required' }) };
+      if (!Array.isArray(body.items) || !body.items.length) return { statusCode: 400, body: JSON.stringify({ error: 'items must be a non-empty array' }) };
+      if (body.items.length > MAX_APPEND) return { statusCode: 400, body: JSON.stringify({ error: 'Too many clips in one request (max ' + MAX_APPEND + ')' }) };
+      const clean = body.items.map(cleanClip);
+      if (clean.some(c => !c)) return { statusCode: 400, body: JSON.stringify({ error: 'Every clip needs a videoId, a gameId and start / end times' }) };
+      const { data: existing, error: exErr } = await supabase.from('playlists').select('id, name, scope, owner, data').eq('id', id).single();
+      if (exErr) throw new Error(exErr.message);
+      if (existing.scope === 'personal' && existing.owner !== email) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Not your template' }) };
+      }
+      if (!allowedSections.includes(sectionOf(existing.data))) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this section' }) };
+      }
+      const data = (existing.data && typeof existing.data === 'object') ? existing.data : {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      const seen = new Set(); items.forEach(it => clipKeys(it).forEach(k => seen.add(k)));
+      let added = 0, skipped = 0;
+      for (const c of clean) {
+        const keys = clipKeys(c);
+        if (keys.some(k => seen.has(k))) { skipped++; continue; }
+        keys.forEach(k => seen.add(k)); items.push(c); added++;
+      }
+      if (added) {
+        data.items = items; data.section = sectionOf(existing.data);   // the stored section never changes
+        const { error } = await supabase.from('playlists').update({ data }).eq('id', id);
+        if (error) throw new Error(error.message);
+      }
+      return { statusCode: 200, body: JSON.stringify({ ok: true, id, name: existing.name, added, skipped, total: items.length }) };
+    }
+
     if (action === 'delete') {
       const { id } = body;
       if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required' }) };
@@ -166,7 +230,7 @@ exports.handler = async (event, context) => {
       return { statusCode: 200, body: JSON.stringify({ ok: true }) };
     }
 
-    return { statusCode: 400, body: JSON.stringify({ error: 'action must be list, save or delete' }) };
+    return { statusCode: 400, body: JSON.stringify({ error: 'action must be list, save, append or delete' }) };
 
   } catch (error) {
     console.error('playlists error:', error);
