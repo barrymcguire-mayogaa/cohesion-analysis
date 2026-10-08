@@ -3175,6 +3175,33 @@ function tkZoneOfM(x, d){
   return (d<TK_SHORT_M?0:d<TK_MED_M?1:2)*3+(x<33.3?0:x<66.7?1:2)+1;
 }
 function tkZoneOf(x, y){ return (x==null||y==null)?null:tkZoneOfM(x, tkDist(y)); }
+// THE INSIDE-ARC RULE. A kickout must clear the 40 m arc, so the kicking team cannot properly WIN one inside it: a
+// "won" reading there is a landing on or just over the line. tkZoneOfM above is the RAW (geometric) zone; the zone a
+// kickout is COUNTED in is tkZoneFor:
+//  · a landing within TK_ARC_TOL_M of the arc line, on either side, is in the nearest zone outside the arc (1, 2 or 3);
+//  · a landing further inside the arc (or behind the 20 m line) that the KICKER WON is in the nearest of zones 1-3 too;
+//  · only a landing properly inside (beyond the tolerance, or behind the 20 m line) that the kicker LOST is "Inside arc".
+//  The tolerance is measured on the arc's radius (40 m from the goal-line midpoint), also behind the 20 m line.
+// Nearest zone outside the arc = the landing projected radially from the goal-line midpoint to just beyond the arc
+// (tkArcNearest): the left pocket = 1, the centre strip under the arc = 2, the right pocket = 3. The raw location is
+// kept for the landing map (the dot does not move); only the zone changes.
+const TK_ARC_TOL_M=2;
+function tkArcR(x, d){ return Math.hypot((x-50)*TK_WIDTH_M/100, d); }            // metres from the goal-line midpoint
+function tkArcNearest(x, d){
+  const lat=(x-50)*TK_WIDTH_M/100, r=Math.hypot(lat, d); if(!(r>0)) return 2;
+  const px=50+lat*((TK_ARC_M+.01)/r)*100/TK_WIDTH_M;
+  return px<33.3?1:px<66.7?2:3;
+}
+function tkZoneFor(x, d, won){
+  const raw=tkZoneOfM(x, d); if(raw!=='arc') return raw;
+  return (won||Math.abs(TK_ARC_M-tkArcR(x, d))<=TK_ARC_TOL_M)?tkArcNearest(x, d):'arc';
+}
+// a kicker-WON landing more than the tolerance inside the arc (or behind the 20 m line): the reason it is flagged, else ''
+function tkArcWhy(x, d, won){
+  if(!won||tkZoneOfM(x, d)!=='arc') return '';
+  const inM=TK_ARC_M-tkArcR(x, d), f=v=>String(Math.round(v*10)/10);
+  return inM>TK_ARC_TOL_M?'won, but tagged '+f(inM)+' m inside the arc':inM<-TK_ARC_TOL_M?'won, but tagged '+f(TK_START_M-d)+' m behind the 20m line':'';
+}
 function tkZoneLen(z){ return z==null?null:z==='arc'||z<=3?'S':z<=6?'M':'L'; }
 function tkType(out, kicker, other){
   let K=ssUC(out);
@@ -3227,7 +3254,7 @@ function tkSrcItems(events, teams, skip, shotMode){
   return items;
 }
 // Every kickout of a game, both teams, in time order; cached per events array.
-// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone, far, check, checkWhy, t, id, follow}], srcTagged, srcUnmatched, conv}
+// → {kos:[{e, gid, team (the kicker), opp, won, out, type, len, lenFrom, x, y, dist, zone (counted), zoneRaw (tagged), arcMoved, far, check, checkWhy, t, id, follow}], srcTagged, srcUnmatched, conv}
 const TK_CACHE=new WeakMap();
 function tkGameKos(meta, events){
   if(!meta||!Array.isArray(events)) return null;
@@ -3243,9 +3270,11 @@ function tkGameKos(meta, events){
     const out=ssLbl(e,SS_KO_GROUPS); if(!out) return;
     const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
     const opp=team===H?A:H, won=ssKoKickerWon(out, team, opp), co=ttCoordOf(e, conv), lab=tkLenLabel(e);
-    const dist=co?tkDist(co.y):null, zone=co?tkZoneOf(co.x, co.y):null, checkWhy=co?tkCheckWhy(co.x, dist, zone, lab, tkZoneLabel(e)):[];
+    // zoneRaw = where the landing is tagged (the label checks read it); zone = where it is counted (the Inside-arc rule)
+    const dist=co?tkDist(co.y):null, zoneRaw=co?tkZoneOf(co.x, co.y):null, zone=co?tkZoneFor(co.x, dist, won):null, checkWhy=co?tkCheckWhy(co.x, dist, zoneRaw, lab, tkZoneLabel(e)):[];
+    const arcWhy=co?tkArcWhy(co.x, dist, won):''; if(arcWhy) checkWhy.push(arcWhy);
     kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
-      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, far:dist!=null&&dist>TK_VIEW_M, check:checkWhy.length>0, checkWhy,
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, zoneRaw, arcMoved:zoneRaw==='arc'&&zone!=='arc', far:dist!=null&&dist>TK_VIEW_M, check:checkWhy.length>0, checkWhy,
       t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
   });
   kos.sort((a,b)=>a.t-b.t||a.i-b.i);
