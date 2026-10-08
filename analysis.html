@@ -3953,7 +3953,7 @@ function tvBigHTML(S, T, n){
 // iii. the three thirds (the selected team's view), for the Won | Lost switch: a small to-scale pitch strip, then the cards
 function tvThirdsHTML(R, V){
   const S=V.S, T=R.team, res=V.res, any=S.loc>0, rgb=TV_RGB[res], max=Math.max.apply(null, S.thirds.map(t=>t.n).concat([1]));
-  const cell=t=>{ const a=any?(0.12+0.68*t.n/max).toFixed(2):'0'; return `<div class="pz-col tv-pz" data-z="${t.k}" style="background:linear-gradient(rgba(${rgb},${a}),rgba(${rgb},${a})),rgba(11,11,16,.5)"><div class="pz-c">${any?ovPctTxt(t.pct):'n/a'}</div></div>`; };
+  const cell=t=>{ const a=any?(0.12+0.68*t.n/max).toFixed(2):'0'; return `<div class="pz-col tv-pz" data-z="${t.k}" style="background:linear-gradient(rgba(${rgb},${a}),rgba(${rgb},${a})),rgba(11,11,16,.78)"><div class="pz-c">${any?ovPctTxt(t.pct):'n/a'}</div></div>`; };
   let h=`<div class="pitchwrap tv-pitch" role="img" aria-label="${ssEsc('Turnovers '+res+' by third, '+T+' attacking left to right: '+(any?S.thirds.map(t=>TV_THIRD_NAME[t.k]+' '+t.n).join(', '):'no tagged thirds'))}"><div class="pitch">${ovPitchSVG()}<div class="pz">${S.thirds.map(cell).join('')}</div></div>`
     +`<div class="pz-dir"><span>${ssEsc(T)} ATTACKING</span><svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="6" x2="192" y2="6" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><i></i></div></div>`;
   h+='<div class="tv-thirds">'+S.thirds.map(t=>{ const typed=SS_TO_TYPES.some(q=>q[0]!=='X'&&t.types[q[0]]>0);
