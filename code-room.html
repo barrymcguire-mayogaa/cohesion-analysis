@@ -280,6 +280,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-periods.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="crests/index.js"></script>
 <script src="cohesion-edit.js"></script>
@@ -707,6 +708,10 @@ function sbET(){
   const e1=ti.e1??set(A.et1Start??(GAME&&GAME.et1Start))??ev.e1;
   let e2=ti.e2??set(A.et2Start??(GAME&&GAME.et2Start))??ev.e2;
   if(e1!=null&&e2!=null&&e2<=e1) e2=null;
+  // Extra time the file does not mark (everything after half-time says "2nd Half"): the shared rule Analysis › Momentum
+  // and the dashboard use (cohesion-periods.js). null for every game with no such throw-in → unchanged for it.
+  const U=(typeof cohUnmarkedET==='function')?cohUnmarkedET(GAME, EVENTS, sbHalves().h2, e1??null):null;
+  if(U) return { e1:U.e1, e2:U.e2, inferred:true };
   return { e1:e1??null, e2:e2??null };
 }
 function sbHalves(){

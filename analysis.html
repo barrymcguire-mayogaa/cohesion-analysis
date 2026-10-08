@@ -842,6 +842,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-crests.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-periods.js"></script>
 <script src="cohesion-graphics.js"></script>
 <script src="cohesion-xml.js"></script>
 <script src="cohesion-player.js"></script>
@@ -4814,13 +4815,10 @@ function ttInit(){
 //  A selection that mixes club and county games is added up by interval INDEX
 //  (1–6) and labelled generically ("1st third of 1H" …).
 // ═══════════════════════════════════════════════════════════════
-const MM_COUNTIES=new Set(('ANTRIM ARMAGH CARLOW CAVAN CLARE CORK DERRY DONEGAL DOWN DUBLIN FERMANAGH GALWAY KERRY KILDARE KILKENNY LAOIS LEITRIM LIMERICK LONGFORD LOUTH MAYO MEATH MONAGHAN OFFALY ROSCOMMON SLIGO TIPPERARY TYRONE WATERFORD WESTMEATH WEXFORD WICKLOW LONDON').split(' ').concat(['NEW YORK']));
-const MM_IV={county:{step:12, half:35}, club:{step:10, half:30}};
+// the level, the half lengths and the unmarked-extra-time rule are the shared ones (cohesion-periods.js): the dashboard and Code Room use the same
+const MM_IV={county:{step:12, half:COH_HALF_MIN.county}, club:{step:10, half:COH_HALF_MIN.club}};
 const MM_PER=['h1','h2','e1','e2'], MM_PTXT={h1:'1H', h2:'2H', e1:'ET1', e2:'ET2'};
-function mmLevel(meta){
-  if(String((meta&&meta.section)||'').toLowerCase()==='club') return 'club';
-  return [meta&&meta.homeTeam, meta&&meta.awayTeam].every(t=>MM_COUNTIES.has(ssUC(t)))?'county':'club';
-}
+function mmLevel(meta){ return cohGameLevel(meta); }
 // = the dashboard's sbPeriodOf: which period an event's half label means
 function mmPeriodOf(half){
   const h=String(half||'');
@@ -4848,14 +4846,12 @@ function mmStarts(meta, events){
   const set=v=>(v!=null&&+v>0)?+v:null;
   const e1=ti.e1??set(A.et1Start??G.et1Start)??ev.e1; let e2=ti.e2??set(A.et2Start??G.et2Start)??ev.e2;
   if(e1!=null&&e2!=null&&e2<=e1) e2=null;
-  // EXTRA TIME THE FILE DOES NOT MARK (Analysis only — the dashboard keeps such a game in its 2nd half): when no event is
-  // marked as extra time and the game has no saved ET start, a THROW-IN more than a half and five minutes after the
-  // 2nd-half throw-in starts ET1, and the next THROW-IN at least five minutes later starts ET2. etInferred says so.
-  if(e1==null&&ev.e2==null&&h2!=null){
-    const lim=h2+(MM_IV[mmLevel(G)].half+5)*60; let x1=null, x2=null;
-    (events||[]).forEach(e=>{ if(!e||!isTI(e)) return; const t=tOf(e); if(t>lim&&(x1==null||t<x1)) x1=t; });
-    if(x1!=null){ (events||[]).forEach(e=>{ if(!e||!isTI(e)) return; const t=tOf(e); if(t>=x1+300&&(x2==null||t<x2)) x2=t; }); return {h1, h2, e1:x1, e2:x2, etInferred:true}; }
-  }
+  // EXTRA TIME THE FILE DOES NOT MARK (the shared rule, cohesion-periods.js cohUnmarkedET — the dashboard's and Code Room's
+  // scoreboard use the same): when no event is marked as extra time and the game has no saved ET start, a THROW-IN more
+  // than a half and five minutes after the 2nd-half throw-in starts ET1, and the next THROW-IN at least five minutes later
+  // starts ET2. etInferred says so.
+  const X=cohUnmarkedET(G, events, h2, e1);
+  if(X) return {h1, h2, e1:X.e1, e2:X.e2, etInferred:true};
   return {h1, h2:h2??null, e1:e1??null, e2:e2??null, etInferred:false};
 }
 // an event's period and the minute within it → {p:'h1'|'h2'|'e1'|'e2', min, src:'clock'|'time'}; null when it has neither

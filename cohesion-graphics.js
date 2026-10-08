@@ -112,9 +112,26 @@ function giSup(e){
     _giSupC={a:ALL,n:ALL.length,f:(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(ALL):()=>false};
   return _giSupC.f(e);
 }
+// Extra time the file does not mark (cohesion-periods.js cohUnmarkedET, resolved by the host page — the dashboard passes
+// its scoreboard's answer): {e1, e2} on the events' time line, or null. A page that gives no host.unmarkedET, and every
+// game without unmarked extra time, gets null → halfOf(e) is e.half and nothing below changes.
+// Asked of the host again after a second, so an edit to a throw-in or to a half label is picked up without a reload.
+let _etC={a:null,n:-1,at:0,v:null};
+function etInferred(){
+  if(typeof host.unmarkedET!=='function') return null;
+  const now=Date.now();
+  if(_etC.a!==ALL||_etC.n!==ALL.length||now-_etC.at>1000){ let v=null; try{ v=host.unmarkedET()||null; }catch(_){ v=null; } _etC={a:ALL,n:ALL.length,at:now,v:(v&&v.e1!=null)?v:null}; }
+  return _etC.v;
+}
+// the period an event belongs to, as a half label: its own, or ET 1st / 2nd Half once the unmarked extra time has started
+function halfOf(e){
+  const X=etInferred(); if(!X||!e) return e?e.half:undefined;
+  const t=(e.driveT??e.start)??0;
+  return (X.e2!=null&&t>=X.e2)?'ET 2nd Half':t>=X.e1?'ET 1st Half':e.half;
+}
 function setContext(c){
   GAME=(c&&c.game)||{}; ALL=(c&&c.events)||[];
-  _giSupC={a:null,n:-1,f:()=>false}; _sideMap=null; _sideKey=''; dashXpInvalidate();
+  _giSupC={a:null,n:-1,f:()=>false}; _etC={a:null,n:-1,at:0,v:null}; _sideMap=null; _sideKey=''; dashXpInvalidate();
 }
 function statPeriodNow(){ return statPeriod; }
 // ═════════════ BEGIN — moved unchanged from dashboard.html ═════════════
@@ -146,14 +163,15 @@ function statSide(e){ return _statSideMap()[_tnorm(e.team)]||null; }
 // Period splits. Quarters come from the per-half game clock (Q1 = 1H before
 // 18:00, Q2 = the rest, etc.); ET events only count under Full / ET chips.
 let statPeriod='full';
-function statQOf(e){ const m=/^([12])H\s+(\d+):/.exec(e.gameTime||''); if(!m)return null; const h=+m[1],min=+m[2]; return h===1?(min<18?'q1':'q2'):(min<18?'q3':'q4'); }
+function statQOf(e){ if(etInferred()&&halfOf(e)!==e.half) return null;   // unmarked extra time is not a quarter
+  const m=/^([12])H\s+(\d+):/.exec(e.gameTime||''); if(!m)return null; const h=+m[1],min=+m[2]; return h===1?(min<18?'q1':'q2'):(min<18?'q3':'q4'); }
 function statPred(e){
   switch(statPeriod){
     case 'full': return true;
-    case '1h': return e.half==='1st Half';
-    case '2h': return e.half==='2nd Half';
-    case 'et1': return e.half==='ET 1st Half';
-    case 'et2': return e.half==='ET 2nd Half';
+    case '1h': return halfOf(e)==='1st Half';
+    case '2h': return halfOf(e)==='2nd Half';
+    case 'et1': return halfOf(e)==='ET 1st Half';
+    case 'et2': return halfOf(e)==='ET 2nd Half';
     default: return statQOf(e)===statPeriod;
   }
 }
@@ -2236,7 +2254,7 @@ function dashXpSectionHtml(){
   return statSection(title,'',body);
 }
 // ═════════════ END — moved unchanged from dashboard.html ═════════════
-return { setContext, giSup, statPeriodNow,
+return { setContext, giSup, statPeriodNow, halfOf, etInferred,
   esc, _tnorm, _statSideMap, statSide, statQOf, statPred, setStatPeriod, tallyOutcome, koWonCount, codeCount, statNav, statSection, statRows, pct, sumKeys, locPitchSvg, locShotGlyph, koPlotY, dashCoordOf, dashXpInvalidate, dashCoordConv, dashXpModel, dashXpLevel, dashShotPts, dashXpAll, dashXpOf, DASH_XP_CATS, dashXpSummary, dashXpF, dashXpSigned, dashXpScale, locEvents, openLocMap, closeLocMap, locSetTeam, renderLocMap, cohPacksLoad, cohPacksStore, cohPackTeam, cohTeamColourDefault, cohImportTeamPack, dashComputeStats, dashBuildStatsCanvas, dashShareStatsCard, dashMomentumData, dashBuildMomentumCanvas, dashBuildWormCanvas, dashBuildXpWormCanvas, dashMapData, dashMapSvg, dashSvgImg, dashGlyph, dashXpSizeKey, dashBuildMapCanvas, dashBuildShotMixCanvas, dashBuildPossDoughnut, dashBuildKoRetentionCanvas, dashBuildScoreSourceCanvas, dashExportPDF, dashDlBlob, dashTeamHexes, dashTeamSecondary, dashLoadImg, dashHexLum, dashHexMix, dashFileStem, dashBusy, dashBuildMapsImage, dashDownloadMapsImage, dashInfographicData, dashBuildInfographic, dashDownloadInfographic, dashXpChartSvg, dashXpSectionHtml };
 }
 // the names the dashboard keeps as page globals (its inline handlers and its
