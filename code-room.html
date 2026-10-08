@@ -2166,7 +2166,22 @@ function crSyncApply(scope){
   if(!set.length) return;
   const n=set.length;
   const scopeMsg = scope==='group' ? 'the '+n+' selected event'+(n>1?'s':'') : 'the reference and every later event'+(scope==='half'?' in this half':'');
-  if(scope!=='event' && !confirm('Shift '+n+' event'+(n>1?'s':'')+' by '+(delta>=0?'+':'')+delta.toFixed(1)+'s?\n\nThis moves '+scopeMsg+'. You can Undo before saving.')) return;
+  const shiftMsg='Shift '+n+' event'+(n>1?'s':'')+' by '+(delta>=0?'+':'')+delta.toFixed(1)+'s?';
+  // On another camera angle a wide Sync is usually the wrong tool: it moves the
+  // events for EVERY angle. Offer "Align this angle" (this angle's start times only).
+  if(scope!=='event' && crAngleIdx>0 && crAngles()[crAngleIdx]){
+    const lbl=crAALabel(crAngleIdx);
+    cohesionModal({ title:'Sync on '+esc(lbl)+'?',
+      message:esc(shiftMsg)+'<br><br>This moves '+esc(scopeMsg)+'. You can Undo before saving.<br><br>'
+        +'<b>You are on '+esc(lbl)+'. Sync moves the events for EVERY camera angle. If only this angle is out, use Align this angle instead.</b>',
+      buttons:[{label:'Cancel',value:'cancel'},{label:'Open Align this angle',value:'align'},{label:'Continue',value:'continue',primary:true}] })
+    .then(v=>{ if(v==='continue') crSyncShift(R,set,delta); else if(v==='align') crAAOpen(); });
+    return;
+  }
+  if(scope!=='event' && !confirm(shiftMsg+'\n\nThis moves '+scopeMsg+'. You can Undo before saving.')) return;
+  crSyncShift(R,set,delta);
+}
+function crSyncShift(R,set,delta){
   undoStack.push({type:'syncshift', snaps:set.map(e=>({id:e._rowId, driveT:e.driveT, start:e.start, end:e.end, dirty:!!e._dirty}))});
   set.forEach(e=>{ e.driveT=Math.max(0,(e.driveT||0)+delta); if(e.start!=null) e.start=e.start+delta; if(e.end!=null) e.end=e.end+delta; if(!e._new) e._dirty=true; });
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
