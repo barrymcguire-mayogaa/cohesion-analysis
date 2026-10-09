@@ -487,7 +487,7 @@ function dashComputeStats(){
     return st||shots(s).filter(e=>/GOAL/i.test((e.labels||{})['Shot Attempts']||'')).length; };
   const KO=/KICKOUT|\bKO\b/i;
   const koOut=e=>up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['KickoutOutcome']||(e.labels||{})['PO_Result']||e.outcome||'');
-  const koAll=s=>of(s,KO).filter(e=>koOut(e));
+  const koAll=s=>of(s,KO).filter(e=>koOut(e)&&!giSup(e));   // a converted GI / GIU kickout: its derived KO is counted instead
   const koWonN=s=>koAll(s).filter(e=>koWonStr(koOut(e),s)).length;
   const koBreak=(s,won)=>koAll(s).filter(e=>koOut(e).includes(won?'BREAK WON':'BREAK LOST')).length;
   const fouls=(s,z)=>of(s,/\bFOUL\b/i).filter(e=>{ if(!z) return true;
@@ -926,7 +926,7 @@ function dashMapData(){
       const co=dashCoordOf(e);
       const db=/SHOT DEAD/i.test(e.code||'');
       if(co) out.shots.push({s,x:co.x,y:co.y,scored,shape,db,xp:dashXpOf(e)}); else out.shotMiss[s]++;
-    } else if(/KICKOUT|\bKO\b/i.test(e.code||'')){
+    } else if(/KICKOUT|\bKO\b/i.test(e.code||'')&&!giSup(e)){
       const k=up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['PO_Result']||e.outcome||'');
       if(!k) return;
       const won=koWonStr(k,statSide(e));
@@ -1120,7 +1120,7 @@ function dashBuildPossDoughnut(hHex,aHex){
 // (c) Kickout retention — by length and by half, mirrored per team.
 function dashBuildKoRetentionCanvas(hHex,aHex){
   const up=s=>String(s||'').toUpperCase();
-  const koOf=s=>ALL.filter(e=>statSide(e)===s&&/KICKOUT|\bKO\b/i.test(e.code||'')&&up((e.labels||{})['Kickout Outcomes']||e.outcome||''));
+  const koOf=s=>ALL.filter(e=>statSide(e)===s&&!giSup(e)&&/KICKOUT|\bKO\b/i.test(e.code||'')&&up((e.labels||{})['Kickout Outcomes']||e.outcome||''));
   const won=e=>koWonStr(up((e.labels||{})['Kickout Outcomes']||e.outcome||''),statSide(e));
   const lenOf=e=>up((e.labels||{})['Kickout Locations']||'');
   const ROWS=[['ALL KICKOUTS',()=>true],['SHORT',e=>lenOf(e).includes('SHORT')],['MEDIUM',e=>lenOf(e).includes('MEDIUM')],
@@ -1377,7 +1377,7 @@ async function dashExportPDF(){
   if(anyKO){
     secHead('Kickout Analysis');
     [['h',Hn,colH],['a',An,colA]].forEach(([side,team,col])=>{
-      const own=ALL.filter(e=>statSide(e)===side&&KOre.test(e.code||'')&&koOut2(e));
+      const own=ALL.filter(e=>statSide(e)===side&&!giSup(e)&&KOre.test(e.code||'')&&koOut2(e));
       if(!own.length) return;
       const won=own.filter(e=>koWonStr(koOut2(e),statSide(e))).length;
       checkPage(12);
@@ -1688,7 +1688,7 @@ function dashInfographicData(S){
   // kickouts — retained on the WON verdict (KT/RT vocabularies as elsewhere)
   const koOut=e=>up(lab(e,'Kickout Outcomes')||lab(e,'KickoutOutcome')||lab(e,'PO_Result')||e.outcome);
   const koWon=(k,s)=>koWonStr(k,s);
-  const kos=ev.filter(x=>/KICKOUT|\bKO\b/.test(x.c)).map(x=>({...x,out:koOut(x.e),len:up(lab(x.e,'Kickout Locations'))})).filter(x=>x.out);
+  const kos=ev.filter(x=>/KICKOUT|\bKO\b/.test(x.c)&&!giSup(x.e)).map(x=>({...x,out:koOut(x.e),len:up(lab(x.e,'Kickout Locations'))})).filter(x=>x.out);
   const lenTagged=kos.some(x=>x.len);
   // turnovers
   const tos=ev.filter(x=>/\bTOS?\b|TURNOVER/.test(x.c)).map(x=>({...x,out:up(lab(x.e,'Turnover Outcomes'))}));

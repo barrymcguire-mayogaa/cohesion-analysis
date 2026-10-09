@@ -622,13 +622,13 @@ function detectFormat(evs){
 const CHIP_DEFS={
   gi:[
     {label:'Shots', key:'shots', filter:e=>e.category==='Shots & Scores'&&!giSup(e)&&!giComp(e), color:'#ffd700', dark:true},
-    {label:'KOs',   key:'kos',   filter:e=>e.category==='Kickouts',        color:'#ab47bc'},
+    {label:'KOs',   key:'kos',   filter:e=>e.category==='Kickouts'&&!giSup(e), color:'#ab47bc'},
     {label:'TOs',   key:'tos',   filter:e=>e.category==='Turnovers',       color:'#ff7043'},
   ],
   giu:[
     {label:'Possession', key:'poss',   filter:e=>/\bPoss\b/i.test(e.code),          color:'#42a5f5'},
     {label:'Shots',      key:'shots',  filter:e=>(/Shot\s*\([PF]\)/i.test(e.code)&&!giSup(e))||/SHOT OPEN PLAY|SHOT DEAD/i.test(e.code||''),   color:'#ffd700', dark:true},
-    {label:'KOs',        key:'kos',    filter:e=>/Kickout/i.test(e.code),            color:'#ab47bc'},
+    {label:'KOs',        key:'kos',    filter:e=>(/Kickout/i.test(e.code)&&!giSup(e))||/\sKO$/i.test(e.code||''), color:'#ab47bc'},
     {label:'TOs',        key:'tos',    filter:e=>/Turnover/i.test(e.code),           color:'#ff7043'},
     {label:'Fouls',      key:'fouls',  filter:e=>/\bFoul\b/i.test(e.code),           color:'#f44336'},
     {label:'Cards',      key:'cards',  filter:e=>/\bCard\b/i.test(e.code),           color:'#ef5350'},

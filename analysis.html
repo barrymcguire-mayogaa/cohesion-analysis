@@ -6252,6 +6252,9 @@ function pyKoWho(k){
   const e=k&&k.e; if(!e) return null;
   const w=ssLblCI(e,['Kickout Won By']);
   if(w) return {name:w, key:pyKey(w), team:k.won?k.team:k.opp, won:true, role:'winner'};
+  // a converted GI kickout the kicking team LOST keeps its target as 'Kickout Target' (cohesion-gi.js)
+  const tg=ssLblCI(e,['Kickout Target']);
+  if(tg) return {name:tg, key:pyKey(tg), team:k.team, won:!!k.won, role:'target'};
   if(/(^|\s)KICKOUT$/.test(ssUC(e.code))&&/(^|\s)(KT|RT)\s/.test(ssUC(k.out)+' ')){
     const p=String(e.player||ssLblCI(e,['Player'])||'').trim();
     if(p) return {name:p, key:pyKey(p), team:k.team, won:!!k.won, role:'target'};
