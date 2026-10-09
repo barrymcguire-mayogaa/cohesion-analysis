@@ -1041,13 +1041,21 @@ async function savePlayerTag(ev,name){
 // tagged for that team in this game (player, "<TEAM> Player Labels", Assist
 // values) — de-duplicated case/space-insensitively, shooter excluded.
 // "Other…" prompts for any free name.
-function dashAssistChoices(ev){
-  const T=String(ev.team||'').toUpperCase();
-  const side=T&&T===String(GAME.homeTeam||'').toUpperCase()?'home':'away';
+// g (optional) = the group: one with playersTeam (Kickout Won By) offers the
+// team that WON the kickout — the row's team, the opposition, or both while
+// the outcome is unknown (cohesionPlayersTeam) — and leaves nobody out.
+function dashAssistChoices(ev, g){
+  const up=s=>String(s||'').toUpperCase();
+  const own=up(ev.team), H=up(GAME.homeTeam), A=up(GAME.awayTeam), opp=own===H?A:own===A?H:'';
+  const pt=(g&&window.cohesionPlayersTeam)?window.cohesionPlayersTeam(g, ev.labels, ev.outcome):'own';
+  const teams=pt==='opp'?[opp]:pt==='both'?[H,A]:[own];
   const key=s=>String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase();
   const tidy=s=>String(s==null?'':s).replace(/\s+/g,' ').trim();
-  const seen=new Set(), out=[], me=key(ev.player); if(me) seen.add(me);
+  const noSelf=!(g&&window.cohesionPlayersExcludeSelf)||window.cohesionPlayersExcludeSelf(g);
+  const seen=new Set(), out=[], me=noSelf?key(ev.player):''; if(me) seen.add(me);
   const add=n=>{ const k=key(n); if(!k||seen.has(k)) return; seen.add(k); out.push(tidy(n)); };
+  teams.forEach(T=>{
+  const side=T&&T===H?'home':'away';
   const list=GAME.rosters&&GAME.rosters[side];
   if(Array.isArray(list)) list.forEach(r=>add(r&&typeof r==='object'?(r.name!=null?r.name:r.player):r));
   const pr=GAME.playerRoster&&GAME.playerRoster[side==='home'?'teamA':'teamB'];
@@ -1057,6 +1065,7 @@ function dashAssistChoices(ev){
   ALL.forEach(x=>{ if(String(x.team||'').toUpperCase()!==T) return; if(x.player) tagged.push(x.player);
     const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
+  });
   return out;
 }
 function renderCustomTags(ev){
@@ -1068,7 +1077,7 @@ function renderCustomTags(ev){
     const val=(ev.labels&&ev.labels[g.name])||'';
     let choices=(g.options||[]).slice();
     if(g.players){                                   // Assist: team sheet + this game's players, minus the shooter
-      choices=dashAssistChoices(ev);
+      choices=dashAssistChoices(ev, g);
       if(val&&!choices.includes(val)) choices.unshift(val);
     }
     const opts=[`<option value="">${esc(g.name)}…</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`))
@@ -1083,7 +1092,7 @@ function dashCustomTagChange(sel){
   const ev=ALL.find(e=>String(e._rowId)===String(sel.dataset.row)); if(!ev){alert('Event reference missing.');return;}
   let v=sel.value;
   if(v==='__other__'){
-    v=String(prompt('Assist — player name:')||'').replace(/\s+/g,' ').trim();
+    v=String(prompt((sel.dataset.group||'Assist')+' — player name:')||'').replace(/\s+/g,' ').trim();
     if(!v){ renderCustomTags(ev); return; }          // cancelled: restore the select
   }
   saveCustomTag(ev._rowId, sel.dataset.group, v);

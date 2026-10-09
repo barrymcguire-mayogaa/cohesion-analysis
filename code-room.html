@@ -2445,7 +2445,7 @@ function renderPanel(){
     const val=curMap[d.name.toLowerCase()]||'';
     if(d.players){                                  // Assist: type-to-search box (crAssistBoxHtml)
       const need=shotDraft&&!val;
-      return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val,draft.player,need)}</div>`;
+      return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val,crAssistSelf(d,draft.player),need)}</div>`;
     }
     const choices=crGroupOpts(d,{code:draft.code,team:e.team,player:draft.player});
     if(val&&!choices.includes(val)) choices.unshift(val);
@@ -3192,30 +3192,71 @@ function crAssistRemember(side, name){
 function crGameNames(side){
   const T=crTeamOf(side), out=[];
   EVENTS.forEach(e=>{
+    const L=e.labels||{};
+    // a Kickout Won By name belongs to whichever team won that kickout
+    if(L['Kickout Won By']&&crKoWinnerTeam(e)===T) out.push(L['Kickout Won By']);
     if(String(e.team||'').toUpperCase()!==T) return;
     if(e.player) out.push(e.player);
-    const L=e.labels||{};
     Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
 }
 // Ordered, de-duplicated suggestions: {items:[name], tags:Map(name → group)}.
-function crAssistSuggest(side, shooter){
+// side: 'home' | 'away', or a list of sides (Kickout Won By: the winning
+// team's side, or both while the outcome is unknown). named → each tag leads
+// with the team's name, so a list of two teams is grouped team by team.
+function crAssistSuggest(side, shooter, named){
   const seen=new Set(), items=[], tags=new Map();
   const me=crNameKey(shooter); if(me) seen.add(me);
   const add=(n,tag)=>{ const k=crNameKey(n); if(!k||seen.has(k)) return; seen.add(k); const t=crNameTidy(n); items.push(t); tags.set(t,tag); };
-  crSheetNames(side).forEach(n=>add(n,'team sheet'));
-  crGameNames(side).forEach(n=>add(n,'this game'));
-  crAssistOtherNames(crTeamOf(side)).forEach(n=>add(n,'other games'));
+  const sides=Array.isArray(side)?side:[side];
+  sides.forEach(sd=>{
+    const pre=(named||sides.length>1)?((crTeamOf(sd)||sd)+' · '):'';
+    crSheetNames(sd).forEach(n=>add(n,pre+'team sheet'));
+    crGameNames(sd).forEach(n=>add(n,pre+'this game'));
+    crAssistOtherNames(crTeamOf(sd)).forEach(n=>add(n,pre+'other games'));
+  });
   return {items, tags};
+}
+// ── players:true groups other than Assist (Kickout Won By) ──
+// The box is the same; only WHICH team's players it offers differs, and that
+// is worked out each time the list opens (cohesion-config.js
+// cohesionPlayersTeam) from the row's CURRENT labels — the Edit / Locate
+// draft, or the row itself in Code mode — so changing the kickout's outcome
+// changes the list without a re-render. data-side stays the row's own side.
+function crAssistGroupDef(name){ const n=String(name||'').toLowerCase(); return (window.COHESION_LABEL_GROUPS||[]).find(x=>x&&x.players&&x.name.toLowerCase()===n)||null; }
+// The row's own player is left out of Assist (the shooter), not of a group
+// whose player may be anyone.
+function crAssistSelf(def, player){ return (window.cohesionPlayersExcludeSelf&&!cohesionPlayersExcludeSelf(def))?'':(player||''); }
+function crAssistRowLabels(where, rowId){
+  if(where!=='code'&&draft&&String(activeId)===String(rowId)){ const L={}; draft.groups.forEach(({g,v})=>{ L[g]=v; }); return {labels:L, outcome:''}; }
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId));
+  return {labels:(e&&e.labels)||{}, outcome:(e&&e.outcome)||''};
+}
+// d = {where, group, row, side} (an input's dataset) → the side(s) offered.
+function crAssistSides(d){
+  d=d||{};
+  const own=d.side==='home'?'home':'away', opp=own==='home'?'away':'home';
+  const def=crAssistGroupDef(d.group);
+  if(!def||!def.playersTeam||!window.cohesionPlayersTeam) return [own];
+  const c=crAssistRowLabels(d.where, d.row), t=cohesionPlayersTeam(def, c.labels, c.outcome);
+  return t==='own'?[own]:t==='opp'?[opp]:['home','away'];
+}
+// The team (upper case) that won kickout row e, '' when its outcome doesn't say.
+function crKoWinnerTeam(e){
+  const def=crAssistGroupDef('Kickout Won By');
+  if(!e||!def||!window.cohesionPlayersTeam) return '';
+  const t=cohesionPlayersTeam(def, e.labels, e.outcome);
+  return String(t==='own'?(e.team||''):t==='opp'?crOppTeamOf(e.team):'').toUpperCase();
 }
 // Markup for one box. Values go in data-* attributes (esc'd); behaviour is
 // attached by crAssistWire after the container's innerHTML is set.
 function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need){
-  const show=cur&&!crOnSheet(side,cur);
+  const sides=crAssistSides({where, group, row:rowId, side});
+  const show=cur&&sides.length===1&&!crOnSheet(sides[0],cur);
   return `<div class="crasst${need?' need':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}" value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
-    `<span class="crasst-x" title="Clear (no assist)">✕</span>`+
+    `<span class="crasst-x" title="${group==='Assist'?'Clear (no assist)':'Clear'}">✕</span>`+
     `<span class="crasst-add" title="Add this name to the game's team sheet (saved with the session)"${show?'':' style="display:none"'}>+ add to team sheet</span></div>`;
 }
 function crAssistWire(root){
@@ -3246,28 +3287,29 @@ function crAssistCur(inp){
   return r?r.v:'';
 }
 function crAssistOpen(inp, all){
-  const d=inp.dataset||{};
-  crAssistLoadOther(crTeamOf(d.side));              // lazy, background — never blocks typing
-  const s=crAssistSuggest(d.side, d.shooter);
+  const d=inp.dataset||{}, sides=crAssistSides(d);
+  sides.forEach(sd=>crAssistLoadOther(crTeamOf(sd)));   // lazy, background — never blocks typing
+  const s=crAssistSuggest(sides, d.shooter, d.group!=='Assist');
   const cur=crAssistCur(inp);
   acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
     { tag:n=>s.tags.get(n), all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
 }
 function crAssistAddSync(inp){
   const a=inp.parentNode&&inp.parentNode.querySelector('.crasst-add');
-  if(a) a.style.display=(crNameTidy(inp.value)&&!crOnSheet((inp.dataset||{}).side,inp.value))?'':'none';
+  const sides=crAssistSides(inp.dataset);            // two teams offered → no way to know whose sheet
+  if(a) a.style.display=(crNameTidy(inp.value)&&sides.length===1&&!crOnSheet(sides[0],inp.value))?'':'none';
 }
 function crAssistCommit(inp){
   const cur=crAssistCur(inp); if(cur===null) return;
-  const d=inp.dataset||{};
+  const d=inp.dataset||{}, sides=crAssistSides(d);
   let v=crNameTidy(inp.value);
   if(v){   // adopt a known spelling when only case/spacing differ
-    const hit=crAssistSuggest(d.side,'').items.find(n=>crNameKey(n)===crNameKey(v));
+    const hit=crAssistSuggest(sides,'').items.find(n=>crNameKey(n)===crNameKey(v));
     if(hit) v=hit;
   }
   if(v===cur) return;
-  if(v) crAssistRemember(d.side, v);
-  if(d.where==='code') codeShotAssist(v);
+  if(v&&sides.length===1) crAssistRemember(sides[0], v);
+  if(d.where==='code') codeShotAssist(v, d.group||'Assist');
   else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
 }
 // (c) Players used for a team in its OTHER games. listGames (already loaded
@@ -3393,13 +3435,14 @@ async function crSaveRoster(){
   crBackup(); crUpdatePending();
 }
 function crAssistAddToSheet(inp){
-  const d=inp.dataset||{}, name=crNameTidy(inp.value);
-  if(!name) return;
-  crRosterAdd(d.side, name);
-  crAssistRemember(d.side, name);
+  const d=inp.dataset||{}, name=crNameTidy(inp.value), sides=crAssistSides(d);
+  if(!name||sides.length!==1) return;
+  const side=sides[0];
+  crRosterAdd(side, name);
+  crAssistRemember(side, name);
   crAssistAddSync(inp);
   crBackup(); crUpdatePending();
-  if(codeMode.on&&codeMode.team===d.side&&document.getElementById('codePlayers')) buildCodePlayers();
+  if(codeMode.on&&codeMode.team===side&&document.getElementById('codePlayers')) buildCodePlayers();
   crAssistCommit(inp);                           // the typed name is also this shot's assist
 }
 function crAssistKey(ev){
@@ -3749,6 +3792,13 @@ function renderCodeLink(){
     html+=`<div class="clblrow"><span class="clbl-g">Assist</span>`+
       crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA,sq.player,!curA)+`</div>`;
     }
+    // any other players:true group (Kickout Won By) — same box, never
+    // flagged and never focused: carry on tagging to leave it blank
+    (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
+      if(!g.players||g.name==='Assist') return;
+      html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
+        crAssistBoxHtml('code',g.name,sq._rowId,crSideOf(sq.team),(sq.labels||{})[g.name]||'',crAssistSelf(g,sq.player),false)+`</div>`;
+    });
   }
   box.style.display='';
   box.innerHTML=html;
@@ -3762,11 +3812,12 @@ function codeShotQual(group,value){
   if(group==='Kickout Locations') crSyncKoTOLoc(sq);
   crBackup(); crUpdatePending(); renderCodeLink();
 }
-function codeShotAssist(value){
+function codeShotAssist(value, group){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
   if(!sq) return;
+  group=group||'Assist';
   sq.labels=sq.labels||{};
-  if(value) sq.labels['Assist']=value; else delete sq.labels['Assist'];
+  if(value) sq.labels[group]=value; else delete sq.labels[group];
   crBackup(); crUpdatePending(); renderCodeLink();
 }
 function codeApplyOutcome(value){
