@@ -67,6 +67,17 @@ function cohXmlTeamGroup(g, e, teams, meta){
   const opp=(teams||[]).find(t=>t.toUpperCase()!==own.toUpperCase());
   return opp?cas(opp)+' '+base:g;
 }
+const COH_XML_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
+// the match order of a team's rows (= code-room.html CR_TYPE_ORDER)
+const COH_ROW_TYPE_ORDER=[
+  ['TEAM POSSESSION'],['65M ENTRY'],['ATTACKS','ATTACK'],['SHOT OPEN PLAY'],['SHOT DEAD BALL','SHOT DEADBALL'],
+  ['GOAL'],['1 POINT','POINT'],['2 POINT'],['SCORE SOURCE'],['SCORE ASSIST'],
+  ['WIDE'],['SHORT'],['BLOCKED'],['WOODWORK'],['SAVE'],["'45",'45'],['MISS'],
+  ['SHOT SOURCE'],['SHOT ASSIST'],['KICKOUT','KICKOUTS','KO'],['BREAK WON'],['BREAK LOST'],
+  ['TACKLE','TACKLES'],['HIT','HITS'],['FOUL','FOULS'],['TECHNICAL FOUL'],['CARD','CARDS'],
+  ['TURNOVER','TURNOVERS','TOS'],['BLOCK DOWN'],['GOAL ATTEMPT','GOAL CHANCE'],
+  ['SUB','SUBS','SUBSTITUTION','BLOOD SUB']];
+const COH_ROW_TYPE_RANK={}; COH_ROW_TYPE_ORDER.forEach((vs,i)=>vs.forEach(v=>COH_ROW_TYPE_RANK[v]=i));
 // A time as the file had it: four decimals as before when that is exact, else every digit.
 function cohXmlNum(x){ const n=+x||0, f=n.toFixed(4); return (+f===n)?f:String(n); }
 /* The <ROWS> section: the file's rows first, in file order with their colours (meta.rows — an untouched game
@@ -87,7 +98,14 @@ function cohXmlRows(events, codes, meta, opts){
     if(best) return best;
     return !team?'#9ca3af':team===HT?(meta.homeColor||'#4fc3f7'):team===AT?(meta.awayColor||'#22c55e'):'#9ca3af'; };
   const rest=[]; (codes||[]).forEach(c=>{ if(c&&!seen.has(c)){ seen.add(c); rest.push(c); } });
-  if(Array.isArray(opts.order)){ const rank=new Map(opts.order.map((c,i)=>[c,i])); rest.sort((a,b)=>(rank.has(a)?rank.get(a):1e9)-(rank.has(b)?rank.get(b):1e9)); }
+  // period rows, THROW-IN, the home team's rows, the away team's, then the rest — each team's in the match order
+  // of COH_ROW_TYPE_ORDER (what Code Room's Timeline shows for a game with no saved row order) …
+  const blk=c=>{ const C=String(c).toUpperCase(); if(COH_XML_PERIODS.includes(c)) return [0, COH_XML_PERIODS.indexOf(c)]; if(C==='THROW-IN'||C==='THROW IN') return [1, 0];
+    const b=HT&&C.startsWith(HT+' ')?[2, C.slice(HT.length+1)]:AT&&C.startsWith(AT+' ')?[3, C.slice(AT.length+1)]:[4, C]; const r=COH_ROW_TYPE_RANK[b[1]]; return [b[0], r==null?COH_ROW_TYPE_ORDER.length:r]; };
+  const first=new Map(rest.map((c,i)=>[c,i]));
+  rest.sort((a,b)=>{ const x=blk(a), y=blk(b); return x[0]-y[0]||x[1]-y[1]||first.get(a)-first.get(b); });
+  // … unless the caller has an order of its own (Code Room: the rows as the user arranged them); period rows stay first
+  if(Array.isArray(opts.order)&&opts.order.length){ const rank=new Map(opts.order.map((c,i)=>[c,i])), rk=c=>COH_XML_PERIODS.includes(c)?-1:rank.has(c)?rank.get(c):1e9; const pos=new Map(rest.map((c,i)=>[c,i])); rest.sort((a,b)=>rk(a)-rk(b)||pos.get(a)-pos.get(b)); }
   rest.forEach(c=>{ const col=(opts.colourOf&&opts.colourOf(c))||dflt(c); out.push({code:c, rgb:H.cohHexToRgb16(col)||H.cohHexToRgb16('#9ca3af')}); });
   return out;
 }

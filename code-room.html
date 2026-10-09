@@ -2612,11 +2612,11 @@ function renderPanel(){
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
     <div class="ep-lbl">Player</div>
     <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">${crPanelPlayersHtml(e)}
-    <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = row / team default</span></div>
+    <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = ${crRowColours().size?'row / team default':'team default'}</span></div>
     <div class="colorrow">
       <input type="color" id="evColor" value="${esc(draft.color||crDefColour(e))}" oninput="setDraftColor(this.value); document.getElementById('evColorHex').value=this.value">
-      <input type="text" id="evColorHex" value="${esc(draft.color||'')}" placeholder="Row / team default" oninput="setDraftColorHex(this.value)">
-      <button type="button" class="teambtn" onclick="crResetColor()" title="Use the default colour: the row's colour in the game's file, else the team colour">Default</button>
+      <input type="text" id="evColorHex" value="${esc(draft.color||'')}" placeholder="${crRowColours().size?'Row / team default':'Team default'}" oninput="setDraftColorHex(this.value)">
+      <button type="button" class="teambtn" onclick="crResetColor()" title="${crRowColours().size?'Use the default colour: the row colour of the game file, else the team colour':'Use the team default colour'}">Team</button>
     </div>
     <div class="ep-lbl">Video position — <b id="epNow" style="color:var(--accent)">${fmt(draft.driveT)}</b>${drift}</div>
     <div class="nudge">
