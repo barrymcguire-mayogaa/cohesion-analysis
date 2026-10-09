@@ -91,6 +91,8 @@
     segs.sort((a,b)=>a.x0-b.x0);
     let text=''; segs.forEach((s,i)=>{ if(i) text+=(!plain&&s.x0-segs[i-1].x1>=2*hh)?'\t':' '; text+=s.text; });
     const wds=[].concat.apply([], segs.map(s=>s.words)), cf=segs.map(s=>s.conf).filter(c=>c!=null);
+    // recognised text: a scrap of one or two characters in front of "18 Seán MacMahon" is a mark, not part of the line
+    if(cf.length) text=text.replace(/^[A-Za-z|!\[\].,:;'"“”‘’~_-]{1,2}\s+(?=#?\d{1,2}[.)\]:]?\s+[A-ZÀ-Þ])/,'');
     return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h,
       box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
   }
@@ -299,9 +301,9 @@
     if(num.length<8) return {on:false, under:0};
     const yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>Math.max(1,l.box.y1-l.box.y0);
     // each numbered line's distance to the next numbered line below it in its column
-    const pitch=new Map();
-    num.forEach(n=>{ let d=Infinity; num.forEach(m=>{ if(m===n||m.page!==n.page) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
-        if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d) d=dy; }); if(d<Infinity) pitch.set(n,d); });
+    const pitch=new Map(), above=new Map();
+    num.forEach(n=>{ let d=Infinity, nx=null; num.forEach(m=>{ if(m===n||m.page!==n.page) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
+        if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d){ d=dy; nx=m; } }); if(nx){ pitch.set(n,d); if(!above.has(nx)||d<pitch.get(above.get(nx))) above.set(nx,n); } });
     const P=med([...pitch.values()]);
     const own=new Map();
     L.forEach(u=>{ if(u.no!=null||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
@@ -309,7 +311,10 @@
       num.forEach(n=>{ if(n.page!==u.page) return; const Hn=hh(n), dy=yc(u)-yc(n); if(dy<0.45*Hn||dy>5*Hn) return; if(n.box.x0>u.box.x0+1.5*Hn) return;
         const d=dy+0.5*Math.max(0,u.box.x0-n.box.x1); if(d<bd){ bd=d; best=n; } });
       if(!best) return;
-      const p=pitch.has(best)?pitch.get(best):P; if(p&&(yc(u)-yc(best))>0.85*p) return;
+      // the next player is expected one row on: the spacing to the numbered line below, or that of the row above if
+      // it is tighter (the line below may be the one after next, when a number in between was not read)
+      let p=pitch.has(best)?pitch.get(best):P; const up=above.get(best); if(up&&pitch.get(up)<p) p=pitch.get(up);
+      if(p&&(yc(u)-yc(best))>0.85*p) return;
       own.set(u,best); });
     const owners=new Set(own.values());
     if(owners.size<0.5*num.length) return {on:false, under:0};
@@ -500,6 +505,9 @@
     ctx=ctx||{};
     const teams=(ctx.teams||[]).filter(Boolean), dropped=[], adopted=[], keep=[]; let joined=0;
     const drop=(text,why)=>dropped.push({text, why:WHY[why]||why});
+    // the rest of an officials line that the reader broke in two ("ROGHNÓIR: John Concannon, Mi" … "David Morris, Mickey Graham")
+    const offs=(lines||[]).filter(l=>l&&l.box&&l.conf!=null&&RE_OFFICIAL_ANY.test(fold(String(l.text||'')).trim()));
+    const besideOfficial=l=>l.box&&l.conf!=null&&offs.some(q=>q!==l&&q.page===l.page&&l.box.x0>=q.box.x1&&Math.abs((q.box.y0+q.box.y1)-(l.box.y0+l.box.y1))/2<0.5*Math.max(q.box.y1-q.box.y0, l.box.y1-l.box.y0));
     (lines||[]).forEach(l=>{
       const raw=String(l.text==null?'':l.text);
       // table rules and stray marks an image reader picks up
@@ -516,6 +524,7 @@
         if(teams.some(x=>teamMatch(t,x))||isFixture(t,teams)) return drop(raw,'team');
         if(RE_POSITION.test(f)) return drop(raw,'position');
         if(RE_EVENT.test(f)) return drop(raw,'event');
+        if(besideOfficial(l)) return drop(raw,'official');
         if(l.under) return drop(raw,'under');
         if(l.cut) return drop(raw,'cut');
         if(l.above) return drop(raw,'above');
@@ -598,8 +607,8 @@
       // … or when it shows numbered players side by side on a row within one team (a formation) and finds as many
       if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=8&&(b>=a+2||(b>=a-1&&sideBySide(fr)>=3))) lay=fr; }
       p.model=lay.free?'free':'columns';
-      // a crop box: a line touching its left or right edge was cut through by the box
-      if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3)) l.cut=true; }));
+      // a crop box: a line touching an edge of it was cut through by the box
+      if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3||l.box.y0<=2||(p.height&&l.box.y1>=p.height-2))) l.cut=true; }));
       if(p.cuts&&p.cuts.length) lay.columns.concat([{lines:lay.spanning||[]}]).forEach(c=>c.lines.forEach(l=>{ if(l.box&&p.cuts.some(q=>q.xc>=l.box.x0-1&&q.xc<=l.box.x1+1&&q.yc>=l.box.y0-1&&q.yc<=l.box.y1+1)) l.cut=true; }));
       const tag=l=>{ l.page=p.n; return l; };
       lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag)}));
