@@ -601,6 +601,10 @@ const libraryTiles = [
 
 function renderLibraryTiles(){
   const grid = document.getElementById('libraryTileGrid');
+  // The division / championship cards are county competitions: hidden in the club section.
+  const club = typeof cohesionSection === 'function' && cohesionSection() === 'club';
+  grid.style.display = club ? 'none' : '';
+  if (club) { grid.innerHTML = ''; return; }
   grid.innerHTML = libraryTiles.map(tile => `
     <div class="library-tile ${activeTileKey === tile.key ? 'active' : ''}"
          onclick="applyLibraryTileFilter('${tile.key}')"
@@ -1268,6 +1272,9 @@ function paintSectionSwitch(){
 function switchSection(s){
   cohesionSetSection(s);
   paintSectionSwitch();
+  // a county card's filter must not carry into the club section, where the cards are hidden
+  if (s === 'club' && activeTileKey && typeof resetLibraryFilters === 'function') resetLibraryFilters();
+  else if (typeof renderLibraryTiles === 'function') renderLibraryTiles();
   if (typeof loadGames === 'function') loadGames();
 }
 paintSectionSwitch();
