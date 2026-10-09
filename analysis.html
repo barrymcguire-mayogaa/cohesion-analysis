@@ -6454,7 +6454,7 @@ function pyCompute(T, games, bundleOf){
   return {team:T, nGames:list.length, n:used.length, missing:list.length-used.length, from:dates[0]||'', to:dates[dates.length-1]||'', shots, kos,
     noPlayer:shots.filter(s=>!s.pk).length, gameOf:new Map(rows.map(r=>[r.g.id, r.m])), players:pyPlayers(shots), ko:pyKoLists(used, T), keeper:pyKeeper(used, T)};
 }
-// ── Player involvement (DATA ONLY — nothing on the page shows it yet) ──
+// ── Player involvement (the GAME INVOLVEMENT section of the Players tab) ──
 // A Sportscode "player row" is an instance whose code is a player's name,
 // carrying one or more "Game Involvement Outcomes" values (Possession,
 // Handpass Made, Tackle Made …). They are NOT shots or assists, so they never
@@ -6462,7 +6462,8 @@ function pyCompute(T, games, bundleOf){
 //   pyInvolvement(T, games, bundleOf) -> {team, group, nGames, n (games with
 //     involvement data), rows (player rows), total (values), values:[[value,
 //     count] most first], players:[{key, name, rows, total, values:{value:count},
-//     top:[[value,count]…]} most involved first]}
+//     top:[[value,count]…], games (games in which he has a row)} most involved first],
+//     loaded (games of the list whose events are loaded)}
 // EVERY value of the group is counted (a row can carry several, and the same
 // one twice — cohesion-labels.js cohLabelValues). The player and his team:
 // the import's playerRow / player / playerTeam, or — for games stored before
@@ -6472,9 +6473,10 @@ function pyCompute(T, games, bundleOf){
 const PY_INV_GROUP='Game Involvement Outcomes';
 function pyInvolvement(T, games, bundleOf){
   const list=ovTeamGames(games, T), m=new Map(), tot={};
-  let n=0, rows=0, total=0;
+  let n=0, rows=0, total=0, loaded=0;
   list.forEach(g=>{
     const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return;
+    loaded++;
     let idx=null, any=false;
     b.events.forEach(e=>{
       const vals=cohLabelValues(e, PY_INV_GROUP); if(!vals.length) return;
@@ -6482,19 +6484,52 @@ function pyInvolvement(T, games, bundleOf){
       if(e.playerRow||(!e.team&&!e.player)){ if(!e.playerRow&&!idx) idx=cohPlayerIndex(b.events, b.meta); who=cohPlayerRowOf(e, idx); }
       else if(e.player) who={name:e.player, team:ssUC(cohPlayerTeam(e, b.meta))};
       if(!who||!who.name||ssUC(who.team)!==T) return;
-      const key=pyKey(who.name); let r=m.get(key); if(!r){ r={key, name:who.name, rows:0, total:0, values:{}}; m.set(key, r); }
-      r.rows++; rows++; any=true;
+      const key=pyKey(who.name); let r=m.get(key); if(!r){ r={key, name:who.name, rows:0, total:0, values:{}, gs:new Set()}; m.set(key, r); }
+      r.rows++; rows++; any=true; r.gs.add(g.id);
       vals.forEach(v=>{ r.values[v]=(r.values[v]||0)+1; r.total++; tot[v]=(tot[v]||0)+1; total++; });
     });
     if(any) n++;
   });
   const byCount=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
-  const players=[...m.values()].map(r=>Object.assign(r, {top:byCount(r.values)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
-  return {team:T, group:PY_INV_GROUP, nGames:list.length, n, rows, total, values:byCount(tot), players};
+  const players=[...m.values()].map(r=>{ const games=r.gs.size; delete r.gs; return Object.assign(r, {top:byCount(r.values), games}); }).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
+  return {team:T, group:PY_INV_GROUP, nGames:list.length, loaded, n, rows, total, values:byCount(tot), players};
+}
+// The GAME INVOLVEMENT table. Columns = the team's PY_INV_NCOL most frequent involvement types in the selection
+// (pyInvolvement's order: count, then name); every other type is added up under "Other".
+const PY_INV_NCOL=9;
+// a short column header; the full name stays in the header's title
+function pyInvShort(v){
+  return String(v||'').replace(/\s+Made$/i,'').replace(/^Defensive\b/i,'Def.').replace(/^Attacking\b/i,'Att.').replace(/^Turnover\b/i,'TO').replace(/^Kickout\b/i,'KO').replace(/^Goalkeeper\b/i,'GK');
+}
+function pyInvCols(I, n){
+  const vals=(I&&I.values)||[], k=Math.max(0, n==null?PY_INV_NCOL:n);
+  return {cols:vals.slice(0, k).map((v,i)=>({k:'c'+i, value:v[0], label:pyInvShort(v[0]), count:v[1]})), other:vals.slice(k).map(v=>v[0]), otherCount:vals.slice(k).reduce((a,v)=>a+v[1], 0)};
+}
+// one row per player: inv (all his values), c0…cN (the columns), other (the rest). per = per game played (the games in
+// which he has at least one involvement row). total / shots keep the raw counts: pySort's tie-breaks.
+function pyInvRows(I, C, per){
+  const inCol=new Set(C.cols.map(c=>c.value));
+  return ((I&&I.players)||[]).map(p=>{ const d=per?(p.games||1):1, r={key:p.key, name:p.name, total:p.total, shots:p.rows, games:p.games, inv:p.total/d};
+    C.cols.forEach(c=>{ r[c.k]=(p.values[c.value]||0)/d; });
+    r.otherList=p.top.filter(v=>!inCol.has(v[0])); r.other=r.otherList.reduce((a,v)=>a+v[1], 0)/d; return r; });
+}
+// the team's own line under the table (per = per game with involvement data)
+function pyInvTeam(I, C, per){
+  const d=per?(I.n||1):1, r={inv:I.total/d, other:C.otherCount/d}; C.cols.forEach(c=>{ r[c.k]=c.count/d; }); return r;
+}
+function pyInvSortKeys(C){ return ['name','inv'].concat(C.cols.map(c=>c.k), ['other']); }
+// the selected player's full breakdown: {p, max, contests:{won, lost, pct}|null}. Contests won % only when BOTH
+// 'Contest Won' and 'Contest Lost' exist in the selection's data and he has at least one contest.
+function pyInvDetail(I, key){
+  const p=key&&I?(I.players.find(x=>x.key===key)||null):null; if(!p) return null;
+  const find=n=>{ const v=I.values.find(x=>x[0].toLowerCase()===n); return v?v[0]:null; }, W=find('contest won'), L=find('contest lost');
+  const won=W?(p.values[W]||0):0, lost=L?(p.values[L]||0):0;
+  return {p, max:p.top.length?p.top[0][1]:0, contests:W&&L&&won+lost>0?{won, lost, pct:ovPct(won, won+lost)}:null};
 }
 // What the sections under the table show: the selected player's shots (or the whole team's), after the chips
-function pyView(R, sel, F){
-  const P=sel?(R.players.find(p=>p.key===sel)||null):null, key=P?P.key:null, T=R.team;
+function pyView(R, sel, F, I){   // I (optional): pyInvolvement — a player with involvement rows but no shot or assist can be selected too
+  const ip=sel&&I?I.players.find(p=>p.key===sel):null;
+  const P=sel?(R.players.find(p=>p.key===sel)||(ip?{key:ip.key, name:ip.name, invOnly:true}:null)):null, key=P?P.key:null, T=R.team;
   const base=key?R.shots.filter(s=>s.pk===key):R.shots, shots=base.filter(s=>pyPass(s, F));
   const mapShots=shots.filter(s=>s.x!=null).sort((p,q)=>(q.xp||0)-(p.xp||0));
   const own=R.kos.filter(k=>k.team===T), named=key?R.kos.filter(k=>k.who&&k.who.key===key&&k.who.team===T):[];
