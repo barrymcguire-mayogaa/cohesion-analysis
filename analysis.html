@@ -784,6 +784,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .py-kna{color:var(--t3);font-size:.9rem;padding:5px 6px;} .py-kf{font-size:.7rem;color:var(--t3);margin:4px 6px 0;}
 .py-kocap{font:700 15px 'Barlow',sans-serif;color:var(--t1);margin:0 2px 10px;overflow-wrap:anywhere;}
 .py-gktab th small{display:block;font-weight:400;color:var(--t3);font-size:.72rem;} .py-gktab td small{color:var(--t3);} .py-gktab .na{color:var(--t3);}
+.py-gkh{margin:0 0 8px;font:800 .82rem 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t1);} .py-gkh small{font:400 .74rem 'Barlow',sans-serif;letter-spacing:0;color:var(--t3);margin-left:8px;} .py-gk .dnote+.py-gkh{margin-top:18px;}
+.py-gktab tr.py-gkrest th,.py-gktab tr.py-gkrest td{color:var(--t2);font-style:italic;}
 .py-gktab{min-width:760px;} .py-gktab .py-gsep{border-left:1px solid #3a3a48;padding-left:12px;} .py-gktab thead th{white-space:normal;line-height:1.2;vertical-align:bottom;}
 @media (max-width:1100px){
   .py-sdrow{grid-template-columns:repeat(2,minmax(0,1fr));} .py-sdcol{grid-column:1 / -1;flex-direction:row;} .py-sdcol>*{flex:1 1 0;min-width:0;}
@@ -6238,6 +6240,14 @@ async function ssExportImage(){
 //  · GOALKEEPER = the TEAM's own kickouts (no source says who took them) and
 //    the opposition's goal attempts: shots tagged Goal Attempt, or whose
 //    outcome is a goal or a save. Saves = outcome SAVE; goals = a goal scored.
+//  · BY GOALKEEPER (pyKeeperNamed) — only when a kickout carries a 'Kickout
+//    Taken By' label (Code Room; key read in any case, names keyed by pyKey):
+//    a row per named taker with HIS kickouts, and a "Not tagged" row for the
+//    rest, so the rows add up to the team total. Shot-stopping is given to a
+//    keeper only through the game's goalkeeper times (meta.keepers, set in
+//    Code Room): an opposition shot goes to the keeper whose spell had begun
+//    when the shot's clip starts; shots in a game with no keepers set stay
+//    under "Not tagged".
 // ═══════════════════════════════════════════════════════════════
 const PY_PAGE=10, PY_STEP=5, PY_TOP=5;
 const PY_SIDES=[['L','Left Side'],['C','Centre'],['R','Right Side']];
@@ -6261,18 +6271,30 @@ function pyKoWho(k){
   }
   return null;
 }
+// A side's goalkeeper spells from the game's meta (Code Room › Goalkeepers):
+//   meta.keepers = {home:[{from, player}], away:[…]}, from = seconds on the Main video (as driveT).
+// Oldest first; entries with no player are dropped. The same rule as cohesion-config.js cohesionKeeperSpells.
+function pyKeeperSpells(meta, side){
+  const K=meta&&meta.keepers, list=K&&typeof K==='object'?K[side]:null;
+  if(!Array.isArray(list)) return [];
+  return list.map((s,i)=>({from:Math.max(0, +(s&&s.from)||0), name:String((s&&s.player)||'').replace(/\s+/g,' ').trim(), i}))
+    .filter(s=>pyKey(s.name)).sort((a,b)=>a.from-b.from||a.i-b.i).map(s=>({from:s.from, name:s.name, key:pyKey(s.name)}));
+}
+// the spell begun by time t (the last with from <= t), or null
+function pyKeeperAt(spells, t){ let w=null; (spells||[]).forEach(s=>{ if(s.from<=(+t||0)) w=s; }); return w; }
 // one game from team T's side: its shots, the shots it faced, every kickout (with who it names)
 const PY_CACHE=new WeakMap();
 function pyGame(meta, events, T){
   if(!meta||!Array.isArray(events)) return null;
   const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam); if(T!==H&&T!==A) return null;
   const M=ssXpModel(); let c=PY_CACHE.get(events);
-  if(!c||c.M!==M||c.n!==events.length||c.H!==meta.homeTeam||c.A!==meta.awayTeam||c.id!==meta.id){ c={M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, t:new Map()}; PY_CACHE.set(events, c); }
+  const kp=JSON.stringify(meta.keepers||null);
+  if(!c||c.M!==M||c.n!==events.length||c.H!==meta.homeTeam||c.A!==meta.awayTeam||c.id!==meta.id||c.kp!==kp){ c={M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, kp, t:new Map()}; PY_CACHE.set(events, c); }
   if(c.t.has(T)) return c.t.get(T);
   const O=T===H?A:H, all=ttGameShots(meta, events);
   const shots=all.filter(s=>s.team===T).map(s=>{ const a=ssLblCI(s.e,['Assist']); return Object.assign({}, s, {pk:pyKey(s.player), leg:pyLeg(s.e), side:pySide(s.e), pr:ssPressLevel(s.e), assist:a, ak:pyKey(a)}); });
   const K=tkGameKos(meta, events), kos=(K?K.kos:[]).map(k=>Object.assign({}, k, {who:pyKoWho(k)}));
-  const v={gid:meta.id, T, O, shots, faced:all.filter(s=>s.team===O), kos, anyShots:all.length>0, goalTags:all.some(s=>s.att==='G')};
+  const v={gid:meta.id, T, O, shots, faced:all.filter(s=>s.team===O), kos, anyShots:all.length>0, goalTags:all.some(s=>s.att==='G'), keepers:pyKeeperSpells(meta, T===H?'home':'away')};
   c.t.set(T, v); return v;
 }
 function pyBestName(names){ const a=Object.entries(names||{}).sort((x,y)=>y[1]-x[1]||y[0].length-x[0].length||(x[0]<y[0]?-1:1)); return a.length?a[0][0]:''; }
@@ -6378,8 +6400,43 @@ function pyKeeper(used, T){
   const tk=sum(r=>r.taken), wn=sum(r=>r.won), fc=sum(r=>r.faced), sv=sum(r=>r.saves), gl=sum(r=>r.goals), len={}, lenGames={};
   lens.forEach(l=>{ const a=sum(r=>r.len[l]?r.len[l].n:null), b=sum(r=>r.len[l]?r.len[l].won:null); len[l]=a?{n:a.v, won:b.v}:null; lenGames[l]=a?a.g:0; });
   rows.forEach(r=>{ r.pct=r.taken?ovPct(r.won, r.taken):null; });
-  return {rows, n:rows.length, total:{taken:tk?tk.v:null, won:wn?wn.v:null, pct:tk&&tk.v?ovPct(wn.v, tk.v):null, len, faced:fc?fc.v:null, saves:sv?sv.v:null, goals:gl?gl.v:null},
+  const K={rows, n:rows.length, total:{taken:tk?tk.v:null, won:wn?wn.v:null, pct:tk&&tk.v?ovPct(wn.v, tk.v):null, len, faced:fc?fc.v:null, saves:sv?sv.v:null, goals:gl?gl.v:null},
     koGames:tk?tk.g:0, lenGames:Math.max(lenGames.S, lenGames.M, lenGames.L), facedGames:fc?fc.g:0, shotGames:sv?sv.g:0};
+  K.named=pyKeeperNamed(used, T, K);
+  return K;
+}
+// BY GOALKEEPER: null unless a kickout of T's carries 'Kickout Taken By'. Otherwise
+//   rows  — a row per named taker (most kickouts first): games, taken, won, pct, len, faced, saves, goals
+//   rest  — "Not tagged": T's kickouts with no taker + the shots faced that no keeper spell covers
+// Every kickout / faced shot lands in exactly one row, so rows + rest = the team Total (K.total).
+// A shot-stopping cell is null (n/a) when no game of that keeper's can supply it.
+function pyKeeperNamed(used, T, K){
+  const lens=['S','M','L'], M=new Map();
+  const mk=key=>({key, names:{}, games:new Set(), taken:0, won:0, len:{S:{n:0,won:0}, M:{n:0,won:0}, L:{n:0,won:0}}, faced:0, saves:0, goals:0, fG:new Set(), sG:new Set()});
+  const get=(key, name)=>{ let r=M.get(key); if(!r){ r=mk(key); M.set(key, r); } r.names[name]=(r.names[name]||0)+1; return r; };
+  const rest=mk(''); let tagged=0, tagGames=0, spellGames=0;
+  (used||[]).forEach((u,i)=>{ const P=u.P, g=K.rows[i]; let any=false;
+    (P.kos||[]).forEach(k=>{ if(k.team!==T) return;
+      const n=k.e?ssLblCI(k.e,['Kickout Taken By']):'', key=pyKey(n), r=key?get(key, n):rest;
+      if(key){ any=true; tagged++; } r.games.add(i);
+      r.taken++; if(k.won) r.won++;
+      if(k.len&&r.len[k.len]){ r.len[k.len].n++; if(k.won) r.len[k.len].won++; } });
+    if(any) tagGames++;
+    const sp=P.keepers||[];
+    if(sp.length) spellGames++;
+    sp.forEach(x=>{ const r=get(x.key, x.name); r.games.add(i); if(g.faced!=null) r.fG.add(i); if(g.saves!=null) r.sG.add(i); });
+    (P.faced||[]).forEach(s=>{ const e=s.e||{}, w=pyKeeperAt(sp, e.driveT!=null?e.driveT:e.start), r=w?M.get(w.key):rest;
+      const save=/SAVE/.test(ssUC(s.out)), goal=s.v>=3;
+      if(g.faced!=null&&(s.att==='G'||goal||save)) r.faced++;
+      if(g.saves!=null){ if(save) r.saves++; if(goal) r.goals++; } });
+  });
+  if(!tagged) return null;
+  const fin=(r, isRest)=>{ const len={}; lens.forEach(l=>{ len[l]=K.total.len[l]?r.len[l]:null; });
+    const hasF=isRest?K.total.faced!=null:r.fG.size>0, hasS=isRest?K.total.saves!=null:r.sG.size>0;
+    return {key:r.key, name:isRest?'Not tagged':pyBestName(r.names), games:r.games.size, taken:r.taken, won:r.won, pct:r.taken?ovPct(r.won, r.taken):null, len,
+      faced:hasF?r.faced:null, saves:hasS?r.saves:null, goals:hasS?r.goals:null}; };
+  const out=[...M.values()].map(r=>fin(r, false)).sort((a,b)=>b.taken-a.taken||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1));
+  return {rows:out, rest:fin(rest, true), tagged, tagGames, spellGames};
 }
 // Everything the Players tab shows for team T over its games in `games` (oldest → newest)
 function pyCompute(T, games, bundleOf){
@@ -6550,9 +6607,26 @@ function pyKeeperHTML(R){
   if(!K.n) return '';
   const num=v=>v==null?na:String(v), frac=o=>o==null?na:o.n?`${o.won}/${o.n} <small>(${ttPctTxt(ovPct(o.won,o.n))})</small>`:'0/0';
   const tr=(lab, r, cls)=>`<tr class="${cls||''}"><th scope="row">${lab}</th><td>${num(r.taken)}</td><td>${r.taken==null?na:r.taken?ttPctTxt(r.pct):'–'}</td><td>${frac(r.len.S)}</td><td>${frac(r.len.M)}</td><td>${frac(r.len.L)}</td><td class="py-gsep">${num(r.faced)}</td><td>${num(r.saves)}</td><td>${num(r.goals)}</td></tr>`;
+  if(K.named) return pyKeeperNamedHTML(R, tr);
   return `<h2 class="ov-h">GOALKEEPER — ${ssEsc(T)} KICKOUTS &amp; SHOT-STOPPING</h2><div class="tt-card py-gk"><div class="py-scroll"><table class="tt-ztab py-gktab"><thead><tr><th scope="col">GAME</th><th scope="col">KOs TAKEN</th><th scope="col">RETAINED %</th><th scope="col">SHORT</th><th scope="col">MEDIUM</th><th scope="col">LONG</th><th scope="col" class="py-gsep">GOAL ATTEMPTS FACED</th><th scope="col">SAVES</th><th scope="col">GOALS CONCEDED</th></tr></thead><tbody>`
     +K.rows.map(r=>tr(ssEsc('v '+r.opp)+`<small>${ssEsc(ovShortDate(r.date)||'date n/a')}</small>`, r)).join('')+tr('Total'+`<small>${ssEsc(pyGames(K.n))}</small>`, K.total, 'tot')+'</tbody></table></div>'
     +`<div class="dnote">${ssEsc('These are the TEAM’s kickouts: no source records which goalkeeper took them, so with more than one keeper the rows cannot be split. Retained % = own kickouts won ÷ taken; Short / Medium / Long = won / taken (% won) by the kickout’s length. Goal attempts faced = opposition shots tagged Goal Attempt, or whose outcome is a goal or a save; Saves = outcome Save; Goals conceded = goals scored against. n/a = that game’s source does not carry it: kickouts from '+K.koGames+' of '+pyGames(K.n)+', lengths from '+K.lenGames+', goal attempts from '+K.facedGames+' (a game with no Goal Attempt tags cannot count attempts that went wide), saves and goals from '+K.shotGames+'. The Total row adds up the games that have the figure.')}</div></div>`;
+}
+// The same section when kickouts carry 'Kickout Taken By': a BY GOALKEEPER table above the per-game table.
+function pyKeeperNamedHTML(R, tr){
+  const K=R.keeper, N=K.named, T=R.team, cols='<th scope="col">KOs TAKEN</th><th scope="col">RETAINED %</th><th scope="col">SHORT</th><th scope="col">MEDIUM</th><th scope="col">LONG</th><th scope="col" class="py-gsep">GOAL ATTEMPTS FACED</th><th scope="col">SAVES</th><th scope="col">GOALS CONCEDED</th>';
+  const gm=r=>`<small>${ssEsc(pyGames(r.games))}</small>`;
+  const shots=N.spellGames?'Goal attempts, saves and goals are given to the keeper who was in goal when the shot was taken, using the goalkeeper times set for the game in Code Room ('+N.spellGames+' of '+pyGames(K.n)+' '+(N.spellGames===1?'has':'have')+' them); shots faced in the other games stay under Not tagged. '
+    :'Goal attempts, saves and goals stay at team level, under Not tagged: no game here has its goalkeepers set in Code Room, so a shot cannot be given to a keeper. ';
+  return `<h2 class="ov-h">GOALKEEPER — ${ssEsc(T)} KICKOUTS &amp; SHOT-STOPPING</h2><div class="tt-card py-gk">`
+    +`<h3 class="py-gkh">BY GOALKEEPER <small>${ssEsc('kickout takers named in '+N.tagGames+' of '+pyGames(K.n))}</small></h3>`
+    +`<div class="py-scroll"><table class="tt-ztab py-gktab py-gknamed"><thead><tr><th scope="col">GOALKEEPER</th>${cols}</tr></thead><tbody>`
+    +N.rows.map(r=>tr(ssEsc(r.name)+gm(r), r)).join('')+tr('Not tagged'+gm(N.rest), N.rest, 'py-gkrest')+tr('Total'+`<small>${ssEsc(pyGames(K.n))}</small>`, K.total, 'tot')+'</tbody></table></div>'
+    +`<div class="dnote">${ssEsc('A goalkeeper’s row counts the kickouts tagged with his name (Kickout Taken By, set in Code Room) — whoever took it, so an outfield player who takes one gets his own row. Not tagged = kickouts with no taker named. Every kickout is in exactly one row, so the rows add up to the Total. The games under a name are the games he is named in. '+shots+'n/a = none of his games carries that figure.')}</div>`
+    +`<h3 class="py-gkh">BY GAME <small>${ssEsc('the team’s kickouts, whoever took them')}</small></h3>`
+    +`<div class="py-scroll"><table class="tt-ztab py-gktab"><thead><tr><th scope="col">GAME</th>${cols}</tr></thead><tbody>`
+    +K.rows.map(r=>tr(ssEsc('v '+r.opp)+`<small>${ssEsc(ovShortDate(r.date)||'date n/a')}</small>`, r)).join('')+tr('Total'+`<small>${ssEsc(pyGames(K.n))}</small>`, K.total, 'tot')+'</tbody></table></div>'
+    +`<div class="dnote">${ssEsc('Retained % = own kickouts won ÷ taken; Short / Medium / Long = won / taken (% won) by the kickout’s length. Goal attempts faced = opposition shots tagged Goal Attempt, or whose outcome is a goal or a save; Saves = outcome Save; Goals conceded = goals scored against. n/a = that game’s source does not carry it: kickouts from '+K.koGames+' of '+pyGames(K.n)+', lengths from '+K.lenGames+', goal attempts from '+K.facedGames+' (a game with no Goal Attempt tags cannot count attempts that went wide), saves and goals from '+K.shotGames+'. The Total row adds up the games that have the figure.')}</div></div>`;
 }
 function pyHTML(R, V, o){
   o=o||{}; const T=R.team;
