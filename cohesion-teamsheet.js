@@ -622,9 +622,19 @@
   const up=s=>String(s==null?'':s).toUpperCase().trim();
   T.namesFromEvents=function(events, team){
     const U=up(team), out=[];
-    (events||[]).forEach(e=>{ if(!e||up(e.team)!==U) return; const L=e.labels||{};
-      [e.player].concat(Object.keys(L).filter(k=>k.toUpperCase()===U+' PLAYER LABELS'||k==='Assist').map(k=>L[k])).forEach(n=>{
-        n=String(n==null?'':n).replace(/\s+/g,' ').trim(); if(n&&!/^P\s*\d+$/i.test(n)) out.push(n); }); });
+    // A player belongs to the team of his "<Team> Player Labels" group, not to
+    // the row's team (a KERRY TOs row carries the Mayo player who won the
+    // ball), and a group may hold several players — cohesion-labels.js
+    // (cohEventPlayers; without it, the one value per group as before).
+    // Assist names belong to the row's team.
+    const push=n=>{ n=String(n==null?'':n).replace(/\s+/g,' ').trim(); if(n&&!/^P\s*\d+$/i.test(n)) out.push(n); };
+    const players=root.cohEventPlayers||function(e){ const L=e.labels||{}, r=[];
+      Object.keys(L).forEach(k=>{ const m=/^(.*?)\s*player labels$/i.exec(k); if(m&&L[k]) r.push({name:L[k], team:up(m[1])==='UNASSIGNED'||!up(m[1])?e.team:m[1]}); });
+      if(e.player&&!r.some(p=>p.name===e.player)) r.unshift({name:e.player, team:e.playerTeam||e.team});
+      return r; };
+    (events||[]).forEach(e=>{ if(!e) return; const L=e.labels||{};
+      players(e).forEach(p=>{ if(up(p.team)===U) push(p.name); });
+      if(up(e.team)===U&&L['Assist']) push(L['Assist']); });
     return out;
   };
   T.loadKnown=function(team, o){

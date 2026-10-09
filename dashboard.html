@@ -1146,7 +1146,11 @@ function dashAssistChoices(ev, g){
   if(pr&&typeof pr==='object'){ const num=k=>parseInt(String(k).replace(/\D/g,''),10)||0;
     Object.keys(pr).sort((a,b)=>num(a)-num(b)).forEach(k=>{ const v=tidy(pr[k]); if(v&&!/^P\s*\d+$/i.test(v)) add(v); }); }
   const tagged=[];
-  ALL.forEach(x=>{ dashPlayers(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });   // every player, under HIS team
+  // every player of every row, under HIS team (the team of his "<Team> Player Labels" group — cohesion-labels.js);
+  // Assist / Kickout Taken By names belong to the row's team
+  const playersOf=(typeof cohEventPlayers==='function')?x=>cohEventPlayers(x, GAME)
+    :x=>{ const L=x.labels||{}, r=x.player?[{name:x.player, team:x.team}]:[]; Object.keys(L).forEach(k=>{ if(L[k]&&/ PLAYER LABELS$/i.test(k)) r.push({name:L[k], team:k.replace(/ PLAYER LABELS$/i,'')}); }); return r; };
+  ALL.forEach(x=>{ playersOf(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });
     if(String(x.team||'').toUpperCase()!==T) return;
     const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By')) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
