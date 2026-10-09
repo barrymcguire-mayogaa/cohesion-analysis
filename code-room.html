@@ -132,6 +132,9 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
 .acdrop .actag{float:right;margin-left:10px;font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding-top:3px;}
 .acdrop div:hover .actag,.acdrop div.on .actag{color:#fff;}
+.acdrop .acno{float:right;margin-left:12px;font:600 13px 'Barlow',sans-serif;color:var(--t3);opacity:.75;font-variant-numeric:tabular-nums;}
+.acdrop .acno.unk{opacity:.5;}
+.acdrop div:hover .acno,.acdrop div.on .acno{color:#fff;opacity:.85;}
 .acdrop .actag.blk{float:none;display:block;margin:0 0 3px;padding-top:0;overflow:hidden;text-overflow:ellipsis;}
 /* Assist (players:true group) type-to-search box — Edit panel, Locate, Code mode */
 .crasst{display:flex;align-items:center;gap:6px;flex:1;min-width:150px;flex-wrap:wrap;}
@@ -2677,14 +2680,20 @@ function acHide(){ const d=document.getElementById('acDrop'); if(d) d.style.disp
 function acShow(input, options, onPick, opt){
   opt=opt||{};
   acInput=input; acPick=onPick;
-  const q=opt.all?'':(input.value||'').toLowerCase().trim();
+  const q=opt.all?'':(input.value||'').toLowerCase().trim().replace(/^#\s*/,'');   // "#6" finds number 6
   const lab=opt.label||(options&&options.crPlayerList?crTSLabel:null);   // "7. Name" for a team-sheet player; the value stays the plain name
   acItems=options.filter(o=>o&&(o.toLowerCase().includes(q)||(lab&&q&&String(lab(o)).toLowerCase().includes(q)))).slice(0,opt.max||60);
   const d=document.getElementById('acDrop'); if(!d) return;
   if(!acItems.length){ acHide(); return; }
   let prevTag=null;
+  // a player list shows the name with his team-sheet number faded on the right ("#6"); once the list has any
+  // numbered player, one with no known number reads "#.." (a late change to the programme)
+  const noOf=o=>{ if(!lab) return ''; const L=String(lab(o)), tail='. '+o; return L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):''; };
+  const anyNo=!!lab&&options.some(o=>o&&noOf(o)!=='');
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
-    return `<div data-i="${i}">${show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:''}${esc(lab?lab(o):o)}</div>`; }).join('');
+    const no=anyNo?noOf(o):'', blk=show&&opt.tagBlock, tag=show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:'';
+    const num=anyNo?`<span class="acno${no===''?' unk':''}" title="${no===''?'No number on the team sheet':'Team sheet number'}">#${no===''?'..':esc(no)}</span>`:'';
+    return `<div data-i="${i}">${blk?tag+num:num+tag}${esc(o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
   d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px';
   d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden

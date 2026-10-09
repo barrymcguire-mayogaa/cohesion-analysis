@@ -354,6 +354,9 @@
 .cohts-pgh{padding:6px 12px 3px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#777);background:var(--card,#252530);}
 .cohts-pi{padding:8px 12px;font:600 13.5px Barlow,sans-serif;cursor:pointer;border-bottom:1px solid var(--border,#333);}
 .cohts-pi:hover,.cohts-pi.on{background:var(--accent,#4fc3f7);color:#fff;}
+.cohts-pno{float:right;margin-left:12px;font-weight:600;color:var(--t3,#888);opacity:.75;font-variant-numeric:tabular-nums;}
+.cohts-pno.unk{opacity:.5;}
+.cohts-pi:hover .cohts-pno,.cohts-pi.on .cohts-pno{color:#fff;opacity:.85;}
 `;
     document.head.appendChild(st);
   }
@@ -624,11 +627,14 @@
       const done=v=>{ if(ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
       const draw=()=>{
         const q=T.nameKey(inp.value); vis=[]; let h='';
+        const anyNo=(o.sections||[]).some(sec=>(sec.items||[]).some(it=>{ const L=String(it.label), tail='. '+it.value; return L.length>tail.length&&L.slice(-tail.length)===tail; }));
         (o.sections||[]).forEach(sec=>{
           const items=(sec.items||[]).filter(it=>!q||T.nameKey(it.label).includes(q)||T.nameKey(it.value).includes(q));
           if(!items.length) return;
           if(sec.label) h+=`<div class="cohts-pgh">${esc(sec.label)}</div>`;
-          items.forEach(it=>{ h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${esc(it.label)}</div>`; vis.push(it.value); });
+          items.forEach(it=>{ const L=String(it.label), tail='. '+it.value, no=L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):'';
+            const num=anyNo?`<span class="cohts-pno${no===''?' unk':''}">#${no===''?'..':esc(no)}</span>`:'';   // "#6" faded on the right; "#.." = no number known
+            h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${num}${esc(anyNo?it.value:it.label)}</div>`; vis.push(it.value); });
         });
         list.innerHTML=h||'<div class="cohts-pnone" style="padding:10px 12px;">No match — “Use typed name” keeps what you typed.</div>';
         idx=-1;
