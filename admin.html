@@ -817,7 +817,7 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
 // too), so the label and e.player never disagree.
 function syncPlayerLabel(ev, tag){
   const L = ev && ev.labels; if(!L) return;
-  Object.keys(L).forEach(k => { if(/player labels$/i.test(k) && L[k] === tag) L[k] = ev.player; });
+  Object.keys(L).forEach(k => { if(/player labels$/i.test(k)) cohLabelReplace(ev, k, tag, ev.player); });   // every value of the group (cohesion-labels.js)
 }
 async function adminFetch(fn, payload){
   let user = netlifyIdentity.gotrue.currentUser();
