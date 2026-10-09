@@ -2642,7 +2642,7 @@ function renderPanel(){
     ${/SHOT/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crShotMap()" style="flex:1;">📍 ${draft.x!=null?'Shot location set ('+((draft.groups.find(r=>r.g==='Shot Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set shot location'}</button></div>${crAttNote.id===activeId&&crAttNote.text?`<div class="crattnote" style="font-size:11px;color:var(--green);margin-top:4px;">✓ ${esc(crAttNote.text)}</div>`:''}`:''}
     ${/KICKOUT|\bKO\b/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crKoMap()" style="flex:1;">📍 ${draft.x!=null?'Kickout landing set ('+((draft.groups.find(r=>r.g==='Kickout Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set kickout landing'}</button></div>`:''}
     <div class="ep-lbl">Labels</div>
-    ${subDraft?crSubPanelHtml(e):''}${labelRows||'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>'}
+    ${subDraft?crSubPanelHtml(e):''}${labelRows.trim()||(subDraft?'':'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>')}
     <button class="addg" onclick="addLabelGroup()">＋ Add label group</button>
     <div class="bar">
       <button class="save" id="saveBtn" onclick="saveEvent()">Save changes</button>
