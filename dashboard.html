@@ -1063,7 +1063,7 @@ function dashAssistChoices(ev, g){
     Object.keys(pr).sort((a,b)=>num(a)-num(b)).forEach(k=>{ const v=tidy(pr[k]); if(v&&!/^P\s*\d+$/i.test(v)) add(v); }); }
   const tagged=[];
   ALL.forEach(x=>{ if(String(x.team||'').toUpperCase()!==T) return; if(x.player) tagged.push(x.player);
-    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) tagged.push(L[k]); }); });
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist'||k==='Kickout Taken By')) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
   });
   return out;

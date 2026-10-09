@@ -246,6 +246,25 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .craa-warn{font-size:11.5px;color:var(--orange);margin:6px 0;}
 .craa-live{font:11px 'DM Mono',monospace;color:var(--t2);margin:6px 0 4px;min-height:14px;}
 .craa-btn{display:inline-block;user-select:none;white-space:nowrap;}
+.crkp{width:430px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
+.crkp-team{border-top:1px solid var(--border);padding:8px 0 2px;}
+.crkp-team.dirty{box-shadow:inset 3px 0 0 var(--orange);padding-left:8px;}
+.crkp-th{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;font-size:11.5px;color:var(--t2);}
+.crkp-th b{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crkp-th span{white-space:nowrap;}
+.crkp-l{flex:none;width:92px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);}
+.crkp .crfr-row input.crkp-t{flex:none;width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;padding:7px 4px;}
+.crkp-team .crfr-row .crkp-l:has(+ .crkp-t){width:26px;}
+.crkp-ar{flex:none;color:var(--t3);}
+.crkp-x{flex:none;cursor:pointer;color:var(--t3);font-weight:700;padding:0 4px;user-select:none;}
+.crkp-x:hover{color:var(--red);}
+.crkp-subs{margin:2px 0 8px;padding:6px 8px;border:1px dashed var(--border);border-radius:8px;}
+.crkp-sub{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);padding:2px 0;}
+.crkp-st{flex:none;min-width:56px;font-family:'DM Mono',monospace;font-size:11.5px;color:var(--t1);cursor:pointer;}
+.crkp-st:hover{color:var(--accent);}
+.crkp-sd{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.crkp-su{flex:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow',sans-serif;white-space:nowrap;user-select:none;}
+.crkp-su:hover{text-decoration:underline;}
 .craa-btn.dis{opacity:.45;cursor:not-allowed;}
 .craa-btn.dis:hover{border-color:var(--border);color:var(--t1);}
 .crlc{right:392px;width:380px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
@@ -346,6 +365,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
         <option value="raw">Original coder time</option>
       </select>
       <button onclick="crPlayersPopup()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Rename a player across every event in this game">👥 Players</button>
+      <button id="crKprBtn" onclick="crKprToggle()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Goalkeepers — who takes each team's kickouts in this game (fills Kickout Taken By)">🧤 Goalkeepers</button>
       <button onclick="crExportXmlManual()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
       <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
     </div>
@@ -548,7 +568,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -602,7 +622,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
@@ -2596,8 +2616,8 @@ function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 //    leave prompt). Existing rows edited get _dirty; new rows get _new and a
 //    temp _rowId; deleted existing rows go to crDeleted. Nothing hits the DB
 //    until save. ─────────────────────────────────────────────────────────────
-function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0 || crAAPendingN()>0; }
-function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length + crRosterPendingN() + crAAPendingN(); }
+function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0 || crAAPendingN()>0 || crKprPendingN()>0; }
+function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length + crRosterPendingN() + crAAPendingN() + crKprPendingN(); }
 function crUpdatePending(){
   const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
   const btn=document.getElementById('crSaveBtn'); if(!btn) return;
@@ -2668,6 +2688,7 @@ async function crSaveAll(){
   if(GAME&&GAME._local){ crExportXml(); EVENTS.forEach(e=>{ delete e._dirty; }); crUpdatePending(); return; }
   await crSaveRoster();                            // queued "+ add to team sheet" names (gameAdmin updateMeta)
   await crAASaveAll();                             // unsaved "Align this angle" start times (gameAdmin updateMeta)
+  await crKprSaveAll();                            // unsaved goalkeeper spells (gameAdmin updateMeta)
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
@@ -3202,7 +3223,7 @@ function crGameNames(side){
     if(L['Kickout Won By']&&crKoWinnerTeam(e)===T) out.push(L['Kickout Won By']);
     if(String(e.team||'').toUpperCase()!==T) return;
     if(e.player) out.push(e.player);
-    Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist')) out.push(L[k]); });
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist'||k==='Kickout Taken By')) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
@@ -3474,6 +3495,305 @@ window.addEventListener('keydown', e=>{
   e.stopPropagation();
   crAssistKey(e);
 }, true);
+// ── GOALKEEPERS (who took the kickouts) ───────────────────────
+// A game holds, per team, the keeper "spells": the starting keeper (from 0)
+// and any later change (a sub, a black card) from a video time on —
+//   GAME.keepers = { home:[{from:0, player}, {from:2710, player}], away:[…] }
+// times in the Main-video reference (the same as an event's driveT); see
+// cohesion-config.js (cohesionKeeperSpells / cohesionKeeperAt).
+//  · AUTO-FILL: a kickout tagged in Code mode for a team with a keeper set
+//    gets 'Kickout Taken By' = the keeper at that moment. No prompt, no key.
+//  · OVERRIDE: the Edit panel's Kickout Taken By box changes or clears one
+//    kickout (an outfield player taking it).
+//  · BACK-FILL: "Apply to this team's kickouts" fills the kickouts already in
+//    the game (a Tracker file does not know the keeper) after a confirmation
+//    with counts; kickouts carrying a DIFFERENT name are manual overrides and
+//    are left alone unless overwriting is chosen. It is a queued bulk edit —
+//    one Undo reverses it, nothing is written before the session is saved.
+//  · SAVING: the spells are part of the game's meta. Unsaved spells count as
+//    pending changes (crHasPending / crPendingCount) and the session save
+//    (crSaveAll) writes them through gameAdmin updateMeta: the meta is RE-READ
+//    and only keepers[side] of a side changed here is replaced. They are not
+//    kept in the crash backup (crBackup). A local-video session keeps them in
+//    memory only.
+const CR_KPR_GROUP='Kickout Taken By';
+let crKpr={open:false, base:'{"home":[],"away":[]}', status:''};
+function crKprClean(meta){ const f=s=>window.cohesionKeeperSpells?cohesionKeeperSpells(meta||{}, s):[]; return {home:f('home'), away:f('away')}; }
+// Called when a game opens: remember the spells as loaded.
+function crKprReset(){
+  const p=document.getElementById('crKpr'); if(p) p.style.display='none';
+  crKpr={open:false, base:JSON.stringify(crKprClean(GAME)), status:''};
+}
+function crKprChangedSides(){
+  if(!GAME) return [];
+  const now=crKprClean(GAME); let b; try{ b=JSON.parse(crKpr.base); }catch(_){ b={home:[],away:[]}; }
+  return ['home','away'].filter(s=>JSON.stringify(now[s])!==JSON.stringify(b[s]||[]));
+}
+function crKprPendingN(){ return (!GAME||GAME._local)?0:crKprChangedSides().length; }
+// The side's editable rows. Row 0 is always the starting keeper (from 0); a row
+// with no player yet is kept here while it is being typed, and ignored
+// everywhere else (auto-fill, back-fill, saving).
+function crKprRows(side){
+  if(!GAME.keepers||typeof GAME.keepers!=='object'||Array.isArray(GAME.keepers)) GAME.keepers={};
+  let l=GAME.keepers[side];
+  if(!Array.isArray(l)) l=GAME.keepers[side]=[];
+  for(let i=0;i<l.length;i++){ const s=l[i]; l[i]={from:Math.max(0,Math.round(+(s&&s.from)||0)), player:crNameTidy(s&&s.player)}; }
+  l.sort((a,b)=>a.from-b.from);
+  if(!l.length||l[0].from!==0) l.unshift({from:0, player:''});
+  return l;
+}
+function crKprSideOfTeam(team){ const t=String(team||'').toUpperCase(); return !t?null:t===crTeamOf('home')?'home':t===crTeamOf('away')?'away':null; }
+// The keeper for an event of that side: the last spell begun by the END of the event's clip.
+function crKprAt(side, e){ return (side&&window.cohesionKeeperAt)?cohesionKeeperAt(GAME, side, cohesionEventEnd(e)):''; }
+function crKprIsKo(e){ return !!(e&&window.cohesionGroupsFor&&cohesionGroupsFor(e.code).some(g=>g.name===CR_KPR_GROUP)); }
+function crKprKey(labels){ return Object.keys(labels||{}).find(k=>k.toLowerCase()===CR_KPR_GROUP.toLowerCase())||CR_KPR_GROUP; }
+// AUTO-FILL a just-tagged row (before it joins EVENTS). Returns the name written, or ''.
+function crKprAutoFill(row){
+  if(!row||!GAME||!crKprIsKo(row)) return '';
+  const side=crKprSideOfTeam(row.team); if(!side) return '';
+  row.labels=row.labels||{};
+  if(row.labels[crKprKey(row.labels)]) return '';
+  const who=crKprAt(side, row);
+  if(who) row.labels[CR_KPR_GROUP]=who;
+  return who;
+}
+// m:ss (or h:mm:ss) → seconds; a bare number is minutes. null = not a time.
+function crKprParseT(v){
+  v=String(v==null?'':v).trim(); if(!v) return null;
+  if(/^\d+(\.\d+)?$/.test(v)) return Math.round(parseFloat(v)*60);
+  const m=/^(?:(\d+):)?(\d+):(\d{1,2})$/.exec(v); if(!m||+m[3]>59) return null;
+  return (+(m[1]||0))*3600+(+m[2])*60+(+m[3]);
+}
+function crKprAfter(){ crUpdatePending(); crKprRender(); }
+function crKprSetPlayer(side, i, name){
+  const l=crKprRows(side), r=l[i]; if(!r) return false;
+  let v=crNameTidy(name);
+  if(v){ const hit=crAssistSuggest([side],'').items.find(n=>crNameKey(n)===crNameKey(v)); if(hit) v=hit; crAssistRemember(side, v); }
+  if(r.player===v) return false;
+  r.player=v; crKpr.status=''; crKprAfter(); return true;
+}
+function crKprSetFrom(side, i, t){
+  const l=crKprRows(side), r=l[i];
+  if(!r||i===0||t==null||isNaN(t)) return false;
+  t=Math.max(1, Math.round(t));
+  if(l.some((x,j)=>j!==i&&x.from===t)){ crKpr.status='There is already a change at '+fmt(t)+'.'; crKprRender(); return false; }
+  r.from=t; crKpr.status=''; crKprAfter(); return true;
+}
+// A change of keeper from video time t. The player starts blank — nothing uses the
+// row until a name is typed. Returns the row (an existing one at that time is reused).
+function crKprAddSpell(side, t, player){
+  if(!GAME||(side!=='home'&&side!=='away')) return null;
+  const l=crKprRows(side); t=Math.max(1, Math.round(+t||0));
+  let r=l.find(x=>x.from===t);
+  if(!r){ r={from:t, player:''}; l.push(r); }
+  if(player) r.player=crNameTidy(player);
+  crKprRows(side);
+  crKpr.status='Change at '+fmt(t)+' — type the new keeper. Nothing changes until a name is entered.'; crKpr.focus={side, from:t};
+  crKprAfter(); return r;
+}
+function crKprRemove(side, i){
+  const l=crKprRows(side); if(!l[i]) return;
+  if(i===0) l[0].player=''; else l.splice(i,1);
+  crKpr.status=''; crKprAfter();
+}
+// The team's SUB rows — a hint only (the Tracker records "#18 ON for #13": numbers, no keeper flag).
+function crKprSubs(side){
+  const T=crTeamOf(side);
+  return EVENTS.filter(e=>/\bSUBS?\b/i.test(e.code||'')&&String(e.team||'').toUpperCase()===T)
+    .map(e=>{ const L=e.labels||{}, k=Object.keys(L).find(x=>x.toLowerCase()==='sub detail'); return {t:Math.round(e.driveT||0), text:crNameTidy((k&&L[k])||e.player||'')}; })
+    .sort((a,b)=>a.t-b.t);
+}
+// BACK-FILL plan for a side: every kickout row of that team, sorted into
+//   fill (blank, a keeper covers it) · same (already that keeper) ·
+//   diff (another name — a manual override) · none (blank, no keeper set for that time)
+function crKprPlan(side){
+  const T=crTeamOf(side), P={side, team:T, rows:[], fill:0, same:0, diff:0, none:0, total:0};
+  if(!T) return P;
+  EVENTS.forEach(e=>{
+    if(String(e.team||'').toUpperCase()!==T||!crKprIsKo(e)) return;
+    const L=e.labels||{}, cur=crNameTidy(L[crKprKey(L)]), target=crKprAt(side, e);
+    const kind=!target?(cur?'kept':'none'):!cur?'fill':crNameKey(cur)===crNameKey(target)?'same':'diff';
+    P.rows.push({e, cur, target, kind}); P.total++;
+    if(kind==='kept') P.diff++; else P[kind]++;
+  });
+  return P;
+}
+// Apply the plan as ONE queued bulk edit (one Undo). overwrite → also replace the different names.
+function crKprApply(side, overwrite){
+  const P=crKprPlan(side);
+  const todo=P.rows.filter(r=>r.kind==='fill'||(overwrite&&r.kind==='diff'));
+  if(!todo.length) return 0;
+  undoStack.push({type:'bulkedit', snaps:todo.map(r=>({id:r.e._rowId, data:crClone(r.e)}))});
+  todo.forEach(r=>{ const e=r.e; e.labels=e.labels||{}; const k=crKprKey(e.labels); if(k!==CR_KPR_GROUP) delete e.labels[k]; e.labels[CR_KPR_GROUP]=r.target; if(!e._new) e._dirty=true; });
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const cur=activeId!=null&&todo.find(r=>String(r.e._rowId)===String(activeId));
+  if(cur&&draft){                                   // the open event: keep its other unsaved edits
+    const g=draft.groups.find(x=>x.g.toLowerCase()===CR_KPR_GROUP.toLowerCase());
+    if(g) g.v=cur.target; else draft.groups.push({g:CR_KPR_GROUP, v:cur.target});
+    if(!codeMode.on) renderPanel();
+  }
+  if(codeMode.on&&codeMode.shotQual) renderCodeLink();
+  return todo.length;
+}
+function crKprSpellText(side){ return crKprClean(GAME)[side].map(s=>esc(s.player)+' from '+fmt(s.from)).join(' · '); }
+async function crKprBackfill(side){
+  const P=crKprPlan(side), tn=esc(crTeamOf(side)||side), n=x=>x+' kickout'+(x===1?'':'s');
+  if(!crKprClean(GAME)[side].length){ crKpr.status='Set '+(crTeamOf(side)||side)+'’s starting keeper first.'; crKprRender(); return 0; }
+  if(!P.total){ crKpr.status='No '+(crTeamOf(side)||side)+' kickouts in this game.'; crKprRender(); return 0; }
+  const diffs=P.rows.filter(r=>r.kind==='diff');
+  const msg='<b>'+tn+'</b> — '+n(P.total)+' in this game<br><span style="color:var(--t3);">'+crKprSpellText(side)+'</span><br><br>'
+    +'<b>'+P.fill+'</b> will be filled<br>'
+    +'<b>'+P.same+'</b> already carry the same name<br>'
+    +'<b>'+P.diff+'</b> carry a different name'+(P.diff?' — manual overrides, <b>left as they are</b> unless you choose to overwrite':'')+'<br>'
+    +(P.none?'<b>'+P.none+'</b> are before any keeper is set — left blank<br>':'')
+    +(diffs.length?'<div style="margin-top:8px;font-size:12px;color:var(--t2);">'+diffs.slice(0,6).map(r=>fmt(r.e.driveT||0)+' · '+esc(r.cur)+' <span style="color:var(--t3);">(keeper: '+esc(r.target)+')</span>').join('<br>')+(diffs.length>6?'<br>… and '+(diffs.length-6)+' more':'')+'</div>':'')
+    +'<br>Queued like any edit: nothing is written until you save the session, and one Undo reverses it.';
+  if(!P.fill&&!diffs.length){ await cohesionModal({title:'Kickout Taken By — nothing to fill', message:msg, buttons:[{label:'Close',value:'cancel',primary:true}]}); return 0; }
+  const buttons=[{label:'Cancel',value:'cancel'}];
+  if(P.fill) buttons.push({label:'Fill '+P.fill+' blank',value:'fill',primary:true});
+  if(diffs.length) buttons.push({label:(P.fill?'Fill '+P.fill+' and overwrite ':'Overwrite ')+diffs.length+' different',value:'overwrite',danger:true});
+  const v=await cohesionModal({title:'Apply goalkeeper to '+(crTeamOf(side)||side)+' kickouts?', message:msg, buttons});
+  if(v!=='fill'&&v!=='overwrite') return 0;
+  const done=crKprApply(side, v==='overwrite');
+  crKpr.status='Kickout Taken By set on '+n(done)+' — saved with the session; Undo reverses it.'; crKprRender();
+  return done;
+}
+// Merge the changed sides' spells into a freshly read meta: every other field,
+// and the other side's keepers, pass through exactly as read.
+function crKprMergeMeta(fresh, sides){
+  const m=Object.assign({}, fresh||{}), mine=crKprClean(GAME);
+  const K=Object.assign({}, (m.keepers&&typeof m.keepers==='object'&&!Array.isArray(m.keepers))?m.keepers:{});
+  (sides||[]).forEach(s=>{ if(mine[s].length) K[s]=mine[s]; else delete K[s]; });
+  if(Object.keys(K).length) m.keepers=K; else delete m.keepers;
+  return m;
+}
+async function crKprWrite(){
+  if(!GAME||GAME._local) return;
+  const sides=crKprChangedSides(); if(!sides.length) return;
+  let j;
+  try{ j=await cohesionRead({action:'gameBundle', id:GAME.id}); }
+  catch(e){ throw new Error('goalkeepers not saved — could not re-read the game ('+e.message+')'); }
+  let fresh=j&&j.meta; if(typeof fresh==='string'){ try{ fresh=JSON.parse(fresh); }catch(_){ fresh=null; } }
+  if(!fresh||typeof fresh!=='object') throw new Error('goalkeepers not saved — could not read the game\'s current metadata');
+  const merged=crKprMergeMeta(fresh, sides);
+  try{ await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:GAME.id, meta:merged}); }
+  catch(e){ throw new Error('goalkeepers not saved ('+e.message+')'); }
+  crKpr.base=JSON.stringify(crKprClean(GAME));
+  crUpdatePending();
+}
+// The session save: no extra prompt.
+async function crKprSaveAll(){ if(crKprPendingN()){ await crKprWrite(); crKpr.status='Goalkeepers saved.'; crKprRender(); } }
+async function crKprSave(){
+  if(!crKprPendingN()) return false;
+  try{ await crKprWrite(); }
+  catch(e){ crKpr.status=e.message; crKprRender(); cohesionModal({title:'Goalkeepers not saved', message:esc(e.message)}); return false; }
+  crKpr.status='Goalkeepers saved. Kickouts already tagged are only changed by “Apply to this team’s kickouts”.'; crKprRender();
+  return true;
+}
+function crKprBuild(){
+  let p=document.getElementById('crKpr'); if(p) return p;
+  p=document.createElement('div'); p.id='crKpr'; p.className='crfr crkp';
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Goalkeepers');
+  p.addEventListener('click', crKprClick);
+  p.addEventListener('focusin', ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains('crkp-in')) crKprOpenList(t,true); });
+  p.addEventListener('input', ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains('crkp-in')) crKprOpenList(t,false); });
+  p.addEventListener('focusout', ev=>{ const t=ev.target; if(!(t&&t.classList)) return;
+    if(t.classList.contains('crkp-in')) setTimeout(()=>{ if(acInput===t) acHide(); crKprCommit(t); },150);
+    else if(t.classList.contains('crkp-t')) crKprCommit(t); });
+  document.body.appendChild(p);
+  return p;
+}
+function crKprOpenList(inp, all){
+  const side=inp.dataset.side;
+  crAssistLoadOther(crTeamOf(side));
+  const s=crAssistSuggest([side], '', true);
+  acShow(inp, s.items, v=>{ inp.value=v; crKprCommit(inp); }, {tag:n=>s.tags.get(n), tagBlock:true, all:!!all&&crNameKey(inp.value)===crNameKey(inp.dataset.cur||''), max:200});
+}
+// Write a box back: a keeper's name (crkp-in) or a change time (crkp-t).
+function crKprCommit(inp){
+  if(!crKpr.open||!inp||!inp.dataset) return;
+  const d=inp.dataset, side=d.side, l=crKprRows(side), i=l.findIndex(r=>String(r.from)===String(d.from)); if(i<0) return;
+  if(inp.classList.contains('crkp-t')){
+    const t=crKprParseT(inp.value);
+    if(t==null){ inp.value=fmt(l[i].from); crKpr.status='Time not understood — use m:ss, e.g. 41:20.'; const st=document.getElementById('crKprStatus'); if(st) st.textContent=crKpr.status; return; }
+    if(Math.max(1,t)!==l[i].from) crKprSetFrom(side, i, t);
+    return;
+  }
+  crKprSetPlayer(side, i, inp.value);
+}
+function crKprTeamHtml(side){
+  const l=crKprRows(side), T=crTeamOf(side)||side, P=crKprPlan(side), subs=crKprSubs(side), changed=crKprChangedSides().includes(side);
+  const box=(r,ph)=>'<input class="crkp-in" data-side="'+side+'" data-from="'+r.from+'" data-cur="'+esc(r.player)+'" value="'+esc(r.player)+'" placeholder="'+ph+'" autocomplete="off" spellcheck="false">';
+  const tagged=P.same+P.diff;
+  return '<div class="crkp-team'+(changed?' dirty':'')+'">'
+    +'<div class="crkp-th"><b>'+esc(T)+'</b><span>'+P.total+' kickout'+(P.total===1?'':'s')+' · '+tagged+' with a taker</span></div>'
+    +'<div class="crfr-row"><span class="crkp-l">Starting keeper</span>'+box(l[0],'Type or pick a player…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-i="0" title="Clear">✕</span></div>'
+    +l.slice(1).map((r,j)=>'<div class="crfr-row"><span class="crkp-l">from</span><input class="crkp-t" data-side="'+side+'" data-from="'+r.from+'" value="'+fmt(r.from)+'" title="Video time the new keeper is in goal from (m:ss)" autocomplete="off" spellcheck="false"><span class="crkp-ar">→</span>'
+      +box(r,'New keeper…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-i="'+(j+1)+'" title="Remove this change">✕</span></div>').join('')
+    +'<div class="crfr-row crfr-wrap"><button class="cbtn mini" data-act="now" data-side="'+side+'" title="Scrub the video to where the new keeper comes on, then click">+ Change keeper from current video time</button></div>'
+    +(subs.length?'<div class="crkp-subs"><div class="crfr-lbl">'+esc(T)+' subs in this game — a hint, check the video</div>'
+      +subs.map(s=>'<div class="crkp-sub"><span class="crkp-st" data-act="seek" data-t="'+s.t+'" title="Go to this moment in the video">▶ '+fmt(s.t)+'</span><span class="crkp-sd">'+esc(s.text||'sub')+'</span><span class="crkp-su" data-act="hint" data-side="'+side+'" data-t="'+s.t+'" title="Start a keeper change at this time — you still type who came on">use this time</span></div>').join('')+'</div>':'')
+    +'<div class="crfr-row crfr-btns"><button class="cbtn mini crfr-all" data-act="fill" data-side="'+side+'" title="Fill Kickout Taken By on this team\'s kickouts from the keepers above — shows the counts first">Apply to this team’s kickouts</button></div>'
+    +'</div>';
+}
+function crKprRender(){
+  crKprBtnSync();
+  if(!crKpr.open||!GAME) return;
+  const p=crKprBuild(), n=crKprPendingN();
+  p.innerHTML='<div class="crfr-h"><span>GOALKEEPERS</span><span class="crfr-sub">who takes the kickouts · this game</span><span class="crfr-x" data-act="close" title="Close (Esc)">✕</span></div>'
+    +'<div class="crlc-note">A kickout tagged in Code mode is given the keeper in goal at that time. One kickout can be changed in its own Edit panel (Kickout Taken By).</div>'
+    +crKprTeamHtml('home')+crKprTeamHtml('away')
+    +'<div class="craa-live" id="crKprLive"></div>'
+    +'<div class="crfr-row crfr-btns">'+(GAME._local?'<span class="crlc-note" style="margin:0;">Local session — kept until the page closes.</span>'
+      :'<button class="cbtn mini crfr-all" data-act="save"'+(n?'':' disabled')+'>Save goalkeepers</button><span class="crlc-note" style="margin:0;">'+(n?'Not saved yet — also saved with the session.':'No unsaved changes.')+'</span>')+'</div>'
+    +'<div class="crfr-status" id="crKprStatus">'+esc(crKpr.status||'')+'</div>';
+  crKprLive();
+  const f=crKpr.focus; crKpr.focus=null;
+  if(f&&p.querySelector){ const inp=p.querySelector('input.crkp-in[data-side="'+f.side+'"][data-from="'+f.from+'"]'); if(inp&&inp.focus) inp.focus(); }
+}
+function crKprLive(){ const el=document.getElementById('crKprLive'); if(el&&crKpr.open) el.textContent='Video now: '+fmt(vNow()); }
+function crKprClick(ev){
+  const t=ev.target&&ev.target.closest?ev.target.closest('[data-act]'):null; if(!t) return;
+  const act=t.getAttribute('data-act'), side=t.getAttribute('data-side');
+  if(act==='close') crKprClose();
+  else if(act==='now') crKprAddSpell(side, vNow());
+  else if(act==='hint') crKprAddSpell(side, +t.getAttribute('data-t'));
+  else if(act==='seek'){ vSeekDrive(+t.getAttribute('data-t')||0); crKprLive(); }
+  else if(act==='rm') crKprRemove(side, +t.getAttribute('data-i'));
+  else if(act==='fill') crKprBackfill(side);
+  else if(act==='save') crKprSave();
+}
+function crKprOpen(){
+  if(!GAME) return false;
+  const p=crKprBuild(); p.style.display=''; crKpr.open=true; crKpr.status='';
+  if(!crKpr.timer) crKpr.timer=setInterval(crKprLive,500);
+  crKprRender(); return true;
+}
+function crKprClose(){
+  const p=document.getElementById('crKpr');
+  const ae=document.activeElement;
+  if(ae&&ae.blur&&p&&p.contains&&p.contains(ae)){ crKprCommit(ae); if(ae.blur) ae.blur(); }
+  if(p) p.style.display='none';
+  crKpr.open=false; acHide();
+  if(crKpr.timer){ clearInterval(crKpr.timer); crKpr.timer=null; }
+  crKprBtnSync();
+}
+function crKprToggle(){ if(crKpr.open) crKprClose(); else crKprOpen(); }
+function crKprBtnSync(){ const b=document.getElementById('crKprBtn'); if(b) b.textContent='🧤 Goalkeepers'+(crKprPendingN()?' •':''); }   // • = unsaved
+// Window CAPTURE phase (like Find & Replace / Align this angle): keys pressed
+// with the focus inside the panel never reach the coding hotkeys.
+window.addEventListener('keydown', e=>{
+  if(!crKpr.open) return;
+  const p=document.getElementById('crKpr'), t=e.target;
+  if(!(p&&t&&p.contains&&p.contains(t))) return;
+  e.stopPropagation();
+  const isIn=t.classList&&t.classList.contains('crkp-in');
+  const dd=document.getElementById('acDrop'), open=isIn&&acInput===t&&dd&&dd.style.display!=='none';
+  if(open&&(e.key==='ArrowDown'||e.key==='ArrowUp'||(e.key==='Enter'&&acIdx>=0))){ acKey(e); return; }
+  if(isIn&&e.key==='ArrowDown'){ e.preventDefault(); crKprOpenList(t,true); return; }
+  if(e.key==='Enter'&&t.tagName==='INPUT'){ e.preventDefault(); acHide(); if(t.blur) t.blur(); return; }
+  if(e.key==='Escape'){ e.preventDefault(); if(open){ acHide(); return; } crKprClose(); }
+}, true);
 function buildCodePlayers(){
   const players=codePlayerList(codeMode.team);
   const tm=codeMode.team==='home'?(GAME.homeTeam||'Home'):(GAME.awayTeam||'Away');
@@ -3566,6 +3886,7 @@ function codeTag(baseCode, opts){
   const row={ id:'manual-'+Date.now(), start:clipStart, end:clipEnd, half:codeMode.period, code, team:teamName,
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
+  crKprAutoFill(row);                                              // a kickout: Kickout Taken By = the keeper in goal now
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
   crLastTag={start:clipStart, end:clipEnd, rowId:tmpId};           // for R = replay · ? = flag
@@ -3617,6 +3938,7 @@ function crDurToggle(baseCode){
     const row={ id:'manual-'+Date.now(), start, end, half:codeMode.period, code, team:teamName,
                 player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
                 driveT:start, labels, _manual:true, _rowId:tmpId, _new:true };
+    crKprAutoFill(row);
     if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
     else if(!teamName) row.color='#9ca3af';                        // team-neutral: grey, not a team colour
     crLastTag={start, end, rowId:tmpId};                           // for R = replay · ? = flag
