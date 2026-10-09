@@ -355,3 +355,72 @@ function cohScRestore(rows, insts){
   return {ok:true, reason:'', updates, stats};
 }
 if(typeof module!=='undefined'&&module.exports) module.exports.cohScRestore=cohScRestore;
+
+/* ── Names and values follow the game's own template ─────────────
+ * A game imported from Sportscode already has its own spelling of every label
+ * group ("Mayo Player Labels", "Turnover Location"); COHESION must write into
+ * THAT group, never a twin ("MAYO Player Labels", "Turnover Locations").
+ *   cohGroupCanon(name)                 comparison key: case, spacing and a trailing plural "s" ignored; known misspellings folded
+ *   cohGroupIndex(events)               Map(canon -> Map(spelling -> uses)) of the game's groups
+ *   cohGroupResolve(src, name)          the spelling the game already uses for `name` (most used; never a known
+ *                                       misspelling), else `name` itself. src = events or a cohGroupIndex
+ *   cohPlayerGroupFor(src, team, meta)  the game's "<Team> Player Labels" group for the team (any case), else
+ *                                       "<team as entered in the game's meta> Player Labels"
+ *   cohLabelKeyEq(labels, name)         the key of an equivalent group on one event (exact, then any case, then canon)
+ *   cohLabelGet(e, name) / cohLabelVal  every value / the last value of the group under ANY equivalent spelling
+ *   cohValueCanon(group, value)         comparison key of a value ('45 and '45 SHOT are one Deadball Shot Type)
+ *   cohValueOptions(src, group, opts)   dropdown list: the config options (in the game's spelling where it has an
+ *                                       equivalent) followed by the game's other values of that group
+ */
+const COH_GROUP_ALIAS={'shot asisst outcome':'shot assist outcome', 'score asisst outcome':'score assist outcome'};
+function cohGroupKey0(g){ return String(g==null?'':g).replace(/\s+/g,' ').trim().toLowerCase().replace(/s$/,''); }
+function cohGroupCanon(g){ const k=cohGroupKey0(g); return COH_GROUP_ALIAS[k]||k; }
+function cohGroupMisspelt(g){ return Object.prototype.hasOwnProperty.call(COH_GROUP_ALIAS, cohGroupKey0(g)); }
+function cohGroupIndex(events){
+  const idx=new Map();
+  (events||[]).forEach(e=>{ const L=(e&&e.labels)||{}; Object.keys(L).forEach(g=>{ if(L[g]==null||L[g]==='') return;
+    const k=cohGroupCanon(g); let m=idx.get(k); if(!m){ m=new Map(); idx.set(k, m); } m.set(g, (m.get(g)||0)+1); }); });
+  return idx;
+}
+function cohGroupResolve(src, name){
+  const idx=src instanceof Map?src:cohGroupIndex(src), m=idx.get(cohGroupCanon(name));
+  let best=null, bn=0;
+  if(m) m.forEach((n, g)=>{ if(cohGroupMisspelt(g)) return; if(n>bn||(n===bn&&g===name)){ best=g; bn=n; } });
+  return best||name;
+}
+function cohTeamCasing(team, meta){
+  const T=String(team||'').trim(), U=T.toUpperCase(), h=String((meta&&meta.homeTeam)||'').trim(), a=String((meta&&meta.awayTeam)||'').trim();
+  return U&&U===h.toUpperCase()?h:U&&U===a.toUpperCase()?a:T;
+}
+function cohPlayerGroupFor(src, team, meta){
+  const T=String(team||'').trim(); if(!T) return 'Unassigned Player Labels';
+  const idx=src instanceof Map?src:cohGroupIndex(src); let best=null, bn=0;
+  idx.forEach(m=>m.forEach((n, g)=>{ const x=COH_PLAYER_GROUP_RE.exec(g); if(x&&x[1].trim().toUpperCase()===T.toUpperCase()&&n>bn){ best=g; bn=n; } }));
+  return best||(cohTeamCasing(T, meta)+' Player Labels');
+}
+function cohLabelKeyEq(obj, group){
+  const k=cohLabelKey(obj, group); if(k!=null||!obj||group==null) return k;
+  const c=cohGroupCanon(group); let hit=null;
+  for(const x of Object.keys(obj)){ if(cohGroupCanon(x)!==c) continue; if(obj[x]==null||obj[x]==='') continue; if(!cohGroupMisspelt(x)) return x; if(hit==null) hit=x; }
+  return hit;
+}
+function cohLabelGet(e, group){ const k=cohLabelKeyEq(e&&e.labels, group); return k==null?[]:cohLabelValues(e, k); }
+function cohLabelVal(e, group){ const v=cohLabelGet(e, group); return v.length?v[v.length-1]:''; }
+function cohValueCanon(group, v){
+  const s=String(v==null?'':v).replace(/[‘’‛ʼ`´]/g,"'").replace(/\s+/g,' ').trim().toUpperCase();
+  if(cohGroupCanon(group)==='deadball shot type' && /^'?45(\s+SHOT)?$/.test(s)) return "'45";
+  return s;
+}
+// a 45 as a Deadball Shot Type value, however the game spells it: '45 · 45 · '45 SHOT
+function cohIs45(v){ return cohValueCanon('Deadball Shot Type', v)==="'45"; }
+function cohValueOptions(src, group, options){
+  const events=Array.isArray(src)?src:[], c=cohGroupCanon(group), seen=new Map();   // value canon -> Map(spelling -> uses)
+  events.forEach(e=>{ const L=(e&&e.labels)||{}; Object.keys(L).forEach(g=>{ if(cohGroupCanon(g)!==c) return;
+    cohLabelValues(e, g).forEach(v=>{ const k=cohValueCanon(group, v); let m=seen.get(k); if(!m){ m=new Map(); seen.set(k, m); } m.set(v, (m.get(v)||0)+1); }); }); });
+  const spell=(k, dflt)=>{ const m=seen.get(k); if(!m) return dflt; let best=dflt, bn=0; m.forEach((n, v)=>{ if(n>bn||(n===bn&&v===dflt)){ best=v; bn=n; } }); return best; };
+  const out=[], done=new Set();
+  (options||[]).forEach(o=>{ const k=cohValueCanon(group, o); if(done.has(k)) return; done.add(k); out.push(spell(k, o)); });
+  [...seen.keys()].filter(k=>!done.has(k)).map(k=>[spell(k, k), [...seen.get(k).values()].reduce((a,b)=>a+b,0)]).sort((a,b)=>b[1]-a[1]||String(a[0]).localeCompare(String(b[0]))).forEach(x=>out.push(x[0]));
+  return out;
+}
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohGroupCanon, cohGroupMisspelt, cohGroupIndex, cohGroupResolve, cohTeamCasing, cohPlayerGroupFor, cohLabelKeyEq, cohLabelGet, cohLabelVal, cohValueCanon, cohIs45, cohValueOptions});
