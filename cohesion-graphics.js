@@ -302,6 +302,7 @@ function koPitchArt(){
     +ln(45)+ln(65)+ln(KO_PITCH_M/2, {w:1, dash:true})+ln(KO_PITCH_M-65);
   return s;
 }
+// ── end kickout chart geometry ──
 // Coordinates: native e.x/e.y first, else Match Tracker label pairs
 // (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...), 0-100 scale.
 // Older Mayo Sportscode timelines tag on a pitch rotated 90° (goal at X=100):
