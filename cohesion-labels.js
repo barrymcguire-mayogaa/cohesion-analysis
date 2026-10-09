@@ -136,11 +136,12 @@ function cohPlayerRowOf(e, index){
 function cohNameKey(s){ return String(s==null?'':s).replace(/[‘’‛ʼ`´]/g,"'").toLowerCase().replace(/\s+/g,''); }
 
 // ── Sportscode XML import ─────────────────────────────────────
-// COHESION exports "<Team> Kickout Won By / Kickout Taken By / Kickout Target"
+// COHESION exports "<Team> Kickout Won By / Kickout Taken By / Kickout Target" and a substitution's
+// "<Team> Player Out / Player In"
 // (cohesion-xml.js): the import reads them back as the plain group.
-const COH_SC_TEAM_GROUPS=['Assist','Kickout Won By','Kickout Taken By','Kickout Target'];
+const COH_SC_TEAM_GROUPS=['Assist','Kickout Won By','Kickout Taken By','Kickout Target','Player Out','Player In'];
 function cohScPlainGroup(g){
-  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(String(g||'').trim());
+  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target|player out|player in)$/i.exec(String(g||'').trim());
   return m?COH_SC_TEAM_GROUPS.find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
 }
 const COH_SC_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
@@ -625,3 +626,124 @@ function cohScBreakPairs(events, opts){
   return {added, stats};
 }
 if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsKoRow, cohIsBreakRow, cohKoOutcome, cohKoWon, cohBreakTies, cohOppTeam, cohKoIndex, cohKoIndexCached, cohKoInfo, cohScBreakPairs, COH_BREAK_NOTE_GROUP, COH_BREAK_NOTE});
+
+/* ── Substitutions: PLAYER OUT / PLAYER IN ────────────────────────
+ * A SUB row ("<TEAM> SUB" · SUBS · SUBSTITUTION · BLOOD SUB) names the player going OFF and the player coming ON.
+ * Derived on read — stored events are never rewritten — and every page reads it through ONE helper:
+ *   cohIsSubRow(e)
+ *   cohSubInOut(e, meta) -> {out:{name,no}|null, in:{name,no}|null, source, src:{out,in}}
+ *       per player, the first of these that gives one:
+ *         'label'    the explicit 'Player Out' / 'Player In' labels;
+ *         'players'  exactly two players of the row's OWN team in its "<Team> Player Labels" group — the Sportscode
+ *                    template's order: the FIRST is going OFF, the SECOND is coming ON (a single name is not guessed);
+ *         'detail'   the Tracker's 'Sub Detail' label "#18 ON for #13" (IN first, then OUT), each number named
+ *                    through THAT team's sheet for the game (name '' when the sheet does not carry the number).
+ *       no = the player's number on the sheet ('' unknown); source = where OUT came from (else IN).
+ *   cohSubText(io)                       "OUT #13 Name → IN #18 Name" ('' when nothing is known)
+ *   cohSubState(events, meta, team, e)   who is on the pitch / on the bench just BEFORE sub row e (e omitted: at
+ *                                        the end): the sheet's starters, adjusted by the team's earlier subs in
+ *                                        video order -> {known, on:[names], bench:[names], off:[names]}
+ *                                        (bench = sheet subs not yet on + players taken off, who may come back)
+ *   cohSubWarnings(out, in, state)       -> [text] (never blocks): same player · OUT not on the pitch · IN already on
+ *   cohSubDetailText(e, meta, events, out, in)  the 'Sub Detail' to keep in step ("#in ON for #out") — only in a
+ *                                        game that already uses 'Sub Detail' and when both players have a number
+ *   cohSubMarks(events, meta, side)      Map(nameKey -> [{type:'off'|'on', min, text}]) for the Teams panel:
+ *                                        only players the helper names AND the sheet lists
+ */
+const COH_SUB_ROW_RE=/(^|\s)(SUBS?|SUBSTITUTIONS?)\s*$/i;   // SUB · SUBS · SUBSTITUTION · BLOOD SUB
+const COH_SUB_OUT='Player Out', COH_SUB_IN='Player In';
+function cohIsSubRow(e){ return COH_SUB_ROW_RE.test(String((e&&e.code)||'')); }
+function cohSubSide(team, meta){ const T=cohUp(team); return T&&T===cohUp(meta&&meta.homeTeam)?'home':T&&T===cohUp(meta&&meta.awayTeam)?'away':''; }
+// the side's team sheet as [{no:'7'|'', name, role:'start'|'sub'|''}], starters (number order) first — through
+// cohesion-teamsheet.js when it is loaded, else a plain reading of meta.rosters[side]
+function cohSubSheet(meta, side){
+  const list=meta&&meta.rosters&&!Array.isArray(meta.rosters)&&meta.rosters[side];
+  if(!Array.isArray(list)) return [];
+  const TS=(typeof cohTS!=='undefined'&&cohTS&&typeof cohTS.sheet==='function')?cohTS:null;
+  const num=v=>{ const m=/^\s*#?\s*(\d{1,3})\s*$/.exec(String(v==null?'':v)); return m?String(+m[1]):''; };
+  const rows=TS?TS.sheet(meta, side):list.map(r=>{
+    if(r==null) return null;
+    if(typeof r==='object'){ const name=String(r.name!=null?r.name:(r.player!=null?r.player:'')).replace(/\s+/g,' ').trim(); if(!name) return null;
+      const n=r.no!=null?r.no:r.number!=null?r.number:r.num!=null?r.num:r.jersey!=null?r.jersey:r.shirt, role=String(r.role||'').toLowerCase();
+      return {no:num(n), name, role:/^start/.test(role)?'start':/^sub/.test(role)?'sub':''}; }
+    const s=String(r).replace(/\s+/g,' ').trim(), name=cohScSheetName(s); if(!name) return null;
+    const m=/^#?\s*(\d{1,3})\b/.exec(s)||/(\d{1,3})\s*[)\]]$/.exec(s);
+    return {no:(name!==s&&m)?String(+m[1]):'', name, role:''}; }).filter(Boolean);
+  const out=rows.map((r,i)=>{ const no=num(r.no); return {no, name:r.name, role:r.role||(no===''?'':(+no<=15?'start':'sub')), i}; });
+  const rk=r=>r.role==='start'?0:r.role==='sub'?1:2, nn=r=>r.no===''?1e6:+r.no;
+  return out.sort((a,b)=>rk(a)-rk(b)||nn(a)-nn(b)||a.i-b.i).map(r=>({no:r.no, name:r.name, role:r.role}));
+}
+function cohSubInOut(e, meta){
+  const res={out:null, in:null, source:'', src:{out:'', in:''}};
+  if(!e||!cohIsSubRow(e)) return res;
+  const side=cohSubSide(e.team, meta), rows=side?cohSubSheet(meta, side):[], nk=cohNameKey, tidy=s=>String(s==null?'':s).replace(/\s+/g,' ').trim();
+  const noOf=name=>{ const k=nk(name), u=[...new Set(rows.filter(r=>r.no!==''&&nk(r.name)===k).map(r=>r.no))]; return u.length===1?u[0]:''; };
+  const nameOf=no=>{ const u=[...new Set(rows.filter(r=>r.no===no).map(r=>r.name))]; return u.length===1?u[0]:''; };   // a number two players carry is not guessed
+  const set=(k, name, no, src)=>{ if(res[k]||(!name&&!no)) return; const o=res[k==='out'?'in':'out'];
+    if(src!=='label'&&o&&name&&o.name&&nk(o.name)===nk(name)) return;        // an inferred player never repeats the other one
+    res[k]={name:name||'', no:no||(name?noOf(name):'')}; res.src[k]=src; };
+  set('out', tidy(cohLabelVal(e, COH_SUB_OUT)), '', 'label'); set('in', tidy(cohLabelVal(e, COH_SUB_IN)), '', 'label');
+  if(!res.out||!res.in){
+    const T=cohUp(e.team), own=[]; cohEventPlayers(e, meta).forEach(p=>{ if(p.group&&p.name&&cohUp(p.team)===T&&!own.some(n=>nk(n)===nk(p.name))) own.push(tidy(p.name)); });
+    if(own.length===2){ set('out', own[0], '', 'players'); set('in', own[1], '', 'players'); }
+  }
+  if(!res.out||!res.in){
+    const m=/#?\s*(\d{1,3})\s*ON\s+for\s*#?\s*(\d{1,3})(?!\d)/i.exec(cohLabelVal(e,'Sub Detail')||'');
+    if(m){ const i=String(+m[1]), o=String(+m[2]); set('out', nameOf(o), o, 'detail'); set('in', nameOf(i), i, 'detail'); }
+  }
+  res.source=res.src.out||res.src.in||'';
+  return res;
+}
+function cohSubText(io){
+  if(!io||(!io.out&&!io.in)) return '';
+  const part=p=>p?((p.no?'#'+p.no+' ':'')+(p.name||'')).trim():'?';
+  return 'OUT '+part(io.out)+' → IN '+part(io.in);
+}
+function cohSubTime(e){ return +(e&&(e.driveT!=null?e.driveT:e.start))||0; }
+function cohSubState(events, meta, team, e){
+  const side=cohSubSide(team, meta), rows=side?cohSubSheet(meta, side):[], T=cohUp(team), nk=cohNameKey;
+  const on=new Map(), bench=new Map(), off=new Map(), other=new Map();
+  rows.forEach(r=>{ const k=nk(r.name); if(!k||on.has(k)||bench.has(k)||other.has(k)) return; (r.role==='start'?on:r.role==='sub'?bench:other).set(k, r.name); });
+  const known=on.size>0;
+  const subs=(events||[]).map((x,i)=>({x,i})).filter(o=>o.x&&cohIsSubRow(o.x)&&cohUp(o.x.team)===T).sort((a,b)=>cohSubTime(a.x)-cohSubTime(b.x)||a.i-b.i).map(o=>o.x);
+  const at=e?subs.indexOf(e):-1, upto=!e?subs.length:at>=0?at:subs.filter(s=>cohSubTime(s)<=cohSubTime(e)).length;
+  const sheetName=n=>{ const k=nk(n), r=rows.find(x=>nk(x.name)===k); return r?r.name:n; };
+  subs.slice(0, upto).forEach(s=>{ const io=cohSubInOut(s, meta);
+    if(io.out&&io.out.name){ const k=nk(io.out.name); on.delete(k); bench.delete(k); other.delete(k); off.set(k, sheetName(io.out.name)); }
+    if(io.in&&io.in.name){ const k=nk(io.in.name); bench.delete(k); off.delete(k); other.delete(k); on.set(k, sheetName(io.in.name)); } });
+  return {known, on:[...on.values()], bench:[...bench.values()].concat([...off.values()]), off:[...off.values()]};
+}
+function cohSubWarnings(out, inn, state){
+  const w=[], nk=cohNameKey, o=nk(out), i=nk(inn), has=(l, k)=>(l||[]).some(n=>nk(n)===k);
+  if(o&&i&&o===i) w.push('Player out and player in are the same player.');
+  if(state&&state.known){
+    if(o&&!has(state.on, o)) w.push(String(out).trim()+' is not on the pitch at this point (team sheet + earlier subs).');
+    if(i&&i!==o&&has(state.on, i)) w.push(String(inn).trim()+' is already on the pitch at this point.');
+  }
+  return w;
+}
+function cohSubUsesDetail(events){ return (events||[]).some(x=>x&&cohIsSubRow(x)&&!!cohLabelVal(x,'Sub Detail')); }
+function cohSubDetailText(e, meta, events, out, inn){
+  if(!e||!out||!inn||!cohSubUsesDetail(events)) return '';
+  const side=cohSubSide(e.team, meta), rows=side?cohSubSheet(meta, side):[], nk=cohNameKey;
+  const noOf=name=>{ const k=nk(name), u=[...new Set(rows.filter(r=>r.no!==''&&nk(r.name)===k).map(r=>r.no))]; return u.length===1?u[0]:''; };
+  const o=noOf(out), i=noOf(inn);
+  return (o&&i)?('#'+i+' ON for #'+o):'';
+}
+// the game-clock minute of an event ("2H 16:40" -> 47' in a club game: 30 + 17th minute), '' when it has no clock
+function cohSubMinute(e, meta){
+  const m=/^([12])H\s+(\d+):(\d+)/.exec(String((e&&e.gameTime)||'')); if(!m) return '';
+  const half=(typeof COH_HALF_MIN!=='undefined'&&typeof cohGameLevel==='function')?COH_HALF_MIN[cohGameLevel(meta)]:35;
+  return (+m[1]===2?half:0)+(+m[2])+1;
+}
+function cohSubMarks(events, meta, side){
+  const marks=new Map(), team=side==='home'?(meta&&meta.homeTeam):(meta&&meta.awayTeam), rows=cohSubSheet(meta, side), nk=cohNameKey, T=cohUp(team);
+  if(!rows.length||!T) return marks;
+  const onSheet=n=>!!n&&rows.some(r=>nk(r.name)===nk(n));
+  (events||[]).filter(x=>x&&cohIsSubRow(x)&&cohUp(x.team)===T).sort((a,b)=>cohSubTime(a)-cohSubTime(b)).forEach(s=>{
+    const io=cohSubInOut(s, meta), min=cohSubMinute(s, meta);
+    [['off', io.out], ['on', io.in]].forEach(([type, p])=>{ if(!p||!onSheet(p.name)) return; const k=nk(p.name);
+      if(!marks.has(k)) marks.set(k, []); marks.get(k).push({type, min, text:type+(min!==''?' '+min+"'":'')}); }); });
+  return marks;
+}
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsSubRow, cohSubSide, cohSubSheet, cohSubInOut, cohSubText, cohSubState, cohSubWarnings, cohSubUsesDetail, cohSubDetailText, cohSubMinute, cohSubMarks, COH_SUB_OUT, COH_SUB_IN});

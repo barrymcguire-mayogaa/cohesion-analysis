@@ -144,6 +144,18 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .crasst-x:hover{color:var(--red);}
 .crasst-add{cursor:pointer;color:var(--accent);font:700 11px 'Barlow',sans-serif;white-space:nowrap;user-select:none;}
 .crasst-add:hover{text-decoration:underline;}
+/* PLAYER OUT / PLAYER IN on a SUB event (Edit panel) */
+.crsub{border:1px solid var(--border);border-radius:9px;padding:9px 10px 8px;margin:0 0 10px;background:rgba(127,127,127,.06);}
+.crsub-sec+.crsub-sec{margin-top:9px;}
+.crsub-h{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font:800 12.5px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;margin:0 0 5px;}
+.crsub-h.out{color:var(--red);} .crsub-h.in{color:var(--green);}
+.crsub-tag{font:700 9.5px 'Barlow',sans-serif;letter-spacing:.3px;text-transform:none;border-radius:4px;padding:1px 5px;border:1px solid var(--border);color:var(--t3);}
+.crsub-tag.sug{color:var(--orange);border-color:var(--orange);border-style:dashed;}
+.crsub-tag.ok{color:var(--green);border-color:var(--green);}
+.crsub .crasst.sug input{border-style:dashed;border-color:var(--orange);font-style:italic;}
+.crsub-note{margin-top:8px;font-size:11.5px;line-height:1.4;color:var(--t2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.crsub-note button{flex:none;background:none;border:1px solid var(--orange);color:var(--orange);border-radius:6px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;}
+.crsub-warn{margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--orange);}
 .tltip{position:fixed;z-index:10003;background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:8px 10px;font:600 12px 'Barlow',sans-serif;color:var(--t1);box-shadow:0 12px 32px rgba(0,0,0,.55);pointer-events:none;display:none;max-width:300px;line-height:1.5;}
 .tltip .tt-code{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:4px;color:var(--accent);}
 .tltip .tg{display:inline-block;min-width:104px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;}
@@ -1175,7 +1187,7 @@ function renderList(){
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${_cq(e._rowId)}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.derived==='break-pair'?' <span style="font:700 9px Barlow,sans-serif;letter-spacing:.4px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;" title="The opposition\'s break row — added by COHESION on import (the Sportscode file logs one break row per kickout, on the kicking team)">ADDED</span>':''}${crPlayersTxt(e)&&!(e.playerRow&&e.player===e.code)?` · <span class="ev-p">${esc(crPlayersTxt(e))}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Names from this game's team sheet">${esc(crSubNames(e))}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.derived==='break-pair'?' <span style="font:700 9px Barlow,sans-serif;letter-spacing:.4px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;" title="The opposition\'s break row — added by COHESION on import (the Sportscode file logs one break row per kickout, on the kicking team)">ADDED</span>':''}${crPlayersTxt(e)&&!(e.playerRow&&e.player===e.code)&&!(crIsSubCode(e.code)&&crSubNames(e))?` · <span class="ev-p">${esc(crPlayersTxt(e))}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Player going off → player coming on">${esc(crSubNames(e))}</span>`:''}</span>
     </div>`;
   }).join('')||(crLCFilterOn()?'<div style="padding:16px;color:var(--green);font-size:12px;">✓ Nothing missing — every event passes the label check.</div>':'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>');
   crLCAfterRender();
@@ -2587,8 +2599,10 @@ function renderPanel(){
   // Shots always show every shot label (attempt, dead-ball type, leg, side,
   // pressure, assist); blanks are outlined amber so gaps are obvious.
   const shotDraft=/SHOT (OPEN PLAY|DEAD ?BALL)/i.test(draft.code||'');
+  const subDraft=crIsSubCode(draft.code);
   const definedRows=defined.map(d=>{
     const val=curMap[d.name.toLowerCase()]||'';
+    if(d.sub&&subDraft) return '';                  // Player Out / Player In: their own sections (crSubPanelHtml)
     if(d.players){                                  // Assist: type-to-search box (crAssistBoxHtml)
       const need=shotDraft&&!val;
       return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val,crAssistSelf(d,draft.player),need)}</div>`;
@@ -2607,7 +2621,7 @@ function renderPanel(){
       <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
       <input value="${esc(row.v)}" oninput="setLabelIdx(${i},this.value);acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onfocus="acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" autocomplete="off">
       <span class="x" onclick="removeLabelIdx(${i})" title="Remove label">✕</span>
-    </div>${row.g==='Sub Detail'&&crSubNames({team:e.team,labels:{'Sub Detail':row.v}})?`<div style="margin:-2px 0 8px 124px;font-size:11.5px;color:var(--accent);" title="Names from this game's team sheet — the stored label stays as numbers">${esc(crSubNames({team:e.team,labels:{'Sub Detail':row.v}}))}</div>`:''}`).join('');
+    </div>${row.g==='Sub Detail'&&!subDraft&&crSubNames({team:e.team,labels:{'Sub Detail':row.v}})?`<div style="margin:-2px 0 8px 124px;font-size:11.5px;color:var(--accent);" title="Names from this game's team sheet — the stored label stays as numbers">${esc(crSubNames({team:e.team,labels:{'Sub Detail':row.v}}))}</div>`:''}`).join('');
   const labelRows=definedRows+freeRows;
   p.innerHTML=`
     <div class="ep-code">${esc(e.code||'')} #${crSeqOf(e)}${crIsDup(e)?' <span style="color:#f59e0b;font-size:12px;">⚠ possible duplicate</span>':''}</div>
@@ -2631,7 +2645,7 @@ function renderPanel(){
     ${/SHOT/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crShotMap()" style="flex:1;">📍 ${draft.x!=null?'Shot location set ('+((draft.groups.find(r=>r.g==='Shot Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set shot location'}</button></div>${crAttNote.id===activeId&&crAttNote.text?`<div class="crattnote" style="font-size:11px;color:var(--green);margin-top:4px;">✓ ${esc(crAttNote.text)}</div>`:''}`:''}
     ${/KICKOUT|\bKO\b/i.test(draft.code)?`<div class="nudge" style="margin-top:6px;"><button onclick="crKoMap()" style="flex:1;">📍 ${draft.x!=null?'Kickout landing set ('+((draft.groups.find(r=>r.g==='Kickout Zones')||{}).v||(Math.round(draft.x)+','+Math.round(draft.y)))+') — change':'Set kickout landing'}</button></div>`:''}
     <div class="ep-lbl">Labels</div>
-    ${labelRows||'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>'}
+    ${subDraft?crSubPanelHtml(e):''}${labelRows.trim()||(subDraft?'':'<div style="font-size:12px;color:var(--t3);margin-bottom:4px;">No labels.</div>')}
     <button class="addg" onclick="addLabelGroup()">＋ Add label group</button>
     <div class="bar">
       <button class="save" id="saveBtn" onclick="saveEvent()">Save changes</button>
@@ -3408,7 +3422,7 @@ function crGameNames(side){
     if(e.player&&String(pt||'').toUpperCase()===T) out.push(e.player);
     Object.keys(L).forEach(k=>{ if(L[k]&&k.toUpperCase()===T+' PLAYER LABELS') ((typeof cohLabelValues==='function')?cohLabelValues(e,k):[L[k]]).forEach(v=>out.push(v)); });
     if(String(e.team||'').toUpperCase()!==T) return;
-    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By')) out.push(L[k]); });
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
@@ -3463,10 +3477,10 @@ function crKoWinnerTeam(e){
 }
 // Markup for one box. Values go in data-* attributes (esc'd); behaviour is
 // attached by crAssistWire after the container's innerHTML is set.
-function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need){
+function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need, sub, sug){
   const sides=crAssistSides({where, group, row:rowId, side});
   const show=cur&&sides.length===1&&!crOnSheet(sides[0],cur);
-  return `<div class="crasst${need?' need':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}" value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
+  return `<div class="crasst${need?' need':''}${sug?' sug':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}"${sub?` data-sub="${esc(sub)}"`:''} value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
     `<span class="crasst-x" title="${group==='Assist'?'Clear (no assist)':'Clear'}">✕</span>`+
     `<span class="crasst-add" title="Add this name to the game's team sheet (saved with the session)"${show?'':' style="display:none"'}>+ add to team sheet</span></div>`;
 }
@@ -3500,8 +3514,8 @@ function crAssistCur(inp){
 function crAssistOpen(inp, all){
   const d=inp.dataset||{}, sides=crAssistSides(d);
   sides.forEach(sd=>crAssistLoadOther(crTeamOf(sd)));   // lazy, background — never blocks typing
-  const s=crAssistSuggest(sides, d.shooter, d.group!=='Assist');
-  const cur=crAssistCur(inp);
+  const s=d.sub?crSubSuggest(d):crAssistSuggest(sides, d.shooter, d.group!=='Assist');
+  const cur=d.sub?crSubShown(d.where, d.row, d.sub).v:crAssistCur(inp);   // a suggested name counts as the box's own value: the whole list opens
   acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
     { tag:n=>s.tags.get(n), label:n=>crTSLabel(n, sides.length===1?sides[0]:''), tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
 }
@@ -3517,6 +3531,11 @@ function crAssistCommit(inp){
   if(v){   // adopt a known spelling when only case/spacing differ
     const hit=crAssistSuggest(sides,'').items.find(n=>crNameKey(n)===crNameKey(v));
     if(hit) v=hit;
+  }
+  if(d.sub&&d.where!=='code'){                       // a SUB's suggested player: looking at it writes nothing
+    const sh=crSubShown(d.where, d.row, d.sub);
+    if(sh.sug&&crNameKey(v)===crNameKey(sh.v)) return;
+    if(!v){ (draft.subSkip=draft.subSkip||{})[d.sub]=true; if(sh.sug||cur===''){ renderPanel(); return; } }   // emptied: no suggestion comes back in this edit
   }
   if(v===cur) return;
   if(v&&sides.length===1) crAssistRemember(sides[0], v);
@@ -3598,7 +3617,84 @@ function crAssistLoadOther(T){
 // side it saved drops its queued "+ add to team sheet" names (they were in the
 // editor); a side it did not touch keeps its queue. Local-video session: memory only.
 function crTSLabel(name, side){ return (GAME&&window.cohTS)?cohTS.label(GAME, side||'', name):name; }
-function crSubNames(e){ return (GAME&&window.cohTS)?cohTS.subDetailFor(GAME, e):''; }
+// A SUB row's players as text — "OUT #13 Name → IN #18 Name" — through the one shared reader (cohesion-labels.js
+// cohSubInOut: explicit Player Out / Player In, else the row's two player labels, else Sub Detail + team sheet).
+// '' when no NAME is known (the row then shows whatever it stores).
+function crSubIO(e){ return (GAME&&e&&typeof cohSubInOut==='function')?cohSubInOut(e.code?e:Object.assign({code:'SUB'}, e), GAME):{out:null, in:null, source:'', src:{out:'', in:''}}; }
+function crSubNames(e){ const io=crSubIO(e); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io):''; }
+function crIsSubCode(code){ return typeof cohIsSubRow==='function'&&cohIsSubRow({code}); }
+// The group a sub's player is written to: the spelling this game already uses ("Player out"), else the configured name.
+function crSubG(which){ return crGN(which==='out'?'Player Out':'Player In'); }
+// ── PLAYER OUT / PLAYER IN (a SUB event) ─────────────────────
+// The Edit panel shows two headed sections on a SUB event, filled as soon as it is selected:
+//   · a SAVED value is the event's explicit 'Player Out' / 'Player In' label (in the draft);
+//   · otherwise a SUGGESTION read from the event as the draft has it (its two player labels, or Sub Detail + the
+//     team sheet). A suggestion is not a label and does not make the event dirty; it becomes one when the user
+//     presses "Use these" or saves the event for any other change (crSubFold). Emptying a suggested box drops it.
+// The row as the draft has it (code, labels, players) — what a suggestion is read from.
+function crSubDraftEvent(e){
+  if(!draft||String(activeId)!==String(e._rowId)) return e;
+  const labels={}, all=crLabelsFromRows(labels, draft.groups.concat(draft.players));
+  const d=Object.assign({}, e, {code:draft.code, labels}); if(Object.keys(all).length) d.labelsAll=all; else delete d.labelsAll;
+  return d;
+}
+// which = 'out' | 'in' → {v: the name in the box, sug: true when it is a suggestion, src, no, hint}
+function crSubShown(where, rowId, which){
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId)), none={v:'', sug:false, src:'', no:'', hint:''};
+  if(!e) return none;
+  const editing=where!=='code'&&draft&&String(activeId)===String(rowId);
+  const io=crSubIO(editing?crSubDraftEvent(e):e), p=io[which], src=io.src[which];
+  if(!p) return none;
+  if(src==='label') return {v:p.name, sug:false, src, no:p.no, hint:''};
+  if(!editing||(draft.subSkip&&draft.subSkip[which])) return none;
+  return {v:p.name, sug:!!p.name, src, no:p.no, hint:p.name?'':('#'+p.no+' — not on the team sheet')};
+}
+// The team's players on the pitch / on the bench just before this sub (cohSubState), from the stored events.
+function crSubStateFor(rowId){
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId));
+  return (e&&typeof cohSubState==='function')?cohSubState(EVENTS, GAME, e.team, e):{known:false, on:[], bench:[], off:[]};
+}
+// The pick list of a SUB box: PLAYER OUT — the players on the pitch at that moment first; PLAYER IN — the bench
+// at that moment first (sheet subs not yet on + players already taken off); then everyone else, as other lists.
+function crSubSuggest(d){
+  const side=d.side==='home'?'home':'away', st=crSubStateFor(d.row), rest=crAssistSuggest([side], '', false);
+  const first=d.sub==='out'?st.on:st.bench, head=d.sub==='out'?'On the pitch now':'On the bench now';
+  const seen=new Set(), items=[], tags=new Map();
+  const add=(n, tag)=>{ const k=crNameKey(n); if(!k||seen.has(k)) return; seen.add(k); const t=crNameTidy(n); items.push(t); tags.set(t, tag); };
+  first.forEach(n=>add(n, head));
+  rest.items.forEach(n=>add(n, (first.length?'Everyone else · ':'')+(rest.tags.get(n)||'')));
+  return {items, tags};
+}
+function crSubPanelHtml(e){
+  if(typeof cohSubInOut!=='function') return '';
+  const side=crSideOf(e.team), o=crSubShown('edit', e._rowId, 'out'), i=crSubShown('edit', e._rowId, 'in'), st=crSubStateFor(e._rowId);
+  const from={players:'from this row’s two players', detail:'from Sub Detail + team sheet'};
+  const sec=(which, sh, title, grp)=>{
+    const tag=sh.sug?`<span class="crsub-tag sug" title="Read ${esc(from[sh.src]||'')} — not a label yet">suggested · ${esc(from[sh.src]||'')}</span>`
+      :sh.v?'<span class="crsub-tag ok" title="The event’s own label">label</span>':sh.hint?`<span class="crsub-tag">${esc(sh.hint)}</span>`:'';
+    return `<div class="crsub-sec" data-sub="${which}"><div class="crsub-h ${which}">${title}${sh.no&&sh.v?` <span class="crsub-tag">#${esc(sh.no)}</span>`:''} ${tag}</div>`+
+      crAssistBoxHtml('edit', grp, e._rowId, side, sh.v, '', false, which, sh.sug)+`</div>`; };
+  const anySug=o.sug||i.sug;
+  const warn=(typeof cohSubWarnings==='function'?cohSubWarnings(o.v, i.v, st):[]);
+  return `<div class="crsub" id="crSubBox">${sec('out', o, '▼ PLAYER OUT', crSubG('out'))}${sec('in', i, '▲ PLAYER IN', crSubG('in'))}`+
+    (anySug?`<div class="crsub-note"><span>Suggested — not saved as labels yet. They are written when you save this event.</span><button type="button" onclick="crSubConfirm()" title="Make the suggested players this event’s Player Out / Player In labels (then Save changes)">Use these</button></div>`:'')+
+    warn.map(w=>`<div class="crsub-warn">⚠ ${esc(w)}</div>`).join('')+`</div>`;
+}
+// "Use these": the suggestions become the draft's Player Out / Player In (the event is now dirty; Save changes writes them).
+function crSubConfirm(){ const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!draft) return; crSubFold(e, true); renderPanel(); }
+// Before a SUB event is saved: suggestions still showing are written as labels, and — in a game that records
+// 'Sub Detail' (the Tracker's "#18 ON for #13") — that label follows a changed pair when both have a sheet number.
+function crSubFold(e, only){
+  if(!draft||!crIsSubCode(draft.code)||typeof cohSubInOut!=='function') return;
+  ['out','in'].forEach(w=>{ const sh=crSubShown('edit', e._rowId, w); if(sh.sug&&sh.v) draft.groups.push({g:crSubG(w), v:sh.v}); });
+  if(only) return;
+  const last=g=>{ let r=null; draft.groups.forEach((x,i)=>{ if(x.g.toLowerCase()===g.toLowerCase()) r={i, v:x.v}; }); return r; };
+  const po=(last('Player Out')||{}).v||'', pi=(last('Player In')||{}).v||'', sd=last('Sub Detail'), stored=cohLabelVal(e,'Sub Detail');
+  if(po===cohLabelVal(e,'Player Out')&&pi===cohLabelVal(e,'Player In')) return;   // the pair did not change
+  if(((sd&&sd.v)||'')!==stored) return;                                          // Sub Detail itself was edited: left as typed
+  const t=cohSubDetailText(e, GAME, EVENTS, po, pi);
+  if(t&&t!==stored){ if(sd) draft.groups[sd.i].v=t; else draft.groups.push({g:'Sub Detail', v:t}); }
+}
 function crTeamSheetEdit(){
   if(!GAME){ alert('Open a game first.'); return; }
   if(!window.cohTS) return;
@@ -4321,8 +4417,9 @@ function renderCodeLink(){
     // flagged and never focused: carry on tagging to leave it blank
     (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
       if(!g.players||g.name==='Assist') return;
+      const gn=g.sub?crSubG(g.sub):g.name;        // a sub's two players: the game's own spelling of the group
       html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
-        crAssistBoxHtml('code',g.name,sq._rowId,crSideOf(sq.team),(sq.labels||{})[g.name]||'',crAssistSelf(g,sq.player),false)+`</div>`;
+        crAssistBoxHtml('code',gn,sq._rowId,crSideOf(sq.team),(sq.labels||{})[gn]||'',crAssistSelf(g,sq.player),false,g.sub||'')+`</div>`;
     });
   }
   box.style.display='';
@@ -4343,6 +4440,8 @@ function codeShotAssist(value, group){
   group=group||'Assist';
   sq.labels=sq.labels||{};
   if(value) sq.labels[group]=value; else delete sq.labels[group];
+  if(crIsSubCode(sq.code)&&typeof cohSubDetailText==='function'){   // a Tracker-style game: Sub Detail follows the pair
+    const t=cohSubDetailText(sq, GAME, EVENTS, cohLabelVal(sq,'Player Out'), cohLabelVal(sq,'Player In')); if(t){ const k=Object.keys(sq.labels).find(x=>x.toLowerCase()==='sub detail')||'Sub Detail'; sq.labels[k]=t; } }
   crBackup(); crUpdatePending(); renderCodeLink();
 }
 function codeApplyOutcome(value){
@@ -5533,6 +5632,7 @@ function crExportXml(){
 function saveEvent(){
   const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!isDirty())return;
   undoStack.push({type:'edit', snapshot: crClone(e)});
+  crSubFold(e);                                   // a SUB event: suggested Player Out / In become labels; Sub Detail kept in step
   const data=buildData(e);
   Object.assign(e,data);
   ['labelsAll','playerTeam','playerRow'].forEach(k=>{ if(!(k in data)) delete e[k]; });   // fields the edit removed (a group back to one value …)

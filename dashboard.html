@@ -852,7 +852,7 @@ function renderEV(){
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
       const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
-      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${!ev.player&&!ev.outcome&&dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':dashPlayers(ev).length>1?' style="white-space:normal;line-height:1.25;"':''}>${dashPlayersTxt(ev)||tc(ev.outcome)||dashSubTxt(ev)||'—'}</div><div class="inst-sb">${[dashOutcomeTxt(ev),ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
+      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':dashPlayers(ev).length>1?' style="white-space:normal;line-height:1.25;"':''}>${dashSubTxt(ev)||dashPlayersTxt(ev)||tc(ev.outcome)||'—'}</div><div class="inst-sb">${[dashOutcomeTxt(ev),ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
     }
     h+='</div>';
   });
@@ -900,14 +900,14 @@ function pickI(id){
   const _ytVT=driveToAngle(ev.driveT,currentAngleIdx);
   document.getElementById('YTB').href=`https://www.youtube.com/watch?v=${_ang.youtubeId}&t=${Math.round(_ytVT)}s`;
   document.getElementById('NPN').textContent=tc(ev.code);
-  document.getElementById('NPM').textContent=[ev.gameTime,dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
+  document.getElementById('NPM').textContent=[ev.gameTime,dashSubRaw(ev)?'':dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
   document.getElementById('IB').style.display='none';
   document.getElementById('NB').style.display='block';
   if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block'; renderCustomTags(ev);}
   const ai=ALL.findIndex(e=>e.id===id);
   const nb=ALL.slice(Math.max(0,ai-6),ai+7).filter(e=>e.id!==id);
-  document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player&&!r.playerRow?' · '+dashPlayersTxt(r):''}${dashSubTxt(r)?' · '+dashSubTxt(r):''}</div></div>`).join('');
+  document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player&&!r.playerRow&&!dashSubTxt(r)?' · '+dashPlayersTxt(r):''}${dashSubTxt(r)?' · '+dashSubTxt(r):''}</div></div>`).join('');
   renderP();
 }
 // ── Team sheets (cohesion-teamsheet.js; stored in meta.rosters) ──
@@ -915,15 +915,17 @@ function pickI(id){
 // dashboard edit control uses) get the shared editor. SUB rows show the
 // names beside "#18 ON for #13" when the numbers are on that team's sheet —
 // display only, the stored label is never rewritten.
-function dashSubTxt(ev){ const t=window.cohTS?cohTS.subDetailFor(GAME,ev):''; return t?esc(t):''; }
-function dashSubRaw(ev){ return window.cohTS?cohTS.subDetailFor(GAME,ev):''; }
+// A SUB row reads "OUT #13 Name → IN #18 Name" through the shared reader (cohesion-labels.js cohSubInOut: explicit
+// Player Out / Player In, else the row's two player labels, else Sub Detail + the team sheet); '' when no name is known.
+function dashSubRaw(ev){ if(typeof cohSubInOut!=='function'||!ev) return ''; const io=cohSubInOut(ev, GAME); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io):''; }
+function dashSubTxt(ev){ const t=dashSubRaw(ev); return t?esc(t):''; }
 function dashSubVal(evs){   // a Labels-view "Sub Detail" value: named only when every row is the same team
   if(!evs||!evs.length||evs.some(e=>e.team!==evs[0].team)) return '';
   return dashSubTxt(evs[0]);
 }
 function renderTS(){
   const sc=document.getElementById('ES'); if(!sc) return;
-  sc.innerHTML=window.cohTS?cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()'}):'<div class="empty">Team sheets unavailable</div>';
+  sc.innerHTML=window.cohTS?cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()', events:ALL}):'<div class="empty">Team sheets unavailable</div>';
 }
 // Names tagged for a side's team in this game (player, "<TEAM> Player Labels", Assist),
 // one spelling per player — the one used most.
@@ -1115,7 +1117,7 @@ async function savePlayerTag(ev,name){
   ev.player=name;
   const pTeam=cohPlayerGroupTeam(playerGroup, GAME); if(pTeam) ev.playerTeam=pTeam; else delete ev.playerTeam;
   queueEventEdit(ev);
-  document.getElementById('NPM').textContent=[ev.gameTime,dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
+  document.getElementById('NPM').textContent=[ev.gameTime,dashSubRaw(ev)?'':dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
   renderP();
 }
 
@@ -1157,7 +1159,7 @@ function dashAssistChoices(ev, g){
     :x=>{ const L=x.labels||{}, r=x.player?[{name:x.player, team:x.team}]:[]; Object.keys(L).forEach(k=>{ if(L[k]&&/ PLAYER LABELS$/i.test(k)) r.push({name:L[k], team:k.replace(/ PLAYER LABELS$/i,'')}); }); return r; };
   ALL.forEach(x=>{ playersOf(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });
     if(String(x.team||'').toUpperCase()!==T) return;
-    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By')) tagged.push(L[k]); }); });
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
   });
   return out;
@@ -1168,6 +1170,7 @@ function renderCustomTags(ev){
   if(!groups.length){ wrap.style.display='none'; wrap.innerHTML=''; return; }
   wrap.style.display='block';
   wrap.innerHTML=groups.map(g=>{
+    if(g.sub&&typeof cohSubInOut==='function') return dashSubTagHtml(ev, g);   // Player Out / Player In on a SUB row
     const val=(ev.labels&&ev.labels[g.name])||'';
     let choices=(g.options||[]).slice();
     if(g.players){                                   // Assist: team sheet + this game's players, minus the shooter
@@ -1180,7 +1183,32 @@ function renderCustomTags(ev){
       <span style="font:700 10px 'Barlow Condensed',sans-serif;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;min-width:82px;">${esc(g.name)}</span>
       <select data-group="${esc(g.name)}" data-row="${esc(String(ev._rowId))}" onchange="dashCustomTagChange(this)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
     </div>`;
-  }).join('');
+  }).join('')+dashSubWarnHtml(ev);
+}
+// PLAYER OUT / PLAYER IN of a SUB row. The saved value is the row's explicit label; with none, what the shared
+// reader infers (the row's two players, or Sub Detail + the team sheet) is offered as a suggestion — choosing it
+// writes the label. The list: the players on the pitch (OUT) / on the bench (IN) at that moment first.
+function dashSubTagHtml(ev, g){
+  const io=cohSubInOut(ev, GAME), p=io[g.sub], saved=!!p&&io.src[g.sub]==='label', val=saved?p.name:'', sug=(!saved&&p&&p.name)?p.name:'';
+  const st=cohSubState(ALL, GAME, ev.team, ev), key=s=>String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase();
+  const first=(g.sub==='out'?st.on:st.bench).slice(), has=(l,n)=>l.some(x=>key(x)===key(n));
+  const rest=dashAssistChoices(ev, g).filter(n=>!has(first, n));
+  if(val&&!has(first, val)&&!has(rest, val)) rest.unshift(val);
+  const lab=n=>esc(window.cohTS?cohTS.label(GAME, cohTS.sideOf(GAME, ev.team), n):n);
+  const opt=n=>`<option value="${esc(n)}"${val&&key(n)===key(val)?' selected':''}>${lab(n)}</option>`;
+  const opts=`<option value="">${esc(g.name)}${sug?' — suggested: '+lab(sug):'…'}</option>`+
+    (sug?`<option value="${esc(sug)}">✓ Use suggestion: ${lab(sug)}</option>`:'')+
+    (first.length?`<optgroup label="${g.sub==='out'?'On the pitch now':'On the bench now'}">${first.map(opt).join('')}</optgroup><optgroup label="Everyone else">${rest.map(opt).join('')}</optgroup>`:rest.map(opt).join(''))+
+    `<option value="__other__">Other…</option>`;
+  return `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;">
+      <span style="font:800 10.5px 'Barlow Condensed',sans-serif;color:${g.sub==='out'?'var(--red,#ef4444)':'var(--green,#22c55e)'};text-transform:uppercase;letter-spacing:.6px;min-width:82px;">${g.sub==='out'?'▼ ':'▲ '}${esc(g.name)}</span>
+      <select data-group="${esc(g.name)}" data-row="${esc(String(ev._rowId))}" data-sub="${g.sub}" onchange="dashCustomTagChange(this)" style="flex:1;min-width:0;background:var(--card);border:1px ${sug?'dashed var(--orange,#f59e0b)':'solid var(--border)'};border-radius:6px;color:var(--t1);padding:4px 6px;font:12px Barlow,sans-serif;outline:none;">${opts}</select>
+    </div>`;
+}
+function dashSubWarnHtml(ev){
+  if(typeof cohSubInOut!=='function'||!cohIsSubRow(ev)) return '';
+  const io=cohSubInOut(ev, GAME), w=cohSubWarnings(io.out&&io.out.name, io.in&&io.in.name, cohSubState(ALL, GAME, ev.team, ev));
+  return w.map(t=>`<div style="margin-top:5px;font-size:11.5px;line-height:1.35;color:var(--orange,#f59e0b);">⚠ ${esc(t)}</div>`).join('');
 }
 function dashCustomTagChange(sel){
   const ev=ALL.find(e=>String(e._rowId)===String(sel.dataset.row)); if(!ev){alert('Event reference missing.');return;}
@@ -1195,7 +1223,11 @@ function dashCustomTagChange(sel){
 function saveCustomTag(rowId,group,value){
   const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
   const labels={...(ev.labels||{})};
+  const isSub=typeof cohIsSubRow==='function'&&cohIsSubRow(ev)&&/^player (out|in)$/i.test(group);
+  if(isSub) group=Object.keys(labels).find(k=>k.toLowerCase()===group.toLowerCase())||cohGroupResolve(ALL, group);   // the row's / the game's own spelling ("Player out"): never a twin group
   if(value==='') delete labels[group]; else labels[group]=value;
+  if(isSub){   // a Tracker-style game: Sub Detail follows the saved pair
+    const t=cohSubDetailText(ev, GAME, ALL, cohLabelVal({labels},'Player Out'), cohLabelVal({labels},'Player In')); if(t) labels[Object.keys(labels).find(k=>k.toLowerCase()==='sub detail')||'Sub Detail']=t; }
   ev.labels=labels;
   queueEventEdit(ev);
 }

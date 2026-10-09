@@ -343,6 +343,8 @@
 .cohts-pl b{width:20px;flex-shrink:0;text-align:right;color:var(--t2,#999);font-weight:700;font-variant-numeric:tabular-nums;}
 .cohts-pl>span:last-child{min-width:0;overflow-wrap:anywhere;}
 .cohts-pl.ph{align-items:center;}
+.cohts-sm{display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;font:700 10px Barlow,sans-serif;letter-spacing:.2px;white-space:nowrap;vertical-align:1px;border:1px solid currentColor;}
+.cohts-sm.off{color:#ef4444;} .cohts-sm.on{color:#22c55e;}
 .cohts-ph .cohts-hd,.cohts-ph .cohts-row{grid-template-columns:46px 28px minmax(0,1fr) 86px 28px;}
 .cohts-ph .cohts-sug{left:86px;}
 .cohts-phb{width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
@@ -599,7 +601,11 @@
     const colHtml=side=>{
       const g=T.groups(game, side), nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
       const colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
-      const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}</span></div>`;
+      // substituted players (o.events = the game's events): "off 52'" on the player taken off, "on 52'" on the one
+      // brought on — only players the shared reader names (cohesion-labels.js cohSubMarks) and this sheet lists
+      const marks=(o.events&&typeof cohSubMarks==='function')?cohSubMarks(o.events, game, side):null;
+      const mark=r=>{ const l=marks&&marks.get(T.nameKey(r.name)); return l?l.map(x=>` <small class="cohts-sm ${x.type}">${esc(x.text)}</small>`).join(''):''; };
+      const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}${mark(r)}</span></div>`;
       const any=g.start.length+g.sub.length+g.other.length;
       return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(colr)}"></i><span>${esc(nm)}</span></div>`+
         (any?(g.start.map(line).join('')+

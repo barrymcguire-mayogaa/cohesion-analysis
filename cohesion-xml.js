@@ -21,7 +21,7 @@
 function cohXmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // the label helpers (cohesion-labels.js): globals on a page, a require in Node
 function cohXmlL(){
-  if(typeof cohGroupIndex==='function') return {cohGroupIndex, cohGroupResolve, cohPlayerGroupFor, cohTeamCasing, cohLabelKeyEq, cohAssistIndex, cohIsShotRow, cohShotScored, cohIsKoRow, cohIsPlayerGroup, cohPlayerGroupTeam, cohNameKey, cohKoWon, cohOppTeam, cohRowRgb16, cohHexToRgb16, cohGroupCanon};
+  if(typeof cohGroupIndex==='function') return {cohGroupIndex, cohGroupResolve, cohPlayerGroupFor, cohTeamCasing, cohLabelKeyEq, cohAssistIndex, cohIsShotRow, cohShotScored, cohIsKoRow, cohIsPlayerGroup, cohPlayerGroupTeam, cohNameKey, cohKoWon, cohOppTeam, cohRowRgb16, cohHexToRgb16, cohGroupCanon, cohIsSubRow};
   if(typeof require==='function') return require('./cohesion-labels.js');
   throw new Error('cohesion-xml.js needs cohesion-labels.js loaded first');
 }
@@ -50,9 +50,11 @@ function cohXmlTeamImplied(e){
 // (the import does the same: cohesion-labels.js cohScPlainGroup).
 // An 'Assist' is NOT a label in the export: it is written as a row (below).
 const COH_XML_TEAM_GROUPS=['Kickout Won By','Kickout Taken By','Kickout Target'];
+// A substitution's players are exported the same way: "<Team> Player Out" / "<Team> Player In" (the row's team).
+const COH_XML_SUB_GROUPS=['Player Out','Player In'];
 function cohXmlPlainGroup(g){
-  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(String(g||'').trim());
-  return m?['Assist'].concat(COH_XML_TEAM_GROUPS).find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
+  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target|player out|player in)$/i.exec(String(g||'').trim());
+  return m?['Assist'].concat(COH_XML_TEAM_GROUPS, COH_XML_SUB_GROUPS).find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
 }
 function cohXmlTeamGroup(g, e, teams, meta){
   const base=COH_XML_TEAM_GROUPS.find(n=>n.toLowerCase()===String(g||'').trim().toLowerCase());
@@ -173,6 +175,22 @@ function cohXmlBuild(events, opts){
       if(tb) setFirst(list, playerGroup(e.team), tb);
       if(wb&&won!==null){ const wt=won?e.team:(_teams.find(t=>t.toUpperCase()!==String(e.team).toUpperCase())||''); if(wt&&(tb||!won)) addAfter(list, playerGroup(wt), wb); }
       list=list.map(x=>[cohXmlTeamGroup(x[0], e, _teams, meta), x[1]]);
+    }
+    if(e.team&&H.cohIsSubRow(e)){
+      // a substitution with explicit Player Out / Player In: the template's order in the team's player group —
+      // the player going OFF first, then the player coming ON — and, after the row's other labels, the explicit
+      // team-specific groups as well.
+      // A row without the explicit labels (an untouched import) is written exactly as it is.
+      const key=n=>H.cohLabelKeyEq(e.labels, n), val=n=>{ const k=key(n); return k!=null?String(e.labels[k]||'').trim():''; };
+      const po=val('Player Out'), pi=val('Player In');
+      if(po||pi){
+        // (only one of the two known: the player group is left alone — a second name there would read as a pair)
+        const pg=playerGroup(e.team);
+        if(po&&pi){ const r=list.find(x=>x[0]===pg); if(r) r[1]=[po, pi]; else list.push([pg, [po, pi]]); }
+        const own=meta?H.cohTeamCasing(e.team, meta):String(e.team).trim(), ko=key('Player Out'), ki=key('Player In');
+        list=list.filter(x=>x[0]!==ko&&x[0]!==ki);
+        if(po) list.push([own+' Player Out', [po]]); if(pi) list.push([own+' Player In', [pi]]);
+      }
     }
     write(e.code, s, en, list);
     if(newAssist.has(e)){
