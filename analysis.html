@@ -6283,7 +6283,8 @@ function pyPlayers(shots){
       if(s.xp!=null){ r.xp+=s.xp; r.xpShots++; r.xpPts+=s.v; r.xg.add(s.gid); } }
     if(s.ak){ const r=get(s.ak, s.assist); r.assistShots++; if(s.v>0) r.assists++; }
   });
-  return [...m.values()].map(r=>({key:r.key, name:pyBestName(r.names), one:r.one, two:r.two, goals:r.goals, op:r.op, db:r.db, total:r.scores, shots:r.shots, pts:r.pts,
+  // a player whose only entry is an assist on a MISSED shot has nothing to show in any column: no row
+  return [...m.values()].filter(r=>r.shots>0||r.assists>0).map(r=>({key:r.key, name:pyBestName(r.names), one:r.one, two:r.two, goals:r.goals, op:r.op, db:r.db, total:r.scores, shots:r.shots, pts:r.pts,
     assists:r.assists, assistShots:r.assistShots, xp:r.xpShots?r.xp:null, xpShots:r.xpShots, xpPts:r.xpPts, shotGames:r.sg.size, xpGames:r.xg.size,
     xpg:r.xg.size?r.xp/r.xg.size:null, pct:ovPct(r.scores, r.shots)}));
 }
@@ -6336,13 +6337,13 @@ function pyPressure(shots){
 }
 function pyScoreTxt(goals, one, two){ return goals+'-'+String(one+2*two).padStart(2,'0'); }
 // who assisted these shots: the top 5 by assisted scores
-function pyAssistors(shots){
+function pyAssistors(shots, nameOf){   // nameOf (optional): key → the name the players table shows
   const m=new Map(); let tagged=0;
   (shots||[]).forEach(s=>{ if(!s.ak) return; tagged++;
     let r=m.get(s.ak); if(!r){ r={key:s.ak, names:{}, one:0, two:0, goals:0, total:0, shots:0}; m.set(s.ak, r); }
     r.names[s.assist]=(r.names[s.assist]||0)+1; r.shots++;
     if(s.v>0){ r.total++; if(s.v>=3) r.goals++; else if(s.v===2) r.two++; else r.one++; } });
-  const all=[...m.values()].map(r=>({key:r.key, name:pyBestName(r.names), one:r.one, two:r.two, goals:r.goals, total:r.total, shots:r.shots, score:pyScoreTxt(r.goals, r.one, r.two)}))
+  const all=[...m.values()].map(r=>({key:r.key, name:(nameOf&&nameOf.get(r.key))||pyBestName(r.names), one:r.one, two:r.two, goals:r.goals, total:r.total, shots:r.shots, score:pyScoreTxt(r.goals, r.one, r.two)}))
     .sort((a,b)=>b.total-a.total||b.shots-a.shots||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1));
   return {rows:all.slice(0, PY_TOP), count:all.length, tagged, total:(shots||[]).length};
 }
@@ -6393,7 +6394,7 @@ function pyView(R, sel, F){
   const mapShots=shots.filter(s=>s.x!=null).sort((p,q)=>(q.xp||0)-(p.xp||0));
   const own=R.kos.filter(k=>k.team===T), named=key?R.kos.filter(k=>k.who&&k.who.key===key&&k.who.team===T):[];
   const koMine=key?named.filter(k=>k.who.won):own;
-  return {player:P, key, base, shots, mapShots, legs:pyLegStats(shots), zones:ttZoneStats(shots), pressure:pyPressure(shots), assistors:pyAssistors(shots),
+  return {player:P, key, base, shots, mapShots, legs:pyLegStats(shots), zones:ttZoneStats(shots), pressure:pyPressure(shots), assistors:pyAssistors(shots, new Map(R.players.map(p=>[p.key, p.name]))),
     koMine, koNamed:named.length, mapKos:koMine.filter(k=>k.x!=null)};
 }
 
