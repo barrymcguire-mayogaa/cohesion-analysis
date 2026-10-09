@@ -847,7 +847,7 @@ function renderEV(){
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
       const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
-      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${!ev.player&&!ev.outcome&&dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':''}>${dashPlayersTxt(ev)||tc(ev.outcome)||dashSubTxt(ev)||'—'}</div><div class="inst-sb">${[dashOutcomeTxt(ev),ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
+      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${!ev.player&&!ev.outcome&&dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':dashPlayers(ev).length>1?' style="white-space:normal;line-height:1.25;"':''}>${dashPlayersTxt(ev)||tc(ev.outcome)||dashSubTxt(ev)||'—'}</div><div class="inst-sb">${[dashOutcomeTxt(ev),ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
     }
     h+='</div>';
   });
@@ -902,7 +902,7 @@ function pickI(id){
   if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block'; renderCustomTags(ev);}
   const ai=ALL.findIndex(e=>e.id===id);
   const nb=ALL.slice(Math.max(0,ai-6),ai+7).filter(e=>e.id!==id);
-  document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player?' · '+r.player:''}${dashSubTxt(r)?' · '+dashSubTxt(r):''}</div></div>`).join('');
+  document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player&&!r.playerRow?' · '+dashPlayersTxt(r):''}${dashSubTxt(r)?' · '+dashSubTxt(r):''}</div></div>`).join('');
   renderP();
 }
 // ── Team sheets (cohesion-teamsheet.js; stored in meta.rosters) ──
