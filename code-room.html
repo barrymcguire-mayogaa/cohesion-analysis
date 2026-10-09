@@ -1505,7 +1505,7 @@ function crZoneOf(x,y){
 // y is in LABEL space: linear full-pitch % from the kicking goal (halfway = 50),
 // exactly what the tracker writes to Y-KOs. Bands: <45m short, <65m medium, else long.
 function crKoZoneOf(x,y){
-  const col = x<33.34?0 : x<66.67?1 : 2;
+  const col = x<33.3?0 : x<66.7?1 : 2;          // thirds across — the Tracker's and Analysis's own cut points
   const m=y*1.37, row = m<45?0 : m<65?1 : 2;   // metres from the kicking goal — the one rule everywhere (Tracker koZoneFromPos, Analysis tkLenOfDist)
   return { zone:'Zone '+(row*3+col+1), loc:row===0?'KO SHORT':row===1?'KO MEDIUM':'KO LONG' };
 }
