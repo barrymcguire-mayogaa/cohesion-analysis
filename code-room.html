@@ -126,9 +126,14 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .ep-times{display:flex;gap:16px;font:700 12px 'Barlow Condensed',sans-serif;margin:8px 0;}
 .ep-times b{color:var(--accent);}
 .epanel input,.epanel select{width:100%;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px 11px;color:var(--t1);font:14px 'Barlow',sans-serif;outline:none;margin-bottom:4px;box-sizing:border-box;}
-.acdrop{position:fixed;z-index:10002;background:var(--panel);border:1px solid var(--accent);border-radius:8px;max-height:240px;overflow-y:auto;box-shadow:0 14px 36px rgba(0,0,0,.55);display:none;}
+.acdrop{position:fixed;z-index:10002;background:var(--panel);border:1px solid var(--accent);border-radius:8px;max-height:300px;overflow-y:auto;box-shadow:0 14px 36px rgba(0,0,0,.55);display:none;}
 .acdrop div{padding:9px 12px;font:600 14px 'Barlow',sans-serif;color:var(--t1);cursor:pointer;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .acdrop div:last-child{border-bottom:none;}
+/* an always-visible scroll handle on the right, so a long list is plainly scrollable */
+.acdrop{scrollbar-width:thin;scrollbar-color:var(--accent) transparent;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+.acdrop::-webkit-scrollbar{width:10px;-webkit-appearance:none;}
+.acdrop::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:0 8px 8px 0;}
+.acdrop::-webkit-scrollbar-thumb{background:var(--accent);border-radius:6px;border:2px solid var(--panel);min-height:28px;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
 .acdrop .actag{float:right;margin-left:10px;font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding-top:3px;}
 .acdrop div:hover .actag,.acdrop div.on .actag{color:#fff;}
@@ -2713,7 +2718,8 @@ function acShow(input, options, onPick, opt){
   d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden
   // no room under the box (it sits low in a panel) → open the list above it
   { const h=d.offsetHeight||0, vh=window.innerHeight||0; if(h&&vh&&r.bottom+3+h>vh&&r.top-3-h>=0) d.style.top=(r.top-3-h)+'px'; }
-  acIdx=-1;
+  acIdx=-1; d.scrollTop=0;
+  d.onmousedown=ev=>ev.preventDefault();   // dragging the list's scroll handle must not take focus from the box (which would close the list)
   d.querySelectorAll('div').forEach(el=>{ el.onmousedown=ev=>{ ev.preventDefault(); acChoose(+el.dataset.i); }; });
 }
 function acChoose(i){ if(i<0||i>=acItems.length)return; const v=acItems[i], inp=acInput, pk=acPick; acHide(); if(inp){ inp.value=v; if(pk) pk(v); } }
@@ -2724,7 +2730,8 @@ function acKey(ev){ const d=document.getElementById('acDrop'); if(!acInput||!d||
   else if(ev.key==='Escape'){ acHide(); }
 }
 function acHi(){ const d=document.getElementById('acDrop'); if(!d)return; d.querySelectorAll('div').forEach((el,i)=>el.classList.toggle('on',i===acIdx)); const on=d.querySelector('div.on'); if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest'}); }
-window.addEventListener('scroll', acHide, true);
+// the page scrolling under an open list closes it — but scrolling the list itself must not
+window.addEventListener('scroll', ev=>{ const d=document.getElementById('acDrop'), t=ev.target; if(d&&t&&(t===d||(d.contains&&t.nodeType===1&&d.contains(t)))) return; acHide(); }, true);
 
 // ── Per-event colour (native picker + hex, as elsewhere in COHESION) ──
 // An event can override its timeline colour; blank = team default.
