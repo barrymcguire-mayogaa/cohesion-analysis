@@ -415,3 +415,138 @@ async function renamePhoto(i){
   catch(e){ fail('listErr', 'Rename', e); }
   await afterChange();
 }
+
+// ── Bulk: files named after players -> preview table -> confirm ───────────
+// row: { id, file, blob, dataUrl, st, assign:'<player name>'|'', status, tick, state, msg }
+//   status  match | replace | duplicate | nomatch     (cohPhotoMatchFiles' words)
+//   state   ready | busy | done | fail
+const BULK_LABEL = { match:'New photo', replace:'Already has a photo', duplicate:'Same player twice', nomatch:'No match' };
+// Statuses follow the current assignments; a tick survives only where an upload is possible.
+function rematchBulk(){
+  const taken = {};
+  bulk.forEach(r=>{
+    if(r.state === 'done'){ if(r.assign) taken[cohPhotoKey(r.assign)] = true; return; }
+    const k = cohPhotoKey(r.assign);
+    const was = r.status;
+    if(!k) r.status = 'nomatch';
+    else if(taken[k]) r.status = 'duplicate';
+    else { taken[k] = true; r.status = photos[k] ? 'replace' : 'match'; }
+    if(r.status === 'nomatch' || r.status === 'duplicate') r.tick = false;
+    else if(was !== r.status && r.state !== 'fail') r.tick = r.status === 'match';   // a replace is never ticked for you
+  });
+  renderBulk();
+}
+async function addFiles(fileList){
+  showErr('bulkErr','');
+  if(busy) return;
+  if(!team){ showErr('bulkErr','Choose a team first.'); return; }
+  const files = Array.from(fileList||[]), skipped = [], fresh = [];
+  for(const f of files){
+    let im = null;
+    try{
+      im = await loadImage(f);
+      const st = cropStart(im.naturalWidth, im.naturalHeight);
+      fresh.push({ id:++seq, file:f.name, blob:f, st, dataUrl:exportJpeg(im, st), assign:'', status:'', tick:false, state:'ready', msg:'' });
+    }catch(e){ skipped.push(f.name+' ('+(e.message||'could not be read')+')'); }
+    finally{ freeImage(im); }
+  }
+  // match by the normalised name key — against players not already taken by a row in the list
+  const m = cohPhotoMatchFiles(fresh.map(r=>r.file), playerNames(), photos);
+  fresh.forEach((r,i)=>{ r.assign = m[i].player || ''; });
+  bulk = bulk.concat(fresh);
+  if(skipped.length) showErr('bulkErr','Skipped: '+skipped.join(', '));
+  rematchBulk();
+}
+function bulkChosen(){ return bulk.filter(r=>r.tick && r.state!=='done' && (r.status==='match' || r.status==='replace')); }
+function renderBulk(){
+  const box = $('bulkBox');
+  if(!bulk.length){ box.innerHTML = ''; $('bulkBar').style.display = 'none'; return; }
+  const names = playerNames();
+  const count = s => bulk.filter(r=>r.state!=='done' && r.status===s).length;
+  box.innerHTML = '<div class="note" id="bulkSum">'+bulk.length+' file'+(bulk.length===1?'':'s')+' — '
+      + count('match')+' matched · '+count('replace')+' already have a photo · '+(count('nomatch')+count('duplicate'))+' not matched. '
+      + 'Tick the ones to upload. <b>Nothing has been uploaded yet.</b></div>'
+    + '<div class="bulk-wrap"><table class="bulk"><thead><tr><th class="c">Upload</th><th>Photo</th><th>File</th><th>Player</th><th>Status</th></tr></thead><tbody>'
+    + bulk.map(r=>{
+      const lock = busy || r.state==='done' || r.state==='busy';
+      const can = r.status==='match' || r.status==='replace';
+      const pill = r.state==='done' ? '<span class="pill done">Uploaded</span>'
+        : r.state==='busy' ? '<span class="pill busy">Uploading…</span>'
+        : r.state==='fail' ? '<span class="pill fail" title="'+esc(r.msg)+'">Failed — '+esc(r.msg)+'</span>'
+        : '<span class="pill '+r.status+'">'+BULK_LABEL[r.status]+'</span>';
+      return '<tr data-id="'+r.id+'">'
+        + '<td class="c"><input type="checkbox" aria-label="Upload '+esc(r.file)+'" '+(r.tick?'checked ':'')+((lock||!can)?'disabled ':'')+'onchange="bulkTick('+r.id+',this.checked)"></td>'
+        + '<td><img class="th" alt="" src="'+r.dataUrl+'" title="Adjust the crop" onclick="bulkCrop('+r.id+')"></td>'
+        + '<td><div class="fn" title="'+esc(r.file)+'">'+esc(r.file)+'</div></td>'
+        + '<td><select aria-label="Player for '+esc(r.file)+'" '+(lock?'disabled ':'')+'onchange="bulkAssign('+r.id+',this.value)"><option value="">— choose a player —</option>'
+        + names.map(n=>'<option value="'+esc(n)+'"'+(cohPhotoKey(n)===cohPhotoKey(r.assign)?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></td>'
+        + '<td>'+pill+'</td></tr>'; }).join('')
+    + '</tbody></table></div>';
+  const n = bulkChosen().length;
+  $('bulkBar').style.display = 'flex';
+  $('bulkBtn').disabled = busy || !n;
+  $('bulkBtn').textContent = n ? ('Upload '+n+' photo'+(n===1?'':'s')+'…') : 'Nothing ticked';
+  $('bulkClr').disabled = busy;
+}
+function bulkTick(id, on){ const r = bulk.find(x=>x.id===id); if(r){ r.tick = !!on && (r.status==='match'||r.status==='replace'); renderBulk(); } }
+function bulkAssign(id, name){ const r = bulk.find(x=>x.id===id); if(r){ r.assign = name||''; r.status = ''; if(r.state==='fail'){ r.state='ready'; r.msg=''; } rematchBulk(); } }
+function bulkClear(){ if(busy) return; bulk = []; showErr('bulkErr',''); $('bulkMsg').textContent=''; renderBulk(); }
+async function bulkCrop(id){
+  const r = bulk.find(x=>x.id===id); if(busy || !r || r.state==='done') return;
+  let im = null;
+  try{
+    im = await loadImage(r.blob);
+    const st = await cropDialog(im, 'Crop — '+(r.assign||r.file), r.st);
+    if(st){ r.st = st; r.dataUrl = exportJpeg(im, st); renderBulk(); }
+  }catch(e){ showErr('bulkErr','Could not open '+r.file+': '+(e.message||e)); }
+  finally{ freeImage(im); }
+}
+// One at a time: each upload rewrites the team's _index.json, so parallel
+// uploads could drop each other's entry.
+async function bulkUpload(){
+  if(busy) return;
+  const todo = bulkChosen(); if(!todo.length) return;
+  const rep = todo.filter(r=>r.status==='replace').length;
+  const go = await cohesionModal({ title:'Upload '+todo.length+' photo'+(todo.length===1?'':'s'),
+    message:'Upload '+todo.length+' photo'+(todo.length===1?'':'s')+' for <strong>'+esc(team)+'</strong>?'
+      + (rep?' <strong>'+rep+'</strong> will replace a photo that is already there.':''),
+    buttons:[{label:'Cancel',value:false},{label:'Upload',value:true,primary:true}] });
+  if(!go) return;
+  showErr('bulkErr','');
+  busy = true; renderPlayers();
+  let okN = 0, failN = 0;
+  for(let i=0;i<todo.length;i++){
+    const r = todo[i];
+    r.state = 'busy'; r.msg = ''; $('bulkMsg').textContent = 'Uploading '+(i+1)+' of '+todo.length+'…'; renderBulk();
+    try{ await sendPhoto(r.assign, r.dataUrl); r.state = 'done'; r.tick = false; okN++; }
+    catch(e){ r.state = 'fail'; r.msg = (e&&e.message)||'error'; failN++; if(isSetupErr(e)){ showErr('setupErr', SETUP); } }
+  }
+  busy = false;
+  $('bulkMsg').textContent = okN+' uploaded'+(failN?(' · '+failN+' failed — fix and press Upload again'):'');
+  await afterChange();
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+(function(){
+  const d = $('drop'), pick = $('pick');
+  d.addEventListener('click', ()=>{ if(busy) return; if(!team){ showErr('bulkErr','Choose a team first.'); return; } pick.value=''; pick.click(); });
+  d.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); d.click(); } });
+  pick.addEventListener('change', e=>addFiles(e.target.files));
+  ['dragenter','dragover'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e=>{ if(e.dataTransfer) addFiles(e.dataTransfer.files); });
+  // a photo dropped beside the zone must not navigate the page away
+  ['dragover','drop'].forEach(t=>window.addEventListener(t, e=>e.preventDefault()));
+  $('pickOne').addEventListener('change', e=>onPickOne(e.target.files && e.target.files[0]));
+  $('teamSel').addEventListener('change', e=>pickTeam(e.target.value));
+  $('addName').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(); } });
+})();
+
+// Is the storage there? (list answers bucketMissing until the SQL has been run)
+async function checkSetup(){
+  try{ const j = await cohesionAuthFetch('playerPhotos', { action:'list', teams:[] }); void j; }catch(_e){}
+}
+loadTeams();
+</script>
+</body>
+</html>
