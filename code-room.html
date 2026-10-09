@@ -391,7 +391,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
-            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots into COHESION shot events (SHOT OPEN PLAY / DEADBALL + score events) — the originals are kept">⇄ Convert shots</div>
+            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots and kickouts into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events) — the originals are kept">⇄ Convert shots</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
@@ -4606,10 +4606,16 @@ function crGiUnconverted(){
   const done=new Set(); EVENTS.forEach(e=>{ const id=(e.labels||{})['GI Source ID']; if(id) done.add(String(id)); });
   return EVENTS.filter(e=>cohGiIsShot(e)&&!done.has(String(e.id))).length;
 }
+// GI / GIU kickouts with no derived "<TEAM> KO" yet (cohesion-gi.js).
+function crGiKoUnconverted(){
+  if(typeof cohGiIsKickout!=='function') return 0;
+  const done=new Set(); EVENTS.forEach(e=>{ const id=(e.labels||{})['GI Source ID']; if(id) done.add(String(id)); });
+  return EVENTS.filter(e=>cohGiIsKickout(e,GAME)&&!done.has(String(e.id))).length;
+}
 function crGiBtnSync(){
   const b=document.getElementById('giBtn'); if(!b) return;
-  const n=GAME?crGiUnconverted():0;
-  b.style.display=n?'':'none'; b.textContent='⇄ Convert shots ('+n+')';
+  const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0;
+  b.style.display=(n||k)?'':'none'; b.textContent=k?(n?'⇄ Convert shots + kickouts ('+(n+k)+')':'⇄ Convert kickouts ('+k+')'):'⇄ Convert shots ('+n+')';
 }
 // Queue converted rows; returns the new rows. No confirmation (see prompt).
 function crGiApply(add){
@@ -4618,7 +4624,7 @@ function crGiApply(add){
     const tmpId='tmp-'+(++crTmpCounter);
     const row=Object.assign(crClone(n), { _manual:true, _rowId:tmpId, _new:true });
     const src=(n.labels||{})['GI Source ID'];
-    if(/SHOT (OPEN|DEAD)/i.test(n.code||'')) shotRow[src]=tmpId;
+    if(/SHOT (OPEN|DEAD)/i.test(n.code||'')||(typeof cohGiIsDerivedKo==='function'&&cohGiIsDerivedKo(n))) shotRow[src]=tmpId;   // a KO's break rows go with it too
     else if(shotRow[src]) row._shotComp=shotRow[src];   // deleted with its shot, like crPushCompanion
     EVENTS.push(row); rowIds.push(tmpId);
   });
@@ -4632,16 +4638,21 @@ async function crGiConvertPrompt(){
   if(!GAME||typeof cohGiConvert!=='function') return;
   const add=cohGiConvert(EVENTS, GAME);
   if(!add.length){ crGiBtnSync(); return; }
-  const c=cohGiCounts(add);
-  const ok=await cohesionModal({ title:'Convert Gaelic Insights shots',
-    message:'Create '+c.shots+' shot event'+(c.shots===1?'':'s')+' + '+c.scores+' score event'+(c.scores===1?'':'s')+'?<br><br>'
-      +'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
-      +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. The original GI events are kept unchanged. '
+  const c=cohGiCounts(add), pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  const parts=[]; if(c.shots||c.scores) parts.push(pl(c.shots,'shot event')+' + '+pl(c.scores,'score event'));
+  if(c.kos) parts.push(pl(c.kos,'kickout event')+' + '+pl(c.breaks||0,'break event'));
+  const ok=await cohesionModal({ title:'Convert Gaelic Insights '+(c.kos?(c.shots?'shots and kickouts':'kickouts'):'shots'),
+    message:'Create '+parts.join(' and ')+'?<br><br>'
+      +(c.shots||c.scores?'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
+      +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. ':'')
+      +(c.kos?'Each GI or GIU kickout gets a KO event for the kicking team (Kickout Outcomes, Kickout Locations; a Gaelic Insights player goes to Kickout Won By when his team won it, otherwise Kickout Target) '
+      +'and each break ball a BREAK WON event for the team that won it and a BREAK LOST event for the other. No turnover or foul events are added. ':'')
+      +'The original GI events are kept unchanged and are not counted twice. '
       +'Nothing is saved until you close the session — Undo removes them all in one step.',
     buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
   if(!ok) return;
   crGiApply(add);
-  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+c.shots+' shots + '+c.scores+' scores — saved when you close the session'; }
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':''].filter(Boolean).join(' + ')+' — saved when you close the session'; }
 }
 
 // ── Locate shots (step-through) ───────────────────────────────
@@ -4825,7 +4836,7 @@ function saveEvent(){
   const data=buildData(e);
   Object.assign(e,data);
   if(!e._new) e._dirty=true;
-  crSyncKoTOLoc(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
+  crSyncKoTOLoc(e); crSyncKoBreaks(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   draft=null; pick(e._rowId);
@@ -4868,8 +4879,8 @@ function crKoCompanions(row, value){
   if(!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
   const v=String(value||'').toUpperCase();
   if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
-  if(/BREAK WON/.test(v)) crPushCompanion(row,'BREAK WON');
-  if(/BREAK LOST/.test(v)) crPushCompanion(row,'BREAK LOST');
+  // a break ball is logged for BOTH teams: the winner's BREAK WON and the loser's BREAK LOST
+  crKoBreakPair(row, v).forEach(([tm,base])=>crPushCompanion(row,base,null,tm));
   // KO FREE WON: the opposition fouled the kicking team — their foul.
   // KO FREE LOST: the kicking team fouled at their own kickout — their foul.
   if(/FREE WON|FREE LOST/.test(v)){
@@ -4889,6 +4900,38 @@ function crKoCompanions(row, value){
   }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
+}
+// The break rows a kickout outcome calls for: [[team, 'BREAK WON'], [team, 'BREAK LOST']] — the
+// kicker first; the opposition's row is left out when the kicker is not one of the game's two teams.
+function crKoBreakPair(row, value){
+  const v=String(value||'').toUpperCase(), won=/BREAK WON/.test(v);
+  if(!won&&!/BREAK LOST/.test(v)) return [];
+  const opp=crOppTeamOf(row.team), out=[[row.team, won?'BREAK WON':'BREAK LOST']];
+  if(opp) out.push([opp, won?'BREAK LOST':'BREAK WON']);
+  return out;
+}
+// Keep a kickout's break rows in step when its outcome is changed afterwards (Save changes, or
+// Undo of one): the rows tied to it this session (_shotComp) are re-pointed, added or removed to
+// match. A kickout with no tied rows that was saved in an earlier session is left alone.
+function crSyncKoBreaks(row){
+  if(!row||!row.team||!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
+  const tied=EVENTS.filter(x=>x._shotComp&&String(x._shotComp)===String(row._rowId));
+  if(!row._new&&!tied.length) return;
+  const have=tied.filter(x=>/\sBREAK (WON|LOST)\s*$/i.test(x.code||''));
+  const want=crKoBreakPair(row, (row.labels||{})['Kickout Outcomes']||row.outcome);
+  const src=(row.labels||{})['GI Source ID'];
+  want.forEach(([tm,base])=>{
+    const i=have.findIndex(x=>new RegExp(base+'\\s*$','i').test(x.code||''));
+    if(i>=0){ const c=have.splice(i,1)[0];
+      if(c.team!==tm||c.code!==tm+' '+base){ c.team=tm; c.code=tm+' '+base; if(!c._new) c._dirty=true; }
+      return; }
+    const tmpId='tmp-'+(++crTmpCounter);
+    EVENTS.push({ id:'manual-'+Date.now()+'-'+tmpId, start:row.start, end:row.end, half:row.half, code:tm+' '+base, team:tm, player:'', outcome:'', subtype:'',
+      category:catOf(base)||'Other', driveT:row.driveT, labels:src?{'GI Source ID':src}:{}, _manual:true, _rowId:tmpId, _new:true, _shotComp:row._rowId });
+  });
+  if(have.length){ const gone=new Set(have.map(x=>String(x._rowId)));
+    have.forEach(x=>{ if(!x._new) crDeleted.push({id:x._rowId}); });
+    EVENTS=EVENTS.filter(x=>!gone.has(String(x._rowId))); }
 }
 // A team's own kickout: SHORT lands inside their 45 (defensive third), MEDIUM
 // between the 45s (middle third), LONG inside the opposition 45 (attacking third).
@@ -5010,7 +5053,7 @@ function undo(){
   const op=undoStack.pop(); if(!op)return;
   if(op.type==='edit'){
     const e=EVENTS.find(x=>String(x._rowId)===String(op.snapshot._rowId));
-    if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,op.snapshot); }
+    if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,op.snapshot); crSyncKoBreaks(e); }   // a kickout's break rows follow its restored outcome
     activeId=op.snapshot._rowId; draft=null;
   } else if(op.type==='add'){
     EVENTS=EVENTS.filter(x=>String(x._rowId)!==String(op.rowId)); activeId=null; draft=null;
