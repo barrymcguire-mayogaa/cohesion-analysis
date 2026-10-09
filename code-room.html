@@ -1508,10 +1508,36 @@ function crKoZoneOf(x,y){
   const row = y<32.85?0 : y<47.45?1 : 2;
   return { zone:'Zone '+(row*3+col+1), loc:row===0?'KO SHORT':row===1?'KO MEDIUM':'KO LONG' };
 }
-// The KO chart shows 92m of the 137m pitch; labels are full-pitch %.
-function koLabelToView(y){ return y*(137/92); }
-function koViewToLabel(v){ return v*(92/137); }
-function koPlotY(y){ return Math.min(87.5, koLabelToView(y)*0.89); }
+// ── Kickout chart geometry: TRUE metric scale (shared verbatim by code-room.html and
+// cohesion-graphics.js — test_ko_scale.js checks the two copies are identical) ──
+// The chart shows the kicking goal line (top) to the far 45 m line (bottom) = 92 m of the
+// 137 m pitch, 84 m wide, inside a 100 x 89 viewBox with a 1.2 margin. Stored Y-KOs are
+// % of the full pitch from the kicking goal (metres = Y x 1.37) and plot at exactly that
+// many metres; every line is drawn at its real distance (13, 20, 45, 65, 68.5, 72, 92 m).
+const KO_PM=1.2, KO_VB_H=89, KO_VIEW_M=92, KO_PITCH_M=137, KO_WIDTH_M=84;
+const KO_KY=(KO_VB_H-2*KO_PM)/KO_VIEW_M, KO_KX=(100-2*KO_PM)/KO_WIDTH_M;   // viewBox units per metre, down / across
+function koMY(m){ return KO_PM+m*KO_KY; }                                   // metres from the kicking goal -> viewBox y
+function koMX(m){ return KO_PM+m*KO_KX; }                                   // metres from the left touchline -> viewBox x
+function koPlotY(y){ return koMY(Math.max(0, Math.min(KO_VIEW_M, y*KO_PITCH_M/100))); }   // stored Y -> viewBox y (clamped to the view)
+function koLabelToView(y){ return koPlotY(y)/KO_VB_H*100; }                 // stored Y -> % down the drawn chart
+function koViewToLabel(v){ return Math.max(0, Math.min(KO_VIEW_M, (v*KO_VB_H/100-KO_PM)/KO_KY))*100/KO_PITCH_M; }   // % down the drawn chart -> stored Y
+function koPitchArt(){
+  const W='rgba(255,255,255,.92)', f=n=>(+n.toFixed(2)), c=KO_WIDTH_M/2, x0=KO_PM, x1=100-KO_PM, y0=koMY(0), y20=f(koMY(20));
+  const ln=(m,o)=>'<line x1="'+x0+'" y1="'+f(koMY(m))+'" x2="'+x1+'" y2="'+f(koMY(m))+'" stroke="'+W+'" stroke-width="'+((o&&o.w)||.8)+'"'+(o&&o.dash?' stroke-dasharray="3.2,2.4"':'')+'/>';
+  const arc=(r,half,w)=>'<path d="M '+f(koMX(c-half))+' '+y20+' A '+f(r*KO_KX)+' '+f(r*KO_KY)+' 0 0 0 '+f(koMX(c+half))+' '+y20+'" fill="none" stroke="'+W+'" stroke-width="'+w+'"/>';
+  let s=''; const band=(KO_VB_H-2*KO_PM)/9;
+  for(let i=0;i<9;i++) s+='<rect x="'+x0+'" y="'+f(y0+i*band)+'" width="'+f(x1-x0)+'" height="'+f(band)+'" fill="'+(i%2?'#2e7a24':'#35862a')+'"/>';
+  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="'+f(KO_VB_H-2*KO_PM)+'" fill="none" stroke="'+W+'" stroke-width="1"/>'
+    +'<line x1="'+f(koMX(c-9.5))+'" y1="'+y0+'" x2="'+f(koMX(c-9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'      // large rectangle: 19 m x 13 m
+    +'<line x1="'+f(koMX(c+9.5))+'" y1="'+y0+'" x2="'+f(koMX(c+9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'
+    +'<rect x="'+f(koMX(c-7))+'" y="'+y0+'" width="'+f(14*KO_KX)+'" height="'+f(4.5*KO_KY)+'" fill="none" stroke="'+W+'" stroke-width=".8"/>'   // small rectangle: 14 m x 4.5 m
+    +'<circle cx="'+f(koMX(c))+'" cy="'+f(koMY(11))+'" r=".7" fill="'+W+'"/>'                                                        // penalty spot: 11 m
+    +ln(13)+ln(20)
+    +arc(13, 13, .9)                                                                                                                  // the D: 13 m radius on the 20 m line
+    +arc(40, Math.sqrt(40*40-20*20), 1)                                                                                               // 40 m arc, centred on the goal, from the 20 m line
+    +ln(45)+ln(65)+ln(KO_PITCH_M/2, {w:1, dash:true})+ln(KO_PITCH_M-65);
+  return s;
+}
 // Marker style for a shot: circle = open play, square = dead ball
 // (free/45/penalty/mark); colour by result — 1pt white, 2pt orange, goal
 // yellow, any other outcome (wide/short/saved/blocked/woodwork) red,
@@ -3682,24 +3708,8 @@ const CR_PITCH_SHOT=`      <!-- Match Tracker attacking half, drawn to the refer
       <path d="M 34.3 22.9 A 15.7 16.1 0 0 0 65.7 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
       <path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
       <line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>`;
-const CR_PITCH_KO=`      <!-- KO chart drawn to the Match Tracker's Full Pitch Vertical image, measured
-           line-by-line (the photo is not perfectly to metric scale — the 45m-65m-halfway
-           region is stretched) so a tap here lands where the same tap lands in the
-           tracker. Y-KOs labels stay full-pitch % from the kicking goal (halfway = 50);
-           koPlotY/koViewToLabel do the label<->view scaling. Do not restyle. -->
-      <rect x="1.2" y="1.20" width="97.6" height="9.62" fill="#35862a"/><rect x="1.2" y="10.82" width="97.6" height="9.62" fill="#2e7a24"/><rect x="1.2" y="20.44" width="97.6" height="9.62" fill="#35862a"/><rect x="1.2" y="30.07" width="97.6" height="9.62" fill="#2e7a24"/><rect x="1.2" y="39.69" width="97.6" height="9.62" fill="#35862a"/><rect x="1.2" y="49.31" width="97.6" height="9.62" fill="#2e7a24"/><rect x="1.2" y="58.93" width="97.6" height="9.62" fill="#35862a"/><rect x="1.2" y="68.55" width="97.6" height="9.62" fill="#2e7a24"/><rect x="1.2" y="78.18" width="97.6" height="9.62" fill="#35862a"/><rect x="1.2" y="1.2" width="97.6" height="86.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
-      <line x1="37.6" y1="1.2" x2="37.6" y2="12.46" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <line x1="62.2" y1="1.2" x2="62.2" y2="12.46" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <rect x="42.4" y="1.2" width="14.8" height="4.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <circle cx="50" cy="10.4" r=".7" fill="rgba(255,255,255,.92)"/>
-      <line x1="1.2" y1="12.46" x2="98.8" y2="12.46" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <line x1="1.2" y1="18.42" x2="98.8" y2="18.42" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <path d="M 37.7 18.42 A 12.3 13.4 0 0 0 62.3 18.42" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/>
-      <path d="M 6 18.42 A 60.4 60.4 0 0 0 94 18.42" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/>
-      <line x1="1.2" y1="42.14" x2="98.8" y2="42.14" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <line x1="1.2" y1="60.03" x2="98.8" y2="60.03" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>
-      <line x1="1.2" y1="66.26" x2="98.8" y2="66.26" stroke="rgba(255,255,255,.92)" stroke-width="1" stroke-dasharray="3.2,2.4"/>
-      <line x1="1.2" y1="72.09" x2="98.8" y2="72.09" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>`;
+// KO chart art: drawn to TRUE metric scale by koPitchArt() (see the geometry block above).
+const CR_PITCH_KO=koPitchArt();
 function codePitchKind(code){
   const cc=(code||'').toUpperCase();
   if(/SOURCE/.test(cc)) return null;              // SHOT/SCORE SOURCE are qualifiers, not shots
