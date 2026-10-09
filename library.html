@@ -311,6 +311,7 @@ select option{background:var(--card);}
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-teamsheet.js"></script>
 </head>
 <body>
 
@@ -484,6 +485,13 @@ select option{background:var(--card);}
     <div class="edit-field">
       <label>Date</label>
       <input type="date" id="eDate">
+    </div>
+    <div class="edit-field">
+      <label>Team Sheets</label>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="mbtn mbtn-cancel" onclick="libTeamSheetEdit()">👕 Edit team sheets…</button>
+        <span id="eTeamSheetNote" style="font-size:12px;color:var(--t3);"></span>
+      </div>
     </div>
     <div class="angles-section" style="display:none;">
       <div class="angles-hdr">
@@ -1067,7 +1075,24 @@ function startEdit(id, e){
   // Populate alternate angles (index 1+)
   editAngles = g.angles&&g.angles.length>1 ? g.angles.slice(1).map(a=>({...a})) : [];
   renderEditAngles();
+  libTeamSheetNote();
   document.getElementById('editModal').classList.add('show');
+}
+// ── Team sheets (cohesion-teamsheet.js; the game's meta.rosters) ──
+// Opens the shared editor for the game being edited. It saves on its own
+// (re-read meta, change only rosters, gameAdmin updateMeta — admin only, as
+// this modal is); the saved rosters are copied onto the in-memory game so the
+// modal's own Save (which sends the whole meta) cannot put an older sheet back.
+function libTeamSheetNote(){
+  const el=document.getElementById('eTeamSheetNote'), g=allGames.find(x=>x.id===pendingEditId); if(!el||!g||!window.cohTS) return;
+  const n=sd=>cohTS.sheet(g, sd).length, h=n('home'), a=n('away');
+  el.textContent=(h||a)?((g.homeTeam||'Home')+' '+h+' · '+(g.awayTeam||'Away')+' '+a):'No team sheet added';
+}
+function libTeamSheetEdit(){
+  const g=allGames.find(x=>x.id===pendingEditId); if(!g||!window.cohTS) return;
+  cohTS.openEditor({ game:g, known:{home:[], away:[]},
+    loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam),
+    onSaved:merged=>{ g.rosters=merged.rosters; libTeamSheetNote(); showToast('Team sheets saved.'); } });
 }
 function closeEditModal(){
   document.getElementById('editModal').classList.remove('show');
