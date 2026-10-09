@@ -440,6 +440,8 @@
   }
   R.assignTeams=assignTeams;
 
+  const LOW=70;                                   // a line with a word the image reader was under 70% sure of is flagged
+  R.LOW=LOW;
   // ── 3. clean-up before the editor's parser ────────────────────
   // Conservative: a line is only left out when it is clearly not a player; an
   // unsure line stays in the text for the user to see in the preview.
@@ -553,6 +555,8 @@
       } else for(let k=i;k<=j;k++) out.push(keep[k]);
       i=j+1;
     }
+    // recognised text: a number by itself that the reader was not even sure of is a stray mark (a sure one stays, for the parser's "Not read" list)
+    for(let i=out.length-1;i>=0;i--){ if(out[i].conf!=null&&out[i].conf<LOW&&isNumTok(out[i].text)){ drop(out[i].text,'marks'); out.splice(i,1); } }
     // O' / Ó, Mc / Mac spacing, fadas: only ever changed TO a spelling this team already has
     if(T&&ctx.known&&ctx.known.length){
       const loose=looseIndex(ctx.known);
@@ -569,8 +573,6 @@
   R.cleanLines=cleanLines;
 
   // ── 4. the whole pure pipeline ────────────────────────────────
-  const LOW=70;                                   // a line with a word the image reader was under 70% sure of is flagged
-  R.LOW=LOW;
   // how many different numbered players a layout holds (per column, so two teams count twice)
   // (counted on a copy after the formation numbering, so a formation whose numbers were partly unreadable still counts)
   const players=lay=>(lay.columns||[]).reduce((t,c)=>{ const L=c.lines.map(l=>Object.assign({},l)); if(lay.free){ nameBlocks(L); formationNumbers(L); }
@@ -1161,6 +1163,50 @@
 .cohrd-full{position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.85);overflow:auto;padding:44px 8px 8px;box-sizing:border-box;-webkit-overflow-scrolling:touch;}
 .cohrd-full canvas{display:block;margin:0 auto;background:#fff;}
 .cohrd-full .cohts-btn{position:fixed;top:8px;right:8px;z-index:1;}
+
+.cohrd-adj{position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:10050;background:rgba(8,10,16,.94);display:flex;flex-direction:column;color:var(--t1,#eee);font:500 13px Barlow,sans-serif;-webkit-user-select:none;user-select:none;overflow:hidden;}
+.cohrd-adj-hd{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border,#333);background:var(--panel,#1e1e28);flex:none;}
+.cohrd-adj-hd div{flex:1;min-width:0;line-height:1.35;color:var(--t2,#aaa);font-size:12px;}
+.cohrd-adj-hd b{display:block;color:var(--t1,#eee);font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;}
+.cohrd-adj-body{flex:1;min-height:0;display:flex;}
+.cohrd-adj-wrap{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden;}
+.cohrd-adj-stage{position:relative;touch-action:none;background:#000;box-shadow:0 0 0 1px #000,0 6px 30px rgba(0,0,0,.6);flex:none;}
+.cohrd-adj-stage>canvas{display:block;width:100%;height:100%;}
+.cohrd-adj-box{position:absolute;box-sizing:border-box;border:2px solid var(--c,#4fc3f7);cursor:move;touch-action:none;background:
+  repeating-linear-gradient(to bottom,transparent 0,transparent 30px,rgba(0,0,0,.4) 30px,rgba(0,0,0,.4) 31px,rgba(255,255,255,.7) 31px,rgba(255,255,255,.7) 32px);box-shadow:0 0 0 1px rgba(0,0,0,.7),inset 0 0 0 1px rgba(0,0,0,.45);}
+.cohrd-adj-box:not(.on){background:none;opacity:.8;}
+.cohrd-adj-box.on{border-width:3px;z-index:2;}
+.cohrd-adj-tag{position:absolute;left:-2px;top:-2px;transform:translateY(-100%);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--c,#4fc3f7);color:var(--ct,#fff);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.6px;padding:2px 8px;border-radius:5px 5px 0 0;pointer-events:none;}
+.cohrd-adj-box.low .cohrd-adj-tag{top:auto;bottom:-2px;transform:translateY(100%);border-radius:0 0 5px 5px;}
+.cohrd-adj-h{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;touch-action:none;display:none;}
+.cohrd-adj-box.on .cohrd-adj-h{display:block;}
+.cohrd-adj-h::after{content:'';position:absolute;left:10px;top:10px;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--c,#4fc3f7);box-shadow:0 0 0 1px rgba(0,0,0,.8);box-sizing:border-box;}
+.cohrd-adj-h[data-h="nw"]{left:0;top:0;cursor:nwse-resize}.cohrd-adj-h[data-h="n"]{left:50%;top:0;cursor:ns-resize}.cohrd-adj-h[data-h="ne"]{left:100%;top:0;cursor:nesw-resize}
+.cohrd-adj-h[data-h="w"]{left:0;top:50%;cursor:ew-resize}.cohrd-adj-h[data-h="e"]{left:100%;top:50%;cursor:ew-resize}
+.cohrd-adj-h[data-h="sw"]{left:0;top:100%;cursor:nesw-resize}.cohrd-adj-h[data-h="s"]{left:50%;top:100%;cursor:ns-resize}.cohrd-adj-h[data-h="se"]{left:100%;top:100%;cursor:nwse-resize}
+.cohrd-adj-side{flex:none;width:320px;box-sizing:border-box;padding:12px;border-left:1px solid var(--border,#333);background:var(--panel,#1e1e28);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:10px;}
+.cohrd-adj-tabs{display:flex;gap:6px;align-items:stretch;}
+.cohrd-adj-tab{flex:1;min-width:0;border:2px solid var(--c,#4fc3f7);background:transparent;color:var(--t1,#eee);border-radius:7px;padding:6px 8px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cohrd-adj-tab.on{background:var(--c,#4fc3f7);color:var(--ct,#fff);}
+.cohrd-adj-lbl{font:700 10.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#888);}
+.cohrd-adj-prev{position:relative;background:#fff;border:1px solid var(--border,#333);border-radius:6px;overflow:hidden;height:190px;display:flex;align-items:center;justify-content:center;}
+.cohrd-adj-prev canvas{max-width:100%;max-height:100%;display:block;}
+.cohrd-adj-prev i{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;background:repeating-linear-gradient(to bottom,transparent 0,transparent 18px,rgba(79,195,247,.55) 18px,rgba(79,195,247,.55) 19px);}
+.cohrd-adj-tilt{display:flex;gap:6px;align-items:center;}
+.cohrd-adj-tilt input[type=range]{flex:1;min-width:0;height:28px;accent-color:var(--accent,#4fc3f7);}
+.cohrd-adj-tilt output{width:46px;text-align:right;font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1,#eee);}
+.cohrd-adj-row{display:flex;gap:6px;flex-wrap:wrap;}
+.cohrd-adj-row .cohts-btn{flex:1;white-space:nowrap;}
+.cohrd-adj-go{display:flex;gap:8px;margin-top:auto;padding-top:4px;}
+.cohrd-adj-go .cohts-btn{flex:1;padding:9px 10px;font-size:14px;}
+.cohrd-adj-hint{font-size:11.5px;line-height:1.4;color:var(--t2,#aaa);}
+@media (max-width:760px){
+.cohrd-adj-body{flex-direction:column;}
+.cohrd-adj-wrap{padding:22px 8px 8px;flex:1 1 46%;}
+.cohrd-adj-side{width:auto;border-left:0;border-top:1px solid var(--border,#333);flex:0 1 auto;max-height:52%;padding:9px 10px;gap:7px;}
+.cohrd-adj-prev{height:110px;}
+.cohrd-adj-hd div span{display:none;}
+}
 `;
     document.head.appendChild(st);
   }
@@ -1183,9 +1229,10 @@
     b.querySelector('.cohrd-msg').textContent=msg; b.querySelector('.cohrd-sub').textContent=sub;
     const bar=b.querySelector('.cohrd-bar'); bar.classList.toggle('busy', busy); bar.firstChild.style.width=(busy?35:pct)+'%';
   }
-  function failure(host, message){
-    host.innerHTML=''; const b=el('<div class="cohrd-box"><div class="cohrd-err"></div><div class="cohrd-row"><button class="cohts-btn" type="button">OK</button></div></div>');
-    b.querySelector('.cohrd-err').textContent='⚠ '+message; b.querySelector('button').onclick=()=>{ host.innerHTML=''; }; host.appendChild(b);
+  function failure(host, message, retry){
+    host.innerHTML=''; const b=el('<div class="cohrd-box"><div class="cohrd-err"></div><div class="cohrd-row"><button class="cohts-btn" type="button" data-a="ok">OK</button>'+(retry?'<button class="cohts-btn" type="button" data-a="retry">✂ Adjust the crop and try again</button>':'')+'</div></div>');
+    b.querySelector('.cohrd-err').textContent='⚠ '+message; b.querySelector('[data-a="ok"]').onclick=()=>{ host.innerHTML=''; };
+    if(retry) b.querySelector('[data-a="retry"]').onclick=retry; host.appendChild(b);
   }
 
   // ── page picker (a PDF with more than one page) → Promise<[n…]> ([] = cancelled) ──
@@ -1256,11 +1303,120 @@
     document.addEventListener('keydown', key, true); document.body.appendChild(ov);
   }
 
-  R.attach=function(ctx, file){
+
+  // ── the adjust screen: crop box(es) and rotation, before anything is read ──
+  // adjust(info, opt) → Promise<[{side, turn, cx, cy, w, h, angle}] | null>  (null = cancelled)
+  //   info = {image (drawable, original pixels), width, height, text (a PDF's own text: crop only, no tilt)}
+  //   opt  = {boxes:[{side, name, color}], saved:{turn, boxes:[{side,cx,cy,w,h,angle}]}, onState(state)}
+  // The picture is shown after `turn` quarter turns; each box is drawn over it, tilted by its own angle (the page of
+  // an open programme lies at its own slant), with guide lines that are level when the box is. Mouse and touch both
+  // go through pointer events; a box cannot leave the picture or shrink below a small size.
+  const G=R.geom;
+  const lum=c=>{ const m=/^#?([0-9a-f]{6})$/i.exec(String(c||'').trim()); if(!m) return 0; const n=parseInt(m[1],16); return (0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))/255; };
+  function adjustScreen(info, opt){
+    css();
+    return new Promise(resolve=>{
+      const W=info.width, H=info.height, two=opt.boxes.length>1, noTilt=!!info.text;
+      let turn=0, T=G.turned(W,H,turn), boxes, act=0, scale=1, raf=0;
+      const fresh=()=>G.initial(T.w,T.h,two).map((b,i)=>Object.assign(b,{side:opt.boxes[i].side}));
+      const sv=opt.saved;
+      if(sv&&sv.boxes&&sv.boxes.length===opt.boxes.length&&sv.w===W&&sv.h===H){ turn=sv.turn||0; T=G.turned(W,H,turn); boxes=sv.boxes.map(b=>Object.assign({},G.fit(b,T.w,T.h),{side:b.side})); }
+      else boxes=fresh();
+      const meta=side=>opt.boxes.find(b=>b.side===side)||opt.boxes[0];
+      const minSide=()=>Math.max(G.MIN, 0.06*Math.min(T.w,T.h));
+      const ov=el(`<div class="cohrd-adj" role="dialog" aria-modal="true" aria-label="Choose the area to read">
+        <div class="cohrd-adj-hd"><div><b>${two?'Put a box on each team':'Put the box on '+esc(opt.boxes[0].name)}</b><span>Drag ${two?'each box over one team’s list':'the box over the list'} (starters and subs), pull its corners to fit${noTilt?'':', then tilt it until the guide lines run along the lines of names'}. Only what is inside ${two?'a box':'the box'} is read.</span></div>
+          <button class="cohts-btn" type="button" data-a="cancel" aria-label="Cancel">✕</button></div>
+        <div class="cohrd-adj-body">
+          <div class="cohrd-adj-wrap"><div class="cohrd-adj-stage"><canvas></canvas></div></div>
+          <div class="cohrd-adj-side">
+            ${two?'<div><div class="cohrd-adj-lbl">Box to adjust</div><div class="cohrd-adj-tabs"></div></div>':''}
+            <div><div class="cohrd-adj-lbl">How it will be read${noTilt?'':' — the names should sit level on the lines'}</div><div class="cohrd-adj-prev"><canvas></canvas><i></i></div></div>
+            ${noTilt?'':`<div><div class="cohrd-adj-lbl">Tilt of this box</div><div class="cohrd-adj-tilt"><button class="cohts-btn" type="button" data-a="t-" aria-label="Tilt 0.1° anticlockwise">−</button><input type="range" min="-15" max="15" step="0.1" value="0" aria-label="Tilt in degrees"><button class="cohts-btn" type="button" data-a="t+" aria-label="Tilt 0.1° clockwise">+</button><output>0.0°</output></div></div>
+            <div class="cohrd-adj-row"><button class="cohts-btn" type="button" data-a="q-" title="Turn the whole picture a quarter turn left">⟲ 90°</button><button class="cohts-btn" type="button" data-a="q+" title="Turn the whole picture a quarter turn right">⟳ 90°</button><button class="cohts-btn" type="button" data-a="level">Level (0°)</button></div>`}
+            <div class="cohrd-adj-row">${two?'<button class="cohts-btn" type="button" data-a="swap">⇄ Swap the teams</button>':''}<button class="cohts-btn" type="button" data-a="reset">Reset</button></div>
+            <div class="cohrd-adj-hint">${two?'The two pages of an open programme usually lie at different slants — each box has its own tilt. ':''}A tighter box makes the letters larger for the reader, which is what helps most. Leave out crests, adverts and the managers’ lines if you can.</div>
+            <div class="cohrd-adj-go"><button class="cohts-btn pri" type="button" data-a="go">Read</button><button class="cohts-btn" type="button" data-a="cancel">Cancel</button></div>
+          </div></div></div>`);
+      const wrap=ov.querySelector('.cohrd-adj-wrap'), stage=ov.querySelector('.cohrd-adj-stage'), cv=stage.querySelector('canvas'), prev=ov.querySelector('.cohrd-adj-prev canvas'),
+        range=ov.querySelector('input[type=range]'), outp=ov.querySelector('output'), tabs=ov.querySelector('.cohrd-adj-tabs');
+      // the turned picture, drawn once per turn at screen size
+      function drawPicture(){
+        const k=Math.min(1, 1600/Math.max(T.w,T.h)); cv.width=Math.round(T.w*k); cv.height=Math.round(T.h*k);
+        const g=cv.getContext('2d'), m=G.matrix({turn, cx:T.w/2, cy:T.h/2, w:T.w, h:T.h, angle:0}, W, H, cv.width/T.w);
+        g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+        g.setTransform(m[0],m[1],m[2],m[3],m[4],m[5]); g.drawImage(info.image,0,0); g.setTransform(1,0,0,1,0,0);
+      }
+      function size(){ const cw=wrap.clientWidth-(parseFloat(getComputedStyle(wrap).paddingLeft)||0)*2, ch=wrap.clientHeight-(parseFloat(getComputedStyle(wrap).paddingTop)||0)-(parseFloat(getComputedStyle(wrap).paddingBottom)||0);
+        scale=Math.max(0.01, Math.min(cw/T.w, ch/T.h)); stage.style.width=Math.round(T.w*scale)+'px'; stage.style.height=Math.round(T.h*scale)+'px'; }
+      function paint(){
+        boxes.forEach((b,i)=>{ let d=stage.querySelector('.cohrd-adj-box[data-i="'+i+'"]');
+          if(!d){ d=el('<div class="cohrd-adj-box" data-i="'+i+'"><span class="cohrd-adj-tag"></span>'+['nw','n','ne','w','e','sw','s','se'].map(h=>'<i class="cohrd-adj-h" data-h="'+h+'"></i>').join('')+'</div>'); stage.appendChild(d); }
+          const m=meta(b.side); d.style.setProperty('--c', m.color); d.style.setProperty('--ct', lum(m.color)>0.62?'#111':'#fff');
+          d.style.left=(100*(b.cx-b.w/2)/T.w)+'%'; d.style.top=(100*(b.cy-b.h/2)/T.h)+'%'; d.style.width=(100*b.w/T.w)+'%'; d.style.height=(100*b.h/T.h)+'%';
+          d.style.transform='rotate('+(b.angle||0)+'deg)'; d.classList.toggle('on', i===act); d.classList.toggle('low', (b.cy-b.h/2)*scale<22);
+          d.querySelector('.cohrd-adj-tag').textContent=m.name; d.setAttribute('aria-label', 'Crop box for '+m.name); });
+        if(tabs) tabs.innerHTML=boxes.map((b,i)=>{ const m=meta(b.side); return '<button type="button" class="cohrd-adj-tab'+(i===act?' on':'')+'" data-tab="'+i+'" style="--c:'+esc(m.color)+';--ct:'+(lum(m.color)>0.62?'#111':'#fff')+'">'+esc(m.name)+'</button>'; }).join('');
+        if(range){ range.value=String(boxes[act].angle||0); outp.textContent=(boxes[act].angle>0?'+':'')+(+boxes[act].angle||0).toFixed(1)+'°'; }
+        if(opt.onState) opt.onState(state());
+        if(!raf) raf=requestAnimationFrame(()=>{ raf=0; preview(); });
+      }
+      function preview(){ const b=boxes[act], c=R._crop(info.image, W, H, Object.assign({turn}, b), 520, 1.5); prev.width=c.width; prev.height=c.height; prev.getContext('2d').drawImage(c,0,0); }
+      const state=()=>({w:W, h:H, turn, boxes:boxes.map(b=>({side:b.side, cx:b.cx, cy:b.cy, w:b.w, h:b.h, angle:b.angle||0}))});
+      const setAngle=a=>{ a=Math.max(-15, Math.min(15, Math.round(a*10)/10)); boxes[act]=Object.assign({}, G.fit(Object.assign({}, boxes[act], {angle:a}), T.w, T.h, minSide()), {side:boxes[act].side}); paint(); };
+      // dragging: the box body moves it, a handle pulls that edge or corner
+      let drag=null;
+      stage.addEventListener('pointerdown',ev=>{
+        const bx=ev.target.closest('.cohrd-adj-box'); if(!bx) return; ev.preventDefault();
+        act=+bx.dataset.i; const h=ev.target.closest('.cohrd-adj-h');
+        drag={id:ev.pointerId, x:ev.clientX, y:ev.clientY, which:h?h.dataset.h:'move', r0:Object.assign({}, boxes[act])};
+        try{ stage.setPointerCapture(ev.pointerId); }catch(_){}
+        paint();
+      });
+      stage.addEventListener('pointermove',ev=>{ if(!drag||ev.pointerId!==drag.id) return; ev.preventDefault();
+        const side=boxes[act].side; boxes[act]=Object.assign(G.drag(drag.r0, drag.which, (ev.clientX-drag.x)/scale, (ev.clientY-drag.y)/scale, T.w, T.h, minSide()), {side}); paint(); });
+      const up=ev=>{ if(drag&&ev.pointerId===drag.id){ drag=null; try{ stage.releasePointerCapture(ev.pointerId); }catch(_){} } };
+      stage.addEventListener('pointerup',up); stage.addEventListener('pointercancel',up);
+      if(range) range.addEventListener('input',()=>setAngle(+range.value));
+      const done=v=>{ window.removeEventListener('resize', onResize); document.removeEventListener('keydown', key, true); if(raf) cancelAnimationFrame(raf); ov.remove(); resolve(v); };
+      const onResize=()=>{ size(); paint(); };
+      const key=ev=>{ if(ev.key==='Escape'){ ev.stopPropagation(); ev.preventDefault(); done(null); } };
+      ov.addEventListener('click',ev=>{
+        const tb=ev.target.closest('[data-tab]'); if(tb){ act=+tb.dataset.tab; paint(); return; }
+        const a=ev.target.closest('[data-a]'); if(!a) return; const k=a.dataset.a;
+        if(k==='cancel') return done(null);
+        if(k==='go') return done(boxes.map(b=>Object.assign({turn}, b)));
+        if(k==='t-'||k==='t+') return setAngle((+boxes[act].angle||0)+(k==='t+'?0.1:-0.1));
+        if(k==='level') return setAngle(0);
+        if(k==='swap'){ const s0=boxes[0].side; boxes[0].side=boxes[1].side; boxes[1].side=s0; return paint(); }
+        if(k==='reset'){ boxes=fresh(); act=0; return paint(); }
+        if(k==='q+'||k==='q-'){ const dir=k==='q+'?1:-1, old=T; turn=((turn+dir)%4+4)%4; T=G.turned(W,H,turn);
+          boxes=boxes.map(b=>Object.assign({}, G.fit(G.turnBox(b, old.w, old.h, dir), T.w, T.h, minSide()), {side:b.side})); drawPicture(); size(); return paint(); }
+      });
+      document.addEventListener('keydown', key, true); window.addEventListener('resize', onResize);
+      document.body.appendChild(ov);
+      ov._adj={state, set:(i,b)=>{ boxes[i]=Object.assign({}, G.fit(Object.assign({}, boxes[i], b), T.w, T.h, minSide()), {side:boxes[i].side}); act=i; paint(); }, scale:()=>scale};
+      drawPicture(); size(); paint(); requestAnimationFrame(()=>{ size(); paint(); });
+    });
+  }
+  R._adjust=adjustScreen;
+
+  // attach(ctx, file, opt) — opt.readjust: open the adjust screen with the boxes of the last read of this file;
+  // opt.cropText: let the user box the list on a PDF that has its own text; opt.pages: the PDF pages already chosen
+  R.attach=function(ctx, file, opt){
+    try{ return attach(ctx, file, opt||{}); }
+    catch(e){ try{ console.error('[team sheet reader]', e); }catch(_){} const h=ctx&&ctx.card&&(ctx.side?colHost(ctx, ctx.side):topHost(ctx.card)); if(h) failure(h, R.MSG.unreadable()); return Promise.resolve(null); }
+  };
+  function attach(ctx, file, opt){
     css();
     const card=ctx.card, both=!ctx.side, sides=both?['home','away']:[ctx.side];
     const host=both?topHost(card):colHost(ctx, ctx.side);
     if(!host) return;
+    const game=ctx.game||{}, colour=s=>(s==='home'?game.homeColor:game.awayColor)||(s==='home'?'#2563eb':'#22c55e');
+    // the boxes of the last read of this same file with this same control, kept on the editor card for "Re-adjust"
+    const fkey=[file.name, file.size, file.lastModified, both?'both':ctx.side].join('|');
+    const mem=card._cohrdAdj&&card._cohrdAdj.key===fkey?card._cohrdAdj:(card._cohrdAdj={key:fkey, state:null});
+    const again=o2=>R.attach(ctx, file, o2);
     // one read at a time; a new one replaces what the same control showed before
     wipe(topHost(card)); sides.forEach(s=>wipe(colHost(ctx,s)));
     const ac=new AbortController(); let done=false;
@@ -1279,9 +1435,12 @@
     const onInput=ev=>{ const c=ev.target.closest&&ev.target.closest('.cohts-col'); if(c&&ev.target.tagName==='TEXTAREA') setTimeout(()=>decorate(c.dataset.side),0); };
     card.addEventListener('input', onInput);
 
-    const srcText=res=>{ const s=res.source||{}, pg=(res.pages||[]).map(p=>p.n);
+    const srcText=res=>{ const s=res.source||{}, pg=res.pdfPages||(res.pages||[]).map(p=>p.n);
       const how=s.method==='text'?'the exact text in the PDF':s.method==='mixed'?'PDF text and text recognition':'text recognition on this device'+((s.langs||[]).length?((s.langs.indexOf('gle')>=0)?' (English + Irish)':' (English only — the Irish data could not be loaded, so fadas may be missed)'):'');
       return '“'+(s.name||'the file')+'”'+(s.kind==='pdf'&&pg.length?', page'+(pg.length>1?'s ':' ')+pg.join(', '):'')+' — '+how; };
+    // "Re-adjust" after a read from boxes; "Crop / choose area" after a PDF's own text (which skips the adjust screen)
+    const tools=res=>res.regions?`<div class="cohrd-row"><button class="cohts-btn" type="button" data-a="readjust" title="Back to the crop boxes, kept as they were">✂ Re-adjust the crop and read again</button></div>`
+      :((res.source||{}).method==='text'&&(res.pdfPages||[]).length===1?`<div class="cohrd-row"><button class="cohts-btn" type="button" data-a="croptext" title="Draw a box round the list on the page">✂ Crop / choose area</button><span>if the wrong part of the page was read</span></div>`:'');
     function colPanel(side, r, res){
       const h=colHost(ctx, side); if(!h) return; h.innerHTML=''; lowKeys[side]=new Set();
       if(!r) return;
@@ -1291,19 +1450,23 @@
           Nothing is in the sheet yet — check the preview above against the picture, then press <b>Replace this sheet</b> or <b>Add to this sheet</b>.</div><button class="cohts-x" type="button" data-a="close" title="Close the picture">✕</button></div>
         ${!both&&res.lists>1?`<div class="cohrd-note">This file holds two team lists; the ${res.assign.first===side?'first':'second'} one is shown${res.assign.why==='headings'?' (matched by the team name on the sheet)':' — check it is the right team'}. <button class="cohts-btn" type="button" data-a="other">Use the other list</button></div>`:''}
         ${low.length?`<div class="cohrd-flag">⚠ Check ${low.length===1?'this line':'these '+low.length+' lines'} against the picture — the reader was less sure of ${low.length===1?'it':'them'}: <span>${low.map(l=>esc(l.text.replace(/\t/g,' '))+' ('+Math.round(l.confidence)+'%)').join(' · ')}</span></div>`:''}
+        ${r.placed&&r.placed.length?`<div class="cohrd-note">The number${r.placed.length===1?'':'s'} <b>${r.placed.join(', ')}</b> could not be read and ${r.placed.length===1?'was':'were'} worked out from the player’s place in the formation — check ${r.placed.length===1?'it':'them'}.</div>`:''}
+        ${both?'':tools(res)}
         ${r.adopted&&r.adopted.length?`<div class="cohrd-note">Changed to this team's existing spelling: ${r.adopted.map(a=>'“'+esc(a.from)+'” → <b>'+esc(a.to)+'</b>').join(' · ')}</div>`:''}
         ${r.dropped&&r.dropped.length?`<details class="cohrd-note"><summary>Left out as not players (${r.dropped.length})</summary>${r.dropped.map(d=>esc(d.text.replace(/\t/g,' '))+' <i>— '+esc(d.why)+'</i>').join('<br>')}</details>`:''}
         </div>`);
       const v=viewer(res, r); if(v) b.appendChild(v);
       b.addEventListener('click',ev=>{ const a=ev.target.closest('[data-a]'); if(!a) return;
         if(a.dataset.a==='close'){ h.innerHTML=''; lowKeys[side]=new Set(); decorate(side); }
-        else if(a.dataset.a==='other'){ swap(res); } });
+        else if(a.dataset.a==='other'){ swap(res); }
+        else if(a.dataset.a==='readjust'){ again({readjust:true, pages:res.pdfPages||undefined}); }
+        else if(a.dataset.a==='croptext'){ again({cropText:true, pages:res.pdfPages||undefined}); } });
       h.appendChild(b); if(v) v._show();
     }
     function topPanel(res){
       const h=topHost(card); if(!h||!both) return; h.innerHTML='';
       const a=res.assign||{first:'home', why:'default'}, other=a.first==='home'?'away':'home';
-      const why={headings:'matched by the team names on the sheet', title:'going by the order of the names in the title — check', default:'the team names were not found on the sheet, so this is only a guess — check', chosen:'as you set it'}[a.why]||'';
+      const why={headings:'matched by the team names on the sheet', title:'going by the order of the names in the title — check', default:'the team names were not found on the sheet, so this is only a guess — check', chosen:'as you set it', boxes:'as the boxes were placed'}[a.why]||'';
       const two=res.lists>1;
       const b=el(`<div class="cohrd-box"><div class="cohrd-top"><div><b>Read ${esc(srcText(res))}.</b><br>
         ${two?`First (left / top) list → <b>${esc(team(a.first))}</b> · second list → <b>${esc(team(other))}</b> <span>(${why})</span>.`
@@ -1311,8 +1474,9 @@
         ${res.more?'<br>The file holds more than two numbered lists — the two longest were used.':''}${res.extra?'<br>A column beside the names (clubs or positions) was left out.':''}
         <br>Nothing is in the sheets yet — check each preview against its picture, then press <b>Replace this sheet</b> or <b>Add to this sheet</b>.</div>
         <button class="cohts-x" type="button" data-a="close" title="Close">✕</button></div>
-        <div class="cohrd-row"><button class="cohts-btn" type="button" data-a="swap">${two?'⇄ Swap — the first list is '+esc(team(other)):'Move it to '+esc(team(other))}</button></div></div>`);
-      b.addEventListener('click',ev=>{ const x=ev.target.closest('[data-a]'); if(!x) return; if(x.dataset.a==='close') h.innerHTML=''; else swap(res); });
+        <div class="cohrd-row"><button class="cohts-btn" type="button" data-a="swap">${two?'⇄ Swap — the first list is '+esc(team(other)):'Move it to '+esc(team(other))}</button></div>${tools(res)}</div>`);
+      b.addEventListener('click',ev=>{ const x=ev.target.closest('[data-a]'); if(!x) return; const k=x.dataset.a;
+        if(k==='close') h.innerHTML=''; else if(k==='readjust') again({readjust:true, pages:res.pdfPages||undefined}); else if(k==='croptext') again({cropText:true, pages:res.pdfPages||undefined}); else swap(res); });
       h.appendChild(b);
     }
     function fill(res){
@@ -1326,7 +1490,12 @@
       fill(res);
     }
     const o={side:both?'both':ctx.side, homeTeam:ctx.teamName('home'), awayTeam:ctx.teamName('away'), known:{home:ctx.known('home'), away:ctx.known('away')},
-      onProgress:p=>{ if(!done&&!ac.signal.aborted) progress(host, p, cancel); }, choosePages:info=>pagePicker(host, info, file.name), signal:ac.signal};
+      onProgress:p=>{ if(!done&&!ac.signal.aborted) progress(host, p, cancel); }, choosePages:info=>pagePicker(host, info, file.name), signal:ac.signal,
+      pages:opt.pages, cropText:!!opt.cropText,
+      // pictures and scanned pages: the crop / rotate screen first (R.ADJUST=false reads the whole picture at once)
+      adjust:R.ADJUST===false?null:info=>{ host.innerHTML='';
+        return adjustScreen(info, {boxes:sides.map(sd=>({side:sd, name:team(sd), color:colour(sd)})), saved:mem.state, onState:st=>{ mem.state=st; }})
+          .then(regs=>{ if(regs&&!done&&!ac.signal.aborted) progress(host, {stage:'load', pct:0, engine:info.text?'pdf':'ocr'}, cancel); return regs; }); }};
     return Promise.resolve().then(()=>root.cohTeamSheetFromFile(file, o)).then(res=>{
       done=true; host.innerHTML=''; fill(res||{}); return res;
     }).catch(e=>{
@@ -1334,8 +1503,9 @@
       if(e&&e.code==='cancel'){ host.innerHTML=''; return null; }
       // only the reader's own messages are shown; anything unexpected gets a plain message, with the detail in the console
       if(!(e&&e.reader)){ try{ console.error('[team sheet reader]', e); }catch(_){} }
-      failure(host, (e&&e.reader&&e.message)||R.MSG.unreadable());
+      const canRetry=mem.state&&(!e||!e.reader||e.code==='empty'||e.code==='unreadable');
+      failure(host, (e&&e.reader&&e.message)||R.MSG.unreadable(), canRetry?()=>again({readjust:true, pages:opt.pages}):null);
       return null;
     });
-  };
+  }
 })(typeof window!=='undefined'?window:globalThis);
