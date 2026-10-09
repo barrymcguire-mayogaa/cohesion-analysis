@@ -254,7 +254,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crkp-th span{white-space:nowrap;}
 .crkp-l{flex:none;width:92px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);}
 .crkp .crfr-row input.crkp-t{flex:none;width:62px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;padding:7px 4px;}
-.crkp-team .crfr-row .crkp-l:has(+ .crkp-t){width:26px;}
+.crkp-l.s{width:26px;}
 .crkp-ar{flex:none;color:var(--t3);}
 .crkp-x{flex:none;cursor:pointer;color:var(--t3);font-weight:700;padding:0 4px;user-select:none;}
 .crkp-x:hover{color:var(--red);}
@@ -3694,7 +3694,9 @@ function crKprBuild(){
   let p=document.getElementById('crKpr'); if(p) return p;
   p=document.createElement('div'); p.id='crKpr'; p.className='crfr crkp';
   p.setAttribute('role','dialog'); p.setAttribute('aria-label','Goalkeepers');
-  p.addEventListener('click', crKprClick);
+  // mousedown, not click: a box still being typed in is written back FIRST (which redraws the
+  // panel), then the action runs — and the keyboard focus never lands on a panel button
+  p.addEventListener('mousedown', crKprClick);
   p.addEventListener('focusin', ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains('crkp-in')) crKprOpenList(t,true); });
   p.addEventListener('input', ev=>{ const t=ev.target; if(t&&t.classList&&t.classList.contains('crkp-in')) crKprOpenList(t,false); });
   p.addEventListener('focusout', ev=>{ const t=ev.target; if(!(t&&t.classList)) return;
@@ -3727,9 +3729,9 @@ function crKprTeamHtml(side){
   const tagged=P.same+P.diff;
   return '<div class="crkp-team'+(changed?' dirty':'')+'">'
     +'<div class="crkp-th"><b>'+esc(T)+'</b><span>'+P.total+' kickout'+(P.total===1?'':'s')+' · '+tagged+' with a taker</span></div>'
-    +'<div class="crfr-row"><span class="crkp-l">Starting keeper</span>'+box(l[0],'Type or pick a player…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-i="0" title="Clear">✕</span></div>'
-    +l.slice(1).map((r,j)=>'<div class="crfr-row"><span class="crkp-l">from</span><input class="crkp-t" data-side="'+side+'" data-from="'+r.from+'" value="'+fmt(r.from)+'" title="Video time the new keeper is in goal from (m:ss)" autocomplete="off" spellcheck="false"><span class="crkp-ar">→</span>'
-      +box(r,'New keeper…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-i="'+(j+1)+'" title="Remove this change">✕</span></div>').join('')
+    +'<div class="crfr-row"><span class="crkp-l">Starting keeper</span>'+box(l[0],'Type or pick a player…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-from="0" title="Clear">✕</span></div>'
+    +l.slice(1).map(r=>'<div class="crfr-row"><span class="crkp-l s">from</span><input class="crkp-t" data-side="'+side+'" data-from="'+r.from+'" value="'+fmt(r.from)+'" title="Video time the new keeper is in goal from (m:ss)" autocomplete="off" spellcheck="false"><span class="crkp-ar">→</span>'
+      +box(r,'New keeper…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-from="'+r.from+'" title="Remove this change">✕</span></div>').join('')
     +'<div class="crfr-row crfr-wrap"><button class="cbtn mini" data-act="now" data-side="'+side+'" title="Scrub the video to where the new keeper comes on, then click">+ Change keeper from current video time</button></div>'
     +(subs.length?'<div class="crkp-subs"><div class="crfr-lbl">'+esc(T)+' subs in this game — a hint, check the video</div>'
       +subs.map(s=>'<div class="crkp-sub"><span class="crkp-st" data-act="seek" data-t="'+s.t+'" title="Go to this moment in the video">▶ '+fmt(s.t)+'</span><span class="crkp-sd">'+esc(s.text||'sub')+'</span><span class="crkp-su" data-act="hint" data-side="'+side+'" data-t="'+s.t+'" title="Start a keeper change at this time — you still type who came on">use this time</span></div>').join('')+'</div>':'')
@@ -3754,12 +3756,16 @@ function crKprRender(){
 function crKprLive(){ const el=document.getElementById('crKprLive'); if(el&&crKpr.open) el.textContent='Video now: '+fmt(vNow()); }
 function crKprClick(ev){
   const t=ev.target&&ev.target.closest?ev.target.closest('[data-act]'):null; if(!t) return;
-  const act=t.getAttribute('data-act'), side=t.getAttribute('data-side');
+  if(ev.preventDefault) ev.preventDefault();
+  const act=t.getAttribute('data-act'), side=t.getAttribute('data-side'), at=+t.getAttribute('data-t')||0, from=t.getAttribute('data-from');
+  if(t.disabled) return;
+  const ae=document.activeElement, p=document.getElementById('crKpr');
+  if(ae&&ae.dataset&&p&&p.contains&&p.contains(ae)){ acHide(); crKprCommit(ae); }
   if(act==='close') crKprClose();
   else if(act==='now') crKprAddSpell(side, vNow());
-  else if(act==='hint') crKprAddSpell(side, +t.getAttribute('data-t'));
-  else if(act==='seek'){ vSeekDrive(+t.getAttribute('data-t')||0); crKprLive(); }
-  else if(act==='rm') crKprRemove(side, +t.getAttribute('data-i'));
+  else if(act==='hint') crKprAddSpell(side, at);
+  else if(act==='seek'){ vSeekDrive(at); crKprLive(); }
+  else if(act==='rm'){ const i=crKprRows(side).findIndex(r=>String(r.from)===String(from)); if(i>=0) crKprRemove(side, i); }
   else if(act==='fill') crKprBackfill(side);
   else if(act==='save') crKprSave();
 }
