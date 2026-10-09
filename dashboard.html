@@ -220,6 +220,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="cohesion-config.js"></script>
+<script src="cohesion-labels.js"></script>
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-periods.js"></script>
 <script src="crests/index.js"></script>
@@ -588,15 +589,31 @@ function buildHTML(H,A){
     <div class="nearby" id="NB" style="display:none"><div class="nb-lbl">Nearby Events</div><div id="NBI"></div></div>
   </div>`;
 }
+// ── Labels with several values / players and their teams (cohesion-labels.js) ──
+// dashPlayers(ev): every player on the event with his team — the team of his
+// "<Team> Player Labels" group (a KERRY TOs row can carry a Mayo player).
+function dashPlayers(ev){ return cohEventPlayers(ev, GAME); }
+// "Enda Hession, Sam Callinan (Mayo)" — the team is shown when it is not the row's
+function dashPlayersTxt(ev){
+  const rt=String(ev.team||'').toUpperCase();
+  return dashPlayers(ev).map(p=>p.name+((p.team&&rt&&String(p.team).toUpperCase()!==rt)?' ('+tc(p.team)+')':'')).join(', ');
+}
+const DASH_OUT_GROUPS=['Shot Outcomes','Game Involvement Outcomes','Kickout Outcomes','Turnover Outcomes','Tackle Outcomes'];
+// the outcome line: every value when the outcome's group has several (a player row's involvements)
+function dashOutcomeTxt(ev){
+  if(!ev.outcome) return '';
+  const g=DASH_OUT_GROUPS.find(k=>ev.labels&&ev.labels[k]===ev.outcome), vals=g?cohLabelValues(ev, g):[];
+  return vals.length>1?vals.map(tc).join(', '):tc(ev.outcome);
+}
 function populatePl(){
   const s=document.getElementById('FP');
   if(!s)return;
   const selectedTeam=document.getElementById('FT')?.value||'';
   const current=s.value;
+  // every player on an event, listed under HIS team (his label group), not the row's
+  const selT=selectedTeam.toUpperCase();
   const players=[...new Set(
-    ALL
-      .filter(e => !selectedTeam || (e.team || '').toUpperCase() === selectedTeam.toUpperCase())
-      .map(e => e.player)
+    ALL.flatMap(e => dashPlayers(e).filter(p => !selT || String(p.team||'').toUpperCase() === selT).map(p => p.name))
       .filter(Boolean)
   )].sort();
   s.innerHTML='<option value="">All Players</option>';
@@ -721,11 +738,13 @@ function applyF(){
   filtered=ALL.filter(ev=>{
     if(activeCatFn&&!activeCatFn(ev))return false;
     if(activeSubFn&&!activeSubFn(ev))return false;
-    if(activeLF&&(!ev.labels||ev.labels[activeLF.g]!==activeLF.v))return false;
-    if(team&&ev.team.toUpperCase()!==team.toUpperCase())return false;
-    if(player&&ev.player!==player)return false;
+    if(activeLF&&!cohLabelHas(ev, activeLF.g, activeLF.v))return false;   // any of the group's values
+    const evPl=player?dashPlayers(ev).filter(p=>p.name===player):null;
+    if(player&&!evPl.length)return false;
+    // team: the row's team — or, with a player picked, that player's team (he may be on the other team's row)
+    if(team&&String(ev.team||'').toUpperCase()!==team.toUpperCase()&&!(evPl&&evPl.some(p=>String(p.team||'').toUpperCase()===team.toUpperCase())))return false;
     if(half&&DASH_GFX.halfOf(ev)!==half)return false;
-    if(q&&!(ev.code+' '+ev.player+' '+ev.outcome+' '+ev.subtype+' '+ev.team+' '+ev.category).toLowerCase().includes(q))return false;
+    if(q&&!(ev.code+' '+ev.player+' '+dashPlayers(ev).map(p=>p.name).join(' ')+' '+ev.outcome+' '+ev.subtype+' '+ev.team+' '+ev.category).toLowerCase().includes(q))return false;
     return true;
   });
   // Update half filter options to include ET periods
@@ -828,7 +847,7 @@ function renderEV(){
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
       const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
-      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${!ev.player&&!ev.outcome&&dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':''}>${ev.player||tc(ev.outcome)||dashSubTxt(ev)||'—'}</div><div class="inst-sb">${[ev.outcome?tc(ev.outcome):'',ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
+      h+=`<div class="ev-insts">${evs.map(ev=>`<div class="ev-inst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime} <span style="color:var(--t3)">#${seqOf(ev)}</span></div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div class="inst-b"><div class="inst-pl"${!ev.player&&!ev.outcome&&dashSubTxt(ev)?' style="white-space:normal;font-size:13.5px;line-height:1.3;"':''}>${dashPlayersTxt(ev)||tc(ev.outcome)||dashSubTxt(ev)||'—'}</div><div class="inst-sb">${[dashOutcomeTxt(ev),ev.subtype?tc(ev.subtype):''].filter(Boolean).join(' · ')}</div></div></div>`).join('')}</div>`;
     }
     h+='</div>';
   });
@@ -839,7 +858,8 @@ const LO=['Shot Outcomes','Tackle Outcomes','Game Involvement Outcomes','Kickout
 function renderLV(){
   const sc=document.getElementById('ES');if(!sc)return;
   const gd={};
-  filtered.forEach(ev=>{if(!ev.labels)return;Object.entries(ev.labels).forEach(([g,v])=>{if(!gd[g])gd[g]={};if(!gd[g][v])gd[g][v]=[];gd[g][v].push(ev);});});
+  // an event is listed under EACH value of a group; .n counts the values (one event can carry "Tackle Made" twice)
+  filtered.forEach(ev=>{if(!ev.labels)return;cohLabelPairs(ev).forEach(([g,v])=>{if(!gd[g])gd[g]={};if(!gd[g][v]){gd[g][v]=[];gd[g][v].n=0;}const a=gd[g][v];a.n++;if(a[a.length-1]!==ev)a.push(ev);});});
   const cd={};filtered.forEach(ev=>{if(!cd[ev.code])cd[ev.code]=[];cd[ev.code].push(ev);});
   let h='';
   // Codes section
@@ -852,11 +872,11 @@ function renderLV(){
   // Other label groups
   [...LO,...Object.keys(gd).filter(g=>!LO.includes(g))].forEach(gn=>{
     if(!gd[gn])return;
-    const vals=gd[gn],tot=Object.values(vals).reduce((s,a)=>s+a.length,0);
+    const vals=gd[gn],tot=Object.values(vals).reduce((s,a)=>s+a.n,0);
     const gO=LG.has(gn);
     h+=`<div class="lbl-group"><div class="lbl-hdr" onclick="togLG('${ea(gn)}')"><span class="lbl-arr${gO?' o':''}">▶</span><span class="lbl-gname">${gn}</span><span class="lbl-gcnt">${tot}</span></div>`;
     if(gO){
-      h+=`<div class="lbl-vals">${Object.entries(vals).sort((a,b)=>b[1].length-a[1].length).map(([val,evs])=>{const k=gn+'::'+val;const vO=LV.has(k);const isA=activeLF?.g===gn&&activeLF?.v===val;return`<div class="lbl-val${isA?' on':''}" onclick="hlv('${ea(gn)}','${ea(val)}')"><span class="lbl-varr${vO?' o':''}">▶</span><span class="lbl-vname">${(gn==='Sub Detail'&&dashSubVal(evs))||tc(val)}</span><span class="lbl-vcnt">${evs.length}</span></div>${vO?`<div class="lbl-einsts">${evs.map(ev=>`<div class="lbl-einst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${[ev.player,tc(ev.code)].filter(Boolean)[0]||''}</div></div>`).join('')}</div>`:''}`}).join('')}</div>`;
+      h+=`<div class="lbl-vals">${Object.entries(vals).sort((a,b)=>b[1].n-a[1].n).map(([val,evs])=>{const k=gn+'::'+val;const vO=LV.has(k);const isA=activeLF?.g===gn&&activeLF?.v===val;return`<div class="lbl-val${isA?' on':''}" onclick="hlv('${ea(gn)}','${ea(val)}')"><span class="lbl-varr${vO?' o':''}">▶</span><span class="lbl-vname">${(gn==='Sub Detail'&&dashSubVal(evs))||tc(val)}</span><span class="lbl-vcnt">${evs.n}</span></div>${vO?`<div class="lbl-einsts">${evs.map(ev=>`<div class="lbl-einst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${[dashPlayersTxt(ev),tc(ev.code)].filter(Boolean)[0]||''}</div></div>`).join('')}</div>`:''}`}).join('')}</div>`;
     }
     h+='</div>';
   });
@@ -875,7 +895,7 @@ function pickI(id){
   const _ytVT=driveToAngle(ev.driveT,currentAngleIdx);
   document.getElementById('YTB').href=`https://www.youtube.com/watch?v=${_ang.youtubeId}&t=${Math.round(_ytVT)}s`;
   document.getElementById('NPN').textContent=tc(ev.code);
-  document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome),dashSubRaw(ev)].filter(Boolean).join(' · ');
+  document.getElementById('NPM').textContent=[ev.gameTime,dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
   document.getElementById('IB').style.display='none';
   document.getElementById('NB').style.display='block';
@@ -952,7 +972,7 @@ function openPlayerTagEditor(){
 // fail silently anyway; batching goes through the service-role editEvent.)
 let dashPending = new Map();               // rowId -> full event data to persist
 function dashBackupKey(){ return 'coh_dash_'+gameId; }
-function dashCleanEv(ev){ const d={...ev}; delete d._rowId; return d; }
+function dashCleanEv(ev){ cohLabelsNormalize(ev); const d={...ev}; delete d._rowId; return d; }   // labelsAll kept in step with labels
 function dashPersistBackup(){
   try{
     if(dashPending.size) localStorage.setItem(dashBackupKey(), JSON.stringify(Object.fromEntries(dashPending)));
@@ -1062,7 +1082,7 @@ async function dashRestoreBackup(){
   if(c!=='restore'){ try{localStorage.removeItem(dashBackupKey());}catch(__){} return; }
   entries.forEach(([id,data])=>{
     const ev=ALL.find(e=>String(e._rowId)===String(id));
-    if(ev){ if('player' in data) ev.player=data.player; if('labels' in data) ev.labels=data.labels; if('outcome' in data) ev.outcome=data.outcome; dashPending.set(ev._rowId, data); }
+    if(ev){ if('player' in data) ev.player=data.player; if('labels' in data){ ev.labels=data.labels; if(data.labelsAll) ev.labelsAll=data.labelsAll; else delete ev.labelsAll; } if('playerTeam' in data) ev.playerTeam=data.playerTeam; if('outcome' in data) ev.outcome=data.outcome; dashPending.set(ev._rowId, data); }
   });
   updateDashUnsaved();
 }
@@ -1072,11 +1092,25 @@ async function savePlayerTag(ev,name){
   // Player assignments live in their own dedicated "<TEAM> Player Labels"
   // group plus the display field — never sharing a slot with another label.
   // Queued in memory, not written until the batch save.
-  const playerGroup=`${(ev.team||'').trim()||'Unassigned'} Player Labels`;
+  // If the event already carries its player in a player-label group, the new
+  // name REPLACES that one value there (other players in the group stay, and
+  // a Mayo player on a KERRY TOs row stays in "Mayo Player Labels"). Otherwise
+  // the group is the row team's — or the other team's when the name is one of
+  // theirs (team sheet / this game's names) and not one of the row team's.
+  const cur=ev.player||'';
+  const has=cur?Object.keys(ev.labels||{}).find(k=>cohIsPlayerGroup(k)&&cohLabelHas(ev,k,cur)):null;
+  let playerGroup=`${(ev.team||'').trim()||'Unassigned'} Player Labels`;
+  if(has){ playerGroup=has; cohLabelReplace(ev, has, cur, name); }
+  else{
+    const side=window.cohTS?cohTS.sideOf(GAME, ev.team):'', other=side==='home'?'away':side==='away'?'home':'';
+    if(other){ const k=cohTS.nameKey(name), inSide=sd=>cohTS.orderedNames(GAME, sd).concat(dashTeamNames(sd)).some(n=>cohTS.nameKey(n)===k);
+      if(inSide(other)&&!inSide(side)) playerGroup=`${String(other==='home'?GAME.homeTeam:GAME.awayTeam).toUpperCase()} Player Labels`; }
+    ev.labels={...(ev.labels||{}),[playerGroup]:name};
+  }
   ev.player=name;
-  ev.labels={...(ev.labels||{}),[playerGroup]:name};
+  const pTeam=cohPlayerGroupTeam(playerGroup, GAME); if(pTeam) ev.playerTeam=pTeam; else delete ev.playerTeam;
   queueEventEdit(ev);
-  document.getElementById('NPM').textContent=[ev.gameTime,ev.player,tc(ev.outcome),dashSubRaw(ev)].filter(Boolean).join(' · ');
+  document.getElementById('NPM').textContent=[ev.gameTime,dashPlayersTxt(ev),dashOutcomeTxt(ev),dashSubRaw(ev)].filter(Boolean).join(' · ');
   renderP();
 }
 
@@ -1112,8 +1146,9 @@ function dashAssistChoices(ev, g){
   if(pr&&typeof pr==='object'){ const num=k=>parseInt(String(k).replace(/\D/g,''),10)||0;
     Object.keys(pr).sort((a,b)=>num(a)-num(b)).forEach(k=>{ const v=tidy(pr[k]); if(v&&!/^P\s*\d+$/i.test(v)) add(v); }); }
   const tagged=[];
-  ALL.forEach(x=>{ if(String(x.team||'').toUpperCase()!==T) return; if(x.player) tagged.push(x.player);
-    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist'||k==='Kickout Taken By')) tagged.push(L[k]); }); });
+  ALL.forEach(x=>{ dashPlayers(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });   // every player, under HIS team
+    if(String(x.team||'').toUpperCase()!==T) return;
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By')) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
   });
   return out;

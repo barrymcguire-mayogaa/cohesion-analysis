@@ -69,10 +69,19 @@ function cohGfxSortEvents(events){ return events.sort((a,b)=>(a.driveT??0)-(b.dr
 // caller's map: the dashboard keeps its own for the player filter).
 function cohGfxFillTeams(events, PTM){
   PTM=PTM||{};
-  events.forEach(ev=>{if(ev.player&&ev.team)PTM[ev.player]=ev.team;});
+  // A player's team is the team of his "<Team> Player Labels" group, not the
+  // row's (a KERRY TOs row can carry the Mayo player who won the ball) —
+  // cohesion-labels.js cohEventPlayers, which also derives it for events
+  // stored before the import recorded playerTeam. Only a team that some event
+  // of the game actually carries is accepted; otherwise the row's team.
+  const teams={}; events.forEach(ev=>{ if(ev.team) teams[String(ev.team).toUpperCase()]=ev.team; });
+  events.forEach(ev=>{
+    if(typeof cohEventPlayers!=='function'){ if(ev.player&&ev.team) PTM[ev.player]=ev.team; return; }
+    cohEventPlayers(ev).forEach(p=>{ const t=teams[String(p.team||'').toUpperCase()]||ev.team; if(p.name&&t) PTM[p.name]=t; });
+  });
   events.forEach(ev=>{
     if(!ev.team){ev.team=PTM[ev.player]||PTM[ev.code]||'';}
-    if(!ev.player&&PTM[ev.code]){ev.player=ev.code;}
+    if(!ev.player&&PTM[ev.code]){ev.player=ev.code; ev.playerRow=true;}   // a row named after a player (the import marks new games itself)
   });
   return PTM;
 }
