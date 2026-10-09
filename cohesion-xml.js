@@ -19,6 +19,12 @@
  * Pure: no DOM, no globals. Also loadable from Node (module.exports).
  */
 function cohXmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// the label helpers (cohesion-labels.js): globals on a page, a require in Node
+function cohXmlL(){
+  if(typeof cohGroupIndex==='function') return {cohGroupIndex, cohGroupResolve, cohPlayerGroupFor, cohTeamCasing, cohLabelKeyEq, cohAssistIndex, cohIsShotRow, cohShotScored, cohIsKoRow, cohIsPlayerGroup, cohPlayerGroupTeam, cohNameKey, cohKoWon, cohOppTeam, cohRowRgb16, cohHexToRgb16, cohGroupCanon};
+  if(typeof require==='function') return require('./cohesion-labels.js');
+  throw new Error('cohesion-xml.js needs cohesion-labels.js loaded first');
+}
 // Every value of a label group, in order: e.labelsAll[g] holds them when a
 // Sportscode instance repeated the group (cohesion-labels.js); otherwise the
 // one value in e.labels[g]. Each is written as its own <label>.
@@ -34,54 +40,138 @@ function cohXmlTeamImplied(e){
   if(!e.teamDerived||(e.labels&&e.labels['Team Name'])) return false;
   return !!e.playerRow || String(e.code||'').includes(String(e.team||'').toUpperCase());
 }
-// Player-valued label groups are exported team-specific, like "<TEAM> Player
-// Labels", so two players of the same name on opposite teams stay apart in
-// Sportscode: "<TEAM> Assist", "<TEAM> Kickout Taken By" and "<TEAM> Kickout Target" carry the row's
-// team; "<TEAM> Kickout Won By" carries the team that WON the kickout (the
-// row's team on a WON outcome, the opposition on a LOST one; with no outcome
-// the group stays bare). cohXmlPlainGroup turns them back on import.
-const COH_XML_TEAM_GROUPS=['Assist','Kickout Won By','Kickout Taken By','Kickout Target'];
+// Kickout player groups are exported team-specific so two players of the same
+// name on opposite teams stay apart in Sportscode and a re-import is
+// unambiguous: "<Team> Kickout Taken By" and "<Team> Kickout Target" carry the
+// row's team; "<Team> Kickout Won By" carries the team that WON the kickout
+// (the row's team on a WON outcome, the opposition on a LOST one; with no
+// outcome the group stays bare). <Team> is spelt as the game spells it
+// (opts.meta home / away team as entered). cohXmlPlainGroup turns them back
+// (the import does the same: cohesion-labels.js cohScPlainGroup).
+// An 'Assist' is NOT a label in the export: it is written as a row (below).
+const COH_XML_TEAM_GROUPS=['Kickout Won By','Kickout Taken By','Kickout Target'];
 function cohXmlPlainGroup(g){
   const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(String(g||'').trim());
-  return m?COH_XML_TEAM_GROUPS.find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
+  return m?['Assist'].concat(COH_XML_TEAM_GROUPS).find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
 }
-function cohXmlTeamGroup(g, e, teams){
+function cohXmlTeamGroup(g, e, teams, meta){
   const base=COH_XML_TEAM_GROUPS.find(n=>n.toLowerCase()===String(g||'').trim().toLowerCase());
   const own=String(e&&e.team||'').trim();
   if(!base||!own) return g;
-  if(base!=='Kickout Won By') return own+' '+base;
+  const cas=t=>meta?cohXmlL().cohTeamCasing(t, meta):t;
+  if(base!=='Kickout Won By') return cas(own)+' '+base;
   const L=e.labels||{}, ok=Object.keys(L).find(k=>/^kickout\s*outcomes?$/i.test(k));
   const out=String((ok&&L[ok])||e.outcome||'').toUpperCase();
-  if(/WON/.test(out)) return own+' '+base;
+  if(/WON/.test(out)) return cas(own)+' '+base;
   if(!/LOST/.test(out)) return g;
   const opp=(teams||[]).find(t=>t.toUpperCase()!==own.toUpperCase());
-  return opp?opp+' '+base:g;
+  return opp?cas(opp)+' '+base:g;
 }
+// A time as the file had it: four decimals as before when that is exact, else every digit.
+function cohXmlNum(x){ const n=+x||0, f=n.toFixed(4); return (+f===n)?f:String(n); }
+/* The <ROWS> section: the file's rows first, in file order with their colours (meta.rows — an untouched game
+ * gives back the same R/G/B), then every other code of the export in the order given, with the colour COHESION
+ * shows for it.
+ *   codes      the codes of the export, in export order
+ *   opts.order optional: the order for codes that are not file rows (Code Room's row order)
+ *   opts.colourOf(code) optional -> '#rrggbb' (Code Room); default: the colour most events of the code carry,
+ *                       else the team colour (meta.homeColor / awayColor), grey for a team-neutral row
+ */
+function cohXmlRows(events, codes, meta, opts){
+  opts=opts||{}; meta=meta||{}; const H=cohXmlL(), out=[], seen=new Set();
+  ((Array.isArray(meta.rows))?meta.rows:[]).forEach(r=>{ if(!r||!r.code||seen.has(r.code)) return; seen.add(r.code); out.push({code:r.code, rgb:H.cohRowRgb16(r)}); });
+  const HT=String(meta.homeTeam||'').toUpperCase(), AT=String(meta.awayTeam||'').toUpperCase();
+  const dflt=code=>{ const cnt=new Map(); let team='';
+    (events||[]).forEach(e=>{ if((e.code||'')!==code) return; if(e.color) cnt.set(e.color,(cnt.get(e.color)||0)+1); if(!team&&e.team) team=String(e.team).toUpperCase(); });
+    let best='', bn=0; cnt.forEach((n,c)=>{ if(n>bn){ best=c; bn=n; } });
+    if(best) return best;
+    return !team?'#9ca3af':team===HT?(meta.homeColor||'#4fc3f7'):team===AT?(meta.awayColor||'#22c55e'):'#9ca3af'; };
+  const rest=[]; (codes||[]).forEach(c=>{ if(c&&!seen.has(c)){ seen.add(c); rest.push(c); } });
+  if(Array.isArray(opts.order)){ const rank=new Map(opts.order.map((c,i)=>[c,i])); rest.sort((a,b)=>(rank.has(a)?rank.get(a):1e9)-(rank.has(b)?rank.get(b):1e9)); }
+  rest.forEach(c=>{ const col=(opts.colourOf&&opts.colourOf(c))||dflt(c); out.push({code:c, rgb:H.cohHexToRgb16(col)||H.cohHexToRgb16('#9ca3af')}); });
+  return out;
+}
+/* cohXmlBuild(events, opts)
+ *   opts.base        'video' (default) | 'raw'
+ *   opts.meta        the game's meta: team-name casing, the file's rows (meta.rows) and period rows (meta.scPeriods)
+ *   opts.rows        false = no <ROWS> section
+ *   opts.rowOrder / opts.colourOf   see cohXmlRows
+ */
 function cohXmlBuild(events, opts){
-  const _xesc=cohXmlEsc;
+  opts=opts||{};
+  const _xesc=cohXmlEsc, H=cohXmlL(), meta=opts.meta||null;
   const _teams=[]; (events||[]).forEach(e=>{ const t=String(e&&e.team||'').trim(); if(t&&!_teams.some(x=>x.toUpperCase()===t.toUpperCase())) _teams.push(t); });
-  const base=(opts&&opts.base)||'video';
+  const base=opts.base||'video';
   const tOf=e=> base==='raw' ? (e.start!=null?e.start:(e.driveT||0)) : (e.driveT!=null?e.driveT:(e.start||0));
   const endOf=(e,s)=>{ if(base==='raw'&&e.end!=null) return e.end; const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):4; return s+dur; };
   const evs=[...(events||[])].sort((a,b)=>tOf(a)-tOf(b));
-  const lines=['<?xml version="1.0" encoding="UTF-8"?>','<file>','<ALL_INSTANCES>'];
+  const lines=['<?xml version="1.0" encoding="UTF-8"?>','<file>','<ALL_INSTANCES>'], codes=[];
   let idc=0;
-  // Period boundary markers, positioned at each period's event span.
+  // Period boundary markers: the file's own rows on the raw clock when the import kept them (meta.scPeriods),
+  // else positioned at each period's event span.
   const pMap={'1st Half':'1st Half','2nd Half':'2nd Half','ET 1st Half':'ET 1st Half','ET 2nd Half':'ET 2nd Half'};
-  const spans={};
+  const spans={}, filePer={};
+  if(base==='raw'&&meta&&Array.isArray(meta.scPeriods)) meta.scPeriods.forEach(p=>{ if(p&&pMap[p.code]&&filePer[p.code]==null&&isFinite(+p.start)&&isFinite(+p.end)) filePer[p.code]=p; });
   evs.forEach(e=>{ const h=e.half; if(!h||!pMap[h])return; const s=tOf(e), en=endOf(e,s); if(!spans[h]) spans[h]={min:s,max:en}; else { spans[h].min=Math.min(spans[h].min,s); spans[h].max=Math.max(spans[h].max,en); } });
-  ['1st Half','2nd Half','ET 1st Half','ET 2nd Half'].forEach(h=>{ if(spans[h]){ lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+spans[h].min.toFixed(4)+'</start>','    <end>'+spans[h].max.toFixed(4)+'</end>','    <code>'+pMap[h]+'</code>','  </instance>'); } });
-  // Events
-  evs.forEach(e=>{
-    const s=tOf(e), en=endOf(e,s);
-    lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+(+s).toFixed(4)+'</start>','    <end>'+(+en).toFixed(4)+'</end>','    <code>'+_xesc(e.code||'')+'</code>');
-    const labels={...(e.labels||{})};
+  const periods=[];
+  ['1st Half','2nd Half','ET 1st Half','ET 2nd Half'].forEach(h=>{ if(filePer[h]) periods.push({code:h, start:+filePer[h].start, end:+filePer[h].end, file:true}); else if(spans[h]) periods.push({code:h, start:spans[h].min, end:spans[h].max}); });
+  // Group names follow the game's own template; assists are written as rows.
+  const gidx=H.cohGroupIndex(events), aidx=H.cohAssistIndex(events||[], meta||{}), nk=H.cohNameKey;
+  const playerGroup=team=>H.cohPlayerGroupFor(gidx, team, meta||{});
+  const rowAssist=new Map();   // an existing assist row whose shot's Assist label names someone else: the label is what is written
+  const groupsOf=e=>{   // -> [[group, [values…]], …] as written
+    const labels={...(e.labels||{})}, out=[];
     if(e.team && !labels['Team Name'] && !cohXmlTeamImplied(e)) labels['Team Name']=e.team;
-    if(e.player && !e.playerRow){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[`${(e.team||'').trim()||'Unassigned'} Player Labels`]=e.player; }
-    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; const xg=cohXmlTeamGroup(g,e,_teams); cohXmlValues(e,g,v).forEach(x=>lines.push('    <label>','      <group>'+_xesc(xg)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')); });
-    lines.push('  </instance>');
+    if(e.player && !e.playerRow){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[playerGroup(e.team)]=e.player; }
+    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; out.push([g, cohXmlValues(e,g,v).slice()]); });
+    return out;
+  };
+  const setFirst=(list, g, name)=>{ let r=list.find(x=>x[0]===g); if(!r){ r=[g, []]; list.push(r); } const i=r[1].findIndex(x=>nk(x)===nk(name)); if(i===0) return; if(i>0) r[1].splice(i,1); r[1].unshift(name); };
+  const addAfter=(list, g, name)=>{ let r=list.find(x=>x[0]===g); if(!r){ r=[g, []]; list.push(r); } if(!r[1].some(x=>nk(x)===nk(name))) r[1].push(name); };
+  const write=(code, s, en, list)=>{
+    lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+cohXmlNum(s)+'</start>','    <end>'+cohXmlNum(en)+'</end>','    <code>'+_xesc(code||'')+'</code>');
+    list.forEach(([g, vals])=>vals.forEach(x=>lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')));
+    lines.push('  </instance>'); codes.push(code||'');
+  };
+  // which shots need an assist row written, and which existing rows are re-pointed
+  const newAssist=new Map();
+  evs.forEach(e=>{ if(!e||!H.cohIsShotRow(e)) return; const ak=H.cohLabelKeyEq(e.labels, 'Assist'); const a=ak!=null?String(e.labels[ak]||'').trim():''; if(!a) return;
+    const l=aidx.byShot.get(e);
+    if(l){ if(nk(l.name)!==nk(a)) rowAssist.set(l.row, {name:a, team:e.team}); }
+    else newAssist.set(e, a); });
+  // synthesised markers lead the file as before; the file's own period rows sit where they were, in time order
+  const inTime=periods.filter(p=>p.file).sort((a,b)=>a.start-b.start);
+  periods.filter(p=>!p.file).forEach(p=>write(p.code, p.start, p.end, []));
+  evs.forEach(e=>{
+    const s=tOf(e), en=endOf(e,s); let list=groupsOf(e);
+    while(inTime.length&&inTime[0].start<=s){ const p=inTime.shift(); write(p.code, p.start, p.end, []); }
+    if(H.cohIsShotRow(e)){ const ak=H.cohLabelKeyEq(e.labels, 'Assist'); if(ak!=null) list=list.filter(x=>x[0]!==ak&&x[0]!=='Assist Type'); }
+    if(rowAssist.has(e)){ const o=rowAssist.get(e), pg=playerGroup(o.team); list=list.filter(x=>!(H.cohIsPlayerGroup(x[0])&&H.cohPlayerGroupTeam(x[0])===String(o.team||'').toUpperCase())); list.push([pg, [o.name]]); }
+    if(e.team&&H.cohIsKoRow(e)){
+      // the template's order: the kicker first, then the player who won it, each in HIS team's player group —
+      // and the explicit team-specific groups as well, so a re-import cannot misread them
+      const val=n=>{ const k=H.cohLabelKeyEq(e.labels, n); return k!=null?String(e.labels[k]||'').trim():''; };
+      const tb=val('Kickout Taken By'), wb=val('Kickout Won By'), won=H.cohKoWon(e);
+      if(tb) setFirst(list, playerGroup(e.team), tb);
+      if(wb&&won!==null){ const wt=won?e.team:(_teams.find(t=>t.toUpperCase()!==String(e.team).toUpperCase())||''); if(wt&&(tb||!won)) addAfter(list, playerGroup(wt), wb); }
+      list=list.map(x=>[cohXmlTeamGroup(x[0], e, _teams, meta), x[1]]);
+    }
+    write(e.code, s, en, list);
+    if(newAssist.has(e)){
+      const scored=H.cohShotScored(e)===true, pre=String(e.code||'').replace(/\s*SHOT\s+(OPEN|DEAD).*$/i,''), code=(pre?pre+' ':'')+(scored?'SCORE':'SHOT')+' ASSIST', al=[];
+      if(e.team&&!String(code).includes(String(e.team).toUpperCase())) al.push(['Team Name', [e.team]]);
+      const tk=H.cohLabelKeyEq(e.labels, 'Assist Type'); if(tk!=null&&e.labels[tk]) al.push([H.cohGroupResolve(gidx, scored?'Score Assist Outcomes':'Shot Assist Outcomes'), [e.labels[tk]]]);
+      al.push([playerGroup(e.team), [newAssist.get(e)]]);
+      write(code, s, en, al);
+    }
   });
-  lines.push('</ALL_INSTANCES>','</file>');
+  inTime.forEach(p=>write(p.code, p.start, p.end, []));
+  lines.push('</ALL_INSTANCES>');
+  if(opts.rows!==false){
+    const rows=cohXmlRows(events, codes, meta, {order:opts.rowOrder, colourOf:opts.colourOf});
+    lines.push('<ROWS>'); rows.forEach(r=>lines.push('  <row>','    <code>'+_xesc(r.code)+'</code>','    <R>'+r.rgb[0]+'</R>','    <G>'+r.rgb[1]+'</G>','    <B>'+r.rgb[2]+'</B>','  </row>')); lines.push('</ROWS>');
+  }
+  lines.push('</file>');
   return lines.join('\n');
 }
 function cohXmlFileStem(game){ game=game||{}; return String(game.title||game.id||'game').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,''); }
@@ -130,4 +220,4 @@ function cohZipStore(files, date){
   dv.setUint32(p+12,p-cd,true); dv.setUint32(p+16,cd,true); dv.setUint16(p+20,0,true);
   return out;
 }
-if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlValues, cohXmlTeamImplied, cohXmlPlainGroup, cohXmlTeamGroup, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
+if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlValues, cohXmlTeamImplied, cohXmlPlainGroup, cohXmlTeamGroup, cohXmlNum, cohXmlRows, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};

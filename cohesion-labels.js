@@ -316,7 +316,9 @@ function cohScImport(insts, opts){
       events.splice(at+1, 0, r); });
   }
   stats.events=events.length;
-  return {events, error:null, markers:refs, offsets, stats};
+  // the file's own period rows (code, start, end), so a raw-clock export can give them back exactly: meta.scPeriods
+  const periods=insts.filter(i=>Object.prototype.hasOwnProperty.call(refs, i.code)).map(i=>({code:i.code, start:i.start, end:i.end}));
+  return {events, error:null, markers:refs, offsets, stats, periods};
 }
 
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
