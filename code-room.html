@@ -4906,7 +4906,8 @@ function crKoCompanions(row, value){
 function crKoBreakPair(row, value){
   const v=String(value||'').toUpperCase(), won=/BREAK WON/.test(v);
   if(!won&&!/BREAK LOST/.test(v)) return [];
-  const opp=crOppTeamOf(row.team), out=[[row.team, won?'BREAK WON':'BREAK LOST']];
+  let opp=crOppTeamOf(row.team); if(opp&&row.team===String(row.team).toUpperCase()) opp=opp.toUpperCase();   // same case as the kicker's rows
+  const out=[[row.team, won?'BREAK WON':'BREAK LOST']];
   if(opp) out.push([opp, won?'BREAK LOST':'BREAK WON']);
   return out;
 }
