@@ -346,3 +346,195 @@
   }
   T._css=css; T._esc=esc;
 })();
+
+/* ── editor ─────────────────────────────────────────────────────
+ * cohTS.openEditor({
+ *   game,                       the game's meta (id, homeTeam, awayTeam, rosters…)
+ *   known:{home:[],away:[]},    each team's known player names (type-to-search + spelling match)
+ *   loadKnown(side)→Promise<[names]>   optional, merged in when it arrives
+ *   persist:false,              keep the result in memory only (a local-video session)
+ *   onSaved(mergedMeta, sheets) called after a successful save
+ *   io:{read,write}             optional replacements for cohesionRead / cohesionAuthFetch
+ * }) → {el, close}
+ */
+(function(){
+  'use strict';
+  if(typeof window==='undefined'||typeof document==='undefined') return;
+  const T=window.cohTS, esc=T._esc;
+  const SIDES=['home','away'];
+
+  T.openEditor=function(opts){
+    opts=opts||{}; T._css();
+    const game=opts.game||{}, persist=opts.persist!==false;
+    const known={home:((opts.known&&opts.known.home)||[]).slice(), away:((opts.known&&opts.known.away)||[]).slice()};
+    const S={}, base={};
+    const stored=side=>JSON.stringify(S[side].rows.filter(r=>String(r.name||'').trim()).map(T.toStored));
+    SIDES.forEach(side=>{
+      let rows=T.sheet(game, side).map(r=>Object.assign({}, r));
+      const had=rows.length>0;
+      if(!had) rows=Array.from({length:15},(_,i)=>({no:String(i+1), name:'', role:'start'}));
+      S[side]={rows, prev:null, had};
+      base[side]=stored(side);
+    });
+    const dirty=side=>stored(side)!==base[side];
+    const teamName=side=>String((side==='home'?game.homeTeam:game.awayTeam)||side);
+    const knownAll=side=>known[side].concat(S[side].rows.map(r=>r.name).filter(Boolean));
+
+    const ov=document.createElement('div'); ov.className='cohts-ov';
+    const card=document.createElement('div'); card.className='cohts-card'; ov.appendChild(card);
+    card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
+      <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
+      <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>
+      <div class="cohts-foot"><div class="cohts-status" id="cohtsStatus"></div>
+        <button class="cohts-btn" data-act="cancel">Cancel</button>
+        <button class="cohts-btn pri" data-act="save">Save team sheets</button></div>`;
+    const col=side=>card.querySelector('.cohts-col[data-side="'+side+'"]');
+    const status=(msg,err)=>{ const el=card.querySelector('#cohtsStatus'); el.textContent=msg||''; el.classList.toggle('err',!!err); };
+
+    function rowHtml(side, r, i){
+      const role=r.role||'';
+      return `<div class="cohts-row" data-i="${i}">
+        <input class="no" inputmode="numeric" maxlength="3" value="${esc(r.no)}" placeholder="#" aria-label="Number">
+        <input class="nm" value="${esc(r.name)}" placeholder="Player name" autocomplete="off" spellcheck="false" aria-label="Name">
+        <select class="rl" aria-label="Starter or sub"><option value="start"${role==='start'?' selected':''}>Starter</option><option value="sub"${role==='sub'?' selected':''}>Sub</option>${role?'':'<option value="" selected>Not set</option>'}</select>
+        <button class="cohts-x" data-act="del" title="Delete row">✕</button></div>
+        <div class="cohts-adopt" data-a="${i}"${r.adopted?'':' style="display:none"'}>${r.adopted?'Matched existing spelling — typed “'+esc(r.adopted)+'”':''}</div>`;
+    }
+    function summary(side){
+      const rows=S[side].rows.filter(r=>String(r.name||'').trim());
+      const st=rows.filter(r=>r.role==='start').length, sb=rows.filter(r=>r.role==='sub').length, ns=rows.length-st-sb;
+      return rows.length?(st+' starter'+(st===1?'':'s')+' · '+sb+' sub'+(sb===1?'':'s')+(ns?' · '+ns+' not set':'')):'No team sheet added';
+    }
+    function warnHtml(side){ return T.validate(S[side].rows).map(w=>'⚠ '+esc(w)).join('<br>'); }
+    function live(side){
+      const c=col(side);
+      c.querySelector('.cohts-team small').textContent=summary(side);
+      c.querySelector('.cohts-warn').innerHTML=warnHtml(side);
+    }
+    function prevHtml(side){
+      const p=S[side].prev; if(!p) return '';
+      if(!p.rows.length&&!p.skipped.length) return '';
+      const ad=p.rows.filter(r=>r.adopted).length;
+      return `<div class="cohts-lbl" style="margin-top:8px;">Preview — ${p.rows.length} player${p.rows.length===1?'':'s'}${ad?' · '+ad+' matched to an existing spelling':''}</div>
+        <div class="cohts-prev">${p.rows.map(r=>`<div class="cohts-prow"><b>${esc(r.no)}</b><span>${esc(r.name)}${r.adopted?`<small>existing spelling — pasted “${esc(r.adopted)}”</small>`:''}</span><em class="${r.role==='sub'?'sub':''}">${r.role==='sub'?'Sub':'Start'}</em></div>`).join('')}
+        ${p.skipped.length?`<div class="cohts-pskip">Not read (${p.skipped.length}): ${p.skipped.map(esc).join(' · ')}</div>`:''}</div>
+        <div class="cohts-bar"><button class="cohts-btn pri" data-act="papply" ${p.rows.length?'':'disabled'}>Replace this sheet</button>
+          <button class="cohts-btn" data-act="padd" ${p.rows.length?'':'disabled'}>Add to this sheet</button>
+          <button class="cohts-btn" data-act="pclear">Clear</button></div>`;
+    }
+    function draw(side){
+      const c=col(side), colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
+      const keep=c.querySelector('textarea'), txt=keep?keep.value:'';
+      c.innerHTML=`<div class="cohts-team"><i style="background:${esc(colr)}"></i><span>${esc(teamName(side))}</span><small></small></div>
+        <div class="cohts-hd"><div style="text-align:center">No.</div><div>Name</div><div>Role</div><div></div></div>
+        <div class="cohts-rows">${S[side].rows.map((r,i)=>rowHtml(side,r,i)).join('')}</div>
+        <div class="cohts-bar"><button class="cohts-btn" data-act="add">+ Add row</button>
+          <button class="cohts-btn" disabled title="Not available yet — the automatic reader is coming soon">📷 Read from photo / PDF</button><span class="cohts-soon">coming soon</span></div>
+        <div class="cohts-warn"></div>
+        <div class="cohts-paste"><div class="cohts-lbl">Paste a list</div>
+          <textarea placeholder="1 Colm Reape&#10;2. Name&#10;Name (3)&#10;Subs&#10;16 Name"></textarea>
+          <div class="cohts-pv">${prevHtml(side)}</div></div>`;
+      c.querySelector('textarea').value=txt;
+      live(side);
+    }
+
+    // type-to-search list under a name box
+    let sug=null;   // {el,input,items,idx}
+    function sugHide(){ if(sug&&sug.el.parentNode) sug.el.parentNode.removeChild(sug.el); sug=null; }
+    function sugShow(side, inp){
+      sugHide();
+      const q=T.nameKey(inp.value), taken=new Set(S[side].rows.map(r=>T.nameKey(r.name)));
+      const seen=new Set(), items=[];
+      known[side].forEach(n=>{ const k=T.nameKey(n); if(!k||seen.has(k)) return; seen.add(k);
+        if(k===q||(taken.has(k)&&k!==q)) return; if(q&&!k.includes(q)) return; items.push(String(n).replace(/\s+/g,' ').trim()); });
+      if(!items.length) return;
+      const el=document.createElement('div'); el.className='cohts-sug';
+      el.innerHTML=items.slice(0,40).map((n,i)=>`<div data-s="${i}">${esc(n)}</div>`).join('');
+      inp.parentNode.appendChild(el);
+      sug={el, input:inp, items:items.slice(0,40), idx:-1, side};
+      el.querySelectorAll('div').forEach(d=>{ d.onmousedown=ev=>{ ev.preventDefault(); sugPick(+d.dataset.s); }; });
+    }
+    function sugPick(i){ if(!sug||i<0||i>=sug.items.length) return; const inp=sug.input, side=sug.side, v=sug.items[i]; sugHide(); inp.value=v; setName(side, inp, true); }
+    function rowOf(el){ const r=el.closest('.cohts-row'); return r?+r.dataset.i:-1; }
+    function sideOfEl(el){ const c=el.closest('.cohts-col'); return c?c.dataset.side:''; }
+    // commit a name box: tidy it and adopt the team's existing spelling
+    function setName(side, inp, final){
+      const i=rowOf(inp), r=S[side].rows[i]; if(!r) return;
+      if(!final){ r.name=inp.value; r.adopted=''; live(side); return; }
+      const typed=T.tidyName(inp.value);
+      const others=known[side].concat(S[side].rows.filter((x,n)=>n!==i).map(x=>x.name).filter(Boolean));
+      const hit=T.matchKnown(typed, known[side]);
+      r.name=hit||typed; r.adopted=(hit&&hit!==typed)?typed:'';
+      inp.value=r.name;
+      const a=col(side).querySelector('.cohts-adopt[data-a="'+i+'"]');
+      if(a){ a.style.display=r.adopted?'':'none'; a.textContent=r.adopted?'Matched existing spelling — typed “'+r.adopted+'”':''; }
+      void others; live(side);
+    }
+
+    card.addEventListener('input',ev=>{
+      const t=ev.target, side=sideOfEl(t); if(!side) return;
+      if(t.tagName==='TEXTAREA'){ S[side].prev=t.value.trim()?T.parsePaste(t.value,{known:knownAll(side)}):null; col(side).querySelector('.cohts-pv').innerHTML=prevHtml(side); return; }
+      const r=S[side].rows[rowOf(t)]; if(!r) return;
+      if(t.classList.contains('no')){ t.value=t.value.replace(/\D/g,''); r.no=t.value?String(+t.value):''; live(side); }
+      else if(t.classList.contains('nm')){ setName(side, t, false); sugShow(side, t); }
+    });
+    card.addEventListener('change',ev=>{
+      const t=ev.target, side=sideOfEl(t); if(!side||!t.classList.contains('rl')) return;
+      const r=S[side].rows[rowOf(t)]; if(r){ r.role=t.value; live(side); }
+    });
+    card.addEventListener('focusin',ev=>{ const t=ev.target; if(t.classList&&t.classList.contains('nm')) sugShow(sideOfEl(t), t); });
+    card.addEventListener('focusout',ev=>{ const t=ev.target; if(t.classList&&t.classList.contains('nm')){ if(sug&&sug.input===t) sugHide(); setName(sideOfEl(t), t, true); } });
+    card.addEventListener('keydown',ev=>{
+      const t=ev.target; if(!t.classList||!t.classList.contains('nm')) return;
+      if(sug&&sug.input===t&&(ev.key==='ArrowDown'||ev.key==='ArrowUp')){ ev.preventDefault();
+        sug.idx=Math.max(0,Math.min(sug.items.length-1,sug.idx+(ev.key==='ArrowDown'?1:-1)));
+        sug.el.querySelectorAll('div').forEach((d,i)=>d.classList.toggle('on',i===sug.idx));
+        const on=sug.el.querySelector('.on'); if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest'}); return; }
+      if(ev.key==='Escape'&&sug){ ev.stopPropagation(); sugHide(); return; }
+      if(ev.key==='Enter'){ ev.preventDefault();
+        if(sug&&sug.input===t&&sug.idx>=0){ sugPick(sug.idx); return; }
+        const side=sideOfEl(t), i=rowOf(t); sugHide(); setName(side, t, true);
+        if(i===S[side].rows.length-1) addRow(side);
+        const nx=col(side).querySelector('.cohts-row[data-i="'+(i+1)+'"] .nm'); if(nx) nx.focus(); }
+    });
+    function addRow(side){
+      const rows=S[side].rows, last=rows[rows.length-1];
+      rows.push({no:(last&&last.no!=='')?String(+last.no+1):'', name:'', role:(last&&last.role)||'start'});
+      draw(side);
+    }
+    card.addEventListener('click',ev=>{
+      const b=ev.target.closest('[data-act]'); if(!b||b.disabled) return;
+      const act=b.dataset.act, side=sideOfEl(b);
+      if(act==='del'){ S[side].rows.splice(rowOf(b),1); draw(side); }
+      else if(act==='add'){ addRow(side); const l=col(side).querySelectorAll('.cohts-row .nm'); if(l.length) l[l.length-1].focus(); }
+      else if(act==='papply'||act==='padd'){
+        const p=S[side].prev; if(!p||!p.rows.length) return;
+        const add=p.rows.map(r=>Object.assign({}, r));
+        S[side].rows=act==='papply'?add:S[side].rows.filter(r=>String(r.name||'').trim()).concat(add);
+        S[side].prev=null; const ta=col(side).querySelector('textarea'); if(ta) ta.value='';
+        draw(side);
+      }
+      else if(act==='pclear'){ S[side].prev=null; const ta=col(side).querySelector('textarea'); if(ta) ta.value=''; col(side).querySelector('.cohts-pv').innerHTML=''; }
+      else if(act==='cancel'){ if((dirty('home')||dirty('away'))&&!window.confirm('Discard the changes to the team sheets?')) return; close(); }
+      else if(act==='save') save(b);
+    });
+    async function save(btn){
+      const sheets={}; SIDES.forEach(s=>{ if(dirty(s)) sheets[s]=S[s].rows.filter(r=>String(r.name||'').trim()).map(r=>({no:r.no, name:r.name, role:r.role, extra:r.extra})); });
+      if(!Object.keys(sheets).length){ close(); return; }
+      btn.disabled=true; status('Saving…');
+      try{
+        const merged=persist?await T.save(game.id, sheets, opts.io):T.mergeMeta(game, sheets);
+        if(opts.onSaved) await opts.onSaved(merged, sheets);
+        close();
+      }catch(e){ btn.disabled=false; status(e.message||String(e), true); }
+    }
+    function close(){ sugHide(); if(ov.parentNode) ov.parentNode.removeChild(ov); if(opts.onClose) opts.onClose(); }
+
+    SIDES.forEach(draw);
+    document.body.appendChild(ov);
+    if(typeof opts.loadKnown==='function') SIDES.forEach(side=>{
+      Promise.resolve().then(()=>opts.loadKnown(side)).then(l=>{ (l||[]).forEach(n=>{ if(n&&!known[side].some(k=>T.nameKey(k)===T.nameKey(n))) known[side].push(n); }); }).catch(()=>{});
+    });
+    return {el:ov, close, state:S};
+  };
+})();
