@@ -102,12 +102,17 @@
     // a segment lying across a gutter: two players on one row are cut apart; anything else is a line across the page
     const spanning=[], kept=[];
     segs.forEach(s=>{
-      const g=gutters.filter(g=>s.x0<g.x0-0.2*H&&s.x1>g.x1+0.2*H);
+      const g=gutters.filter(g=>s.x0<g.x1-0.5*H&&s.x1>g.x1+0.5*H);                // it runs past where the next column starts
       if(!g.length){ kept.push(s); return; }
       const cuts=[]; let ok=true;
-      g.forEach(gt=>{ let k=-1; for(let i=1;i<s.words.length;i++){ const a=s.words[i-1], b=s.words[i]; if(a.rx1<=gt.x1+0.2*H&&b.rx0>=gt.x0-0.2*H){ k=i; break; } } if(k<0) ok=false; else cuts.push(k); });
+      g.forEach(gt=>{ let k=-1, kg=-1;                                              // cut where the next player's number starts, else at the widest gap in the strip
+        for(let i=1;i<s.words.length;i++){ const a=s.words[i-1], b=s.words[i]; if(a.rx1<=gt.x1+0.2*H&&b.rx0>=gt.x0-0.2*H){
+          if(isNumTok(b.text)){ k=i; break; } if(b.rx0-a.rx1>kg){ kg=b.rx0-a.rx1; k=i; } } }
+        if(k<0) ok=false; else cuts.push(k); });
       let parts=[]; if(ok){ let from=0; cuts.concat([s.words.length]).forEach(k=>{ parts.push(segOf(s.words.slice(from,k), o.glue)); from=k; }); }
-      if(ok&&parts.every(p=>lineNo(p.text)!=null||isNumTok(p.words[0].text))) parts.forEach(p=>kept.push(p));
+      const numd=p=>lineNo(p.text)!=null;
+      if(ok&&parts.every(numd)) parts.forEach(p=>kept.push(p));                      // "24 Long Name" + "24 Mark Gibbons"
+      else if(ok&&isNumTok(parts[0].text)&&parts.length===2&&numd(s)) kept.push(s);   // "2" + "James Lavelle": one player
       else spanning.push(s);
     });
     // the rest of a line that runs across the page ("… CHAMPIONSHIP" + "— ROUND 2", "Referee: … · Linesmen: …")
@@ -165,34 +170,35 @@
     // the coverage (how many rows have text at x), as pieces; then each dip's emptiest stretch
     const pieces=[]; let cov=0, px=null;
     for(const e of ev){ if(px!=null&&e[0]>px) pieces.push({x0:px, x1:e[0], cov}); cov+=e[1]; px=e[0]; }
-    const cores=[];
-    for(let i=0;i<pieces.length;){
-      if(pieces[i].cov>loose){ i++; continue; }
-      let j=i; while(j+1<pieces.length&&pieces[j+1].cov<=loose) j++;
-      if(i>0&&j<pieces.length-1){                                    // text on both sides somewhere
-        const run=pieces.slice(i,j+1), mn=Math.min.apply(null,run.map(p=>p.cov)); let best=null, cur=null;
-        run.forEach(p=>{ if(p.cov===mn){ if(cur&&cur.x1===p.x0) cur.x1=p.x1; else cur={x0:p.x0, x1:p.x1}; if(!best||cur.x1-cur.x0>best.x1-best.x0) best=cur; } else cur=null; });
-        if(best&&best.x1-best.x0>=0.8*H) cores.push(best);
-      }
-      i=j+1;
-    }
-    const need=4;
-    let g=cores.filter(c=>{
+    // candidate strips: stretches crossed by at most t rows, tried from t = 0 upwards so the emptiest win
+    const ok=c=>{
       const mid=(c.x0+c.x1)/2, cross=segs.filter(s=>s.x0<mid&&s.x1>mid).map(s=>s.yc).sort((a,b)=>a-b);
       const L=segs.filter(s=>s.x1<=mid), Rr=segs.filter(s=>s.x0>=mid), ys=[-Infinity].concat(cross, [Infinity]);
       // the clear run must hold at least as many rows as there are lines crossing the strip anywhere on the page
       // (so the gap between a number and its name, which half the rows bridge, is not taken for a column gap)
       for(let k=0;k+1<ys.length;k++){ const a=ys[k], b=ys[k+1], inb=s=>s.yc>a&&s.yc<b, m=Math.min(L.filter(inb).length, Rr.filter(inb).length);
-        if(m>=need&&cross.length<=Math.max(3,m)) return true; }
-      return false;
-    });
+        if(m>=need&&cross.length<=Math.max(3,m)){                                   // xr: where the next column's rows start (the first x at which several rows begin)
+          const xs=Rr.filter(inb).map(s=>s.x0).sort((p,q)=>p-q); let xr=xs[0];
+          for(let i=0;i<xs.length;i++){ if(xs.filter(x=>x>=xs[i]&&x<=xs[i]+1.5*H).length>=need){ xr=xs[i]; break; } }
+          return {xr}; } }
+      return null;
+    };
+    const need=4; let g=[];
+    for(let t=0;t<=loose;t++){
+      let cur=null; const found=[];
+      pieces.forEach((p,i)=>{ if(p.cov<=t){ if(cur&&cur.x1===p.x0) cur.x1=p.x1; else { cur={x0:p.x0, x1:p.x1, first:i===0}; found.push(cur); } cur.last=i===pieces.length-1; } else cur=null; });
+      found.sort((a,b)=>(b.x1-b.x0)-(a.x1-a.x0)).forEach(c=>{ if(c.first||c.last||c.x1-c.x0<0.8*H) return; if(g.some(x=>c.x0<x.x1&&c.x1>x.x0)) return; const r=ok(c); if(r) g.push({x0:c.x0, x1:Math.max(c.x1, r.xr)}); });
+    }
+    g.sort((a,b)=>a.x0-b.x0);
     // and enough rows start inside every column that results
     let changed=true;
     while(changed&&g.length){
       changed=false;
       const edges=g.map(x=>(x.x0+x.x1)/2), n=new Array(g.length+1).fill(0);
       segs.forEach(s=>{ if(g.some(x=>s.x0<x.x0&&s.x1>x.x1)) return; const xc=(s.x0+s.x1)/2; let i=0; while(i<edges.length&&xc>edges[i]) i++; n[i]++; });
-      for(let i=0;i<n.length;i++){ if(n[i]<3){ g.splice(Math.min(i,g.length-1),1); changed=true; break; } }
+      for(let i=0;i<n.length;i++){ if(n[i]<3){                                  // a sliver: drop the narrower of the strips beside it
+        const a=i-1, b=i, w=k=>k>=0&&k<g.length?g[k].x1-g[k].x0:Infinity;
+        g.splice(w(a)<w(b)?a:b,1); changed=true; break; } }
     }
     return g;
   }
@@ -202,13 +208,17 @@
 
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
+  const RE_V=/\s+(?:v|vs|versus)\.?\s+/i;
   function teamMatch(text, team){
+    if(RE_V.test(' '+String(text).trim()+' ')&&String(text).trim().split(RE_V).filter(Boolean).length>1) return false;   // "X v Y" is a fixture title, not one team's heading
     const a=foldKey(String(text).replace(/\b(?:v|vs|versus)\b\.?/gi,' ')), b=foldKey(team);
     if(!a||b.length<3) return false;
     if(a===b) return true;
     if(b.length>=4&&a.includes(b)&&a.length<=b.length+12) return true;
     return a.length>=5&&b.includes(a);
   }
+  // "Béal an Mhuirthead v Garrymore": a fixture title naming one of the teams
+  const isFixture=(text, teams)=>{ const p=String(text).trim().split(RE_V).filter(Boolean); return p.length>1&&p.some(x=>teams.some(t=>teamMatch(x,t))); };
   R.teamMatch=teamMatch;
   const isCapsHeading=t=>hasLetter(t)&&t===t.toUpperCase()&&!/[,\d]/.test(t);
   // columns (reading order) → the separate team lists found. A new list starts
@@ -288,7 +298,7 @@
   const RE_KEEP={test:f=>RE_SUBSF.test(f)||RE_STARTF.test(f)};
   const OFFICIAL='(?:team\\s+)?(?:managers?|management|bainisteoir\\w*|selectors?|roghnoir\\w*|coach(?:es)?|trainers?|traenalai|physio\\w*|doctor|kitman|maor\\s+\\w+|referee|reiteoir|moltoir|linesm[ae]n|umpires?|maoir|standby\\s+referee|fourth\\s+official|match\\s+officials?|officials?|captain|captaen|vice[\\s-]?captain|chairman|chairperson|cathaoirleach|secretary|runai|sponsors?|sponsored\\s+by|venue|throw[\\s-]?in)';
   const RE_OFFICIAL=new RegExp('^'+OFFICIAL+'\\b'), RE_OFFICIAL_IN=new RegExp('[(\\[]\\s*'+OFFICIAL+'\\b');
-  const RE_POSITION=/^(?:goal\s?keepers?|goalie|keepers?|cul\s?baire|(?:(?:full|half|corner|centre|center|wing|left|right)[\s-]*){1,3}(?:backs?|forwards?|line)|backs?|forwards?|defen[cs]e|defenders?|attack(?:ers)?|mid[\s-]?field(?:ers)?|lar\s+na\s+pairce|tosaithe|cosantoiri|cuil|lantosaithe)\s*[:\-]?$/;
+  const RE_POSITION=/^(?:goal\s?keepers?|goalie|keepers?|cul\s?baire|(?:(?:full|half|corner|centre|center|wing|left|right)[\s-]*){1,3}(?:backs?|forwards?|line)(?:\s+line)?|backs?|forwards?|defen[cs]e|defenders?|attack(?:ers)?|mid[\s-]?field(?:ers)?|lar\s+na\s+pairce|tosaithe|cosantoiri|cuil|lantosaithe)\s*[:\-]?$/;
   const RE_EVENT=/\b(?:19|20)\d\d\b|\b\d{1,2}[:.]\d{2}\s*(?:am|pm)\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\b|\b(?:championship|league|semi[\s-]?finals?|quarter[\s-]?finals?|final|programme|clar\s+oifigiuil|team\s+sheets?|fixtures?|round\s+\d+)\b|www\.|\.ie\b|\.com\b|@/;
   const RE_BRACKET=/\s*[(\[][^()\[\]]*[A-Za-zÀ-ɏ][^()\[\]]*[)\]]/g;
   const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names'};
@@ -316,7 +326,7 @@
       const f=fold(t).trim(), numbered=lineNo(t)!=null||cells.length>1;
       if(!numbered&&!isNumTok(t)&&!RE_KEEP.test(f)){
         if(RE_OFFICIAL.test(f)||RE_OFFICIAL_IN.test(f)) return drop(raw,'official');
-        if(teams.some(x=>teamMatch(t,x))) return drop(raw,'team');
+        if(teams.some(x=>teamMatch(t,x))||isFixture(t,teams)) return drop(raw,'team');
         if(RE_POSITION.test(f)) return drop(raw,'position');
         if(RE_EVENT.test(f)) return drop(raw,'event');
       }
@@ -712,6 +722,7 @@
     st.textContent=`
 .cohts-rd:empty{display:none;}
 .cohts-rd{margin-top:8px;}
+.cohts-rd[data-rd="both"]{margin:0 0 12px;}
 .cohrd-box{border:1px solid var(--border,#333);border-radius:8px;padding:9px 10px;background:var(--card,#252530);font-size:12px;line-height:1.5;color:var(--t2,#999);}
 .cohrd-box b{color:var(--t1,#eee);}
 .cohrd-msg{color:var(--t1,#eee);font-weight:600;}
