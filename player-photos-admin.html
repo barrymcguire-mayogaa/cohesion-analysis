@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Player Photos</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;}
+input[type=text]:focus{border-color:var(--accent);}
+
+.process-btn{padding:12px 22px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.sec-btn{padding:7px 11px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+
+.drop{border:2px dashed var(--border);border-radius:12px;padding:26px 20px;text-align:center;color:var(--t2);font-size:13px;line-height:1.7;cursor:pointer;transition:all .15s;background:var(--card);}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.drop strong{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;display:block;color:var(--t1);}
+select,input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;max-width:100%;}
+select:focus{border-color:var(--accent);}
+.team-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.team-row select{min-width:240px;flex:0 1 360px;font-weight:600;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;text-align:center;}
+.tile.has{border-color:var(--green);}
+.tile.orphan{border-color:var(--amber);}
+.tile-name{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tile-meta{font-size:11px;color:var(--t3);line-height:1.4;min-height:15px;}
+.tile-meta.warn{color:var(--amber);}
+.tile-btns{display:flex;gap:6px;width:100%;}
+.tile-btns .sec-btn{flex:1;padding:6px 4px;}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.note.lock{background:var(--accent-bg);border-color:var(--accent);color:var(--t1);margin:0 0 20px;}
+.note.lock b{color:var(--accent);}
+code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent);}
+.bulk-wrap{overflow-x:auto;margin-top:14px;border:1px solid var(--border);border-radius:10px;}
+table.bulk{width:100%;border-collapse:collapse;font-size:13px;min-width:620px;}
+table.bulk th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);}
+table.bulk td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.bulk tr:last-child td{border-bottom:none;}
+table.bulk td.c{text-align:center;width:44px;} table.bulk th.c{text-align:center;}
+table.bulk img.th{width:44px;height:44px;border-radius:50%;display:block;object-fit:cover;background:#10111a;cursor:pointer;}
+table.bulk select{width:100%;min-width:170px;padding:6px 7px;}
+table.bulk input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;}
+.fn{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);}
+.pill{display:inline-block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;padding:3px 8px;border-radius:5px;border:1px solid var(--border);color:var(--t2);white-space:nowrap;}
+.pill.match{color:var(--green);border-color:var(--green);background:var(--green-bg);}
+.pill.replace,.pill.duplicate{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);}
+.pill.nomatch,.pill.fail{color:var(--red);border-color:var(--red);background:var(--red-bg);}
+.pill.done{color:var(--green);border-color:var(--green);}
+.pill.busy{color:var(--accent);border-color:var(--accent);}
+/* crop dialog */
+.crop-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:9000;padding:14px;}
+.crop-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:340px;box-shadow:0 24px 64px rgba(0,0,0,.55);}
+.crop-h{font:800 18px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.crop-sub{font-size:12px;color:var(--t2);margin:2px 0 12px;line-height:1.5;}
+.crop-stage{position:relative;width:256px;height:256px;margin:0 auto;border-radius:10px;overflow:hidden;background:#10111a;touch-action:none;cursor:grab;}
+.crop-stage:active{cursor:grabbing;}
+.crop-stage canvas{display:block;width:256px;height:256px;}
+.crop-stage::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 200px rgba(0,0,0,.45);pointer-events:none;}
+.crop-zoom{display:flex;align-items:center;gap:10px;margin:12px 0 4px;font-size:11px;color:var(--t3);}
+.crop-zoom input{flex:1;accent-color:var(--accent);}
+@media(max-width:560px){ .page{padding:18px 12px 50px;} .step{padding:16px 12px;} .grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;} }
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+<script src="cohesion-teamsheet.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">👤 Player Photos</div>
+  <div class="page-sub">
+    Add a photo for any player. It replaces his initials badge on the Analysis Players tab, the dashboard Teams
+    panel and the team sheet editor, for every game that team plays in.
+  </div>
+  <div class="note lock" id="privNote">
+    <b>🔒 Signed-in users only.</b> Player photos are stored privately and are shown only to people signed in to COHESION.
+    They are never part of a public page, and they are not put into exports (PDF, stats image, infographic, XML) —
+    those keep the initials. A photo link handed to a signed-in user works for up to one hour and then stops.
+  </div>
+
+  <div class="error-box" id="setupErr"></div>
+
+  <!-- 1. TEAM + PLAYERS -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Team</div><div class="step-sub">Every team in COHESION's games · players come from its team sheets and the names tagged in its games</div></div></div>
+    <div class="team-row">
+      <select id="teamSel" aria-label="Team"><option value="">Loading teams…</option></select>
+      <span class="st" id="teamMsg"></span>
+    </div>
+    <div class="error-box" id="teamErr"></div>
+    <div class="grid" id="players" style="margin-top:16px;"></div>
+    <div class="btn-row" id="addRow" style="display:none;">
+      <input type="text" id="addName" placeholder="A player not listed — type his name" style="flex:0 1 280px;" autocomplete="off" spellcheck="false">
+      <button class="sec-btn" onclick="addPlayer()">Add player</button>
+    </div>
+    <div class="error-box" id="listErr"></div>
+    <input type="file" id="pickOne" accept="image/png,image/jpeg,image/webp" style="display:none">
+  </div>
+
+  <!-- 2. BULK -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title">Bulk upload</div><div class="step-sub">Name each file after the player — <code>Ryan O'Donoghue.jpg</code> · capitals, spaces, apostrophes and accents do not matter · nothing uploads until you confirm</div></div></div>
+    <div class="drop" id="drop" tabindex="0">
+      <strong>Drop player photos here</strong>
+      or click to choose — as many as you like. Each is cropped to a centred square and resized to 256×256 on this device.
+    </div>
+    <input type="file" id="pick" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+    <div id="bulkBox"></div>
+    <div class="btn-row" id="bulkBar" style="display:none;">
+      <button class="process-btn" id="bulkBtn" onclick="bulkUpload()">Upload</button>
+      <button class="sec-btn" id="bulkClr" onclick="bulkClear()">Clear list</button>
+      <span class="st" id="bulkMsg"></span>
+    </div>
+    <div class="error-box" id="bulkErr"></div>
+  </div>
+</div>
+
