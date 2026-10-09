@@ -521,7 +521,7 @@
       worker:CDN+'tesseract.js@5.1.1/dist/worker.min.js', core:CDN+'tesseract.js-core@5.1.1',
       langBase:CDN+'@tesseract.js-data', lang:l=>CDN+'@tesseract.js-data/'+l+'@1.0.0/4.0.0_best_int/'+l+'.traineddata.gz'}
   };
-  const LIMIT=R.LIMIT={pdfMB:60, imageMB:40, pages:40, pick:6, long:2000, viewLong:1600, pixels:60e6};
+  const LIMIT=R.LIMIT={pdfMB:60, imageMB:40, pages:40, pick:6, long:2000, viewLong:1600, pixels:60e6, cropLong:2000, cropUp:3};
   // Tesseract page segmentation. 6 ("one block of text") is tried first: it keeps a narrow column of jersey
   // numbers attached to the names. If that finds few numbered lines (a busy page: adverts, pictures), 3
   // ("automatic") is tried as well and whichever found more numbered lines is used.
@@ -605,6 +605,15 @@
     return work;
   }
   R._prepare=prepare;
+  // The box of a region cut from the ORIGINAL pixels, levelled, and enlarged so its text is big enough to read
+  // (a crop of one page of a programme is a small part of the photo; reading it at 2000 px makes its letters larger).
+  function cropCanvas(src, W, H, region, long, maxUp){
+    const k=R.geom.cropScale(region, long||LIMIT.cropLong, maxUp||LIMIT.cropUp), c=canvasOf(region.w*k, region.h*k), g=c.getContext('2d'), m=R.geom.matrix(region, W, H, c.width/region.w);
+    g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+    g.setTransform(m[0],m[1],m[2],m[3],m[4],m[5]); g.drawImage(src,0,0); g.setTransform(1,0,0,1,0,0);
+    return c;
+  }
+  R._crop=cropCanvas;
 
   // ── text recognition (Tesseract.js in a worker) ───────────────
   let gleOK=null;
@@ -651,6 +660,16 @@
         }
         st.phase='ready';
         return best||[];
+      },
+      // one pass with given Tesseract parameters → positioned words
+      async pass(canvas, params){
+        st.phase='read'; st.last=Date.now();
+        await job.race(Promise.race([failed, worker.setParameters(params||{})]));
+        const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
+        st.phase='ready';
+        const d=r&&r.data||{}; let ws=d.words;
+        if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
+        return ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
       }, close };
   }
 
@@ -785,6 +804,7 @@
       const x=err('unreadable', MSG.unreadable()); x.cause=e; throw x;
     } finally { job.end(); }
   };
+  R._lab={decode, sniff, newJob, ocrOpen, greyStretch, canvasOf};   // for the measuring scripts in the tests
   // The public hook is cohTeamSheetFromFile in cohesion-teamsheet.js, which loads this file and calls read().
 })(typeof window!=='undefined'?window:globalThis);
 
