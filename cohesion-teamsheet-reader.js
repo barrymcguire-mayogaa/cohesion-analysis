@@ -388,3 +388,269 @@
   root.cohTSReader=R;
   if(typeof module!=='undefined'&&module.exports) module.exports=R;
 })(typeof window!=='undefined'?window:globalThis);
+
+/* ══ BROWSER: the libraries, PDF text, picture preparation, recognition ══ */
+(function(root){
+  'use strict';
+  if(typeof window==='undefined'||typeof document==='undefined') return;
+  const R=root.cohTSReader;
+  // Exact versions, one public CDN. Nothing here is fetched until a file is chosen.
+  const CDN='https://cdn.jsdelivr.net/npm/';
+  const LIB=R.LIB={
+    host:'cdn.jsdelivr.net',
+    pdf:{name:'pdf.js', ver:'3.11.174', mb:0.4,
+      js:CDN+'pdfjs-dist@3.11.174/build/pdf.min.js', sri:'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e',
+      worker:CDN+'pdfjs-dist@3.11.174/build/pdf.worker.min.js', cmaps:CDN+'pdfjs-dist@3.11.174/cmaps/', fonts:CDN+'pdfjs-dist@3.11.174/standard_fonts/'},
+    ocr:{name:'Tesseract.js', ver:'5.1.1', mb:5,
+      js:CDN+'tesseract.js@5.1.1/dist/tesseract.min.js', sri:'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F',
+      worker:CDN+'tesseract.js@5.1.1/dist/worker.min.js', core:CDN+'tesseract.js-core@5.1.1',
+      langBase:CDN+'@tesseract.js-data', lang:l=>CDN+'@tesseract.js-data/'+l+'@1.0.0/4.0.0_best_int/'+l+'.traineddata.gz'}
+  };
+  const LIMIT=R.LIMIT={pdfMB:60, imageMB:40, pages:40, pick:6, long:2000, viewLong:1600, pixels:60e6};
+  R.PSM='3';                                       // Tesseract page segmentation: 3 = automatic (columns, mixed pages)
+
+  function err(code, msg){ const e=new Error(msg); e.code=code; return e; }
+  const MSG=R.MSG={
+    cdn:()=>'The reader could not be downloaded from '+LIB.host+'. '+(navigator.onLine===false?'This device is offline.':'The connection may be down, or a content blocker or network filter may be stopping it.')+' Pasting or typing the list still works.',
+    slow:()=>'The reader stopped responding while it was being downloaded — the connection may be too slow or blocked. Try again, or paste or type the list.',
+    type:n=>'“'+n+'” is not a file this can read. Choose a PDF, or a JPG, PNG or WebP picture.',
+    heic:()=>'This photo is in HEIC format, which this browser cannot open. Open it in Safari on the iPhone or iPad, or save it as a JPG (a screenshot of the photo also works) and choose that.',
+    image:()=>'This picture could not be opened — the file may be damaged or in a format this browser does not support. A JPG or PNG (or a screenshot) will work.',
+    password:()=>'This PDF is password-protected, so it cannot be read. Save or print it to a new PDF without the password (or take a screenshot of the page) and choose that.',
+    pdf:()=>'This PDF could not be opened — the file may be damaged.',
+    bigpdf:()=>'This PDF is over '+LIMIT.pdfMB+' MB, which is too large to read here. Save just the team sheet page as its own PDF, or take a screenshot of it.',
+    bigimage:()=>'This picture is over '+LIMIT.imageMB+' MB, which is too large to read here. Use a smaller copy or a screenshot of it.',
+    empty:()=>'No team list could be read from this file. If it is a photo, try a sharper, straighter one with the list filling the picture — or paste or type the list.',
+    cancel:()=>'Stopped.'
+  };
+
+  const scripts={};
+  function loadScript(url, sri){
+    return scripts[url]||(scripts[url]=new Promise((res,rej)=>{
+      const s=document.createElement('script'); s.src=url; s.async=true; s.crossOrigin='anonymous'; if(sri) s.integrity=sri;
+      s.onload=()=>res(); s.onerror=()=>{ delete scripts[url]; s.remove(); rej(err('cdn', MSG.cdn())); };
+      document.head.appendChild(s);
+    }));
+  }
+  // one read at a time can be cancelled: job.cancel() stops the workers and rejects whatever is waiting
+  function newJob(signal){
+    const job={cancelled:false, stop:[], wait:null};
+    job.gone=new Promise((_,rej)=>{ job.cancel=()=>{ if(job.cancelled) return; job.cancelled=true; job.stop.splice(0).forEach(f=>{ try{ f(); }catch(_){} }); rej(err('cancel', MSG.cancel())); }; });
+    job.gone.catch(()=>{});
+    job.race=p=>Promise.race([p, job.gone]);
+    job.end=()=>{ job.stop.splice(0).forEach(f=>{ try{ f(); }catch(_){} }); };
+    if(signal){ if(signal.aborted) job.cancel(); else signal.addEventListener('abort', job.cancel); }
+    return job;
+  }
+  const tick=()=>new Promise(r=>setTimeout(r,0));
+  function canvasOf(w,h){ const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w)); c.height=Math.max(1,Math.round(h)); return c; }
+
+  // ── what kind of file is it? (by its first bytes, not its name) ──
+  async function sniff(file){
+    let b=new Uint8Array(0); try{ b=new Uint8Array(await file.slice(0,16).arrayBuffer()); }catch(_){}
+    const s=String.fromCharCode.apply(null,b), name=String(file.name||'').toLowerCase(), type=String(file.type||'').toLowerCase();
+    if(s.indexOf('%PDF')>=0||type==='application/pdf'||/\.pdf$/.test(name)) return 'pdf';
+    if(s.slice(4,8)==='ftyp'&&/hei[cfsx]|mif1|msf1|hev[cx]/.test(s.slice(8,12))||/hei[cf]/.test(type)||/\.hei[cf]$/.test(name)) return 'heic';
+    if(/^image\//.test(type)||/\.(jpe?g|png|webp|gif|bmp|avif)$/.test(name)||(b[0]===0xFF&&b[1]===0xD8)||s.slice(1,4)==='PNG'||s.slice(0,4)==='RIFF') return 'image';
+    return '';
+  }
+
+  // ── pictures: decode (EXIF turn applied), scale, grey, stretch the contrast ──
+  async function decode(file, kind){
+    try{ if(root.createImageBitmap) return await createImageBitmap(file, {imageOrientation:'from-image'}); }catch(_){}
+    try{
+      return await new Promise((res,rej)=>{ const u=URL.createObjectURL(file), im=new Image();
+        im.onload=()=>{ URL.revokeObjectURL(u); res(im); }; im.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('decode')); }; im.src=u; });
+    }catch(_){ throw err(kind==='heic'?'heic':'image', kind==='heic'?MSG.heic():MSG.image()); }
+  }
+  // → {view: colour canvas (what the user is shown), work: grey canvas (what is read)}
+  function prepare(src, sw, sh){
+    let s=LIMIT.long/Math.max(sw,sh); if(s>1) s=Math.min(s,2);                    // small pictures are enlarged, at most 2×
+    const view=canvasOf(sw*s, sh*s), g=view.getContext('2d');
+    g.fillStyle='#fff'; g.fillRect(0,0,view.width,view.height); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+    g.drawImage(src,0,0,view.width,view.height);
+    return {view, work:greyStretch(view)};
+  }
+  function greyStretch(view){
+    const work=canvasOf(view.width, view.height), g=work.getContext('2d'); g.drawImage(view,0,0);
+    const im=g.getImageData(0,0,work.width,work.height), d=im.data, hist=new Uint32Array(256), n=d.length/4;
+    for(let i=0;i<d.length;i+=4){ const v=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8; d[i]=v; hist[v]++; }
+    let lo=0, hi=255, acc=0; for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>=n*0.01){ lo=v; break; } }
+    acc=0; for(let v=255;v>=0;v--){ acc+=hist[v]; if(acc>=n*0.01){ hi=v; break; } }
+    const span=hi-lo, lut=new Uint8Array(256);
+    for(let v=0;v<256;v++) lut[v]=span>=40&&span<235?Math.max(0,Math.min(255,Math.round((v-lo)*255/span))):v;   // only a washed-out picture is stretched
+    for(let i=0;i<d.length;i+=4){ const v=lut[d[i]]; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    g.putImageData(im,0,0);
+    return work;
+  }
+  R._prepare=prepare;
+
+  // ── text recognition (Tesseract.js in a worker) ───────────────
+  let gleOK=null;
+  async function ocrOpen(job, prog){
+    prog({stage:'load', pct:0, engine:'ocr'});
+    await job.race(loadScript(LIB.ocr.js, LIB.ocr.sri));
+    if(!root.Tesseract||!root.Tesseract.createWorker) throw err('cdn', MSG.cdn());
+    // Irish (for fadas) only if its data really is on the CDN
+    if(gleOK==null){ try{ const r=await job.race(fetch(LIB.ocr.lang('gle'), {method:'HEAD'})); gleOK=!!r.ok; }catch(e){ if(e.code==='cancel') throw e; gleOK=false; } }
+    const langs=gleOK?['eng','gle']:['eng'];
+    // The worker asks for <langBase>/<lang>.traineddata.gz; this shim points each to its pinned package version.
+    const map={}; langs.forEach(l=>{ map[LIB.ocr.langBase+'/'+l+'.traineddata.gz']=LIB.ocr.lang(l); });
+    const shim='(function(){var f=self.fetch.bind(self),M='+JSON.stringify(map)+';self.fetch=function(u,o){var k=String(u&&u.url||u);return f(M[k]||u,o);};})();importScripts('+JSON.stringify(LIB.ocr.worker)+');';
+    const url=URL.createObjectURL(new Blob([shim], {type:'application/javascript'}));
+    const st={phase:'load', last:Date.now(), fail:null};
+    const failed=new Promise((_,rej)=>{ st.fail=rej; }); failed.catch(()=>{});
+    const watch=setInterval(()=>{ const idle=Date.now()-st.last; if(st.phase==='load'&&idle>60000) st.fail(err('cdn', MSG.slow())); else if(st.phase==='read'&&idle>180000) st.fail(err('empty', 'Reading this picture is taking too long on this device. Try a smaller or sharper picture, or paste or type the list.')); }, 2000);
+    const W={job:null};
+    const logger=m=>{ st.last=Date.now(); if(!m) return;
+      if(m.status==='recognizing text'){ st.phase='read'; prog({stage:'read', pct:m.progress||0, page:W.page, of:W.of}); }
+      else if(st.phase==='load'){ const base={'loading tesseract core':0.05,'initializing tesseract':0.45,'loading language traineddata':0.5,'initializing api':0.95}[m.status]; if(base!=null) prog({stage:'load', pct:Math.min(0.99, base+(m.status==='loading tesseract core'?0.4:m.status==='loading language traineddata'?0.45:0)*(m.progress||0)), engine:'ocr'}); } };
+    let worker=null;
+    const close=()=>{ clearInterval(watch); URL.revokeObjectURL(url); if(worker){ try{ worker.terminate(); }catch(_){} worker=null; } };
+    job.stop.push(close);
+    try{
+      worker=await job.race(Promise.race([failed, root.Tesseract.createWorker(langs.join('+'), 1, {workerPath:url, workerBlobURL:false, corePath:LIB.ocr.core, langPath:LIB.ocr.langBase, logger,
+        errorHandler:e=>st.fail(st.phase==='load'?err('cdn', MSG.cdn()):new Error(String(e&&e.message||e)))})]));
+      if(job.cancelled){ close(); throw err('cancel', MSG.cancel()); }
+      await job.race(Promise.race([failed, worker.setParameters({tessedit_pageseg_mode:R.PSM, user_defined_dpi:'200'})]));
+    }catch(e){ close(); if(e&&e.code) throw e; throw err('cdn', MSG.cdn()); }
+    st.phase='ready'; st.last=Date.now();
+    return { langs,
+      async read(canvas, page, of){
+        W.page=page; W.of=of; st.phase='read'; st.last=Date.now(); prog({stage:'read', pct:0, page, of});
+        const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
+        st.phase='ready';
+        const d=r&&r.data||{}; let ws=d.words;
+        if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
+        return ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
+      }, close };
+  }
+
+  // ── PDF (pdf.js) ──────────────────────────────────────────────
+  // text runs of a page → positioned words, in the page's own units (y downward)
+  function itemsToWords(items, vp, lib){
+    const out=[];
+    (items||[]).forEach(it=>{
+      const s=it&&it.str; if(!s||!s.trim()) return;
+      const m=lib.Util.transform(vp.transform, it.transform), fh=Math.hypot(m[2],m[3]);
+      if(Math.abs(m[1])>0.3*Math.abs(m[0])||!fh) return;                          // text on its side is not a team list
+      const x=m[4], yb=m[5], w=(it.width||0)*vp.scale, h=fh*0.72;
+      if(!(w>0)) return;
+      let pos=0;
+      s.split(/(\t+|\s{2,})/).forEach((part,i)=>{                                   // a run holding two table cells is cut at the wide gap
+        if(i%2===0&&part.trim()){ const lead=part.length-part.replace(/^\s+/,'').length, txt=part.trim();
+          out.push({text:txt, x0:x+w*(pos+lead)/s.length, x1:x+w*(pos+lead+txt.length)/s.length, y0:yb-h, y1:yb, conf:null}); }
+        pos+=part.length;
+      });
+    });
+    return out;
+  }
+  R._itemsToWords=itemsToWords;
+  async function pdfOpen(file, job, prog){
+    if(file.size>LIMIT.pdfMB*1048576) throw err('big', MSG.bigpdf());
+    prog({stage:'load', pct:0, engine:'pdf'});
+    await job.race(loadScript(LIB.pdf.js, LIB.pdf.sri));
+    const lib=root.pdfjsLib; if(!lib||!lib.getDocument) throw err('cdn', MSG.cdn());
+    lib.GlobalWorkerOptions.workerSrc=LIB.pdf.worker;
+    const data=new Uint8Array(await job.race(file.arrayBuffer()));
+    // isEvalSupported:false — this pdf.js version must not be allowed to build code from a PDF's fonts
+    const task=lib.getDocument({data, isEvalSupported:false, cMapUrl:LIB.pdf.cmaps, cMapPacked:true, standardFontDataUrl:LIB.pdf.fonts, enableXfa:false, stopAtErrors:false});
+    job.stop.push(()=>{ try{ task.destroy(); }catch(_){} });
+    let doc;
+    try{ doc=await job.race(task.promise); }
+    catch(e){ if(e&&e.code) throw e; const n=String(e&&e.name||'');
+      if(n==='PasswordException') throw err('password', MSG.password());
+      if(/worker|fetch|network|import/i.test(String(e&&e.message||''))&&n!=='InvalidPDFException') throw err('cdn', MSG.cdn());
+      throw err('pdf', MSG.pdf()); }
+    return {lib, doc};
+  }
+  async function renderPage(page, long){
+    const v1=page.getViewport({scale:1}), s=long/Math.max(v1.width, v1.height), vp=page.getViewport({scale:s});
+    const c=canvasOf(vp.width, vp.height); await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+    return {canvas:c, scale:s};
+  }
+
+  // ── the hook: file → both teams' text ─────────────────────────
+  // read(file, {
+  //   side:'both'|'home'|'away', homeTeam, awayTeam, known:{home:[],away:[]},
+  //   pages:[n…]                       PDF pages to read (else choosePages, else the pages that look like a team list)
+  //   choosePages(info)→Promise<[n…]>  ask the user; info={count, shown, suggested:[n], pages:[{n, hasText, list, thumb(width)→Promise<canvas>}]}
+  //   onProgress({stage:'load'|'pages'|'read'|'layout', pct, engine, page, of}), signal: AbortSignal
+  // }) → Promise<{
+  //   home:{text, lines:[{text, confidence, low}], confidence, dropped, adopted, box, page}|null, away:…|null,
+  //   pages:[{n, method:'text'|'ocr', image:canvas, scale}], lists:n, assign:{first, why},
+  //   source:{name, kind:'pdf'|'image', method:'text'|'ocr'|'mixed', engine, langs}, redeal(first)→{home, away, assign} }>
+  // Rejects with an Error whose .code is cdn | type | heic | image | password | pdf | big | empty | cancel.
+  R.read=async function(file, o){
+    o=o||{};
+    const prog=p=>{ try{ if(o.onProgress) o.onProgress(p); }catch(_){} };
+    const job=newJob(o.signal);
+    let ocr=null;
+    const getOcr=async()=>ocr||(ocr=await ocrOpen(job, prog));
+    try{
+      if(!file||typeof file.slice!=='function') throw err('type', MSG.type('That'));
+      const kind=await sniff(file);
+      if(!kind) throw err('type', MSG.type(file.name||'That file'));
+      const pages=[], engines=[];
+      if(kind==='pdf'){
+        const {lib, doc}=await pdfOpen(file, job, prog);
+        const N=Math.min(doc.numPages, LIMIT.pages), info=[];
+        for(let n=1;n<=N;n++){
+          prog({stage:'pages', pct:(n-1)/N, page:n, of:N});
+          const page=await job.race(doc.getPage(n)), vp=page.getViewport({scale:1});
+          let words=[]; try{ words=itemsToWords((await job.race(page.getTextContent())).items, vp, lib); }catch(e){ if(e&&e.code==='cancel') throw e; }
+          const chars=words.reduce((t,w)=>t+w.text.replace(/\s/g,'').length,0), lay=R.layout(words, {glue:true, skew:false});
+          info.push({n, page, words, layout:lay, hasText:chars>=30, list:R.looksLikeList(lay)});
+          if(n%4===0) await tick();
+        }
+        let suggested=info.filter(p=>p.list).map(p=>p.n); if(!suggested.length) suggested=[1];
+        suggested=suggested.slice(0, LIMIT.pick);
+        let pick=o.pages;
+        if(!pick&&N>1&&typeof o.choosePages==='function'){
+          pick=await job.race(Promise.resolve(o.choosePages({count:doc.numPages, shown:N, suggested, max:LIMIT.pick,
+            pages:info.map(p=>({n:p.n, hasText:p.hasText, list:p.list, thumb:w=>renderPage(p.page, w||120).then(r=>r.canvas)}))})));
+          if(!pick||!pick.length) throw err('cancel', MSG.cancel());
+        }
+        pick=(pick&&pick.length?pick:suggested).map(Number).filter(n=>n>=1&&n<=N).sort((a,b)=>a-b).slice(0, LIMIT.pick);
+        let k=0;
+        for(const n of pick){
+          const p=info[n-1]; k++;
+          if(p.hasText){
+            prog({stage:'layout', pct:k/pick.length, page:n});
+            const r=await job.race(renderPage(p.page, LIMIT.viewLong));
+            pages.push({n, method:'text', words:p.words, layout:p.layout, image:r.canvas, scale:r.scale});
+            if(engines.indexOf('pdf')<0) engines.push('pdf');
+          } else {
+            const r=await job.race(renderPage(p.page, LIMIT.long)), eng=await getOcr();
+            const words=await eng.read(greyStretch(r.canvas), k, pick.length);
+            pages.push({n, method:'ocr', words, image:r.canvas, scale:1});
+            if(engines.indexOf('ocr')<0) engines.push('ocr');
+          }
+        }
+      } else {
+        if(file.size>LIMIT.imageMB*1048576) throw err('big', MSG.bigimage());
+        prog({stage:'load', pct:0, engine:'ocr'});
+        const src=await job.race(decode(file, kind)), sw=src.width||src.naturalWidth, sh=src.height||src.naturalHeight;
+        if(!sw||!sh) throw err('image', MSG.image());
+        const pr=prepare(src, sw, sh); if(src.close) src.close();
+        await tick();
+        const eng=await getOcr(), words=await eng.read(pr.work, 1, 1);
+        pages.push({n:1, method:'ocr', words, image:pr.view, scale:1}); engines.push('ocr');
+      }
+      prog({stage:'layout', pct:1});
+      const ctx={homeTeam:o.homeTeam, awayTeam:o.awayTeam, known:o.known||{}};
+      const comp=R.compose(pages, ctx), side=o.side==='home'||o.side==='away'?o.side:'both';
+      const res=R.deal(comp, side, ctx);
+      if(!comp.lists.length||!['home','away'].some(s=>res[s]&&res[s].lines.length)) throw err('empty', MSG.empty());
+      const methods=[...new Set(pages.map(p=>p.method))];
+      res.pages=pages.map(p=>({n:p.n, method:p.method, image:p.image, scale:p.scale}));
+      res.more=comp.more; res.extra=comp.extra.length;
+      res.source={name:String(file.name||''), kind:kind==='pdf'?'pdf':'image', method:methods.length>1?'mixed':methods[0],
+        engine:engines.map(e=>LIB[e].name+' '+LIB[e].ver).join(' + '), langs:ocr?ocr.langs:[]};
+      res.redeal=first=>{ const r=R.deal(comp, side, Object.assign({first}, ctx)); res.home=r.home; res.away=r.away; res.assign=r.assign; return res; };
+      return res;
+    } finally { job.end(); }
+  };
+  // The single public hook (cohesion-teamsheet.js forwards to it once this file is loaded).
+  root.cohTeamSheetFromFile=function(file, opts){ return R.read(file, opts); };
+})(typeof window!=='undefined'?window:globalThis);
