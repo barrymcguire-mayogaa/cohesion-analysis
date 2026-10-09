@@ -334,7 +334,11 @@
 .cohts-pgrp{font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#777);margin:9px 0 3px;}
 .cohts-pl{display:flex;gap:6px;padding:3px 0;font-size:12.5px;line-height:1.3;border-bottom:1px solid var(--border,#333);}
 .cohts-pl b{width:20px;flex-shrink:0;text-align:right;color:var(--t2,#999);font-weight:700;font-variant-numeric:tabular-nums;}
-.cohts-pl span{min-width:0;overflow-wrap:anywhere;}
+.cohts-pl>span:last-child{min-width:0;overflow-wrap:anywhere;}
+.cohts-pl.ph{align-items:center;}
+.cohts-ph .cohts-hd,.cohts-ph .cohts-row{grid-template-columns:46px 28px minmax(0,1fr) 86px 28px;}
+.cohts-ph .cohts-sug{left:86px;}
+.cohts-phb{width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
 .cohts-pnone{font-size:12px;color:var(--t3,#777);padding:6px 0;}
 .cohts-pempty{text-align:center;padding:34px 12px;color:var(--t3,#777);font-size:13px;}
 .cohts-pempty .cohts-btn{margin-top:12px;}
@@ -383,7 +387,10 @@
     const knownAll=side=>known[side].concat(S[side].rows.map(r=>r.name).filter(Boolean));
 
     const ov=document.createElement('div'); ov.className='cohts-ov';
-    const card=document.createElement('div'); card.className='cohts-card'; ov.appendChild(card);
+    // player photo beside each name (signed-in users only) — cohesion-photos.js; without it the rows are as before
+    const badge=typeof window.cohPlayerBadgeHTML==='function'?window.cohPlayerBadgeHTML:null;
+    const badgeHtml=(side, name)=>(badge&&String(name||'').trim())?badge(teamName(side), T.tidyName(name), {size:26, color:(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e')}):'';
+    const card=document.createElement('div'); card.className='cohts-card'+(badge?' cohts-ph':''); ov.appendChild(card);
     card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
       <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
       <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>
@@ -396,7 +403,8 @@
     function rowHtml(side, r, i){
       const role=r.role||'';
       return `<div class="cohts-row" data-i="${i}">
-        <input class="no" inputmode="numeric" maxlength="3" value="${esc(r.no)}" placeholder="#" aria-label="Number">
+        <input class="no" inputmode="numeric" maxlength="3" value="${esc(r.no)}" placeholder="#" aria-label="Number">${badge?`
+        <div class="cohts-phb">${badgeHtml(side, r.name)}</div>`:''}
         <input class="nm" value="${esc(r.name)}" placeholder="Player name" autocomplete="off" spellcheck="false" aria-label="Name">
         <select class="rl" aria-label="Starter or sub"><option value="start"${role==='start'?' selected':''}>Starter</option><option value="sub"${role==='sub'?' selected':''}>Sub</option>${role?'':'<option value="" selected>Not set</option>'}</select>
         <button class="cohts-x" data-act="del" title="Delete row">✕</button></div>
@@ -432,7 +440,7 @@
           <textarea placeholder="1 Colm Reape&#10;2. Name&#10;Name (3)&#10;Subs&#10;16 Name"></textarea>
           <div class="cohts-pv">${prevHtml(side)}</div>
           <div class="cohts-bar"><button class="cohts-btn" disabled title="Not available yet — the automatic reader is coming soon">📷 Read from photo / PDF</button><span class="cohts-soon">coming soon</span></div></div>
-        <div class="cohts-hd"><div style="text-align:center">No.</div><div>Name</div><div>Role</div><div></div></div>
+        <div class="cohts-hd"><div style="text-align:center">No.</div>${badge?'<div></div>':''}<div>Name</div><div>Role</div><div></div></div>
         <div class="cohts-rows">${S[side].rows.map((r,i)=>rowHtml(side,r,i)).join('')}</div>
         <div class="cohts-bar"><button class="cohts-btn" data-act="add">+ Add row</button></div>
         <div class="cohts-warn"></div>`;
@@ -467,6 +475,7 @@
       const hit=T.matchKnown(typed, known[side]);
       r.name=hit||typed; r.adopted=(hit&&T.tidyName(hit)!==typed)?typed:'';
       inp.value=r.name;
+      const pb=inp.parentNode&&inp.parentNode.querySelector('.cohts-phb'); if(pb) pb.innerHTML=badgeHtml(side, r.name);
       const a=col(side).querySelector('.cohts-adopt[data-a="'+i+'"]');
       if(a){ a.style.display=r.adopted?'':'none'; a.textContent=r.adopted?'Matched existing spelling — typed “'+r.adopted+'”':''; }
       live(side);
@@ -552,10 +561,12 @@
     o=o||{}; T._css(); game=game||{};
     const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
     if(!T.hasSheet(game)) return `<div class="cohts-panel"><div class="cohts-pempty">No team sheet added${o.canEdit&&o.editCall?'<br>'+btn('+ Add team sheet'):''}</div></div>`;
-    const line=r=>`<div class="cohts-pl"><b>${esc(r.no)}</b><span>${esc(r.name)}</span></div>`;
+    // player photo (signed-in users only) over the initials — cohesion-photos.js; without it, the plain line
+    const badge=typeof window.cohPlayerBadgeHTML==='function'?window.cohPlayerBadgeHTML:null;
     const colHtml=side=>{
       const g=T.groups(game, side), nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
       const colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
+      const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}</span></div>`;
       const any=g.start.length+g.sub.length+g.other.length;
       return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(colr)}"></i><span>${esc(nm)}</span></div>`+
         (any?(g.start.map(line).join('')+
