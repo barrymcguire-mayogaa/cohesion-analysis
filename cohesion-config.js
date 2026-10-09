@@ -26,6 +26,15 @@ window.COHESION_LABEL_GROUPS = [
   { name: 'Turnover Locations', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bTOS?\b|TURNOVER/ },
   { name: 'Score Source Score Outcomes', options: ['1 POINT', '2 POINT', 'GOAL'], appliesTo: /SCORE SOURCE/ },
   { name: 'Kickout Locations', options: ['KO SHORT', 'KO MEDIUM', 'KO LONG'], appliesTo: /\bKO\b|KICKOUT/ },
+  // players:true + playersTeam:'koWinner' — the player who WON the kickout. He
+  // belongs to the kicking team (the row's team) when 'Kickout Outcomes' says
+  // WON, to the opposition when it says LOST; with no outcome yet both teams'
+  // players are offered (see cohesionPlayersTeam). Left blank for a kickout
+  // nobody won (a free / sideline). Kickout rows only: the same test as
+  // Kickout Locations, minus turnover rows (TOs · KICKOUT LOST) and the
+  // score/shot SOURCE and ASSIST rows, whatever their code is called.
+  { name: 'Kickout Won By', options: [], players: true, playersTeam: 'koWinner',
+    appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
   { name: 'Foul Areas', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bFOULS?\b/ },
   { name: 'Foul Outcomes', options: ['DISSENT', '50M FREE', 'BREACH'], appliesTo: /\bFOULS?\b/ },
   { name: 'Card Outcomes', options: ['YELLOW CARD', 'BLACK CARD', 'RED CARD'], appliesTo: /\bCARDS?\b/ },
@@ -36,6 +45,23 @@ window.cohesionGroupsFor = function(code){
   const c = (code || '').toUpperCase();
   return (window.COHESION_LABEL_GROUPS || []).filter(g => !g.appliesTo || g.appliesTo.test(c));
 };
+
+// Which team's players a players:true group offers for an event:
+//   'own'  — the event's own team (Assist: the shooter's team-mates)
+//   'opp'  — the opposition
+//   'both' — either team (not known yet)
+// labels = the event's labels (group → value); outcome = its denormalised
+// outcome field, used when the labels carry no 'Kickout Outcomes'.
+window.cohesionPlayersTeam = function(group, labels, outcome){
+  if(!group || group.playersTeam !== 'koWinner') return 'own';
+  const L = labels || {};
+  const k = Object.keys(L).find(x => x.toLowerCase() === 'kickout outcomes');
+  const v = String((k != null && L[k]) || outcome || '').toUpperCase();
+  return /\bWON\b/.test(v) ? 'own' : /\bLOST\b/.test(v) ? 'opp' : 'both';
+};
+// A players:true group leaves the event's own player (the shooter) out of its
+// list — except a group whose player may be anyone (Kickout Won By).
+window.cohesionPlayersExcludeSelf = function(group){ return !(group && group.playersTeam); };
 
 /* EVENT LINKS — the "tag, then qualify" follow-up.
  *
