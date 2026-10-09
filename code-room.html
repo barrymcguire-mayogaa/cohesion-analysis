@@ -287,6 +287,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
 <script src="cohesion-xml.js"></script>
+<script src="cohesion-teamsheet.js"></script>
 </head>
 <body>
 <header>
@@ -346,6 +347,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
         <option value="raw">Original coder time</option>
       </select>
       <button onclick="crPlayersPopup()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Rename a player across every event in this game">👥 Players</button>
+      <button onclick="crTeamSheetEdit()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="This game's team sheets — each team's 1–15 and subs, with jersey numbers">👕 Team sheets</button>
       <button onclick="crExportXmlManual()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
       <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
     </div>
@@ -1137,7 +1139,7 @@ function renderList(){
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${_cq(e._rowId)}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${esc(e.player)}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${esc(e.player)}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Names from this game's team sheet">${esc(crSubNames(e))}</span>`:''}</span>
     </div>`;
   }).join('')||(crLCFilterOn()?'<div style="padding:16px;color:var(--green);font-size:12px;">✓ Nothing missing — every event passes the label check.</div>':'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>');
   crLCAfterRender();
@@ -1767,11 +1769,13 @@ function crPlayersPopup(){
     ${rows}
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button id="prGo" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">Apply renames</button>
+      <button id="prTS" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;" title="This game's team sheets — numbers, starters and subs">👕 Team sheets</button>
       <button id="prX" style="padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">Cancel</button>
     </div></div>`;
   document.body.appendChild(ov);
   const close=()=>{ if(ov.parentNode) document.body.removeChild(ov); };
   ov.querySelector('#prX').onclick=close;
+  ov.querySelector('#prTS').onclick=()=>{ close(); crTeamSheetEdit(); };
   ov.querySelector('#prGo').onclick=()=>{
     const renames={};
     players.forEach((p,i)=>{ const v=(ov.querySelector('#pr'+i).value||'').trim(); if(v&&v!==p) renames[p]=v; });
@@ -2459,7 +2463,7 @@ function renderPanel(){
       <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
       <input value="${esc(row.v)}" oninput="setLabelIdx(${i},this.value);acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onfocus="acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" autocomplete="off">
       <span class="x" onclick="removeLabelIdx(${i})" title="Remove label">✕</span>
-    </div>`).join('');
+    </div>${row.g==='Sub Detail'&&crSubNames({team:e.team,labels:{'Sub Detail':row.v}})?`<div style="margin:-2px 0 8px 124px;font-size:11.5px;color:var(--accent);" title="Names from this game's team sheet — the stored label stays as numbers">${esc(crSubNames({team:e.team,labels:{'Sub Detail':row.v}}))}</div>`:''}`).join('');
   const labelRows=definedRows+freeRows;
   p.innerHTML=`
     <div class="ep-code">${esc(e.code||'')} #${crSeqOf(e)}${crIsDup(e)?' <span style="color:#f59e0b;font-size:12px;">⚠ possible duplicate</span>':''}</div>
@@ -2515,7 +2519,11 @@ function crLabelValues(g){
   if(def) def.options.forEach(o=>s.add(o));
   return [...s].sort();
 }
-function crPlayers(){ return [...new Set(EVENTS.map(e=>e.player).filter(Boolean).concat(GAME?crSheetNames('home').concat(crSheetNames('away')):[]))].sort(); }
+function crPlayers(){
+  const l=[...new Set(EVENTS.map(e=>e.player).filter(Boolean).concat(GAME?crSheetNames('home').concat(crSheetNames('away')):[]))].sort();
+  const out=(GAME&&window.cohTS)?cohTS.sheetFirst(GAME,'',l):l;   // team-sheet players first (number order); no sheet → unchanged
+  out.crPlayerList=true; return out;
+}
 let acInput=null, acPick=null, acItems=[], acIdx=-1;
 function acNoop(){}
 function acPickCode(v){ setDraftCode(v); renderPanel(); }
@@ -2529,12 +2537,13 @@ function acShow(input, options, onPick, opt){
   opt=opt||{};
   acInput=input; acPick=onPick;
   const q=opt.all?'':(input.value||'').toLowerCase().trim();
-  acItems=options.filter(o=>o&&o.toLowerCase().includes(q)).slice(0,opt.max||60);
+  const lab=opt.label||(options&&options.crPlayerList?crTSLabel:null);   // "7. Name" for a team-sheet player; the value stays the plain name
+  acItems=options.filter(o=>o&&(o.toLowerCase().includes(q)||(lab&&q&&String(lab(o)).toLowerCase().includes(q)))).slice(0,opt.max||60);
   const d=document.getElementById('acDrop'); if(!d) return;
   if(!acItems.length){ acHide(); return; }
   let prevTag=null;
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
-    return `<div data-i="${i}">${show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:''}${esc(o)}</div>`; }).join('');
+    return `<div data-i="${i}">${show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:''}${esc(lab?lab(o):o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
   d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px';
   d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden
@@ -3141,7 +3150,8 @@ function codePlayerList(side){
   const seen=new Set(), out=[];
   crSheetNames(side).concat(EVENTS.filter(e=>(e.team||'').toUpperCase()===teamUC && e.player).map(e=>e.player))
     .forEach(n=>{ const k=crNameKey(n); if(k&&!seen.has(k)){ seen.add(k); out.push(crNameTidy(n)); } });
-  return out.sort();
+  out.sort();
+  return window.cohTS?cohTS.sheetFirst(GAME, side, out):out;   // team-sheet players first (number order)
 }
 // Options for a defined label group on an event: fixed options, or — for a
 // players:true group (Assist) — the event team's players minus the shooter.
@@ -3177,7 +3187,8 @@ function crTeamOf(side){ return String((GAME&&(side==='home'?GAME.homeTeam:GAME.
 function crSheetNames(side, meta){
   const g=meta||GAME||{}, out=[];
   const list=g.rosters&&g.rosters[side];
-  if(Array.isArray(list)) list.forEach(r=>{ const n=crRosterEntryName(r); if(n) out.push(n); });
+  if(Array.isArray(list)&&window.cohTS) cohTS.orderedNames(g, side).forEach(n=>out.push(n));   // starters by number, then subs
+  else if(Array.isArray(list)) list.forEach(r=>{ const n=crRosterEntryName(r); if(n) out.push(n); });
   const pr=g.playerRoster&&g.playerRoster[side==='home'?'teamA':'teamB'];
   if(pr&&typeof pr==='object'){
     const num=k=>parseInt(String(k).replace(/\D/g,''),10)||0;
@@ -3297,7 +3308,7 @@ function crAssistOpen(inp, all){
   const s=crAssistSuggest(sides, d.shooter, d.group!=='Assist');
   const cur=crAssistCur(inp);
   acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
-    { tag:n=>s.tags.get(n), tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
+    { tag:n=>s.tags.get(n), label:n=>crTSLabel(n, sides.length===1?sides[0]:''), tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
 }
 function crAssistAddSync(inp){
   const a=inp.parentNode&&inp.parentNode.querySelector('.crasst-add');
@@ -3384,6 +3395,29 @@ function crAssistLoadOther(T){
     if(okN){ try{ localStorage.setItem(crOtherKey(T),JSON.stringify({ts:Date.now(),names:o.names})); }catch(_){} }
   });
   return o.promise;
+}
+// ── Team sheets (cohesion-teamsheet.js; the game's meta.rosters) ──
+// The shared editor for this game's two sheets. It saves on its own (re-read
+// meta, change only rosters[side] of the sides edited, gameAdmin updateMeta —
+// the "Align this angle" pattern), so it never waits for the session save. A
+// side it saved drops its queued "+ add to team sheet" names (they were in the
+// editor); a side it did not touch keeps its queue. Local-video session: memory only.
+function crTSLabel(name, side){ return (GAME&&window.cohTS)?cohTS.label(GAME, side||'', name):name; }
+function crSubNames(e){ return (GAME&&window.cohTS)?cohTS.subDetailFor(GAME, e):''; }
+function crTeamSheetEdit(){
+  if(!GAME){ alert('Open a game first.'); return; }
+  if(!window.cohTS) return;
+  const knownOf=side=>crGameNames(side).concat(crAssistOtherNames(crTeamOf(side)));
+  cohTS.openEditor({ game:GAME, persist:!GAME._local,
+    known:{home:knownOf('home'), away:knownOf('away')},
+    loadKnown:side=>{ const T=crTeamOf(side); return Promise.resolve(crAssistLoadOther(T)).then(()=>crAssistOtherNames(T)); },
+    onSaved:(merged, sheets)=>{
+      if(!GAME.rosters||typeof GAME.rosters!=='object'||Array.isArray(GAME.rosters)) GAME.rosters={};
+      const q=crRosterQueue();
+      Object.keys(sheets).forEach(side=>{ GAME.rosters[side]=(merged.rosters||{})[side]||[]; q[side]=[]; });
+      crBackup(); crUpdatePending(); renderList();
+      if(codeMode&&codeMode.on&&document.getElementById('codePlayers')) buildCodePlayers();
+    } });
 }
 // ── "+ add to team sheet" ────────────────────────────────────
 // Adds a name to GAME.rosters[side] (the game's team sheet, which Code
@@ -3481,7 +3515,7 @@ function buildCodePlayers(){
     `<button class="cbtn ${!codeMode.player?'on':''}" onclick="codeSetPlayer('')">No player</button>`+
     `<select onchange="codeSetPlayer(this.value)" style="flex:1;min-width:170px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font:600 13px 'Barlow',sans-serif;cursor:pointer;">`+
     `<option value=""${!codeMode.player?' selected':''}>${esc(tm)} Player Select</option>`+
-    players.map(p=>`<option value="${esc(p)}"${codeMode.player===p?' selected':''}>${esc(p)}</option>`).join('')+
+    players.map(p=>`<option value="${esc(p)}"${codeMode.player===p?' selected':''}>${esc(crTSLabel(p, codeMode.team))}</option>`).join('')+
     `</select>`+
     `<button class="cbtn" onclick="codeAddPlayer()">+ Player…</button>`;
 }
