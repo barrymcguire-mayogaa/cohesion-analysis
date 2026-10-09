@@ -178,9 +178,11 @@ table.bulk input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent
 
 <script>
 // ── Auth (same gate as admin.html / crests-admin.html; every call is re-checked server-side) ──
+// cohesionAuthGate (cohesion-edit.js) restores the marker in a new tab, or goes to index.html?next=<this page>.
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
 const auth = sessionStorage.getItem('cohesion_auth');
-if(!auth) window.location.href = 'index.html';
-if(auth !== 'admin') window.location.href = 'library.html';
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
 function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
 function initTheme(){
   const t = localStorage.getItem('cohesion_theme')||'dark';
