@@ -148,23 +148,96 @@
     return '';
   }
 
-  // Ids of GI originals that already have a derived SHOT event.
+  // ── KICKOUTS ────────────────────────────────────────────────────
+  // GI:  "<Team> Kickout" (row team = the KICKING team), KickoutOutcome
+  //      "KT Won Clean|Break" (kicking team won) / "RT Won Clean|Break"
+  //      (receiving team won), KickoutLength Short|Mid-Range|Long, and the
+  //      row's player = the kickout's TARGET on the kicking team.
+  // GIU: "<Team> Kickout", KickoutOutcome "<Winner> Clean|Break|Free|SL"
+  //      (the team NAMED won it), KODistance SKO|MKO|LKO, no players.
+  // Each converts to "<KICKING TEAM> KO" with Code Room's own labels
+  // ('Kickout Outcomes' from the kicker's view, 'Kickout Locations'), plus —
+  // break outcomes only — "<WINNER> BREAK WON" and "<LOSER> BREAK LOST".
+  // No TOs / FOUL companions: GI and GIU carry their own turnover / foul rows.
+  // A row whose outcome cannot be read is left alone (never guessed).
+  const KO_LEN = { 'SHORT':'KO SHORT', 'SKO':'KO SHORT', 'MID-RANGE':'KO MEDIUM', 'MID RANGE':'KO MEDIUM', 'MID':'KO MEDIUM',
+    'MEDIUM':'KO MEDIUM', 'MKO':'KO MEDIUM', 'LONG':'KO LONG', 'LKO':'KO LONG' };
+  const KO_TYPE = { 'CLEAN':'CLEAN', 'BREAK':'BREAK', 'FREE':'FREE', 'SL':'SIDELINE', 'SIDELINE':'SIDELINE' };
+  function koOtherTeam(game, TEAM){
+    const H = up(game && game.homeTeam), A = up(game && game.awayTeam);
+    return TEAM && TEAM === H ? A : TEAM && TEAM === A ? H : '';
+  }
+  // → { team (kicker), opp, won (by the kicker), type, out, len, gi } or null.
+  function koMap(e, game){
+    if(!e || !e.code || lbl(e, GI_SRC)) return null;
+    const m = /^\s*(.+?)\s+kickout\s*$/i.exec(e.code);
+    if(!m) return null;
+    const TEAM = up(e.team) || up(m[1]);
+    const K = up(lbl(e, 'KickoutOutcome') || lbl(e, 'PO_Result') || e.outcome).replace(/\s+/g, ' ');
+    if(!TEAM || !K) return null;
+    let opp = koOtherTeam(game, TEAM), won, type, gi = false;
+    const g = /^(KT|RT) WON (CLEAN|BREAK)$/.exec(K);
+    if(g){ gi = true; won = g[1] === 'KT'; type = g[2]; }
+    else {
+      const u = /^(.+) (CLEAN|BREAK|FREE|SL|SIDELINE)$/.exec(K);
+      if(!u) return null;
+      const who = u[1].trim();
+      if(who === TEAM) won = true;
+      else if(!opp || who === opp){ won = false; opp = who; }
+      else return null;                       // names neither team of this game
+      type = KO_TYPE[u[2]];
+    }
+    const out = type === 'CLEAN' ? (won ? 'KO WON CLEAN' : 'KO LOST CLEAN') : 'KO ' + type + (won ? ' WON' : ' LOST');
+    const len = KO_LEN[up(lbl(e, 'KickoutLength') || lbl(e, 'Kickout_Length') || lbl(e, 'KODistance'))] || '';
+    return { team:TEAM, opp, won, type, out, len, gi };
+  }
+  function isGiKickout(e, game){ return !!koMap(e, game); }
+  // A derived kickout: "<TEAM> KO" carrying the link label.
+  function isDerivedKo(e){ return !!lbl(e, GI_SRC) && /\sKO\s*$/i.test((e && e.code) || ''); }
+  // Map one GI / GIU kickout to its COHESION kickout (+ both break rows). Pure.
+  function cohGiMapKickout(e, game){
+    const k = koMap(e, game);
+    if(!k) return [];
+    const L = e.labels || {};
+    const labels = { 'Kickout Outcomes': k.out };
+    if(k.len) labels['Kickout Locations'] = k.len;
+    // GI's player is the kicking team's target: he WON it only when KT won.
+    const p = k.gi ? String(e.player || L['Player'] || '').trim() : '';
+    if(p) labels[k.won ? 'Kickout Won By' : 'Kickout Target'] = p;
+    labels[GI_SRC] = String(e.id);
+    const base = { start:e.start, end:e.end, half:e.half, driveT:e.driveT };
+    if(e.gameTime != null) base.gameTime = e.gameTime;
+    if(e.videoT != null) base.videoT = e.videoT;
+    const out = [Object.assign({ id:'gi-'+e.id+'-ko', code:k.team+' KO', team:k.team }, base, {
+      player:'', outcome:k.out, subtype:k.len, category:'Kickouts', labels })];
+    if(k.type === 'BREAK'){
+      const row = (tm, what, tag) => { if(tm) out.push(Object.assign({ id:'gi-'+e.id+'-'+tag, code:tm+' '+what, team:tm }, base, {
+        player:'', outcome:'', subtype:'', category:'Other', labels:{ [GI_SRC]: String(e.id) } })); };
+      row(k.won ? k.team : k.opp, 'BREAK WON', 'brkw');
+      row(k.won ? k.opp : k.team, 'BREAK LOST', 'brkl');
+    }
+    return out;
+  }
+
+  // Ids of GI originals that already have a derived SHOT or KO event.
   function cohGiSuperseded(events){
     const s = new Set();
     (events || []).forEach(e => {
       const id = lbl(e, GI_SRC);
-      if(id && /SHOT (OPEN|DEAD)/i.test(e.code || '')) s.add(id);
+      if(id && (/SHOT (OPEN|DEAD)/i.test(e.code || '') || isDerivedKo(e))) s.add(id);
     });
     return s;
   }
-  // Bare companion created by the conversion (not a shot in its own right).
+  // Bare companion created by the conversion (a score or break row — not a
+  // shot or a kickout in its own right).
   function cohGiIsCompanion(e){
-    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '');
+    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '') && !isDerivedKo(e);
   }
   // Per-event predicate factory: true for an original that is superseded.
   function cohGiSupersededFn(events){
     const s = cohGiSuperseded(events);
-    return e => !!(s.size && e && !lbl(e, GI_SRC) && s.has(String(e.id)) && isAnyGiShot(e));
+    return e => !!(s.size && e && !lbl(e, GI_SRC) && s.has(String(e.id))
+      && (isAnyGiShot(e) || /^\s*\S.*\s+kickout\s*$/i.test(e.code || '')));
   }
 
   // Map one GI shot to its COHESION shot (+ score companion). Pure.
@@ -241,29 +314,37 @@
   }
 
   // New events for every GI / GIU shot with no derived event yet. Idempotent.
-  function cohGiConvert(events, game){
+  // Kickouts too: an original whose id already appears as a "GI Source ID" is
+  // skipped, so a game whose shots were converted earlier only gains its
+  // kickouts. opts.kickouts === false / opts.shots === false limit the pass.
+  function cohGiConvert(events, game, opts){
     const done = new Set();
     (events || []).forEach(e => { const id = lbl(e, GI_SRC); if(id) done.add(id); });
+    const doShots = !(opts && opts.shots === false), doKos = !(opts && opts.kickouts === false);
     const out = [];
     (events || []).forEach(e => {
-      const gi = isGiShot(e);
-      if(!gi && !isGiuShot(e)) return;
+      const gi = doShots && isGiShot(e), giu = doShots && !gi && isGiuShot(e);
+      const ko = !gi && !giu && doKos && isGiKickout(e, game);
+      if(!gi && !giu && !ko) return;
       const id = String(e.id);
       if(!id || done.has(id)) return;
       done.add(id);
-      (gi ? cohGiMapShot(e) : cohGiuMapShot(e, game)).forEach(n => out.push(n));
+      (gi ? cohGiMapShot(e) : giu ? cohGiuMapShot(e, game) : cohGiMapKickout(e, game)).forEach(n => out.push(n));
     });
     return out;
   }
   // Counts for the confirmation text.
   function cohGiCounts(newEvents){
-    let shots = 0, scores = 0;
-    (newEvents || []).forEach(e => { if(/SHOT (OPEN|DEAD)/i.test(e.code || '')) shots++; else scores++; });
-    return { shots, scores };
+    let shots = 0, scores = 0, kos = 0, breaks = 0;
+    (newEvents || []).forEach(e => { const c = e.code || '';
+      if(/SHOT (OPEN|DEAD)/i.test(c)) shots++; else if(isDerivedKo(e)) kos++;
+      else if(/\sBREAK (WON|LOST)\s*$/i.test(c)) breaks++; else scores++; });
+    return { shots, scores, kos, breaks };
   }
 
   // cohGiIsShot = any original the conversion handles (GI "<Team> Shot" or a GIU shot).
   const api = { cohGiConvert, cohGiSuperseded, cohGiSupersededFn, cohGiIsCompanion, cohGiIsShot:isAnyGiShot,
+    cohGiIsKickout:isGiKickout, cohGiIsDerivedKo:isDerivedKo, cohGiMapKickout,
     cohGiIsGiShot:isGiShot, cohGiIsGiuShot:isGiuShot, cohGiMapShot, cohGiuMapShot, cohGiuRosterName, cohGiCounts, COH_GI_SRC:GI_SRC };
   Object.assign(root, api);
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
