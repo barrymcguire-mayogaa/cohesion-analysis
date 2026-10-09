@@ -6578,11 +6578,12 @@ function pyTableHTML(R, S, sel, shown, col){
     +`<div class="dnote">${ssEsc('1pt, 2pt and Goal are scores of that value; OP and DB are scores from open play and from a dead ball; Total is the number of scores. Assists are scores by a team-mate that name the player in the Assist tag, or in the score’s SCORE ASSIST row (Sportscode). xPts/Game is the player’s expected points divided by the games in which he took at least one shot that xP can rate (a shot with a location and an attempt type). Scoring % is scores ÷ shots. Names that differ only in letter case, spacing or apostrophes are one player.'+(R.noPlayer?' '+R.noPlayer+' shot'+(R.noPlayer===1?' has':'s have')+' no player tagged and '+(R.noPlayer===1?'is':'are')+' in no row.':'')+' No source records possessions per player, so there is no Possessions column. Click a column to sort, a row to select the player.')}</div></div>`;
 }
 // GAME INVOLVEMENT: the table (one row per player with involvement rows) and the selected player's breakdown.
+function pyInvHas(I){ return !!(I&&I.n&&I.players&&I.players.length); }
 //   o = {sort:{key,dir}, shown, per (per game played), col (badge colour)}
 function pyInvNum(v, per){ return per?(Math.round(v*10)/10).toFixed(1):String(v); }
 function pyInvHTML(I, sel, o){
   o=o||{}; if(!I) return '';
-  if(!I.n||!I.players.length) return `<div class="tt-card tt-empty py-ina">n/a — no Game Involvement Outcomes tags in these games</div>`;
+  if(!pyInvHas(I)) return '';   // the section only exists when the selection carries Game Involvement Outcomes tags
   const per=!!o.per, C=pyInvCols(I), keys=pyInvSortKeys(C), S=o.sort&&keys.includes(o.sort.key)?o.sort:{key:'inv', dir:'desc'};
   const rows=pySort(pyInvRows(I, C, per), S.key, S.dir), pg=pyPage(rows.length, o.shown), col=o.col||'#4fc3f7';
   const heads=[['name','Player Name','']].concat([['inv','Involvements','Every Game Involvement Outcomes label on the player’s rows']], C.cols.map(c=>[c.k, c.label, c.value]), [['other','Other', C.other.length?'Other = '+C.other.join(', '):'No other involvement types in these games']]);
@@ -6768,7 +6769,7 @@ function pyHTML(R, V, o){
   return `<div class="tt-top"><div class="tt-who">${ssEsc(T)}<small>${ssEsc('All '+pyGames(R.nGames)+' in the current filters'+(R.missing?' ('+R.missing+' not loaded)':'')+(span?' · '+span:''))}</small></div></div>`
     +`<div id="pyTableSec">${pyTableHTML(R, o.sort, V.key, o.shown, o.col||'#4fc3f7')}</div>`
     +`<div id="pySelSec">${pySelBarHTML(R, V, o.F, o.inv)}</div>`
-    +(o.inv?`<h2 class="ov-h">GAME INVOLVEMENT</h2><div id="pyInvSec">${pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col})}</div>`:'')
+    +(pyInvHas(o.inv)?`<h2 class="ov-h">GAME INVOLVEMENT</h2><div id="pyInvSec">${pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col})}</div>`:'')
     +`<div id="pyMapSec">${pyMapsHTML(R, V, o.F)}</div>`
     +`<h2 class="ov-h">SHOOTING DETAILS</h2><div id="pyShootSec">${pyShootHTML(R, V, o.F)}</div>`
     +`<h2 class="ov-h">KICKOUT DETAILS</h2><div id="pyKoSec">${pyKoHTML(R, V)}</div>`
@@ -6822,6 +6823,7 @@ function pyRender(parts){
   if(PY_VIEW.key&&PY_INV&&PY_INV.players.length){ const C=pyInvCols(PY_INV), i=pySort(pyInvRows(PY_INV, C, PY_IPER), PY_ISORT.key, PY_ISORT.dir).findIndex(p=>p.key===PY_VIEW.key); if(i>=0) PY_ISHOWN=pyShownFor(PY_INV.players.length, i, PY_ISHOWN); }
   const o=pyOpts(), R=PY_LAST, V=PY_VIEW;
   const fill={pyInvSec:()=>pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col}), pyTableSec:()=>pyTableHTML(R, o.sort, V.key, o.shown, o.col), pySelSec:()=>pySelBarHTML(R, V, o.F, o.inv), pyMapSec:()=>pyMapsHTML(R, V, o.F), pyShootSec:()=>pyShootHTML(R, V, o.F), pyKoSec:()=>pyKoHTML(R, V)};
+  if(parts&&!pyInvHas(o.inv)) parts=parts.filter(id=>id!=='pyInvSec');   // no involvement data: the section is not on the page
   if(!parts||!parts.every(id=>ssEl(id)&&fill[id])) body.innerHTML=pyHTML(R, V, o);
   else parts.forEach(id=>{ ssEl(id).innerHTML=fill[id](); });
   pyFitHits();
