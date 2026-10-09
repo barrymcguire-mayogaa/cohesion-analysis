@@ -915,6 +915,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-crests.js"></script>
+<script src="cohesion-photos.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-periods.js"></script>
@@ -6256,7 +6257,7 @@ const PY_SIDES=[['L','Left Side'],['C','Centre'],['R','Right Side']];
 const PY_LEVELS=[['L','Low'],['M','Medium'],['H','High']];
 const PY_CHIPS=[['all','Total Shots'],['1','1-point'],['2','2-point'],['G','Goal'],['open','Open Play'],['dead','Dead Ball']];
 const PY_COLS=[['name','Player Name'],['one','1pt'],['two','2pt'],['goals','Goal'],['op','OP'],['db','DB'],['total','Total'],['shots','Shots'],['assists','Assists'],['xpg','xPts/Game'],['pct','Scoring %']];
-function pyKey(name){ return String(name||'').replace(/[‘’ʼ`´']/g,'').replace(/\s+/g,'').toLowerCase(); }
+function pyKey(name){ return cohPlayerKey(name); }   // the ONE name key lives in cohesion-photos.js (photos are keyed by it too)
 function pyLeg(e){ const K=ssUC(ssLblCI(e,['Shooting Leg'])); return !K?'':/^RIGHT/.test(K)?'R':/^LEFT/.test(K)?'L':/NO LEG|HAND/.test(K)?'H':''; }
 function pySide(e){ const K=ssUC(ssLblCI(e,['Shot Side'])); return !K?'':/^LEFT/.test(K)?'L':/^CENT/.test(K)?'C':/^RIGHT/.test(K)?'R':''; }
 // who a kickout names: {name, key, team (the player's team), won (his team won it), role:'winner'|'target'} or null
@@ -6506,11 +6507,7 @@ function pyView(R, sel, F){
 // ── Players rendering (strings only; every interpolated value is escaped) ──
 function pyPct1(v){ return v==null?'n/a':(Math.round(v*10)/10)+'%'; }
 function pyGames(n){ return n+' game'+(n===1?'':'s'); }
-function pyInitials(name){
-  const s=String(name||'').trim(); if(!s) return '?';
-  if(s.length<=3||/^[A-Za-z]{0,2}\d+$/.test(s)) return s.slice(0,3).toUpperCase();
-  const w=s.split(/\s+/).filter(Boolean); return ((w[0][0]||'')+(w.length>1?(w[w.length-1].replace(/^[^A-Za-zÀ-ÿ]+/,'')[0]||''):'')).toUpperCase();
-}
+function pyInitials(name){ return cohPlayerInitials(name); }   // cohesion-photos.js
 function pyTableHTML(R, S, sel, shown, col){
   const rows=pySort(R.players, S.key, S.dir), pg=pyPage(rows.length, shown);
   if(!rows.length) return `<div class="tt-card tt-empty">n/a — no shots or assists carry a player name in ${R.n===1?'this game':'these '+R.n+' games'}.</div>`;
@@ -6518,7 +6515,7 @@ function pyTableHTML(R, S, sel, shown, col){
   const td=(v,c)=>`<td${c?' class="'+c+'"':''}>${v}</td>`;
   const body=rows.slice(0, pg.shown).map(r=>{ const on=r.key===sel;
     return `<tr class="py-row${on?' sel':''}" data-pyrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+r.name)}">`
-      +`<td class="py-b"><span class="py-badge" style="--bc:${ssEsc(col)}" aria-hidden="true">${ssEsc(pyInitials(r.name))}</span></td><td class="py-n">${ssEsc(r.name)}</td>`
+      +`<td class="py-b">${cohPlayerBadgeHTML(R.team, r.name, {cls:'py-badge', color:col})}</td><td class="py-n">${ssEsc(r.name)}</td>`
       +td(r.one)+td(r.two)+td(r.goals)+td(r.op)+td(r.db)+td(r.total,'py-tot')+td(r.shots)+td(r.assists)
       +td(r.xpg==null?(r.shots?'n/a':'–'):r.xpg.toFixed(2), r.xpg==null?'na':'')+td(r.shots?pyPct1(r.pct):'–', r.shots?'':'na')+'</tr>'; }).join('');
   return '<div class="tt-card py-tabcard"><div class="py-scroll"><table class="py-tab"><thead><tr><th class="py-b"><span class="py-sr">Badge</span></th>'+th+'</tr></thead><tbody>'+body+'</tbody></table></div>'
