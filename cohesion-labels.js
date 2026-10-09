@@ -272,3 +272,45 @@ function cohScImport(insts, opts){
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
   cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohPlayerIndex, cohPlayerRowOf, cohNameKey,
   cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS};
+
+/* ── Existing games: bring back the label values the old import dropped ──
+ * cohScRestore(rows, instances) — rows = the game's stored events ([{id, data}]),
+ * instances = cohScInstances() of the ORIGINAL Sportscode file. ADD-ONLY and
+ * strict: nothing is deleted, replaced or re-timed.
+ *   · a stored event is matched to its instance by <ID> + code + start second
+ *     (an event that was re-coded, moved in time or created later is skipped);
+ *   · for a group the file repeats on that instance, labelsAll[g] is added ONLY
+ *     when the stored labels[g] is still the file's last value (the one the old
+ *     import kept) — a group edited or removed since is left exactly as it is;
+ *   · if under 80% of the game's file-born events match, the file is taken
+ *     to be the wrong one and nothing is proposed.
+ * Returns {ok, reason, updates:[{id, data}], stats}. The caller writes updates.
+ */
+function cohScRestore(rows, insts){
+  const stats={stored:(rows||[]).length, matched:0, notInFile:0, moved:0, recoded:0, events:0, values:0, already:0, editedGroups:0, fileExtraValues:0};
+  const byId=new Map(); (insts||[]).forEach(i=>{ if(!COH_SC_SKIP.has(i.code||'')) byId.set(String(i.id), i); });
+  const updates=[];
+  (rows||[]).forEach(r=>{
+    const d=r&&r.data; if(!d) return;
+    const inst=byId.get(String(d.id));
+    if(!inst){ stats.notInFile++; return; }
+    if(inst.code!==d.code){ stats.recoded++; return; }
+    if(Math.round(inst.start||0)!==d.start){ stats.moved++; return; }
+    stats.matched++;
+    const lists={}; (inst.labels||[]).forEach(l=>{ const g=l[0]||'NO_GROUP'; if(!l[1]||g==='Team Name') return; const k=g==='NO_GROUP'?'General':g; (lists[k]=lists[k]||[]).push(l[1]); });
+    let nd=null;
+    Object.keys(lists).forEach(g=>{ const v=lists[g]; if(v.length<2) return;
+      const cur=cohLabelValues(d, g);
+      if(cur.length===v.length && cur.every((x,i)=>x===v[i])){ stats.already+=v.length-1; return; }
+      if(cur.length!==1 || !Object.prototype.hasOwnProperty.call(d.labels||{}, g) || d.labels[g]!==v[v.length-1]){ stats.editedGroups++; return; }
+      if(!nd) nd=Object.assign({}, d, {labelsAll:Object.assign({}, d.labelsAll||{})});
+      nd.labelsAll[g]=v.slice(); stats.values+=v.length-1; });
+    if(nd){ updates.push({id:r.id, data:nd}); stats.events++; }
+  });
+  (insts||[]).forEach(i=>{ if(COH_SC_SKIP.has(i.code||'')) return; const c={}; (i.labels||[]).forEach(l=>{ if(l[1]&&l[0]!=='Team Name') c[l[0]]=(c[l[0]]||0)+1; }); Object.values(c).forEach(n=>{ stats.fileExtraValues+=n-1; }); });
+  const born=stats.matched+stats.moved+stats.recoded;
+  if(!byId.size) return {ok:false, reason:'The file has no Sportscode instances.', updates:[], stats};
+  if(!born || stats.matched/Math.max(1, byId.size)<0.8) return {ok:false, reason:'This does not look like the file the game was imported from: only '+stats.matched+' of its '+byId.size+' instances match a stored event (ID, code and start time).', updates:[], stats};
+  return {ok:true, reason:'', updates, stats};
+}
+if(typeof module!=='undefined'&&module.exports) module.exports.cohScRestore=cohScRestore;

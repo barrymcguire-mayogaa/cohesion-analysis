@@ -1220,8 +1220,11 @@ async function migrateTeamNames(gameId, oldHome, oldAway, newHome, newAway){
       }
       if(d.labels&&typeof d.labels==='object'){
         Object.keys(d.labels).forEach(k=>{
-          if(_tnorm(k)===(OU+' PLAYER LABELS')){ const v=d.labels[k]; delete d.labels[k]; d.labels[NU+' Player Labels']=v; changed=true; }
+          if(_tnorm(k)===(OU+' PLAYER LABELS')){ const v=d.labels[k]; delete d.labels[k]; d.labels[NU+' Player Labels']=v; changed=true;
+            // a group that holds several values (cohesion-labels.js): its full list moves with it
+            if(d.labelsAll&&d.labelsAll[k]){ d.labelsAll[NU+' Player Labels']=d.labelsAll[k]; delete d.labelsAll[k]; } }
         });
+        if(_tnorm(d.playerTeam)===OU){ d.playerTeam=NU; changed=true; }   // the player's own team (may differ from the row's)
         if(_tnorm(d.labels['Team Name'])===OU){ d.labels['Team Name']=NU; changed=true; }
       }
     });

@@ -249,6 +249,20 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
     </div>
     <input type="hidden" id="reparseGame" value="">
+    <!-- Restore the label values the old import dropped — WITHOUT replacing events -->
+    <div class="field" id="scRestoreBox" style="margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:8px;">
+      <label>Restore missing label values <span style="font-weight:400;color:var(--t3);">— keeps every edit</span></label>
+      <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:8px;">
+        Sportscode games uploaded before October 2026 kept only one value where a label group was repeated on an instance
+        (several players, several Game Involvement Outcomes). Choose the game above and its <b>original Sportscode XML</b>:
+        the missing values are added to the events already stored. Nothing is deleted, replaced or re-timed — an event or a
+        label that was edited since the upload is left exactly as it is. (A full re-parse, below, replaces every event of the game
+        and loses Code Room edits, assigned players, added events and conversions.)
+      </div>
+      <input type="file" id="scRestoreFile" accept=".xml" style="font-size:12px;">
+      <button type="button" class="mode-btn" style="margin-top:8px;" onclick="scRestoreRun()">Check file &amp; restore values</button>
+      <div id="scRestoreOut" style="font-size:12px;color:var(--t2);margin-top:8px;white-space:pre-line;"></div>
+    </div>
   </div>
 
   <!-- MANAGE PLAYERS: GAME SELECTOR (hidden in new-game mode) -->
@@ -885,6 +899,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// ── Restore missing label values (existing Sportscode games) ──
+// Add-only (cohesion-labels.js cohScRestore): the stored events are matched to
+// the original file's instances and get labelsAll for the groups the old
+// import cut down to one value. No event is deleted, inserted or re-timed.
+async function scRestoreRun(){
+  const out = document.getElementById('scRestoreOut'), say = t => { out.textContent = t; };
+  const rIdx = parseInt(document.getElementById('reparseGame').value);
+  const game = (!isNaN(rIdx) && reparseGames[rIdx]) ? reparseGames[rIdx] : null;
+  const file = (document.getElementById('scRestoreFile').files || [])[0];
+  if(!game){ say('Choose the game first (search above).'); return; }
+  if(!file){ say('Choose the game\'s original Sportscode XML file.'); return; }
+  try{
+    say('Reading the file and the stored events…');
+    const insts = cohScInstances(cohScDecode(await file.arrayBuffer()));
+    const rows = (await cohesionRead({ action:'getEvents', gameId: game.id })).events || [];
+    const plan = cohScRestore(rows, insts), st = plan.stats;
+    const lines = [
+      `${game.title || game.id}: ${st.stored} stored events, ${insts.length} instances in the file.`,
+      `Matched ${st.matched} (ID, code and start time). Not matched: ${st.notInFile} not in the file, ${st.recoded} re-coded, ${st.moved} moved in time — left alone.`,
+      `The file repeats a label group ${st.fileExtraValues} time(s); ${st.already} of those values are already stored.`,
+    ];
+    if(!plan.ok){ say(lines.concat(['✗ ' + plan.reason, 'Nothing was changed.']).join('\n')); return; }
+    lines.push(`To restore: ${st.values} value(s) on ${st.events} event(s).` + (st.editedGroups ? ` ${st.editedGroups} group(s) were edited since the upload and are left as they are.` : ''));
+    if(!plan.updates.length){ say(lines.concat(['✓ Nothing to restore.']).join('\n')); return; }
+    say(lines.join('\n'));
+    if(!confirm(`Add ${st.values} missing label value(s) to ${st.events} event(s) of “${game.title || game.id}”?\n\nNothing is deleted or replaced.`)){ say(lines.concat(['Cancelled — nothing was changed.']).join('\n')); return; }
+    let done = 0;
+    for(let i = 0; i < plan.updates.length; i += 40){
+      const ops = plan.updates.slice(i, i + 40).map(u => ({ action:'update', id: u.id, data: u.data }));
+      const { results } = await adminFetch('editEvent', { ops });
+      const failed = (results || []).filter(r => !r.ok);
+      if(failed.length) throw new Error(failed.length + ' event update(s) failed after ' + done + ' were saved: ' + failed.map(f => f.error).join('; '));
+      done += ops.length;
+      say(lines.concat([`Saving… ${done} of ${plan.updates.length}`]).join('\n'));
+    }
+    say(lines.concat([`✓ Restored ${st.values} value(s) on ${done} event(s).`]).join('\n'));
+  }catch(e){ say('✗ ' + e.message + '\nRun it again: events already updated are skipped.'); }
+}
 
 // ── Mode toggle (New Game / Re-parse) ─────────────────────────
 let isReparse = false;
