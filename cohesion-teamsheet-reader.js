@@ -447,9 +447,10 @@
   // numbers attached to the names. If that finds few numbered lines (a busy page: adverts, pictures), 3
   // ("automatic") is tried as well and whichever found more numbered lines is used.
   R.PSM=['6','3'];
+  let SCAN=1.5; R._scan=v=>{ SCAN=v; };
   const numbered=words=>{ let n=0; R.layout(words).columns.forEach(c=>c.lines.forEach(l=>{ if(l.no!=null) n++; })); return n; };
 
-  function err(code, msg){ const e=new Error(msg); e.code=code; return e; }
+  function err(code, msg){ const e=new Error(msg); e.code=code; e.reader=true; return e; }   // .reader: one of ours, with a message fit to show
   const MSG=R.MSG={
     cdn:()=>'The reader could not be downloaded from '+LIB.host+'. '+(navigator.onLine===false?'This device is offline.':'The connection may be down, or a content blocker or network filter may be stopping it.')+' Pasting or typing the list still works.',
     slow:()=>'The reader stopped responding while it was being downloaded — the connection may be too slow or blocked. Try again, or paste or type the list.',
@@ -553,7 +554,7 @@
         errorHandler:e=>st.fail(st.phase==='load'?err('cdn', MSG.cdn()):new Error(String(e&&e.message||e)))})]));
       if(job.cancelled){ close(); throw err('cancel', MSG.cancel()); }
       await job.race(Promise.race([failed, worker.setParameters({user_defined_dpi:'200'})]));
-    }catch(e){ close(); if(e&&e.code) throw e; throw err('cdn', MSG.cdn()); }
+    }catch(e){ close(); if(e&&e.reader) throw e; throw err('cdn', MSG.cdn()); }
     st.phase='ready'; st.last=Date.now();
     return { langs,
       async read(canvas, page, of){
@@ -605,7 +606,7 @@
     job.stop.push(()=>{ try{ task.destroy(); }catch(_){} });
     let doc;
     try{ doc=await job.race(task.promise); }
-    catch(e){ if(e&&e.code) throw e; const n=String(e&&e.name||'');
+    catch(e){ if(e&&e.reader) throw e; const n=String(e&&e.name||'');
       if(n==='PasswordException') throw err('password', MSG.password());
       if(/worker|fetch|network|import/i.test(String(e&&e.message||''))&&n!=='InvalidPDFException') throw err('cdn', MSG.cdn());
       throw err('pdf', MSG.pdf()); }
@@ -668,9 +669,10 @@
             pages.push({n, method:'text', words:p.words, layout:p.layout, image:r.canvas, scale:r.scale});
             if(engines.indexOf('pdf')<0) engines.push('pdf');
           } else {
-            const r=await job.race(renderPage(p.page, LIMIT.long)), eng=await getOcr();
-            const words=await eng.read(greyStretch(r.canvas), k, pick.length);
-            pages.push({n, method:'ocr', words, image:r.canvas, scale:1});
+            // a scanned page is drawn larger than it is read, then reduced like a photo (sharper than drawing it at size)
+            const r=await job.race(renderPage(p.page, LIMIT.long*SCAN)), pr=prepare(r.canvas, r.canvas.width, r.canvas.height), eng=await getOcr();
+            const words=await eng.read(pr.work, k, pick.length);
+            pages.push({n, method:'ocr', words, image:pr.view, scale:1});
             if(engines.indexOf('ocr')<0) engines.push('ocr');
           }
         }
@@ -927,7 +929,7 @@
     }).catch(e=>{
       done=true; card.removeEventListener('input', onInput);
       if(e&&e.code==='cancel'){ host.innerHTML=''; return null; }
-      failure(host, (e&&e.code&&e.message)||('The file could not be read ('+String(e&&e.message||e)+'). Pasting or typing the list still works.'));
+      failure(host, (e&&e.reader&&e.message)||('The file could not be read ('+String(e&&e.message||e)+'). Pasting or typing the list still works.'));
       return null;
     });
   };
