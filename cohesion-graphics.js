@@ -169,6 +169,13 @@ function _statSideMap(){
   _sideMap=m; _sideKey=key; return m;
 }
 function statSide(e){ return _statSideMap()[_tnorm(e.team)]||null; }
+// The side of the event's PLAYER: the team of his "<Team> Player Labels" group
+// when that is one of the two teams (cohesion-labels.js cohPlayerTeam — a
+// KERRY TOs row can carry a Mayo player), otherwise the row's side.
+function playerSide(e){
+  if(typeof cohPlayerTeam==='function'){ const s=_statSideMap()[_tnorm(cohPlayerTeam(e, GAME))]; if(s) return s; }
+  return statSide(e);
+}
 // Period splits. Quarters come from the per-half game clock (Q1 = 1H before
 // 18:00, Q2 = the rest, etc.); ET events only count under Full / ET chips.
 let statPeriod='full';
@@ -1521,7 +1528,7 @@ async function dashExportPDF(){
   const cardEv=ALL.filter(e=>/\bCARD\b/i.test(e.code||''));
   const involved=side=>{
     const m={};
-    ALL.forEach(e=>{ if(statSide(e)!==side||!e.player) return;
+    ALL.forEach(e=>{ if(!e.player||playerSide(e)!==side) return;   // listed under HIS team (his label group), not the row's
       const p=m[e.player]||(m[e.player]={g:0,pts:0,shots:0,cards:[]});
       if(/SHOT (OPEN|DEAD)/i.test(e.code||'')){
         p.shots++;

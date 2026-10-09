@@ -6448,6 +6448,44 @@ function pyCompute(T, games, bundleOf){
   return {team:T, nGames:list.length, n:used.length, missing:list.length-used.length, from:dates[0]||'', to:dates[dates.length-1]||'', shots, kos,
     noPlayer:shots.filter(s=>!s.pk).length, gameOf:new Map(rows.map(r=>[r.g.id, r.m])), players:pyPlayers(shots), ko:pyKoLists(used, T), keeper:pyKeeper(used, T)};
 }
+// ── Player involvement (DATA ONLY — nothing on the page shows it yet) ──
+// A Sportscode "player row" is an instance whose code is a player's name,
+// carrying one or more "Game Involvement Outcomes" values (Possession,
+// Handpass Made, Tackle Made …). They are NOT shots or assists, so they never
+// reach pyGame / pyPlayers (the table) or any team tally. This counts them:
+//   pyInvolvement(T, games, bundleOf) -> {team, group, nGames, n (games with
+//     involvement data), rows (player rows), total (values), values:[[value,
+//     count] most first], players:[{key, name, rows, total, values:{value:count},
+//     top:[[value,count]…]} most involved first]}
+// EVERY value of the group is counted (a row can carry several, and the same
+// one twice — cohesion-labels.js cohLabelValues). The player and his team:
+// the import's playerRow / player / playerTeam, or — for games stored before
+// the import recorded them — derived from the game's player labels and team
+// sheet (cohPlayerRowOf). A team row that carries involvement values counts
+// for its player under HIS team.
+const PY_INV_GROUP='Game Involvement Outcomes';
+function pyInvolvement(T, games, bundleOf){
+  const list=ovTeamGames(games, T), m=new Map(), tot={};
+  let n=0, rows=0, total=0;
+  list.forEach(g=>{
+    const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return;
+    let idx=null, any=false;
+    b.events.forEach(e=>{
+      const vals=cohLabelValues(e, PY_INV_GROUP); if(!vals.length) return;
+      let who=null;
+      if(e.playerRow||(!e.team&&!e.player)){ if(!e.playerRow&&!idx) idx=cohPlayerIndex(b.events, b.meta); who=cohPlayerRowOf(e, idx); }
+      else if(e.player) who={name:e.player, team:ssUC(cohPlayerTeam(e, b.meta))};
+      if(!who||!who.name||ssUC(who.team)!==T) return;
+      const key=pyKey(who.name); let r=m.get(key); if(!r){ r={key, name:who.name, rows:0, total:0, values:{}}; m.set(key, r); }
+      r.rows++; rows++; any=true;
+      vals.forEach(v=>{ r.values[v]=(r.values[v]||0)+1; r.total++; tot[v]=(tot[v]||0)+1; total++; });
+    });
+    if(any) n++;
+  });
+  const byCount=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const players=[...m.values()].map(r=>Object.assign(r, {top:byCount(r.values)})).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
+  return {team:T, group:PY_INV_GROUP, nGames:list.length, n, rows, total, values:byCount(tot), players};
+}
 // What the sections under the table show: the selected player's shots (or the whole team's), after the chips
 function pyView(R, sel, F){
   const P=sel?(R.players.find(p=>p.key===sel)||null):null, key=P?P.key:null, T=R.team;

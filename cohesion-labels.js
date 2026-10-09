@@ -26,6 +26,7 @@
  *   cohPlayerGroupTeam(group, meta)     -> 'MAYO' when the group is "<home|away> Player Labels", else ''
  *   cohEventPlayers(e, meta)            -> [{name, team, group}] every player on the event
  *   cohPlayerTeam(e, meta)              -> the team of e.player (label group, else e.playerTeam, else e.team)
+ *   cohPlayerIndex(events, meta)        -> the game's known players; cohPlayerRowOf(e, index) -> {name, team} for a player row
  *
  * IMPORT (admin upload, re-parse, and the tests — one code path)
  *   cohScDecode(arrayBuffer)            -> text (UTF-16 LE/BE by BOM, else UTF-8)
@@ -111,6 +112,25 @@ function cohPlayerTeam(e, meta){
     }
   }
   return e.playerTeam||e.team||'';
+}
+// ── player rows of games already stored (derive on read) ──────
+// A Sportscode "player row" is an instance whose code is a player's name. The
+// import marks it (playerRow:true, player, team); events stored before that
+// have team '' and player ''. cohPlayerIndex(events, meta) lists the game's
+// known players (every value of every "<Team> Player Labels" group, then the
+// team sheet) and cohPlayerRowOf(e, index) says whose row an event is:
+//   -> {name, team} | null     (team upper-case; '' when it cannot be told)
+function cohPlayerIndex(events, meta){
+  meta=meta||{};
+  const insts=(events||[]).map(e=>({labels:cohLabelPairs(e)}));
+  return cohScPlayerIndex(insts, {homeTeam:meta.homeTeam, awayTeam:meta.awayTeam, rosters:meta.rosters});
+}
+function cohPlayerRowOf(e, index){
+  if(!e) return null;
+  if(e.playerRow) return e.player?{name:e.player, team:String(e.playerTeam||e.team||'').toUpperCase()}:null;
+  if(e.team||e.player||!index) return null;
+  const p=index.get(cohNameKey(e.code));
+  return (p&&p.team!==null)?{name:p.name, team:p.team||''}:null;
 }
 // comparison key for a person's name: ignores case, spacing and apostrophe style
 function cohNameKey(s){ return String(s==null?'':s).replace(/[‘’‛ʼ`´]/g,"'").toLowerCase().replace(/\s+/g,''); }
@@ -250,5 +270,5 @@ function cohScImport(insts, opts){
 }
 
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
-  cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohNameKey,
+  cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohPlayerIndex, cohPlayerRowOf, cohNameKey,
   cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS};
