@@ -101,15 +101,15 @@ body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-
 body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-basis{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-team{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-data{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
 .soon .tag{display:inline-block;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:3px 10px;margin-bottom:12px;}
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap,body[data-tab=players] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -821,7 +821,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     <div id="ttTip" role="tooltip" hidden></div>
   </div>
   <div class="pane" id="pane-momentum"><div id="mmStatus" role="status"></div><div id="mmBody"></div></div>
-  <div class="pane" id="pane-players"><div class="soon"><div class="tag">COMING SOON</div><h2>PLAYERS</h2><p>Player-level shooting, scoring and expected points across the selected games.</p></div></div>
+  <div class="pane" id="pane-players"><div id="pyStatus" role="status"></div><div id="pyBody"></div></div>
   <div class="pane" id="pane-compare">
   <div class="board" id="board">
     <div class="head2">
@@ -1806,10 +1806,10 @@ function anSetTab(tab, sub){
   if(TAB==='team-trends'){ try{ const want='#team-trends/'+TT_SUB; if(typeof history!=='undefined'&&history.replaceState&&location.hash!==want) history.replaceState(null,'',want); }catch(_){ } }
   // the game-type chips live in the Compare mode row; on Overview they sit
   // (collapsed) inside "Games included" — the same element, so state is shared
-  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends'||TAB==='momentum')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
+  const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends'||TAB==='momentum'||TAB==='players')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
   if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
-  // the one floating card (hover cards, the playlist menu) sits in the pane on show: Team Trends or Momentum
-  { const tip=ssEl('ttTip'), host=ssEl(TAB==='momentum'?'pane-momentum':'pane-team-trends'); if(tip&&host&&tip.parentNode&&tip.parentNode!==host){ ttHideTip(); host.appendChild(tip); } }
+  // the one floating card (hover cards, the playlist menu) sits in the pane on show: Team Trends, Momentum or Players
+  { const tip=ssEl('ttTip'), host=ssEl(TAB==='momentum'?'pane-momentum':TAB==='players'?'pane-players':'pane-team-trends'); if(tip&&host&&tip.parentNode&&tip.parentNode!==host){ ttHideTip(); host.appendChild(tip); } }
   if(GAMES_READY){ renderTypeChips(); applyFilters(); }
 }
 let GAMES_READY=false;
@@ -1942,7 +1942,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule();
+  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -2438,7 +2438,7 @@ async function ovRun(){
   body.innerHTML=ovHTML(OV_LAST);
 }
 function ovInit(){
-  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); });
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); });
   document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>anSetBasis(b.dataset.basis)));
 }
 // ═══════════════════════════════════════════════════════════════
@@ -4371,6 +4371,7 @@ function ttSetFilter(f, v){
 function ttTipHTML(key, pinned){
   const p=String(key||'').split(':'), i=+p[1];
   if(/^mm[a-z]$/.test(p[0])) return MM_LAST&&MM_VIEW?mmTipHTML(p[0], i, MM_LAST, MM_VIEW):'';
+  if(/^p(shot|ko|zone|pr)$/.test(p[0])) return PY_LAST&&PY_VIEW?pyTipHTML(p, PY_LAST, PY_VIEW, !!pinned):'';   // the Players tab's cards
   if(p[0]==='dto'||p[0]==='dfl') return TD_LAST&&TD_CHART?tdTrendCardHTML(TD_CHART.rows[i], p[0]==='dto'?'to':'fouls', TD_LAST.team):'';
   if(p[0]==='tvt') return TV_LAST?tvTrendCardHTML(TV_LAST.trend[i], TV_LAST.team):'';
   if(p[0]==='kz') return TK_LAST&&TK_VIEW?tkZoneCardHTML(TK_VIEW.zones.byKey[p[1]], TK_VIEW, TK_LAST):'';
@@ -4381,7 +4382,7 @@ function ttTipHTML(key, pinned){
   if(p[0]==='shot') return ttShotCardHTML(TT_VIEW.mapShots[i], TT_LAST.gameOf, {pinned:!!pinned});
   return '';
 }
-function ttCanPin(el){ return !!(el&&el.dataset&&/^(shot|ko):/.test(el.dataset.tip||'')); }   // shot markers and kickout markers pin
+function ttCanPin(el){ return !!(el&&el.dataset&&/^(shot|ko|pshot|pko):/.test(el.dataset.tip||'')); }   // shot markers and kickout markers pin (pshot / pko = the Players tab's)
 function ttHideTip(){
   const t=ssEl('ttTip'); if(t&&t.hidden===false){ t.hidden=true; t.innerHTML=''; }
   if(t&&t.classList) t.classList.remove('pin');
@@ -4484,7 +4485,7 @@ function ttPlDraw(st){ const m=ssEl('ttPlMenu'); if(m) m.innerHTML=ttPlMenuHTML(
 function ttPlJob(){   // the shots the open card is about
   if(TT_JOB) return TT_JOB;
   const el=TT_PIN, key=el&&ttCanPin(el)?String(el.dataset.tip).split(':'):null, i=key?+key[1]:-1;
-  const s=!key?null:key[0]==='ko'?(TK_VIEW&&TK_VIEW.mapKos[i]):(TT_VIEW&&TT_VIEW.mapShots[i]);   // a kickout is clipped from its own event, like a shot
+  const s=!key?null:key[0]==='pshot'||key[0]==='pko'?(cpItemsOf(key[0])||[])[i]:key[0]==='ko'?(TK_VIEW&&TK_VIEW.mapKos[i]):(TT_VIEW&&TT_VIEW.mapShots[i]);   // a kickout is clipped from its own event, like a shot
   return s?(TT_JOB={shots:[s], bulk:false}):null;
 }
 async function ttPlOpen(){
@@ -4574,15 +4575,15 @@ function cpList(items, gameOf, clipOf){   // items with no video are left out, s
     return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
 }
 // the window's header: who, "v Opponent · date", and the event in a line
-function cpViewOf(kind){ return kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:kind==='ms'?MM_VIEW:TT_VIEW; }   // 'ms' = a shot of Momentum's scoring log
-function cpResOf(kind){ return kind==='ko'?TK_LAST:kind==='to'?TV_LAST:kind==='ms'?MM_LAST:TT_LAST; }
-function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'?v.mapKos:(kind==='to'||kind==='ms')?v.rows:v.mapShots):null; }
+function cpViewOf(kind){ return kind==='pshot'||kind==='pko'?PY_VIEW:kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:kind==='ms'?MM_VIEW:TT_VIEW; }   // 'ms' = a shot of Momentum's scoring log
+function cpResOf(kind){ return kind==='pshot'||kind==='pko'?PY_LAST:kind==='ko'?TK_LAST:kind==='to'?TV_LAST:kind==='ms'?MM_LAST:TT_LAST; }   // pshot / pko = a shot / kickout of the Players tab
+function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'||kind==='pko'?v.mapKos:(kind==='to'||kind==='ms')?v.rows:v.mapShots):null; }
 function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
   if(kind==='to'){ const T=R?R.team:s.winner;   // a turnover (or the foul behind a Tracker free against), from the selected team's side
     return {title:'Turnover '+(s.won?'won':'lost')+' by '+T, sub:m?'v '+m.opp+' · '+date:'',
       sum:[tvTypeName(s.type)+(s.faFoul?' (foul)':''), tvThirdTxt(s.third)].concat(s.player?[s.player]:[]).concat(when).join(' · ')}; }
-  if(kind==='ko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
+  if(kind==='ko'||kind==='pko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
     return {title:kicker+' kickout', sub:m?'v '+(own?m.opp:R.team)+' · '+date:'',
       sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s, own||!R?null:R.team)].concat(when).join(' · ')}; }
   return {title:s.player||'Player not tagged', sub:m?'v '+m.opp+' · '+date:'',
@@ -4649,7 +4650,7 @@ function cpMarker(m){   // the marker of the clip on screen, else the one the wi
   const cur=m.list[m.i], arr=cpItemsOf(m.kind);
   if(cur&&cur.s===m.first&&m.opener&&m.opener.isConnected!==false) return m.opener;
   let el=null;
-  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=m.kind==='to'?document.querySelector('#tvResSec [data-act="tv-watch"][data-i="'+cur.idx+'"]'):m.kind==='ms'?document.querySelector('#mmLogSec [data-act="mm-watch"][data-i="'+cur.idx+'"]'):document.querySelector('#'+(m.kind==='ko'?'tkMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
+  if(cur&&arr&&arr[cur.idx]===cur.s){ try{ el=m.kind==='to'?document.querySelector('#tvResSec [data-act="tv-watch"][data-i="'+cur.idx+'"]'):m.kind==='ms'?document.querySelector('#mmLogSec [data-act="mm-watch"][data-i="'+cur.idx+'"]'):document.querySelector('#'+(m.kind==='ko'?'tkMapSec':m.kind==='pko'?'pyKoSec':m.kind==='pshot'?'pyMapSec':'ttMapSec')+' [data-tip="'+m.kind+':'+cur.idx+'"]'); }catch(_){ } }
   return el||m.opener||null;
 }
 function cpClose(){
@@ -4702,7 +4703,7 @@ function cpClick(ev){
 // items: the list to step through when it is not the map's (the "Landings to check" list)
 function cpOpen(kind, item, opener, items){
   cpClose();
-  kind=kind==='ko'?'ko':kind==='to'?'to':kind==='ms'?'ms':'shot';
+  kind=kind==='ko'?'ko':kind==='to'?'to':kind==='ms'?'ms':kind==='pshot'?'pshot':kind==='pko'?'pko':'shot';
   const R=cpResOf(kind);
   const list=cpList(items||cpItemsOf(kind), R&&R.gameOf, cpClip), i=list.findIndex(x=>x.s===item);
   if(i<0) return false;                                 // no video for this one: nothing to play
@@ -4724,18 +4725,19 @@ function cpOpen(kind, item, opener, items){
 // the pinned card's item: {kind, s}
 function ttPinItem(){
   const el=TT_PIN, key=el&&ttCanPin(el)?String(el.dataset.tip).split(':'):null; if(!key) return null;
-  const kind=key[0]==='ko'?'ko':'shot', s=kind==='ko'?(TK_VIEW&&TK_VIEW.mapKos[+key[1]]):(TT_VIEW&&TT_VIEW.mapShots[+key[1]]);
+  const kind=key[0]==='ko'?'ko':key[0]==='pshot'?'pshot':key[0]==='pko'?'pko':'shot', s=kind==='pshot'||kind==='pko'?(cpItemsOf(kind)||[])[+key[1]]:kind==='ko'?(TK_VIEW&&TK_VIEW.mapKos[+key[1]]):(TT_VIEW&&TT_VIEW.mapShots[+key[1]]);
   return s?{kind, s, el}:null;
 }
 function ttInit(){
   // one set of delegated listeners per pane: Team Trends and Momentum share the floating card and the games dropdowns
-  const panes=[ssEl('pane-team-trends'), ssEl('pane-momentum')].filter(p=>p&&p.addEventListener); if(!panes.length) return;
+  const panes=[ssEl('pane-team-trends'), ssEl('pane-momentum'), ssEl('pane-players')].filter(p=>p&&p.addEventListener); if(!panes.length) return;
   const within=t=>panes.some(p=>p.contains&&p.contains(t));
   const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
   const inCard=e=>!!(e.target&&e.target.closest&&e.target.closest('#ttTip'));
   panes.forEach(pane=>{
   pane.addEventListener('click', e=>{
     if(inCard(e)){ ttTipClick(e); return; }             // the pinned card's own buttons
+    if(pane.id==='pane-players'&&pyClick(e)) return;   // the Players tab's own controls (table, chips, paging)
     const t=e.target, b=t&&t.closest?t.closest('button'):null;
     tdCloseDd(t);                                      // a click outside an open games / competitions dropdown closes it
     const forTt=x=>!!(x&&x.closest&&x.closest('[data-gs="tt"]'));   // the Attacking control row; otherwise Defending's
@@ -4780,7 +4782,7 @@ function ttInit(){
   document.addEventListener('click', e=>{ if(!within(e.target)){ if(TT_TIP) ttHideTip(); tdCloseDd(null); } });
   window.addEventListener('scroll', ()=>{ if(TT_PIN) ttPlaceTip(); else if(TT_TIP) ttHideTip(); }, {passive:true});
   let rz=null;
-  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='momentum'){ if(MM_LAST&&ttWidth('mmBody')!==MM_W) mmRender(); return; } if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
+  window.addEventListener('resize', ()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(TAB==='players'){ pyFitHits(); return; } if(TAB==='momentum'){ if(MM_LAST&&ttWidth('mmBody')!==MM_W) mmRender(); return; } if(TAB!=='team-trends') return; if(TT_SUB==='attacking'&&TT_LAST&&ttWidth()!==TT_W) ttRender(); else if(TT_SUB==='defending'&&TD_LAST&&ttWidth('tdBody')!==TD_W) tdRender(); else if(TT_SUB==='kickouts'&&TK_LAST) ttFitHits(); else if(TT_SUB==='turnover'&&TV_LAST&&ttWidth('tvBody')!==TV_W) tvRender(); }, 150); });
 }
 // ═══════════════════════════════════════════════════════════════
 //  MOMENTUM — one team's scoring through the game: the net score per
@@ -6128,7 +6130,7 @@ async function ssExportImage(){
     },'image/png');
   }catch(e){ alert('Could not build image: '+e.message); }
 }
-ovInit(); mrInit(); ttInit();
+ovInit(); mrInit(); ttInit(); pyInit();
 anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
