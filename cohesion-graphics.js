@@ -1524,11 +1524,11 @@ async function dashExportPDF(){
     });
   }
 
-  // ── substitutions (numbers as recorded in the XML) ──
+  // ── substitutions (numbers as recorded in the XML; names added from the team sheet) ──
   const subEv=ALL.filter(e=>/\bSUB\b/i.test(e.code||'')&&(e.labels||{})['Sub Detail']);
   if(subEv.length){
     secHead('Substitutions');
-    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,(e.labels||{})['Sub Detail']||'']);
+    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,(window.cohTS&&window.cohTS.subDetailFor(GAME,e))||(e.labels||{})['Sub Detail']||'']);   // names beside the numbers when the game's team sheet has them (display only)
     doc.autoTable({ startY:y, margin:{left:ML,right:MR},
       head:[['Time','Team','Substitution']], body:rows,
       styles:{fontSize:7.5,cellPadding:1.3},

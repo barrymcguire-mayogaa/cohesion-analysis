@@ -605,3 +605,48 @@
     });
   };
 })();
+
+/* ── a team's known players across its games ───────────────────────
+ * cohTS.loadKnown(team, {exceptId, read, max}) → Promise<[names]>
+ * From the app's own read gateway only (cohesionRead → the data function):
+ * listGames gives every game's meta (other games' team sheets cost nothing);
+ * the tagged names need the events, read for the team's `max` most recent
+ * games, three at a time. Cached per team in localStorage for a day.
+ * P-tags ("P11") are never names. A failure returns what was found so far.
+ */
+(function(root){
+  'use strict';
+  const T=root.cohTS, TTL=864e5, mem={};
+  const up=s=>String(s==null?'':s).toUpperCase().trim();
+  T.namesFromEvents=function(events, team){
+    const U=up(team), out=[];
+    (events||[]).forEach(e=>{ if(!e||up(e.team)!==U) return; const L=e.labels||{};
+      [e.player].concat(Object.keys(L).filter(k=>k.toUpperCase()===U+' PLAYER LABELS'||k==='Assist').map(k=>L[k])).forEach(n=>{
+        n=String(n==null?'':n).replace(/\s+/g,' ').trim(); if(n&&!/^P\s*\d+$/i.test(n)) out.push(n); }); });
+    return out;
+  };
+  T.loadKnown=function(team, o){
+    o=o||{}; const U=up(team); if(!U) return Promise.resolve([]);
+    const read=o.read||root.cohesionRead; if(typeof read!=='function') return Promise.resolve([]);
+    if(mem[U]) return mem[U];
+    const key='coh_ts_known_'+U;
+    try{ const c=JSON.parse(root.localStorage.getItem(key)||'null'); if(c&&Array.isArray(c.names)&&Date.now()-(+c.ts||0)<TTL) return (mem[U]=Promise.resolve(c.names)); }catch(_){}
+    const found=new Map(), add=n=>{ const k=T.nameKey(n); if(k&&!found.has(k)) found.set(k, String(n).replace(/\s+/g,' ').trim()); };
+    return (mem[U]=(async()=>{
+      let ok=0;
+      try{
+        const j=await read({action:'listGames'});
+        const games=((j&&j.games)||[]).map(g=>(g&&g.meta)||g).filter(g=>g&&g.id&&(up(g.homeTeam)===U||up(g.awayTeam)===U));
+        games.forEach(g=>T.sheet(g, up(g.homeTeam)===U?'home':'away').forEach(r=>add(r.name)));
+        const recent=games.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,o.max||15);
+        let next=0;
+        const worker=async()=>{ while(next<recent.length){ const g=recent[next++];
+          try{ const b=await read({action:'getEvents', gameId:g.id}); ok++; T.namesFromEvents(((b&&b.events)||[]).map(r=>r&&r.data), U).forEach(add); }catch(_){} } };
+        await Promise.all(Array.from({length:Math.min(3,recent.length)},worker));
+      }catch(_){}
+      const names=[...found.values()].sort((a,b)=>a.localeCompare(b));
+      if(ok){ try{ root.localStorage.setItem(key, JSON.stringify({ts:Date.now(), names})); }catch(_){} } else delete mem[U];
+      return names;
+    })());
+  };
+})(typeof window!=='undefined'?window:globalThis);
