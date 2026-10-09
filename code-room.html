@@ -132,6 +132,7 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
 .acdrop .actag{float:right;margin-left:10px;font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding-top:3px;}
 .acdrop div:hover .actag,.acdrop div.on .actag{color:#fff;}
+.acdrop .actag.blk{float:none;display:block;margin:0 0 3px;padding-top:0;overflow:hidden;text-overflow:ellipsis;}
 /* Assist (players:true group) type-to-search box — Edit panel, Locate, Code mode */
 .crasst{display:flex;align-items:center;gap:6px;flex:1;min-width:150px;flex-wrap:wrap;}
 .crasst input{flex:1;min-width:120px;margin:0;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:600 12px 'Barlow',sans-serif;}
@@ -2522,7 +2523,8 @@ function acPickPlayer(v){ setDraftPlayer(v); }
 function acHide(){ const d=document.getElementById('acDrop'); if(d) d.style.display='none'; acInput=null; acIdx=-1; }
 // opt (optional): tag(item) → small group label shown on the first item of
 // each group; all:true → list everything (focus/click on an unedited box);
-// max → cap (default 60).
+// max → cap (default 60); tagBlock → the group label sits on its own line
+// above the first item (long labels: "<TEAM> · team sheet").
 function acShow(input, options, onPick, opt){
   opt=opt||{};
   acInput=input; acPick=onPick;
@@ -2532,10 +2534,12 @@ function acShow(input, options, onPick, opt){
   if(!acItems.length){ acHide(); return; }
   let prevTag=null;
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
-    return `<div data-i="${i}">${show?`<span class="actag">${esc(t)}</span>`:''}${esc(o)}</div>`; }).join('');
+    return `<div data-i="${i}">${show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:''}${esc(o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
   d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px';
   d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden
+  // no room under the box (it sits low in a panel) → open the list above it
+  { const h=d.offsetHeight||0, vh=window.innerHeight||0; if(h&&vh&&r.bottom+3+h>vh&&r.top-3-h>=0) d.style.top=(r.top-3-h)+'px'; }
   acIdx=-1;
   d.querySelectorAll('div').forEach(el=>{ el.onmousedown=ev=>{ ev.preventDefault(); acChoose(+el.dataset.i); }; });
 }
@@ -3293,7 +3297,7 @@ function crAssistOpen(inp, all){
   const s=crAssistSuggest(sides, d.shooter, d.group!=='Assist');
   const cur=crAssistCur(inp);
   acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
-    { tag:n=>s.tags.get(n), all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
+    { tag:n=>s.tags.get(n), tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
 }
 function crAssistAddSync(inp){
   const a=inp.parentNode&&inp.parentNode.querySelector('.crasst-add');
