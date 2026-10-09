@@ -348,7 +348,10 @@
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
   const RE_V=/\s+(?:v|vs|versus)\.?\s+/i;
+  // the Irish names of the counties, as printed over the lists in a county programme ("GAILLIMH", "ÁTH CLIATH")
+  const IRISH={antrim:'aontroim',armagh:'ardmhacha',carlow:'ceatharlach',cavan:'anchabhan',clare:'anclar',cork:'corcaigh',derry:'doire',donegal:'dunnangall',down:'andun',dublin:'athcliath',fermanagh:'fearmanach',galway:'gaillimh',kerry:'ciarrai',kildare:'cilldara',kilkenny:'cillchainnigh',laois:'laois',leitrim:'liatroim',limerick:'luimneach',longford:'anlongfort',louth:'lu',mayo:'maigheo',meath:'anmhi',monaghan:'muineachan',offaly:'uibhfhaili',roscommon:'roscomain',sligo:'sligeach',tipperary:'tiobraidarann',tyrone:'tireoghain',waterford:'portlairge',westmeath:'aniarmhi',wexford:'lochgarman',wicklow:'cillmhantain'};
   function teamMatch(text, team){
+    const ir=IRISH[foldKey(team)]; if(ir&&ir.length>=5&&team!==ir&&teamMatch(text, ir)) return true;
     if(RE_V.test(' '+String(text).trim()+' ')&&String(text).trim().split(RE_V).filter(Boolean).length>1) return false;   // "X v Y" is a fixture title, not one team's heading
     const a=foldKey(String(text).replace(/\b(?:v|vs|versus)\b\.?/gi,' ')), b=foldKey(team);
     if(!a||b.length<3) return false;
@@ -364,8 +367,15 @@
   // where the jersey numbers start again (this number AND the next one were
   // already used); with no numbers, two columns are two lists, or the two
   // team names used as headings divide a single column.
-  function splitTeams(columns, teams){
+  function splitTeams(columns, teams, o){
     teams=(teams||[]).filter(Boolean);
+    // o.fixed: the columns already are the lists (a formation page, divided by where its numbers lie) — a repeated
+    // number there is a misread, not the start of another team
+    if(o&&o.fixed){ let B=(columns||[]).map(c=>({lines:c.lines.slice(), numbered:c.lines.filter(l=>l.no!=null).length})); let more=0;
+      if(B.length>2){ more=B.length-2; B=B.slice(0,2); }
+      B.forEach(b=>{ const L=b.lines.filter(l=>l.box); b.page=L.length?L[0].page:undefined; const P=L.filter(l=>l.page===b.page);
+        b.box=P.length?{x0:Math.min.apply(null,P.map(l=>l.box.x0)), y0:Math.min.apply(null,P.map(l=>l.box.y0)), x1:Math.max.apply(null,P.map(l=>l.box.x1)), y1:Math.max.apply(null,P.map(l=>l.box.y1))}:null; });
+      B.more=more; return B; }
     const stream=[]; (columns||[]).forEach((c,ci)=>c.lines.forEach(l=>stream.push({l, ci})));
     const isHead=l=>teams.some(t=>teamMatch(l.text,t))||isCapsHeading(l.text);
     let blocks=[], cur=null, lastNumCol=-1;
@@ -431,7 +441,7 @@
   // unsure line stays in the text for the user to see in the preview.
   // (all tested on the text with fadas removed and in lower case)
   // headings the editor's parser understands itself ("Subs", "Starting 15") are always passed on
-  const RE_SUBSF=/^(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|ionadaithe)\b/;
+  const RE_SUBSF=/^(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s*i?onai?d|ionadaithe)\b/;
   const RE_STARTF=/^(?:starting(?:\s+(?:xv|15|team|line[\s-]?up))?|starters?|team|line[\s-]?up|first\s+15|xv)\s*[:\-–]?$/;
   const RE_SUBS2=/^(?:(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|ionadaithe)[\s\/|,&\-–:.]*){2,}$/;
   const RE_KEEP={test:f=>RE_SUBSF.test(f)||RE_STARTF.test(f)};
@@ -450,6 +460,7 @@
   R.WHY=WHY;
   // "15 | Liam Ó Conghaile ." → "15 Liam Ó Conghaile"; "8 JohnMaher" → "8 John Maher"; "7 sean Kelly" → "7 Sean Kelly"
   const NOSPLIT=/^(?:Mc|Mac|Mag|De|Le|La|Fitz|Ni|Nic|Ui|Mhic|Van|Du|Di|O)$/;
+  const PARTICLE=/^(?:de|da|di|du|la|le|van|von|der|den|mac|mhic|nic|an|na|ní|ni|uí|ui|ó|o)$/;
   function tidyRead(c){
     let m=/^([#(\[]?\d{1,2}[.):\]]*\s+)?(.*)$/.exec(c.trim()), no=m[1]?m[1].replace(/[^\d]/g,'')+' ':'', nm=m[2];
     if(/[(\[]\s*#?\s*\d{1,2}\s*[)\]]\s*$/.test(nm)) return c.trim();                       // "Name (7)" / "Name [7]": the number, left exactly as it is
@@ -458,7 +469,8 @@
     if(no) nm=nm.replace(/^[Il1]\s+(?=\S+\s+\S)/,'');
     // one long word with a capital inside it is two words that touched ("JohnMaher")
     if(nm&&!/\s/.test(nm)){ const k=/^([A-ZÀ-Þ][a-zß-ÿ]{2,})([A-ZÀ-Þ][a-zß-ÿ'’]+.*)$/.exec(nm); if(k&&!NOSPLIT.test(k[1])) nm=k[1]+' '+k[2]; }
-    if(no&&/^[a-zß-ÿ]/.test(nm)&&/\s/.test(nm)) nm=nm.charAt(0).toUpperCase()+nm.slice(1);
+    // a numbered name: a word read with a small first letter gets its capital ("Paddy small"), particles and Irish prefixes aside
+    if(no&&/\s/.test(nm)) nm=nm.split(' ').map((w,i)=>(/^[a-zß-ÿ][a-zß-ÿ'’-]{3,}$/.test(w)&&!PARTICLE.test(w)||i===0&&/^[a-zß-ÿ]{2,}/.test(w)&&!PARTICLE.test(w))?w.charAt(0).toUpperCase()+w.slice(1):w).join(' ');
     return (no+nm).trim();
   }
   R._tidyRead=tidyRead;
@@ -488,7 +500,7 @@
       let t=cells.join('\t');
       if(!/[A-Za-zÀ-ɏ0-9]/.test(t)){ if(raw.trim()) drop(raw,'marks'); return; }
       // a two-language heading ("Fir Ionaid / Subs") is passed on as the one word the parser knows
-      if(RE_SUBS2.test(fold(t).trim())){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
+      if(RE_SUBS2.test(fold(t).trim())||/^fir\s*i?onai?d\s*:?$/.test(fold(t).trim())){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
       const f=fold(t).trim(), numbered=lineNo(t)!=null||cells.length>1;
       if(!numbered&&!isNumTok(t)&&!RE_KEEP.test(f)){
         if(RE_OFFICIAL.test(f)||RE_OFFICIAL_IN.test(f)) return drop(raw,'official');
@@ -557,6 +569,10 @@
   const players=lay=>(lay.columns||[]).reduce((t,c)=>{ const L=c.lines.map(l=>Object.assign({},l)); if(lay.free){ nameBlocks(L); formationNumbers(L); }
     return t+new Set(L.map(l=>l.no).filter(n=>n!=null&&n>=1&&n<=40)).size; },0);
   R._players=players;
+  // rows of a free layout that hold two or more numbered players of the same team
+  const sideBySide=lay=>(lay.columns||[]).reduce((t,c)=>{ const L=c.lines.filter(l=>l.no!=null&&l.no<=40&&l.box); let rows=0; const seen=new Set();
+    L.forEach(a=>{ if(seen.has(a)) return; const row=L.filter(b=>Math.abs((b.box.y0+b.box.y1)-(a.box.y0+a.box.y1))/2<0.6*Math.max(a.box.y1-a.box.y0,b.box.y1-b.box.y0)); row.forEach(b=>seen.add(b)); if(row.length>=2) rows++; });
+    return t+rows; },0);
   // compose([{n, words, glue, skew}], {homeTeam, awayTeam}) → {lists:[{lines, box, page}], assign, spanning, extra, more}
   function compose(pages, o){
     o=o||{};
@@ -565,14 +581,15 @@
       let lay=p.layout||layout(p.words, {glue:p.glue, skew:p.skew});
       // a formation page (players in rows of 1 / 3 / 3 / 2 / 3 / 3) has no columns to find: when reading it without
       // columns gives clearly more numbered players, that reading is used
-      if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=a+2&&b>=8) lay=fr; }
+      // … or when it shows numbered players side by side on a row within one team (a formation) and finds as many
+      if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=8&&(b>=a+2||(b>=a-1&&sideBySide(fr)>=3))) lay=fr; }
       p.model=lay.free?'free':'columns';
       const tag=l=>{ l.page=p.n; return l; };
       lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag)}));
       lay.spanning.forEach(l=>spanning.push(tag(l)));
       (lay.extra||[]).forEach(c=>c.lines.forEach(l=>extra.push(tag(l))));
     });
-    const lists=splitTeams(columns, [o.homeTeam, o.awayTeam]);
+    const lists=splitTeams(columns, [o.homeTeam, o.awayTeam], {fixed:(pages||[]).length===1&&pages[0].model==='free'});
     return {lists:lists.slice(), more:lists.more||0, assign:assignTeams(lists, spanning, o.homeTeam, o.awayTeam), spanning, extra};
   }
   R.compose=compose;
@@ -729,8 +746,12 @@
   // numbers attached to the names. If that finds few numbered lines (a busy page: adverts, pictures), 3
   // ("automatic") is tried as well and whichever found more numbered lines is used.
   R.PSM=['6','3'];
+  // The readings of one picture: page layout 6 with the engine's plain threshold, then with its local (Sauvola)
+  // threshold, which copes with glare and shadow. Measured on the real programme photo and the test documents.
+  R.PASSES=[{tessedit_pageseg_mode:'6', thresholding_method:'0'}, {tessedit_pageseg_mode:'6', thresholding_method:'2'}];
+  R.FALLBACK={tessedit_pageseg_mode:'3', thresholding_method:'0'};
   let SCAN=1.5; R._scan=v=>{ SCAN=v; };
-  const numbered=words=>{ let n=0; R.layout(words).columns.forEach(c=>c.lines.forEach(l=>{ if(l.no!=null) n++; })); return n; };
+  const numbered=words=>Math.max(R._players(R.layout(words)), R._players(R.freeLayout(words)));
 
   function err(code, msg){ const e=new Error(msg); e.code=code; e.reader=true; return e; }   // .reader: one of ours, with a message fit to show
   const MSG=R.MSG={
@@ -808,6 +829,38 @@
     return work;
   }
   R._prepare=prepare;
+  // Light text on a dark banner ("7 Seán Kelly" in white on maroon) is what the text reader does worst. Every shape
+  // that is clearly darker than its wide surroundings and big enough to be a banner or a number box is inverted,
+  // together with the small shapes inside it (its letters, and the hollows of those letters), so that all the text
+  // of the picture ends up dark on light. A shadow or a dark page is not "darker than its surroundings" and is left
+  // alone, as are letters, rules and anything thin. Works on (and returns) a grey canvas; a plain page is unchanged.
+  function flipDark(work, o){
+    o=o||{};
+    const w=work.width, h=work.height, g=work.getContext('2d'), im=g.getImageData(0,0,w,h), d=im.data, n=w*h, L=Math.max(w,h), W1=w+1;
+    const r=Math.max(8, Math.round(L*(o.win||1/12))), k=o.k||0.75, I=new Float64Array(W1*(h+1)), bin=new Uint8Array(n);
+    for(let y=0;y<h;y++){ let s=0; const row=(y+1)*W1, up=y*W1; for(let x=0;x<w;x++){ s+=d[4*(y*w+x)]; I[row+x+1]=I[up+x+1]+s; } }
+    let dark=0;
+    for(let y=0;y<h;y++){ const y0=Math.max(0,y-r), y1=Math.min(h,y+r+1); for(let x=0;x<w;x++){ const x0=Math.max(0,x-r), x1=Math.min(w,x+r+1);
+      const m=(I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0])/((y1-y0)*(x1-x0)); if(d[4*(y*w+x)]<k*m){ bin[y*w+x]=1; dark++; } } }
+    // connected shapes of one kind (dark or light), numbered in reading order of their first pixel
+    const lab=new Int32Array(n), par=[0], find=x=>{ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; };
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x, b=bin[i], A=x&&bin[i-1]===b?lab[i-1]:0, U=y&&bin[i-w]===b?lab[i-w]:0;
+      if(A&&U){ const a=find(A), q=find(U); if(a!==q) par[Math.max(a,q)]=Math.min(a,q); lab[i]=Math.min(a,q); } else if(A||U) lab[i]=A||U; else { par.push(par.length); lab[i]=par.length-1; } }
+    const N=par.length, area=new Uint32Array(N), x0=new Int32Array(N).fill(1e9), x1=new Int32Array(N).fill(-1), y0=new Int32Array(N).fill(1e9), y1=new Int32Array(N).fill(-1), nb=new Int32Array(N).fill(-1), pol=new Uint8Array(N);
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x, c=find(lab[i]); lab[i]=c; if(!area[c]){ pol[c]=bin[i]; nb[c]=x?lab[i-1]:(y?lab[i-w]:-1); } area[c]++; if(x<x0[c]) x0[c]=x; if(x>x1[c]) x1[c]=x; if(y<y0[c]) y0[c]=y; if(y>y1[c]) y1[c]=y; }
+    const big=L/60, small=L/25, flip=new Uint8Array(N); let any=0;
+    for(let c=1;c<N;c++){ if(area[c]&&pol[c]===1&&area[c]>=big*big&&(x1[c]-x0[c])>=1.2*big&&(y1[c]-y0[c])>=1.2*big){ flip[c]=1; any++; } }
+    if(!any) return {canvas:work, flipped:0};
+    for(let c=1;c<N;c++){ if(area[c]&&!flip[c]&&nb[c]>0&&flip[nb[c]]&&(x1[c]-x0[c])<small*3&&(y1[c]-y0[c])<small) flip[c]=2; }
+    const out=new Uint8ClampedArray(n); let fl=0; for(let i=0;i<n;i++){ const p=d[4*i]; if(flip[lab[i]]){ out[i]=255-p; fl++; } else out[i]=p; }
+    // where an inverted shape meets one left alone both sides are now light: the thin edge line between them is wiped
+    for(let y=2;y<h-2;y++) for(let x=2;x<w-2;x++){ const i=y*w+x, f=flip[lab[i]]?1:0;
+      if(((flip[lab[i-2]]?1:0)!==f)||((flip[lab[i+2]]?1:0)!==f)||((flip[lab[i-2*w]]?1:0)!==f)||((flip[lab[i+2*w]]?1:0)!==f)){ if(out[i]<225) out[i]=225; } }
+    for(let i=0;i<n;i++){ const q=4*i; d[q]=d[q+1]=d[q+2]=out[i]; }
+    g.putImageData(im,0,0);
+    return {canvas:work, flipped:fl/n};
+  }
+  R._flipDark=flipDark;
   // The box of a region cut from the ORIGINAL pixels, levelled, and enlarged so its text is big enough to read
   // (a crop of one page of a programme is a small part of the photo; reading it at 2000 px makes its letters larger).
   function cropCanvas(src, W, H, region, long, maxUp){
@@ -849,20 +902,18 @@
     }catch(e){ close(); if(e&&e.reader) throw e; throw err('cdn', MSG.cdn()); }
     st.phase='ready'; st.last=Date.now();
     return { langs, _worker:worker,
+      // The picture is read more than once and the readings merged word by word (R.mergeWords): R.PASSES, in order.
+      // If few numbered lines come out (a busy page: adverts, pictures), the automatic page layout is tried as well
+      // and used if it finds more.
       async read(canvas, page, of){
-        const modes=[].concat(R.PSM); let best=null, bn=-1;
-        for(let i=0;i<modes.length;i++){
-          W.page=page; W.of=of; W.base=i/modes.length; W.span=1/modes.length; st.phase='read'; st.last=Date.now(); prog({stage:'read', pct:W.base, page, of});
-          await job.race(Promise.race([failed, worker.setParameters({tessedit_pageseg_mode:modes[i]})]));
-          const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
-          const d=r&&r.data||{}; let ws=d.words;
-          if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
-          ws=ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
-          const n=numbered(ws); if(n>bn){ bn=n; best=ws; this.mode=modes[i]; }
-          if(bn>=10) break;                              // a team list was found; no second pass needed
-        }
+        const fd=R.FLIP===false?{canvas, flipped:0}:flipDark(canvas); this.flipped=fd.flipped;
+        const plan=[].concat(R.PASSES), got=[]; let words=[];
+        const run=async(i, total, params)=>{ W.page=page; W.of=of; W.base=i/total; W.span=1/total; prog({stage:'read', pct:W.base, page, of}); return this.pass(fd.canvas, params); };
+        for(let i=0;i<plan.length;i++){ got.push(await run(i, plan.length+0.5, plan[i])); }
+        words=got.length>1?R.mergeWords(got):(got[0]||[]); this.mode=plan.map(p=>p.tessedit_pageseg_mode).join('+');
+        if(numbered(words)<10&&R.FALLBACK){ const ws=await run(plan.length, plan.length+1, R.FALLBACK); if(numbered(ws)>numbered(words)){ words=ws; this.mode=R.FALLBACK.tessedit_pageseg_mode; } }
         st.phase='ready';
-        return best||[];
+        return words;
       },
       // one pass with given Tesseract parameters → positioned words
       async pass(canvas, params){
@@ -941,7 +992,24 @@
       if(!file||typeof file.slice!=='function') throw err('type', MSG.type('That'));
       const kind=await sniff(file);
       if(!kind) throw err('type', MSG.type(file.name||'That file'));
-      const pages=[], engines=[];
+      const pages=[], engines=[]; let usedRegions=null;
+      // The crop boxes: given (o.regions), or asked for (o.adjust) once the picture is open; null = read the whole picture.
+      //   region = {side:'home'|'away'|'', turn, cx, cy, w, h, angle} on the picture after `turn` quarter turns (R.geom)
+      const askRegions=async(image, info)=>{
+        const W=info.width||image.width, H=info.height||image.height;
+        let regs=Array.isArray(o.regions)&&o.regions.length?o.regions:null;
+        if(!regs&&typeof o.adjust==='function'){ regs=await job.race(Promise.resolve(o.adjust(Object.assign({image, width:W, height:H, name:String(file.name||'')}, info)))); if(!regs||!regs.length) throw err('cancel', MSG.cancel()); }
+        if(!regs) return null;
+        return regs.map(g=>{ const t=R.geom.turned(W,H,g.turn||0); return Object.assign({side:g.side||''}, R.geom.fit({turn:((g.turn||0)%4+4)%4, cx:+g.cx, cy:+g.cy, w:+g.w, h:+g.h, angle:Math.max(-45,Math.min(45,+g.angle||0))}, t.w, t.h)); });
+      };
+      // each box cut from the original pixels, levelled, enlarged, read by itself → one "page" per box
+      const readRegions=async(src, W, H, regs)=>{
+        const eng=await getOcr();
+        for(let i=0;i<regs.length;i++){ const view=cropCanvas(src, W, H, regs[i]), work=greyStretch(view); await tick();
+          const words=await eng.read(work, i+1, regs.length);
+          pages.push({n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped}); }
+        usedRegions=regs;
+      };
       if(kind==='pdf'){
         const {lib, doc}=await pdfOpen(file, job, prog);
         const N=Math.min(doc.numPages, LIMIT.pages), info=[];
@@ -968,14 +1036,22 @@
           if(p.hasText){
             prog({stage:'layout', pct:k/pick.length, page:n});
             const r=await job.race(renderPage(p.page, LIMIT.viewLong));
-            pages.push({n, method:'text', words:p.words, layout:p.layout, image:r.canvas, scale:r.scale});
             if(engines.indexOf('pdf')<0) engines.push('pdf');
+            // exact text needs no cropping; "Crop / choose area" (o.cropText) lets the user box the list(s) on the page
+            const regs=pick.length===1&&o.cropText?await askRegions(r.canvas, {page:n, text:true}):null;
+            if(regs){ regs.forEach((g,i)=>{ const q=R.geom.fit(Object.assign({},g,{angle:0, turn:0}), r.canvas.width, r.canvas.height), bx={x0:(q.cx-q.w/2)/r.scale, y0:(q.cy-q.h/2)/r.scale, x1:(q.cx+q.w/2)/r.scale, y1:(q.cy+q.h/2)/r.scale};
+                const ws=p.words.filter(w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return xc>=bx.x0&&xc<=bx.x1&&yc>=bx.y0&&yc<=bx.y1; }).map(w=>Object.assign({},w,{x0:w.x0-bx.x0, x1:w.x1-bx.x0, y0:w.y0-bx.y0, y1:w.y1-bx.y0}));
+                const img=cropCanvas(r.canvas, r.canvas.width, r.canvas.height, q, LIMIT.viewLong, 2);
+                pages.push({n:i+1, pdfPage:n, method:'text', words:ws, glue:true, skew:false, image:img, scale:img.width/(bx.x1-bx.x0), side:g.side}); }); usedRegions=regs; }
+            else pages.push({n, method:'text', words:p.words, layout:p.layout, image:r.canvas, scale:r.scale});
           } else {
             // a scanned page is drawn larger than it is read, then reduced like a photo (sharper than drawing it at size)
-            const r=await job.race(renderPage(p.page, LIMIT.long*SCAN)), pr=prepare(r.canvas, r.canvas.width, r.canvas.height), eng=await getOcr();
-            const words=await eng.read(pr.work, k, pick.length);
-            pages.push({n, method:'ocr', words, image:pr.view, scale:1});
+            const r=await job.race(renderPage(p.page, LIMIT.long*SCAN));
             if(engines.indexOf('ocr')<0) engines.push('ocr');
+            const regs=pick.length===1?await askRegions(r.canvas, {page:n}):null;
+            if(regs){ await readRegions(r.canvas, r.canvas.width, r.canvas.height, regs); pages.forEach(x=>{ x.pdfPage=n; }); }
+            else { const pr=prepare(r.canvas, r.canvas.width, r.canvas.height), eng=await getOcr(), words=await eng.read(pr.work, k, pick.length);
+              pages.push({n, method:'ocr', words, image:pr.view, scale:1}); }
           }
         }
       } else {
@@ -983,23 +1059,36 @@
         prog({stage:'load', pct:0, engine:'ocr'});
         const src=await job.race(decode(file, kind)), sw=src.width||src.naturalWidth, sh=src.height||src.naturalHeight;
         if(!sw||!sh) throw err('image', MSG.image());
-        const pr=prepare(src, sw, sh); if(src.close) src.close();
-        await tick();
-        const eng=await getOcr(), words=await eng.read(pr.work, 1, 1);
-        pages.push({n:1, method:'ocr', words, image:pr.view, scale:1}); engines.push('ocr');
+        engines.push('ocr');
+        const regs=await askRegions(src, {page:1, width:sw, height:sh});
+        if(regs) await readRegions(src, sw, sh, regs);
+        else { const pr=prepare(src, sw, sh); await tick(); const eng=await getOcr(), words=await eng.read(pr.work, 1, 1); pages.push({n:1, method:'ocr', words, image:pr.view, scale:1}); }
+        if(src.close) src.close();
       }
       prog({stage:'layout', pct:1});
       R._last=pages;                                 // for the tests: the positioned words of the last read
       const ctx={homeTeam:o.homeTeam, awayTeam:o.awayTeam, known:o.known||{}};
-      const comp=R.compose(pages, ctx), side=o.side==='home'||o.side==='away'?o.side:'both';
-      const res=R.deal(comp, side, ctx);
-      if(!comp.lists.length||!['home','away'].some(s=>res[s]&&res[s].lines.length)) throw err('empty', MSG.empty());
+      const side=o.side==='home'||o.side==='away'?o.side:'both';
+      let comp, res;
+      const boxed=usedRegions&&pages.length===2&&side==='both'&&pages.every(p=>p.side==='home'||p.side==='away')&&pages[0].side!==pages[1].side;
+      if(boxed){
+        // one box per team: each box is that team's list (the one that matches its heading, else the first, if a box holds two)
+        const comps=pages.map(p=>R.compose([p], ctx)); comp={lists:[], more:0, extra:[]};
+        const dealBoxes=sides=>{ const r={home:null, away:null}; pages.forEach((p,i)=>{ const d=R.deal(comps[i], sides[i], ctx); r[sides[i]]=d[sides[i]]; }); return r; };
+        const sides=pages.map(p=>p.side); res=dealBoxes(sides); res.assign={first:sides[0], why:'boxes'}; res.lists=2; res.boxed=true;
+        if(!['home','away'].some(s=>res[s]&&res[s].lines.length)) throw err('empty', MSG.empty());
+        res.redeal=first=>{ const sd=first===sides[0]?sides:[sides[1],sides[0]], r=dealBoxes(sd); res.home=r.home; res.away=r.away; res.assign={first, why:first===sides[0]?'boxes':'chosen'}; return res; };
+      } else {
+        comp=R.compose(pages, ctx); res=R.deal(comp, side, ctx);
+        if(!comp.lists.length||!['home','away'].some(s=>res[s]&&res[s].lines.length)) throw err('empty', MSG.empty());
+        res.redeal=first=>{ const r=R.deal(comp, side, Object.assign({first}, ctx)); res.home=r.home; res.away=r.away; res.assign=r.assign; return res; };
+      }
       const methods=[...new Set(pages.map(p=>p.method))];
-      res.pages=pages.map(p=>({n:p.n, method:p.method, image:p.image, scale:p.scale}));
+      res.pages=pages.map(p=>({n:p.n, method:p.method, image:p.image, scale:p.scale, side:p.side, model:p.model, pdfPage:p.pdfPage}));
+      res.regions=usedRegions; res.pdfPages=kind==='pdf'?[...new Set(pages.map(p=>p.pdfPage||p.n))]:null;
       res.more=comp.more; res.extra=comp.extra.length;
       res.source={name:String(file.name||''), kind:kind==='pdf'?'pdf':'image', method:methods.length>1?'mixed':methods[0],
         engine:engines.map(e=>LIB[e].name+' '+LIB[e].ver).join(' + '), langs:ocr?ocr.langs:[]};
-      res.redeal=first=>{ const r=R.deal(comp, side, Object.assign({first}, ctx)); res.home=r.home; res.away=r.away; res.assign=r.assign; return res; };
       return res;
     } catch(e){
       if(e&&e.reader) throw e;
