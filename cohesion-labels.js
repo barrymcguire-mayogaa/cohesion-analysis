@@ -136,6 +136,13 @@ function cohPlayerRowOf(e, index){
 function cohNameKey(s){ return String(s==null?'':s).replace(/[‘’‛ʼ`´]/g,"'").toLowerCase().replace(/\s+/g,''); }
 
 // ── Sportscode XML import ─────────────────────────────────────
+// COHESION exports "<Team> Kickout Won By / Kickout Taken By / Kickout Target"
+// (cohesion-xml.js): the import reads them back as the plain group.
+const COH_SC_TEAM_GROUPS=['Assist','Kickout Won By','Kickout Taken By','Kickout Target'];
+function cohScPlainGroup(g){
+  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(String(g||'').trim());
+  return m?COH_SC_TEAM_GROUPS.find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
+}
 const COH_SC_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
 const COH_SC_SKIP=new Set(COH_SC_PERIODS.concat(['Count']));          // never stored as events
 const COH_SC_NEUTRAL=new Set(['THROW-IN','Count']);                    // never a player row
@@ -231,7 +238,7 @@ function cohScImport(insts, opts){
     if(COH_SC_SKIP.has(code)) return;
     const start=inst.start||0, end=inst.end||0;
     const labels={}, lists={};
-    (inst.labels||[]).forEach(l=>{ const g=l[0]||'NO_GROUP', t=l[1]||''; if(!t) return; labels[g]=t; (lists[g]=lists[g]||[]).push(t); });
+    (inst.labels||[]).forEach(l=>{ const g=cohScPlainGroup(l[0])||'NO_GROUP', t=l[1]||''; if(!t) return; labels[g]=t; (lists[g]=lists[g]||[]).push(t); });
     let half='1st Half';
     if(refs['ET 2nd Half']!==null && start>=refs['ET 2nd Half']) half='ET 2nd Half';
     else if(refs['ET 1st Half']!==null && start>=refs['ET 1st Half']) half='ET 1st Half';

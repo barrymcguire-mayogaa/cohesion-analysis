@@ -34,8 +34,32 @@ function cohXmlTeamImplied(e){
   if(!e.teamDerived||(e.labels&&e.labels['Team Name'])) return false;
   return !!e.playerRow || String(e.code||'').includes(String(e.team||'').toUpperCase());
 }
+// Player-valued label groups are exported team-specific, like "<TEAM> Player
+// Labels", so two players of the same name on opposite teams stay apart in
+// Sportscode: "<TEAM> Assist", "<TEAM> Kickout Taken By" and "<TEAM> Kickout Target" carry the row's
+// team; "<TEAM> Kickout Won By" carries the team that WON the kickout (the
+// row's team on a WON outcome, the opposition on a LOST one; with no outcome
+// the group stays bare). cohXmlPlainGroup turns them back on import.
+const COH_XML_TEAM_GROUPS=['Assist','Kickout Won By','Kickout Taken By','Kickout Target'];
+function cohXmlPlainGroup(g){
+  const m=/^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(String(g||'').trim());
+  return m?COH_XML_TEAM_GROUPS.find(n=>n.toLowerCase()===m[2].toLowerCase()):g;
+}
+function cohXmlTeamGroup(g, e, teams){
+  const base=COH_XML_TEAM_GROUPS.find(n=>n.toLowerCase()===String(g||'').trim().toLowerCase());
+  const own=String(e&&e.team||'').trim();
+  if(!base||!own) return g;
+  if(base!=='Kickout Won By') return own+' '+base;
+  const L=e.labels||{}, ok=Object.keys(L).find(k=>/^kickout\s*outcomes?$/i.test(k));
+  const out=String((ok&&L[ok])||e.outcome||'').toUpperCase();
+  if(/WON/.test(out)) return own+' '+base;
+  if(!/LOST/.test(out)) return g;
+  const opp=(teams||[]).find(t=>t.toUpperCase()!==own.toUpperCase());
+  return opp?opp+' '+base:g;
+}
 function cohXmlBuild(events, opts){
   const _xesc=cohXmlEsc;
+  const _teams=[]; (events||[]).forEach(e=>{ const t=String(e&&e.team||'').trim(); if(t&&!_teams.some(x=>x.toUpperCase()===t.toUpperCase())) _teams.push(t); });
   const base=(opts&&opts.base)||'video';
   const tOf=e=> base==='raw' ? (e.start!=null?e.start:(e.driveT||0)) : (e.driveT!=null?e.driveT:(e.start||0));
   const endOf=(e,s)=>{ if(base==='raw'&&e.end!=null) return e.end; const dur=(e.end!=null&&e.start!=null)?Math.max(1,e.end-e.start):4; return s+dur; };
@@ -54,7 +78,7 @@ function cohXmlBuild(events, opts){
     const labels={...(e.labels||{})};
     if(e.team && !labels['Team Name'] && !cohXmlTeamImplied(e)) labels['Team Name']=e.team;
     if(e.player && !e.playerRow){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[`${(e.team||'').trim()||'Unassigned'} Player Labels`]=e.player; }
-    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; cohXmlValues(e,g,v).forEach(x=>lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')); });
+    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; const xg=cohXmlTeamGroup(g,e,_teams); cohXmlValues(e,g,v).forEach(x=>lines.push('    <label>','      <group>'+_xesc(xg)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')); });
     lines.push('  </instance>');
   });
   lines.push('</ALL_INSTANCES>','</file>');
@@ -106,4 +130,4 @@ function cohZipStore(files, date){
   dv.setUint32(p+12,p-cd,true); dv.setUint32(p+16,cd,true); dv.setUint16(p+20,0,true);
   return out;
 }
-if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlValues, cohXmlTeamImplied, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
+if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlValues, cohXmlTeamImplied, cohXmlPlainGroup, cohXmlTeamGroup, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
