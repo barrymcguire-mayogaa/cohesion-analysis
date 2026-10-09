@@ -264,7 +264,7 @@ async function pickTeam(name){
   showErr('listErr',''); showErr('bulkErr',''); renderBulk();
   try{ if(team) localStorage.setItem('coh_photos_admin_team', team); }catch(_){}
   if(!team){ $('teamMsg').textContent=''; renderPlayers(); return; }
-  $('teamMsg').textContent = 'Loading players…'; renderPlayers();
+  $('teamMsg').textContent = 'Loading players…'; renderPlayers(true);
   const [names] = await Promise.all([
     Promise.resolve().then(()=>cohTS.loadKnown(team)).catch(()=>[]),
     loadPhotos() ]);
@@ -279,12 +279,12 @@ function addPlayer(){
   $('addName').value = ''; renderPlayers(); rematchBulk();
 }
 
-function renderPlayers(){
+function renderPlayers(loading){
   const box = $('players'), rows = team ? playerRows() : [];
   $('addRow').style.display = team ? 'flex' : 'none';
   if(!team){ box.innerHTML = ''; return; }
   const withPhoto = rows.filter(r=>r.photo).length;
-  if($('teamMsg').textContent !== 'Loading players…' || rows.length)
+  if(!loading)
     $('teamMsg').textContent = rows.length ? (rows.length+' player'+(rows.length===1?'':'s')+' · '+withPhoto+' with a photo') : 'No players found for this team yet';
   box.innerHTML = rows.map((r,i)=>{
     return '<div class="tile'+(r.photo?' has':'')+(r.listed?'':' orphan')+'" data-key="'+esc(r.key)+'">'
@@ -297,4 +297,121 @@ function renderPlayers(){
       + (r.photo && !r.listed ? '<button class="sec-btn" '+(busy?'disabled':'')+' onclick="renamePhoto('+i+')" title="Move this photo to the right player">Rename</button>' : '')
       + '</div></div>';
   }).join('');
+}
+
+// ── Image: centred square crop -> 256×256 JPEG (all on this device) ───────
+function loadImage(file){
+  return new Promise((resolve, reject)=>{
+    if(!file || !OK_TYPES.includes(file.type)){ reject(new Error('not a PNG / JPEG / WebP image')); return; }
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = ()=>{ if(!im.naturalWidth || !im.naturalHeight){ URL.revokeObjectURL(url); reject(new Error('empty image')); return; } im._url = url; resolve(im); };
+    im.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('not a readable image')); };
+    im.src = url;
+  });
+}
+function freeImage(im){ try{ if(im && im._url) URL.revokeObjectURL(im._url); }catch(_){} }
+// crop state: z = zoom (1 = the largest centred square), cx / cy = its centre in image pixels
+function cropStart(w, h){ return { z:1, cx:w/2, cy:h/2 }; }
+function cropBox(w, h, st){            // -> {x, y, side} inside the image, clamped
+  const z = Math.min(4, Math.max(1, +st.z || 1)), side = Math.min(w, h) / z;
+  const cx = Math.min(w - side/2, Math.max(side/2, st.cx)), cy = Math.min(h - side/2, Math.max(side/2, st.cy));
+  st.z = z; st.cx = cx; st.cy = cy;
+  return { x: cx - side/2, y: cy - side/2, side };
+}
+function drawCrop(canvas, im, st){
+  const b = cropBox(im.naturalWidth, im.naturalHeight, st), ctx = canvas.getContext('2d');
+  canvas.width = SIDE; canvas.height = SIDE;
+  ctx.fillStyle = '#10111a'; ctx.fillRect(0, 0, SIDE, SIDE);      // JPEG has no transparency
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(im, b.x, b.y, b.side, b.side, 0, 0, SIDE, SIDE);
+}
+const dataUrlBytes = u => Math.round((u.length - u.indexOf(',') - 1) * 3 / 4);
+function exportJpeg(im, st){
+  const cv = document.createElement('canvas'); drawCrop(cv, im, st);
+  let q = QUALITY, u = cv.toDataURL('image/jpeg', q);
+  while(dataUrlBytes(u) > MAX_BYTES && q > 0.4){ q -= 0.15; u = cv.toDataURL('image/jpeg', q); }
+  if(!/^data:image\/jpeg/.test(u)) throw new Error('this browser could not make a JPEG');
+  return u;
+}
+
+// Crop dialog: drag to move, slider / wheel to zoom. -> crop state, or null (cancelled).
+function cropDialog(im, title, st){
+  return new Promise(resolve=>{
+    st = Object.assign(cropStart(im.naturalWidth, im.naturalHeight), st||{});
+    const ov = document.createElement('div'); ov.className = 'crop-ov';
+    ov.innerHTML = '<div class="crop-card" role="dialog" aria-label="Crop photo"><div class="crop-h">'+esc(title||'Crop photo')+'</div>'
+      + '<div class="crop-sub">Drag the picture to place the face in the circle. The photo is saved as a 256×256 square and shown round.</div>'
+      + '<div class="crop-stage"><canvas width="'+SIDE+'" height="'+SIDE+'"></canvas></div>'
+      + '<div class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="'+st.z+'" aria-label="Zoom"></div>'
+      + '<div class="btn-row" style="justify-content:flex-end;"><button class="sec-btn" data-a="cancel">Cancel</button><button class="process-btn" data-a="ok" style="padding:9px 18px;font-size:13px;">Use photo</button></div></div>';
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'), stage = ov.querySelector('.crop-stage'), zoom = ov.querySelector('input');
+    const draw = ()=>drawCrop(cv, im, st);
+    const done = v=>{ if(ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
+    let drag = null;
+    stage.addEventListener('pointerdown', e=>{ drag = { x:e.clientX, y:e.clientY, cx:st.cx, cy:st.cy }; try{ stage.setPointerCapture(e.pointerId); }catch(_){} });
+    stage.addEventListener('pointermove', e=>{ if(!drag) return;
+      const k = cropBox(im.naturalWidth, im.naturalHeight, st).side / SIDE;
+      st.cx = drag.cx - (e.clientX - drag.x) * k; st.cy = drag.cy - (e.clientY - drag.y) * k; draw(); });
+    ['pointerup','pointercancel'].forEach(t=>stage.addEventListener(t, ()=>{ drag = null; }));
+    stage.addEventListener('wheel', e=>{ e.preventDefault(); st.z = st.z * (e.deltaY < 0 ? 1.08 : 1/1.08); draw(); zoom.value = st.z; }, { passive:false });
+    zoom.addEventListener('input', ()=>{ st.z = +zoom.value; draw(); });
+    ov.addEventListener('click', e=>{ const b = e.target.closest('[data-a]'); if(b) done(b.dataset.a === 'ok' ? st : null); });
+    draw();
+  });
+}
+
+// ── One player: upload / replace / remove / rename ────────────────────────
+function sendPhoto(player, dataUrl){
+  return cohesionAuthFetch('playerPhotos', { action:'upload', team, player, contentType:'image/jpeg',
+    dataBase64: dataUrl.slice(dataUrl.indexOf(',')+1) });
+}
+async function afterChange(){ await loadPhotos(); renderPlayers(); rematchBulk(); }
+function fail(where, what, e){
+  if(isSetupErr(e)) showErr('setupErr', SETUP);
+  showErr(where, what+' failed: '+((e&&e.message)||e));
+}
+
+let pickTarget = null;
+function choosePhoto(i){ if(busy) return; pickTarget = playerRows()[i] || null; if(pickTarget){ $('pickOne').value = ''; $('pickOne').click(); } }
+async function onPickOne(file){
+  const r = pickTarget; pickTarget = null;
+  if(!file || !r) return;
+  showErr('listErr','');
+  let im = null;
+  try{
+    im = await loadImage(file);
+    const st = await cropDialog(im, (r.photo?'Replace photo — ':'Photo — ')+r.name);
+    if(!st) return;
+    const dataUrl = exportJpeg(im, st);
+    busy = true; renderPlayers();
+    await sendPhoto(r.name, dataUrl);
+  }catch(e){ fail('listErr', 'Upload', e); }
+  finally{ freeImage(im); busy = false; }
+  await afterChange();
+}
+async function removePhoto(i){
+  const r = playerRows()[i]; if(busy || !r || !r.photo) return;
+  const go = await cohesionModal({ title:'Remove photo', message:'Remove the photo of <strong>'+esc(r.name)+'</strong>? His initials are shown again everywhere.',
+    buttons:[{label:'Cancel',value:false},{label:'Remove',value:true,danger:true}] });
+  if(!go) return;
+  showErr('listErr','');
+  try{ await cohesionAuthFetch('playerPhotos', { action:'delete', team, player:r.name }); }
+  catch(e){ fail('listErr', 'Remove', e); }
+  await afterChange();
+}
+// A photo saved under a name that is not (or no longer) one of the team's players: move it to the right one.
+async function renamePhoto(i){
+  const r = playerRows()[i]; if(busy || !r || !r.photo) return;
+  const free = playerRows().filter(x=>x.listed && !x.photo);
+  if(!free.length){ showErr('listErr','Every listed player already has a photo — remove one first, or add the player below.'); return; }
+  const p = cohesionModal({ title:'Rename photo', message:'Move the photo saved as <strong>'+esc(r.name)+'</strong> to:<br><select id="rnSel" style="margin-top:10px;width:100%;">'
+      + free.map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')+'</select>',
+    buttons:[{label:'Cancel',value:false},{label:'Move photo',value:true,primary:true}] });
+  const sel = document.getElementById('rnSel');
+  if(!(await p) || !sel || !sel.value) return;
+  showErr('listErr','');
+  try{ await cohesionAuthFetch('playerPhotos', { action:'rename', team, player:r.name, newPlayer:sel.value }); }
+  catch(e){ fail('listErr', 'Rename', e); }
+  await afterChange();
 }
