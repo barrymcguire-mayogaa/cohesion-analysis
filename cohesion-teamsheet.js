@@ -233,10 +233,13 @@
     return out!==String(raw)?out:'';
   }
 
-  // The automatic reader is not built: it needs a decision that is still open
-  // (an API key held server-side). Nothing is uploaded or called from here.
-  function fromFile(/* file */){
-    return Promise.reject(new Error('Reading a team sheet from a photo or PDF is coming soon.'));
+  // The one public hook for reading a team sheet from a photo or PDF:
+  // cohTeamSheetFromFile(file, opts) → Promise<{home:{text,lines,confidence}, away:{…}, pages, source, …}>.
+  // It is done in the browser by cohesion-teamsheet-reader.js (loaded on first use; the file is not uploaded).
+  // A different reader could replace this one function. It never writes to a sheet.
+  function fromFile(file, opts){
+    if(!root.cohTS||typeof root.cohTS._reader!=='function') return Promise.reject(new Error('Reading a team sheet from a photo or PDF needs a browser.'));
+    return root.cohTS._reader().then(R=>R.read(file, opts));
   }
 
   const API={ tidyName, nameKey, matchKnown, splitNumberName, normEntry, toStored, sideOf, sheet, hasSheet, sortRows, groups,
@@ -306,7 +309,11 @@
 .cohts-btn.pri:hover:not(:disabled){color:#fff;filter:brightness(1.1);}
 .cohts-btn:disabled{opacity:.45;cursor:not-allowed;}
 .cohts-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;}
-.cohts-soon{font-size:10.5px;color:var(--t3,#777);font-style:italic;}
+.cohts-soon{font-size:10.5px;color:var(--t3,#777);font-style:italic;flex:1;min-width:150px;line-height:1.4;}
+.cohts-file{position:relative;display:inline-block;}
+.cohts-file input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;border:0;font-size:0;}
+.cohts-file:focus-within{border-color:var(--accent,#4fc3f7);color:var(--accent,#4fc3f7);}
+.cohts-rdbar{margin:-6px 0 12px;}
 .cohts-warn{margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--orange,#f59e0b);}
 .cohts-paste{margin-bottom:12px;border-bottom:1px dashed var(--border,#333);padding-bottom:10px;}
 .cohts-paste textarea{min-height:66px;height:66px;resize:vertical;font:500 12.5px Barlow,sans-serif;line-height:1.45;}
@@ -347,6 +354,18 @@
     document.head.appendChild(st);
   }
   T._css=css; T._esc=esc;
+  // cohesion-teamsheet-reader.js is fetched (from beside this file) only when a file is first chosen
+  const here=document.currentScript&&document.currentScript.src;
+  let readerP=null;
+  T._reader=function(){
+    if(window.cohTSReader&&window.cohTSReader.read) return Promise.resolve(window.cohTSReader);
+    return readerP||(readerP=new Promise((res,rej)=>{
+      const s=document.createElement('script'); s.src=here?here.replace(/cohesion-teamsheet\.js(?=$|[?#])/,'cohesion-teamsheet-reader.js'):'cohesion-teamsheet-reader.js';
+      s.onload=()=>{ if(window.cohTSReader&&window.cohTSReader.read) res(window.cohTSReader); else { readerP=null; rej(new Error('The reader did not load. Pasting or typing the list still works.')); } };
+      s.onerror=()=>{ readerP=null; s.remove(); rej(new Error('The reader could not be loaded — check the connection and try again. Pasting or typing the list still works.')); };
+      document.head.appendChild(s);
+    }));
+  };
 })();
 
 /* ── editor ─────────────────────────────────────────────────────
@@ -386,6 +405,8 @@
     const card=document.createElement('div'); card.className='cohts-card'; ov.appendChild(card);
     card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
       <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
+      <div class="cohts-bar cohts-rdbar"><label class="cohts-btn cohts-file">📷 Read both teams from one photo / PDF<input type="file" accept="image/*,application/pdf" data-read="both" aria-label="Read both teams from one photo or PDF"></label><span class="cohts-soon">Read on this device — the file is not uploaded. The reader itself is downloaded from a public CDN (jsDelivr) the first time it is used, then kept by the browser.</span></div>
+      <div class="cohts-rd" data-rd="both"></div>
       <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>
       <div class="cohts-foot"><div class="cohts-status" id="cohtsStatus"></div>
         <button class="cohts-btn" data-act="cancel">Cancel</button>
@@ -426,17 +447,19 @@
     }
     function draw(side){
       const c=col(side), colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
-      const keep=c.querySelector('textarea'), txt=keep?keep.value:'';
+      const keep=c.querySelector('textarea'), txt=keep?keep.value:'', rd=c.querySelector('.cohts-rd');
       c.innerHTML=`<div class="cohts-team"><i style="background:${esc(colr)}"></i><span>${esc(teamName(side))}</span><small></small></div>
         <div class="cohts-paste"><div class="cohts-lbl">Paste a list</div>
           <textarea placeholder="1 Colm Reape&#10;2. Name&#10;Name (3)&#10;Subs&#10;16 Name"></textarea>
           <div class="cohts-pv">${prevHtml(side)}</div>
-          <div class="cohts-bar"><button class="cohts-btn" disabled title="Not available yet — the automatic reader is coming soon">📷 Read from photo / PDF</button><span class="cohts-soon">coming soon</span></div></div>
+          <div class="cohts-bar"><label class="cohts-btn cohts-file" title="Read on this device — the file is not uploaded">📷 Read from photo / PDF<input type="file" accept="image/*,application/pdf" data-read="${side}" aria-label="Read this team from a photo or PDF"></label></div>
+          <div class="cohts-rd"></div></div>
         <div class="cohts-hd"><div style="text-align:center">No.</div><div>Name</div><div>Role</div><div></div></div>
         <div class="cohts-rows">${S[side].rows.map((r,i)=>rowHtml(side,r,i)).join('')}</div>
         <div class="cohts-bar"><button class="cohts-btn" data-act="add">+ Add row</button></div>
         <div class="cohts-warn"></div>`;
       c.querySelector('textarea').value=txt;
+      if(rd) c.querySelector('.cohts-rd').replaceWith(rd);          // the reader's panel (source picture, notes) survives a redraw
       live(side);
     }
 
@@ -480,7 +503,9 @@
       else if(t.classList.contains('nm')){ setName(side, t, false); sugShow(side, t); }
     });
     card.addEventListener('change',ev=>{
-      const t=ev.target, side=sideOfEl(t); if(!side||!t.classList.contains('rl')) return;
+      const t=ev.target, side=sideOfEl(t);
+      if(t.type==='file'&&t.dataset.read){ const f=t.files&&t.files[0]; t.value=''; if(f) readFile(t.dataset.read==='both'?'':side, f); return; }
+      if(!side||!t.classList.contains('rl')) return;
       const r=S[side].rows[rowOf(t)]; if(r){ r.role=t.value; live(side); }
     });
     card.addEventListener('focusin',ev=>{ const t=ev.target; if(t.classList&&t.classList.contains('nm')) sugShow(sideOfEl(t), t); });
@@ -498,6 +523,11 @@
         if(i===S[side].rows.length-1) addRow(side);
         const nx=col(side).querySelector('.cohts-row[data-i="'+(i+1)+'"] .nm'); if(nx) nx.focus(); }
     });
+    // "Read from photo / PDF": the reader fills the paste box(es); the parser and preview above do the rest
+    function readFile(side, file){
+      status('');
+      T._reader().then(R=>R.attach({card, side, game, known:knownAll, teamName, col}, file)).catch(e=>status(e.message||String(e), true));
+    }
     function addRow(side){
       const rows=S[side].rows, last=rows[rows.length-1];
       rows.push({no:(last&&last.no!=='')?String(+last.no+1):'', name:'', role:(last&&last.role)||'start'});
