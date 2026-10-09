@@ -422,6 +422,84 @@
   }
   R.deal=deal;
 
+  // ── 5. crop and rotate: the geometry of a crop box ────────────
+  // The picture (W×H original pixels) is first given `turn` quarter turns clockwise (0–3). On that turned picture a
+  // region is a box with centre (cx,cy), size w×h, tilted by `angle` degrees (clockwise on screen, y downward):
+  //   region = {turn, cx, cy, w, h, angle}
+  // The crop is what the box holds, levelled: crop pixel (u,v), 0≤u≤w, 0≤v≤h, with u running along the box's top edge.
+  const G=R.geom={};
+  const rad=d=>d*Math.PI/180;
+  G.turned=(W,H,turn)=>((turn&1)?{w:H,h:W}:{w:W,h:H});
+  // a point of the turned picture ↔ the same point of the original
+  G.toSource=(x,y,W,H,turn)=>{ switch(((turn%4)+4)%4){ case 1: return [y, H-x]; case 2: return [W-x, H-y]; case 3: return [W-y, x]; default: return [x,y]; } };
+  G.fromSource=(x,y,W,H,turn)=>{ switch(((turn%4)+4)%4){ case 1: return [H-y, x]; case 2: return [W-x, H-y]; case 3: return [y, W-x]; default: return [x,y]; } };
+  // crop pixel (u,v) → the point of the turned picture it shows
+  G.cropPoint=(r,u,v)=>{ const a=rad(r.angle||0), c=Math.cos(a), s=Math.sin(a), dx=u-r.w/2, dy=v-r.h/2; return [r.cx+dx*c-dy*s, r.cy+dx*s+dy*c]; };
+  // … and the point of the ORIGINAL picture it shows
+  G.cropToSource=(r,u,v,W,H)=>{ const p=G.cropPoint(r,u,v); return G.toSource(p[0],p[1],W,H,r.turn||0); };
+  // a point of the turned picture → where it lies in the box (u,v)
+  G.local=(r,x,y)=>{ const a=rad(r.angle||0), c=Math.cos(a), s=Math.sin(a), dx=x-r.cx, dy=y-r.cy; return [dx*c+dy*s+r.w/2, -dx*s+dy*c+r.h/2]; };
+  G.corners=r=>[[0,0],[r.w,0],[r.w,r.h],[0,r.h]].map(p=>G.cropPoint(r,p[0],p[1]));
+  G.inside=(r,TW,TH,eps)=>{ eps=eps==null?0.5:eps; return G.corners(r).every(p=>p[0]>=-eps&&p[1]>=-eps&&p[0]<=TW+eps&&p[1]<=TH+eps); };
+  // The canvas transform [a,b,c,d,e,f] (x' = a·x + c·y + e, y' = b·x + d·y + f) that draws the ORIGINAL picture so
+  // that the box fills a canvas of (w·scale)×(h·scale): original pixel → crop pixel × scale.
+  G.matrix=(r,W,H,scale)=>{
+    const k=scale||1, a=rad(r.angle||0), c=Math.cos(a), s=Math.sin(a);
+    // turned = Q·src + q0
+    const Q=[[1,0,0,1,0,0],[0,1,-1,0,H,0],[-1,0,0,-1,W,H],[0,-1,1,0,0,W]][(((r.turn||0)%4)+4)%4];
+    // crop = k·( Rot(−a)·(turned − centre) + (w/2,h/2) )
+    const m=[k*c, -k*s, k*s, k*c, k*(r.w/2-(c*r.cx+s*r.cy)), k*(r.h/2-(-s*r.cx+c*r.cy))];
+    return [m[0]*Q[0]+m[2]*Q[1], m[1]*Q[0]+m[3]*Q[1], m[0]*Q[2]+m[2]*Q[3], m[1]*Q[2]+m[3]*Q[3], m[0]*Q[4]+m[2]*Q[5]+m[4], m[1]*Q[4]+m[3]*Q[5]+m[5]];
+  };
+  G.MIN=40;                                        // the smallest side of a box, in picture pixels (callers may ask for more)
+  // The box pulled back inside the picture: shrunk about its centre if it must be, never below the smallest size.
+  G.fit=(r,TW,TH,min)=>{
+    min=min||G.MIN; const o=Object.assign({},r);
+    o.w=Math.max(min,Math.min(o.w,TW*2)); o.h=Math.max(min,Math.min(o.h,TH*2));
+    o.cx=Math.max(0,Math.min(TW,o.cx)); o.cy=Math.max(0,Math.min(TH,o.cy));
+    if(G.inside(o,TW,TH)) return o;
+    // first slide it in, if it is small enough to fit as it is
+    const cs=G.corners(o), x0=Math.min.apply(null,cs.map(p=>p[0])), x1=Math.max.apply(null,cs.map(p=>p[0])), y0=Math.min.apply(null,cs.map(p=>p[1])), y1=Math.max.apply(null,cs.map(p=>p[1]));
+    if(x1-x0<=TW&&y1-y0<=TH){ o.cx+=x0<0?-x0:(x1>TW?TW-x1:0); o.cy+=y0<0?-y0:(y1>TH?TH-y1:0); if(G.inside(o,TW,TH)) return o; }
+    let lo=0, hi=1; const at=k=>Object.assign({},o,{w:Math.max(min,o.w*k), h:Math.max(min,o.h*k)});
+    for(let i=0;i<24;i++){ const mid=(lo+hi)/2; if(G.inside(at(mid),TW,TH)) lo=mid; else hi=mid; }
+    return at(lo);
+  };
+  // the furthest step from a good box `from` towards `to` that is still inside the picture (dragging stops at the edge)
+  G.towards=(from,to,TW,TH)=>{
+    if(G.inside(to,TW,TH)) return to;
+    const mix=k=>{ const o=Object.assign({},to); ['cx','cy','w','h'].forEach(p=>{ o[p]=from[p]+(to[p]-from[p])*k; }); return o; };
+    let lo=0, hi=1; for(let i=0;i<20;i++){ const mid=(lo+hi)/2; if(G.inside(mix(mid),TW,TH)) lo=mid; else hi=mid; }
+    return mix(lo);
+  };
+  // Dragging a handle: which = 'move' or a mix of n/s/e/w; (dx,dy) = how far the pointer has moved on the turned
+  // picture since the drag began at box `r0`. The opposite edge stays where it is.
+  G.drag=(r0,which,dx,dy,TW,TH,min)=>{
+    min=min||G.MIN; const o=Object.assign({},r0);
+    if(which==='move'){ o.cx=r0.cx+dx; o.cy=r0.cy+dy;
+      // slide along the edge rather than stop dead
+      const tryX=G.towards(r0,Object.assign({},r0,{cx:o.cx}),TW,TH); const both=G.towards(tryX,Object.assign({},tryX,{cy:o.cy}),TW,TH); return both; }
+    const a=rad(r0.angle||0), c=Math.cos(a), s=Math.sin(a), lx=dx*c+dy*s, ly=-dx*s+dy*c;       // the movement in the box's own directions
+    let u0=0, u1=r0.w, v0=0, v1=r0.h;
+    if(which.indexOf('w')>=0) u0=Math.min(u1-min, u0+lx);
+    if(which.indexOf('e')>=0) u1=Math.max(u0+min, u1+lx);
+    if(which.indexOf('n')>=0) v0=Math.min(v1-min, v0+ly);
+    if(which.indexOf('s')>=0) v1=Math.max(v0+min, v1+ly);
+    const mid=G.cropPoint(r0,(u0+u1)/2,(v0+v1)/2);
+    o.w=u1-u0; o.h=v1-v0; o.cx=mid[0]; o.cy=mid[1];
+    return G.towards(r0,o,TW,TH);
+  };
+  // the starting boxes: one over the whole picture (a small margin in), or the left and right halves
+  G.initial=(TW,TH,two)=>{
+    const m=Math.round(0.02*Math.min(TW,TH));
+    if(!two) return [{cx:TW/2, cy:TH/2, w:TW-2*m, h:TH-2*m, angle:0}];
+    return [{cx:TW/4+m/4, cy:TH/2, w:TW/2-1.5*m, h:TH-2*m, angle:0}, {cx:3*TW/4-m/4, cy:TH/2, w:TW/2-1.5*m, h:TH-2*m, angle:0}];
+  };
+  // a quarter turn of the whole picture carries a box with it (dir = +1 clockwise, −1 anticlockwise)
+  G.turnBox=(r,TW,TH,dir)=>{ const o=Object.assign({},r); if(dir>0){ o.cx=TH-r.cy; o.cy=r.cx; } else { o.cx=r.cy; o.cy=TW-r.cx; } o.w=r.h; o.h=r.w; return o; };
+  // how much to enlarge a crop so its text is big enough to read: the long side is brought to `long`, at most `maxUp`×
+  G.cropScale=(r,long,maxUp)=>Math.min(maxUp||3, long/Math.max(r.w,r.h));
+
   root.cohTSReader=R;
   if(typeof module!=='undefined'&&module.exports) module.exports=R;
 })(typeof window!=='undefined'?window:globalThis);
