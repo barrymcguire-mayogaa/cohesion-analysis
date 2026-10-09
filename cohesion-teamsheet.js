@@ -636,7 +636,7 @@
       let ok=0;
       try{
         const j=await read({action:'listGames'});
-        const games=((j&&j.games)||[]).map(g=>(g&&g.meta)||g).filter(g=>g&&g.id&&(up(g.homeTeam)===U||up(g.awayTeam)===U));
+        const games=((j&&j.games)||[]).map(g=>{ const m=Object.assign({}, (g&&g.meta)||g); if(m.id==null&&g&&g.id!=null) m.id=g.id; return m; }).filter(g=>g&&g.id&&(up(g.homeTeam)===U||up(g.awayTeam)===U));
         games.forEach(g=>T.sheet(g, up(g.homeTeam)===U?'home':'away').forEach(r=>add(r.name)));
         const recent=games.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,o.max||15);
         let next=0;
