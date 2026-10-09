@@ -1142,7 +1142,7 @@ function renderList(){
   const wrap=document.getElementById('levents');
   const rows=EVENTS.filter(e=>{
     if(per&&e.half!==per) return false;
-    if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    if(q&&![e.code,e.player,crEvPlayers(e).map(p=>p.name).join(' '),e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
     if(crFlagOnly&&!crIsFlagged(e)) return false;
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
@@ -1161,7 +1161,7 @@ function renderList(){
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${_cq(e._rowId)}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.player?` · <span class="ev-p">${esc(e.player)}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Names from this game's team sheet">${esc(crSubNames(e))}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${crPlayersTxt(e)?` · <span class="ev-p">${esc(crPlayersTxt(e))}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Names from this game's team sheet">${esc(crSubNames(e))}</span>`:''}</span>
     </div>`;
   }).join('')||(crLCFilterOn()?'<div style="padding:16px;color:var(--green);font-size:12px;">✓ Nothing missing — every event passes the label check.</div>':'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>');
   crLCAfterRender();
@@ -1183,7 +1183,7 @@ function crFiltered(){
   const per=document.getElementById('eperiod').value;
   return EVENTS.filter(e=>{
     if(per&&e.half!==per) return false;
-    if(q&&![e.code,e.player,e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
+    if(q&&![e.code,e.player,crEvPlayers(e).map(p=>p.name).join(' '),e.outcome,e.team].filter(Boolean).join(' ').toLowerCase().includes(q)) return false;
     if(!crMxPass(e)) return false;
     if(crFlagOnly&&!crIsFlagged(e)) return false;
     if(crDupOnly&&!crIsDup(e)) return false;
@@ -1435,7 +1435,7 @@ function crCommitDrag(d){
   // vertical reassign: dropped on a different row → change the event's code/type
   if(d.mode==='move' && d.targetRow!=null){
     const rows=crRows(crFiltered()), nc=rows[d.targetRow];
-    if(nc && nc!==e.code){ e.code=nc; e.team=teamFor(nc,e.labels||{}); e.category=catOf(nc)||e.category; }
+    if(nc && nc!==e.code){ const wasPR=!!e.playerRow; e.code=nc; e.team=teamFor(nc,e.labels||{})||(wasPR?e.team:''); e.category=catOf(nc)||e.category; if(wasPR) delete e.playerRow; }   // a player row moved to another row is no longer one (it keeps its player and team)
   }
   if(!e._new) e._dirty=true;
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -1449,7 +1449,7 @@ function crSyncDraft(e){
   if(String(e._rowId)!==String(activeId)) return;
   draft={ code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
     x:(crCoordOf(e)||{}).x??null, y:(crCoordOf(e)||{}).y??null,
-    groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v})) };
+    groups:crDraftGroups(e), ...crDraftPlayers(e) };
   renderPanel();
 }
 let crDrag=null, crDown=null, crRowDrag=null;
@@ -1476,7 +1476,7 @@ function crGroupsUsedFor(code){
   (window.cohesionGroupsFor?cohesionGroupsFor(code):[]).forEach(g=>m.set(g.name,new Set(g.options)));
   const link=window.cohesionLinkFor?cohesionLinkFor(code):null;
   if(link){ const s=m.get(link.group)||new Set(); link.options.forEach(o=>s.add(o)); m.set(link.group,s); }
-  EVENTS.filter(e=>e.code===code).forEach(e=>Object.entries(e.labels||{}).forEach(([g,v])=>{
+  EVENTS.filter(e=>e.code===code).forEach(e=>cohLabelPairs(e).forEach(([g,v])=>{
     if(g==='Team Name'||isPlayerGroup(g))return; const s=m.get(g)||new Set(); s.add(v); m.set(g,s); }));
   return [...m.entries()].map(([g,s])=>({g,options:[...s].sort()}));
 }
@@ -1800,7 +1800,7 @@ ${CR_PITCH_KO}
 function crAllPlayers(){
   const s=new Set();
   EVENTS.forEach(e=>{ if(e.player) s.add(e.player);
-    Object.entries(e.labels||{}).forEach(([g,v])=>{ if(isPlayerGroup(g)&&v) s.add(v); }); });
+    cohLabelPairs(e).forEach(([g,v])=>{ if(isPlayerGroup(g)&&v) s.add(v); }); });   // every value of a player group
   return [...s].sort();
 }
 function crPlayersPopup(){
@@ -1809,7 +1809,7 @@ function crPlayersPopup(){
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10005;';
   const rows=players.map((p,i)=>{
-    const n=EVENTS.filter(e=>e.player===p||Object.entries(e.labels||{}).some(([g,v])=>isPlayerGroup(g)&&v===p)).length;
+    const n=EVENTS.filter(e=>e.player===p||cohLabelPairs(e).some(([g,v])=>isPlayerGroup(g)&&v===p)).length;
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
       <input id="pr${i}" data-orig="${esc(p)}" value="${esc(p)}" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--t1);font:13px 'Barlow',sans-serif;">
       <span style="font-size:11px;color:var(--t3);min-width:56px;text-align:right;">${n} event${n===1?'':'s'}</span>
@@ -1832,12 +1832,12 @@ function crPlayersPopup(){
     players.forEach((p,i)=>{ const v=(ov.querySelector('#pr'+i).value||'').trim(); if(v&&v!==p) renames[p]=v; });
     close();
     if(!Object.keys(renames).length) return;
-    const touched=EVENTS.filter(e=>renames[e.player]||Object.entries(e.labels||{}).some(([g,v])=>isPlayerGroup(g)&&renames[v]));
+    const touched=EVENTS.filter(e=>renames[e.player]||cohLabelPairs(e).some(([g,v])=>isPlayerGroup(g)&&renames[v]));
     if(!touched.length) return;
     undoStack.push({type:'bulkedit', snaps:touched.map(e=>({id:e._rowId, data:crClone(e)}))});
     touched.forEach(e=>{
       if(renames[e.player]) e.player=renames[e.player];
-      Object.entries(e.labels||{}).forEach(([g,v])=>{ if(isPlayerGroup(g)&&renames[v]) e.labels[g]=renames[v]; });
+      Object.keys(e.labels||{}).forEach(g=>{ if(isPlayerGroup(g)) cohLabelSetValues(e, g, cohLabelValues(e, g).map(v=>renames[v]||v)); });   // every value of the group
       if(!e._new) e._dirty=true;
     });
     refreshDatalists(); crBackup(); crUpdatePending(); renderList();
@@ -2181,10 +2181,10 @@ function crSeekThrottled(t){ const now=Date.now(); if(now-crSeekLast<70) return;
 function crTipHide(){ const tip=document.getElementById('tlTip'); if(tip) tip.style.display='none'; }
 function crTipShow(ev, cx, cy){
   const tip=document.getElementById('tlTip'); if(!tip) return;
-  const rows=Object.entries(ev.labels||{}).filter(([g])=>g!=='Team Name')
+  const rows=cohLabelPairs(ev).filter(([g])=>g!=='Team Name')
     .map(([g,v])=>`<div><span class="tg">${esc(g)}</span> ${esc(v)}</div>`).join('');
   tip.innerHTML=`<div class="tt-code">${esc(ev.code||'')} <span style="opacity:.6">#${crSeqOf(ev)}</span>${crIsDup(ev)?' <span style="color:#f59e0b">⚠ possible duplicate</span>':''}</div>`
-    +(ev.player?`<div><span class="tg">Player</span> ${esc(ev.player)}</div>`:'')
+    +(crPlayersTxt(ev)?`<div><span class="tg">Player</span> ${esc(crPlayersTxt(ev))}</div>`:'')
     +(rows||'<div class="tt-none">No labels on this event</div>');
   tip.style.display='block';
   const pad=14, w=tip.offsetWidth, h=tip.offsetHeight, vw=window.innerWidth, vh=window.innerHeight;
@@ -2395,11 +2395,20 @@ async function crAddToPlaylist(ids){
     if(f){ f.className='status ok'; f.textContent='✓ Added to "'+name+'" — view on the Playlists page.'; }
   }catch(e){ alert('Could not add to playlist: '+e.message); }
 }
+// After a writer has set e.labels[g] on its own (bulk set, a tool): a group
+// that held several values keeps the others — the write replaced its LAST
+// value, a delete removed the group — and labelsAll / playerTeam are brought
+// back in step (cohesion-labels.js).
+function crAfterLabelEdit(e){
+  cohLabelsNormalize(e);
+  if(e.playerTeam&&!e.playerRow){ const g=e.player?Object.keys(e.labels||{}).find(k=>isPlayerGroup(k)&&cohLabelHas(e,k,e.player)):null, t=g?cohPlayerGroupTeam(g, GAME):''; if(t) e.playerTeam=t; else delete e.playerTeam; }
+  return e;
+}
 function crBulkApply(mutator){
   const evs=crSel.map(id=>EVENTS.find(x=>String(x._rowId)===String(id))).filter(Boolean);
   if(!evs.length) return;
   undoStack.push({type:'bulkedit', snaps: evs.map(e=>({id:e._rowId, data:crClone(e)}))});
-  evs.forEach(e=>{ mutator(e); if(!e._new) e._dirty=true; });
+  evs.forEach(e=>{ mutator(e); crAfterLabelEdit(e); if(!e._new) e._dirty=true; });
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending(); renderList(); renderBulk();
   const st=document.getElementById('bulkStatus'); if(st){ st.className='status ok'; st.textContent='Applied to '+evs.length+' — saved to Cohesion when you close the session.'; }
@@ -2454,6 +2463,36 @@ function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repla
 let draft=null;
 const isPlayerGroup=g=>/player labels$/i.test(g);
 
+// ── Draft rows. A label group can hold SEVERAL values on one event (a
+// Sportscode instance may repeat it — cohesion-labels.js): every value is its
+// own row, so each can be changed or removed and none is dropped by a save.
+// Player groups: draft.players = every (group, value); draft.pIdx = the one
+// the Player field edits (the event's player); the others are listed below it.
+function crDraftGroups(e){ return cohLabelPairs(e).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v})); }
+function crDraftPlayers(e){
+  const players=cohLabelPairs(e).filter(([g])=>isPlayerGroup(g)).map(([g,v])=>({g,v}));
+  let pIdx=-1; players.forEach((r,i)=>{ if(r.v===(e.player||'')) pIdx=i; });
+  return {players, pIdx};
+}
+// The group the event's player is written to. An opposition player on this
+// row (the Mayo player on a KERRY TOs row: his group names the OTHER team)
+// stays in his own group; otherwise it is the row team's group, as before.
+function crPlayerGroupFor(e, team, origGroup){
+  const own=`${team||'Unassigned'} Player Labels`;
+  if(!origGroup) return own;
+  const gt=cohPlayerGroupTeam(origGroup, GAME);
+  return (gt && gt!==String(e.team||'').toUpperCase()) ? origGroup : own;
+}
+function setPlayerIdx(i,v){ if(draft&&draft.players[i]){ draft.players[i].v=v; refreshSave(); } }
+function removePlayerIdx(i){ if(!draft||!draft.players[i]) return; draft.players.splice(i,1); if(draft.pIdx>i) draft.pIdx--; else if(draft.pIdx===i) draft.pIdx=-1; renderPanel(); }
+// labels + labelsAll from draft rows (rows of one group keep their order)
+function crLabelsFromRows(labels, rows){
+  const lists={}, order=[];
+  rows.forEach(({g,v})=>{ const gg=(g||'').trim(); if(!gg||v==null||v==='') return; if(!lists[gg]){ lists[gg]=[]; order.push(gg); } lists[gg].push(v); });
+  const all={};
+  order.forEach(g=>{ labels[g]=lists[g][lists[g].length-1]; if(lists[g].length>1) all[g]=lists[g]; });
+  return all;
+}
 function pick(rowId){
   const e=EVENTS.find(x=>String(x._rowId)===String(rowId)); if(!e)return;
   closeAdd();
@@ -2462,7 +2501,7 @@ function pick(rowId){
   draft={
     code:e.code||'', player:e.player||'', driveT:e.driveT||0, color:e.color||'',
     x:(crCoordOf(e)||{}).x??null, y:(crCoordOf(e)||{}).y??null,
-    groups:Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name').map(([g,v])=>({g,v}))
+    groups:crDraftGroups(e), ...crDraftPlayers(e)
   };
   if(YTP&&YTP.seekTo){ vSeekDrive(draft.driveT); YTP.playVideo(); }
   renderList(); renderPanel();
@@ -2475,13 +2514,33 @@ function isDirty(){
   if(draft.driveT!==(e.driveT||0)) return true;
   if((draft.color||'')!==(e.color||'')) return true;
   { const co=crCoordOf(e)||{}; if((draft.x??null)!==(co.x??null)||(draft.y??null)!==(co.y??null)) return true; }
-  const orig=Object.entries(e.labels||{}).filter(([g])=>!isPlayerGroup(g)&&g!=='Team Name');
+  const orig=crDraftGroups(e);
   if(orig.length!==draft.groups.length) return true;
-  const om={}; orig.forEach(([g,v])=>om[g]=v);
-  for(const {g,v} of draft.groups){ if(om[g]!==v) return true; }
+  const lists=rows=>{ const m={}; rows.forEach(({g,v})=>(m[g]=m[g]||[]).push(v)); return m; };   // per group, the values in order
+  const om=lists(orig), dm=lists(draft.groups);
+  for(const g of Object.keys(dm)){ if(JSON.stringify(om[g]||null)!==JSON.stringify(dm[g])) return true; }
+  const op=crDraftPlayers(e), others=(d)=>JSON.stringify(d.players.filter((_,i)=>i!==d.pIdx));
+  if(others(op)!==others(draft)) return true;
   return false;
 }
 
+// Under the Player field: whose team the player is on when it is not the
+// row's team, and the event's OTHER players (a player group with several
+// values) — each can be changed or removed.
+function crPanelPlayersHtml(e){
+  const prim=draft.pIdx>=0?draft.players[draft.pIdx]:null, rt=String(e.team||'').toUpperCase();
+  const pt=prim?cohPlayerGroupTeam(prim.g, GAME):(e.playerRow?String(e.playerTeam||'').toUpperCase():'');
+  let h='';
+  if(draft.player&&pt&&rt&&pt!==rt) h+=`<div class="ep-pteam" style="margin:-4px 0 8px;font-size:11.5px;color:var(--accent);" title="From the label group “${esc(prim?prim.g:'')}” — the row belongs to ${esc(rt)}">${esc(pt)} player on a ${esc(rt)} row</div>`;
+  const others=draft.players.map((row,i)=>({row,i})).filter(o=>o.i!==draft.pIdx);
+  if(others.length) h+=`<div class="ep-lbl">Other players on this event</div>`+others.map(({row,i})=>`
+    <div class="lblrow">
+      <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
+      <input value="${esc(row.v)}" oninput="setPlayerIdx(${i},this.value);acShow(this,crPlayers(),acNoop)" onfocus="acShow(this,crPlayers(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" autocomplete="off">
+      <span class="x" onclick="removePlayerIdx(${i})" title="Remove this player from the event">✕</span>
+    </div>`).join('');
+  return h;
+}
 function renderPanel(){
   const e=EVENTS.find(x=>x._rowId===activeId);
   const p=document.getElementById('epanel');
@@ -2509,7 +2568,10 @@ function renderPanel(){
     const need=shotDraft&&!val;
     return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`;
   }).join('');
-  const freeRows=draft.groups.map((row,i)=>({row,i})).filter(o=>!definedNames.has(o.row.g.toLowerCase())).map(({row,i})=>`
+  // free-text rows: every value of an undefined group — and, for a defined group that holds several values, the earlier
+  // ones (its dropdown shows and edits the last)
+  const lastIdx={}; draft.groups.forEach((row,i)=>{ lastIdx[row.g.toLowerCase()]=i; });
+  const freeRows=draft.groups.map((row,i)=>({row,i})).filter(o=>!definedNames.has(o.row.g.toLowerCase())||lastIdx[o.row.g.toLowerCase()]!==o.i).map(({row,i})=>`
     <div class="lblrow">
       <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
       <input value="${esc(row.v)}" oninput="setLabelIdx(${i},this.value);acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onfocus="acShow(this,crLabelValues('${_cq(row.g)}'),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" autocomplete="off">
@@ -2522,7 +2584,7 @@ function renderPanel(){
     <div class="ep-lbl">Event code</div>
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
     <div class="ep-lbl">Player</div>
-    <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">
+    <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">${crPanelPlayersHtml(e)}
     <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = team default</span></div>
     <div class="colorrow">
       <input type="color" id="evColor" value="${esc(draft.color||crTeamColor(e))}" oninput="setDraftColor(this.value); document.getElementById('evColorHex').value=this.value">
@@ -2564,14 +2626,14 @@ function crCodes(){ return [...new Set(EVENTS.map(e=>e.code).filter(Boolean))].s
 function crLabelValues(g){
   if(!g) return [];
   const s=new Set();
-  EVENTS.forEach(e=>{ const v=(e.labels||{})[g]; if(v) s.add(v); });
+  EVENTS.forEach(e=>cohLabelValues(e, g).forEach(v=>{ if(v) s.add(v); }));   // every value of the group
   if(isPlayerGroup(g)) crPlayers().forEach(p=>s.add(p));
   const def=(window.COHESION_LABEL_GROUPS||[]).find(x=>x.name.toLowerCase()===g.toLowerCase());
   if(def) def.options.forEach(o=>s.add(o));
   return [...s].sort();
 }
 function crPlayers(){
-  const l=[...new Set(EVENTS.map(e=>e.player).filter(Boolean).concat(GAME?crSheetNames('home').concat(crSheetNames('away')):[]))].sort();
+  const l=[...new Set(EVENTS.flatMap(e=>crEvPlayers(e).map(p=>p.name)).filter(Boolean).concat(GAME?crSheetNames('home').concat(crSheetNames('away')):[]))].sort();
   const out=(GAME&&window.cohTS)?cohTS.sheetFirst(GAME,'',l):l;   // team-sheet players first (number order); no sheet → unchanged
   out.crPlayerList=true; return out;
 }
@@ -2622,7 +2684,7 @@ function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._row
 function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
 function setDefinedLabel(name,value){
   if(!draft)return;
-  const idx=draft.groups.findIndex(x=>x.g.toLowerCase()===name.toLowerCase());
+  let idx=-1; draft.groups.forEach((x,i)=>{ if(x.g.toLowerCase()===name.toLowerCase()) idx=i; });   // the last value of the group (the one its dropdown shows)
   if(value===''){ if(idx>=0) draft.groups.splice(idx,1); }
   else if(idx>=0) draft.groups[idx].v=value;
   else draft.groups.push({g:name,v:value});
@@ -2636,19 +2698,32 @@ function refreshSave(){ const b=document.getElementById('saveBtn'); if(b) b.disa
 function buildData(e){
   const labels={};
   if(e.labels&&e.labels['Team Name']) labels['Team Name']=e.labels['Team Name'];
-  draft.groups.forEach(({g,v})=>{ const gg=(g||'').trim(); if(gg&&v!=='') labels[gg]=v; });
+  // every value of every group: labels[g] = the last one, labelsAll[g] = all of them when there are several
+  const all=crLabelsFromRows(labels, draft.groups);
   const team=teamFor(draft.code,labels)||e.team||'';
-  if(draft.player) labels[`${team||'Unassigned'} Player Labels`]=draft.player;
+  // players: the Player field's value goes to its group; the event's other players stay where they are
+  const prim=draft.pIdx>=0?draft.players[draft.pIdx]:null;
+  const pRows=draft.players.filter((_,i)=>i!==draft.pIdx).map(r=>({g:r.g, v:r.v}));
+  const pGroup=crPlayerGroupFor(e, team, prim&&prim.g);
+  const rowOnly=!!e.playerRow&&!prim&&draft.player===(e.player||'');   // a player row: the code names the player, no label is written
+  if(draft.player&&!rowOnly) pRows.push({g:pGroup, v:draft.player});
+  Object.assign(all, crLabelsFromRows(labels, pRows));
+  const lastP=pRows.filter(r=>r.v).pop();
+  const player=draft.player||(lastP?lastP.v:'');
   const out=firstOf(labels,OUT_KEYS)||e.outcome||'';
   const sub=firstOf(labels,SUB_KEYS)||e.subtype||'';
-  const cat=catOf(draft.code)||e.category||'Other';
-  const d={...e,code:draft.code,team,player:draft.player,driveT:draft.driveT,outcome:out,subtype:sub,category:cat,labels};
+  const cat=(e.playerRow&&draft.code===e.code&&e.category)||catOf(draft.code)||e.category||'Other';
+  const d={...e,code:draft.code,team,player,driveT:draft.driveT,outcome:out,subtype:sub,category:cat,labels};
+  if(Object.keys(all).length) d.labelsAll=all; else delete d.labelsAll;
+  { const pg=lastP?lastP.g:''; const pt=player?(rowOnly?(e.playerTeam||team):cohPlayerGroupTeam((draft.player&&!rowOnly)?pGroup:pg, GAME)):''; if(pt) d.playerTeam=pt; else delete d.playerTeam; }   // the player's team: from his group
+  if(e.playerRow&&draft.code!==e.code){ delete d.playerRow; }
   if(draft.color) d.color=draft.color; else delete d.color;
   if(draft.x!=null&&draft.y!=null){ d.x=draft.x; d.y=draft.y; } else { delete d.x; delete d.y; }
   delete d._rowId; delete d._edited; delete d._new; delete d._dirty; return d;
 }
 // Strip client-only flags from any event to get the data to persist.
-function crCleanData(e){ const d={...e}; delete d._rowId; delete d._edited; delete d._new; delete d._dirty; return d; }
+function crCleanData(e){ const d={...e}; if(d.labelsAll&&typeof cohLabelsNormalize==='function') cohLabelsNormalize(d);   // value lists in step with labels (a tool may have set labels[g] alone)
+  delete d._rowId; delete d._edited; delete d._new; delete d._dirty; return d; }
 function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 
 // ── Queued editing: changes live in memory + a localStorage backup and are
@@ -3228,6 +3303,21 @@ function crGroupOpts(g,e){
 //   (c) players used for the team in its other games (crAssistOtherNames)
 function crNameKey(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase(); }
 function crNameTidy(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
+// Every player on an event with HIS team — the team of his "<Team> Player
+// Labels" group, not the row's (a KERRY TOs row carries the Mayo player who
+// won the ball); every value of a group that holds several
+// (cohesion-labels.js; without it, one value per group and the row's player).
+// "Enda Hession, Sam Callinan (MAYO)" — every player; his team is shown when it is not the row's
+function crPlayersTxt(e){
+  const rt=String(e.team||'').toUpperCase();
+  return crEvPlayers(e).map(p=>p.name+((p.team&&rt&&String(p.team).toUpperCase()!==rt)?' ('+String(p.team).toUpperCase()+')':'')).join(', ');
+}
+function crEvPlayers(e, meta){
+  if(typeof cohEventPlayers==='function') return cohEventPlayers(e, meta||GAME);
+  const L=e.labels||{}, r=e.player?[{name:e.player, team:e.team||''}]:[];
+  Object.keys(L).forEach(k=>{ if(L[k]&&/ PLAYER LABELS$/i.test(k)&&L[k]!==e.player) r.push({name:L[k], team:k.replace(/ PLAYER LABELS$/i,'')}); });
+  return r;
+}
 function crRosterEntryName(r){
   if(r==null) return '';
   if(typeof r==='object') return crNameTidy(r.name!=null?r.name:(r.player!=null?r.player:''));
@@ -3263,9 +3353,13 @@ function crGameNames(side){
     const L=e.labels||{};
     // a Kickout Won By name belongs to whichever team won that kickout
     if(L['Kickout Won By']&&crKoWinnerTeam(e)===T) out.push(L['Kickout Won By']);
+    // the row's player under HIS team (his label group — a KERRY TOs row carries a Mayo player), and every value of
+    // the team's own player group, whichever row it is on (cohesion-labels.js)
+    const pt=(typeof cohPlayerTeam==='function')?cohPlayerTeam(e, GAME):e.team;
+    if(e.player&&String(pt||'').toUpperCase()===T) out.push(e.player);
+    Object.keys(L).forEach(k=>{ if(L[k]&&k.toUpperCase()===T+' PLAYER LABELS') ((typeof cohLabelValues==='function')?cohLabelValues(e,k):[L[k]]).forEach(v=>out.push(v)); });
     if(String(e.team||'').toUpperCase()!==T) return;
-    if(e.player) out.push(e.player);
-    Object.keys(L).forEach(k=>{ if(L[k]&&(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist'||k==='Kickout Taken By')) out.push(L[k]); });
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By')) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
@@ -3401,13 +3495,13 @@ function crOtherGames(T){
 // Names for team T on one event of another game g (P-tags resolved through
 // that game's roster when possible, otherwise skipped — numbers differ by game).
 function crOtherNamesFromEvent(e, g, T){
-  if(!e||String(e.team||'').toUpperCase()!==T) return [];
+  if(!e) return [];
   const out=[], L=e.labels||{};
   const put=v=>{ v=crNameTidy(v); if(!v) return;
     if(/^P\s*\d+$/i.test(v)){ v=(window.cohGiuRosterName&&window.cohGiuRosterName(g,T,v))||''; if(!v) return; }
     out.push(v); };
-  put(e.player);
-  Object.keys(L).forEach(k=>{ if(k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist') put(L[k]); });
+  crEvPlayers(e, g).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) put(p.name); });   // each player under HIS team
+  if(String(e.team||'').toUpperCase()===T&&L['Assist']) put(L['Assist']);
   return out;
 }
 function crAssistOtherNames(T){
@@ -4340,17 +4434,24 @@ function crFRProcess(e, re, o, apply){
   let code=oldCode, player=e.player||'';
   if(o.code && oldCode){ const c2=sub(oldCode).replace(/\s+/g,' ').trim(); if(c2) code=c2; }
   if(o.player && player) player=sub(player);
-  const labels={};
-  Object.entries(e.labels||{}).forEach(([g,v])=>{
-    let v2=v, g2=g;
-    if(isPlayerGroup(g)){ if(o.player) v2=sub(v); }
-    else if(o.values && (!o.group || g===o.group)) v2=sub(v);
+  // EVERY value of a group is searched (a group can hold several on one event — cohesion-labels.js)
+  const labels={}, all={};
+  Object.keys(e.labels||{}).forEach(g=>{
+    let g2=g; const src=cohLabelValues(e, g), vals=[];
+    (src.length?src:[e.labels[g]]).forEach(v=>{
+      let v2=v;
+      if(isPlayerGroup(g)){ if(o.player) v2=sub(v); }
+      else if(o.values && (!o.group || g===o.group)) v2=sub(v);
+      if((v2==null||v2==='') && v2!==v) return;   // a value replaced with nothing drops that value
+      vals.push(v2);
+    });
     if(o.groups){ const gg=sub(g); if(String(gg).trim()) g2=String(gg).trim(); }
-    if((v2==null||v2==='') && v2!==v) return;   // a value replaced with nothing drops the label
-    labels[g2]=v2;
+    if(!vals.length) return;                       // every value replaced with nothing: the label goes
+    labels[g2]=vals[vals.length-1]; if(vals.length>1) all[g2]=vals;
   });
   if(!apply||!n) return n;
   e.code=code; e.player=player; e.labels=labels;
+  if(Object.keys(all).length) e.labelsAll=all; else delete e.labelsAll;
   if(code!==oldCode || labels['Team Name']!==oldTeamLbl){
     const oldTeam=e.team||'';
     const t=teamFor(e.code,e.labels); if(t) e.team=t;
@@ -4358,9 +4459,10 @@ function crFRProcess(e, re, o, apply){
     // keep "<TEAM> Player Labels" in step with a changed team
     if(e.team && e.team!==oldTeam){
       const pg=Object.keys(e.labels).find(k=>isPlayerGroup(k)&&k.toUpperCase()===((oldTeam||'Unassigned')+' Player Labels').toUpperCase());
-      if(pg){ const v=e.labels[pg]; delete e.labels[pg]; e.labels[`${e.team} Player Labels`]=v; }
+      if(pg){ const v=cohLabelValues(e, pg); cohLabelSetValues(e, pg, []); cohLabelSetValues(e, `${e.team} Player Labels`, v); }
     }
   }
+  crAfterLabelEdit(e);
   if(o.values || o.groups){
     const out=firstOf(e.labels,OUT_KEYS); e.outcome=out || (o.values?quiet(e.outcome):e.outcome) || '';
     const sb=firstOf(e.labels,SUB_KEYS); e.subtype=sb || (o.values?quiet(e.subtype):e.subtype) || '';
@@ -4620,7 +4722,7 @@ function _lcGet(labels,g){
 }
 function crLCPlayersOf(e){
   const out=[]; if(!_lcBlank(e.player)) out.push(String(e.player).trim());
-  Object.entries(e.labels||{}).forEach(([g,v])=>{ if(isPlayerGroup(g)&&!_lcBlank(v)&&!out.includes(String(v).trim())) out.push(String(v).trim()); });
+  cohLabelPairs(e).forEach(([g,v])=>{ if(isPlayerGroup(g)&&!_lcBlank(v)&&!out.includes(String(v).trim())) out.push(String(v).trim()); });   // every value of a player group
   return out;
 }
 function crLCHasLoc(e,kind){ const L=e.labels||{}; return ['','_away'].some(s=>!_lcBlank(_lcGet(L,'X-'+kind+s))&&!_lcBlank(_lcGet(L,'Y-'+kind+s))); }
@@ -4629,7 +4731,7 @@ function crLCValues(e,g){
   if(g==='@player') return crLCPlayersOf(e);
   if(g==='@shotloc') return crLCHasLoc(e,'Shot')?['✓']:[];
   if(g==='@koloc') return crLCHasLoc(e,'KOs')?['✓']:[];
-  const v=_lcGet(e.labels,g); return _lcBlank(v)?[]:[String(v).trim()];
+  return cohLabelValues(e, g).filter(v=>!_lcBlank(v)).map(v=>String(v).trim());   // every value of the group (group match ignores case)
 }
 // value '' = has any value; otherwise must equal it (trimmed, case-insensitive)
 function crLCHas(e,g,value){
@@ -5384,6 +5486,7 @@ function saveEvent(){
   undoStack.push({type:'edit', snapshot: crClone(e)});
   const data=buildData(e);
   Object.assign(e,data);
+  ['labelsAll','playerTeam','playerRow'].forEach(k=>{ if(!(k in data)) delete e[k]; });   // fields the edit removed (a group back to one value …)
   if(!e._new) e._dirty=true;
   crSyncKoTOLoc(e); crSyncKoBreaks(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
