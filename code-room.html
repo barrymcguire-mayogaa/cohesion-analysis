@@ -3713,7 +3713,7 @@ function crKprOpenList(inp, all){
 }
 // Write a box back: a keeper's name (crkp-in) or a change time (crkp-t).
 function crKprCommit(inp){
-  if(!crKpr.open||!inp||!inp.dataset) return;
+  if(!crKpr.open||!inp||!inp.dataset||inp.isConnected===false) return;   // a box redrawn away (its late blur) never writes
   const d=inp.dataset, side=d.side, l=crKprRows(side), i=l.findIndex(r=>String(r.from)===String(d.from)); if(i<0) return;
   if(inp.classList.contains('crkp-t')){
     const t=crKprParseT(inp.value);
