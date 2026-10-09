@@ -1,0 +1,254 @@
+/* COHESION — label helpers and the Sportscode XML import (shared).
+ *
+ * STORAGE (backward compatible)
+ *   e.labels[group]      one string per group, exactly as before. When a
+ *                        Sportscode instance carries the same group several
+ *                        times this is the LAST value in the file (the value
+ *                        the old import kept), so existing readers see what
+ *                        they always saw.
+ *   e.labelsAll[group]   [v1, v2, …] in file order — present ONLY for a group
+ *                        that has more than one value on that event. Its last
+ *                        entry equals e.labels[group].
+ *   A single-value writer that only sets e.labels[group] is tolerated: the
+ *   readers below treat that as "the last value was changed" (or, if the group
+ *   was deleted, as "the group is gone") — the other values are not lost.
+ *
+ *   cohLabelValues(e, group)            -> every value of the group ([] if none); group match ignores case
+ *   cohLabelHas(e, group, value)        -> true if the group holds that value
+ *   cohLabelPairs(e)                    -> [[group, value], …] every value of every group
+ *   cohLabelSetValues(e, group, values) -> write a group's full list (keeps labels / labelsAll in step)
+ *   cohLabelReplace(e, group, from, to) -> replace every `from` in the group (to '' removes it); returns the count
+ *   cohLabelsNormalize(e)               -> bring labelsAll back in step with labels (call before a save)
+ *
+ * PLAYERS
+ *   A player's team comes from his label group ("<Team> Player Labels"), not
+ *   from the row: a KERRY TOs row can carry a Mayo player.
+ *   cohPlayerGroupTeam(group, meta)     -> 'MAYO' when the group is "<home|away> Player Labels", else ''
+ *   cohEventPlayers(e, meta)            -> [{name, team, group}] every player on the event
+ *   cohPlayerTeam(e, meta)              -> the team of e.player (label group, else e.playerTeam, else e.team)
+ *
+ * IMPORT (admin upload, re-parse, and the tests — one code path)
+ *   cohScDecode(arrayBuffer)            -> text (UTF-16 LE/BE by BOM, else UTF-8)
+ *   cohScInstances(xmlText)             -> [{id, code, start, end, labels:[[group,text],…]}]
+ *   cohScFromDom(xmlDocument)           -> the same, from a parsed document
+ *   cohScImport(instances, opts)        -> {events, error, markers, stats}
+ *
+ * Pure: no DOM (cohScFromDom aside), no globals needed. Loadable from Node.
+ */
+function cohLabelKey(obj, group){
+  if(!obj||group==null) return null;
+  if(Object.prototype.hasOwnProperty.call(obj, group)) return group;
+  const g=String(group).toLowerCase();
+  for(const k of Object.keys(obj)) if(k.toLowerCase()===g) return k;
+  return null;
+}
+function cohLabelValues(e, group){
+  if(!e) return [];
+  const L=e.labels||{}, k=cohLabelKey(L, group);
+  if(k==null) return [];
+  const cur=L[k];
+  if(cur==null||cur==='') return [];
+  const ak=cohLabelKey(e.labelsAll, k), all=ak!=null?e.labelsAll[ak]:null;
+  if(!Array.isArray(all)||all.length<2) return [cur];
+  if(all[all.length-1]===cur) return all.slice();
+  return all.slice(0,-1).concat([cur]);            // a single-value writer changed the last value
+}
+function cohLabelHas(e, group, value){ return cohLabelValues(e, group).indexOf(value)>=0; }
+function cohLabelPairs(e){
+  const out=[]; if(!e||!e.labels) return out;
+  Object.keys(e.labels).forEach(g=>cohLabelValues(e, g).forEach(v=>out.push([g, v])));
+  return out;
+}
+function cohLabelSetValues(e, group, values){
+  if(!e) return e;
+  const vals=(Array.isArray(values)?values:[values]).filter(v=>v!=null&&v!=='');
+  const labels=Object.assign({}, e.labels||{}), all=Object.assign({}, e.labelsAll||{});
+  const k=cohLabelKey(labels, group), key=k!=null?k:group, ak=cohLabelKey(all, key);
+  if(ak!=null) delete all[ak];
+  if(!vals.length){ if(k!=null) delete labels[k]; }
+  else { labels[key]=vals[vals.length-1]; if(vals.length>1) all[key]=vals.slice(); }
+  e.labels=labels;
+  if(Object.keys(all).length) e.labelsAll=all; else delete e.labelsAll;
+  return e;
+}
+function cohLabelReplace(e, group, from, to){
+  const vals=cohLabelValues(e, group); let n=0;
+  const next=[]; vals.forEach(v=>{ if(v===from){ n++; if(to!=null&&to!=='') next.push(to); } else next.push(v); });
+  if(n) cohLabelSetValues(e, group, next);
+  return n;
+}
+function cohLabelsNormalize(e){
+  if(!e||!e.labelsAll) return e;
+  const all={};
+  Object.keys(e.labelsAll).forEach(g=>{ const v=cohLabelValues(e, g); if(v.length>1) all[cohLabelKey(e.labels, g)]=v; });
+  if(Object.keys(all).length) e.labelsAll=all; else delete e.labelsAll;
+  return e;
+}
+
+// ── players ───────────────────────────────────────────────────
+const COH_PLAYER_GROUP_RE=/^(.*?)\s*player labels$/i;
+function cohIsPlayerGroup(g){ return COH_PLAYER_GROUP_RE.test(String(g||'')); }
+function cohPlayerGroupTeam(group, meta){
+  const m=COH_PLAYER_GROUP_RE.exec(String(group||'')); if(!m) return '';
+  const x=m[1].trim().toUpperCase(); if(!x||x==='UNASSIGNED') return '';
+  if(!meta) return x;
+  const h=String(meta.homeTeam||'').trim().toUpperCase(), a=String(meta.awayTeam||'').trim().toUpperCase();
+  return x===h?h:x===a?a:'';
+}
+function cohEventPlayers(e, meta){
+  const out=[]; if(!e) return out;
+  Object.keys(e.labels||{}).forEach(g=>{ if(!cohIsPlayerGroup(g)) return;
+    const t=cohPlayerGroupTeam(g, meta)||e.team||'';
+    cohLabelValues(e, g).forEach(v=>out.push({name:v, team:t, group:g})); });
+  if(e.player && !out.some(p=>p.name===e.player)) out.unshift({name:e.player, team:e.playerTeam||e.team||'', group:''});
+  return out;
+}
+function cohPlayerTeam(e, meta){
+  if(!e) return '';
+  if(e.player){
+    for(const g of Object.keys(e.labels||{})){
+      if(cohIsPlayerGroup(g) && cohLabelHas(e, g, e.player)){ const t=cohPlayerGroupTeam(g, meta); if(t) return t; }
+    }
+  }
+  return e.playerTeam||e.team||'';
+}
+// comparison key for a person's name: ignores case, spacing and apostrophe style
+function cohNameKey(s){ return String(s==null?'':s).replace(/[‘’‛ʼ`´]/g,"'").toLowerCase().replace(/\s+/g,''); }
+
+// ── Sportscode XML import ─────────────────────────────────────
+const COH_SC_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
+const COH_SC_SKIP=new Set(COH_SC_PERIODS.concat(['Count']));          // never stored as events
+const COH_SC_NEUTRAL=new Set(['THROW-IN','Count']);                    // never a player row
+function cohScDecode(buffer){
+  const u8=new Uint8Array(buffer.buffer?buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset+buffer.byteLength):buffer);
+  let text;
+  if(u8[0]===0xFF && u8[1]===0xFE)      text=new TextDecoder('utf-16le').decode(u8);
+  else if(u8[0]===0xFE && u8[1]===0xFF) text=new TextDecoder('utf-16be').decode(u8);
+  else                                  text=new TextDecoder('utf-8').decode(u8);
+  return text.replace(/^﻿/,'');
+}
+function cohScUnesc(s){
+  return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1')
+    .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCodePoint(parseInt(h,16))).replace(/&#(\d+);/g,(m,d)=>String.fromCodePoint(+d))
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+function cohScTag(block, name){ const m=new RegExp('<'+name+'(?:\\s[^>]*)?>([\\s\\S]*?)</'+name+'>').exec(block); return m?cohScUnesc(m[1]).trim():''; }
+function cohScInstances(xmlText){
+  const out=[];
+  (String(xmlText||'').match(/<instance(?:\s[^>]*)?>[\s\S]*?<\/instance>/g)||[]).forEach(b=>{
+    const labels=[];
+    (b.match(/<label(?:\s[^>]*)?>[\s\S]*?<\/label>/g)||[]).forEach(l=>labels.push([cohScTag(l,'group'), cohScTag(l,'text')]));
+    const head=b.replace(/<label(?:\s[^>]*)?>[\s\S]*?<\/label>/g,'');
+    out.push({id:cohScTag(head,'ID'), code:cohScTag(head,'code'), start:parseFloat(cohScTag(head,'start')||0), end:parseFloat(cohScTag(head,'end')||0), labels});
+  });
+  return out;
+}
+function cohScFromDom(doc){
+  const txt=(n, sel)=>{ const x=n.querySelector(sel); return x&&x.textContent?x.textContent.trim():''; };
+  return Array.from(doc.querySelectorAll('instance')).map(inst=>({
+    id:txt(inst,'ID'), code:txt(inst,'code'), start:parseFloat(txt(inst,'start')||0), end:parseFloat(txt(inst,'end')||0),
+    labels:Array.from(inst.querySelectorAll('label')).map(l=>[txt(l,'group'), txt(l,'text')]) }));
+}
+function cohScCategory(code){
+  if(/SHOT|1 POINT|2 POINT|WIDE|GOAL|SAVE|BLOCKED|SHORT|WOODWORK/.test(code)) return 'Shots & Scores';
+  if(/KO/.test(code) && !/SCORE|ATTACK/.test(code)) return 'Kickouts';
+  if(/FOUL|CARD|TECHNICAL/.test(code)) return 'Fouls';
+  if(/TOs|TURNOVER/.test(code)) return 'Turnovers';
+  if(/TACKLE/.test(code)) return 'Tackles';
+  if(/ATTACKS|ENTRY|POSSESSION|SCORE SOURCE|SCORE ASSIST|SHOT SOURCE|SHOT ASSIST/.test(code)) return 'Possession & Attack';
+  if(/SUB/.test(code)) return 'Other';
+  return 'Player Actions';
+}
+// a team-sheet entry (string "7 Name" / "Name (7)" / {name|player}) -> the bare name
+function cohScSheetName(x){
+  let s=x&&typeof x==='object'?(x.name!=null?x.name:x.player):x;
+  s=String(s==null?'':s).replace(/\s+/g,' ').trim();
+  return s.replace(/^#?\s*\d{1,3}\s*(?:[.\-–—:)]+\s*|\s+)(?=\S)/,'').replace(/\s*[(\[]\s*#?\s*\d{1,3}\s*[)\]]$/,'').trim();
+}
+// Every known player of the file: nameKey -> {name (spelling used most), team ('' unknown, null = on both teams)}
+function cohScPlayerIndex(insts, opts){
+  const meta={homeTeam:opts.homeTeam, awayTeam:opts.awayTeam}, idx=new Map();
+  const add=(name, team)=>{ const k=cohNameKey(name); if(!k) return;
+    let r=idx.get(k); if(!r){ r={name:'', team:team, sp:new Map()}; idx.set(k, r); }
+    else if(r.team!==team){ if(!r.team&&r.team!==null) r.team=team; else if(team&&r.team!==null) r.team=null; }
+    const s=String(name).replace(/\s+/g,' ').trim(); r.sp.set(s,(r.sp.get(s)||0)+1); };
+  (insts||[]).forEach(i=>(i.labels||[]).forEach(l=>{ if(l[1]&&cohIsPlayerGroup(l[0])) add(l[1], cohPlayerGroupTeam(l[0], meta)); }));
+  const ro=opts.rosters||{};
+  [['home',opts.homeTeam],['away',opts.awayTeam]].forEach(([side, t])=>(Array.isArray(ro[side])?ro[side]:[]).forEach(x=>{
+    const n=cohScSheetName(x); if(n) add(n, String(t||'').trim().toUpperCase()); }));
+  idx.forEach(r=>{ let bn=0; r.sp.forEach((c, s)=>{ if(c>bn){ bn=c; r.name=s; } }); delete r.sp; });
+  return idx;
+}
+/* cohScImport(instances, opts) — the Sportscode branch of the admin upload.
+ *   opts.homeTeam / opts.awayTeam   as typed on the upload form
+ *   opts.videoStarts                {'1st Half':s, '2nd Half':s, 'ET 1st Half':s|null, 'ET 2nd Half':s|null}
+ *                                   video second of each period start (omit: video time = coder clock)
+ *   opts.gameTime(half, start, refs) -> the "1H 12:34" string (omit: no gameTime field)
+ *   opts.category(code)             default cohScCategory
+ *   opts.rosters                    the game's team sheet {home:[…], away:[…]} if it has one
+ * Returns {events, error, markers, stats}. Per instance:
+ *   labels[g]  = the LAST value of the group (unchanged behaviour), labelsAll[g] = every value when there are several
+ *   team       = the Team Name label, else the team named in the code           (teamDerived:true when not from a label)
+ *   player     = the (last) value of the first "<X> Player Labels" group; playerTeam = X when X is the home or away team
+ *   a row whose code is a known player's name (and names no team) is a PLAYER ROW:
+ *     player = that name, team = playerTeam = his team, playerRow:true, category 'Player Involvement'
+ */
+function cohScImport(insts, opts){
+  opts=opts||{}; insts=insts||[];
+  const homeTeam=String(opts.homeTeam||''), awayTeam=String(opts.awayTeam||''), HOME=homeTeam.toUpperCase(), AWAY=awayTeam.toUpperCase();
+  const meta={homeTeam, awayTeam}, category=opts.category||cohScCategory;
+  const refs={'1st Half':null,'2nd Half':null,'ET 1st Half':null,'ET 2nd Half':null};
+  insts.forEach(i=>{ if(Object.prototype.hasOwnProperty.call(refs, i.code) && refs[i.code]===null) refs[i.code]=i.start; });
+  const stats={instances:insts.length, events:0, labelValues:0, multiValueEvents:0, extraValues:0, playerRows:0, playerTeamOtherRow:0, unmatchedCodes:{}};
+  if(refs['1st Half']===null) return {events:[], error:'Could not find "1st Half" marker in the XML.', markers:refs, stats};
+  if(refs['2nd Half']===null) return {events:[], error:'Could not find "2nd Half" marker in the XML.', markers:refs, stats};
+  const vs=opts.videoStarts||null;
+  const offsets={}; COH_SC_PERIODS.forEach(h=>{ offsets[h]=vs ? (vs[h]!=null&&refs[h]!==null ? vs[h]-refs[h] : null) : 0; });
+  const players=cohScPlayerIndex(insts, opts);
+  const events=[];
+  insts.forEach(inst=>{
+    const code=inst.code||'';
+    if(COH_SC_SKIP.has(code)) return;
+    const start=inst.start||0, end=inst.end||0;
+    const labels={}, lists={};
+    (inst.labels||[]).forEach(l=>{ const g=l[0]||'NO_GROUP', t=l[1]||''; if(!t) return; labels[g]=t; (lists[g]=lists[g]||[]).push(t); });
+    let half='1st Half';
+    if(refs['ET 2nd Half']!==null && start>=refs['ET 2nd Half']) half='ET 2nd Half';
+    else if(refs['ET 1st Half']!==null && start>=refs['ET 1st Half']) half='ET 1st Half';
+    else if(refs['2nd Half']!==null && start>=refs['2nd Half']) half='2nd Half';
+    const offset=offsets[half]||0;
+    const driveT=Math.max(0, Math.round(start+offset)-2);
+    let team=labels['Team Name'] || (code.includes(HOME)?HOME: code.includes(AWAY)?AWAY:'');
+    const teamDerived=!!team && !labels['Team Name'];
+    // Player comes ONLY from a dedicated "<Team> Player Labels" group.
+    const playerGroupKey=Object.keys(labels).find(k=>/player labels$/i.test(k));
+    let player=playerGroupKey ? labels[playerGroupKey] : '';
+    let playerTeam=playerGroupKey ? cohPlayerGroupTeam(playerGroupKey, meta) : '';
+    const outcome=labels['Shot Outcomes']||labels['Game Involvement Outcomes']||labels['Kickout Outcomes']||labels['Turnover Outcomes']||labels['Tackle Outcomes']||'';
+    const subtype=labels['Deadball Shot Type']||labels['Shot Zones']||labels['Kickout Locations']||'';
+    // Keep EVERY label group (ungrouped values under 'General'); Team Name is promoted to team.
+    const kept={}, all={};
+    Object.keys(labels).forEach(g=>{ if(g==='Team Name') return; const k=g==='NO_GROUP'?'General':g; kept[k]=labels[g]; stats.labelValues+=lists[g].length; if(lists[g].length>1){ all[k]=lists[g].slice(); stats.extraValues+=lists[g].length-1; } });
+    const ev={ id:inst.id||String(events.length+1), start:Math.round(start), end:Math.round(end), half };
+    if(opts.gameTime) ev.gameTime=opts.gameTime(half, start, refs);
+    let cat=category(code), playerRow=false;
+    if(!team && !COH_SC_NEUTRAL.has(code)){
+      const p=players.get(cohNameKey(code));
+      if(p && p.team!==null){ playerRow=true; if(!player) player=p.name; team=p.team||''; playerTeam=p.team||''; cat='Player Involvement'; stats.playerRows++; }
+      else stats.unmatchedCodes[code]=(stats.unmatchedCodes[code]||0)+1;
+    }
+    Object.assign(ev, { code, team, player, outcome, subtype, category:cat, driveT, labels:kept });
+    if(Object.keys(all).length){ ev.labelsAll=all; stats.multiValueEvents++; }
+    if(playerTeam) ev.playerTeam=playerTeam;
+    if(playerTeam && team && playerTeam!==team) stats.playerTeamOtherRow++;
+    if(playerRow){ ev.playerRow=true; if(team) ev.teamDerived=true; }
+    else if(teamDerived) ev.teamDerived=true;
+    events.push(ev);
+  });
+  stats.events=events.length;
+  return {events, error:null, markers:refs, offsets, stats};
+}
+
+if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
+  cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohNameKey,
+  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS};

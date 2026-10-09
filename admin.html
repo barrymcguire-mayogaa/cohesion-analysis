@@ -192,6 +192,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-labels.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -2299,70 +2300,22 @@ async function processGame(){
 
       } else {
         // ── Sportscode XML format ───────────────────────────────
-        let xmlHalf1=null, xmlHalf2=null, xmlET1=null, xmlET2=null;
-        instances.forEach(inst=>{
-          const code = inst.querySelector('code')?.textContent?.trim()||'';
-          const start = parseFloat(inst.querySelector('start')?.textContent||0);
-          if(code==='1st Half' && xmlHalf1===null) xmlHalf1=start;
-          if(code==='2nd Half' && xmlHalf2===null) xmlHalf2=start;
-          if(code==='ET 1st Half' && xmlET1===null) xmlET1=start;
-          if(code==='ET 2nd Half' && xmlET2===null) xmlET2=start;
+        // One shared import (cohesion-labels.js cohScImport), also what the
+        // tests run: every label value is kept (labels[g] = the last value
+        // as before, labelsAll[g] = all of them when a group repeats),
+        // player rows get their player + team, and a player's team comes
+        // from his "<Team> Player Labels" group (playerTeam).
+        const rIdxSc = parseInt(document.getElementById('reparseGame').value);
+        const scSheet = (isReparse && !isNaN(rIdxSc) && reparseGames[rIdxSc]) ? reparseGames[rIdxSc].rosters : null;
+        const sc = cohScImport(cohScFromDom(doc), {
+          homeTeam, awayTeam,
+          videoStarts: {'1st Half':half1Video, '2nd Half':half2Video, 'ET 1st Half':et1Video, 'ET 2nd Half':et2Video},
+          gameTime: getGameTime, category: getCategory, rosters: scSheet,
         });
-        if(xmlHalf1===null){ showError('Could not find "1st Half" marker in the XML.'); return; }
-        if(xmlHalf2===null){ showError('Could not find "2nd Half" marker in the XML.'); return; }
-
-        const offsets = {
-          '1st Half': half1Video - xmlHalf1,
-          '2nd Half': half2Video - xmlHalf2,
-          'ET 1st Half': et1Video!==null&&xmlET1!==null ? et1Video-xmlET1 : null,
-          'ET 2nd Half': et2Video!==null&&xmlET2!==null ? et2Video-xmlET2 : null,
-        };
-        const xmlRefs = {'1st Half':xmlHalf1,'2nd Half':xmlHalf2,'ET 1st Half':xmlET1,'ET 2nd Half':xmlET2};
-        const SKIP = new Set(['1st Half','2nd Half','ET 1st Half','ET 2nd Half','Count']);
-
-        instances.forEach(inst=>{
-          const code = inst.querySelector('code')?.textContent?.trim()||'';
-          if(SKIP.has(code)) return;
-          const start = parseFloat(inst.querySelector('start')?.textContent||0);
-          const end   = parseFloat(inst.querySelector('end')?.textContent||0);
-          const labels = {};
-          inst.querySelectorAll('label').forEach(l=>{
-            const g = l.querySelector('group')?.textContent?.trim()||'NO_GROUP';
-            const t = l.querySelector('text')?.textContent?.trim()||'';
-            if(t) labels[g] = t;
-          });
-          let half = '1st Half';
-          if(xmlET2!==null && start>=xmlET2) half='ET 2nd Half';
-          else if(xmlET1!==null && start>=xmlET1) half='ET 1st Half';
-          else if(xmlHalf2!==null && start>=xmlHalf2) half='2nd Half';
-          const offset = offsets[half]||0;
-          const driveT = Math.max(0, Math.round(start+offset)-2);
-          const team = labels['Team Name'] || (code.includes(homeTeam.toUpperCase())?homeTeam.toUpperCase(): code.includes(awayTeam.toUpperCase())?awayTeam.toUpperCase():'');
-          // Player must come ONLY from a dedicated "<Team> Player Labels"
-          // group. Previously this fell back to NO_GROUP, which shoved any
-          // ungrouped label (e.g. "Armagh Clean") into the player field —
-          // and assigning a real player later overwrote it, permanently
-          // losing the original label since it was stored nowhere else.
-          const playerGroupKey = Object.keys(labels).find(k => /player labels$/i.test(k));
-          const player = playerGroupKey ? labels[playerGroupKey] : '';
-          const outcome = labels['Shot Outcomes']||labels['Game Involvement Outcomes']||labels['Kickout Outcomes']||labels['Turnover Outcomes']||labels['Tackle Outcomes']||'';
-          const subtype = labels['Deadball Shot Type']||labels['Shot Zones']||labels['Kickout Locations']||'';
-          // Keep EVERY label group on the event (ungrouped values under
-          // 'General') so nothing is lost and the dashboard LABELS tab can
-          // filter on all of them. Team Name is excluded (promoted to team).
-          const keptLabels = {};
-          Object.entries(labels).forEach(([g, v]) => {
-            if(g === 'Team Name') return;
-            keptLabels[g === 'NO_GROUP' ? 'General' : g] = v;
-          });
-          events.push({
-            id: inst.querySelector('ID')?.textContent?.trim()||String(events.length+1),
-            start:Math.round(start), end:Math.round(end),
-            half, gameTime:getGameTime(half,start,xmlRefs),
-            code, team, player, outcome, subtype,
-            category:getCategory(code), driveT, labels: keptLabels,
-          });
-        });
+        if(sc.error){ showError(sc.error); return; }
+        events.push(...sc.events);
+        window.cohLastScImport = sc.stats;
+        console.log(`✓ Sportscode: ${sc.stats.events} events, ${sc.stats.labelValues} label values (${sc.stats.extraValues} extra values kept on ${sc.stats.multiValueEvents} events), ${sc.stats.playerRows} player rows`, sc.stats.unmatchedCodes);
       }
       setProgress(80, 'Generating files…');
     }
@@ -3387,7 +3340,7 @@ async function startBatchUpload() {
       const gameMeta = buildGameMetaFromExcel(game.excelRow);
 
       // Parse XML file for events
-      const xmlText = await game.xmlFile.text();
+      const xmlText = cohScDecode(await game.xmlFile.arrayBuffer());   // UTF-16 (Sportscode) or UTF-8, by BOM
 
       // Detect file type and parse accordingly
       let eventRows = [];
@@ -3504,6 +3457,19 @@ async function startBatchUpload() {
             } else {
               parseStatus = 'giu-missing-markers';
             }
+          } else if (hasHalfMarkers) {
+            // ── Sportscode with "1st Half" / "2nd Half" markers: the SAME import as the
+            // single-game upload (cohesion-labels.js cohScImport) — every label value,
+            // players, player rows. (This branch used to store code/team/times only.)
+            const et1V = gameMeta.et1Start != null ? gameMeta.et1Start : null, et2V = gameMeta.et2Start != null ? gameMeta.et2Start : null;
+            const sc = cohScImport(cohScFromDom(doc), {
+              homeTeam, awayTeam,
+              videoStarts: {'1st Half': half1Video, '2nd Half': half2Video, 'ET 1st Half': et1V, 'ET 2nd Half': et2V},
+              gameTime: getGameTime, category: getCategory,
+            });
+            if (sc.error) throw new Error(sc.error);
+            eventRows = sc.events.map(evt => ({ game_id: game.gameId, data: evt }));
+            parseStatus = `sportscode-${eventRows.length}-events`;
           } else {
             // ── Basic Sportscode (assume simple structure without period markers) ──
             // Map codes to team based on naming convention
