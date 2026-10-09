@@ -1309,7 +1309,7 @@ function crRowCmp(a,b){
 // colour of its events (an event's own colour still wins). Codes the file does not list fall back to the
 // canonical order / the team colour.
 function crFileRank(){ const m=new Map(); ((GAME&&Array.isArray(GAME.rows))?GAME.rows:[]).forEach((r,i)=>{ if(r&&r.code&&!m.has(r.code)) m.set(r.code, i); }); return m; }
-let crRowColCache={rows:null, map:null};
+let crRowColCache={rows:0, map:new Map()};
 function crRowColours(){ const rows=(GAME&&GAME.rows)||null; if(crRowColCache.rows!==rows) crRowColCache={rows, map:cohRowColours(GAME)}; return crRowColCache.map; }
 // the colour an event is drawn in: its own, else its row's colour in the file, else the team default
 function crEvColour(e){ return (e&&e.color)||crRowColours().get((e&&e.code)||'')||crTeamColor(e); }
