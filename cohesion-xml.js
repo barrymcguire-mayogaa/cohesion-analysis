@@ -78,8 +78,8 @@ const COH_ROW_TYPE_ORDER=[
   ['TURNOVER','TURNOVERS','TOS'],['BLOCK DOWN'],['GOAL ATTEMPT','GOAL CHANCE'],
   ['SUB','SUBS','SUBSTITUTION','BLOOD SUB']];
 const COH_ROW_TYPE_RANK={}; COH_ROW_TYPE_ORDER.forEach((vs,i)=>vs.forEach(v=>COH_ROW_TYPE_RANK[v]=i));
-// A time as the file had it: four decimals as before when that is exact, else every digit.
-function cohXmlNum(x){ const n=+x||0, f=n.toFixed(4); return (+f===n)?f:String(n); }
+// A time: a whole second with four decimals, as always; an exact (fractional) file time with every digit, as Sportscode wrote it.
+function cohXmlNum(x){ const n=+x||0; return Number.isInteger(n)?n.toFixed(4):String(n); }
 /* The <ROWS> section: the file's rows first, in file order with their colours (meta.rows — an untouched game
  * gives back the same R/G/B), then every other code of the export in the order given, with the colour COHESION
  * shows for it.

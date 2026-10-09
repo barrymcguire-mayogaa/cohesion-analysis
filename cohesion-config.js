@@ -56,15 +56,15 @@ window.COHESION_LABEL_GROUPS = [
  * cohGroupResolve / cohValueOptions), so an edit goes into the group the game
  * already uses instead of creating a twin. `baseName` keeps the configured
  * name. Player groups (players:true) are COHESION's own and keep their name.
- * The game is read at most once per browser task. */
+ * The game is read at most once per render pass (40 ms). */
 let cohesionTplMemo = null;
 window.cohesionTemplate = function(){
-  if(cohesionTplMemo) return cohesionTplMemo;
   if(typeof window.cohesionGameEvents !== 'function' || typeof cohGroupIndex !== 'function') return null;
   let ev = null; try{ ev = window.cohesionGameEvents(); }catch(_){ ev = null; }
   if(!Array.isArray(ev) || !ev.length) return null;
-  cohesionTplMemo = { events: ev, idx: cohGroupIndex(ev), defs: new Map() };
-  setTimeout(() => { cohesionTplMemo = null; }, 0);
+  const now = Date.now(), m = cohesionTplMemo;
+  if(m && m.events === ev && m.n === ev.length && now - m.at < 40) return m;   // one render pass reads the game once
+  cohesionTplMemo = { events: ev, n: ev.length, at: now, idx: cohGroupIndex(ev), defs: new Map() };
   return cohesionTplMemo;
 };
 window.cohesionTemplateReset = function(){ cohesionTplMemo = null; };
