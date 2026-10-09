@@ -178,16 +178,18 @@ function cohXmlBuild(events, opts){
     }
     if(e.team&&H.cohIsSubRow(e)){
       // a substitution with explicit Player Out / Player In: the template's order in the team's player group —
-      // the player going OFF first, then the player coming ON — and the explicit team-specific groups as well.
+      // the player going OFF first, then the player coming ON — and, after the row's other labels, the explicit
+      // team-specific groups as well.
       // A row without the explicit labels (an untouched import) is written exactly as it is.
       const key=n=>H.cohLabelKeyEq(e.labels, n), val=n=>{ const k=key(n); return k!=null?String(e.labels[k]||'').trim():''; };
       const po=val('Player Out'), pi=val('Player In');
       if(po||pi){
+        // (only one of the two known: the player group is left alone — a second name there would read as a pair)
         const pg=playerGroup(e.team);
         if(po&&pi){ const r=list.find(x=>x[0]===pg); if(r) r[1]=[po, pi]; else list.push([pg, [po, pi]]); }
-        else if(po) setFirst(list, pg, po); else addAfter(list, pg, pi);
         const own=meta?H.cohTeamCasing(e.team, meta):String(e.team).trim(), ko=key('Player Out'), ki=key('Player In');
-        list=list.map(x=>[x[0]===ko?own+' Player Out':x[0]===ki?own+' Player In':x[0], x[1]]);
+        list=list.filter(x=>x[0]!==ko&&x[0]!==ki);
+        if(po) list.push([own+' Player Out', [po]]); if(pi) list.push([own+' Player In', [pi]]);
       }
     }
     write(e.code, s, en, list);

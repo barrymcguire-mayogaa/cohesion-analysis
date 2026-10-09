@@ -680,7 +680,7 @@ function cohSubInOut(e, meta){
   const noOf=name=>{ const k=nk(name), u=[...new Set(rows.filter(r=>r.no!==''&&nk(r.name)===k).map(r=>r.no))]; return u.length===1?u[0]:''; };
   const nameOf=no=>{ const u=[...new Set(rows.filter(r=>r.no===no).map(r=>r.name))]; return u.length===1?u[0]:''; };   // a number two players carry is not guessed
   const set=(k, name, no, src)=>{ if(res[k]||(!name&&!no)) return; const o=res[k==='out'?'in':'out'];
-    if(o&&name&&o.name&&nk(o.name)===nk(name)) return;                       // a lower source never repeats the other player
+    if(src!=='label'&&o&&name&&o.name&&nk(o.name)===nk(name)) return;        // an inferred player never repeats the other one
     res[k]={name:name||'', no:no||(name?noOf(name):'')}; res.src[k]=src; };
   set('out', tidy(cohLabelVal(e, COH_SUB_OUT)), '', 'label'); set('in', tidy(cohLabelVal(e, COH_SUB_IN)), '', 'label');
   if(!res.out||!res.in){
