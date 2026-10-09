@@ -746,6 +746,21 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .py-badge{--bc:#4fc3f7;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:2px solid var(--bc);background:#10111a;color:#fff;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.04em;}
 .py-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
 .py-foot{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:6px 4px 0;}
+.py-ihead{display:flex;align-items:center;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;margin:0 2px;}
+.py-ifrom{font-size:.84rem;color:var(--t2);min-width:0;} .py-iseg button{padding:9px 14px;}
+.py-icard{margin-top:12px;} .py-itab{min-width:1010px;}
+.py-itab th{white-space:normal;vertical-align:bottom;line-height:1.15;} .py-itab th button{padding:10px 4px 9px;font-size:14px;} .py-itab th.py-n button{white-space:nowrap;}
+.py-itab td.na{color:var(--t3);} .py-itab td.py-tot.na{font-weight:400;}
+.py-iteam td{border-bottom:0;border-top:1px solid var(--border);color:var(--t2);font-weight:600;padding-top:11px;} .py-iteam td.py-n{color:var(--t1);}
+.py-iteam td.py-n small{display:block;font:400 .7rem 'Barlow',sans-serif;color:var(--t3);}
+.py-ihint{font-size:.84rem;color:var(--t3);margin:12px 4px 0;}
+.py-idet{margin-top:16px;} .py-idet.tt-empty{padding:20px 6px;}
+.py-idh{display:flex;align-items:baseline;gap:6px 18px;flex-wrap:wrap;margin-bottom:12px;}
+.py-idh h3{margin:0;font:700 19px 'Barlow',sans-serif;} .py-idh span{font-size:.86rem;color:var(--t2);} .py-idh .py-ic{margin-left:auto;color:var(--t2);} .py-idh .py-ic b{color:var(--t1);font-size:1.05rem;margin:0 2px;} .py-idh small{color:var(--t3);}
+.py-ibars{list-style:none;margin:0;padding:0;columns:2;column-gap:38px;}
+.py-ibars li{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr) 30px;gap:10px;align-items:center;padding:4px 0;break-inside:avoid;font:400 15px 'Barlow',sans-serif;}
+.py-il{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1);} .py-ibars b{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;}
+.py-it{display:block;height:10px;border-radius:5px;background:rgba(255,255,255,.06);overflow:hidden;} .py-it i{display:block;height:100%;min-width:2px;border-radius:5px;background:var(--bc,#4fc3f7);}
 .py-selbar{display:flex;align-items:flex-end;gap:12px 28px;flex-wrap:wrap;margin-top:18px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:10px 16px 12px;}
 .py-selbox{flex:1 1 300px;max-width:440px;min-width:0;}
 .py-selbox label,.py-chipbox>span{display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);margin:0 0 5px 3px;}
@@ -798,6 +813,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .py-tabcard{padding:4px 8px 12px;} .py-tab{font-size:14px;min-width:700px;} .py-tab th button{font-size:12.5px;padding:10px 4px 8px;} .py-tab td{padding:7px 4px;border-bottom-width:5px;}
   .py-tab td.py-n{font-size:14.5px;position:sticky;left:0;background:var(--panel);z-index:1;} .py-tab th.py-n{position:sticky;left:0;background:var(--panel);z-index:1;}
   .py-row.sel td.py-n{background:#1c3b4c;} .py-tab th.py-b,.py-tab td.py-b{display:none;} .py-row td.py-n{border-left:5px solid transparent;} .py-row.sel td.py-n{border-left-color:#19c3f0;}
+  .py-itab{min-width:800px;} .py-itab th button{font-size:12px;padding:9px 3px 8px;} .py-iteam td.py-n{position:sticky;left:0;background:var(--panel);z-index:1;}
+  .py-iseg{width:100%;} .py-iseg button{flex:1;} .py-ibars{columns:1;} .py-ibars li{grid-template-columns:minmax(0,132px) minmax(0,1fr) 28px;gap:8px;font-size:14px;} .py-idh .py-ic{margin-left:0;flex-basis:100%;}
   .py-selbar{padding:10px 12px 12px;} .py-selbox{max-width:none;flex-basis:100%;}
   .py-klists{gap:16px 12px;} .py-kl li{font-size:14.5px;gap:6px;padding:4px 4px;} .py-kl li small{min-width:0;} .py-kl h4{font-size:13px;}
 }
@@ -6560,8 +6577,44 @@ function pyTableHTML(R, S, sel, shown, col){
     +`<div class="py-foot"><span class="mr-count">Showing ${pg.shown} of ${pg.total}</span>${pg.next>0?`<button type="button" class="mr-more" data-pymore="1">Show next ${pg.next}</button>`:''}</div>`
     +`<div class="dnote">${ssEsc('1pt, 2pt and Goal are scores of that value; OP and DB are scores from open play and from a dead ball; Total is the number of scores. Assists are scores by a team-mate that name the player in the Assist tag, or in the score’s SCORE ASSIST row (Sportscode). xPts/Game is the player’s expected points divided by the games in which he took at least one shot that xP can rate (a shot with a location and an attempt type). Scoring % is scores ÷ shots. Names that differ only in letter case, spacing or apostrophes are one player.'+(R.noPlayer?' '+R.noPlayer+' shot'+(R.noPlayer===1?' has':'s have')+' no player tagged and '+(R.noPlayer===1?'is':'are')+' in no row.':'')+' No source records possessions per player, so there is no Possessions column. Click a column to sort, a row to select the player.')}</div></div>`;
 }
-function pySelBarHTML(R, V, F){
-  const names=pySort(R.players, 'name', 'asc');
+// GAME INVOLVEMENT: the table (one row per player with involvement rows) and the selected player's breakdown.
+//   o = {sort:{key,dir}, shown, per (per game played), col (badge colour)}
+function pyInvNum(v, per){ return per?(Math.round(v*10)/10).toFixed(1):String(v); }
+function pyInvHTML(I, sel, o){
+  o=o||{}; if(!I) return '';
+  if(!I.n||!I.players.length) return `<div class="tt-card tt-empty py-ina">n/a — no Game Involvement Outcomes tags in these games</div>`;
+  const per=!!o.per, C=pyInvCols(I), keys=pyInvSortKeys(C), S=o.sort&&keys.includes(o.sort.key)?o.sort:{key:'inv', dir:'desc'};
+  const rows=pySort(pyInvRows(I, C, per), S.key, S.dir), pg=pyPage(rows.length, o.shown), col=o.col||'#4fc3f7';
+  const heads=[['name','Player Name','']].concat([['inv','Involvements','Every Game Involvement Outcomes label on the player’s rows']], C.cols.map(c=>[c.k, c.label, c.value]), [['other','Other', C.other.length?'Other = '+C.other.join(', '):'No other involvement types in these games']]);
+  const th=heads.map(c=>{ const on=S.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(S.dir==='asc'?'ascending':'descending'):'none'}"${c[2]?` title="${ssEsc(c[2])}"`:''}><button type="button" data-pyisort="${c[0]}">${ssEsc(c[1])}${on?`<i aria-hidden="true">${S.dir==='asc'?'▲':'▼'}</i>`:''}</button></th>`; }).join('');
+  const td=(v,c,t)=>`<td class="${(c||'')+(v?'':' na')}"${t?` title="${ssEsc(t)}"`:''}>${pyInvNum(v, per)}</td>`;
+  const body=rows.slice(0, pg.shown).map(r=>{ const on=r.key===sel;
+    return `<tr class="py-row${on?' sel':''}" data-pyrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+r.name)}">`
+      +`<td class="py-b"><span class="py-badge" style="--bc:${ssEsc(col)}" aria-hidden="true">${ssEsc(pyInitials(r.name))}</span></td><td class="py-n">${ssEsc(r.name)}</td>`
+      +td(r.inv,'py-tot')+C.cols.map(c=>td(r[c.k])).join('')+td(r.other,'', r.otherList.map(v=>v[0]+' '+v[1]).join(' · '))+'</tr>'; }).join('');
+  const tm=pyInvTeam(I, C, per);
+  const foot=`<tr class="py-iteam"><td class="py-b"></td><td class="py-n">${ssEsc(I.team)}<small>${ssEsc(per?'per game':'team total')}</small></td>`+td(tm.inv,'py-tot')+C.cols.map(c=>td(tm[c.k])).join('')+td(tm.other)+'</tr>';
+  const from=I.n<I.loaded?'From '+I.n+' of '+pyGames(I.loaded)+' — the other'+(I.loaded-I.n===1?' game has':'s have')+' no Game Involvement Outcomes tags':'From '+pyGames(I.n);
+  const seg='<div class="seg py-iseg" role="group" aria-label="Totals or per game">'+[[0,'TOTALS'],[1,'PER GAME']].map(x=>`<button type="button" class="${per===!!x[0]?'on':''}" data-pyiper="${x[0]}" aria-pressed="${per===!!x[0]?'true':'false'}">${x[1]}</button>`).join('')+'</div>';
+  return `<div class="py-ihead"><span class="py-ifrom">${ssEsc(from+' · '+I.rows+' player row'+(I.rows===1?'':'s')+', '+I.total+' involvement'+(I.total===1?'':'s'))}</span>${seg}</div>`
+    +'<div class="tt-card py-tabcard py-icard"><div class="py-scroll"><table class="py-tab py-itab"><thead><tr><th class="py-b"><span class="py-sr">Badge</span></th>'+th+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+foot+'</tfoot></table></div>'
+    +`<div class="py-foot"><span class="mr-count">Showing ${pg.shown} of ${pg.total}</span>${pg.next>0?`<button type="button" class="mr-more" data-pyimore="1">Show next ${pg.next}</button>`:''}</div>`
+    +`<div class="dnote">${ssEsc('A row counted here is a player row from Sportscode — an instance coded with the player’s name — with its Game Involvement Outcomes labels. Every label on an event is counted, so one event can add several involvements; Involvements is the number of labels, not of events. The columns are the team’s '+C.cols.length+' most frequent involvement types in these games'+(C.other.length?'; Other adds up the remaining '+C.other.length+' (hover a cell for the list)':'')+'. Per game divides a player’s counts by the games in which he has at least one player row (the team line: by the games that carry the tags). Games uploaded before 9 Oct 2026 only carry one label per event until restored in Admin. Tracker, Gaelic Insights and GIU games have no such tags. Click a column to sort, a row to select the player.')}</div></div>`
+    +pyInvDetailHTML(I, sel, col);
+}
+function pyInvDetailHTML(I, sel, col){
+  if(!sel) return `<div class="py-ihint">Select a player to see every involvement type he is tagged with.</div>`;
+  const D=pyInvDetail(I, sel);
+  if(!D) return `<div class="tt-card tt-empty py-idet">The selected player has no Game Involvement Outcomes rows in these games.</div>`;
+  const p=D.p, bars=p.top.map(v=>`<li><span class="py-il">${ssEsc(v[0])}</span><span class="py-it"><i style="width:${D.max?+(v[1]/D.max*100).toFixed(1):0}%"></i></span><b>${v[1]}</b></li>`).join('');
+  const c=D.contests;
+  return `<div class="tt-card py-idet" style="--bc:${ssEsc(col||'#4fc3f7')}"><div class="py-idh"><h3>${ssEsc(p.name)}</h3><span>${ssEsc(p.total+' involvement'+(p.total===1?'':'s')+' in '+pyGames(p.games)+' · '+p.rows+' player row'+(p.rows===1?'':'s')+' · '+p.top.length+' type'+(p.top.length===1?'':'s'))}</span>`
+    +(c?`<span class="py-ic">Contests won <b>${ssEsc(pyPct1(c.pct))}</b> <small>${c.won} of ${c.won+c.lost}</small></span>`:'')+'</div>'
+    +`<ol class="py-ibars">${bars}</ol>`
+    +`<div class="dnote">${ssEsc('Every involvement type '+p.name+' is tagged with in these games, most frequent first; a bar’s length is relative to his most frequent type.'+(c?' Contests won % = Contest Won ÷ (Contest Won + Contest Lost), from his own labels.':''))}</div></div>`;
+}
+function pySelBarHTML(R, V, F, I){
+  const names=pySort(R.players.concat(((I&&I.players)||[]).filter(p=>!R.players.some(q=>q.key===p.key)).map(p=>({key:p.key, name:p.name}))), 'name', 'asc');
   return '<div class="py-selbar"><div class="py-selbox"><label for="pySel">SELECTED PLAYER</label><div class="py-selin">'
     +`<input type="text" id="pySel" list="pyNames" placeholder="All players — type or pick a name" value="${V.player?ssEsc(V.player.name):''}" autocomplete="off" spellcheck="false">`
     +`<datalist id="pyNames">${names.map(p=>`<option value="${ssEsc(p.name)}"></option>`).join('')}</datalist>`
@@ -6714,7 +6767,8 @@ function pyHTML(R, V, o){
   const span=[ovShortDate(R.from), ovShortDate(R.to)].filter(Boolean).filter((d,i,a)=>a.indexOf(d)===i).join(' – ');
   return `<div class="tt-top"><div class="tt-who">${ssEsc(T)}<small>${ssEsc('All '+pyGames(R.nGames)+' in the current filters'+(R.missing?' ('+R.missing+' not loaded)':'')+(span?' · '+span:''))}</small></div></div>`
     +`<div id="pyTableSec">${pyTableHTML(R, o.sort, V.key, o.shown, o.col||'#4fc3f7')}</div>`
-    +`<div id="pySelSec">${pySelBarHTML(R, V, o.F)}</div>`
+    +`<div id="pySelSec">${pySelBarHTML(R, V, o.F, o.inv)}</div>`
+    +(o.inv?`<h2 class="ov-h">GAME INVOLVEMENT</h2><div id="pyInvSec">${pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col})}</div>`:'')
     +`<div id="pyMapSec">${pyMapsHTML(R, V, o.F)}</div>`
     +`<h2 class="ov-h">SHOOTING DETAILS</h2><div id="pyShootSec">${pyShootHTML(R, V, o.F)}</div>`
     +`<h2 class="ov-h">KICKOUT DETAILS</h2><div id="pyKoSec">${pyKoHTML(R, V)}</div>`
@@ -6731,14 +6785,15 @@ function pyTipHTML(p, R, V, pinned){
 }
 
 // ── Players page wiring ──
-let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_SHOWN=PY_PAGE;
-const PY_SORT={key:'total', dir:'desc'}, PY_F={types:new Set(), play:'both'};
+let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_SHOWN=PY_PAGE, PY_INV=null, PY_ISHOWN=PY_PAGE, PY_IPER=false;
+const PY_SORT={key:'total', dir:'desc'}, PY_F={types:new Set(), play:'both'}, PY_ISORT={key:'inv', dir:'desc'};
+function pyHas(key){ return !!key&&((!!PY_LAST&&PY_LAST.players.some(p=>p.key===key))||(!!PY_INV&&PY_INV.players.some(p=>p.key===key))); }   // a player of either table
 function pySchedule(){ if(TAB!=='players'||!GAMES_READY) return; clearTimeout(PY_TIMER); PY_TIMER=setTimeout(pyRun, 40); }
 async function pyRun(){
   if(TAB!=='players'||!GAMES_READY) return;
   const my=++PY_TOKEN, st=ssEl('pyStatus'), body=ssEl('pyBody');
   const T=ssEl('fTeamO').value, pool=selectedGames();
-  if(!T){ PY_LAST=null; PY_VIEW=null; body.innerHTML=''; st.textContent='No games match these filters.'; return; }
+  if(!T){ PY_LAST=null; PY_INV=null; PY_VIEW=null; body.innerHTML=''; st.textContent='No games match these filters.'; return; }
   ovStore('cohesion_analysis_team', T);
   const need=ovTeamGames(pool, T).filter(g=>!BUNDLES.has(g.id));
   try{
@@ -6752,18 +6807,21 @@ async function pyRun(){
   const prev=PY_LAST&&PY_LAST.team;
   PY_LAST=pyCompute(T, pool, id=>BUNDLES.get(id));
   // the selected player survives a filter change while he is still in the table; a new team starts clean
-  if(prev!==T){ PY_SEL=null; PY_SHOWN=PY_PAGE; }
-  else if(PY_SEL&&!PY_LAST.players.some(p=>p.key===PY_SEL)) PY_SEL=null;
+  PY_INV=pyInvolvement(T, pool, id=>BUNDLES.get(id));
+  if(prev!==T){ PY_SEL=null; PY_SHOWN=PY_PAGE; PY_ISHOWN=PY_PAGE; PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
+  else if(PY_SEL&&!pyHas(PY_SEL)) PY_SEL=null;
+  if(!pyInvSortKeys(pyInvCols(PY_INV)).includes(PY_ISORT.key)){ PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
   pyRender();
 }
-function pyOpts(){ let col='#4fc3f7'; try{ col=ssDisplayColors(PY_LAST.team, '__baseline__').a||col; }catch(_){ } return {sort:PY_SORT, shown:PY_SHOWN, F:PY_F, col}; }
+function pyOpts(){ let col='#4fc3f7'; try{ col=ssDisplayColors(PY_LAST.team, '__baseline__').a||col; }catch(_){ } return {sort:PY_SORT, shown:PY_SHOWN, F:PY_F, col, inv:PY_INV, isort:PY_ISORT, ishown:PY_ISHOWN, iper:PY_IPER}; }
 function pyRender(parts){
   const body=ssEl('pyBody'); if(!body||!PY_LAST) return;
   ttHideTip();
-  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F);
+  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F, PY_INV);
   if(PY_VIEW.key){ const i=pySort(PY_LAST.players, PY_SORT.key, PY_SORT.dir).findIndex(p=>p.key===PY_VIEW.key); PY_SHOWN=pyShownFor(PY_LAST.players.length, i, PY_SHOWN); }   // the selected row is always among those shown
+  if(PY_VIEW.key&&PY_INV&&PY_INV.players.length){ const C=pyInvCols(PY_INV), i=pySort(pyInvRows(PY_INV, C, PY_IPER), PY_ISORT.key, PY_ISORT.dir).findIndex(p=>p.key===PY_VIEW.key); if(i>=0) PY_ISHOWN=pyShownFor(PY_INV.players.length, i, PY_ISHOWN); }
   const o=pyOpts(), R=PY_LAST, V=PY_VIEW;
-  const fill={pyTableSec:()=>pyTableHTML(R, o.sort, V.key, o.shown, o.col), pySelSec:()=>pySelBarHTML(R, V, o.F), pyMapSec:()=>pyMapsHTML(R, V, o.F), pyShootSec:()=>pyShootHTML(R, V, o.F), pyKoSec:()=>pyKoHTML(R, V)};
+  const fill={pyInvSec:()=>pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col}), pyTableSec:()=>pyTableHTML(R, o.sort, V.key, o.shown, o.col), pySelSec:()=>pySelBarHTML(R, V, o.F, o.inv), pyMapSec:()=>pyMapsHTML(R, V, o.F), pyShootSec:()=>pyShootHTML(R, V, o.F), pyKoSec:()=>pyKoHTML(R, V)};
   if(!parts||!parts.every(id=>ssEl(id)&&fill[id])) body.innerHTML=pyHTML(R, V, o);
   else parts.forEach(id=>{ ssEl(id).innerHTML=fill[id](); });
   pyFitHits();
@@ -6774,21 +6832,29 @@ function pyFitHits(){
     const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r)); });
 }
 function pySelect(key){
-  PY_SEL=key&&PY_LAST&&PY_LAST.players.some(p=>p.key===key)?key:null;
-  pyRender(['pyTableSec','pySelSec','pyMapSec','pyShootSec','pyKoSec']);
+  PY_SEL=pyHas(key)?key:null;
+  pyRender(['pyTableSec','pySelSec','pyInvSec','pyMapSec','pyShootSec','pyKoSec']);
 }
 function pySortBy(key){
   if(!PY_COLS.some(c=>c[0]===key)) return;
   if(PY_SORT.key===key) PY_SORT.dir=PY_SORT.dir==='asc'?'desc':'asc'; else { PY_SORT.key=key; PY_SORT.dir=key==='name'?'asc':'desc'; }
   pyRender(['pyTableSec']);
 }
+function pyInvSortBy(key){
+  if(!PY_INV||!pyInvSortKeys(pyInvCols(PY_INV)).includes(key)) return;
+  if(PY_ISORT.key===key) PY_ISORT.dir=PY_ISORT.dir==='asc'?'desc':'asc'; else { PY_ISORT.key=key; PY_ISORT.dir=key==='name'?'asc':'desc'; }
+  pyRender(['pyInvSec']);
+}
+function pyInvMore(){ if(!PY_INV) return; const n=PY_INV.players.length; PY_ISHOWN=Math.min(n, pyPage(n, PY_ISHOWN).shown+PY_STEP); pyRender(['pyInvSec']); }
+function pyInvPer(on){ PY_IPER=!!on; pyRender(['pyInvSec']); }
 function pyMore(){ if(!PY_LAST) return; PY_SHOWN=Math.min(PY_LAST.players.length, pyPage(PY_LAST.players.length, PY_SHOWN).shown+PY_STEP); pyRender(['pyTableSec']); }
 function pyChip(k){ pySetChip(PY_F, k); pyRender(['pySelSec','pyMapSec','pyShootSec']); }
 // the typed / picked name → a player of the table (same name rule); an empty box clears the selection
 function pyPick(txt){
   const k=pyKey(txt); if(!PY_LAST) return;
   if(!k){ if(PY_SEL) pySelect(null); return; }
-  const hit=PY_LAST.players.find(p=>p.key===k)||(()=>{ const a=PY_LAST.players.filter(p=>p.key.indexOf(k)>=0); return a.length===1?a[0]:null; })();
+  const all=PY_LAST.players.concat(((PY_INV&&PY_INV.players)||[]).filter(p=>!PY_LAST.players.some(q=>q.key===p.key)));
+  const hit=all.find(p=>p.key===k)||(()=>{ const a=all.filter(p=>p.key.indexOf(k)>=0); return a.length===1?a[0]:null; })();
   if(hit) pySelect(hit.key); else pyRender(['pySelSec']);   // no such player: the box goes back to the current selection
 }
 // a click inside the pane on one of the tab's own controls; true = handled
@@ -6796,6 +6862,9 @@ function pyClick(e){
   const t=e.target, c=sel=>t&&t.closest?t.closest(sel):null; let x;
   if((x=c('[data-pysort]'))){ pySortBy(x.dataset.pysort); return true; }
   if((x=c('[data-pymore]'))){ pyMore(); return true; }
+  if((x=c('[data-pyisort]'))){ pyInvSortBy(x.dataset.pyisort); return true; }
+  if((x=c('[data-pyimore]'))){ pyInvMore(); return true; }
+  if((x=c('[data-pyiper]'))){ pyInvPer(x.dataset.pyiper==='1'); return true; }
   if((x=c('[data-pychip]'))){ pyChip(x.dataset.pychip); return true; }
   if((x=c('[data-pyclear]'))){ if(!x.disabled) pySelect(null); return true; }
   if((x=c('[data-pyrow]'))){ pySelect(x.dataset.pyrow===PY_SEL?null:x.dataset.pyrow); return true; }
@@ -6807,8 +6876,8 @@ function pyInit(){
   pane.addEventListener('change', e=>{ if(e.target&&e.target.id==='pySel') pyPick(e.target.value); });
   pane.addEventListener('keydown', e=>{ const t=e.target; if(!t) return;
     if(t.id==='pySel'&&e.key==='Enter'){ e.preventDefault(); pyPick(t.value); return; }
-    if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow; pySelect(k===PY_SEL?null:k);
-      const row=pane.querySelector?[...pane.querySelectorAll('[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
+    if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow, box=t.closest&&t.closest('#pyInvSec')?'#pyInvSec ':'#pyTableSec '; pySelect(k===PY_SEL?null:k);
+      const row=pane.querySelector?[...pane.querySelectorAll(box+'[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
 }
 ovInit(); mrInit(); ttInit(); pyInit();
 anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
