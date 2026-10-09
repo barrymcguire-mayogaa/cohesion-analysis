@@ -462,13 +462,12 @@
       const i=rowOf(inp), r=S[side].rows[i]; if(!r) return;
       if(!final){ r.name=inp.value; r.adopted=''; live(side); return; }
       const typed=T.tidyName(inp.value);
-      const others=known[side].concat(S[side].rows.filter((x,n)=>n!==i).map(x=>x.name).filter(Boolean));
       const hit=T.matchKnown(typed, known[side]);
       r.name=hit||typed; r.adopted=(hit&&hit!==typed)?typed:'';
       inp.value=r.name;
       const a=col(side).querySelector('.cohts-adopt[data-a="'+i+'"]');
       if(a){ a.style.display=r.adopted?'':'none'; a.textContent=r.adopted?'Matched existing spelling — typed “'+r.adopted+'”':''; }
-      void others; live(side);
+      live(side);
     }
 
     card.addEventListener('input',ev=>{
@@ -536,5 +535,73 @@
       Promise.resolve().then(()=>opts.loadKnown(side)).then(l=>{ (l||[]).forEach(n=>{ if(n&&!known[side].some(k=>T.nameKey(k)===T.nameKey(n))) known[side].push(n); }); }).catch(()=>{});
     });
     return {el:ov, close, state:S};
+  };
+})();
+
+/* ── dashboard panel + player picker ────────────────────────────── */
+(function(){
+  'use strict';
+  if(typeof window==='undefined'||typeof document==='undefined') return;
+  const T=window.cohTS, esc=T._esc;
+
+  // Both teams side by side: starters in number order, then subs.
+  // o = {canEdit, editCall:'jsCall()', title}
+  T.panelHtml=function(game, o){
+    o=o||{}; T._css(); game=game||{};
+    const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
+    if(!T.hasSheet(game)) return `<div class="cohts-panel"><div class="cohts-pempty">No team sheet added${o.canEdit&&o.editCall?'<br>'+btn('+ Add team sheet'):''}</div></div>`;
+    const line=r=>`<div class="cohts-pl"><b>${esc(r.no)}</b><span>${esc(r.name)}</span></div>`;
+    const colHtml=side=>{
+      const g=T.groups(game, side), nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
+      const colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
+      const any=g.start.length+g.sub.length+g.other.length;
+      return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(colr)}"></i><span>${esc(nm)}</span></div>`+
+        (any?(g.start.map(line).join('')+
+          (g.sub.length?'<div class="cohts-pgrp">Subs</div>'+g.sub.map(line).join(''):'')+
+          (g.other.length?'<div class="cohts-pgrp">Also listed</div>'+g.other.map(line).join(''):''))
+          :'<div class="cohts-pnone">No team sheet added</div>')+'</div>';
+    };
+    return `<div class="cohts-panel"><div class="cohts-ptop"><div>${esc(o.title||'Team Sheets')}</div>${btn('✏️ Edit')}</div>
+      <div class="cohts-pcols">${colHtml('home')}${colHtml('away')}</div></div>`;
+  };
+
+  // A themed pick list with a free-text box. sections:[{label, items:[{value,label}]}]
+  // → Promise<chosen value | typed name | null (cancelled)>. The value is the plain name.
+  T.pick=function(o){
+    o=o||{}; T._css();
+    return new Promise(resolve=>{
+      const ov=document.createElement('div'); ov.className='cohts-ov'; ov.style.alignItems='center';
+      ov.innerHTML=`<div class="cohts-card cohts-pick"><div class="cohts-h">${esc(o.title||'Pick a player')}</div>
+        ${o.message?`<div class="cohts-sub" style="margin-bottom:10px;">${esc(o.message)}</div>`:''}
+        <input id="cohtsPickIn" placeholder="Type to search, or type any name…" autocomplete="off" spellcheck="false" value="">
+        <div class="cohts-plist"></div>
+        <div class="cohts-foot" style="margin-top:0;"><button class="cohts-btn" data-a="x">Cancel</button><button class="cohts-btn pri" data-a="ok">Use typed name</button></div></div>`;
+      document.body.appendChild(ov);
+      const inp=ov.querySelector('#cohtsPickIn'), list=ov.querySelector('.cohts-plist'); let vis=[], idx=-1;
+      const done=v=>{ if(ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
+      const draw=()=>{
+        const q=T.nameKey(inp.value); vis=[]; let h='';
+        (o.sections||[]).forEach(sec=>{
+          const items=(sec.items||[]).filter(it=>!q||T.nameKey(it.label).includes(q)||T.nameKey(it.value).includes(q));
+          if(!items.length) return;
+          if(sec.label) h+=`<div class="cohts-pgh">${esc(sec.label)}</div>`;
+          items.forEach(it=>{ h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${esc(it.label)}</div>`; vis.push(it.value); });
+        });
+        list.innerHTML=h||'<div class="cohts-pnone" style="padding:10px 12px;">No match — “Use typed name” keeps what you typed.</div>';
+        idx=-1;
+        list.querySelectorAll('.cohts-pi').forEach(d=>{ d.onclick=()=>done(vis[+d.dataset.v]); });
+      };
+      inp.oninput=draw;
+      inp.onkeydown=ev=>{
+        if(ev.key==='Escape') done(null);
+        else if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){ ev.preventDefault(); if(!vis.length) return; idx=Math.max(0,Math.min(vis.length-1,idx+(ev.key==='ArrowDown'?1:-1)));
+          list.querySelectorAll('.cohts-pi').forEach((d,i)=>d.classList.toggle('on',i===idx)); const on=list.querySelectorAll('.cohts-pi')[idx]; if(on&&on.scrollIntoView) on.scrollIntoView({block:'nearest'}); }
+        else if(ev.key==='Enter'){ if(idx>=0) done(vis[idx]); else if(vis.length===1) done(vis[0]); else { const v=T.tidyName(inp.value); if(v) done(v); } }
+      };
+      ov.querySelector('[data-a="x"]').onclick=()=>done(null);
+      ov.querySelector('[data-a="ok"]').onclick=()=>{ const v=T.tidyName(inp.value); if(v) done(v); };
+      ov.addEventListener('mousedown',ev=>{ if(ev.target===ov) done(null); });
+      draw(); setTimeout(()=>inp.focus(),0);
+    });
   };
 })();
