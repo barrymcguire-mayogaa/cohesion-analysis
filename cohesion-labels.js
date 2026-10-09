@@ -424,3 +424,85 @@ function cohValueOptions(src, group, options){
   return out;
 }
 if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohGroupCanon, cohGroupMisspelt, cohGroupIndex, cohGroupResolve, cohTeamCasing, cohPlayerGroupFor, cohLabelKeyEq, cohLabelGet, cohLabelVal, cohValueCanon, cohIs45, cohValueOptions});
+
+/* ── Assists logged as rows (the Sportscode template) ─────────────
+ * The template logs a shot's assist as its own row: "<TEAM> SCORE ASSIST" for a
+ * shot that scored, "<TEAM> SHOT ASSIST" for one that did not; the assister is
+ * the row's player (the team's Player Labels group) and the type is its
+ * "Score Assist Outcomes" / "Shot Assist Outcomes" label. Derived on read —
+ * stored shots are never rewritten.
+ *   cohAssistIndex(events, meta) -> {byShot:Map(shot -> {row, name, type}), byRow:Map(row -> shot), unlinked:[rows], stats}
+ *   cohShotAssist(shot, index)   -> {name, type, source:'label'|'row', row} | null
+ *       the shot's own 'Assist' label always wins; else its linked row's player.
+ * LINK RULE (per team, one row per shot, never crossing in time within a kind):
+ *   · SCORE ASSIST rows pair with shots that scored, SHOT ASSIST rows with shots that did not;
+ *   · a row and a shot pair when their windows overlap, or — a free / 45 won before a
+ *     dead-ball shot — when the row ends up to COH_ASSIST_GAP seconds before a DEAD BALL shot starts;
+ *   · among the allowed pairings the one that links the most rows wins, then the least time apart.
+ */
+const COH_SHOT_RE=/SHOT\s+(OPEN|DEAD)/i, COH_ASSIST_ROW_RE=/\b(SHOT|SCORE)\s+ASSIST\s*$/i, COH_ASSIST_GAP=180;
+function cohUp(s){ return String(s==null?'':s).trim().toUpperCase(); }
+function cohIsShotRow(e){ const c=String((e&&e.code)||''); return COH_SHOT_RE.test(c)&&!/SOURCE|ASSIST/i.test(c); }
+function cohIsAssistRow(e){ return COH_ASSIST_ROW_RE.test(String((e&&e.code)||'')); }
+// true scored · false not · null no outcome
+function cohShotScored(e){ const o=cohUp(cohLabelVal(e,'Shot Outcomes')||(e&&e.outcome)); return !o?null:/^(1 POINT|2 POINT|POINT|GOAL)$/.test(o); }
+// the first player of `team` on a row (his label group names the team), else the row's own player when the row is that team's
+function cohRowPlayerOf(row, team, meta){
+  const T=cohUp(team), P=cohEventPlayers(row, meta), hit=P.find(p=>p.group&&cohUp(p.team)===T)||P.find(p=>cohUp(p.team)===T);
+  return hit?hit.name:'';
+}
+function cohAssistType(row){ return cohLabelVal(row, /SCORE/i.test(row.code||'')?'Score Assist Outcomes':'Shot Assist Outcomes')||cohLabelVal(row,'Score Assist Outcomes')||cohLabelVal(row,'Shot Assist Outcomes')||''; }
+// order-preserving best pairing of two time-sorted lists; cost(a, b) -> seconds apart, or null when not allowed
+function cohAlign(A, B, cost){
+  const n=A.length, m=B.length, BIG=1e7, S=[], W=[];
+  for(let i=0;i<=n;i++){ S.push(new Float64Array(m+1)); W.push(new Uint8Array(m+1)); }
+  for(let i=1;i<=n;i++) for(let j=1;j<=m;j++){
+    let best=S[i-1][j], w=1; if(S[i][j-1]>best){ best=S[i][j-1]; w=2; }
+    const c=cost(A[i-1], B[j-1]); if(c!=null){ const v=S[i-1][j-1]+BIG-c; if(v>best){ best=v; w=3; } }
+    S[i][j]=best; W[i][j]=w;
+  }
+  const out=[]; let i=n, j=m;
+  while(i>0&&j>0){ const w=W[i][j]; if(w===3){ out.push([A[i-1], B[j-1]]); i--; j--; } else if(w===1) i--; else j--; }
+  return out.reverse();
+}
+function cohAssistIndex(events, meta){
+  const idx={byShot:new Map(), byRow:new Map(), unlinked:[], stats:{}};
+  const byTeam=new Map(), teamOf=e=>cohUp(e.team), T0=e=>+(e.start!=null?e.start:e.driveT)||0, T1=e=>+(e.end!=null?e.end:T0(e)+4)||0;
+  (events||[]).forEach(e=>{ if(!e||!e.team) return; const s=cohIsShotRow(e), a=!s&&cohIsAssistRow(e); if(!s&&!a) return;
+    let t=byTeam.get(teamOf(e)); if(!t){ t={shots:[], rows:[]}; byTeam.set(teamOf(e), t); } (s?t.shots:t.rows).push(e); });
+  const cost=(row, shot)=>{
+    if(row.half&&shot.half&&row.half!==shot.half) return null;
+    const a0=T0(row), a1=T1(row), b0=T0(shot), b1=T1(shot);
+    if(a0<b1&&a1>b0) return Math.abs(a0-b0)/1000;                       // overlapping windows
+    const gap=b0-a1; if(gap<0) return null;                             // an assist never follows its shot
+    if(gap<=5) return gap;
+    return (/DEAD/i.test(shot.code||'')&&gap<=COH_ASSIST_GAP)?gap:null;  // free / 45 won, then the dead ball
+  };
+  byTeam.forEach((t, team)=>{
+    t.shots.sort((a,b)=>T0(a)-T0(b)); t.rows.sort((a,b)=>T0(a)-T0(b));
+    const link=(row, shot)=>{ idx.byRow.set(row, shot); idx.byShot.set(shot, {row, name:cohRowPlayerOf(row, team, meta), type:cohAssistType(row)}); };
+    [[true, /SCORE\s+ASSIST/i], [false, /SHOT\s+ASSIST/i]].forEach(([sc, re])=>
+      cohAlign(t.rows.filter(r=>re.test(r.code||'')), t.shots.filter(s=>cohShotScored(s)===sc), cost).forEach(p=>link(p[0], p[1])));
+    // shots with no outcome yet: whatever rows are left, overlap only
+    cohAlign(t.rows.filter(r=>!idx.byRow.has(r)), t.shots.filter(s=>cohShotScored(s)===null&&!idx.byShot.has(s)), (r, s)=>{ const c=cost(r, s); return c!=null&&c<1?c:null; }).forEach(p=>link(p[0], p[1]));
+    t.rows.forEach(r=>{ if(!idx.byRow.has(r)) idx.unlinked.push(r); });
+    idx.stats[team]={shots:t.shots.length, rows:t.rows.length, linked:t.rows.filter(r=>idx.byRow.has(r)).length, shotsLinked:t.shots.filter(s=>idx.byShot.has(s)).length};
+  });
+  return idx;
+}
+const COH_AS_CACHE=(typeof WeakMap!=='undefined')?new WeakMap():null;
+// for readers whose events array is not edited in place (Analysis, dashboard statistics)
+function cohAssistIndexCached(events, meta){
+  if(!COH_AS_CACHE||!events||typeof events!=='object') return cohAssistIndex(events, meta);
+  const sig=events.length+'|'+((meta&&meta.homeTeam)||'')+'|'+((meta&&meta.awayTeam)||''), c=COH_AS_CACHE.get(events);
+  if(c&&c.sig===sig) return c.idx;
+  const idx=cohAssistIndex(events, meta); COH_AS_CACHE.set(events, {sig, idx}); return idx;
+}
+function cohShotAssist(shot, idx){
+  if(!shot) return null;
+  const lab=cohLabelVal(shot,'Assist'), l=idx&&idx.byShot?idx.byShot.get(shot):null;
+  if(lab) return {name:lab, type:(l&&l.type)||cohLabelVal(shot,'Assist Type')||'', source:'label', row:l?l.row:null};
+  if(l&&(l.name||l.type)) return {name:l.name||'', type:l.type||'', source:'row', row:l.row};
+  return null;
+}
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsShotRow, cohIsAssistRow, cohShotScored, cohRowPlayerOf, cohAssistType, cohAlign, cohAssistIndex, cohAssistIndexCached, cohShotAssist, COH_ASSIST_GAP});
