@@ -109,7 +109,8 @@
         for(let i=1;i<s.words.length;i++){ const a=s.words[i-1], b=s.words[i]; if(a.rx1<=gt.x1+0.2*H&&b.rx0>=gt.x0-0.2*H){
           if(isNumTok(b.text)){ k=i; break; } if(b.rx0-a.rx1>kg){ kg=b.rx0-a.rx1; k=i; } } }
         if(k<0) ok=false; else cuts.push(k); });
-      let parts=[]; if(ok){ let from=0; cuts.concat([s.words.length]).forEach(k=>{ parts.push(segOf(s.words.slice(from,k), o.glue)); from=k; }); }
+      // two strips can ask for the same cut (or cuts out of order): each cut is used once, in order, and never leaves an empty piece
+      let parts=[]; if(ok){ let from=0; [...new Set(cuts)].sort((x,y)=>x-y).concat([s.words.length]).forEach(k=>{ if(k>from){ parts.push(segOf(s.words.slice(from,k), o.glue)); from=k; } }); if(parts.length<2) ok=false; }
       const numd=p=>lineNo(p.text)!=null;
       if(ok&&parts.every(numd)) parts.forEach(p=>kept.push(p));                      // "24 Long Name" + "24 Mark Gibbons"
       else if(ok&&isNumTok(parts[0].text)&&parts.length===2&&numd(s)) kept.push(s);   // "2" + "James Lavelle": one player
@@ -462,6 +463,7 @@
     bigpdf:()=>'This PDF is over '+LIMIT.pdfMB+' MB, which is too large to read here. Save just the team sheet page as its own PDF, or take a screenshot of it.',
     bigimage:()=>'This picture is over '+LIMIT.imageMB+' MB, which is too large to read here. Use a smaller copy or a screenshot of it.',
     empty:()=>'No team list could be read from this file. If it is a photo, try a sharper, straighter one with the list filling the picture — or paste or type the list.',
+    unreadable:()=>'This picture could not be read automatically. Try cropping to one team\u2019s list, or paste / type the list.',
     cancel:()=>'Stopped.'
   };
 
@@ -699,6 +701,10 @@
         engine:engines.map(e=>LIB[e].name+' '+LIB[e].ver).join(' + '), langs:ocr?ocr.langs:[]};
       res.redeal=first=>{ const r=R.deal(comp, side, Object.assign({first}, ctx)); res.home=r.home; res.away=r.away; res.assign=r.assign; return res; };
       return res;
+    } catch(e){
+      if(e&&e.reader) throw e;
+      try{ console.error('[team sheet reader]', e); }catch(_){}
+      const x=err('unreadable', MSG.unreadable()); x.cause=e; throw x;
     } finally { job.end(); }
   };
   // The public hook is cohTeamSheetFromFile in cohesion-teamsheet.js, which loads this file and calls read().
@@ -929,7 +935,9 @@
     }).catch(e=>{
       done=true; card.removeEventListener('input', onInput);
       if(e&&e.code==='cancel'){ host.innerHTML=''; return null; }
-      failure(host, (e&&e.reader&&e.message)||('The file could not be read ('+String(e&&e.message||e)+'). Pasting or typing the list still works.'));
+      // only the reader's own messages are shown; anything unexpected gets a plain message, with the detail in the console
+      if(!(e&&e.reader)){ try{ console.error('[team sheet reader]', e); }catch(_){} }
+      failure(host, (e&&e.reader&&e.message)||R.MSG.unreadable());
       return null;
     });
   };
