@@ -303,8 +303,18 @@ function cohScImport(insts, opts){
     if(playerTeam && team && playerTeam!==team) stats.playerTeamOtherRow++;
     if(playerRow){ ev.playerRow=true; if(team) ev.teamDerived=true; }
     else if(teamDerived) ev.teamDerived=true;
+    if(kept[COH_BREAK_NOTE_GROUP]===COH_BREAK_NOTE&&cohIsBreakRow(ev)) ev.derived='break-pair';   // a break row COHESION added, back from its own export
     events.push(ev);
   });
+  // the opposition's break row of every break-ball kickout (the template logs only the kicking team's)
+  stats.breakPairs={kickouts:0, had:0, added:0, both:0};
+  if(opts.breakPairs!==false){
+    const bp=cohScBreakPairs(events, {homeTeam, awayTeam, category});
+    stats.breakPairs=bp.stats;
+    bp.added.forEach(r=>{ const kid=String(r.id).replace(/^bp-/,'').replace(/-[wl]$/,''); let at=events.findIndex(e=>String(e.id)===kid&&cohIsKoRow(e));   // straight after its kickout: the file's order is kept
+      if(at<0) at=events.length-1; while(at+1<events.length&&events[at+1].derived==='break-pair'&&String(events[at+1].id).indexOf('bp-'+kid+'-')===0) at++;
+      events.splice(at+1, 0, r); });
+  }
   stats.events=events.length;
   return {events, error:null, markers:refs, offsets, stats};
 }
@@ -506,3 +516,99 @@ function cohShotAssist(shot, idx){
   return null;
 }
 if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsShotRow, cohIsAssistRow, cohShotScored, cohRowPlayerOf, cohAssistType, cohAlign, cohAssistIndex, cohAssistIndexCached, cohShotAssist, COH_ASSIST_GAP});
+
+/* ── Kickout players and break rows (the Sportscode template) ─────
+ * On a team's own kickout row the FIRST player of that team is the kicker and
+ * the SECOND is the player who gathered possession; a player of the OTHER team
+ * on a kickout or break row won it for his team. Break rows carry winners too:
+ * the players of the team that won the kickout on any break row tied to it.
+ * Derived on read; an explicit 'Kickout Taken By' / 'Kickout Won By' label always wins.
+ *   cohIsKoRow(e) / cohIsBreakRow(e)
+ *   cohKoWon(e)                 true (kicking team kept it) · false · null (no COHESION-style outcome)
+ *   cohBreakTies(events)        {byKo:Map(ko -> [break rows]), byRow:Map(row -> ko)} — a break row belongs to the
+ *                               kickout its window overlaps most
+ *   cohKoIndex(events, meta)    Map(ko -> {takenBy, wonBy, wonByTeam, second, winners:[…], target, src:{takenBy, wonBy}})
+ *   cohKoInfo(e, index)         one kickout's entry (or null)
+ * The kicker / second-player reading needs the whole player list of the row, so it is used only in a game
+ * whose import kept every label value (some event has labelsAll): an older import kept only the LAST player
+ * of a row, and that one name cannot be told apart from a kicker. Run "Restore missing label values" first.
+ */
+const COH_BREAK_ROW_RE=/\bBREAK\s+(WON|LOST)\s*$/i;
+function cohIsKoRow(e){ const c=String((e&&e.code)||''); return /(\bKO\b|KICKOUT)/i.test(c)&&!/\bTOS?\b|TURNOVER|SOURCE|ASSIST|SCORE|ATTACK/i.test(c); }
+function cohIsBreakRow(e){ return COH_BREAK_ROW_RE.test(String((e&&e.code)||'')); }
+function cohKoOutcome(e){ return cohUp(cohLabelVal(e,'Kickout Outcomes')||(e&&e.outcome)); }
+function cohKoWon(e){ const o=cohKoOutcome(e); if(!o||/^(KT|RT)\b/.test(o)) return null; return /LOST/.test(o)?false:/WON/.test(o)?true:null; }
+function cohBreakTies(events){
+  const T0=e=>+(e.start!=null?e.start:e.driveT)||0, T1=e=>+(e.end!=null?e.end:T0(e)+4)||0;
+  const kos=(events||[]).filter(e=>e&&e.team&&cohIsKoRow(e)), byKo=new Map(), byRow=new Map();
+  (events||[]).forEach(r=>{ if(!r||!cohIsBreakRow(r)) return; let best=null, bo=-Infinity;
+    kos.forEach(k=>{ if(r.half&&k.half&&r.half!==k.half) return; const ov=Math.min(T1(r), T1(k)+2)-Math.max(T0(r), T0(k)-2); if(ov>0&&ov>bo){ bo=ov; best=k; } });
+    if(best){ byRow.set(r, best); if(!byKo.has(best)) byKo.set(best, []); byKo.get(best).push(r); } });
+  return {byKo, byRow};
+}
+function cohOppTeam(team, meta){ const T=cohUp(team), h=cohUp(meta&&meta.homeTeam), a=cohUp(meta&&meta.awayTeam); return T&&T===h?a:T&&T===a?h:''; }
+function cohKoIndex(events, meta){
+  const idx=new Map(), full=(events||[]).some(e=>e&&e.labelsAll), ties=cohBreakTies(events);
+  (events||[]).forEach(k=>{ if(!k||!k.team||!cohIsKoRow(k)) return;
+    const T=cohUp(k.team), O=cohOppTeam(T, meta), won=cohKoWon(k), P=cohEventPlayers(k, meta).filter(p=>p.group);
+    const own=P.filter(p=>cohUp(p.team)===T).map(p=>p.name), oth=P.filter(p=>p.team&&cohUp(p.team)!==T).map(p=>p.name);
+    const tb=cohLabelVal(k,'Kickout Taken By'), wb=cohLabelVal(k,'Kickout Won By'), tg=cohLabelVal(k,'Kickout Target');
+    const kicker=tb||(full?(own[0]||''):''), rest=tb?own.filter(n=>cohNameKey(n)!==cohNameKey(tb)):own.slice(1);
+    const winT=won===true?T:won===false?O:'', winners=[], add=n=>{ if(n&&cohNameKey(n)!==cohNameKey(kicker)&&!winners.some(x=>cohNameKey(x)===cohNameKey(n))) winners.push(n); };
+    if(won===true&&full) rest.forEach(add);
+    if(won===false) oth.forEach(add);
+    if(winT) (ties.byKo.get(k)||[]).forEach(r=>cohEventPlayers(r, meta).forEach(p=>{ if(cohUp(p.team)===winT) add(p.name); }));
+    idx.set(k, {takenBy:kicker, wonBy:wb||winners[0]||'', wonByTeam:winT, second:full?(rest[0]||''):'', winners:wb?[wb].concat(winners.filter(n=>cohNameKey(n)!==cohNameKey(wb))):winners, target:tg,
+      src:{takenBy:tb?'label':kicker?'row':'', wonBy:wb?'label':winners.length?'row':''}, breakRows:ties.byKo.get(k)||[]});
+  });
+  return idx;
+}
+const COH_KO_CACHE=(typeof WeakMap!=='undefined')?new WeakMap():null;
+function cohKoIndexCached(events, meta){
+  if(!COH_KO_CACHE||!events||typeof events!=='object') return cohKoIndex(events, meta);
+  const sig=events.length+'|'+((meta&&meta.homeTeam)||'')+'|'+((meta&&meta.awayTeam)||''), c=COH_KO_CACHE.get(events);
+  if(c&&c.sig===sig) return c.idx;
+  const idx=cohKoIndex(events, meta); COH_KO_CACHE.set(events, {sig, idx}); return idx;
+}
+function cohKoInfo(e, idx){ return (idx&&e&&idx.get(e))||null; }
+
+/* ── The opposition's break row (import) ──────────────────────────
+ * The template logs ONE break row per break-ball kickout, on the kicking team;
+ * COHESION's standard is both teams' rows. cohScBreakPairs adds the missing
+ * one(s) on the kickout's window, with the kickout's tags and — on the
+ * winner's BREAK WON row — the player who won the break. Added rows are marked
+ * derived:'break-pair' and carry the visible label COH_BREAK_NOTE. Idempotent:
+ * a kickout that already has both rows gets nothing.
+ *   cohScBreakPairs(events, {homeTeam, awayTeam, category}) -> {added:[events], stats:{kickouts, had, added, both}}
+ */
+const COH_BREAK_NOTE_GROUP='COHESION', COH_BREAK_NOTE='Added break row';
+function cohScBreakPairs(events, opts){
+  opts=opts||{}; const meta={homeTeam:opts.homeTeam, awayTeam:opts.awayTeam}, category=opts.category||cohScCategory;
+  const stats={kickouts:0, had:0, added:0, both:0}, added=[], ties=cohBreakTies(events), kidx=cohKoIndex(events, meta), gidx=cohGroupIndex(events);
+  // how the game writes a team at the start of a code ("KERRY KO"): the spelling of an existing code, else as the kicker's
+  const prefix=(team, like)=>{ const U=cohUp(team); for(const e of events){ const c=String(e.code||''); if(cohUp(e.team)===U&&c.toUpperCase().startsWith(U+' ')) return c.slice(0, U.length); }
+    return like===like.toUpperCase()?U:cohTeamCasing(U, meta); };
+  (events||[]).forEach(k=>{ if(!k||!k.team||!cohIsKoRow(k)) return;
+    const out=cohKoOutcome(k), won=/BREAK WON/.test(out)?true:/BREAK LOST/.test(out)?false:null; if(won===null||/^(KT|RT)\b/.test(out)) return;
+    const T=cohUp(k.team), O=cohOppTeam(T, meta); stats.kickouts++;
+    const kp=String(k.code||'').slice(0, T.length), have=ties.byKo.get(k)||[];
+    const want=[[T, kp, won?'WON':'LOST']]; if(O) want.push([O, prefix(O, kp), won?'LOST':'WON']);
+    const info=kidx.get(k)||{}; let n=0;
+    want.forEach(([team, pre, what])=>{
+      if(have.some(r=>cohUp(r.team||'')===team&&new RegExp('BREAK\\s+'+what+'\\s*$','i').test(r.code||''))){ stats.had++; return; }
+      if(have.some(r=>!r.team&&cohUp(r.code).startsWith(team+' ')&&new RegExp('BREAK\\s+'+what+'\\s*$','i').test(r.code||''))){ stats.had++; return; }
+      const code=pre+' BREAK '+what, labels={};
+      Object.keys(k.labels||{}).forEach(g=>{ const c=cohGroupCanon(g); if(c==='kickout outcome'||c==='kickout location'||c==='kickout zone'||/^[xy]-ko/i.test(g)) labels[g]=k.labels[g]; });
+      const ev={ id:'bp-'+k.id+'-'+(what==='WON'?'w':'l'), start:k.start, end:k.end, half:k.half };
+      if(k.gameTime!=null) ev.gameTime=k.gameTime;
+      let player='';
+      if(what==='WON'&&info.wonBy&&cohUp(info.wonByTeam)===team){ player=info.wonBy; labels[cohPlayerGroupFor(gidx, team, meta)]=player; }
+      labels[COH_BREAK_NOTE_GROUP]=COH_BREAK_NOTE;
+      Object.assign(ev, { code, team, player, outcome:'', subtype:'', category:category(code), driveT:k.driveT, labels, derived:'break-pair', teamDerived:true });
+      if(player) ev.playerTeam=team;
+      added.push(ev); n++; });
+    stats.added+=n; if(n===want.length&&n>1) stats.both++;
+  });
+  return {added, stats};
+}
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsKoRow, cohIsBreakRow, cohKoOutcome, cohKoWon, cohBreakTies, cohOppTeam, cohKoIndex, cohKoIndexCached, cohKoInfo, cohScBreakPairs, COH_BREAK_NOTE_GROUP, COH_BREAK_NOTE});
