@@ -6501,14 +6501,14 @@ function pyInvolvement(T, games, bundleOf){
       if(e.playerRow||(!e.team&&!e.player)){ if(!e.playerRow&&!idx) idx=cohPlayerIndex(b.events, b.meta); who=cohPlayerRowOf(e, idx); }
       else if(e.player) who={name:e.player, team:ssUC(cohPlayerTeam(e, b.meta))};
       if(!who||!who.name||ssUC(who.team)!==T) return;
-      const key=pyKey(who.name); let r=m.get(key); if(!r){ r={key, name:who.name, rows:0, total:0, values:{}, gs:new Set()}; m.set(key, r); }
-      r.rows++; rows++; any=true; r.gs.add(g.id);
+      const key=pyKey(who.name); let r=m.get(key); if(!r){ r={key, name:who.name, rows:0, total:0, values:{}, gs:new Set(), names:{}}; m.set(key, r); }
+      r.names[who.name]=(r.names[who.name]||0)+1; r.rows++; rows++; any=true; r.gs.add(g.id);
       vals.forEach(v=>{ r.values[v]=(r.values[v]||0)+1; r.total++; tot[v]=(tot[v]||0)+1; total++; });
     });
     if(any) n++;
   });
   const byCount=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
-  const players=[...m.values()].map(r=>{ const games=r.gs.size; delete r.gs; return Object.assign(r, {top:byCount(r.values), games}); }).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
+  const players=[...m.values()].map(r=>{ const games=r.gs.size, name=pyBestName(r.names)||r.name; delete r.gs; delete r.names; return Object.assign(r, {name, top:byCount(r.values), games}); }).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));   // the name: his most frequent spelling, as in the players table
   return {team:T, group:PY_INV_GROUP, nGames:list.length, loaded, n, rows, total, values:byCount(tot), players};
 }
 // The GAME INVOLVEMENT table. Columns = the team's PY_INV_NCOL most frequent involvement types in the selection
