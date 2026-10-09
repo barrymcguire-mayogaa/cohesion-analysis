@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Player Photos</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:28px;line-height:1.6;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;}
+input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;width:100%;}
+input[type=text]:focus{border-color:var(--accent);}
+
+.process-btn{padding:12px 22px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:2px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;transform:translateY(-1px);}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.sec-btn{padding:7px 11px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+
+.drop{border:2px dashed var(--border);border-radius:12px;padding:26px 20px;text-align:center;color:var(--t2);font-size:13px;line-height:1.7;cursor:pointer;transition:all .15s;background:var(--card);}
+.drop:hover,.drop.over{border-color:var(--accent);color:var(--accent);background:var(--accent-bg);}
+.drop strong{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;display:block;color:var(--t1);}
+select,input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;max-width:100%;}
+select:focus{border-color:var(--accent);}
+.team-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.team-row select{min-width:240px;flex:0 1 360px;font-weight:600;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 10px 10px;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;text-align:center;}
+.tile.has{border-color:var(--green);}
+.tile.orphan{border-color:var(--amber);}
+.tile-name{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tile-meta{font-size:11px;color:var(--t3);line-height:1.4;min-height:15px;}
+.tile-meta.warn{color:var(--amber);}
+.tile-btns{display:flex;gap:6px;width:100%;}
+.tile-btns .sec-btn{flex:1;padding:6px 4px;}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.note.lock{background:var(--accent-bg);border-color:var(--accent);color:var(--t1);margin:0 0 20px;}
+.note.lock b{color:var(--accent);}
+code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--accent);}
+.bulk-wrap{overflow-x:auto;margin-top:14px;border:1px solid var(--border);border-radius:10px;}
+table.bulk{width:100%;border-collapse:collapse;font-size:13px;min-width:620px;}
+table.bulk th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);}
+table.bulk td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.bulk tr:last-child td{border-bottom:none;}
+table.bulk td.c{text-align:center;width:44px;} table.bulk th.c{text-align:center;}
+table.bulk img.th{width:44px;height:44px;border-radius:50%;display:block;object-fit:cover;background:#10111a;cursor:pointer;}
+table.bulk select{width:100%;min-width:170px;padding:6px 7px;}
+table.bulk input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;}
+.fn{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2);}
+.pill{display:inline-block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;padding:3px 8px;border-radius:5px;border:1px solid var(--border);color:var(--t2);white-space:nowrap;}
+.pill.match{color:var(--green);border-color:var(--green);background:var(--green-bg);}
+.pill.replace,.pill.duplicate{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);}
+.pill.nomatch,.pill.fail{color:var(--red);border-color:var(--red);background:var(--red-bg);}
+.pill.done{color:var(--green);border-color:var(--green);}
+.pill.busy{color:var(--accent);border-color:var(--accent);}
+/* crop dialog */
+.crop-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:9000;padding:14px;}
+.crop-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:340px;box-shadow:0 24px 64px rgba(0,0,0,.55);}
+.crop-h{font:800 18px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.crop-sub{font-size:12px;color:var(--t2);margin:2px 0 12px;line-height:1.5;}
+.crop-stage{position:relative;width:256px;height:256px;margin:0 auto;border-radius:10px;overflow:hidden;background:#10111a;touch-action:none;cursor:grab;}
+.crop-stage:active{cursor:grabbing;}
+.crop-stage canvas{display:block;width:256px;height:256px;}
+.crop-stage::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 200px rgba(0,0,0,.45);pointer-events:none;}
+.crop-zoom{display:flex;align-items:center;gap:10px;margin:12px 0 4px;font-size:11px;color:var(--t3);}
+.crop-zoom input{flex:1;accent-color:var(--accent);}
+@media(max-width:560px){ .page{padding:18px 12px 50px;} .step{padding:16px 12px;} .grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;} }
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+<script src="cohesion-teamsheet.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">👤 Player Photos</div>
+  <div class="page-sub">
+    Add a photo for any player. It replaces his initials badge on the Analysis Players tab, the dashboard Teams
+    panel and the team sheet editor, for every game that team plays in.
+  </div>
+  <div class="note lock" id="privNote">
+    <b>🔒 Signed-in users only.</b> Player photos are stored privately and are shown only to people signed in to COHESION.
+    They are never part of a public page, and they are not put into exports (PDF, stats image, infographic, XML) —
+    those keep the initials. A photo link handed to a signed-in user works for up to one hour and then stops.
+  </div>
+
+  <div class="error-box" id="setupErr"></div>
+
+  <!-- 1. TEAM + PLAYERS -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Team</div><div class="step-sub">Every team in COHESION's games · players come from its team sheets and the names tagged in its games</div></div></div>
+    <div class="team-row">
+      <select id="teamSel" aria-label="Team"><option value="">Loading teams…</option></select>
+      <span class="st" id="teamMsg"></span>
+    </div>
+    <div class="error-box" id="teamErr"></div>
+    <div class="grid" id="players" style="margin-top:16px;"></div>
+    <div class="btn-row" id="addRow" style="display:none;">
+      <input type="text" id="addName" placeholder="A player not listed — type his name" style="flex:0 1 280px;" autocomplete="off" spellcheck="false">
+      <button class="sec-btn" onclick="addPlayer()">Add player</button>
+    </div>
+    <div class="error-box" id="listErr"></div>
+    <input type="file" id="pickOne" accept="image/png,image/jpeg,image/webp" style="display:none">
+  </div>
+
+  <!-- 2. BULK -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title">Bulk upload</div><div class="step-sub">Name each file after the player — <code>Ryan O'Donoghue.jpg</code> · capitals, spaces, apostrophes and accents do not matter · nothing uploads until you confirm</div></div></div>
+    <div class="drop" id="drop" tabindex="0">
+      <strong>Drop player photos here</strong>
+      or click to choose — as many as you like. Each is cropped to a centred square and resized to 256×256 on this device.
+    </div>
+    <input type="file" id="pick" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+    <div id="bulkBox"></div>
+    <div class="btn-row" id="bulkBar" style="display:none;">
+      <button class="process-btn" id="bulkBtn" onclick="bulkUpload()">Upload</button>
+      <button class="sec-btn" id="bulkClr" onclick="bulkClear()">Clear list</button>
+      <span class="st" id="bulkMsg"></span>
+    </div>
+    <div class="error-box" id="bulkErr"></div>
+  </div>
+</div>
+
+<script>
+// ── Auth (same gate as admin.html / crests-admin.html; every call is re-checked server-side) ──
+// cohesionAuthGate (cohesion-edit.js) restores the marker in a new tab, or goes to index.html?next=<this page>.
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('cohesion_theme',n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SIDE = 256;                           // every photo is stored 256×256
+const QUALITY = 0.85;                       // JPEG quality
+const MAX_BYTES = 300000;                   // the function's cap
+const OK_TYPES = ['image/png','image/jpeg','image/webp'];
+const SETUP = 'Player photo storage is not set up yet — run supabase/player_photos_storage.sql in the Supabase SQL editor (one paste, one click), then reload this page. Until then every page keeps showing initials.';
+
+let teams = [];                             // [{name, key, n}] every team in COHESION's games
+let team = '';                              // the chosen team's name
+let known = [];                             // that team's player names (team sheets + tagged names)
+let extra = [];                             // names typed on this page ("Add player")
+let photos = {};                            // photoKey -> {name, url, updatedAt} (signed URLs, memory only)
+let bulk = [];                              // bulk preview rows
+let busy = false, seq = 0, loadTok = 0;
+
+function showErr(id, msg){ const el=$(id); el.textContent = msg||''; el.classList.toggle('show', !!msg); }
+function isSetupErr(e){ return /player_photos_storage\.sql/.test(String((e&&e.message)||e)); }
+
+// ── Teams (from games) ────────────────────────────────────────────────────
+// one entry per team key; the spelling used by most games is the one shown
+function teamsFromGames(games){
+  const m = {};
+  (games||[]).forEach(g=>{ const meta=(g&&g.meta)||{}; [meta.homeTeam, meta.awayTeam].forEach(n=>{
+    n = String(n||'').replace(/\s+/g,' ').trim(); const k = cohPhotoKey(n); if(!k) return;
+    const t = m[k] || (m[k] = { key:k, n:0, sp:{} }); t.n++; t.sp[n] = (t.sp[n]||0)+1; }); });
+  return Object.values(m).map(t=>({ key:t.key, n:t.n, name:Object.keys(t.sp).sort((a,b)=>t.sp[b]-t.sp[a] || a.localeCompare(b))[0] }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+}
+async function loadTeams(){
+  try{
+    const j = await cohesionRead({ action:'listGames', section:'all' });
+    teams = teamsFromGames(j.games);
+  }catch(e){ teams = []; showErr('teamErr','Could not load the games list: '+(e.message||e)); }
+  const sel = $('teamSel');
+  let want = '';
+  try{ want = new URLSearchParams(window.location.search).get('team') || localStorage.getItem('coh_photos_admin_team') || ''; }catch(_){}
+  const hit = teams.find(t=>t.key===cohPhotoKey(want));
+  sel.innerHTML = '<option value="">'+(teams.length?'Choose a team…':'No teams found')+'</option>'
+    + teams.map(t=>'<option value="'+esc(t.name)+'"'+(hit&&hit.key===t.key?' selected':'')+'>'+esc(t.name)+' ('+t.n+' game'+(t.n===1?'':'s')+')</option>').join('');
+  if(hit) await pickTeam(hit.name);
+}
+
+// ── Players of the chosen team ────────────────────────────────────────────
+// union of: team sheets + tagged names (cohTS.loadKnown), names typed here, and
+// names that already have a photo. One row per photo key; -> [{name, key, photo|null, listed}]
+function playerRows(){
+  const rows = [], seen = {};
+  const add = (name, listed)=>{ const k = cohPhotoKey(name); if(!k) return;
+    if(seen[k]){ if(listed) seen[k].listed = true; return; }
+    rows.push(seen[k] = { name:String(name), key:k, photo:photos[k]||null, listed:!!listed }); };
+  known.forEach(n=>add(n, true)); extra.forEach(n=>add(n, true));
+  Object.keys(photos).forEach(k=>add(photos[k].name, false));
+  return rows.sort((a,b)=>a.name.localeCompare(b.name));
+}
+const playerNames = ()=>playerRows().map(r=>r.name);
+
+async function loadPhotos(){
+  const ok = await cohPhotosReady([team], { force:true });
+  photos = cohPhotosOf(team);
+  showErr('setupErr', cohPhotosSetupMissing() ? SETUP : '');
+  if(!ok) showErr('listErr','Could not load this team’s photos — showing initials. Reload the page to try again.');
+  return ok;
+}
+async function pickTeam(name){
+  const tok = ++loadTok;
+  team = String(name||''); known = []; extra = []; photos = {}; bulk = [];
+  showErr('listErr',''); showErr('bulkErr',''); renderBulk();
+  try{ if(team) localStorage.setItem('coh_photos_admin_team', team); }catch(_){}
+  if(!team){ $('teamMsg').textContent=''; renderPlayers(); return; }
+  $('teamMsg').textContent = 'Loading players…'; renderPlayers(true);
+  const [names] = await Promise.all([
+    Promise.resolve().then(()=>cohTS.loadKnown(team)).catch(()=>[]),
+    loadPhotos() ]);
+  if(tok !== loadTok) return;               // another team was picked meanwhile
+  known = names || [];
+  renderPlayers();
+}
+function addPlayer(){
+  const n = String($('addName').value||'').replace(/\s+/g,' ').trim();
+  if(!cohPhotoKey(n)) return;
+  if(!playerRows().some(r=>r.key===cohPhotoKey(n))) extra.push(n);
+  $('addName').value = ''; renderPlayers(); rematchBulk();
+}
+
+function renderPlayers(loading){
+  const box = $('players'), rows = team ? playerRows() : [];
+  $('addRow').style.display = team ? 'flex' : 'none';
+  if(!team){ box.innerHTML = ''; return; }
+  const withPhoto = rows.filter(r=>r.photo).length;
+  if(!loading)
+    $('teamMsg').textContent = rows.length ? (rows.length+' player'+(rows.length===1?'':'s')+' · '+withPhoto+' with a photo') : 'No players found for this team yet';
+  box.innerHTML = rows.map((r,i)=>{
+    return '<div class="tile'+(r.photo?' has':'')+(r.listed?'':' orphan')+'" data-key="'+esc(r.key)+'">'
+      + cohPlayerBadgeHTML(team, r.name, { size:84, decorative:false })
+      + '<div class="tile-name" title="'+esc(r.name)+'">'+esc(r.name)+'</div>'
+      + '<div class="tile-meta'+(r.listed?'':' warn')+'">'+(r.listed ? (r.photo?'Photo added':'Initials') : 'Photo for a name not in this team’s games')+'</div>'
+      + '<div class="tile-btns">'
+      + '<button class="sec-btn" '+(busy?'disabled':'')+' onclick="choosePhoto('+i+')">'+(r.photo?'Replace':'Upload')+'</button>'
+      + (r.photo ? '<button class="sec-btn danger" '+(busy?'disabled':'')+' onclick="removePhoto('+i+')">Remove</button>' : '')
+      + (r.photo && !r.listed ? '<button class="sec-btn" '+(busy?'disabled':'')+' onclick="renamePhoto('+i+')" title="Move this photo to the right player">Rename</button>' : '')
+      + '</div></div>';
+  }).join('');
+}
+
+// ── Image: centred square crop -> 256×256 JPEG (all on this device) ───────
+function loadImage(file){
+  return new Promise((resolve, reject)=>{
+    if(!file || !OK_TYPES.includes(file.type)){ reject(new Error('not a PNG / JPEG / WebP image')); return; }
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = ()=>{ if(!im.naturalWidth || !im.naturalHeight){ URL.revokeObjectURL(url); reject(new Error('empty image')); return; } im._url = url; resolve(im); };
+    im.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('not a readable image')); };
+    im.src = url;
+  });
+}
+function freeImage(im){ try{ if(im && im._url) URL.revokeObjectURL(im._url); }catch(_){} }
+// crop state: z = zoom (1 = the largest centred square), cx / cy = its centre in image pixels
+function cropStart(w, h){ return { z:1, cx:w/2, cy:h/2 }; }
+function cropBox(w, h, st){            // -> {x, y, side} inside the image, clamped
+  const z = Math.min(4, Math.max(1, +st.z || 1)), side = Math.min(w, h) / z;
+  const cx = Math.min(w - side/2, Math.max(side/2, st.cx)), cy = Math.min(h - side/2, Math.max(side/2, st.cy));
+  st.z = z; st.cx = cx; st.cy = cy;
+  return { x: cx - side/2, y: cy - side/2, side };
+}
+function drawCrop(canvas, im, st){
+  const b = cropBox(im.naturalWidth, im.naturalHeight, st), ctx = canvas.getContext('2d');
+  canvas.width = SIDE; canvas.height = SIDE;
+  ctx.fillStyle = '#10111a'; ctx.fillRect(0, 0, SIDE, SIDE);      // JPEG has no transparency
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(im, b.x, b.y, b.side, b.side, 0, 0, SIDE, SIDE);
+}
+const dataUrlBytes = u => Math.round((u.length - u.indexOf(',') - 1) * 3 / 4);
+function exportJpeg(im, st){
+  const cv = document.createElement('canvas'); drawCrop(cv, im, st);
+  let q = QUALITY, u = cv.toDataURL('image/jpeg', q);
+  while(dataUrlBytes(u) > MAX_BYTES && q > 0.4){ q -= 0.15; u = cv.toDataURL('image/jpeg', q); }
+  if(!/^data:image\/jpeg/.test(u)) throw new Error('this browser could not make a JPEG');
+  return u;
+}
+
+// Crop dialog: drag to move, slider / wheel to zoom. -> crop state, or null (cancelled).
+function cropDialog(im, title, st){
+  return new Promise(resolve=>{
+    st = Object.assign(cropStart(im.naturalWidth, im.naturalHeight), st||{});
+    const ov = document.createElement('div'); ov.className = 'crop-ov';
+    ov.innerHTML = '<div class="crop-card" role="dialog" aria-label="Crop photo"><div class="crop-h">'+esc(title||'Crop photo')+'</div>'
+      + '<div class="crop-sub">Drag the picture to place the face in the circle. The photo is saved as a 256×256 square and shown round.</div>'
+      + '<div class="crop-stage"><canvas width="'+SIDE+'" height="'+SIDE+'"></canvas></div>'
+      + '<div class="crop-zoom"><span>Zoom</span><input type="range" min="1" max="4" step="0.01" value="'+st.z+'" aria-label="Zoom"></div>'
+      + '<div class="btn-row" style="justify-content:flex-end;"><button class="sec-btn" data-a="cancel">Cancel</button><button class="process-btn" data-a="ok" style="padding:9px 18px;font-size:13px;">Use photo</button></div></div>';
+    document.body.appendChild(ov);
+    const cv = ov.querySelector('canvas'), stage = ov.querySelector('.crop-stage'), zoom = ov.querySelector('input');
+    const draw = ()=>drawCrop(cv, im, st);
+    const done = v=>{ if(ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
+    let drag = null;
+    stage.addEventListener('pointerdown', e=>{ drag = { x:e.clientX, y:e.clientY, cx:st.cx, cy:st.cy }; try{ stage.setPointerCapture(e.pointerId); }catch(_){} });
+    stage.addEventListener('pointermove', e=>{ if(!drag) return;
+      const k = cropBox(im.naturalWidth, im.naturalHeight, st).side / SIDE;
+      st.cx = drag.cx - (e.clientX - drag.x) * k; st.cy = drag.cy - (e.clientY - drag.y) * k; draw(); });
+    ['pointerup','pointercancel'].forEach(t=>stage.addEventListener(t, ()=>{ drag = null; }));
+    stage.addEventListener('wheel', e=>{ e.preventDefault(); st.z = st.z * (e.deltaY < 0 ? 1.08 : 1/1.08); draw(); zoom.value = st.z; }, { passive:false });
+    zoom.addEventListener('input', ()=>{ st.z = +zoom.value; draw(); });
+    ov.addEventListener('click', e=>{ const b = e.target.closest('[data-a]'); if(b) done(b.dataset.a === 'ok' ? st : null); });
+    draw();
+  });
+}
+
+// ── One player: upload / replace / remove / rename ────────────────────────
+function sendPhoto(player, dataUrl){
+  return cohesionAuthFetch('playerPhotos', { action:'upload', team, player, contentType:'image/jpeg',
+    dataBase64: dataUrl.slice(dataUrl.indexOf(',')+1) });
+}
+async function afterChange(){ await loadPhotos(); renderPlayers(); rematchBulk(); }
+function fail(where, what, e){
+  if(isSetupErr(e)) showErr('setupErr', SETUP);
+  showErr(where, what+' failed: '+((e&&e.message)||e));
+}
+
+let pickTarget = null;
+function choosePhoto(i){ if(busy) return; pickTarget = playerRows()[i] || null; if(pickTarget){ $('pickOne').value = ''; $('pickOne').click(); } }
+async function onPickOne(file){
+  const r = pickTarget; pickTarget = null;
+  if(!file || !r) return;
+  showErr('listErr','');
+  let im = null;
+  try{
+    im = await loadImage(file);
+    const st = await cropDialog(im, (r.photo?'Replace photo — ':'Photo — ')+r.name);
+    if(!st) return;
+    const dataUrl = exportJpeg(im, st);
+    busy = true; renderPlayers();
+    await sendPhoto(r.name, dataUrl);
+  }catch(e){ fail('listErr', 'Upload', e); }
+  finally{ freeImage(im); busy = false; }
+  await afterChange();
+}
+async function removePhoto(i){
+  const r = playerRows()[i]; if(busy || !r || !r.photo) return;
+  const go = await cohesionModal({ title:'Remove photo', message:'Remove the photo of <strong>'+esc(r.name)+'</strong>? His initials are shown again everywhere.',
+    buttons:[{label:'Cancel',value:false},{label:'Remove',value:true,danger:true}] });
+  if(!go) return;
+  showErr('listErr','');
+  try{ await cohesionAuthFetch('playerPhotos', { action:'delete', team, player:r.name }); }
+  catch(e){ fail('listErr', 'Remove', e); }
+  await afterChange();
+}
+// A photo saved under a name that is not (or no longer) one of the team's players: move it to the right one.
+async function renamePhoto(i){
+  const r = playerRows()[i]; if(busy || !r || !r.photo) return;
+  const free = playerRows().filter(x=>x.listed && !x.photo);
+  if(!free.length){ showErr('listErr','Every listed player already has a photo — remove one first, or add the player below.'); return; }
+  const p = cohesionModal({ title:'Rename photo', message:'Move the photo saved as <strong>'+esc(r.name)+'</strong> to:<br><select id="rnSel" style="margin-top:10px;width:100%;">'
+      + free.map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('')+'</select>',
+    buttons:[{label:'Cancel',value:false},{label:'Move photo',value:true,primary:true}] });
+  const sel = document.getElementById('rnSel');
+  if(!(await p) || !sel || !sel.value) return;
+  showErr('listErr','');
+  try{ await cohesionAuthFetch('playerPhotos', { action:'rename', team, player:r.name, newPlayer:sel.value }); }
+  catch(e){ fail('listErr', 'Rename', e); }
+  await afterChange();
+}
+
+// ── Bulk: files named after players -> preview table -> confirm ───────────
+// row: { id, file, blob, dataUrl, st, assign:'<player name>'|'', status, tick, state, msg }
+//   status  match | replace | duplicate | nomatch     (cohPhotoMatchFiles' words)
+//   state   ready | busy | done | fail
+const BULK_LABEL = { match:'New photo', replace:'Already has a photo', duplicate:'Same player twice', nomatch:'No match' };
+// Statuses follow the current assignments; a tick survives only where an upload is possible.
+function rematchBulk(){
+  const taken = {};
+  bulk.forEach(r=>{
+    if(r.state === 'done'){ if(r.assign) taken[cohPhotoKey(r.assign)] = true; return; }
+    const k = cohPhotoKey(r.assign);
+    const was = r.status;
+    if(!k) r.status = 'nomatch';
+    else if(taken[k]) r.status = 'duplicate';
+    else { taken[k] = true; r.status = photos[k] ? 'replace' : 'match'; }
+    if(r.status === 'nomatch' || r.status === 'duplicate') r.tick = false;
+    else if(was !== r.status && r.state !== 'fail') r.tick = r.status === 'match';   // a replace is never ticked for you
+  });
+  renderBulk();
+}
+async function addFiles(fileList){
+  showErr('bulkErr','');
+  if(busy) return;
+  if(!team){ showErr('bulkErr','Choose a team first.'); return; }
+  const files = Array.from(fileList||[]), skipped = [], fresh = [];
+  for(const f of files){
+    let im = null;
+    try{
+      im = await loadImage(f);
+      const st = cropStart(im.naturalWidth, im.naturalHeight);
+      fresh.push({ id:++seq, file:f.name, blob:f, st, dataUrl:exportJpeg(im, st), assign:'', status:'', tick:false, state:'ready', msg:'' });
+    }catch(e){ skipped.push(f.name+' ('+(e.message||'could not be read')+')'); }
+    finally{ freeImage(im); }
+  }
+  // match by the normalised name key — against players not already taken by a row in the list
+  const m = cohPhotoMatchFiles(fresh.map(r=>r.file), playerNames(), photos);
+  fresh.forEach((r,i)=>{ r.assign = m[i].player || ''; });
+  bulk = bulk.concat(fresh);
+  if(skipped.length) showErr('bulkErr','Skipped: '+skipped.join(', '));
+  rematchBulk();
+}
+function bulkChosen(){ return bulk.filter(r=>r.tick && r.state!=='done' && (r.status==='match' || r.status==='replace')); }
+function renderBulk(){
+  const box = $('bulkBox');
+  if(!bulk.length){ box.innerHTML = ''; $('bulkBar').style.display = 'none'; return; }
+  const names = playerNames();
+  const count = s => bulk.filter(r=>r.state!=='done' && r.status===s).length;
+  box.innerHTML = '<div class="note" id="bulkSum">'+bulk.length+' file'+(bulk.length===1?'':'s')+' — '
+      + count('match')+' matched · '+count('replace')+' already have a photo · '+(count('nomatch')+count('duplicate'))+' not matched. '
+      + 'Tick the ones to upload. <b>Nothing has been uploaded yet.</b></div>'
+    + '<div class="bulk-wrap"><table class="bulk"><thead><tr><th class="c">Upload</th><th>Photo</th><th>File</th><th>Player</th><th>Status</th></tr></thead><tbody>'
+    + bulk.map(r=>{
+      const lock = busy || r.state==='done' || r.state==='busy';
+      const can = r.status==='match' || r.status==='replace';
+      const pill = r.state==='done' ? '<span class="pill done">Uploaded</span>'
+        : r.state==='busy' ? '<span class="pill busy">Uploading…</span>'
+        : r.state==='fail' ? '<span class="pill fail" title="'+esc(r.msg)+'">Failed — '+esc(r.msg)+'</span>'
+        : '<span class="pill '+r.status+'">'+BULK_LABEL[r.status]+'</span>';
+      return '<tr data-id="'+r.id+'">'
+        + '<td class="c"><input type="checkbox" aria-label="Upload '+esc(r.file)+'" '+(r.tick?'checked ':'')+((lock||!can)?'disabled ':'')+'onchange="bulkTick('+r.id+',this.checked)"></td>'
+        + '<td><img class="th" alt="" src="'+r.dataUrl+'" title="Adjust the crop" onclick="bulkCrop('+r.id+')"></td>'
+        + '<td><div class="fn" title="'+esc(r.file)+'">'+esc(r.file)+'</div></td>'
+        + '<td><select aria-label="Player for '+esc(r.file)+'" '+(lock?'disabled ':'')+'onchange="bulkAssign('+r.id+',this.value)"><option value="">— choose a player —</option>'
+        + names.map(n=>'<option value="'+esc(n)+'"'+(cohPhotoKey(n)===cohPhotoKey(r.assign)?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select></td>'
+        + '<td>'+pill+'</td></tr>'; }).join('')
+    + '</tbody></table></div>';
+  const n = bulkChosen().length;
+  $('bulkBar').style.display = 'flex';
+  $('bulkBtn').disabled = busy || !n;
+  $('bulkBtn').textContent = n ? ('Upload '+n+' photo'+(n===1?'':'s')+'…') : 'Nothing ticked';
+  $('bulkClr').disabled = busy;
+}
+function bulkTick(id, on){ const r = bulk.find(x=>x.id===id); if(r){ r.tick = !!on && (r.status==='match'||r.status==='replace'); renderBulk(); } }
+function bulkAssign(id, name){ const r = bulk.find(x=>x.id===id); if(r){ r.assign = name||''; r.status = ''; if(r.state==='fail'){ r.state='ready'; r.msg=''; } rematchBulk(); } }
+function bulkClear(){ if(busy) return; bulk = []; showErr('bulkErr',''); $('bulkMsg').textContent=''; renderBulk(); }
+async function bulkCrop(id){
+  const r = bulk.find(x=>x.id===id); if(busy || !r || r.state==='done') return;
+  let im = null;
+  try{
+    im = await loadImage(r.blob);
+    const st = await cropDialog(im, 'Crop — '+(r.assign||r.file), r.st);
+    if(st){ r.st = st; r.dataUrl = exportJpeg(im, st); renderBulk(); }
+  }catch(e){ showErr('bulkErr','Could not open '+r.file+': '+(e.message||e)); }
+  finally{ freeImage(im); }
+}
+// One at a time: each upload rewrites the team's _index.json, so parallel
+// uploads could drop each other's entry.
+async function bulkUpload(){
+  if(busy) return;
+  const todo = bulkChosen(); if(!todo.length) return;
+  const rep = todo.filter(r=>r.status==='replace').length;
+  const go = await cohesionModal({ title:'Upload '+todo.length+' photo'+(todo.length===1?'':'s'),
+    message:'Upload '+todo.length+' photo'+(todo.length===1?'':'s')+' for <strong>'+esc(team)+'</strong>?'
+      + (rep?' <strong>'+rep+'</strong> will replace a photo that is already there.':''),
+    buttons:[{label:'Cancel',value:false},{label:'Upload',value:true,primary:true}] });
+  if(!go) return;
+  showErr('bulkErr','');
+  busy = true; renderPlayers();
+  let okN = 0, failN = 0;
+  for(let i=0;i<todo.length;i++){
+    const r = todo[i];
+    r.state = 'busy'; r.msg = ''; $('bulkMsg').textContent = 'Uploading '+(i+1)+' of '+todo.length+'…'; renderBulk();
+    try{ await sendPhoto(r.assign, r.dataUrl); r.state = 'done'; r.tick = false; okN++; }
+    catch(e){ r.state = 'fail'; r.msg = (e&&e.message)||'error'; failN++; if(isSetupErr(e)){ showErr('setupErr', SETUP); } }
+  }
+  busy = false;
+  $('bulkMsg').textContent = okN+' uploaded'+(failN?(' · '+failN+' failed — fix and press Upload again'):'');
+  await afterChange();
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+(function(){
+  const d = $('drop'), pick = $('pick');
+  d.addEventListener('click', ()=>{ if(busy) return; if(!team){ showErr('bulkErr','Choose a team first.'); return; } pick.value=''; pick.click(); });
+  d.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); d.click(); } });
+  pick.addEventListener('change', e=>addFiles(e.target.files));
+  ['dragenter','dragover'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave','drop'].forEach(t=>d.addEventListener(t, e=>{ e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e=>{ if(e.dataTransfer) addFiles(e.dataTransfer.files); });
+  // a photo dropped beside the zone must not navigate the page away
+  ['dragover','drop'].forEach(t=>window.addEventListener(t, e=>e.preventDefault()));
+  $('pickOne').addEventListener('change', e=>onPickOne(e.target.files && e.target.files[0]));
+  $('teamSel').addEventListener('change', e=>pickTeam(e.target.value));
+  $('addName').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(); } });
+})();
+
+loadTeams();
+</script>
+</body>
+</html>

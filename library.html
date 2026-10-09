@@ -312,6 +312,7 @@ select option{background:var(--card);}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
 <script src="cohesion-teamsheet.js"></script>
 </head>
 <body>
@@ -338,6 +339,9 @@ select option{background:var(--card);}
   </a>
   <a href="xp-refit.html" class="hdr-btn hdr-btn-admin" id="xpBtn" style="display:none" title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">
     📈 Expected Points
+  </a>
+  <a href="player-photos-admin.html" class="hdr-btn hdr-btn-admin" id="photosBtn" style="display:none" title="Player photos — upload a photo for any player; shown to signed-in users only">
+    👤 Player Photos
   </a>
   <a href="playlists.html" class="hdr-btn">
     🎞 Playlists
@@ -523,6 +527,7 @@ if(auth === 'admin') {
   document.getElementById('batchBtn').style.display = 'flex';
   document.getElementById('codeRoomBtn').style.display = 'flex';
   document.getElementById('xpBtn').style.display = 'flex';
+  document.getElementById('photosBtn').style.display = 'flex';
 }
 
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
