@@ -6222,7 +6222,8 @@ async function ssExportImage(){
 //    scores from open play / from a dead ball (ssShotDead). Total = scores
 //    (a count, not points). Shots = every shot. Scoring % = scores ÷ shots.
 //  · Assists = SCORES by a team-mate whose 'Assist' label (any letter case)
-//    names the player.
+//    names the player — or, with no label, the player of the shot's SHOT ASSIST /
+//    SCORE ASSIST row (cohesion-labels.js cohShotAssist; the label wins, never both).
 //  · xPts/Game = the player's xP ÷ the games in which he took at least one
 //    shot xP can rate (a located shot with an attempt type).
 //  · CHIPS: 1-point / 2-point / Goal = the tagged ATTEMPT type (as the zone
@@ -6259,9 +6260,10 @@ function pyKey(name){ return String(name||'').replace(/[‘’ʼ`´']/g,'').repl
 function pyLeg(e){ const K=ssUC(ssLblCI(e,['Shooting Leg'])); return !K?'':/^RIGHT/.test(K)?'R':/^LEFT/.test(K)?'L':/NO LEG|HAND/.test(K)?'H':''; }
 function pySide(e){ const K=ssUC(ssLblCI(e,['Shot Side'])); return !K?'':/^LEFT/.test(K)?'L':/^CENT/.test(K)?'C':/^RIGHT/.test(K)?'R':''; }
 // who a kickout names: {name, key, team (the player's team), won (his team won it), role:'winner'|'target'} or null
-function pyKoWho(k){
+function pyKoWho(k, KI){   // KI (optional): cohKoIndex of the game — the winner read from the Sportscode template's player labels / break rows
   const e=k&&k.e; if(!e) return null;
-  const w=ssLblCI(e,['Kickout Won By']);
+  const info=KI?KI.get(e):null;
+  const w=ssLblCI(e,['Kickout Won By'])||(info&&info.wonBy)||'';
   if(w) return {name:w, key:pyKey(w), team:k.won?k.team:k.opp, won:true, role:'winner'};
   // a converted GI kickout the kicking team LOST keeps its target as 'Kickout Target' (cohesion-gi.js)
   const tg=ssLblCI(e,['Kickout Target']);
@@ -6293,8 +6295,12 @@ function pyGame(meta, events, T){
   if(!c||c.M!==M||c.n!==events.length||c.H!==meta.homeTeam||c.A!==meta.awayTeam||c.id!==meta.id||c.kp!==kp){ c={M, n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, kp, t:new Map()}; PY_CACHE.set(events, c); }
   if(c.t.has(T)) return c.t.get(T);
   const O=T===H?A:H, all=ttGameShots(meta, events);
-  const shots=all.filter(s=>s.team===T).map(s=>{ const a=ssLblCI(s.e,['Assist']); return Object.assign({}, s, {pk:pyKey(s.player), leg:pyLeg(s.e), side:pySide(s.e), pr:ssPressLevel(s.e), assist:a, ak:pyKey(a)}); });
-  const K=tkGameKos(meta, events), kos=(K?K.kos:[]).map(k=>Object.assign({}, k, {who:pyKoWho(k)}));
+  // Assist / kickout players through the shared helpers (cohesion-labels.js): the shot's own 'Assist' label, else
+  // the player of its SHOT ASSIST / SCORE ASSIST row; an explicit Kickout Won By / Taken By label, else the
+  // kickout row's player labels (first = kicker, second = winner) and its break rows.
+  const AI=(typeof cohAssistIndexCached==='function')?cohAssistIndexCached(events, meta):null, KI=(typeof cohKoIndexCached==='function')?cohKoIndexCached(events, meta):null;
+  const shots=all.filter(s=>s.team===T).map(s=>{ const sa=AI?cohShotAssist(s.e, AI):null, a=sa?sa.name:ssLblCI(s.e,['Assist']); return Object.assign({}, s, {pk:pyKey(s.player), leg:pyLeg(s.e), side:pySide(s.e), pr:ssPressLevel(s.e), assist:a, ak:pyKey(a), assistType:sa?sa.type:''}); });
+  const K=tkGameKos(meta, events), kos=(K?K.kos:[]).map(k=>{ const info=KI&&k.e?KI.get(k.e):null; return Object.assign({}, k, {who:pyKoWho(k, KI), takenBy:(k.e&&ssLblCI(k.e,['Kickout Taken By']))||(info&&info.takenBy)||''}); });
   const v={gid:meta.id, T, O, shots, faced:all.filter(s=>s.team===O), kos, anyShots:all.length>0, goalTags:all.some(s=>s.att==='G'), keepers:pyKeeperSpells(meta, T===H?'home':'away')};
   c.t.set(T, v); return v;
 }
@@ -6418,7 +6424,7 @@ function pyKeeperNamed(used, T, K){
   const rest=mk(''); let tagged=0, tagGames=0, spellGames=0;
   (used||[]).forEach((u,i)=>{ const P=u.P, g=K.rows[i]; let any=false;
     (P.kos||[]).forEach(k=>{ if(k.team!==T) return;
-      const n=k.e?ssLblCI(k.e,['Kickout Taken By']):'', key=pyKey(n), r=key?get(key, n):rest;
+      const n=k.takenBy!=null?k.takenBy:(k.e?ssLblCI(k.e,['Kickout Taken By']):''), key=pyKey(n), r=key?get(key, n):rest;
       if(key){ any=true; tagged++; } r.games.add(i);
       r.taken++; if(k.won) r.won++;
       if(k.len&&r.len[k.len]){ r.len[k.len].n++; if(k.won) r.len[k.len].won++; } });
@@ -6517,7 +6523,7 @@ function pyTableHTML(R, S, sel, shown, col){
       +td(r.xpg==null?(r.shots?'n/a':'–'):r.xpg.toFixed(2), r.xpg==null?'na':'')+td(r.shots?pyPct1(r.pct):'–', r.shots?'':'na')+'</tr>'; }).join('');
   return '<div class="tt-card py-tabcard"><div class="py-scroll"><table class="py-tab"><thead><tr><th class="py-b"><span class="py-sr">Badge</span></th>'+th+'</tr></thead><tbody>'+body+'</tbody></table></div>'
     +`<div class="py-foot"><span class="mr-count">Showing ${pg.shown} of ${pg.total}</span>${pg.next>0?`<button type="button" class="mr-more" data-pymore="1">Show next ${pg.next}</button>`:''}</div>`
-    +`<div class="dnote">${ssEsc('1pt, 2pt and Goal are scores of that value; OP and DB are scores from open play and from a dead ball; Total is the number of scores. Assists are scores by a team-mate that name the player in the Assist tag. xPts/Game is the player’s expected points divided by the games in which he took at least one shot that xP can rate (a shot with a location and an attempt type). Scoring % is scores ÷ shots. Names that differ only in letter case, spacing or apostrophes are one player.'+(R.noPlayer?' '+R.noPlayer+' shot'+(R.noPlayer===1?' has':'s have')+' no player tagged and '+(R.noPlayer===1?'is':'are')+' in no row.':'')+' No source records possessions per player, so there is no Possessions column. Click a column to sort, a row to select the player.')}</div></div>`;
+    +`<div class="dnote">${ssEsc('1pt, 2pt and Goal are scores of that value; OP and DB are scores from open play and from a dead ball; Total is the number of scores. Assists are scores by a team-mate that name the player in the Assist tag, or in the score’s SCORE ASSIST row (Sportscode). xPts/Game is the player’s expected points divided by the games in which he took at least one shot that xP can rate (a shot with a location and an attempt type). Scoring % is scores ÷ shots. Names that differ only in letter case, spacing or apostrophes are one player.'+(R.noPlayer?' '+R.noPlayer+' shot'+(R.noPlayer===1?' has':'s have')+' no player tagged and '+(R.noPlayer===1?'is':'are')+' in no row.':'')+' No source records possessions per player, so there is no Possessions column. Click a column to sort, a row to select the player.')}</div></div>`;
 }
 function pySelBarHTML(R, V, F){
   const names=pySort(R.players, 'name', 'asc');
@@ -6635,7 +6641,7 @@ function pyKoHTML(R, V){
       :!located?`<div class="tt-empty">n/a — none of ${ssEsc(T)}’s ${own.length} kickouts has a landing location tagged.</div>`
       :`<div class="tt-pitchbox tk-pitchbox">${pyKoMapSVG(V.mapKos, T)}</div>${pyKoKeyHTML(T)}<div class="dnote">${ssEsc(T+'’s own kickouts with a landing location: '+located+' of '+own.length+'. Kicking team’s 20m line at the top. Select a player to see only the kickouts he won.')}</div>`;
   }
-  const src=K.roles.length?'Player names come from '+[K.roles.includes('winner')?'the Kickout Won By tag (the player who won the kickout)':'', K.roles.includes('target')?'Gaelic Insights kickout rows (the kicking team’s player the kickout went to, whether or not it was won — the small “won” figure is how many he won)':''].filter(Boolean).join(' and ')+'.'
+  const src=K.roles.length?'Player names come from '+[K.roles.includes('winner')?'the Kickout Won By tag (the player who won the kickout) or, in a Sportscode game, the kickout row’s second player and its break rows':'', K.roles.includes('target')?'Gaelic Insights kickout rows (the kicking team’s player the kickout went to, whether or not it was won — the small “won” figure is how many he won)':''].filter(Boolean).join(' and ')+'.'
     :'No kickout in these games names a player: Tracker and GIU files carry none, and the Kickout Won By tag is new in Code Room.';
   return '<div class="py-korow"><div class="py-kleft">'+lists
     +`<div class="dnote">${ssEsc('Target lists count '+T+'’s OWN kickouts that name a '+T+' player ('+K.ownNamed+' of '+K.own+' own kickouts do), by the kickout’s length. Total breaks won counts break-ball kickouts won by a '+T+' player, on '+T+'’s own kickouts and, where the Kickout Won By tag is used, on the opposition’s. '+src+' “from k of n games” = the games that carry such names.')}</div></div>`
@@ -6661,7 +6667,7 @@ function pyKeeperNamedHTML(R, tr){
     +`<h3 class="py-gkh">BY GOALKEEPER <small>${ssEsc('kickout takers named in '+N.tagGames+' of '+pyGames(K.n))}</small></h3>`
     +`<div class="py-scroll"><table class="tt-ztab py-gktab py-gknamed"><thead><tr><th scope="col">GOALKEEPER</th>${cols}</tr></thead><tbody>`
     +N.rows.map(r=>tr(ssEsc(r.name)+gm(r), r)).join('')+tr('Not tagged'+gm(N.rest), N.rest, 'py-gkrest')+tr('Total'+`<small>${ssEsc(pyGames(K.n))}</small>`, K.total, 'tot')+'</tbody></table></div>'
-    +`<div class="dnote">${ssEsc('A goalkeeper’s row counts the kickouts tagged with his name (Kickout Taken By, set in Code Room) — whoever took it, so an outfield player who takes one gets his own row. Not tagged = kickouts with no taker named. Every kickout is in exactly one row, so the rows add up to the Total. The games under a name are the games he is named in. '+shots+'n/a = none of his games carries that figure.')}</div>`
+    +`<div class="dnote">${ssEsc('A goalkeeper’s row counts the kickouts tagged with his name (Kickout Taken By, set in Code Room; in a Sportscode game the first player on the kickout row) — whoever took it, so an outfield player who takes one gets his own row. Not tagged = kickouts with no taker named. Every kickout is in exactly one row, so the rows add up to the Total. The games under a name are the games he is named in. '+shots+'n/a = none of his games carries that figure.')}</div>`
     +`<h3 class="py-gkh">BY GAME <small>${ssEsc('the team’s kickouts, whoever took them')}</small></h3>`
     +`<div class="py-scroll"><table class="tt-ztab py-gktab"><thead><tr><th scope="col">GAME</th>${cols}</tr></thead><tbody>`
     +K.rows.map(r=>tr(ssEsc('v '+r.opp)+`<small>${ssEsc(ovShortDate(r.date)||'date n/a')}</small>`, r)).join('')+tr('Total'+`<small>${ssEsc(pyGames(K.n))}</small>`, K.total, 'tot')+'</tbody></table></div>'
