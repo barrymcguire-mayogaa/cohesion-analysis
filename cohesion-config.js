@@ -35,6 +35,13 @@ window.COHESION_LABEL_GROUPS = [
   // score/shot SOURCE and ASSIST rows, whatever their code is called.
   { name: 'Kickout Won By', options: [], players: true, playersTeam: 'koWinner',
     appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
+  // players:true + playersTeam:'own' — the player who TOOK the kickout (the
+  // goalkeeper, or an outfield player taking one). Always a player of the
+  // kicking team (the row's team); nobody is left out of the list. Same rows as
+  // Kickout Won By. Code Room fills it from the game's goalkeepers
+  // (meta.keepers — see cohesionKeeperAt) when a kickout is tagged.
+  { name: 'Kickout Taken By', options: [], players: true, playersTeam: 'own',
+    appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
   { name: 'Foul Areas', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bFOULS?\b/ },
   { name: 'Foul Outcomes', options: ['DISSENT', '50M FREE', 'BREACH'], appliesTo: /\bFOULS?\b/ },
   { name: 'Card Outcomes', options: ['YELLOW CARD', 'BLACK CARD', 'RED CARD'], appliesTo: /\bCARDS?\b/ },
@@ -62,6 +69,41 @@ window.cohesionPlayersTeam = function(group, labels, outcome){
 // A players:true group leaves the event's own player (the shooter) out of its
 // list — except a group whose player may be anyone (Kickout Won By).
 window.cohesionPlayersExcludeSelf = function(group){ return !(group && group.playersTeam); };
+
+/* GOALKEEPERS — who was in goal, per game and per team, as "spells".
+ *
+ *   meta.keepers = { home: [ {from: 0, player: 'A'}, {from: 2710, player: 'B'} ], away: [...] }
+ *
+ * from = seconds on the game's Main video (the same reference as an event's
+ * driveT); the first spell is the starting keeper (from 0). A later spell is a
+ * change of keeper (a substitution, a black card).
+ *
+ *   cohesionKeeperSpells(meta, side) -> the side's usable spells, oldest first
+ *                                       (entries with no player are dropped)
+ *   cohesionKeeperAt(meta, side, t)  -> the player of the LAST spell with
+ *                                       from <= t, '' when none has begun
+ *   cohesionEventEnd(e)              -> where the event's clip ends on the Main
+ *                                       video (driveT + its length)
+ *
+ * A KICKOUT is given to the keeper at the END of its clip: a clip starts a few
+ * seconds before the kick, so a change marked at the restart itself still
+ * gives that kickout to the new keeper.
+ */
+window.cohesionKeeperSpells = function(meta, side){
+  const K = meta && meta.keepers, list = K && typeof K === 'object' ? K[side] : null;
+  if(!Array.isArray(list)) return [];
+  return list.map((s, i) => ({ from: Math.max(0, +(s && s.from) || 0), player: String((s && s.player) || '').replace(/\s+/g, ' ').trim(), i }))
+    .filter(s => s.player).sort((a, b) => a.from - b.from || a.i - b.i).map(s => ({ from: s.from, player: s.player }));
+};
+window.cohesionKeeperAt = function(meta, side, t){
+  let who = '';
+  window.cohesionKeeperSpells(meta, side).forEach(s => { if(s.from <= (+t || 0)) who = s.player; });
+  return who;
+};
+window.cohesionEventEnd = function(e){
+  const d = (e && e.end != null && e.start != null) ? Math.max(0, e.end - e.start) : 0;
+  return ((e && e.driveT) || 0) + d;
+};
 
 /* EVENT LINKS — the "tag, then qualify" follow-up.
  *
