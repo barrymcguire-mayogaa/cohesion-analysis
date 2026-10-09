@@ -337,10 +337,13 @@ if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, coh
  *     import kept) — a group edited or removed since is left exactly as it is;
  *   · if under 80% of the game's file-born events match, the file is taken
  *     to be the wrong one and nothing is proposed.
+ *   · opts.times: also put back the file's exact start / end (see below) — safe because it
+ *     only replaces a value that is still round(file value).
  * Returns {ok, reason, updates:[{id, data}], stats}. The caller writes updates.
  */
-function cohScRestore(rows, insts){
-  const stats={stored:(rows||[]).length, matched:0, notInFile:0, moved:0, recoded:0, events:0, values:0, already:0, editedGroups:0, fileExtraValues:0};
+function cohScRestore(rows, insts, opts){
+  const wantTimes=!!(opts&&opts.times);
+  const stats={stored:(rows||[]).length, matched:0, notInFile:0, moved:0, recoded:0, events:0, values:0, already:0, editedGroups:0, fileExtraValues:0, times:0, timeEvents:0};
   const byId=new Map(); (insts||[]).forEach(i=>{ if(!COH_SC_SKIP.has(i.code||'')) byId.set(String(i.id), i); });
   const updates=[];
   (rows||[]).forEach(r=>{
@@ -358,7 +361,15 @@ function cohScRestore(rows, insts){
       if(cur.length!==1 || !Object.prototype.hasOwnProperty.call(d.labels||{}, g) || d.labels[g]!==v[v.length-1]){ stats.editedGroups++; return; }
       if(!nd) nd=Object.assign({}, d, {labelsAll:Object.assign({}, d.labelsAll||{})});
       nd.labelsAll[g]=v.slice(); stats.values+=v.length-1; });
-    if(nd){ updates.push({id:r.id, data:nd}); stats.events++; }
+    const labelled=!!nd;
+    // exact times (opts.times): the stored start / end is put back to the file's value ONLY while it still is
+    // that value rounded to a whole second — an event dragged, resized or sync-shifted since is left alone.
+    // driveT (the video position) is never touched.
+    if(wantTimes){ let n=0; const fs=+inst.start||0, fe=+inst.end||0;
+      const set=(k, v)=>{ if(typeof d[k]==='number'&&d[k]!==v&&d[k]===Math.round(v)){ if(!nd) nd=Object.assign({}, d); nd[k]=v; n++; } };
+      set('start', fs); set('end', fe);
+      if(n){ stats.times+=n; stats.timeEvents++; } }
+    if(nd){ updates.push({id:r.id, data:nd}); if(labelled) stats.events++; }
   });
   (insts||[]).forEach(i=>{ if(COH_SC_SKIP.has(i.code||'')) return; const c={}; (i.labels||[]).forEach(l=>{ if(l[1]&&l[0]!=='Team Name') c[l[0]]=(c[l[0]]||0)+1; }); Object.values(c).forEach(n=>{ stats.fileExtraValues+=n-1; }); });
   const born=stats.matched+stats.moved+stats.recoded;

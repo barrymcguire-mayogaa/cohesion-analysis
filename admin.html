@@ -255,7 +255,9 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:8px;">
         Sportscode games uploaded before October 2026 kept only one value where a label group was repeated on an instance
         (several players, several Game Involvement Outcomes). Choose the game above and its <b>original Sportscode XML</b>:
-        the missing values are added to the events already stored. Nothing is deleted, replaced or re-timed — an event or a
+        the missing values are added to the events already stored. It also puts back the file's <b>exact start / end times</b>
+        (only where the stored time is still the file's time rounded to a second; the video position is not changed) and saves the
+        file's <b>row order and colours</b> with the game. Nothing is deleted — an event or a
         label that was edited since the upload is left exactly as it is. (A full re-parse, below, replaces every event of the game
         and loses Code Room edits, assigned players, added events and conversions.)
       </div>
@@ -913,9 +915,11 @@ async function scRestoreRun(){
   if(!file){ say('Choose the game\'s original Sportscode XML file.'); return; }
   try{
     say('Reading the file and the stored events…');
-    const insts = cohScInstances(cohScDecode(await file.arrayBuffer()));
+    const xmlTextR = cohScDecode(await file.arrayBuffer());
+    const insts = cohScInstances(xmlTextR);
     const rows = (await cohesionRead({ action:'getEvents', gameId: game.id })).events || [];
-    const plan = cohScRestore(rows, insts), st = plan.stats;
+    const plan = cohScRestore(rows, insts, { times: true }), st = plan.stats;
+    const fileRows = cohScRows(xmlTextR), rowsNew = fileRows.length && JSON.stringify(fileRows) !== JSON.stringify(game.rows || null);
     const lines = [
       `${game.title || game.id}: ${st.stored} stored events, ${insts.length} instances in the file.`,
       `Matched ${st.matched} (ID, code and start time). Not matched: ${st.notInFile} not in the file, ${st.recoded} re-coded, ${st.moved} moved in time — left alone.`,
@@ -923,9 +927,21 @@ async function scRestoreRun(){
     ];
     if(!plan.ok){ say(lines.concat(['✗ ' + plan.reason, 'Nothing was changed.']).join('\n')); return; }
     lines.push(`To restore: ${st.values} value(s) on ${st.events} event(s).` + (st.editedGroups ? ` ${st.editedGroups} group(s) were edited since the upload and are left as they are.` : ''));
-    if(!plan.updates.length){ say(lines.concat(['✓ Nothing to restore.']).join('\n')); return; }
+    lines.push(`Exact times: ${st.times} start / end time(s) on ${st.timeEvents} event(s) are still the file's time rounded to a whole second and can be set to the file's exact value (the video position is not changed).`);
+    if(fileRows.length) lines.push(rowsNew ? `Rows: the file lists ${fileRows.length} rows (order + colours) — to be saved with the game.` : `Rows: the game already has the file's ${fileRows.length} rows.`);
+    // the file's row order + colours: only this field of the game's meta is written, on a fresh read
+    const saveRows = async () => {
+      const j = await cohesionRead({ action:'gameBundle', id: game.id }); let fresh = j && j.meta; if(typeof fresh === 'string'){ try{ fresh = JSON.parse(fresh); }catch(_){ fresh = null; } }
+      if(!fresh || fresh.id !== game.id) throw new Error('could not re-read the game to save its rows');
+      await adminFetch('gameAdmin', { action:'updateMeta', gameId: game.id, meta: cohRowsMergeMeta(fresh, fileRows) });
+      game.rows = fileRows;
+    };
+    if(!plan.updates.length){
+      if(rowsNew && confirm(`Save the file's ${fileRows.length} rows (order + colours) with “${game.title || game.id}”?`)){ await saveRows(); say(lines.concat(['✓ Rows saved. No label value or time to restore.']).join('\n')); return; }
+      say(lines.concat(['✓ Nothing to restore.']).join('\n')); return; }
     say(lines.join('\n'));
-    if(!confirm(`Add ${st.values} missing label value(s) to ${st.events} event(s) of “${game.title || game.id}”?\n\nNothing is deleted or replaced.`)){ say(lines.concat(['Cancelled — nothing was changed.']).join('\n')); return; }
+    if(!confirm(`“${game.title || game.id}”:\n· add ${st.values} missing label value(s) to ${st.events} event(s)\n· set ${st.times} start / end time(s) on ${st.timeEvents} event(s) to the file's exact value`+(rowsNew?`\n· save the file's ${fileRows.length} rows (order + colours)`:'')+`\n\nNothing is deleted; a value edited since the upload is left alone.`)){ say(lines.concat(['Cancelled — nothing was changed.']).join('\n')); return; }
+    if(rowsNew) await saveRows();
     let done = 0;
     for(let i = 0; i < plan.updates.length; i += 40){
       const ops = plan.updates.slice(i, i + 40).map(u => ({ action:'update', id: u.id, data: u.data }));
@@ -935,7 +951,7 @@ async function scRestoreRun(){
       done += ops.length;
       say(lines.concat([`Saving… ${done} of ${plan.updates.length}`]).join('\n'));
     }
-    say(lines.concat([`✓ Restored ${st.values} value(s) on ${done} event(s).`]).join('\n'));
+    say(lines.concat([`✓ Restored ${st.values} label value(s) and ${st.times} exact time(s); ${done} event(s) updated.`+(rowsNew?` Rows saved.`:'')]).join('\n'));
   }catch(e){ say('✗ ' + e.message + '\nRun it again: events already updated are skipped.'); }
 }
 
@@ -1630,6 +1646,7 @@ async function processGame(){
   document.getElementById('processBtn').disabled = true;
 
   let events = [];
+  let scRowsMeta = null, scPeriodsMeta = null;   // the Sportscode file's <ROWS> (order + colours) and its period rows → gameMeta.rows / gameMeta.scPeriods
 
   try{
     // ── Skip XML (for adding new angles only) ──────────────────
@@ -2366,6 +2383,8 @@ async function processGame(){
           gameTime: getGameTime, category: getCategory, rosters: scSheet,
         });
         if(sc.error){ showError(sc.error); return; }
+        scRowsMeta = cohScRowsFromDom(doc); scPeriodsMeta = sc.periods || null;
+        if(sc.stats.breakPairs && sc.stats.breakPairs.added) console.log(`✓ Sportscode: ${sc.stats.breakPairs.added} opposition break rows added (${sc.stats.breakPairs.kickouts} break-ball kickouts)`);
         events.push(...sc.events);
         window.cohLastScImport = sc.stats;
         console.log(`✓ Sportscode: ${sc.stats.events} events, ${sc.stats.labelValues} label values (${sc.stats.extraValues} extra values kept on ${sc.stats.multiValueEvents} events), ${sc.stats.playerRows} player rows`, sc.stats.unmatchedCodes);
@@ -2487,6 +2506,14 @@ async function processGame(){
       const rIdxForRoster = parseInt(document.getElementById('reparseGame').value);
       existingPlayerRoster = (!isNaN(rIdxForRoster) && reparseGames[rIdxForRoster]) ? reparseGames[rIdxForRoster].playerRoster : undefined;
     }
+    // The file's row order + colours and its period rows (Sportscode). A re-parse
+    // with no XML, or with a file that has no <ROWS>, keeps what the game had.
+    let metaRows = (scRowsMeta && scRowsMeta.length) ? scRowsMeta : null, metaPeriods = (scPeriodsMeta && scPeriodsMeta.length) ? scPeriodsMeta : null;
+    if(isReparse){
+      const rIdxRows = parseInt(document.getElementById('reparseGame').value), ex = (!isNaN(rIdxRows) && reparseGames[rIdxRows]) || null;
+      if(!metaRows && ex && Array.isArray(ex.rows) && ex.rows.length) metaRows = ex.rows;
+      if(!metaPeriods && skipXml && ex && Array.isArray(ex.scPeriods) && ex.scPeriods.length) metaPeriods = ex.scPeriods;
+    }
 
     const gameMeta = {
       id: gameId,
@@ -2509,6 +2536,8 @@ async function processGame(){
       eventCount: events.length,
       ...(anglesField ? {angles: anglesField} : {}),
       ...(existingPlayerRoster ? {playerRoster: existingPlayerRoster} : {}),
+      ...(metaRows ? {rows: metaRows} : {}),
+      ...(metaPeriods ? {scPeriods: metaPeriods} : {}),
     };
 
     setProgress(90, 'Saving to database…');
@@ -3521,6 +3550,7 @@ async function startBatchUpload() {
               gameTime: getGameTime, category: getCategory,
             });
             if (sc.error) throw new Error(sc.error);
+            { const scRows = cohScRows(xmlText); if (scRows.length) gameMeta.rows = scRows; if (sc.periods && sc.periods.length) gameMeta.scPeriods = sc.periods; }   // row order + colours, period rows
             eventRows = sc.events.map(evt => ({ game_id: game.gameId, data: evt }));
             parseStatus = `sportscode-${eventRows.length}-events`;
           } else {

@@ -1294,12 +1294,29 @@ function crRowCmp(a,b){
   if(na!==nb) return na-nb;
   return String(a).localeCompare(String(b));
 }
+// A game imported from Sportscode carries the file's rows (GAME.rows = [{code, colour}], in the file's
+// order): rows the user has not placed himself follow THAT order, and a row's file colour is the default
+// colour of its events (an event's own colour still wins). Codes the file does not list fall back to the
+// canonical order / the team colour.
+function crFileRank(){ const m=new Map(); ((GAME&&Array.isArray(GAME.rows))?GAME.rows:[]).forEach((r,i)=>{ if(r&&r.code&&!m.has(r.code)) m.set(r.code, i); }); return m; }
+let crRowColCache={rows:null, map:null};
+function crRowColours(){ const rows=(GAME&&GAME.rows)||null; if(crRowColCache.rows!==rows) crRowColCache={rows, map:cohRowColours(GAME)}; return crRowColCache.map; }
+// the colour an event is drawn in: its own, else its row's colour in the file, else the team default
+function crEvColour(e){ return (e&&e.color)||crRowColours().get((e&&e.code)||'')||crTeamColor(e); }
+// the colour of a row (for the XML export's <ROWS>): the file's, else what most of its events carry, else the team default
+function crCodeColour(code){
+  const f=crRowColours().get(code); if(f) return f;
+  const cnt=new Map(); let any=null; EVENTS.forEach(e=>{ if((e.code||'')!==code) return; if(!any) any=e; if(e.color) cnt.set(e.color,(cnt.get(e.color)||0)+1); });
+  let best='', bn=0; cnt.forEach((n,c)=>{ if(n>bn){ best=c; bn=n; } });
+  return best||(any?crTeamColor(any):'#9ca3af');
+}
 function crRows(evs){
   const present=new Set(evs.map(e=>e.code||'—'));
   crExtraRows.forEach(c=>present.add(c));
   present.add('THROW-IN');
   const inOrder=crRowOrder.filter(c=>present.has(c));
-  const rest=[...present].filter(c=>!inOrder.includes(c)).sort(crRowCmp);
+  const fr=crFileRank();
+  const rest=[...present].filter(c=>!inOrder.includes(c)).sort((a,b)=>{ const x=fr.has(a), y=fr.has(b); return x&&y?fr.get(a)-fr.get(b):x?-1:y?1:crRowCmp(a,b); });
   // THROW-IN sits at the very top of every game unless the user has dragged
   // it into a custom position.
   if(!inOrder.includes('THROW-IN'))
@@ -2096,7 +2113,7 @@ function crDrawTL(){
     const x=xF(e.driveT||0), w=Math.max(2,(crBarD(e)/vD)*plotW);
     if(x+w<CR_LW||x>cssW) return;
     const y=CR_RULER+i*CR_ROWH, sel=String(e._rowId)===String(activeId)||e===dragging;
-    const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||(!(e.team||'')?'#9ca3af':(((e.team||'').toUpperCase()===H)?hC:aC));
+    const bx=Math.max(CR_LW,x), bw=Math.max(1,Math.min(x+w,cssW)-bx), col=e.color||crRowColours().get(e.code||'')||(!(e.team||'')?'#9ca3af':(((e.team||'').toUpperCase()===H)?hC:aC));
     // Selected keeps its team colour (so you can still tell teams apart) but
     // gets an accent glow + outline instead of turning white.
     const lcDim=!sel&&crLCDim(e);   // Label check "Show only missing": passing events fade back
@@ -2585,11 +2602,11 @@ function renderPanel(){
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
     <div class="ep-lbl">Player</div>
     <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">${crPanelPlayersHtml(e)}
-    <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = team default</span></div>
+    <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = row / team default</span></div>
     <div class="colorrow">
-      <input type="color" id="evColor" value="${esc(draft.color||crTeamColor(e))}" oninput="setDraftColor(this.value); document.getElementById('evColorHex').value=this.value">
-      <input type="text" id="evColorHex" value="${esc(draft.color||'')}" placeholder="Team default" oninput="setDraftColorHex(this.value)">
-      <button type="button" class="teambtn" onclick="crResetColor()" title="Use the team default colour">Team</button>
+      <input type="color" id="evColor" value="${esc(draft.color||crDefColour(e))}" oninput="setDraftColor(this.value); document.getElementById('evColorHex').value=this.value">
+      <input type="text" id="evColorHex" value="${esc(draft.color||'')}" placeholder="Row / team default" oninput="setDraftColorHex(this.value)">
+      <button type="button" class="teambtn" onclick="crResetColor()" title="Use the default colour: the row's colour in the game's file, else the team colour">Default</button>
     </div>
     <div class="ep-lbl">Video position — <b id="epNow" style="color:var(--accent)">${fmt(draft.driveT)}</b>${drift}</div>
     <div class="nudge">
@@ -2677,10 +2694,12 @@ window.addEventListener('scroll', acHide, true);
 
 // ── Per-event colour (native picker + hex, as elsewhere in COHESION) ──
 // An event can override its timeline colour; blank = team default.
+// blank colour = the row's colour in the game's Sportscode file when it has one, else the team colour
+function crDefColour(e){ return crRowColours().get((e&&e.code)||'')||crTeamColor(e); }
 function crTeamColor(e){ if(!(e&&e.team)) return '#9ca3af'; const H=(GAME.homeTeam||'').toUpperCase(); return ((e.team||'').toUpperCase()===H)?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
 function setDraftColor(v){ if(!draft)return; draft.color=v||''; refreshSave(); if(crView==='tl') crDrawTL(); }
 function setDraftColorHex(v){ v=(v||'').trim(); if(!v){ setDraftColor(''); return; } if(/^#?[0-9a-fA-F]{6}$/.test(v)){ if(v[0]!=='#') v='#'+v; setDraftColor(v); const ci=document.getElementById('evColor'); if(ci) ci.value=v; } }
-function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); const def=crTeamColor(e); const ci=document.getElementById('evColor'); if(ci) ci.value=def; const hx=document.getElementById('evColorHex'); if(hx) hx.value=''; }
+function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); const def=crDefColour(e); const ci=document.getElementById('evColor'); if(ci) ci.value=def; const hx=document.getElementById('evColorHex'); if(hx) hx.value=''; }
 function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
 function setDefinedLabel(name,value){
   if(!draft)return;
@@ -5473,7 +5492,7 @@ window.addEventListener('keydown', e=>{
 function crExportXml(){
   if(!EVENTS.length){ alert('No events to export.'); return; }
   const base=(document.getElementById('crXmlBase')||{}).value||'video';
-  const blob=new Blob([cohXmlBuild(EVENTS, {base})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
+  const blob=new Blob([cohXmlBuild(EVENTS, {base, meta:GAME, rowOrder:crRows(EVENTS), colourOf:crCodeColour})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   const safe=cohXmlFileStem(GAME);

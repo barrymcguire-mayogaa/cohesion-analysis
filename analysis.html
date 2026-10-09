@@ -5494,7 +5494,7 @@ function mrXmlFiles(bundles){
   const used=new Map();
   return (bundles||[]).map(b=>{
     let stem=mrXmlName(b.meta); const n=(used.get(stem)||0)+1; used.set(stem,n); if(n>1) stem+='_'+n;
-    return {name:stem+'.xml', text:cohXmlBuild(cohXmlLoadOrder(b.events), {base:'video'})};
+    return {name:stem+'.xml', text:cohXmlBuild(cohXmlLoadOrder(b.events), {base:'video', meta:b.meta})};
   });
 }
 function mrZipName(T, n){ return ssSlug(T)+'_xml_'+n+'_games.zip'; }
