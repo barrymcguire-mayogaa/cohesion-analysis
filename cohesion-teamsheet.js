@@ -157,7 +157,7 @@
       if(RE_START.test(line)){ role='start'; return; }
       const sm=RE_SUBS.exec(line);
       if(sm&&(sm[0].length===line.length||/[:\-–]\s*$/.test(sm[0])||/^[#\d]/.test(line.slice(sm[0].length)))){ role='sub'; line=line.slice(sm[0].length).trim(); if(!line) return; }
-      let cells=line.split(/\t+|\s*[;,]\s*|\s{3,}/).map(c=>c.trim()).filter(Boolean);
+      let cells=line.split(/\t+|\s*[;,]\s*/).map(c=>c.trim()).filter(Boolean);
       const isNum=c=>/^#?\d{1,3}[.)]?$/.test(c);
       let any=false;
       if(cells.some(isNum)){
