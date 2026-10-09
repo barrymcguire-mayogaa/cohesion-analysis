@@ -2327,8 +2327,11 @@ async function processGame(){
           const end   = parseFloat(inst.querySelector('end')?.textContent||0);
           const labels = {};
           inst.querySelectorAll('label').forEach(l=>{
-            const g = l.querySelector('group')?.textContent?.trim()||'NO_GROUP';
+            let g = l.querySelector('group')?.textContent?.trim()||'NO_GROUP';
             const t = l.querySelector('text')?.textContent?.trim()||'';
+            // COHESION exports "<TEAM> Assist / Kickout Won By / Kickout Taken By": back to the plain group
+            const tg = /^(.+) (assist|kickout won by|kickout taken by|kickout target)$/i.exec(g);
+            if(tg) g = {assist:'Assist','kickout won by':'Kickout Won By','kickout taken by':'Kickout Taken By','kickout target':'Kickout Target'}[tg[2].toLowerCase()];
             if(t) labels[g] = t;
           });
           let half = '1st Half';
