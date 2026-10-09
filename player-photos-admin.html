@@ -255,6 +255,7 @@ const playerNames = ()=>playerRows().map(r=>r.name);
 async function loadPhotos(){
   const ok = await cohPhotosReady([team], { force:true });
   photos = cohPhotosOf(team);
+  showErr('setupErr', cohPhotosSetupMissing() ? SETUP : '');
   if(!ok) showErr('listErr','Could not load this team’s photos — showing initials. Reload the page to try again.');
   return ok;
 }
@@ -542,10 +543,6 @@ async function bulkUpload(){
   $('addName').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addPlayer(); } });
 })();
 
-// Is the storage there? (list answers bucketMissing until the SQL has been run)
-async function checkSetup(){
-  try{ const j = await cohesionAuthFetch('playerPhotos', { action:'list', teams:[] }); void j; }catch(_e){}
-}
 loadTeams();
 </script>
 </body>

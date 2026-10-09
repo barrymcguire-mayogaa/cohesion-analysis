@@ -73,6 +73,8 @@ function keyed(name) {
   return KEY_RE.test(k) ? { name: n, key: k } : null;
 }
 
+let bucketSeen = false;                         // the bucket has answered getBucket in this instance
+
 // ── a team's index ───────────────────────────────────────────────────────
 // -> { idx:{team, players}, bucketMissing }. A missing / unreadable index is rebuilt
 // from that team's folder listing (names fall back to the key), so a lost index
@@ -88,6 +90,12 @@ async function loadIndex(teamKey) {
     } else if (error && isBucketMissing(error)) return { idx: { team: '', players: {} }, bucketMissing: true };
   } catch (_e) { /* fall through to the listing */ }
 
+  // No index: is the bucket there at all? (asked once per warm instance)
+  if (!bucketSeen) {
+    const { error: bErr } = await supabase.storage.getBucket(BUCKET);
+    if (bErr) return { idx: { team: '', players: {} }, bucketMissing: true };
+    bucketSeen = true;
+  }
   const players = {};
   const { data: files, error: lErr } = await store.list(teamKey, { limit: 1000 });
   if (lErr) return { idx: { team: '', players }, bucketMissing: isBucketMissing(lErr) };

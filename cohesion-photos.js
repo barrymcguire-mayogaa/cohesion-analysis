@@ -113,6 +113,7 @@
   var failedAt = {};             // teamKey -> ms
   var lastErrFetch = {};         // teamKey -> ms
   var queued = {}, qTimer = null;
+  var setupMissing = false;      // the last list said the bucket does not exist yet (SQL not run)
 
   function now() { return Date.now(); }
   function esc(s) {
@@ -141,6 +142,7 @@
       var secs = +(j && j.expiresIn) || 3600;
       var ttl = Math.max(60 * 1000, secs * 1000 - MARGIN);
       var got = (j && j.teams) || {};
+      setupMissing = !!(j && j.bucketMissing);
       list.forEach(function (t) { store(t.k, got[t.k], ttl); delete failedAt[t.k]; });
       return true;
     }).catch(function () {
@@ -207,6 +209,9 @@
     });
     return out;
   };
+
+  // true when the last list reported that the storage bucket has not been created yet
+  window.cohPhotosSetupMissing = function () { return setupMissing; };
 
   function imgHTML(p, name) {
     return '<img src="' + esc(p.url) + '" alt="' + esc(name) + '" data-v="' + esc(p.v) + '" loading="lazy" decoding="async"'
