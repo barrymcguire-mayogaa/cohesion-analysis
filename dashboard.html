@@ -1159,7 +1159,7 @@ function dashAssistChoices(ev, g){
     :x=>{ const L=x.labels||{}, r=x.player?[{name:x.player, team:x.team}]:[]; Object.keys(L).forEach(k=>{ if(L[k]&&/ PLAYER LABELS$/i.test(k)) r.push({name:L[k], team:k.replace(/ PLAYER LABELS$/i,'')}); }); return r; };
   ALL.forEach(x=>{ playersOf(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });
     if(String(x.team||'').toUpperCase()!==T) return;
-    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||k==='Player Out'||k==='Player In')) tagged.push(L[k]); }); });
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
   });
   return out;
@@ -1223,9 +1223,11 @@ function dashCustomTagChange(sel){
 function saveCustomTag(rowId,group,value){
   const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
   const labels={...(ev.labels||{})};
+  const isSub=typeof cohIsSubRow==='function'&&cohIsSubRow(ev)&&/^player (out|in)$/i.test(group);
+  if(isSub) group=Object.keys(labels).find(k=>k.toLowerCase()===group.toLowerCase())||cohGroupResolve(ALL, group);   // the row's / the game's own spelling ("Player out"): never a twin group
   if(value==='') delete labels[group]; else labels[group]=value;
-  if(typeof cohIsSubRow==='function'&&cohIsSubRow(ev)&&/^player (out|in)$/i.test(group)){   // a Tracker-style game: Sub Detail follows the saved pair
-    const t=cohSubDetailText(ev, GAME, ALL, labels['Player Out']||'', labels['Player In']||''); if(t) labels[Object.keys(labels).find(k=>k.toLowerCase()==='sub detail')||'Sub Detail']=t; }
+  if(isSub){   // a Tracker-style game: Sub Detail follows the saved pair
+    const t=cohSubDetailText(ev, GAME, ALL, cohLabelVal({labels},'Player Out'), cohLabelVal({labels},'Player In')); if(t) labels[Object.keys(labels).find(k=>k.toLowerCase()==='sub detail')||'Sub Detail']=t; }
   ev.labels=labels;
   queueEventEdit(ev);
 }

@@ -3413,7 +3413,7 @@ function crGameNames(side){
     if(e.player&&String(pt||'').toUpperCase()===T) out.push(e.player);
     Object.keys(L).forEach(k=>{ if(L[k]&&k.toUpperCase()===T+' PLAYER LABELS') ((typeof cohLabelValues==='function')?cohLabelValues(e,k):[L[k]]).forEach(v=>out.push(v)); });
     if(String(e.team||'').toUpperCase()!==T) return;
-    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||k==='Player Out'||k==='Player In')) out.push(L[k]); });
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
@@ -3614,6 +3614,8 @@ function crTSLabel(name, side){ return (GAME&&window.cohTS)?cohTS.label(GAME, si
 function crSubIO(e){ return (GAME&&e&&typeof cohSubInOut==='function')?cohSubInOut(e.code?e:Object.assign({code:'SUB'}, e), GAME):{out:null, in:null, source:'', src:{out:'', in:''}}; }
 function crSubNames(e){ const io=crSubIO(e); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io):''; }
 function crIsSubCode(code){ return typeof cohIsSubRow==='function'&&cohIsSubRow({code}); }
+// The group a sub's player is written to: the spelling this game already uses ("Player out"), else the configured name.
+function crSubG(which){ return crGN(which==='out'?'Player Out':'Player In'); }
 // ── PLAYER OUT / PLAYER IN (a SUB event) ─────────────────────
 // The Edit panel shows two headed sections on a SUB event, filled as soon as it is selected:
 //   · a SAVED value is the event's explicit 'Player Out' / 'Player In' label (in the draft);
@@ -3665,7 +3667,7 @@ function crSubPanelHtml(e){
       crAssistBoxHtml('edit', grp, e._rowId, side, sh.v, '', false, which, sh.sug)+`</div>`; };
   const anySug=o.sug||i.sug;
   const warn=(typeof cohSubWarnings==='function'?cohSubWarnings(o.v, i.v, st):[]);
-  return `<div class="crsub" id="crSubBox">${sec('out', o, '▼ PLAYER OUT', 'Player Out')}${sec('in', i, '▲ PLAYER IN', 'Player In')}`+
+  return `<div class="crsub" id="crSubBox">${sec('out', o, '▼ PLAYER OUT', crSubG('out'))}${sec('in', i, '▲ PLAYER IN', crSubG('in'))}`+
     (anySug?`<div class="crsub-note"><span>Suggested — not saved as labels yet. They are written when you save this event.</span><button type="button" onclick="crSubConfirm()" title="Make the suggested players this event’s Player Out / Player In labels (then Save changes)">Use these</button></div>`:'')+
     warn.map(w=>`<div class="crsub-warn">⚠ ${esc(w)}</div>`).join('')+`</div>`;
 }
@@ -3675,7 +3677,7 @@ function crSubConfirm(){ const e=EVENTS.find(x=>String(x._rowId)===String(active
 // 'Sub Detail' (the Tracker's "#18 ON for #13") — that label follows a changed pair when both have a sheet number.
 function crSubFold(e, only){
   if(!draft||!crIsSubCode(draft.code)||typeof cohSubInOut!=='function') return;
-  [['out','Player Out'],['in','Player In']].forEach(([w,g])=>{ const sh=crSubShown('edit', e._rowId, w); if(sh.sug&&sh.v) draft.groups.push({g, v:sh.v}); });
+  ['out','in'].forEach(w=>{ const sh=crSubShown('edit', e._rowId, w); if(sh.sug&&sh.v) draft.groups.push({g:crSubG(w), v:sh.v}); });
   if(only) return;
   const last=g=>{ let r=null; draft.groups.forEach((x,i)=>{ if(x.g.toLowerCase()===g.toLowerCase()) r={i, v:x.v}; }); return r; };
   const po=(last('Player Out')||{}).v||'', pi=(last('Player In')||{}).v||'', sd=last('Sub Detail'), stored=cohLabelVal(e,'Sub Detail');
@@ -4406,8 +4408,9 @@ function renderCodeLink(){
     // flagged and never focused: carry on tagging to leave it blank
     (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
       if(!g.players||g.name==='Assist') return;
+      const gn=g.sub?crSubG(g.sub):g.name;        // a sub's two players: the game's own spelling of the group
       html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
-        crAssistBoxHtml('code',g.name,sq._rowId,crSideOf(sq.team),(sq.labels||{})[g.name]||'',crAssistSelf(g,sq.player),false,g.sub||'')+`</div>`;
+        crAssistBoxHtml('code',gn,sq._rowId,crSideOf(sq.team),(sq.labels||{})[gn]||'',crAssistSelf(g,sq.player),false,g.sub||'')+`</div>`;
     });
   }
   box.style.display='';
@@ -4429,7 +4432,7 @@ function codeShotAssist(value, group){
   sq.labels=sq.labels||{};
   if(value) sq.labels[group]=value; else delete sq.labels[group];
   if(crIsSubCode(sq.code)&&typeof cohSubDetailText==='function'){   // a Tracker-style game: Sub Detail follows the pair
-    const t=cohSubDetailText(sq, GAME, EVENTS, sq.labels['Player Out']||'', sq.labels['Player In']||''); if(t){ const k=Object.keys(sq.labels).find(x=>x.toLowerCase()==='sub detail')||'Sub Detail'; sq.labels[k]=t; } }
+    const t=cohSubDetailText(sq, GAME, EVENTS, cohLabelVal(sq,'Player Out'), cohLabelVal(sq,'Player In')); if(t){ const k=Object.keys(sq.labels).find(x=>x.toLowerCase()==='sub detail')||'Sub Detail'; sq.labels[k]=t; } }
   crBackup(); crUpdatePending(); renderCodeLink();
 }
 function codeApplyOutcome(value){
