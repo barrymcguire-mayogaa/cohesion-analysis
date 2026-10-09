@@ -6496,7 +6496,7 @@ function pyShootHTML(R, V, F){
 function pyKoListHTML(title, Lst, k, n, note, sel){
   const from='from '+k+' of '+pyGames(n);
   return `<div class="py-kl"><h4>${title}</h4>`
-    +(Lst.rows.length?'<ol>'+Lst.rows.map(r=>`<li class="${r.key===sel?'sel':''}"><span>${ssEsc(r.name)}</span><b>${r.n}</b>${note==='won'&&r.won!==r.n?`<small>${r.won} won</small>`:''}</li>`).join('')+'</ol>':'<div class="py-kna">n/a — no kickout player tags</div>')
+    +(Lst.rows.length?'<ol>'+Lst.rows.map(r=>`<li class="${r.key===sel?'sel':''}"><span>${ssEsc(r.name)}</span><b>${r.n}</b>${note==='won'?`<small>${r.won} won</small>`:''}</li>`).join('')+'</ol>':'<div class="py-kna">n/a — no kickout player tags</div>')
     +`<div class="py-kf">${ssEsc(from+(Lst.count>PY_TOP?' · top '+PY_TOP+' of '+Lst.count:''))}</div></div>`;
 }
 function pyKoMapSVG(kos, T){
