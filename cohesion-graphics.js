@@ -1571,7 +1571,7 @@ async function dashExportPDF(){
   // ── substitutions (numbers as recorded in the XML; names added from the team sheet) ──
   // through the shared reader (cohesion-labels.js cohSubInOut): "OUT #13 Name → IN #18 Name" when a name is known
   // (explicit Player Out / Player In, the row's two players, or Sub Detail + the team sheet), else the stored Sub Detail
-  const subTxt=e=>{ if(typeof cohSubInOut!=='function') return (window.cohTS&&window.cohTS.subDetailFor(GAME,e))||''; const io=cohSubInOut(e, GAME); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io):''; };
+  const subTxt=e=>{ if(typeof cohSubInOut!=='function') return (window.cohTS&&window.cohTS.subDetailFor(GAME,e))||''; const io=cohSubInOut(e, GAME); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io).replace(' → ', ', '):''; };   // (the PDF's built-in font has no arrow)
   const subEv=ALL.filter(e=>/\bSUB\b/i.test(e.code||'')&&((e.labels||{})['Sub Detail']||subTxt(e)));
   if(subEv.length){
     secHead('Substitutions');
