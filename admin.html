@@ -1758,7 +1758,7 @@ async function processGame(){
           if(giuDerived.length){
             const gc = cohGiCounts(giuDerived);
             events.push(...giuDerived);
-            console.log(`✓ GIU: created ${gc.shots} shot events + ${gc.scores} score events`);
+            console.log(`✓ GIU: created ${gc.shots} shot events + ${gc.scores} score events, ${gc.kos} kickout events + ${gc.breaks} break events`);
           }
         }
 
@@ -2293,7 +2293,7 @@ async function processGame(){
           if(giDerived.length){
             const gc = cohGiCounts(giDerived);
             events.push(...giDerived);
-            console.log(`✓ Gaelic Insights: created ${gc.shots} shot events + ${gc.scores} score events`);
+            console.log(`✓ Gaelic Insights: created ${gc.shots} shot events + ${gc.scores} score events, ${gc.kos} kickout events + ${gc.breaks} break events`);
           }
         }
 

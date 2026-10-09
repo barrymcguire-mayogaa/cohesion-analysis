@@ -24,6 +24,11 @@
  * labels. They convert the same way (same link label, same companions, same
  * superseded handling); see cohGiuMapShot.
  *
+ * KICKOUTS convert the same way (see the KICKOUTS block): each GI / GIU
+ * "<Team> Kickout" gains a "<KICKING TEAM> KO" with Code Room's own labels,
+ * plus both teams' BREAK WON / BREAK LOST rows for a break ball; the original
+ * is superseded, the break rows are companions.
+ *
  * Loaded by admin.html, code-room.html, dashboard.html and season-stats.html;
  * also require()-able from node for the headless tests.
  */
