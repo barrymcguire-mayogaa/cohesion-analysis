@@ -7,7 +7,8 @@
  *                                    (video position, then coder clock)
  *   cohZipStore([{name, data}])   -> a store-only .zip (Uint8Array) of several files
  *
- * Writes the events (including custom labels and player tags) as a
+ * Writes the events (including custom labels and player tags — every value
+ * of a repeated label group as its own <label>) as a
  * Sportscode-shaped ALL_INSTANCES file. Synthesised period markers
  * ("1st Half" etc.) are included so the file re-imports into COHESION (and
  * other Sportscode-style tools) with correct period detection.
@@ -18,6 +19,21 @@
  * Pure: no DOM, no globals. Also loadable from Node (module.exports).
  */
 function cohXmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Every value of a label group, in order: e.labelsAll[g] holds them when a
+// Sportscode instance repeated the group (cohesion-labels.js); otherwise the
+// one value in e.labels[g]. Each is written as its own <label>.
+function cohXmlValues(e, g, v){
+  const all=e.labelsAll&&e.labelsAll[g];
+  if(!Array.isArray(all)||all.length<2) return [v];
+  return all[all.length-1]===v ? all : all.slice(0,-1).concat([v]);   // labels[g] edited on its own: it is the last value
+}
+// The import derived this event's team from its code (or from the player a
+// player row is named after) — the source file had no Team Name label, and a
+// re-import derives the same team again, so none is written.
+function cohXmlTeamImplied(e){
+  if(!e.teamDerived||(e.labels&&e.labels['Team Name'])) return false;
+  return !!e.playerRow || String(e.code||'').includes(String(e.team||'').toUpperCase());
+}
 function cohXmlBuild(events, opts){
   const _xesc=cohXmlEsc;
   const base=(opts&&opts.base)||'video';
@@ -36,9 +52,9 @@ function cohXmlBuild(events, opts){
     const s=tOf(e), en=endOf(e,s);
     lines.push('  <instance>','    <ID>'+(++idc)+'</ID>','    <start>'+(+s).toFixed(4)+'</start>','    <end>'+(+en).toFixed(4)+'</end>','    <code>'+_xesc(e.code||'')+'</code>');
     const labels={...(e.labels||{})};
-    if(e.team && !labels['Team Name']) labels['Team Name']=e.team;
-    if(e.player){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[`${(e.team||'').trim()||'Unassigned'} Player Labels`]=e.player; }
-    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(v)+'</text>','    </label>'); });
+    if(e.team && !labels['Team Name'] && !cohXmlTeamImplied(e)) labels['Team Name']=e.team;
+    if(e.player && !e.playerRow){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[`${(e.team||'').trim()||'Unassigned'} Player Labels`]=e.player; }
+    Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; cohXmlValues(e,g,v).forEach(x=>lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')); });
     lines.push('  </instance>');
   });
   lines.push('</ALL_INSTANCES>','</file>');
@@ -90,4 +106,4 @@ function cohZipStore(files, date){
   dv.setUint32(p+12,p-cd,true); dv.setUint32(p+16,cd,true); dv.setUint16(p+20,0,true);
   return out;
 }
-if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
+if(typeof module!=='undefined'&&module.exports) module.exports={cohXmlEsc, cohXmlValues, cohXmlTeamImplied, cohXmlBuild, cohXmlFileStem, cohXmlLoadOrder, cohCrc32, cohZipStore};
