@@ -216,7 +216,11 @@
     const all=[]; (passes||[]).forEach((ws,pi)=>prep(ws).forEach(w=>{ w.pass=pi; all.push(w); }));
     // a whole word beats a sure fragment of it ("Eoin" 94% over "in" 97%)
     const cv=w=>(w.conf==null?100:w.conf)*(0.7+0.05*Math.min(6, w.text.replace(/[^A-Za-zÀ-ɏ0-9]/g,'').length));
-    all.sort((a,b)=>cv(b)-cv(a)||a.pass-b.pass||a.x0-b.x0);
+    // the engine now and then gives a word the box of its whole line: the same word read tighter in another reading
+    // wins, and a box far too wide for its letters does not push its neighbours out
+    const wide=w=>(w.x1-w.x0)>2.2*0.62*w.h*Math.max(1,w.text.length);
+    all.forEach(w=>{ w.loose=wide(w)||all.some(v=>v.pass!==w.pass&&v.text===w.text&&(v.x1-v.x0)<0.75*(w.x1-w.x0)&&v.x0<w.x1&&v.x1>w.x0&&v.y0<w.y1&&v.y1>w.y0); });
+    all.sort((a,b)=>(a.loose?1:0)-(b.loose?1:0)||cv(b)-cv(a)||a.pass-b.pass||a.x0-b.x0);
     const kept=[];
     all.forEach(w=>{ const aw=(w.x1-w.x0)*(w.y1-w.y0);
       for(let i=0;i<kept.length;i++){ const k=kept[i], ix=Math.min(w.x1,k.x1)-Math.max(w.x0,k.x0); if(ix<=0) continue; const iy=Math.min(w.y1,k.y1)-Math.max(w.y0,k.y0);
@@ -441,7 +445,7 @@
   // unsure line stays in the text for the user to see in the preview.
   // (all tested on the text with fadas removed and in lower case)
   // headings the editor's parser understands itself ("Subs", "Starting 15") are always passed on
-  const RE_SUBSF=/^(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s*i?onai?d|ionadaithe)\b/;
+  const RE_SUBSF=/^(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|fir\s*i?onai?d(?=\s*:?$)|ionadaithe)\b/;
   const RE_STARTF=/^(?:starting(?:\s+(?:xv|15|team|line[\s-]?up))?|starters?|team|line[\s-]?up|first\s+15|xv)\s*[:\-–]?$/;
   const RE_SUBS2=/^(?:(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|ionadaithe)[\s\/|,&\-–:.]*){2,}$/;
   const RE_KEEP={test:f=>RE_SUBSF.test(f)||RE_STARTF.test(f)};
@@ -500,7 +504,7 @@
       let t=cells.join('\t');
       if(!/[A-Za-zÀ-ɏ0-9]/.test(t)){ if(raw.trim()) drop(raw,'marks'); return; }
       // a two-language heading ("Fir Ionaid / Subs") is passed on as the one word the parser knows
-      if(RE_SUBS2.test(fold(t).trim())||/^fir\s*i?onai?d\s*:?$/.test(fold(t).trim())){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
+      if(RE_SUBS2.test(fold(t).trim())||(/^fir\s*i?onai?d\s*:?$/.test(fold(t).trim())&&!/^fir ionaid\s*:?$/.test(fold(t).trim()))){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
       const f=fold(t).trim(), numbered=lineNo(t)!=null||cells.length>1;
       if(!numbered&&!isNumTok(t)&&!RE_KEEP.test(f)){
         if(RE_OFFICIAL.test(f)||RE_OFFICIAL_IN.test(f)) return drop(raw,'official');
@@ -518,7 +522,10 @@
       }
       // recognised text only (a picture, not a PDF's own text): the marks a reader leaves around a name
       if(l.conf!=null&&!RE_KEEP.test(f)){
-        t=t.split('\t').map(tidyRead).filter(Boolean).join('\t');
+        // beside a numbered name, a cell that is only a stray number or a scrap of a letter or two (a mark at the page edge)
+        let cs=t.split('\t').map(tidyRead).filter(Boolean);
+        if(cs.length>1&&lineNo(cs[0])!=null) cs=cs.filter((c,i)=>i===0||!(isNumTok(c)||c.replace(/[^A-Za-zÀ-ɏ]/g,'').length<3));
+        t=cs.join('\t');
         if(!t||(!numbered&&!isNumTok(t)&&notName(t, l.conf))) return drop(raw,'marks');
       }
       keep.push({text:t, conf:l.conf==null?null:l.conf, box:l.box, page:l.page});
