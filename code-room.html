@@ -2534,7 +2534,8 @@ function acShow(input, options, onPick, opt){
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
     return `<div data-i="${i}">${show?`<span class="actag">${esc(t)}</span>`:''}${esc(o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
-  d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px'; d.style.display='';
+  d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px';
+  d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden
   acIdx=-1;
   d.querySelectorAll('div').forEach(el=>{ el.onmousedown=ev=>{ ev.preventDefault(); acChoose(+el.dataset.i); }; });
 }
