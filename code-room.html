@@ -527,6 +527,16 @@ function toggleTheme(){const c=document.documentElement.getAttribute('data-theme
 initTheme();
 
 let GAMES=[], GAME=null, EVENTS=[], YTP=null, activeId=null, undoStack=[], rafId=null;
+// Names follow the game's own template (cohesion-labels.js / cohesion-config.js): the label-group
+// definitions handed out by cohesionGroupsFor / cohesionLinkFor carry the group spelling THIS game
+// already uses ("Turnover Location") and offer its own values ("'45 SHOT") — never a twin group.
+window.cohesionGameEvents=()=>EVENTS;
+// the game's "<Team> Player Labels" group for a team ("Mayo Player Labels"), else "<team as entered> Player Labels"
+function crPG(team){ return cohPlayerGroupFor(EVENTS, team, GAME||{}); }
+// the game's spelling of a configured group name
+function crGN(name){ return cohGroupResolve(EVENTS, name); }
+// the configured definition of a group, whatever spelling the game uses for it
+function crCfgGroup(g){ const c=cohGroupCanon(g); return (window.COHESION_LABEL_GROUPS||[]).find(x=>x&&cohGroupCanon(x.name)===c)||null; }
 let crDeleted=[], crTmpCounter=0;   // queued deletes (existing rows) + temp-id counter for new events
 
 // Writes go through cohesion-edit.js (cohesionEventBatch → service-role
@@ -1275,8 +1285,8 @@ const CR_TYPE_ORDER=[
   ['GOAL'],['1 POINT','POINT'],['2 POINT'],['SCORE SOURCE'],['SCORE ASSIST'],
   ['WIDE'],['SHORT'],['BLOCKED'],['WOODWORK'],['SAVE'],["'45",'45'],['MISS'],
   ['SHOT SOURCE'],['SHOT ASSIST'],['KICKOUT','KICKOUTS','KO'],['BREAK WON'],['BREAK LOST'],
-  ['TACKLE','TACKLES'],['HIT','HITS'],['FOUL','FOULS'],['CARD','CARDS'],
-  ['TURNOVER','TURNOVERS','TOS'],['BLOCK DOWN'],['GOAL ATTEMPT'],
+  ['TACKLE','TACKLES'],['HIT','HITS'],['FOUL','FOULS'],['TECHNICAL FOUL'],['CARD','CARDS'],
+  ['TURNOVER','TURNOVERS','TOS'],['BLOCK DOWN'],['GOAL ATTEMPT','GOAL CHANCE'],
   ['SUB','SUBS','SUBSTITUTION','BLOOD SUB']];
 const CR_TYPE_RANK={}; CR_TYPE_ORDER.forEach((vs,i)=>vs.forEach(v=>CR_TYPE_RANK[v]=i));
 function crTeamBlockOf(code){
@@ -1477,7 +1487,7 @@ const CR_DUR_BASES=new Set(['TEAM POSSESSION','65M ENTRY','ATTACKS','ATTACK','SC
 function crCreateEvent(code,t,half,labels,player,endT){
   labels=labels||{};
   const team=teamFor(code,labels);
-  if(player) labels[`${team||'Unassigned'} Player Labels`]=player;
+  if(player) labels[crPG(team)]=player;
   const tmpId='tmp-'+(++crTmpCounter);
   EVENTS.push({ id:'manual-'+Date.now(), start:t, end:endT||t+4, half, code, team, player:player||'',
     outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
@@ -2336,7 +2346,7 @@ function crCtxMenu(px,py){
 }
 function crCtxClose(){ const m=document.getElementById('crCtx'); if(m) m.remove(); }
 // ── Bulk edit (multiple selected events) ──────────────────────
-function crLabelGroups(){ const s=new Set(); EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(g!=='Team Name'&&!/player labels$/i.test(g)) s.add(g); })); (window.COHESION_LABEL_GROUPS||[]).forEach(g=>s.add(g.name)); return [...s].sort(); }
+function crLabelGroups(){ const s=new Set(); EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(g!=='Team Name'&&!/player labels$/i.test(g)) s.add(g); })); (window.COHESION_LABEL_GROUPS||[]).forEach(g=>s.add(crGN(g.name))); return [...s].sort(); }
 function renderBulk(){
   const p=document.getElementById('epanel'); if(!p) return;
   document.getElementById('addPanel').style.display='none';
@@ -2431,7 +2441,7 @@ function crBulkApply(mutator){
   const st=document.getElementById('bulkStatus'); if(st){ st.className='status ok'; st.textContent='Applied to '+evs.length+' — saved to Cohesion when you close the session.'; }
 }
 function crBulkPlayer(){ const v=((document.getElementById('bulkPlayer')||{}).value||'').trim();
-  crBulkApply(e=>{ e.player=v; e.labels=e.labels||{}; const grp=`${(e.team||'Unassigned')} Player Labels`; if(v) e.labels[grp]=v; else delete e.labels[grp]; }); }
+  crBulkApply(e=>{ e.player=v; e.labels=e.labels||{}; const grp=crPG(e.team); if(v) e.labels[grp]=v; else delete e.labels[grp]; }); }
 function crBulkLabel(){ const g=((document.getElementById('bulkLblG')||{}).value||'').trim(), v=((document.getElementById('bulkLblV')||{}).value||'').trim(); if(!g) return;
   crBulkApply(e=>{ e.labels=e.labels||{}; if(v) e.labels[g]=v; else delete e.labels[g]; e.outcome=firstOf(e.labels,OUT_KEYS)||e.outcome||''; }); }
 function crBulkColor(v){ crBulkApply(e=>{ if(v) e.color=v; else delete e.color; }); }
@@ -2495,7 +2505,7 @@ function crDraftPlayers(e){
 // row (the Mayo player on a KERRY TOs row: his group names the OTHER team)
 // stays in his own group; otherwise it is the row team's group, as before.
 function crPlayerGroupFor(e, team, origGroup){
-  const own=`${team||'Unassigned'} Player Labels`;
+  const own=crPG(team);
   if(!origGroup) return own;
   const gt=cohPlayerGroupTeam(origGroup, GAME);
   return (gt && gt!==String(e.team||'').toUpperCase()) ? origGroup : own;
@@ -2645,8 +2655,8 @@ function crLabelValues(g){
   const s=new Set();
   EVENTS.forEach(e=>cohLabelValues(e, g).forEach(v=>{ if(v) s.add(v); }));   // every value of the group
   if(isPlayerGroup(g)) crPlayers().forEach(p=>s.add(p));
-  const def=(window.COHESION_LABEL_GROUPS||[]).find(x=>x.name.toLowerCase()===g.toLowerCase());
-  if(def) def.options.forEach(o=>s.add(o));
+  const def=crCfgGroup(g);
+  if(def) cohValueOptions(EVENTS, g, def.options).forEach(o=>s.add(o));
   return [...s].sort();
 }
 function crPlayers(){
@@ -3162,9 +3172,19 @@ function cbeSave(base){
 }
 // ── Tracker event picker: the standard tracker vocabulary, with built-in
 // outcome prompts and labels ─────────────────────────────────
-const CR_TRACKER_EVENTS=['TEAM POSSESSION','65M ENTRY','ATTACKS','SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','FOUL','CARD','SUB',
-  'BREAK WON','BREAK LOST','BLOCK DOWN','GOAL ATTEMPT','THROW-IN','SCORE SOURCE','SHOT SOURCE',
+// (HIT, TECHNICAL FOUL, GOAL CHANCE, SHOT ASSIST and SCORE ASSIST are rows of the Sportscode template.
+// GOAL CHANCE and GOAL ATTEMPT are the same row: crCodeAlias writes the name the game already uses.)
+const CR_TRACKER_EVENTS=['TEAM POSSESSION','65M ENTRY','ATTACKS','SHOT OPEN PLAY','SHOT DEADBALL','KO','TOs','HIT','FOUL','TECHNICAL FOUL','CARD','SUB',
+  'BREAK WON','BREAK LOST','BLOCK DOWN','GOAL ATTEMPT','GOAL CHANCE','THROW-IN','SCORE SOURCE','SCORE ASSIST','SHOT SOURCE','SHOT ASSIST',
   '1 POINT','2 POINT','GOAL','WIDE','SHORT','BLOCKED','WOODWORK','SAVE'];
+// Rows that are one thing under two names: the name this game already has rows of wins.
+const CR_CODE_TWINS=[['GOAL ATTEMPT','GOAL CHANCE']];
+function crCodeAlias(baseCode){
+  const B=String(baseCode||'').toUpperCase(), tw=CR_CODE_TWINS.find(t=>t.includes(B)); if(!tw) return baseCode;
+  const n=tw.map(x=>EVENTS.filter(e=>new RegExp('(^|\\s)'+x+'$','i').test(String(e.code||'').trim())).length);
+  const other=tw.find((x,i)=>x!==B&&n[i]>0&&n[tw.indexOf(B)]===0);
+  return other||baseCode;
+}
 function codeTrackerPicker(){
   document.querySelectorAll('#ctpOv').forEach(x=>x.remove());
   const have=new Set(codeEvtList);
@@ -4052,7 +4072,7 @@ function codeTag(baseCode, opts){
     ['TEAM POSSESSION','65M ENTRY','ATTACKS','ATTACK'].forEach(b=>{ if(crRec[b]) crDurToggle(b); });
   }
   const teamName=isNeutralCode(baseCode)?'':codeTeamName(_tagSide);   // neutral: no team, either side
-  const code=(teamName?teamName+' ':'')+baseCode;
+  const code=(teamName?teamName+' ':'')+crCodeAlias(baseCode);
   const now=Math.max(0,Math.round(vNow()));
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
   // Clip window: start lead-seconds before the tag (reaction pre-roll), end
@@ -4065,7 +4085,7 @@ function codeTag(baseCode, opts){
   // Armed detail labels, filtered to those applicable to this event's code.
   const applies=new Set((window.cohesionGroupsFor?window.cohesionGroupsFor(code):[]).map(g=>g.name));
   Object.entries(codeMode.labels||{}).forEach(([g,v])=>{ if(v && applies.has(g)) labels[g]=v; });
-  if(codeMode.player) labels[`${teamName||'Unassigned'} Player Labels`]=codeMode.player;
+  if(codeMode.player) labels[crPG(teamName)]=codeMode.player;
   const tmpId='tmp-'+(++crTmpCounter);
   const row={ id:'manual-'+Date.now(), start:clipStart, end:clipEnd, half:codeMode.period, code, team:teamName,
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
@@ -4113,11 +4133,11 @@ function crDurToggle(baseCode){
     // stopping attributes to the team the recording STARTED with — switching
     // teams mid-recording (e.g. to tag their foul) no longer misattributes it
     const teamName=isNeutralCode(baseCode)?'':codeTeamName(rec.team||codeMode.team);
-    const code=(teamName?teamName+' ':'')+baseCode;
+    const code=(teamName?teamName+' ':'')+crCodeAlias(baseCode);
     const labels={};
     const applies=new Set((window.cohesionGroupsFor?cohesionGroupsFor(code):[]).map(g=>g.name));
     Object.entries(codeMode.labels||{}).forEach(([g,v])=>{ if(v&&applies.has(g)) labels[g]=v; });
-    if(codeMode.player) labels[`${teamName||'Unassigned'} Player Labels`]=codeMode.player;
+    if(codeMode.player) labels[crPG(teamName)]=codeMode.player;
     const tmpId='tmp-'+(++crTmpCounter);
     const row={ id:'manual-'+Date.now(), start, end, half:codeMode.period, code, team:teamName,
                 player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
@@ -4478,7 +4498,7 @@ function crFRProcess(e, re, o, apply){
     // keep "<TEAM> Player Labels" in step with a changed team
     if(e.team && e.team!==oldTeam){
       const pg=Object.keys(e.labels).find(k=>isPlayerGroup(k)&&k.toUpperCase()===((oldTeam||'Unassigned')+' Player Labels').toUpperCase());
-      if(pg){ const v=cohLabelValues(e, pg); cohLabelSetValues(e, pg, []); cohLabelSetValues(e, `${e.team} Player Labels`, v); }
+      if(pg){ const v=cohLabelValues(e, pg); cohLabelSetValues(e, pg, []); cohLabelSetValues(e, crPG(e.team), v); }
     }
   }
   crAfterLabelEdit(e);
@@ -4779,8 +4799,8 @@ function crLCGroupOptions(){
   const seen=new Set();
   EVENTS.forEach(e=>Object.keys(e.labels||{}).forEach(g=>{ if(!isPlayerGroup(g)&&!CR_LC_LOC_RE.test(g)&&g!=='Team Name') seen.add(g); }));
   const cfg=new Set();
-  (window.COHESION_LABEL_GROUPS||[]).forEach(g=>{ if(g&&g.name) cfg.add(g.name); });
-  (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group) cfg.add(l.group); });
+  (window.COHESION_LABEL_GROUPS||[]).forEach(g=>{ if(g&&g.name) cfg.add(crGN(g.name)); });
+  (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group) cfg.add(crGN(l.group)); });
   return { used:[...seen].sort(), other:[...cfg].filter(g=>!seen.has(g)).sort() };
 }
 function crLCGroupSelectHtml(cur){
@@ -4797,8 +4817,8 @@ function crLCValueOptions(g){
   rowEvs.forEach(e=>crLCValues(e,g).forEach(add));           // this row's values first
   EVENTS.forEach(e=>crLCValues(e,g).forEach(add));
   if(g[0]!=='@'){
-    (window.COHESION_LABEL_GROUPS||[]).forEach(x=>{ if(x&&x.name===g){ (x.options||[]).forEach(add); if(x.players) crPlayers().forEach(add); } });
-    (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&l.group===g) (l.options||[]).forEach(add); });
+    (window.COHESION_LABEL_GROUPS||[]).forEach(x=>{ if(x&&cohGroupCanon(x.name)===cohGroupCanon(g)){ (x.options||[]).forEach(o=>{ if(![...s.values()].some(v=>cohValueCanon(g,v)===cohValueCanon(g,o))) add(o); }); if(x.players) crPlayers().forEach(add); } });
+    (window.COHESION_EVENT_LINKS||[]).forEach(l=>{ if(l&&cohGroupCanon(l.group)===cohGroupCanon(g)) (l.options||[]).forEach(o=>{ if(![...s.values()].some(v=>cohValueCanon(g,v)===cohValueCanon(g,o))) add(o); }); });
   }
   return [...s.values()];
 }
@@ -5427,7 +5447,7 @@ function crLocVal(g){
 function crLocTag(gi,vi){
   const e=crLocCur(); if(!e||!draft) return;
   const g=CR_LOC_GROUPS[gi];
-  const grp=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]).find(x=>x.name===g);
+  const grp=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]).find(x=>x.name===g||x.baseName===g);
   const v=grp&&grp.options[vi]; if(v==null) return;
   setDefinedLabel(g, crLocVal(g)===v?'':v);      // tap again to clear
   crLocRender();
@@ -5566,7 +5586,7 @@ function crKoCompanions(row, value){
   }
   if(/LOST/.test(v)){
     const tl={'Turnover Outcomes':'KICKOUT LOST'};
-    const loc=crKoLocToThird(row); if(loc) tl['Turnover Locations']=loc;
+    const loc=crKoLocToThird(row); if(loc) tl[crGN('Turnover Locations')]=loc;
     crPushCompanion(row,'TOs',tl);
   }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -5619,7 +5639,7 @@ function crSyncKoTOLoc(row){
   if(!comp) return;
   const loc=crKoLocToThird(row);
   comp.labels=comp.labels||{};
-  if(loc) comp.labels['Turnover Locations']=loc; else delete comp.labels['Turnover Locations'];
+  { const tg=crGN('Turnover Locations'); if(loc) comp.labels[tg]=loc; else delete comp.labels[tg]; }
   if(!comp._new) comp._dirty=true;
 }
 // Turnover outcomes: losing possession to a FREE AGAINST means the team in
@@ -5630,7 +5650,7 @@ function crToCompanions(row, value){
   if(!/\bTOS?\b|TURNOVER/i.test(row.code||'')||/(\bKO\b|KICKOUT)/i.test(row.code||'')) return;
   if(String(value||'').toUpperCase()!=='FREE AGAINST') return;
   if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
-  const fl={}; const loc=(row.labels||{})['Turnover Locations'];
+  const fl={}; const loc=cohLabelVal(row,'Turnover Locations');
   if(loc) fl['Foul Areas']=loc;
   crPushCompanion(row,'FOUL',fl);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
@@ -5708,7 +5728,7 @@ function confirmAdd(){
   EVENTS.forEach(e=>{ const dd=Math.abs((e.driveT||0)-driveT); if(dd<best){best=dd;half=e.half||'';} });
   const labels={};
   const team=teamFor(code,labels);
-  if(player) labels[`${team||'Unassigned'} Player Labels`]=player;
+  if(player) labels[crPG(team)]=player;
   const tmpId='tmp-'+(++crTmpCounter);
   const row={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
               player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),

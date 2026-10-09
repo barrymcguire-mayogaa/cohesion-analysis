@@ -256,6 +256,7 @@ initTheme();
 const gameId=new URLSearchParams(window.location.search).get('game');
 if(!gameId) window.location.href='library.html';
 let ALL=[],GAME={},filtered=[],PTM={};
+window.cohesionGameEvents=()=>ALL;   // quick-tag groups follow the game's own group / value spelling (cohesion-config.js)
 let activeLF=null,activeId=null,activeCode=null,curT=0;
 let gameFormat='gi',activeCatFn=null,activeCatKey='All',activeSubFn=null,activeSubKey='';
 let CHIP_FN_MAP={},SUB_FN_MAP={};
@@ -817,7 +818,10 @@ function renderSV(){
   // Score assists: dedicated codes/groups, or the GI 'Assist' label whose
   // VALUE is the assisting player's name.
   const assistName=e=>{ const a=(e.labels||{})['Assist']; if(a) return a; if(((e.labels||{})['Score Assist Outcomes'])||/SCORE ASSIST/i.test(e.code||'')) return e.player||'—'; return null; };
-  const assists=ALL.filter(e=>statPred(e)&&!giSup(e)&&assistName(e));
+  // a SCORE ASSIST row and an 'Assist' label on the shot it belongs to are ONE assist (cohesion-labels.js
+  // links the row to its shot): the shot's label is the one counted
+  const asIdx=cohAssistIndexCached(ALL, GAME), asDup=e=>{ const sh=asIdx.byRow.get(e); return !!(sh&&cohLabelVal(sh,'Assist')&&/SCORE ASSIST/i.test(e.code||'')); };
+  const assists=ALL.filter(e=>statPred(e)&&!giSup(e)&&assistName(e)&&!asDup(e));
   const asH=assists.filter(e=>statSide(e)==='h'), asA=assists.filter(e=>statSide(e)==='a');
   const topP=list=>{const m={};list.forEach(e=>{const n=assistName(e);if(n&&n!=='—')m[n]=(m[n]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};
@@ -1099,12 +1103,12 @@ async function savePlayerTag(ev,name){
   // theirs (team sheet / this game's names) and not one of the row team's.
   const cur=ev.player||'';
   const has=cur?Object.keys(ev.labels||{}).find(k=>cohIsPlayerGroup(k)&&cohLabelHas(ev,k,cur)):null;
-  let playerGroup=`${(ev.team||'').trim()||'Unassigned'} Player Labels`;
+  let playerGroup=cohPlayerGroupFor(ALL, (ev.team||'').trim(), GAME);   // the group this game already uses for the team ("Mayo Player Labels"), never a twin
   if(has){ playerGroup=has; cohLabelReplace(ev, has, cur, name); }
   else{
     const side=window.cohTS?cohTS.sideOf(GAME, ev.team):'', other=side==='home'?'away':side==='away'?'home':'';
     if(other){ const k=cohTS.nameKey(name), inSide=sd=>cohTS.orderedNames(GAME, sd).concat(dashTeamNames(sd)).some(n=>cohTS.nameKey(n)===k);
-      if(inSide(other)&&!inSide(side)) playerGroup=`${String(other==='home'?GAME.homeTeam:GAME.awayTeam).toUpperCase()} Player Labels`; }
+      if(inSide(other)&&!inSide(side)) playerGroup=cohPlayerGroupFor(ALL, String(other==='home'?GAME.homeTeam:GAME.awayTeam), GAME); }
     ev.labels={...(ev.labels||{}),[playerGroup]:name};
   }
   ev.player=name;

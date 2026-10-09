@@ -961,7 +961,7 @@ function ssSideOf(e, T){
 // "Shot Sideline", and "<Team> 45" / "<Team> Penalty" only when they carry a
 // ShotOutcome label (a bare "45" / "Out for 45" is the award, not the kick).
 // Once converted (cohesion-gi.js) the originals are superseded and skipped.
-const SS_SHOT_NOT=/SOURCE|ASSIST|ATTEMPT/;
+const SS_SHOT_NOT=/SOURCE|ASSIST|ATTEMPT|GOAL CHANCE/;   // GOAL CHANCE = GOAL ATTEMPT under the Sportscode template's name
 function ssPrimaryShot(e){ const c=ssUC(e.code); return !SS_SHOT_NOT.test(c)&&(/SHOT (OPEN PLAY|DEAD ?BALL)/.test(c)||/(^|\s)SHOT$/.test(c)
   ||/\sSHOT\s*\(\s*[PF]\s*\)$|\sSHOT SIDELINE$/.test(c)
   ||(/\s(45|PENALTY)$/.test(c)&&!/\sOUT FOR 45$/.test(c)&&!!String(ssL(e,'ShotOutcome')||'').trim())); }

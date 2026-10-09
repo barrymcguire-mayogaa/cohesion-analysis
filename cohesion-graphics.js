@@ -527,7 +527,7 @@ function dashComputeStats(){
     return {g,p,str:g+'-'+String(p).padStart(2,'0')}; };
   const psr=s=>{ const t=shots(s).length; return t?Math.round(scored(s).length/t*100)+'%':'—'; };
   const psrN=s=>{ const t=shots(s).length; return t?Math.round(scored(s).length/t*100):0; };
-  const goalAtt=s=>{ const st=of(s,/GOAL ATTEMPT/i).length;
+  const goalAtt=s=>{ const st=of(s,/GOAL (ATTEMPT|CHANCE)/i).length;   // GOAL CHANCE = the same row under the Sportscode template's name
     return st||shots(s).filter(e=>/GOAL/i.test((e.labels||{})['Shot Attempts']||'')).length; };
   const KO=/KICKOUT|\bKO\b/i;
   const koOut=e=>up((e.labels||{})['Kickout Outcomes']||(e.labels||{})['KickoutOutcome']||(e.labels||{})['PO_Result']||e.outcome||'');

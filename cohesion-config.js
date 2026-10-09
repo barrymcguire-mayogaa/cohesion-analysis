@@ -47,10 +47,46 @@ window.COHESION_LABEL_GROUPS = [
   { name: 'Card Outcomes', options: ['YELLOW CARD', 'BLACK CARD', 'RED CARD'], appliesTo: /\bCARDS?\b/ },
 ];
 
+/* THE GAME'S OWN TEMPLATE. A game imported from Sportscode already has its own
+ * spelling of a group ("Turnover Location") and of its values ("'45 SHOT").
+ * A page that edits a game sets
+ *     window.cohesionGameEvents = () => <the game's events>
+ * and the definitions handed out below then carry THAT group name and offer
+ * the game's values next to the configured ones (cohesion-labels.js
+ * cohGroupResolve / cohValueOptions), so an edit goes into the group the game
+ * already uses instead of creating a twin. `baseName` keeps the configured
+ * name. Player groups (players:true) are COHESION's own and keep their name.
+ * The game is read at most once per browser task. */
+let cohesionTplMemo = null;
+window.cohesionTemplate = function(){
+  if(cohesionTplMemo) return cohesionTplMemo;
+  if(typeof window.cohesionGameEvents !== 'function' || typeof cohGroupIndex !== 'function') return null;
+  let ev = null; try{ ev = window.cohesionGameEvents(); }catch(_){ ev = null; }
+  if(!Array.isArray(ev) || !ev.length) return null;
+  cohesionTplMemo = { events: ev, idx: cohGroupIndex(ev), defs: new Map() };
+  setTimeout(() => { cohesionTplMemo = null; }, 0);
+  return cohesionTplMemo;
+};
+window.cohesionTemplateReset = function(){ cohesionTplMemo = null; };
+// a group / link definition in the game's own spelling: {…def, name|group, options, baseName}
+window.cohesionResolveDef = function(def, key){
+  const T = window.cohesionTemplate(); key = key || 'name';
+  if(!T || !def || def.players) return def;
+  if(T.defs.has(def)) return T.defs.get(def);
+  const name = cohGroupResolve(T.idx, def[key]);
+  const options = (def.options && def.options.length) ? cohValueOptions(T.events, def[key], def.options) : def.options;
+  const same = name === def[key] && options.length === def.options.length && options.every((o, i) => o === def.options[i]);
+  const out = same ? def : Object.assign({}, def, { [key]: name, options, baseName: def[key] });
+  T.defs.set(def, out);
+  return out;
+};
+// The game's spelling of a configured group name (for code that names a group itself).
+window.cohesionGroupName = function(name){ const T = window.cohesionTemplate(); return T ? cohGroupResolve(T.idx, name) : name; };
+
 // Return the label groups that apply to a given event code.
 window.cohesionGroupsFor = function(code){
   const c = (code || '').toUpperCase();
-  return (window.COHESION_LABEL_GROUPS || []).filter(g => !g.appliesTo || g.appliesTo.test(c));
+  return (window.COHESION_LABEL_GROUPS || []).filter(g => !g.appliesTo || g.appliesTo.test(c)).map(g => window.cohesionResolveDef(g, 'name'));
 };
 
 // Which team's players a players:true group offers for an event:
@@ -126,7 +162,14 @@ window.COHESION_EVENT_LINKS = [
     options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','BALL RECOVERED','THROW-IN','FREE WON'] },
   { appliesTo: /SHOT SOURCE/,      group: 'Shot Source Outcomes', prompt: 'Shot source',
     options: ['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','THROW-IN','FREE WON'] },
-  // NOTE: keep the specific *SOURCE links ABOVE the generic /SHOT/ one —
+  // The Sportscode template logs an assist as its own row: SCORE ASSIST for a
+  // shot that scored, SHOT ASSIST for one that did not (the assister is the
+  // row's player). Their type is the row's outcome.
+  { appliesTo: /SCORE ASSIST/,     group: 'Score Assist Outcomes', prompt: 'Score assist',
+    options: ['Hand Pass','Kick Pass','Free Won',"'45 Won"] },
+  { appliesTo: /SHOT ASSIST/,      group: 'Shot Assist Outcomes', prompt: 'Shot assist',
+    options: ['Hand Pass','Kick Pass','Free Won',"'45 Won",'Shot'] },
+  // NOTE: keep the specific *SOURCE / *ASSIST links ABOVE the generic /SHOT/ one —
   // the first match wins, and /SHOT/ would otherwise swallow SHOT SOURCE.
   { appliesTo: /SHOT/,             group: 'Shot Outcomes',    prompt: 'Shot outcome',
     options: ['1 POINT','2 POINT','GOAL','WIDE','SHORT','SAVE','BLOCKED','WOODWORK',"'45"] },
@@ -135,11 +178,12 @@ window.COHESION_EVENT_LINKS = [
   { appliesTo: /\bTOS?\b|TURNOVER/,group: 'Turnover Outcomes',prompt: 'Turnover outcome',
     options: ['FORCED TURNOVER','UNFORCED TURNOVER','KICKOUT LOST','HANDLING','FREE AGAINST','SHOT ATTEMPT'] },
   { appliesTo: /TACKLE/,           group: 'Tackle Outcomes',  prompt: 'Tackle outcome',
-    options: ['CONTACT','TACKLE FREE CONCEDED','CHANGE OF DIRECTION','FOUL CONCEDED'] },
+    options: ['CONTACT','MISSED TACKLE','TACKLE FREE CONCEDED','CHANGE OF DIRECTION','FOUL CONCEDED'] },
 ];
 
 // Return the first event link whose appliesTo matches the code, or null.
 window.cohesionLinkFor = function(code){
   const c = (code || '').toUpperCase();
-  return (window.COHESION_EVENT_LINKS || []).find(l => l.appliesTo && l.appliesTo.test(c)) || null;
+  const l = (window.COHESION_EVENT_LINKS || []).find(l => l.appliesTo && l.appliesTo.test(c)) || null;
+  return l ? window.cohesionResolveDef(l, 'group') : null;
 };
