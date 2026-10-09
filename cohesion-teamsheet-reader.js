@@ -651,6 +651,235 @@
       return res;
     } finally { job.end(); }
   };
-  // The single public hook (cohesion-teamsheet.js forwards to it once this file is loaded).
-  root.cohTeamSheetFromFile=function(file, opts){ return R.read(file, opts); };
+  // The public hook is cohTeamSheetFromFile in cohesion-teamsheet.js, which loads this file and calls read().
+})(typeof window!=='undefined'?window:globalThis);
+
+/* ══ UI: the editor's "Read from photo / PDF" flow ══════════════════
+ * attach(ctx, file) — ctx = {card, side:'home'|'away'|'' (both teams), game,
+ *   known(side)→[names], teamName(side), col(side)→the team's column element}
+ * Progress, the page picker, the source picture and the notes are drawn into
+ * the editor's .cohts-rd hosts. The text itself is put into the team's paste
+ * box and an 'input' event is fired, so the editor's own parser and preview
+ * run exactly as if the user had pasted it.
+ */
+(function(root){
+  'use strict';
+  if(typeof window==='undefined'||typeof document==='undefined') return;
+  const R=root.cohTSReader, T=root.cohTS, esc=T._esc;
+  const el=(html)=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; };
+  let cssDone=false;
+  function css(){
+    if(cssDone) return; cssDone=true;
+    const st=document.createElement('style'); st.id='cohrd-css';
+    st.textContent=`
+.cohts-rd:empty{display:none;}
+.cohts-rd{margin-top:8px;}
+.cohrd-box{border:1px solid var(--border,#333);border-radius:8px;padding:9px 10px;background:var(--card,#252530);font-size:12px;line-height:1.5;color:var(--t2,#999);}
+.cohrd-box b{color:var(--t1,#eee);}
+.cohrd-msg{color:var(--t1,#eee);font-weight:600;}
+.cohrd-bar{height:6px;border-radius:3px;background:var(--border,#333);overflow:hidden;margin:7px 0;}
+.cohrd-bar i{display:block;height:100%;width:0;background:var(--accent,#4fc3f7);transition:width .2s;}
+.cohrd-bar.busy i{width:35% !important;animation:cohrd-run 1.1s linear infinite;}
+@keyframes cohrd-run{0%{margin-left:-35%}100%{margin-left:100%}}
+.cohrd-err{color:var(--orange,#f59e0b);font-weight:600;}
+.cohrd-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:7px;}
+.cohrd-top{display:flex;gap:8px;align-items:flex-start;}
+.cohrd-top div{flex:1;min-width:0;}
+.cohrd-flag{margin-top:6px;color:var(--orange,#f59e0b);}
+.cohrd-flag span{color:var(--t1,#eee);}
+.cohrd-note{margin-top:5px;}
+.cohrd-note summary{cursor:pointer;}
+.cohrd-pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:8px;max-height:330px;overflow-y:auto;padding:2px;}
+.cohrd-pgb{border:2px solid var(--border,#333);border-radius:8px;background:var(--panel,#1e1e28);color:var(--t2,#999);padding:4px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;text-align:center;min-width:0;}
+.cohrd-pgb .th{display:flex;align-items:center;justify-content:center;height:104px;background:#fff;border-radius:4px;overflow:hidden;margin-bottom:3px;}
+.cohrd-pgb canvas{max-width:100%;max-height:104px;display:block;}
+.cohrd-pgb em{display:block;font-style:normal;font-size:9.5px;color:var(--accent,#4fc3f7);min-height:12px;}
+.cohrd-pgb.on{border-color:var(--accent,#4fc3f7);color:var(--t1,#eee);box-shadow:0 0 0 1px var(--accent,#4fc3f7);}
+.cohrd-tools{display:flex;gap:5px;align-items:center;margin-top:8px;}
+.cohrd-tools span{flex:1;min-width:0;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3,#777);}
+.cohrd-tools .cohts-btn{padding:3px 9px;}
+.cohrd-view{margin-top:5px;height:300px;overflow:auto;border:1px solid var(--border,#333);border-radius:8px;background:#fff;-webkit-overflow-scrolling:touch;}
+.cohrd-pg{position:relative;}
+.cohrd-pg canvas{display:block;width:100%;height:auto;}
+.cohrd-mark{position:absolute;background:rgba(245,158,11,.28);outline:1px solid rgba(245,158,11,.9);pointer-events:none;}
+.cohts-prow.cohrd-low{background:rgba(245,158,11,.13);}
+.cohts-prow.cohrd-low b::before{content:'⚠ ';color:var(--orange,#f59e0b);}
+.cohrd-full{position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.85);overflow:auto;padding:44px 8px 8px;box-sizing:border-box;-webkit-overflow-scrolling:touch;}
+.cohrd-full canvas{display:block;margin:0 auto;background:#fff;}
+.cohrd-full .cohts-btn{position:fixed;top:8px;right:8px;z-index:1;}
+`;
+    document.head.appendChild(st);
+  }
+
+  const topHost=card=>card.querySelector('.cohts-rd[data-rd="both"]');
+  const colHost=(ctx,side)=>{ const c=ctx.col(side); return c?c.querySelector('.cohts-rd'):null; };
+  function wipe(host){ if(!host) return; if(host._cohrd&&host._cohrd.stop) host._cohrd.stop(); host._cohrd=null; host.innerHTML=''; }
+
+  // ── progress ──
+  function progress(host, p, cancel){
+    let b=host.querySelector('.cohrd-prog');
+    if(!b){ host.innerHTML=''; b=el('<div class="cohrd-box cohrd-prog"><div class="cohrd-msg"></div><div class="cohrd-bar"><i></i></div><div class="cohrd-sub"></div><div class="cohrd-row"><button class="cohts-btn" type="button">Cancel</button></div></div>');
+      b.querySelector('button').onclick=cancel; host.appendChild(b); }
+    const L=R.LIB, pct=Math.round(100*(p.pct||0)); let msg='', sub='', busy=false;
+    if(p.stage==='load'&&p.engine==='pdf'){ msg='Getting the PDF reader…'; sub='About '+L.pdf.mb+' MB, downloaded from '+L.host+' the first time only.'; busy=true; }
+    else if(p.stage==='load'){ msg='Getting the text reader ready… '+(pct?pct+'%':''); sub='About '+L.ocr.mb+' MB is downloaded from '+L.host+' the first time; after that the browser keeps it.'; busy=!pct; }
+    else if(p.stage==='pages'){ msg='Looking through the pages… '+(p.page||'')+(p.of?' of '+p.of:''); }
+    else if(p.stage==='read'){ msg='Reading the '+(p.of>1?'pages ('+p.page+' of '+p.of+')':'picture')+'… '+pct+'%'; sub='This is done on this device and can take up to a minute on a phone or tablet.'; }
+    else { msg='Sorting the lines into teams…'; busy=true; }
+    b.querySelector('.cohrd-msg').textContent=msg; b.querySelector('.cohrd-sub').textContent=sub;
+    const bar=b.querySelector('.cohrd-bar'); bar.classList.toggle('busy', busy); bar.firstChild.style.width=(busy?35:pct)+'%';
+  }
+  function failure(host, message){
+    host.innerHTML=''; const b=el('<div class="cohrd-box"><div class="cohrd-err"></div><div class="cohrd-row"><button class="cohts-btn" type="button">OK</button></div></div>');
+    b.querySelector('.cohrd-err').textContent='⚠ '+message; b.querySelector('button').onclick=()=>{ host.innerHTML=''; }; host.appendChild(b);
+  }
+
+  // ── page picker (a PDF with more than one page) → Promise<[n…]> ([] = cancelled) ──
+  function pagePicker(host, info, name){
+    return new Promise(resolve=>{
+      host.innerHTML='';
+      const sel=new Set(info.suggested), anyList=info.pages.some(p=>p.list);
+      const b=el(`<div class="cohrd-box"><div class="cohrd-msg">${esc(name||'This PDF')} has ${info.count} pages — tick the page${info.max>1?'(s)':''} with the team list${info.max>1?'s':''}.</div>
+        <div>${anyList?'The ticked pages look like team lists (many lines starting with a number).':'No page obviously holds a team list, so page 1 is ticked.'}${info.shown<info.count?' Only the first '+info.shown+' pages are shown.':''} Up to ${info.max} pages can be read at once.</div>
+        <div class="cohrd-pages">${info.pages.map(p=>`<button type="button" class="cohrd-pgb${sel.has(p.n)?' on':''}" data-n="${p.n}" aria-pressed="${sel.has(p.n)}"><div class="th"></div>Page ${p.n}<em>${p.list?'team list?':(p.hasText?'':'picture')}</em></button>`).join('')}</div>
+        <div class="cohrd-row"><button class="cohts-btn pri" type="button" data-a="go"></button><button class="cohts-btn" type="button" data-a="x">Cancel</button><span class="cohrd-err"></span></div></div>`);
+      host.appendChild(b);
+      const go=b.querySelector('[data-a="go"]'), warn=b.querySelector('.cohrd-row .cohrd-err');
+      const paint=()=>{ go.textContent=sel.size?'Read '+(sel.size===1?'page '+[...sel][0]:sel.size+' pages'):'Read'; go.disabled=!sel.size;
+        b.querySelectorAll('.cohrd-pgb').forEach(x=>{ const on=sel.has(+x.dataset.n); x.classList.toggle('on',on); x.setAttribute('aria-pressed', on); }); };
+      b.querySelector('.cohrd-pages').onclick=ev=>{ const x=ev.target.closest('.cohrd-pgb'); if(!x) return; const n=+x.dataset.n; warn.textContent='';
+        if(sel.has(n)) sel.delete(n); else if(sel.size>=info.max) warn.textContent='Up to '+info.max+' pages at once.'; else sel.add(n); paint(); };
+      let live=true;
+      go.onclick=()=>{ live=false; resolve([...sel].sort((x,y)=>x-y)); };
+      b.querySelector('[data-a="x"]').onclick=()=>{ live=false; resolve([]); };
+      paint();
+      // small pictures of the pages, one at a time so the page never stalls
+      (async()=>{ for(const p of info.pages){ if(!live||!b.isConnected) return;
+        try{ const c=await p.thumb(150); const slot=b.querySelector('.cohrd-pgb[data-n="'+p.n+'"] .th'); if(slot) slot.appendChild(c); }catch(_){}
+        await new Promise(r=>setTimeout(r,0)); } })();
+    });
+  }
+  R._pagePicker=pagePicker;
+
+  // ── the picture a list was read from ──
+  function copyOf(canvas){ const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height; c.getContext('2d').drawImage(canvas,0,0); return c; }
+  function viewer(res, r){
+    const nums=[...new Set((r.lines||[]).map(l=>l.page).filter(n=>n!=null))];
+    const pages=(res.pages||[]).filter(p=>p.image&&(nums.indexOf(p.n)>=0||(!nums.length&&p.n===r.page)));
+    if(!pages.length) return null;
+    const box=el(`<div><div class="cohrd-tools"><span>The page it was read from${pages.length>1?' — '+pages.map(p=>`<a href="#" data-p="${p.n}">page ${p.n}</a>`).join(' · '):''}</span>
+      <button class="cohts-btn" type="button" data-z="-1" title="Smaller" aria-label="Zoom out">−</button><button class="cohts-btn" type="button" data-z="1" title="Larger" aria-label="Zoom in">+</button><button class="cohts-btn" type="button" data-z="full">Full page</button></div>
+      <div class="cohrd-view"><div class="cohrd-pg"></div></div></div>`);
+    const view=box.querySelector('.cohrd-view'), pg=box.querySelector('.cohrd-pg'); let cur=null, z=1;
+    const size=()=>{ pg.style.width=Math.round(100*z)+'%'; };
+    const show=n=>{
+      cur=pages.find(p=>p.n===n)||pages[0]; pg.innerHTML=''; pg.appendChild(copyOf(cur.image));
+      const W=cur.image.width, H=cur.image.height, s=cur.scale||1, L=(r.lines||[]).filter(l=>l.box&&l.page===cur.n);
+      L.filter(l=>l.low).forEach(l=>{ const m=document.createElement('i'); m.className='cohrd-mark';
+        m.style.cssText='left:'+(100*l.box.x0*s/W)+'%;top:'+(100*l.box.y0*s/H)+'%;width:'+(100*(l.box.x1-l.box.x0)*s/W)+'%;height:'+(100*(l.box.y1-l.box.y0)*s/H)+'%'; pg.appendChild(m); });
+      // start with this team's list filling the width
+      let bx=null; if(L.length) bx={x0:Math.min.apply(null,L.map(l=>l.box.x0))*s, y0:Math.min.apply(null,L.map(l=>l.box.y0))*s, x1:Math.max.apply(null,L.map(l=>l.box.x1))*s};
+      z=bx?Math.max(1, Math.min(5, W/((bx.x1-bx.x0)+0.08*W))):1; size();
+      const place=()=>{ if(!bx||!view.clientWidth) return; const k=pg.clientWidth/W; view.scrollLeft=Math.max(0,(bx.x0-0.03*W)*k); view.scrollTop=Math.max(0,(bx.y0-0.02*H)*k); };
+      place(); requestAnimationFrame(place);
+    };
+    box.addEventListener('click',ev=>{
+      const a=ev.target.closest('[data-p]'); if(a){ ev.preventDefault(); show(+a.dataset.p); return; }
+      const b=ev.target.closest('[data-z]'); if(!b) return;
+      if(b.dataset.z==='full'){ full(cur.image); return; }
+      const cx=(view.scrollLeft+view.clientWidth/2)/pg.clientWidth, cy=(view.scrollTop+view.clientHeight/2)/pg.clientHeight;
+      z=Math.max(1, Math.min(8, z*(b.dataset.z==='1'?1.35:1/1.35))); size();
+      view.scrollLeft=cx*pg.clientWidth-view.clientWidth/2; view.scrollTop=cy*pg.clientHeight-view.clientHeight/2;
+    });
+    box._show=()=>show(pages[0].n);
+    return box;
+  }
+  function full(canvas){
+    const ov=el('<div class="cohrd-full"><button class="cohts-btn" type="button">✕ Close</button></div>'); ov.appendChild(copyOf(canvas));
+    const close=()=>{ ov.remove(); document.removeEventListener('keydown', key, true); };
+    const key=ev=>{ if(ev.key==='Escape'){ ev.stopPropagation(); close(); } };
+    ov.querySelector('button').onclick=close; ov.addEventListener('click',ev=>{ if(ev.target===ov) close(); });
+    document.addEventListener('keydown', key, true); document.body.appendChild(ov);
+  }
+
+  R.attach=function(ctx, file){
+    css();
+    const card=ctx.card, both=!ctx.side, sides=both?['home','away']:[ctx.side];
+    const host=both?topHost(card):colHost(ctx, ctx.side);
+    if(!host) return;
+    // one read at a time; a new one replaces what the same control showed before
+    wipe(topHost(card)); sides.forEach(s=>wipe(colHost(ctx,s)));
+    const ac=new AbortController(); let done=false;
+    host._cohrd={stop(){ if(!done) ac.abort(); }};
+    const cancel=()=>{ ac.abort(); };
+    const team=s=>String(ctx.teamName(s)||s).toUpperCase();
+    progress(host, {stage:'load', pct:0, engine:/pdf$/i.test(file.name||'')||file.type==='application/pdf'?'pdf':'ocr'}, cancel);
+    const filled={};
+    const setText=(side, text)=>{ const c=ctx.col(side), ta=c&&c.querySelector('textarea'); if(!ta) return; ta.value=text; ta.dispatchEvent(new Event('input',{bubbles:true})); filled[side]=!!text; };
+    // the preview rows that came from a line the reader was unsure of
+    const lowKeys={};
+    const decorate=side=>{ const c=ctx.col(side), keys=lowKeys[side]; if(!c||!keys||!keys.size) return;
+      c.querySelectorAll('.cohts-prev .cohts-prow').forEach(row=>{ const b=row.querySelector('b'), sp=row.querySelector('span'); if(!b||!sp) return;
+        const nm=sp.firstChild?sp.firstChild.textContent:'', on=keys.has(b.textContent.trim()+'|'+T.nameKey(nm));
+        row.classList.toggle('cohrd-low', on); if(on) row.title='The reader was less sure of this line — check it against the picture'; }); };
+    const onInput=ev=>{ const c=ev.target.closest&&ev.target.closest('.cohts-col'); if(c&&ev.target.tagName==='TEXTAREA') setTimeout(()=>decorate(c.dataset.side),0); };
+    card.addEventListener('input', onInput);
+
+    const srcText=res=>{ const s=res.source||{}, pg=(res.pages||[]).map(p=>p.n);
+      const how=s.method==='text'?'the exact text in the PDF':s.method==='mixed'?'PDF text and text recognition':'text recognition on this device'+((s.langs||[]).length?((s.langs.indexOf('gle')>=0)?' (English + Irish)':' (English only — the Irish data could not be loaded, so fadas may be missed)'):'');
+      return '“'+(s.name||'the file')+'”'+(s.kind==='pdf'&&pg.length?', page'+(pg.length>1?'s ':' ')+pg.join(', '):'')+' — '+how; };
+    function colPanel(side, r, res){
+      const h=colHost(ctx, side); if(!h) return; h.innerHTML=''; lowKeys[side]=new Set();
+      if(!r) return;
+      const low=r.lines.filter(l=>l.low);
+      low.forEach(l=>T.parsePaste(l.text,{known:ctx.known(side)}).rows.forEach(x=>lowKeys[side].add(x.no+'|'+T.nameKey(x.name))));
+      const b=el(`<div class="cohrd-box"><div class="cohrd-top"><div><b>${r.lines.length} line${r.lines.length===1?'':'s'} read for ${esc(team(side))}</b>${both?'':' from '+esc(srcText(res))}${r.confidence!=null?' · average certainty '+r.confidence+'%':''}.
+          Nothing is in the sheet yet — check the preview above against the picture, then press <b>Replace this sheet</b> or <b>Add to this sheet</b>.</div><button class="cohts-x" type="button" data-a="close" title="Close the picture">✕</button></div>
+        ${!both&&res.lists>1?`<div class="cohrd-note">This file holds two team lists; the ${res.assign.first===side?'first':'second'} one is shown${res.assign.why==='headings'?' (matched by the team name on the sheet)':' — check it is the right team'}. <button class="cohts-btn" type="button" data-a="other">Use the other list</button></div>`:''}
+        ${low.length?`<div class="cohrd-flag">⚠ Check ${low.length===1?'this line':'these '+low.length+' lines'} against the picture — the reader was less sure of ${low.length===1?'it':'them'}: <span>${low.map(l=>esc(l.text.replace(/\t/g,' '))+' ('+Math.round(l.confidence)+'%)').join(' · ')}</span></div>`:''}
+        ${r.adopted&&r.adopted.length?`<div class="cohrd-note">Changed to this team's existing spelling: ${r.adopted.map(a=>'“'+esc(a.from)+'” → <b>'+esc(a.to)+'</b>').join(' · ')}</div>`:''}
+        ${r.dropped&&r.dropped.length?`<details class="cohrd-note"><summary>Left out as not players (${r.dropped.length})</summary>${r.dropped.map(d=>esc(d.text.replace(/\t/g,' '))+' <i>— '+esc(d.why)+'</i>').join('<br>')}</details>`:''}
+        </div>`);
+      const v=viewer(res, r); if(v) b.appendChild(v);
+      b.addEventListener('click',ev=>{ const a=ev.target.closest('[data-a]'); if(!a) return;
+        if(a.dataset.a==='close'){ h.innerHTML=''; lowKeys[side]=new Set(); decorate(side); }
+        else if(a.dataset.a==='other'){ swap(res); } });
+      h.appendChild(b); if(v) v._show();
+    }
+    function topPanel(res){
+      const h=topHost(card); if(!h||!both) return; h.innerHTML='';
+      const a=res.assign||{first:'home', why:'default'}, other=a.first==='home'?'away':'home';
+      const why={headings:'matched by the team names on the sheet', title:'going by the order of the names in the title — check', default:'the team names were not found on the sheet, so this is only a guess — check', chosen:'as you set it'}[a.why]||'';
+      const two=res.lists>1;
+      const b=el(`<div class="cohrd-box"><div class="cohrd-top"><div><b>Read ${esc(srcText(res))}.</b><br>
+        ${two?`First (left / top) list → <b>${esc(team(a.first))}</b> · second list → <b>${esc(team(other))}</b> <span>(${why})</span>.`
+             :`Only one team list was found; it is under <b>${esc(team(a.first))}</b>.`}
+        ${res.more?'<br>The file holds more than two numbered lists — the two longest were used.':''}${res.extra?'<br>A column beside the names (clubs or positions) was left out.':''}
+        <br>Nothing is in the sheets yet — check each preview against its picture, then press <b>Replace this sheet</b> or <b>Add to this sheet</b>.</div>
+        <button class="cohts-x" type="button" data-a="close" title="Close">✕</button></div>
+        <div class="cohrd-row"><button class="cohts-btn" type="button" data-a="swap">${two?'⇄ Swap — the first list is '+esc(team(other)):'Move it to '+esc(team(other))}</button></div></div>`);
+      b.addEventListener('click',ev=>{ const x=ev.target.closest('[data-a]'); if(!x) return; if(x.dataset.a==='close') h.innerHTML=''; else swap(res); });
+      h.appendChild(b);
+    }
+    function fill(res){
+      sides.forEach(side=>{ const r=res[side]; if(r) setText(side, r.text||''); else if(filled[side]) setText(side, ''); colPanel(side, r, res); decorate(side); });
+      topPanel(res);
+    }
+    function swap(res){
+      const first=(res.assign&&res.assign.first)==='home'?'away':'home';
+      if(typeof res.redeal==='function') res.redeal(first);
+      else { const t=res.home; res.home=res.away; res.away=t; res.assign={first, why:'chosen'}; }   // a reader that only returns text
+      fill(res);
+    }
+    const o={side:both?'both':ctx.side, homeTeam:ctx.teamName('home'), awayTeam:ctx.teamName('away'), known:{home:ctx.known('home'), away:ctx.known('away')},
+      onProgress:p=>{ if(!done&&!ac.signal.aborted) progress(host, p, cancel); }, choosePages:info=>pagePicker(host, info, file.name), signal:ac.signal};
+    return Promise.resolve().then(()=>root.cohTeamSheetFromFile(file, o)).then(res=>{
+      done=true; host.innerHTML=''; fill(res||{}); return res;
+    }).catch(e=>{
+      done=true; card.removeEventListener('input', onInput);
+      if(e&&e.code==='cancel'){ host.innerHTML=''; return null; }
+      failure(host, (e&&e.code&&e.message)||('The file could not be read ('+String(e&&e.message||e)+'). Pasting or typing the list still works.'));
+      return null;
+    });
+  };
 })(typeof window!=='undefined'?window:globalThis);
