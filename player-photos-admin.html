@@ -176,3 +176,125 @@ table.bulk input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent
   </div>
 </div>
 
+<script>
+// ── Auth (same gate as admin.html / crests-admin.html; every call is re-checked server-side) ──
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!auth) window.location.href = 'index.html';
+if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('cohesion_theme',n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SIDE = 256;                           // every photo is stored 256×256
+const QUALITY = 0.85;                       // JPEG quality
+const MAX_BYTES = 300000;                   // the function's cap
+const OK_TYPES = ['image/png','image/jpeg','image/webp'];
+const SETUP = 'Player photo storage is not set up yet — run supabase/player_photos_storage.sql in the Supabase SQL editor (one paste, one click), then reload this page. Until then every page keeps showing initials.';
+
+let teams = [];                             // [{name, key, n}] every team in COHESION's games
+let team = '';                              // the chosen team's name
+let known = [];                             // that team's player names (team sheets + tagged names)
+let extra = [];                             // names typed on this page ("Add player")
+let photos = {};                            // photoKey -> {name, url, updatedAt} (signed URLs, memory only)
+let bulk = [];                              // bulk preview rows
+let busy = false, seq = 0, loadTok = 0;
+
+function showErr(id, msg){ const el=$(id); el.textContent = msg||''; el.classList.toggle('show', !!msg); }
+function isSetupErr(e){ return /player_photos_storage\.sql/.test(String((e&&e.message)||e)); }
+
+// ── Teams (from games) ────────────────────────────────────────────────────
+// one entry per team key; the spelling used by most games is the one shown
+function teamsFromGames(games){
+  const m = {};
+  (games||[]).forEach(g=>{ const meta=(g&&g.meta)||{}; [meta.homeTeam, meta.awayTeam].forEach(n=>{
+    n = String(n||'').replace(/\s+/g,' ').trim(); const k = cohPhotoKey(n); if(!k) return;
+    const t = m[k] || (m[k] = { key:k, n:0, sp:{} }); t.n++; t.sp[n] = (t.sp[n]||0)+1; }); });
+  return Object.values(m).map(t=>({ key:t.key, n:t.n, name:Object.keys(t.sp).sort((a,b)=>t.sp[b]-t.sp[a] || a.localeCompare(b))[0] }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+}
+async function loadTeams(){
+  try{
+    const j = await cohesionRead({ action:'listGames', section:'all' });
+    teams = teamsFromGames(j.games);
+  }catch(e){ teams = []; showErr('teamErr','Could not load the games list: '+(e.message||e)); }
+  const sel = $('teamSel');
+  let want = '';
+  try{ want = new URLSearchParams(window.location.search).get('team') || localStorage.getItem('coh_photos_admin_team') || ''; }catch(_){}
+  const hit = teams.find(t=>t.key===cohPhotoKey(want));
+  sel.innerHTML = '<option value="">'+(teams.length?'Choose a team…':'No teams found')+'</option>'
+    + teams.map(t=>'<option value="'+esc(t.name)+'"'+(hit&&hit.key===t.key?' selected':'')+'>'+esc(t.name)+' ('+t.n+' game'+(t.n===1?'':'s')+')</option>').join('');
+  if(hit) await pickTeam(hit.name);
+}
+
+// ── Players of the chosen team ────────────────────────────────────────────
+// union of: team sheets + tagged names (cohTS.loadKnown), names typed here, and
+// names that already have a photo. One row per photo key; -> [{name, key, photo|null, listed}]
+function playerRows(){
+  const rows = [], seen = {};
+  const add = (name, listed)=>{ const k = cohPhotoKey(name); if(!k) return;
+    if(seen[k]){ if(listed) seen[k].listed = true; return; }
+    rows.push(seen[k] = { name:String(name), key:k, photo:photos[k]||null, listed:!!listed }); };
+  known.forEach(n=>add(n, true)); extra.forEach(n=>add(n, true));
+  Object.keys(photos).forEach(k=>add(photos[k].name, false));
+  return rows.sort((a,b)=>a.name.localeCompare(b.name));
+}
+const playerNames = ()=>playerRows().map(r=>r.name);
+
+async function loadPhotos(){
+  const ok = await cohPhotosReady([team], { force:true });
+  photos = cohPhotosOf(team);
+  if(!ok) showErr('listErr','Could not load this team’s photos — showing initials. Reload the page to try again.');
+  return ok;
+}
+async function pickTeam(name){
+  const tok = ++loadTok;
+  team = String(name||''); known = []; extra = []; photos = {}; bulk = [];
+  showErr('listErr',''); showErr('bulkErr',''); renderBulk();
+  try{ if(team) localStorage.setItem('coh_photos_admin_team', team); }catch(_){}
+  if(!team){ $('teamMsg').textContent=''; renderPlayers(); return; }
+  $('teamMsg').textContent = 'Loading players…'; renderPlayers();
+  const [names] = await Promise.all([
+    Promise.resolve().then(()=>cohTS.loadKnown(team)).catch(()=>[]),
+    loadPhotos() ]);
+  if(tok !== loadTok) return;               // another team was picked meanwhile
+  known = names || [];
+  renderPlayers();
+}
+function addPlayer(){
+  const n = String($('addName').value||'').replace(/\s+/g,' ').trim();
+  if(!cohPhotoKey(n)) return;
+  if(!playerRows().some(r=>r.key===cohPhotoKey(n))) extra.push(n);
+  $('addName').value = ''; renderPlayers(); rematchBulk();
+}
+
+function renderPlayers(){
+  const box = $('players'), rows = team ? playerRows() : [];
+  $('addRow').style.display = team ? 'flex' : 'none';
+  if(!team){ box.innerHTML = ''; return; }
+  const withPhoto = rows.filter(r=>r.photo).length;
+  if($('teamMsg').textContent !== 'Loading players…' || rows.length)
+    $('teamMsg').textContent = rows.length ? (rows.length+' player'+(rows.length===1?'':'s')+' · '+withPhoto+' with a photo') : 'No players found for this team yet';
+  box.innerHTML = rows.map((r,i)=>{
+    return '<div class="tile'+(r.photo?' has':'')+(r.listed?'':' orphan')+'" data-key="'+esc(r.key)+'">'
+      + cohPlayerBadgeHTML(team, r.name, { size:84, decorative:false })
+      + '<div class="tile-name" title="'+esc(r.name)+'">'+esc(r.name)+'</div>'
+      + '<div class="tile-meta'+(r.listed?'':' warn')+'">'+(r.listed ? (r.photo?'Photo added':'Initials') : 'Photo for a name not in this team’s games')+'</div>'
+      + '<div class="tile-btns">'
+      + '<button class="sec-btn" '+(busy?'disabled':'')+' onclick="choosePhoto('+i+')">'+(r.photo?'Replace':'Upload')+'</button>'
+      + (r.photo ? '<button class="sec-btn danger" '+(busy?'disabled':'')+' onclick="removePhoto('+i+')">Remove</button>' : '')
+      + (r.photo && !r.listed ? '<button class="sec-btn" '+(busy?'disabled':'')+' onclick="renamePhoto('+i+')" title="Move this photo to the right player">Rename</button>' : '')
+      + '</div></div>';
+  }).join('');
+}
