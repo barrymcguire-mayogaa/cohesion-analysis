@@ -3605,16 +3605,16 @@ function crKprSubs(side){
 }
 // BACK-FILL plan for a side: every kickout row of that team, sorted into
 //   fill (blank, a keeper covers it) · same (already that keeper) ·
-//   diff (another name — a manual override) · none (blank, no keeper set for that time)
+//   diff (another name — a manual override) · none (blank, no keeper set for that time) ·
+//   kept (named, no keeper set for that time — never touched)
 function crKprPlan(side){
-  const T=crTeamOf(side), P={side, team:T, rows:[], fill:0, same:0, diff:0, none:0, total:0};
+  const T=crTeamOf(side), P={side, team:T, rows:[], fill:0, same:0, diff:0, none:0, kept:0, total:0};
   if(!T) return P;
   EVENTS.forEach(e=>{
     if(String(e.team||'').toUpperCase()!==T||!crKprIsKo(e)) return;
     const L=e.labels||{}, cur=crNameTidy(L[crKprKey(L)]), target=crKprAt(side, e);
     const kind=!target?(cur?'kept':'none'):!cur?'fill':crNameKey(cur)===crNameKey(target)?'same':'diff';
-    P.rows.push({e, cur, target, kind}); P.total++;
-    if(kind==='kept') P.diff++; else P[kind]++;
+    P.rows.push({e, cur, target, kind}); P.total++; P[kind]++;
   });
   return P;
 }
@@ -3645,7 +3645,7 @@ async function crKprBackfill(side){
     +'<b>'+P.fill+'</b> will be filled<br>'
     +'<b>'+P.same+'</b> already carry the same name<br>'
     +'<b>'+P.diff+'</b> carry a different name'+(P.diff?' — manual overrides, <b>left as they are</b> unless you choose to overwrite':'')+'<br>'
-    +(P.none?'<b>'+P.none+'</b> are before any keeper is set — left blank<br>':'')
+    +((P.none+P.kept)?'<b>'+(P.none+P.kept)+'</b> are before any keeper is set — left as they are<br>':'')
     +(diffs.length?'<div style="margin-top:8px;font-size:12px;color:var(--t2);">'+diffs.slice(0,6).map(r=>fmt(r.e.driveT||0)+' · '+esc(r.cur)+' <span style="color:var(--t3);">(keeper: '+esc(r.target)+')</span>').join('<br>')+(diffs.length>6?'<br>… and '+(diffs.length-6)+' more':'')+'</div>':'')
     +'<br>Queued like any edit: nothing is written until you save the session, and one Undo reverses it.';
   if(!P.fill&&!diffs.length){ await cohesionModal({title:'Kickout Taken By — nothing to fill', message:msg, buttons:[{label:'Close',value:'cancel',primary:true}]}); return 0; }
@@ -3726,7 +3726,7 @@ function crKprCommit(inp){
 function crKprTeamHtml(side){
   const l=crKprRows(side), T=crTeamOf(side)||side, P=crKprPlan(side), subs=crKprSubs(side), changed=crKprChangedSides().includes(side);
   const box=(r,ph)=>'<input class="crkp-in" data-side="'+side+'" data-from="'+r.from+'" data-cur="'+esc(r.player)+'" value="'+esc(r.player)+'" placeholder="'+ph+'" autocomplete="off" spellcheck="false">';
-  const tagged=P.same+P.diff;
+  const tagged=P.same+P.diff+P.kept;
   return '<div class="crkp-team'+(changed?' dirty':'')+'">'
     +'<div class="crkp-th"><b>'+esc(T)+'</b><span>'+P.total+' kickout'+(P.total===1?'':'s')+' · '+tagged+' with a taker</span></div>'
     +'<div class="crfr-row"><span class="crkp-l">Starting keeper</span>'+box(l[0],'Type or pick a player…')+'<span class="crkp-x" data-act="rm" data-side="'+side+'" data-from="0" title="Clear">✕</span></div>'
