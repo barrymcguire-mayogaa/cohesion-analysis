@@ -36,7 +36,7 @@
   // the jersey number a line starts with ("7 Name", "7. Name", "7<TAB>Name") or ends with ("Name (7)"), else null
   function lineNo(text){
     const s=String(text==null?'':text).trim();
-    let m=/^#?\s*(\d{1,2})(?:\s*[.\-–—:)]+\s*|\s+)(?=\S)/.exec(s);
+    let m=/^[#(\[]?\s*(\d{1,2})(?:\s*[.\-–—:)\]]+\s*|\s+)(?=\S)/.exec(s);
     if(m&&hasLetter(s.slice(m[0].length))) return +m[1];
     m=/[(\[]\s*#?\s*(\d{1,2})\s*[)\]]\s*$/.exec(s);
     if(m&&hasLetter(s.slice(0,m.index))) return +m[1];
@@ -85,6 +85,14 @@
     let text=''; c.forEach((w,i)=>{ if(i){ const p=c[i-1]; text+=(glue&&(w.rx0-p.rx1)<0.15*Math.max(p.h,w.h))?'':' '; } text+=w.text; });
     const cf=c.filter(w=>w.conf!=null&&/[A-Za-zÀ-ɏ0-9]/.test(w.text)).map(w=>w.conf);
     return {words:c, text, x0:c[0].rx0, x1:Math.max.apply(null,c.map(w=>w.rx1)), yc:c.reduce((s,w)=>s+w.ry,0)/c.length, h:med(c.map(w=>w.h)), conf:cf.length?Math.min.apply(null,cf):null};
+  }
+  // the segments of one row → a line (cells far apart are joined with a TAB unless `plain`)
+  function rowLine(segs, hh, yc, h, plain){
+    segs.sort((a,b)=>a.x0-b.x0);
+    let text=''; segs.forEach((s,i)=>{ if(i) text+=(!plain&&s.x0-segs[i-1].x1>=2*hh)?'\t':' '; text+=s.text; });
+    const wds=[].concat.apply([], segs.map(s=>s.words)), cf=segs.map(s=>s.conf).filter(c=>c!=null);
+    return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h,
+      box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
   }
   // layout(words, {glue, skew}) → {columns:[{x0,x1,lines}], spanning:[line], skew, H}
   //   line = {text, no, conf, box:{x0,y0,x1,y1}}  (cells far apart on a row are joined with a TAB)
@@ -139,13 +147,7 @@
         if(r&&Math.abs(s.yc-r.yc)<0.6*Math.min(hh,Math.max(s.h,r.h))){ r.segs.push(s); r.yc=r.segs.reduce((t,x)=>t+x.yc,0)/r.segs.length; r.h=Math.max(r.h,s.h); }
         else rows.push({segs:[s], yc:s.yc, h:s.h});
       });
-      return rows.map(r=>{
-        r.segs.sort((a,b)=>a.x0-b.x0);
-        let text=''; r.segs.forEach((s,i)=>{ if(i) text+=(s.x0-r.segs[i-1].x1>=2*hh)?'\t':' '; text+=s.text; });
-        const wds=[].concat.apply([], r.segs.map(s=>s.words)), cf=r.segs.map(s=>s.conf).filter(c=>c!=null);
-        return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:r.yc, h:r.h,
-          box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
-      });
+      return rows.map(r=>rowLine(r.segs, hh, r.yc, r.h));
     };
     const columns=cols.map(c=>({x0:Math.min.apply(null,c.segs.map(s=>s.x0)), x1:Math.max.apply(null,c.segs.map(s=>s.x1)), lines:mkLines(c.segs)}));
     // a column with no numbers whose rows sit beside the rows of a numbered column (clubs, positions) is not a player list
@@ -206,6 +208,142 @@
   R.layout=layout;
   // does a page look like a team list? (many lines that start with a jersey number)
   R.looksLikeList=function(lay){ let n=0; (lay&&lay.columns||[]).forEach(c=>c.lines.forEach(l=>{ if(l.no!=null&&l.no<=40) n++; })); return n>=8; };
+
+  // ── 1b. several readings of one picture → one set of words ────
+  // The same picture read more than once (as it is; with dark banners turned light). Words lying on the same spot
+  // are one word read twice: the reading the engine was surer of is kept, the other dropped.
+  function mergeWords(passes){
+    const all=[]; (passes||[]).forEach((ws,pi)=>prep(ws).forEach(w=>{ w.pass=pi; all.push(w); }));
+    // a whole word beats a sure fragment of it ("Eoin" 94% over "in" 97%)
+    const cv=w=>(w.conf==null?100:w.conf)*(0.7+0.05*Math.min(6, w.text.replace(/[^A-Za-zÀ-ɏ0-9]/g,'').length));
+    all.sort((a,b)=>cv(b)-cv(a)||a.pass-b.pass||a.x0-b.x0);
+    const kept=[];
+    all.forEach(w=>{ const aw=(w.x1-w.x0)*(w.y1-w.y0);
+      for(let i=0;i<kept.length;i++){ const k=kept[i], ix=Math.min(w.x1,k.x1)-Math.max(w.x0,k.x0); if(ix<=0) continue; const iy=Math.min(w.y1,k.y1)-Math.max(w.y0,k.y0);
+        if(iy>0&&ix*iy>0.25*Math.min(aw,(k.x1-k.x0)*(k.y1-k.y0))) return; }
+      kept.push(w); });
+    return kept.map(w=>({text:w.text, x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf, pass:w.pass}));
+  }
+  R.mergeWords=mergeWords;
+
+  // ── 1c. a formation page: number + name pairs wherever they are ──
+  // No columns are looked for. Every run of words is a line; a jersey number standing by itself just left of a name
+  // on the same baseline (the number in its own box beside the name banner) is joined to it. The lines come out in
+  // reading order (row by row). Two teams side by side or one above the other (the numbers occur twice, apart) are
+  // cut into two columns. → the same shape as layout(), with free:true
+  function freeLayout(words, o){
+    o=o||{};
+    const ws=prep(words); if(!ws.length) return {columns:[], spanning:[], extra:[], skew:0, H:0, free:true};
+    const skew=o.skew===false?0:estimateSkew(ws), cs=Math.cos(skew), sn=Math.sin(skew);
+    ws.forEach(w=>{ const rx=w.xc*cs+w.yc*sn, ry=-w.xc*sn+w.yc*cs, hw=(w.x1-w.x0)/2; w.rx0=rx-hw; w.rx1=rx+hw; w.ry=ry; });
+    const lv=ws.map(w=>({text:w.text, x0:w.rx0, x1:w.rx1, y0:w.ry-w.h/2, y1:w.ry+w.h/2, h:w.h, xc:(w.rx0+w.rx1)/2, yc:w.ry, _w:w}));
+    const H=med(ws.map(w=>w.h))||1;
+    let segs=[];
+    chain(lv).forEach(c=>{ const wsC=c.map(x=>x._w).sort((a,b)=>a.rx0-b.rx0);
+      // a run is cut where a new jersey number starts after a clear gap ("… Name   21 Name …")
+      let from=0; for(let i=1;i<wsC.length;i++){ const a=wsC[i-1], b=wsC[i];
+        if(isNumTok(b.text)&&i+1<wsC.length&&hasLetter(wsC[i+1].text)&&!isNumTok(a.text)&&b.rx0-a.rx1>0.6*Math.max(a.h,b.h)){ segs.push(segOf(wsC.slice(from,i), o.glue)); from=i; } }
+      segs.push(segOf(wsC.slice(from), o.glue)); });
+    // a number by itself + the name to its right
+    const used=new Set(), lines=[];
+    const bare=segs.filter(s=>isNumTok(s.text)).sort((a,b)=>a.x0-b.x0);
+    bare.forEach(n=>{ let best=null, bg=Infinity;
+      segs.forEach(t=>{ if(t===n||used.has(t)||isNumTok(t.text)||lineNo(t.text)!=null||!hasLetter(t.text)) return; const Hm=Math.max(n.h,t.h), gap=t.x0-n.x1;
+        if(gap<-0.3*Hm||gap>3.5*Hm||Math.abs(t.yc-n.yc)>0.55*Hm||Math.min(n.h,t.h)<0.45*Hm) return; if(gap<bg){ bg=gap; best=t; } });
+      if(best){ used.add(n); used.add(best); lines.push(rowLine([n,best], H, null, null, true)); } });
+    // a number whose name starts further off (part of the line could not be read — glare): the next words on that
+    // baseline, if nothing else lies between; the line is marked unsure
+    bare.forEach(n=>{ if(used.has(n)) return; let best=null, bg=Infinity;
+      segs.forEach(t=>{ if(t===n||used.has(t)||isNumTok(t.text)||lineNo(t.text)!=null||!hasLetter(t.text)) return; const Hm=Math.max(n.h,t.h), gap=t.x0-n.x1;
+        if(gap<0||gap>7*Hm||Math.abs(t.yc-n.yc)>0.5*Hm||Math.min(n.h,t.h)<0.6*Hm) return; if(gap<bg){ bg=gap; best=t; } });
+      if(best){ used.add(n); used.add(best); const l=rowLine([n,best], H, null, null, true); l.conf=Math.min(l.conf==null?100:l.conf, 50); l.gap=true; lines.push(l); } });
+    segs.forEach(s=>{ if(!used.has(s)) lines.push(rowLine([s], H, null, null, true)); });
+    // a numbered name of one word takes the single word just to its right ("20 Paul" + "Conroy", a smear between them)
+    for(let i=0;i<lines.length;i++){ const a=lines[i]; if(a.no==null||a.text.trim().split(/\s+/).length!==2) continue;
+      let k=-1, bg=Infinity; lines.forEach((b,j)=>{ if(j===i||b.no!=null||isNumTok(b.text)||!/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]{2,}$/.test(b.text.trim())) return; const Hm=Math.max(a.h,b.h), gap=b.box.x0-a.box.x1;
+        if(gap<0||gap>2.6*Hm||Math.abs(b.yc-a.yc)>0.5*Hm||Math.min(a.h,b.h)<0.6*Hm) return; if(gap<bg){ bg=gap; k=j; } });
+      if(k>=0){ const b=lines[k], cf=[a.conf,b.conf].filter(c=>c!=null); a.text+=' '+b.text.trim(); a.conf=cf.length?Math.min(Math.min.apply(null,cf), 60):null;
+        a.box={x0:Math.min(a.box.x0,b.box.x0), y0:Math.min(a.box.y0,b.box.y0), x1:Math.max(a.box.x1,b.box.x1), y1:Math.max(a.box.y1,b.box.y1)}; lines.splice(k,1); if(k<i) i--; } }
+    // reading order: rows top to bottom (a row = lines whose middles are within half a line), left to right inside a row
+    const order=L=>{ const rows=[]; L.slice().sort((a,b)=>a.yc-b.yc).forEach(l=>{ const r=rows[rows.length-1]; if(r&&Math.abs(l.yc-r.yc)<0.6*Math.max(l.h,r.h)){ r.L.push(l); } else rows.push({yc:l.yc, h:l.h, L:[l]}); });
+      return [].concat.apply([], rows.map(r=>r.L.sort((a,b)=>a.box.x0-b.box.x0))); };
+    // two teams in the picture: most numbers occur twice, on either side of one dividing line
+    const byNo=new Map(); lines.forEach(l=>{ if(l.no!=null&&l.no>=1&&l.no<=40){ if(!byNo.has(l.no)) byNo.set(l.no,[]); byNo.get(l.no).push(l); } });
+    const pairs=[...byNo.values()].filter(v=>v.length===2);
+    let cols=[lines];
+    if(pairs.length>=5){
+      for(const ax of ['x','y']){
+        const c=l=>ax==='x'?(l.box.x0+l.box.x1)/2:(l.box.y0+l.box.y1)/2;
+        const cut=med(pairs.map(p=>(c(p[0])+c(p[1]))/2)), good=pairs.filter(p=>(c(p[0])<cut)!==(c(p[1])<cut)).length;
+        if(good>=0.8*pairs.length){ const c0=l=>ax==='x'?l.box.x0:(l.box.y0+l.box.y1)/2; cols=[lines.filter(l=>c0(l)<cut), lines.filter(l=>c0(l)>=cut)].filter(x=>x.length); break; }
+      }
+    }
+    lines.forEach(l=>{ l.free=true; });
+    return {columns:cols.map(L=>({x0:Math.min.apply(null,L.map(l=>l.box.x0)), x1:Math.max.apply(null,L.map(l=>l.box.x1)), lines:order(L)})), spanning:[], extra:[], skew, H, free:true};
+  }
+  R.freeLayout=freeLayout;
+
+  // ── 1d. name blocks: the lines under a numbered player ────────
+  // A programme often prints, under each "7 Seán Kelly", one or two more lines that are not players: the Irish form
+  // of the name, the club. Where most numbered players of a list have such lines under them, those lines are marked
+  // (line.under = true) and later left out. A line is "under" a numbered player when it starts below it, not left of
+  // it, nearer to it than to any other numbered line, and well before the place the next numbered line of that
+  // column is expected — so a player whose number was simply not read stays visible.
+  function nameBlocks(lines){
+    const L=(lines||[]).filter(l=>l&&l.box), num=L.filter(l=>l.no!=null&&l.no<=40);
+    L.forEach(l=>{ if(l.under) delete l.under; });
+    if(num.length<8) return {on:false, under:0};
+    const yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>Math.max(1,l.box.y1-l.box.y0);
+    // each numbered line's distance to the next numbered line below it in its column
+    const pitch=new Map();
+    num.forEach(n=>{ let d=Infinity; num.forEach(m=>{ if(m===n||m.page!==n.page) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
+        if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d) d=dy; }); if(d<Infinity) pitch.set(n,d); });
+    const P=med([...pitch.values()]);
+    const own=new Map();
+    L.forEach(u=>{ if(u.no!=null||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
+      let best=null, bd=Infinity;
+      num.forEach(n=>{ if(n.page!==u.page) return; const Hn=hh(n), dy=yc(u)-yc(n); if(dy<0.45*Hn||dy>5*Hn) return; if(n.box.x0>u.box.x0+1.5*Hn) return;
+        const d=dy+0.5*Math.max(0,u.box.x0-n.box.x1); if(d<bd){ bd=d; best=n; } });
+      if(!best) return;
+      const p=pitch.has(best)?pitch.get(best):P; if(p&&(yc(u)-yc(best))>0.85*p) return;
+      own.set(u,best); });
+    const owners=new Set(own.values());
+    if(owners.size<0.5*num.length) return {on:false, under:0};
+    own.forEach((n,u)=>{ u.under=true; });
+    return {on:true, under:own.size};
+  }
+  R.nameBlocks=nameBlocks;
+
+  // ── 1e. a formation read row by row: numbers that could not be read ──
+  // The starters of a formation page come in reading order 1, 2 3 4, 5 6 7, 8 9, … . Where most of the first fifteen
+  // player lines carry exactly the number of their place, a line between two such lines whose own number is missing,
+  // repeated or out of order is given the number of its place — only when the count of lines between the two sure
+  // ones is exactly right. Such a line is marked unsure (line.placed). Nothing else is touched.
+  function formationNumbers(lines){
+    const F=(lines||[]).filter(l=>l&&l.free&&l.box&&!l.under), yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>l.box.y1-l.box.y0;
+    const numd=F.filter(l=>l.no!=null);
+    if(numd.length<8) return [];
+    const nameLike=t=>t.split(/\s+/).filter(w=>/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]+$/.test(w)).length>=2;
+    const like=l=>l.no==null&&!isNumTok(l.text)&&!RE_KEEP.test(fold(l.text).trim())&&nameLike(l.text)&&numd.some(n=>n.page===l.page&&Math.abs(yc(n)-yc(l))<0.6*Math.max(hh(n),hh(l))&&hh(l)>0.6*hh(n));
+    const P=F.filter(l=>l.no!=null||like(l)), m=Math.min(15,P.length);
+    if(m<8) return [];
+    const sure=i=>P[i].no===i+1; let agree=0; for(let i=0;i<m;i++) if(sure(i)) agree++;
+    if(agree<0.6*m||agree===m) return [];
+    const count=new Map(); P.forEach(l=>{ if(l.no!=null) count.set(l.no,(count.get(l.no)||0)+1); });
+    const placed=[];
+    for(let i=0;i<m;i++){ if(sure(i)) continue;
+      let a=i-1; while(a>=0&&!sure(a)) a--; let b=i+1; while(b<m&&!sure(b)) b++;
+      if(b>=m||(a<0&&i>0&&false)) continue;                                        // a sure line must follow (and one before it, unless this is the very first place)
+      if(a<0&&P.slice(0,b).some((l,k)=>l.no!=null&&l.no!==k+1&&count.get(l.no)===1&&l.no<b+1&&false)) continue;
+      const l=P[i], n=i+1, bad=l.no==null||count.get(l.no)>1||l.no<=(a<0?0:a+1)||l.no>=b+1;
+      if(!bad||P.some((x,k)=>k!==i&&x.no===n&&sure(k))) continue;
+      if(l.no!=null) l.text=l.text.replace(/^[#(\[]?\s*\d{1,2}[.\-–—:)\]]*\s*/, n+' ');
+      else l.text=n+' '+l.text.replace(/^(?:(?![A-ZÀ-Þ][a-zß-ÿ]+\s)\S{1,3}\s+)(?=\S+\s+\S)/,'');
+      l.no=n; l.placed=true; l.conf=Math.min(l.conf==null?100:l.conf, 50); placed.push(n);
+    }
+    return placed;
+  }
+  R.formationNumbers=formationNumbers;
 
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
@@ -302,8 +440,35 @@
   const RE_POSITION=/^(?:goal\s?keepers?|goalie|keepers?|cul\s?baire|(?:(?:full|half|corner|centre|center|wing|left|right)[\s-]*){1,3}(?:backs?|forwards?|line)(?:\s+line)?|backs?|forwards?|defen[cs]e|defenders?|attack(?:ers)?|mid[\s-]?field(?:ers)?|lar\s+na\s+pairce|tosaithe|cosantoiri|cuil|lantosaithe)\s*[:\-]?$/;
   const RE_EVENT=/\b(?:19|20)\d\d\b|\b\d{1,2}[:.]\d{2}\s*(?:am|pm)\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\b|\b(?:championship|league|semi[\s-]?finals?|quarter[\s-]?finals?|final|programme|clar\s+oifigiuil|team\s+sheets?|fixtures?|round\s+\d+)\b|www\.|\.ie\b|\.com\b|@/;
   const RE_BRACKET=/\s*[(\[][^()\[\]]*[A-Za-zÀ-ɏ][^()\[\]]*[)\]]/g;
-  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names'};
+  // a role note with a bracket on at least one side, wherever it sits: "16 (GK) Name", "Name (C)", "(Capt.) Name", and a
+  // half-read one: "16 (GK Name", "16 GK) Name"
+  const ROLE='(?:g\\.?\\s?k|c|v\\.?\\s?c|capt|captain|cpt|vice[\\s-]?capt(?:ain)?|capt?aen|j\\.?\\s?c|joint[\\s-]?capt(?:ain)?)\\.?';
+  const RE_ROLE=new RegExp('(^|\\s)(?:[(\\[{]\\s*'+ROLE+'\\s*[)\\]}]?|'+ROLE+'\\s*[)\\]}])(?=\\s|$)','gi');
+  const stripRole=c=>c.replace(RE_ROLE,'$1').replace(/ {2,}/g,' ').trim();
+  R.stripRole=stripRole;
+  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)'};
   R.WHY=WHY;
+  // "15 | Liam Ó Conghaile ." → "15 Liam Ó Conghaile"; "8 JohnMaher" → "8 John Maher"; "7 sean Kelly" → "7 Sean Kelly"
+  const NOSPLIT=/^(?:Mc|Mac|Mag|De|Le|La|Fitz|Ni|Nic|Ui|Mhic|Van|Du|Di|O)$/;
+  function tidyRead(c){
+    let m=/^([#(\[]?\d{1,2}[.):\]]*\s+)?(.*)$/.exec(c.trim()), no=m[1]?m[1].replace(/[^\d]/g,'')+' ':'', nm=m[2];
+    if(/[(\[]\s*#?\s*\d{1,2}\s*[)\]]\s*$/.test(nm)) return c.trim();                       // "Name (7)" / "Name [7]": the number, left exactly as it is
+    nm=nm.replace(/^(?:[|\[\]!¦:;.,_~=«»‹›“”"'’‘*+\\\/-]+\s+)+/,'').replace(/(?:\s+[|\[\]!¦:;.,_~=«»‹›“”"'’‘*+\\\/-]+)+$/,'').replace(/[|¦\[\]{}_~=«»‹›“”"*+\\]+/g,' ').replace(/\s[.:;,]+(?=\s|$)/g,' ').replace(/[.:;,]+$/,'').replace(/ {2,}/g,' ').trim();
+    // a bar read as a letter between the number and a full name ("15 I Liam Ó Conghaile")
+    if(no) nm=nm.replace(/^[Il1]\s+(?=\S+\s+\S)/,'');
+    // one long word with a capital inside it is two words that touched ("JohnMaher")
+    if(nm&&!/\s/.test(nm)){ const k=/^([A-ZÀ-Þ][a-zß-ÿ]{2,})([A-ZÀ-Þ][a-zß-ÿ'’]+.*)$/.exec(nm); if(k&&!NOSPLIT.test(k[1])) nm=k[1]+' '+k[2]; }
+    if(no&&/^[a-zß-ÿ]/.test(nm)&&/\s/.test(nm)) nm=nm.charAt(0).toUpperCase()+nm.slice(1);
+    return (no+nm).trim();
+  }
+  R._tidyRead=tidyRead;
+  // an unnumbered recognised line that cannot be a name: no word of three letters, or one short unsure scrap
+  function notName(t, conf){
+    const w=t.split(/\s+/).map(x=>x.replace(/[^A-Za-zÀ-ɏ]/g,'')).filter(Boolean), letters=w.join('').length;
+    if(letters<4||!w.some(x=>x.length>=3)) return true;
+    if(w.length===1&&(conf<50||letters<5)) return true;
+    return w.length<=2&&conf<30&&letters<8;
+  }
   const looseKey=s=>fold(s).replace(/[^a-z]/g,'');
   // known spellings by their loose key (fadas, apostrophes, spaces and hyphens ignored); a key shared by two different players is not used
   function looseIndex(known){
@@ -330,13 +495,19 @@
         if(teams.some(x=>teamMatch(t,x))||isFixture(t,teams)) return drop(raw,'team');
         if(RE_POSITION.test(f)) return drop(raw,'position');
         if(RE_EVENT.test(f)) return drop(raw,'event');
+        if(l.under) return drop(raw,'under');
       }
       // "7 Jack Coyne (Ballyhaunis)" / "(Capt.)" → the note in brackets goes; "Name (7)" is a number and stays
       if(!RE_KEEP.test(f)){
-        cells=cells.map(c=>c.replace(RE_BRACKET,'').trim()).filter(Boolean);
+        cells=cells.map(c=>stripRole(c).replace(RE_BRACKET,'').trim()).filter(Boolean);
         const t2=cells.join('\t');
         if(!/[A-Za-zÀ-ɏ0-9]/.test(t2)) return drop(raw,'bracket');
         t=t2;
+      }
+      // recognised text only (a picture, not a PDF's own text): the marks a reader leaves around a name
+      if(l.conf!=null&&!RE_KEEP.test(f)){
+        t=t.split('\t').map(tidyRead).filter(Boolean).join('\t');
+        if(!t||(!numbered&&!isNumTok(t)&&notName(t, l.conf))) return drop(raw,'marks');
       }
       keep.push({text:t, conf:l.conf==null?null:l.conf, box:l.box, page:l.page});
     });
@@ -381,12 +552,21 @@
   // ── 4. the whole pure pipeline ────────────────────────────────
   const LOW=70;                                   // a line with a word the image reader was under 70% sure of is flagged
   R.LOW=LOW;
+  // how many different numbered players a layout holds (per column, so two teams count twice)
+  // (counted on a copy after the formation numbering, so a formation whose numbers were partly unreadable still counts)
+  const players=lay=>(lay.columns||[]).reduce((t,c)=>{ const L=c.lines.map(l=>Object.assign({},l)); if(lay.free){ nameBlocks(L); formationNumbers(L); }
+    return t+new Set(L.map(l=>l.no).filter(n=>n!=null&&n>=1&&n<=40)).size; },0);
+  R._players=players;
   // compose([{n, words, glue, skew}], {homeTeam, awayTeam}) → {lists:[{lines, box, page}], assign, spanning, extra, more}
   function compose(pages, o){
     o=o||{};
     let columns=[], spanning=[], extra=[];
     (pages||[]).forEach(p=>{
-      const lay=p.layout||layout(p.words, {glue:p.glue, skew:p.skew});
+      let lay=p.layout||layout(p.words, {glue:p.glue, skew:p.skew});
+      // a formation page (players in rows of 1 / 3 / 3 / 2 / 3 / 3) has no columns to find: when reading it without
+      // columns gives clearly more numbered players, that reading is used
+      if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=a+2&&b>=8) lay=fr; }
+      p.model=lay.free?'free':'columns';
       const tag=l=>{ l.page=p.n; return l; };
       lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag)}));
       lay.spanning.forEach(l=>spanning.push(tag(l)));
@@ -396,14 +576,37 @@
     return {lists:lists.slice(), more:lists.more||0, assign:assignTeams(lists, spanning, o.homeTeam, o.awayTeam), spanning, extra};
   }
   R.compose=compose;
+  // A formation page is read row by row, so its numbers arrive as 1, 2 3 4, … and a three-column bench as 16 20 24,
+  // 17 21 25 …; the editor's parser needs them in order (everything after a number above 15 is a sub). When a list of
+  // numbered players is out of order, the players are put in number order; an unnumbered line stays behind the
+  // numbered line it followed. Lists already in order, or with numbers repeated, are left exactly as they are.
+  function byNumber(lines){
+    const no=x=>lineNo(x.text), nums=lines.map(no).filter(n=>n!=null);
+    if(nums.length<8) return lines;
+    let inv=0; for(let i=1;i<nums.length;i++) if(nums[i]<nums[i-1]) inv++;
+    if(!inv||new Set(nums).size<nums.length-1) return lines;
+    const head=[], groups=[]; let subs=null, cur=null;
+    lines.forEach(x=>{ const f=fold(x.text).trim();
+      if(x.heading||RE_SUBSF.test(f)&&no(x)==null){ subs=subs||x; return; }
+      if(RE_STARTF.test(f)) return;
+      if(no(x)!=null){ cur={n:no(x), L:[x]}; groups.push(cur); } else if(cur) cur.L.push(x); else head.push(x); });
+    groups.forEach((g,i)=>{ g.i=i; }); groups.sort((a,b)=>a.n-b.n||a.i-b.i);
+    const out=head.slice(); let put=false;
+    groups.forEach(g=>{ if(subs&&!put&&g.n>15){ out.push(subs); put=true; } g.L.forEach(x=>out.push(x)); });
+    return out;
+  }
+  R.byNumber=byNumber;
   // One list cleaned for one team → {text, lines:[{text, confidence, low}], confidence, dropped, adopted, joined, box, page}
   function finish(list, o){
     o=o||{};
+    let placed=[];
+    if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines); }
     const c=cleanLines(list?list.lines:[], {teams:[o.homeTeam, o.awayTeam], known:o.known});
+    c.lines=byNumber(c.lines);
     const lines=c.lines.map(l=>({text:l.text, confidence:l.conf, low:l.conf!=null&&l.conf<LOW, box:l.box, page:l.page}));
     const cf=lines.map(l=>l.confidence).filter(v=>v!=null);
     return {text:lines.map(l=>l.text).join('\n'), lines, confidence:cf.length?Math.round(cf.reduce((a,b)=>a+b,0)/cf.length):null,
-      dropped:c.dropped, adopted:c.adopted, joined:c.joined, box:list?list.box:null, page:list?list.page:undefined};
+      dropped:c.dropped, adopted:c.adopted, joined:c.joined, placed, box:list?list.box:null, page:list?list.page:undefined};
   }
   R.finish=finish;
   // Which list goes to which team. side: 'both' | 'home' | 'away'; o.first ('home'|'away') overrides the guess.
@@ -645,7 +848,7 @@
       await job.race(Promise.race([failed, worker.setParameters({user_defined_dpi:'200'})]));
     }catch(e){ close(); if(e&&e.reader) throw e; throw err('cdn', MSG.cdn()); }
     st.phase='ready'; st.last=Date.now();
-    return { langs,
+    return { langs, _worker:worker,
       async read(canvas, page, of){
         const modes=[].concat(R.PSM); let best=null, bn=-1;
         for(let i=0;i<modes.length;i++){
