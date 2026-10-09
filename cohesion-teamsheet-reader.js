@@ -110,6 +110,9 @@
       if(ok&&parts.every(p=>lineNo(p.text)!=null||isNumTok(p.words[0].text))) parts.forEach(p=>kept.push(p));
       else spanning.push(s);
     });
+    // the rest of a line that runs across the page ("… CHAMPIONSHIP" + "— ROUND 2", "Referee: … · Linesmen: …")
+    for(let i=kept.length-1;i>=0;i--){ const s=kept[i];
+      if(lineNo(s.text)==null&&!isNumTok(s.text)&&spanning.some(p=>Math.abs(p.yc-s.yc)<0.5*Math.max(p.h,s.h)&&Math.min(p.h,s.h)>0.6*Math.max(p.h,s.h))){ spanning.push(s); kept.splice(i,1); } }
     // columns between the gutters
     const edges=gutters.map(g=>(g.x0+g.x1)/2);
     let cols=[]; for(let i=0;i<=edges.length;i++) cols.push({segs:[]});
@@ -151,25 +154,45 @@
     });
     return {columns:out.filter(c=>!c.extra), extra:out.filter(c=>c.extra), spanning:mkLines(spanning), skew, H};
   }
-  // Empty vertical strips between columns of text. A strip counts when almost
-  // no row crosses it (a title or a referee line may) and there is real text on both sides.
+  // Empty vertical strips between columns of text. A strip counts when a good
+  // run of rows (the lists) has text on both sides of it and nothing across it;
+  // titles, dates and a referee line above or below that run may cross it.
   function findGutters(segs, H){
     if(segs.length<6) return [];
-    const tol=Math.max(1, Math.floor(segs.length*0.04)), ev=[];
+    const loose=Math.max(2, Math.floor(segs.length*0.25)), ev=[];
     segs.forEach(s=>{ ev.push([s.x0,1]); ev.push([s.x1,-1]); });
     ev.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
-    const raw=[]; let cov=0, start=null;
-    for(const e of ev){ const before=cov; cov+=e[1];
-      if(before>tol&&cov<=tol) start=e[0];
-      else if(before<=tol&&cov>tol&&start!=null){ if(e[0]-start>=0.8*H) raw.push({x0:start, x1:e[0]}); start=null; } }
-    // real text on both sides: at least 3 rows (and more than the tolerance) start inside each column
-    const need=Math.max(3, tol+1);
-    let g=raw.slice(), changed=true;
+    // the coverage (how many rows have text at x), as pieces; then each dip's emptiest stretch
+    const pieces=[]; let cov=0, px=null;
+    for(const e of ev){ if(px!=null&&e[0]>px) pieces.push({x0:px, x1:e[0], cov}); cov+=e[1]; px=e[0]; }
+    const cores=[];
+    for(let i=0;i<pieces.length;){
+      if(pieces[i].cov>loose){ i++; continue; }
+      let j=i; while(j+1<pieces.length&&pieces[j+1].cov<=loose) j++;
+      if(i>0&&j<pieces.length-1){                                    // text on both sides somewhere
+        const run=pieces.slice(i,j+1), mn=Math.min.apply(null,run.map(p=>p.cov)); let best=null, cur=null;
+        run.forEach(p=>{ if(p.cov===mn){ if(cur&&cur.x1===p.x0) cur.x1=p.x1; else cur={x0:p.x0, x1:p.x1}; if(!best||cur.x1-cur.x0>best.x1-best.x0) best=cur; } else cur=null; });
+        if(best&&best.x1-best.x0>=0.8*H) cores.push(best);
+      }
+      i=j+1;
+    }
+    const need=4;
+    let g=cores.filter(c=>{
+      const mid=(c.x0+c.x1)/2, cross=segs.filter(s=>s.x0<mid&&s.x1>mid).map(s=>s.yc).sort((a,b)=>a-b);
+      const L=segs.filter(s=>s.x1<=mid), Rr=segs.filter(s=>s.x0>=mid), ys=[-Infinity].concat(cross, [Infinity]);
+      // the clear run must hold at least as many rows as there are lines crossing the strip anywhere on the page
+      // (so the gap between a number and its name, which half the rows bridge, is not taken for a column gap)
+      for(let k=0;k+1<ys.length;k++){ const a=ys[k], b=ys[k+1], inb=s=>s.yc>a&&s.yc<b, m=Math.min(L.filter(inb).length, Rr.filter(inb).length);
+        if(m>=need&&cross.length<=Math.max(3,m)) return true; }
+      return false;
+    });
+    // and enough rows start inside every column that results
+    let changed=true;
     while(changed&&g.length){
       changed=false;
       const edges=g.map(x=>(x.x0+x.x1)/2), n=new Array(g.length+1).fill(0);
       segs.forEach(s=>{ if(g.some(x=>s.x0<x.x0&&s.x1>x.x1)) return; const xc=(s.x0+s.x1)/2; let i=0; while(i<edges.length&&xc>edges[i]) i++; n[i]++; });
-      for(let i=0;i<n.length;i++){ if(n[i]<need){ g.splice(Math.min(i,g.length-1),1); changed=true; break; } }
+      for(let i=0;i<n.length;i++){ if(n[i]<3){ g.splice(Math.min(i,g.length-1),1); changed=true; break; } }
     }
     return g;
   }
@@ -261,11 +284,12 @@
   // headings the editor's parser understands itself ("Subs", "Starting 15") are always passed on
   const RE_SUBSF=/^(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|ionadaithe)\b/;
   const RE_STARTF=/^(?:starting(?:\s+(?:xv|15|team|line[\s-]?up))?|starters?|team|line[\s-]?up|first\s+15|xv)\s*[:\-–]?$/;
+  const RE_SUBS2=/^(?:(?:subs?|substitutes?|substitutions?|replacements?|bench|fir\s+ionaid|ionadaithe)[\s\/|,&\-–:.]*){2,}$/;
   const RE_KEEP={test:f=>RE_SUBSF.test(f)||RE_STARTF.test(f)};
   const OFFICIAL='(?:team\\s+)?(?:managers?|management|bainisteoir\\w*|selectors?|roghnoir\\w*|coach(?:es)?|trainers?|traenalai|physio\\w*|doctor|kitman|maor\\s+\\w+|referee|reiteoir|moltoir|linesm[ae]n|umpires?|maoir|standby\\s+referee|fourth\\s+official|match\\s+officials?|officials?|captain|captaen|vice[\\s-]?captain|chairman|chairperson|cathaoirleach|secretary|runai|sponsors?|sponsored\\s+by|venue|throw[\\s-]?in)';
   const RE_OFFICIAL=new RegExp('^'+OFFICIAL+'\\b'), RE_OFFICIAL_IN=new RegExp('[(\\[]\\s*'+OFFICIAL+'\\b');
   const RE_POSITION=/^(?:goal\s?keepers?|goalie|keepers?|cul\s?baire|(?:(?:full|half|corner|centre|center|wing|left|right)[\s-]*){1,3}(?:backs?|forwards?|line)|backs?|forwards?|defen[cs]e|defenders?|attack(?:ers)?|mid[\s-]?field(?:ers)?|lar\s+na\s+pairce|tosaithe|cosantoiri|cuil|lantosaithe)\s*[:\-]?$/;
-  const RE_EVENT=/\b(?:19|20)\d\d\b|\b\d{1,2}[:.]\d{2}\s*(?:am|pm)\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\b|\b(?:championship|league|semi[\s-]?finals?|quarter[\s-]?finals?|final|programme|clar\s+oifigiuil|team\s+sheets?|fixtures?)\b|www\.|\.ie\b|\.com\b|@/;
+  const RE_EVENT=/\b(?:19|20)\d\d\b|\b\d{1,2}[:.]\d{2}\s*(?:am|pm)\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\b|\b(?:championship|league|semi[\s-]?finals?|quarter[\s-]?finals?|final|programme|clar\s+oifigiuil|team\s+sheets?|fixtures?|round\s+\d+)\b|www\.|\.ie\b|\.com\b|@/;
   const RE_BRACKET=/\s*[(\[][^()\[\]]*[A-Za-zÀ-ɏ][^()\[\]]*[)\]]/g;
   const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names'};
   R.WHY=WHY;
@@ -284,9 +308,11 @@
     (lines||[]).forEach(l=>{
       const raw=String(l.text==null?'':l.text);
       // table rules and stray marks an image reader picks up
-      let cells=raw.split('\t').map(c=>c.replace(/[|¦]/g,' ').replace(/^[\s_~=•·*»«›‹]+|[\s_~=•·*»«›‹]+$/g,'').replace(/ {2,}/g,' ')).filter(Boolean);
+      let cells=raw.split('\t').map(c=>c.replace(/[|¦]/g,' ').replace(/^[\s_~=•·*»«›‹]+|[\s_~=•·*»«›‹]+$/g,'').replace(/^[-–—.]+\s+|\s+[-–—]+$/g,'').replace(/ {2,}/g,' ')).filter(Boolean);
       let t=cells.join('\t');
       if(!/[A-Za-zÀ-ɏ0-9]/.test(t)){ if(raw.trim()) drop(raw,'marks'); return; }
+      // a two-language heading ("Fir Ionaid / Subs") is passed on as the one word the parser knows
+      if(RE_SUBS2.test(fold(t).trim())){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
       const f=fold(t).trim(), numbered=lineNo(t)!=null||cells.length>1;
       if(!numbered&&!isNumTok(t)&&!RE_KEEP.test(f)){
         if(RE_OFFICIAL.test(f)||RE_OFFICIAL_IN.test(f)) return drop(raw,'official');
@@ -407,7 +433,11 @@
       langBase:CDN+'@tesseract.js-data', lang:l=>CDN+'@tesseract.js-data/'+l+'@1.0.0/4.0.0_best_int/'+l+'.traineddata.gz'}
   };
   const LIMIT=R.LIMIT={pdfMB:60, imageMB:40, pages:40, pick:6, long:2000, viewLong:1600, pixels:60e6};
-  R.PSM='3';                                       // Tesseract page segmentation: 3 = automatic (columns, mixed pages)
+  // Tesseract page segmentation. 6 ("one block of text") is tried first: it keeps a narrow column of jersey
+  // numbers attached to the names. If that finds few numbered lines (a busy page: adverts, pictures), 3
+  // ("automatic") is tried as well and whichever found more numbered lines is used.
+  R.PSM=['6','3'];
+  const numbered=words=>{ let n=0; R.layout(words).columns.forEach(c=>c.lines.forEach(l=>{ if(l.no!=null) n++; })); return n; };
 
   function err(code, msg){ const e=new Error(msg); e.code=code; return e; }
   const MSG=R.MSG={
@@ -503,7 +533,7 @@
     const watch=setInterval(()=>{ const idle=Date.now()-st.last; if(st.phase==='load'&&idle>60000) st.fail(err('cdn', MSG.slow())); else if(st.phase==='read'&&idle>180000) st.fail(err('empty', 'Reading this picture is taking too long on this device. Try a smaller or sharper picture, or paste or type the list.')); }, 2000);
     const W={job:null};
     const logger=m=>{ st.last=Date.now(); if(!m) return;
-      if(m.status==='recognizing text'){ st.phase='read'; prog({stage:'read', pct:m.progress||0, page:W.page, of:W.of}); }
+      if(m.status==='recognizing text'){ st.phase='read'; prog({stage:'read', pct:(W.base||0)+(W.span||1)*(m.progress||0), page:W.page, of:W.of}); }
       else if(st.phase==='load'){ const base={'loading tesseract core':0.05,'initializing tesseract':0.45,'loading language traineddata':0.5,'initializing api':0.95}[m.status]; if(base!=null) prog({stage:'load', pct:Math.min(0.99, base+(m.status==='loading tesseract core'?0.4:m.status==='loading language traineddata'?0.45:0)*(m.progress||0)), engine:'ocr'}); } };
     let worker=null;
     const close=()=>{ clearInterval(watch); URL.revokeObjectURL(url); if(worker){ try{ worker.terminate(); }catch(_){} worker=null; } };
@@ -512,17 +542,24 @@
       worker=await job.race(Promise.race([failed, root.Tesseract.createWorker(langs.join('+'), 1, {workerPath:url, workerBlobURL:false, corePath:LIB.ocr.core, langPath:LIB.ocr.langBase, logger,
         errorHandler:e=>st.fail(st.phase==='load'?err('cdn', MSG.cdn()):new Error(String(e&&e.message||e)))})]));
       if(job.cancelled){ close(); throw err('cancel', MSG.cancel()); }
-      await job.race(Promise.race([failed, worker.setParameters({tessedit_pageseg_mode:R.PSM, user_defined_dpi:'200'})]));
+      await job.race(Promise.race([failed, worker.setParameters({user_defined_dpi:'200'})]));
     }catch(e){ close(); if(e&&e.code) throw e; throw err('cdn', MSG.cdn()); }
     st.phase='ready'; st.last=Date.now();
     return { langs,
       async read(canvas, page, of){
-        W.page=page; W.of=of; st.phase='read'; st.last=Date.now(); prog({stage:'read', pct:0, page, of});
-        const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
+        const modes=[].concat(R.PSM); let best=null, bn=-1;
+        for(let i=0;i<modes.length;i++){
+          W.page=page; W.of=of; W.base=i/modes.length; W.span=1/modes.length; st.phase='read'; st.last=Date.now(); prog({stage:'read', pct:W.base, page, of});
+          await job.race(Promise.race([failed, worker.setParameters({tessedit_pageseg_mode:modes[i]})]));
+          const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
+          const d=r&&r.data||{}; let ws=d.words;
+          if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
+          ws=ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
+          const n=numbered(ws); if(n>bn){ bn=n; best=ws; this.mode=modes[i]; }
+          if(bn>=10) break;                              // a team list was found; no second pass needed
+        }
         st.phase='ready';
-        const d=r&&r.data||{}; let ws=d.words;
-        if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
-        return ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
+        return best||[];
       }, close };
   }
 
@@ -638,6 +675,7 @@
         pages.push({n:1, method:'ocr', words, image:pr.view, scale:1}); engines.push('ocr');
       }
       prog({stage:'layout', pct:1});
+      R._last=pages;                                 // for the tests: the positioned words of the last read
       const ctx={homeTeam:o.homeTeam, awayTeam:o.awayTeam, known:o.known||{}};
       const comp=R.compose(pages, ctx), side=o.side==='home'||o.side==='away'?o.side:'both';
       const res=R.deal(comp, side, ctx);
