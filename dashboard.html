@@ -900,12 +900,11 @@ function renderTS(){
   const sc=document.getElementById('ES'); if(!sc) return;
   sc.innerHTML=window.cohTS?cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()'}):'<div class="empty">Team sheets unavailable</div>';
 }
-// Names tagged for a side's team in this game (player, "<TEAM> Player Labels", Assist).
+// Names tagged for a side's team in this game (player, "<TEAM> Player Labels", Assist),
+// one spelling per player — the one used most.
 function dashTeamNames(side){
-  const T=String((side==='home'?GAME.homeTeam:GAME.awayTeam)||'').toUpperCase(), out=[], seen=new Set();
-  ALL.forEach(x=>{ if(String(x.team||'').toUpperCase()!==T) return; const L=x.labels||{};
-    [x.player].concat(Object.keys(L).filter(k=>k.toUpperCase()===T+' PLAYER LABELS'||k==='Assist').map(k=>L[k])).forEach(n=>{
-      n=String(n==null?'':n).replace(/\s+/g,' ').trim(); if(!n||/^P\s*\d+$/i.test(n)) return; const k=cohTS.nameKey(n); if(!seen.has(k)){ seen.add(k); out.push(n); } }); });
+  const all=cohTS.namesFromEvents(ALL, side==='home'?GAME.homeTeam:GAME.awayTeam), seen=new Set(), out=[];
+  all.forEach(n=>{ const k=cohTS.nameKey(n); if(!seen.has(k)){ seen.add(k); out.push(cohTS.matchKnown(n, all)); } });
   return out.sort((a,b)=>a.localeCompare(b));
 }
 function dashTeamSheetEdit(){

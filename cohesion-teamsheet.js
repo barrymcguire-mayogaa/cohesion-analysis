@@ -28,11 +28,14 @@
   }
   // comparison key: ignores case, spacing and apostrophe style
   function nameKey(s){ return tidyName(s).toLowerCase().replace(/\s+/g,''); }
-  // The existing spelling of `name` among `known` (first wins), or ''.
+  // The existing spelling of `name` among `known`, or ''. `known` may repeat a
+  // name once per use: the spelling used most often wins (ties: the first).
   function matchKnown(name, known){
     const k=nameKey(name); if(!k) return '';
-    for(const n of (known||[])){ if(n!=null&&nameKey(n)===k) return String(n).replace(/\s+/g,' ').trim(); }
-    return '';
+    const cnt=new Map();
+    for(const n of (known||[])){ if(n!=null&&nameKey(n)===k){ const sp=String(n).replace(/\s+/g,' ').trim(); cnt.set(sp,(cnt.get(sp)||0)+1); } }
+    let best='', bn=0; cnt.forEach((c,sp)=>{ if(c>bn){ best=sp; bn=c; } });
+    return best;
   }
   function cleanNo(v){
     if(v==null||v==='') return '';
@@ -116,11 +119,10 @@
     const w=[], nos=new Map(), names=new Map(); let starters=0;
     (rows||[]).forEach(r=>{
       const name=tidyKeep(r.name), no=cleanNo(r.no);
-      if(!name&&no==='') return;
-      if(!name) w.push('No. '+no+' has no name — it will not be saved.');
-      if(no!==''){ nos.set(no,(nos.get(no)||[]).concat(name||'?')); }
-      if(name){ const k=nameKey(name); names.set(k,(names.get(k)||[]).concat(name)); }
-      if(name&&cleanRole(r.role)==='start') starters++;
+      if(!name) return;                      // a row without a name is not saved, so it cannot clash
+      if(no!==''){ nos.set(no,(nos.get(no)||[]).concat(name)); }
+      { const k=nameKey(name); names.set(k,(names.get(k)||[]).concat(name)); }
+      if(cleanRole(r.role)==='start') starters++;
     });
     nos.forEach((l,no)=>{ if(l.length>1) w.push('Number '+no+' is used '+l.length+' times ('+l.join(', ')+').'); });
     names.forEach(l=>{ if(l.length>1) w.push('"'+l[0]+'" is listed '+l.length+' times.'); });
@@ -146,7 +148,7 @@
       if(no!==''&&+no>15) role='sub';
       const row={no, name, role};
       const hit=matchKnown(name, opts.known);
-      if(hit&&hit!==name){ row.adopted=name; row.name=hit; }
+      if(hit){ if(tidyName(hit)!==name) row.adopted=name; row.name=hit; }   // flagged only when more than the apostrophe style changed
       rows.push(row); return true;
     };
     const cell=c=>{ const p=splitNumberName(c); return push(p.no, p.name); };
@@ -306,8 +308,8 @@
 .cohts-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;}
 .cohts-soon{font-size:10.5px;color:var(--t3,#777);font-style:italic;}
 .cohts-warn{margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--orange,#f59e0b);}
-.cohts-paste{margin-top:10px;border-top:1px dashed var(--border,#333);padding-top:10px;}
-.cohts-paste textarea{min-height:92px;resize:vertical;font:500 12.5px Barlow,sans-serif;line-height:1.45;}
+.cohts-paste{margin-bottom:12px;border-bottom:1px dashed var(--border,#333);padding-bottom:10px;}
+.cohts-paste textarea{min-height:66px;height:66px;resize:vertical;font:500 12.5px Barlow,sans-serif;line-height:1.45;}
 .cohts-lbl{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3,#777);margin-bottom:4px;}
 .cohts-prev{margin-top:8px;border:1px solid var(--border,#333);border-radius:8px;max-height:230px;overflow-y:auto;background:var(--card,#252530);}
 .cohts-prow{display:grid;grid-template-columns:30px minmax(0,1fr) 44px;gap:6px;padding:5px 8px;font-size:12.5px;border-bottom:1px solid var(--border,#333);align-items:baseline;}
@@ -317,7 +319,7 @@
 .cohts-prow em.sub{color:var(--accent,#4fc3f7);}
 .cohts-prow small{display:block;font-size:10.5px;color:var(--accent,#4fc3f7);}
 .cohts-pskip{padding:6px 8px;font-size:11px;color:var(--orange,#f59e0b);}
-.cohts-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;}
+.cohts-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;position:sticky;bottom:0;background:var(--panel,#1e1e28);padding:10px 0 2px;border-top:1px solid var(--border,#333);z-index:6;}
 .cohts-status{flex:1;min-width:140px;font-size:12px;color:var(--t2,#999);}
 .cohts-status.err{color:#ef4444;}
 @media(max-width:720px){ .cohts-ov{padding:8px 6px;} .cohts-card{padding:12px;} .cohts-cols{grid-template-columns:1fr;gap:12px;} .cohts-col{padding:10px;} }
@@ -383,7 +385,7 @@
     const ov=document.createElement('div'); ov.className='cohts-ov';
     const card=document.createElement('div'); card.className='cohts-card'; ov.appendChild(card);
     card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
-      <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
+      <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
       <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>
       <div class="cohts-foot"><div class="cohts-status" id="cohtsStatus"></div>
         <button class="cohts-btn" data-act="cancel">Cancel</button>
@@ -426,14 +428,14 @@
       const c=col(side), colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
       const keep=c.querySelector('textarea'), txt=keep?keep.value:'';
       c.innerHTML=`<div class="cohts-team"><i style="background:${esc(colr)}"></i><span>${esc(teamName(side))}</span><small></small></div>
-        <div class="cohts-hd"><div style="text-align:center">No.</div><div>Name</div><div>Role</div><div></div></div>
-        <div class="cohts-rows">${S[side].rows.map((r,i)=>rowHtml(side,r,i)).join('')}</div>
-        <div class="cohts-bar"><button class="cohts-btn" data-act="add">+ Add row</button>
-          <button class="cohts-btn" disabled title="Not available yet — the automatic reader is coming soon">📷 Read from photo / PDF</button><span class="cohts-soon">coming soon</span></div>
-        <div class="cohts-warn"></div>
         <div class="cohts-paste"><div class="cohts-lbl">Paste a list</div>
           <textarea placeholder="1 Colm Reape&#10;2. Name&#10;Name (3)&#10;Subs&#10;16 Name"></textarea>
-          <div class="cohts-pv">${prevHtml(side)}</div></div>`;
+          <div class="cohts-pv">${prevHtml(side)}</div>
+          <div class="cohts-bar"><button class="cohts-btn" disabled title="Not available yet — the automatic reader is coming soon">📷 Read from photo / PDF</button><span class="cohts-soon">coming soon</span></div></div>
+        <div class="cohts-hd"><div style="text-align:center">No.</div><div>Name</div><div>Role</div><div></div></div>
+        <div class="cohts-rows">${S[side].rows.map((r,i)=>rowHtml(side,r,i)).join('')}</div>
+        <div class="cohts-bar"><button class="cohts-btn" data-act="add">+ Add row</button></div>
+        <div class="cohts-warn"></div>`;
       c.querySelector('textarea').value=txt;
       live(side);
     }
@@ -463,7 +465,7 @@
       if(!final){ r.name=inp.value; r.adopted=''; live(side); return; }
       const typed=T.tidyName(inp.value);
       const hit=T.matchKnown(typed, known[side]);
-      r.name=hit||typed; r.adopted=(hit&&hit!==typed)?typed:'';
+      r.name=hit||typed; r.adopted=(hit&&T.tidyName(hit)!==typed)?typed:'';
       inp.value=r.name;
       const a=col(side).querySelector('.cohts-adopt[data-a="'+i+'"]');
       if(a){ a.style.display=r.adopted?'':'none'; a.textContent=r.adopted?'Matched existing spelling — typed “'+r.adopted+'”':''; }
@@ -631,7 +633,7 @@
     if(mem[U]) return mem[U];
     const key='coh_ts_known_'+U;
     try{ const c=JSON.parse(root.localStorage.getItem(key)||'null'); if(c&&Array.isArray(c.names)&&Date.now()-(+c.ts||0)<TTL) return (mem[U]=Promise.resolve(c.names)); }catch(_){}
-    const found=new Map(), add=n=>{ const k=T.nameKey(n); if(k&&!found.has(k)) found.set(k, String(n).replace(/\s+/g,' ').trim()); };
+    const all=[], add=n=>{ if(T.nameKey(n)) all.push(String(n).replace(/\s+/g,' ').trim()); };
     return (mem[U]=(async()=>{
       let ok=0;
       try{
@@ -644,7 +646,8 @@
           try{ const b=await read({action:'getEvents', gameId:g.id}); ok++; T.namesFromEvents(((b&&b.events)||[]).map(r=>r&&r.data), U).forEach(add); }catch(_){} } };
         await Promise.all(Array.from({length:Math.min(3,recent.length)},worker));
       }catch(_){}
-      const names=[...found.values()].sort((a,b)=>a.localeCompare(b));
+      const keys=new Set(), names=[]; all.forEach(n=>{ const k=T.nameKey(n); if(!keys.has(k)){ keys.add(k); names.push(T.matchKnown(n, all)); } });
+      names.sort((a,b)=>a.localeCompare(b));
       if(ok){ try{ root.localStorage.setItem(key, JSON.stringify({ts:Date.now(), names})); }catch(_){} } else delete mem[U];
       return names;
     })());
