@@ -6588,7 +6588,7 @@ function pyInvHTML(I, sel, o){
   const td=(v,c,t)=>`<td class="${(c||'')+(v?'':' na')}"${t?` title="${ssEsc(t)}"`:''}>${pyInvNum(v, per)}</td>`;
   const body=rows.slice(0, pg.shown).map(r=>{ const on=r.key===sel;
     return `<tr class="py-row${on?' sel':''}" data-pyrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+r.name)}">`
-      +`<td class="py-b"><span class="py-badge" style="--bc:${ssEsc(col)}" aria-hidden="true">${ssEsc(pyInitials(r.name))}</span></td><td class="py-n">${ssEsc(r.name)}</td>`
+      +`<td class="py-b">${cohPlayerBadgeHTML(I.team, r.name, {cls:'py-badge', color:col})}</td><td class="py-n">${ssEsc(r.name)}</td>`
       +td(r.inv,'py-tot')+C.cols.map(c=>td(r[c.k])).join('')+td(r.other,'', r.otherList.map(v=>v[0]+' '+v[1]).join(' · '))+'</tr>'; }).join('');
   const tm=pyInvTeam(I, C, per);
   const foot=`<tr class="py-iteam"><td class="py-b"></td><td class="py-n">${ssEsc(I.team)}<small>${ssEsc(per?'per game':'team total')}</small></td>`+td(tm.inv,'py-tot')+C.cols.map(c=>td(tm[c.k])).join('')+td(tm.other)+'</tr>';
