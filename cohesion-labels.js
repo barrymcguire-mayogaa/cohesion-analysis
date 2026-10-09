@@ -176,6 +176,39 @@ function cohScFromDom(doc){
     id:txt(inst,'ID'), code:txt(inst,'code'), start:parseFloat(txt(inst,'start')||0), end:parseFloat(txt(inst,'end')||0),
     labels:Array.from(inst.querySelectorAll('label')).map(l=>[txt(l,'group'), txt(l,'text')]) }));
 }
+// ── <ROWS>: the file's row order and row colours ─────────────────
+// Sportscode writes 16-bit channels (0–65535). A row is kept as
+//   {code, colour:'#rrggbb'}            when every channel is a multiple of 257 (8-bit exact), else
+//   {code, colour:'#rrggbb', rgb16:[r,g,b]}   so the export can give the same numbers back.
+function cohRgb16ToHex(r, g, b){ return '#'+[r,g,b].map(v=>{ const x=Math.max(0, Math.min(255, Math.round((+v||0)/257))); return (x<16?'0':'')+x.toString(16); }).join(''); }
+function cohHexToRgb16(hex){
+  let h=String(hex||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(h)) h=h.replace(/./g,'$&$&');
+  if(!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16)*257);
+}
+function cohScRowOf(code, r, g, b){
+  const ch=[r,g,b].map(v=>Math.max(0, Math.min(65535, Math.round(+v||0))));
+  const row={code:String(code||''), colour:cohRgb16ToHex(ch[0],ch[1],ch[2])};
+  if(ch.some(v=>v%257)) row.rgb16=ch;
+  return row;
+}
+function cohScRows(xmlText){
+  const m=/<ROWS(?:\s[^>]*)?>([\s\S]*?)<\/ROWS>/.exec(String(xmlText||'')); if(!m) return [];
+  return (m[1].match(/<row(?:\s[^>]*)?>[\s\S]*?<\/row>/g)||[]).map(b=>cohScRowOf(cohScTag(b,'code'), cohScTag(b,'R'), cohScTag(b,'G'), cohScTag(b,'B'))).filter(r=>r.code);
+}
+function cohScRowsFromDom(doc){
+  const txt=(n, sel)=>{ const x=n.querySelector(sel); return x&&x.textContent?x.textContent.trim():''; };
+  return Array.from(doc.querySelectorAll('ROWS > row')).map(n=>cohScRowOf(txt(n,'code'), txt(n,'R'), txt(n,'G'), txt(n,'B'))).filter(r=>r.code);
+}
+// the 16-bit channels a row is exported with: its stored rgb16 while the colour is still the one read with it
+function cohRowRgb16(row){
+  if(row&&Array.isArray(row.rgb16)&&row.rgb16.length===3&&cohRgb16ToHex(row.rgb16[0],row.rgb16[1],row.rgb16[2])===String(row.colour||'').toLowerCase()) return row.rgb16.slice();
+  return cohHexToRgb16(row&&row.colour)||[40092,41891,44975];   // #9ca3af
+}
+// meta.rows -> Map(code -> '#rrggbb'): the file's colour of a row
+function cohRowColours(meta){ const m=new Map(); ((meta&&Array.isArray(meta.rows))?meta.rows:[]).forEach(r=>{ if(r&&r.code&&r.colour&&!m.has(r.code)) m.set(r.code, r.colour); }); return m; }
+// Merge-only-your-field: a fresh copy of the game's meta with rows set (nothing else touched)
+function cohRowsMergeMeta(meta, rows){ const m=Object.assign({}, meta||{}); if(Array.isArray(rows)&&rows.length) m.rows=rows.map(r=>Object.assign({}, r)); else delete m.rows; return m; }
 function cohScCategory(code){
   if(/SHOT|1 POINT|2 POINT|WIDE|GOAL|SAVE|BLOCKED|SHORT|WOODWORK/.test(code)) return 'Shots & Scores';
   if(/KO/.test(code) && !/SCORE|ATTACK/.test(code)) return 'Kickouts';
@@ -256,7 +289,7 @@ function cohScImport(insts, opts){
     // Keep EVERY label group (ungrouped values under 'General'); Team Name is promoted to team.
     const kept={}, all={};
     Object.keys(labels).forEach(g=>{ if(g==='Team Name') return; const k=g==='NO_GROUP'?'General':g; kept[k]=labels[g]; stats.labelValues+=lists[g].length; if(lists[g].length>1){ all[k]=lists[g].slice(); stats.extraValues+=lists[g].length-1; } });
-    const ev={ id:inst.id||String(events.length+1), start:Math.round(start), end:Math.round(end), half };
+    const ev={ id:inst.id||String(events.length+1), start:start, end:end, half };   // exact file times (driveT stays a whole video second)
     if(opts.gameTime) ev.gameTime=opts.gameTime(half, start, refs);
     let cat=category(code), playerRow=false;
     if(!team && !COH_SC_NEUTRAL.has(code)){
@@ -278,7 +311,8 @@ function cohScImport(insts, opts){
 
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
   cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohPlayerIndex, cohPlayerRowOf, cohNameKey,
-  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS};
+  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS,
+  cohScPlainGroup, cohRgb16ToHex, cohHexToRgb16, cohScRows, cohScRowsFromDom, cohRowRgb16, cohRowColours, cohRowsMergeMeta};
 
 /* ── Existing games: bring back the label values the old import dropped ──
  * cohScRestore(rows, instances) — rows = the game's stored events ([{id, data}]),
@@ -302,7 +336,7 @@ function cohScRestore(rows, insts){
     const inst=byId.get(String(d.id));
     if(!inst){ stats.notInFile++; return; }
     if(inst.code!==d.code){ stats.recoded++; return; }
-    if(Math.round(inst.start||0)!==d.start){ stats.moved++; return; }
+    if(Math.round(inst.start||0)!==Math.round(+d.start||0)){ stats.moved++; return; }   // whole seconds on both sides: a stored start may be exact or rounded
     stats.matched++;
     const lists={}; (inst.labels||[]).forEach(l=>{ const g=l[0]||'NO_GROUP'; if(!l[1]||g==='Team Name') return; const k=g==='NO_GROUP'?'General':g; (lists[k]=lists[k]||[]).push(l[1]); });
     let nd=null;
