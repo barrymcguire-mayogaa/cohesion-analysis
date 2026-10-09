@@ -453,6 +453,7 @@
   const RE_KEEP={test:f=>RE_SUBSF.test(f)||RE_STARTF.test(f)};
   const OFFICIAL='(?:team\\s+)?(?:managers?|management|bainisteoir\\w*|selectors?|roghnoir\\w*|coach(?:es)?|trainers?|traenalai|physio\\w*|doctor|kitman|maor\\s+\\w+|referee|reiteoir|moltoir|linesm[ae]n|umpires?|maoir|standby\\s+referee|fourth\\s+official|match\\s+officials?|officials?|captain|captaen|vice[\\s-]?captain|chairman|chairperson|cathaoirleach|secretary|runai|sponsors?|sponsored\\s+by|venue|throw[\\s-]?in)';
   const RE_OFFICIAL=new RegExp('^'+OFFICIAL+'\\b'), RE_OFFICIAL_IN=new RegExp('[(\\[]\\s*'+OFFICIAL+'\\b');
+  const RE_OFFICIAL_ANY=/(?:^|[^a-z])(?:b?ainisteoir|r?oghnoir|roghnoiri|managers?|selectors?|referee|reiteoir)\s*:/;
   const RE_POSITION=/^(?:goal\s?keepers?|goalie|keepers?|cul\s?baire|(?:(?:full|half|corner|centre|center|wing|left|right)[\s-]*){1,3}(?:backs?|forwards?|line)(?:\s+line)?|backs?|forwards?|defen[cs]e|defenders?|attack(?:ers)?|mid[\s-]?field(?:ers)?|lar\s+na\s+pairce|tosaithe|cosantoiri|cuil|lantosaithe)\s*[:\-]?$/;
   const RE_EVENT=/\b(?:19|20)\d\d\b|\b\d{1,2}[:.]\d{2}\s*(?:am|pm)\b|\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|september|october|november|december)\b|\b(?:championship|league|semi[\s-]?finals?|quarter[\s-]?finals?|final|programme|clar\s+oifigiuil|team\s+sheets?|fixtures?|round\s+\d+)\b|www\.|\.ie\b|\.com\b|@/;
   const RE_BRACKET=/\s*[(\[][^()\[\]]*[A-Za-zÀ-ɏ][^()\[\]]*[)\]]/g;
@@ -462,7 +463,7 @@
   const RE_ROLE=new RegExp('(^|\\s)(?:[(\\[{]\\s*'+ROLE+'\\s*[)\\]}]?|'+ROLE+'\\s*[)\\]}])(?=\\s|$)','gi');
   const stripRole=c=>c.replace(RE_ROLE,'$1').replace(/ {2,}/g,' ').trim();
   R.stripRole=stripRole;
-  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)'};
+  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)', cut:'cut off by the edge of the crop box', above:'a line above the numbered list'};
   R.WHY=WHY;
   // "15 | Liam Ó Conghaile ." → "15 Liam Ó Conghaile"; "8 JohnMaher" → "8 John Maher"; "7 sean Kelly" → "7 Sean Kelly"
   const NOSPLIT=/^(?:Mc|Mac|Mag|De|Le|La|Fitz|Ni|Nic|Ui|Mhic|Van|Du|Di|O)$/;
@@ -508,12 +509,16 @@
       // a two-language heading ("Fir Ionaid / Subs") is passed on as the one word the parser knows
       if(RE_SUBS2.test(fold(t).trim())||(/^fir\s*i?onai?d\s*:?$/.test(fold(t).trim())&&!/^fir ionaid\s*:?$/.test(fold(t).trim()))){ keep.push({text:'Subs', conf:null, box:l.box, page:l.page, heading:true}); return; }
       const f=fold(t).trim(), numbered=lineNo(t)!=null||cells.length>1;
+      // "BAINISTEOIR: …" / "Manager: …" wherever it stands in the line, and with its first letter lost to the reader
+      if(RE_OFFICIAL_ANY.test(f)) return drop(raw,'official');
       if(!numbered&&!isNumTok(t)&&!RE_KEEP.test(f)){
         if(RE_OFFICIAL.test(f)||RE_OFFICIAL_IN.test(f)) return drop(raw,'official');
         if(teams.some(x=>teamMatch(t,x))||isFixture(t,teams)) return drop(raw,'team');
         if(RE_POSITION.test(f)) return drop(raw,'position');
         if(RE_EVENT.test(f)) return drop(raw,'event');
         if(l.under) return drop(raw,'under');
+        if(l.cut) return drop(raw,'cut');
+        if(l.above) return drop(raw,'above');
       }
       // "7 Jack Coyne (Ballyhaunis)" / "(Capt.)" → the note in brackets goes; "Name (7)" is a number and stays
       if(!RE_KEEP.test(f)){
@@ -593,6 +598,9 @@
       // … or when it shows numbered players side by side on a row within one team (a formation) and finds as many
       if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=8&&(b>=a+2||(b>=a-1&&sideBySide(fr)>=3))) lay=fr; }
       p.model=lay.free?'free':'columns';
+      // a crop box: a line touching its left or right edge was cut through by the box
+      if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3)) l.cut=true; }));
+      if(p.cuts&&p.cuts.length) lay.columns.concat([{lines:lay.spanning||[]}]).forEach(c=>c.lines.forEach(l=>{ if(l.box&&p.cuts.some(q=>q.xc>=l.box.x0-1&&q.xc<=l.box.x1+1&&q.yc>=l.box.y0-1&&q.yc<=l.box.y1+1)) l.cut=true; }));
       const tag=l=>{ l.page=p.n; return l; };
       lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag)}));
       lay.spanning.forEach(l=>spanning.push(tag(l)));
@@ -626,7 +634,13 @@
   function finish(list, o){
     o=o||{};
     let placed=[];
-    if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines); }
+    if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
+      // a list of numbered players: an unnumbered line above its first number is a title or heading, not a player
+      // (not when numbers stand on lines of their own — there a name may come before its number)
+      const L=list.lines, first=L.findIndex(l=>l.no!=null&&l.no<=40);
+      L.forEach(l=>{ if(l.above) delete l.above; });
+      if(first>0&&L.filter(l=>l.no!=null&&l.no<=40).length>=8&&!L.some(l=>isNumTok(l.text))) L.slice(0,first).forEach(l=>{ if(l.no==null) l.above=true; });
+    }
     const c=cleanLines(list?list.lines:[], {teams:[o.homeTeam, o.awayTeam], known:o.known});
     c.lines=byNumber(c.lines);
     const lines=c.lines.map(l=>({text:l.text, confidence:l.conf, low:l.conf!=null&&l.conf<LOW, box:l.box, page:l.page}));
@@ -1016,7 +1030,7 @@
         const eng=await getOcr();
         for(let i=0;i<regs.length;i++){ const view=cropCanvas(src, W, H, regs[i]), work=greyStretch(view); await tick();
           const words=await eng.read(work, i+1, regs.length);
-          pages.push({n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped}); }
+          pages.push({n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped, width:view.width, height:view.height}); }
         usedRegions=regs;
       };
       if(kind==='pdf'){
@@ -1050,8 +1064,11 @@
             const regs=pick.length===1&&o.cropText?await askRegions(r.canvas, {page:n, text:true}):null;
             if(regs){ regs.forEach((g,i)=>{ const q=R.geom.fit(Object.assign({},g,{angle:0, turn:0}), r.canvas.width, r.canvas.height), bx={x0:(q.cx-q.w/2)/r.scale, y0:(q.cy-q.h/2)/r.scale, x1:(q.cx+q.w/2)/r.scale, y1:(q.cy+q.h/2)/r.scale};
                 const ws=p.words.filter(w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return xc>=bx.x0&&xc<=bx.x1&&yc>=bx.y0&&yc<=bx.y1; }).map(w=>Object.assign({},w,{x0:w.x0-bx.x0, x1:w.x1-bx.x0, y0:w.y0-bx.y0, y1:w.y1-bx.y0}));
+                // a word inside the box that runs on into a word outside it: that line was cut through by the box
+                const inb=w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return xc>=bx.x0&&xc<=bx.x1&&yc>=bx.y0&&yc<=bx.y1; }, outs=p.words.filter(w=>!inb(w));
+                const cuts=p.words.filter(w=>inb(w)&&outs.some(v=>{ const hh=Math.max(w.y1-w.y0, v.y1-v.y0); return Math.abs((v.y0+v.y1)-(w.y0+w.y1))/2<0.5*hh&&(v.x0>=w.x0?v.x0-w.x1:w.x0-v.x1)<0.6*hh; })).map(w=>({xc:(w.x0+w.x1)/2-bx.x0, yc:(w.y0+w.y1)/2-bx.y0}));
                 const img=cropCanvas(r.canvas, r.canvas.width, r.canvas.height, q, LIMIT.viewLong, 2);
-                pages.push({n:i+1, pdfPage:n, method:'text', words:ws, glue:true, skew:false, image:img, scale:img.width/(bx.x1-bx.x0), side:g.side}); }); usedRegions=regs; }
+                pages.push({n:i+1, pdfPage:n, method:'text', words:ws, glue:true, skew:false, image:img, scale:img.width/(bx.x1-bx.x0), side:g.side, cuts}); }); usedRegions=regs; }
             else pages.push({n, method:'text', words:p.words, layout:p.layout, image:r.canvas, scale:r.scale});
           } else {
             // a scanned page is drawn larger than it is read, then reduced like a photo (sharper than drawing it at size)
@@ -1164,7 +1181,7 @@
 .cohrd-full canvas{display:block;margin:0 auto;background:#fff;}
 .cohrd-full .cohts-btn{position:fixed;top:8px;right:8px;z-index:1;}
 
-.cohrd-adj{position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:10050;background:rgba(8,10,16,.94);display:flex;flex-direction:column;color:var(--t1,#eee);font:500 13px Barlow,sans-serif;-webkit-user-select:none;user-select:none;overflow:hidden;}
+.cohrd-adj{position:fixed;inset:0;top:0;right:0;bottom:0;left:0;z-index:10050;background:#0b0d14;display:flex;flex-direction:column;color:var(--t1,#eee);font:500 13px Barlow,sans-serif;-webkit-user-select:none;user-select:none;overflow:hidden;}
 .cohrd-adj-hd{display:flex;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border,#333);background:var(--panel,#1e1e28);flex:none;}
 .cohrd-adj-hd div{flex:1;min-width:0;line-height:1.35;color:var(--t2,#aaa);font-size:12px;}
 .cohrd-adj-hd b{display:block;color:var(--t1,#eee);font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;}
@@ -1197,16 +1214,18 @@
 .cohrd-adj-tilt output{width:46px;text-align:right;font:700 13px 'Barlow Condensed',sans-serif;color:var(--t1,#eee);}
 .cohrd-adj-row{display:flex;gap:6px;flex-wrap:wrap;}
 .cohrd-adj-row .cohts-btn{flex:1;white-space:nowrap;}
-.cohrd-adj-go{display:flex;gap:8px;margin-top:auto;padding-top:4px;}
+.cohrd-adj-go{display:flex;gap:8px;margin-top:auto;padding:8px 0 2px;position:-webkit-sticky;position:sticky;bottom:-12px;background:var(--panel,#1e1e28);z-index:1;}
 .cohrd-adj-go .cohts-btn{flex:1;padding:9px 10px;font-size:14px;}
 .cohrd-adj-hint{font-size:11.5px;line-height:1.4;color:var(--t2,#aaa);}
-@media (max-width:760px){
+@media (max-width:900px),(max-aspect-ratio:1/1){
 .cohrd-adj-body{flex-direction:column;}
-.cohrd-adj-wrap{padding:22px 8px 8px;flex:1 1 46%;}
-.cohrd-adj-side{width:auto;border-left:0;border-top:1px solid var(--border,#333);flex:0 1 auto;max-height:52%;padding:9px 10px;gap:7px;}
-.cohrd-adj-prev{height:110px;}
-.cohrd-adj-hd div span{display:none;}
+.cohrd-adj-wrap{padding:24px 8px 10px;flex:1 1 50%;}
+.cohrd-adj-side{width:auto;border-left:0;border-top:1px solid var(--border,#333);flex:0 1 auto;max-height:50%;padding:9px 10px 10px;gap:8px;}
+.cohrd-adj-go{bottom:-10px;}
+.cohrd-adj-prev{height:120px;}
+.cohrd-adj-hint{display:none;}
 }
+@media (max-width:520px){ .cohrd-adj-hd div span{display:none;} .cohrd-adj-prev{height:96px;} .cohrd-adj-lbl{font-size:9.5px;} }
 `;
     document.head.appendChild(st);
   }
