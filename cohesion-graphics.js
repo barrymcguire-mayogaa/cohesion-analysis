@@ -1569,10 +1569,13 @@ async function dashExportPDF(){
   }
 
   // ── substitutions (numbers as recorded in the XML; names added from the team sheet) ──
-  const subEv=ALL.filter(e=>/\bSUB\b/i.test(e.code||'')&&(e.labels||{})['Sub Detail']);
+  // through the shared reader (cohesion-labels.js cohSubInOut): "OUT #13 Name → IN #18 Name" when a name is known
+  // (explicit Player Out / Player In, the row's two players, or Sub Detail + the team sheet), else the stored Sub Detail
+  const subTxt=e=>{ if(typeof cohSubInOut!=='function') return (window.cohTS&&window.cohTS.subDetailFor(GAME,e))||''; const io=cohSubInOut(e, GAME); return ((io.out&&io.out.name)||(io.in&&io.in.name))?cohSubText(io).replace(' → ', ', '):''; };   // (the PDF's built-in font has no arrow)
+  const subEv=ALL.filter(e=>/\bSUB\b/i.test(e.code||'')&&((e.labels||{})['Sub Detail']||subTxt(e)));
   if(subEv.length){
     secHead('Substitutions');
-    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,(window.cohTS&&window.cohTS.subDetailFor(GAME,e))||(e.labels||{})['Sub Detail']||'']);   // names beside the numbers when the game's team sheet has them (display only)
+    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,subTxt(e)||(e.labels||{})['Sub Detail']||'']);
     doc.autoTable({ startY:y, margin:{left:ML,right:MR},
       head:[['Time','Team','Substitution']], body:rows,
       styles:{fontSize:7.5,cellPadding:1.3},

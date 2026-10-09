@@ -343,6 +343,8 @@
 .cohts-pl b{width:20px;flex-shrink:0;text-align:right;color:var(--t2,#999);font-weight:700;font-variant-numeric:tabular-nums;}
 .cohts-pl>span:last-child{min-width:0;overflow-wrap:anywhere;}
 .cohts-pl.ph{align-items:center;}
+.cohts-sm{display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;font:700 10px Barlow,sans-serif;letter-spacing:.2px;white-space:nowrap;vertical-align:1px;border:1px solid currentColor;}
+.cohts-sm.off{color:#ef4444;} .cohts-sm.on{color:#22c55e;}
 .cohts-ph .cohts-hd,.cohts-ph .cohts-row{grid-template-columns:46px 28px minmax(0,1fr) 86px 28px;}
 .cohts-ph .cohts-sug{left:86px;}
 .cohts-phb{width:28px;height:28px;display:flex;align-items:center;justify-content:center;}
@@ -354,6 +356,9 @@
 .cohts-pgh{padding:6px 12px 3px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#777);background:var(--card,#252530);}
 .cohts-pi{padding:8px 12px;font:600 13.5px Barlow,sans-serif;cursor:pointer;border-bottom:1px solid var(--border,#333);}
 .cohts-pi:hover,.cohts-pi.on{background:var(--accent,#4fc3f7);color:#fff;}
+.cohts-pno{float:right;margin-left:12px;font-weight:600;color:var(--t3,#888);opacity:.75;font-variant-numeric:tabular-nums;}
+.cohts-pno.unk{opacity:.5;}
+.cohts-pi:hover .cohts-pno,.cohts-pi.on .cohts-pno{color:#fff;opacity:.85;}
 `;
     document.head.appendChild(st);
   }
@@ -596,7 +601,11 @@
     const colHtml=side=>{
       const g=T.groups(game, side), nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
       const colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
-      const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}</span></div>`;
+      // substituted players (o.events = the game's events): "off 52'" on the player taken off, "on 52'" on the one
+      // brought on — only players the shared reader names (cohesion-labels.js cohSubMarks) and this sheet lists
+      const marks=(o.events&&typeof cohSubMarks==='function')?cohSubMarks(o.events, game, side):null;
+      const mark=r=>{ const l=marks&&marks.get(T.nameKey(r.name)); return l?l.map(x=>` <small class="cohts-sm ${x.type}">${esc(x.text)}</small>`).join(''):''; };
+      const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}${mark(r)}</span></div>`;
       const any=g.start.length+g.sub.length+g.other.length;
       return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(colr)}"></i><span>${esc(nm)}</span></div>`+
         (any?(g.start.map(line).join('')+
@@ -624,11 +633,14 @@
       const done=v=>{ if(ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
       const draw=()=>{
         const q=T.nameKey(inp.value); vis=[]; let h='';
+        const anyNo=(o.sections||[]).some(sec=>(sec.items||[]).some(it=>{ const L=String(it.label), tail='. '+it.value; return L.length>tail.length&&L.slice(-tail.length)===tail; }));
         (o.sections||[]).forEach(sec=>{
           const items=(sec.items||[]).filter(it=>!q||T.nameKey(it.label).includes(q)||T.nameKey(it.value).includes(q));
           if(!items.length) return;
           if(sec.label) h+=`<div class="cohts-pgh">${esc(sec.label)}</div>`;
-          items.forEach(it=>{ h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${esc(it.label)}</div>`; vis.push(it.value); });
+          items.forEach(it=>{ const L=String(it.label), tail='. '+it.value, no=L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):'';
+            const num=anyNo?`<span class="cohts-pno${no===''?' unk':''}">#${no===''?'..':esc(no)}</span>`:'';   // "#6" faded on the right; "#.." = no number known
+            h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${num}${esc(anyNo?it.value:it.label)}</div>`; vis.push(it.value); });
         });
         list.innerHTML=h||'<div class="cohts-pnone" style="padding:10px 12px;">No match — “Use typed name” keeps what you typed.</div>';
         idx=-1;

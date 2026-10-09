@@ -42,6 +42,13 @@ window.COHESION_LABEL_GROUPS = [
   // (meta.keepers — see cohesionKeeperAt) when a kickout is tagged.
   { name: 'Kickout Taken By', options: [], players: true, playersTeam: 'own',
     appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
+  // players:true + playersTeam:'own' + sub — a SUBSTITUTION's two players, both of the row's team: the player
+  // going OFF, then the player coming ON (the Sportscode template's order). SUB rows only: a code ending in
+  // SUB / SUBS / SUBSTITUTION / BLOOD SUB. Read through cohSubInOut (cohesion-labels.js), which also understands
+  // a row's two player labels and the Tracker's 'Sub Detail'; the pick lists offer the players on the pitch
+  // (Player Out) / on the bench (Player In) at that moment first (cohSubState).
+  { name: 'Player Out', options: [], players: true, playersTeam: 'own', sub: 'out', appliesTo: /(^|\s)(SUBS?|SUBSTITUTIONS?)\s*$/ },
+  { name: 'Player In',  options: [], players: true, playersTeam: 'own', sub: 'in',  appliesTo: /(^|\s)(SUBS?|SUBSTITUTIONS?)\s*$/ },
   { name: 'Foul Areas', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bFOULS?\b/ },
   { name: 'Foul Outcomes', options: ['DISSENT', '50M FREE', 'BREACH'], appliesTo: /\bFOULS?\b/ },
   { name: 'Card Outcomes', options: ['YELLOW CARD', 'BLACK CARD', 'RED CARD'], appliesTo: /\bCARDS?\b/ },
