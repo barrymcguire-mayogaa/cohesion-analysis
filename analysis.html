@@ -6588,7 +6588,7 @@ function pyAssistHTML(A, R, V){
   if(!A.rows.length) return h+`<div class="tt-empty">${A.total?'n/a — none of these '+A.total+' shots has an Assist tag.':'No shots.'}</div></div>`;
   h+='<div class="py-scroll"><table class="tt-ztab py-astab"><thead><tr><th scope="col">PLAYER NAME</th><th scope="col">1PT</th><th scope="col">2PT</th><th scope="col">G</th><th scope="col">TOTAL</th><th scope="col">SHOT</th><th scope="col">SCORE</th></tr></thead><tbody>'
     +A.rows.map(r=>`<tr><th scope="row">${ssEsc(r.name)}</th><td>${r.one}</td><td>${r.two}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.shots}</td><td>${r.score}</td></tr>`).join('')+'</tbody></table></div>';
-  return h+`<div class="dnote">${ssEsc('The '+(A.count>PY_TOP?'top '+PY_TOP+' of '+A.count:A.count)+' player'+(A.count===1?'':'s')+' who assisted '+(V.player?V.player.name:R.team+'’s shots')+', from the Assist tag ('+A.tagged+' of '+A.total+' shots carry one). 1PT, 2PT and G are the assisted scores of that value and TOTAL is their sum; SHOT is every assisted shot, scored or not; SCORE is the assisted scores as goals-points.')}</div></div>`;
+  return h+`<div class="dnote">${ssEsc('The '+(A.count>PY_TOP?'top '+PY_TOP+' of '+A.count:A.count)+' player'+(A.count===1?'':'s')+' who assisted '+(V.player?V.player.name:R.team+'’s shots')+', from the Assist tag or the shot’s assist row ('+A.tagged+' of '+A.total+' shots carry one). 1PT, 2PT and G are the assisted scores of that value and TOTAL is their sum; SHOT is every assisted shot, scored or not; SCORE is the assisted scores as goals-points.')}</div></div>`;
 }
 function pyShootHTML(R, V, F){
   const Zs=V.zones, n=V.shots.length;
