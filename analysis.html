@@ -6423,7 +6423,7 @@ function pyTableHTML(R, S, sel, shown, col){
 function pySelBarHTML(R, V, F){
   const names=pySort(R.players, 'name', 'asc');
   return '<div class="py-selbar"><div class="py-selbox"><label for="pySel">SELECTED PLAYER</label><div class="py-selin">'
-    +`<input type="text" id="pySel" list="pyNames" placeholder="All ${ssEsc(R.team)} players — type or pick a name" value="${V.player?ssEsc(V.player.name):''}" autocomplete="off" spellcheck="false">`
+    +`<input type="text" id="pySel" list="pyNames" placeholder="All players — type or pick a name" value="${V.player?ssEsc(V.player.name):''}" autocomplete="off" spellcheck="false">`
     +`<datalist id="pyNames">${names.map(p=>`<option value="${ssEsc(p.name)}"></option>`).join('')}</datalist>`
     +`<button type="button" class="py-clear" data-pyclear="1" aria-label="Clear the selected player"${V.player?'':' disabled'}>✕</button></div></div>`
     +'<div class="py-chipbox"><span>FILTER</span><div class="chips" role="group" aria-label="Shot filters">'
@@ -6509,7 +6509,8 @@ function pyKoMapSVG(kos, T){
 function pyKoKeyHTML(T){
   const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
   return '<div class="tt-key tt-mkey">'+`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
-    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`, ssEsc('Won by '+T))}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span></div>`;
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`, ssEsc('Won by '+T))}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span>`
+    +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag (see Team Trends › Kickouts)')}</span></div>`;
 }
 function pyKoCardHTML(k, R, o){
   let h=tkKoCardHTML(k, R, o); const w=k&&k.who; if(!h||!w) return h;
