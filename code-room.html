@@ -4102,7 +4102,7 @@ async function crKprSubCheck(e){
   const lead='<b>'+esc(out)+'</b> is the '+esc(T)+' goalkeeper and is going off for <b>'+esc(inn)+'</b>.<br><br>'
     +'Kickouts from '+fmt(t)+(nx?' to '+fmt(nx.from)+' (then '+esc(nx.player)+')':' to the end of the game')+', by where each clip ends:<br>';
   const r=await crKprAsk(D, {title:esc(out+' is the goalkeeper. Make '+inn+' the keeper from '+fmt(t)+'?'), lead,
-    no:'No — nothing changes', yes:'Yes — '+inn+' in goal'+(n?', change '+crKprN(n):'')+(D.other.length?' + any ticked':''),
+    no:'No — nothing changes', yes:'Yes — change keeper'+(n?' + '+crKprN(n):'')+(D.other.length?' + any ticked':''),
     onYes:()=>{ const l=crKprRows(side), row=l.find(x=>x.from===t); if(row) row.player=crNameTidy(inn); else l.push({from:t, player:crNameTidy(inn)}); crKprRows(side); crAssistRemember(side, crNameTidy(inn)); }});
   crKpr.asked[id]=r.v;
   if(r.v==='yes'){
