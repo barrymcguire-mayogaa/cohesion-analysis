@@ -606,7 +606,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -660,7 +660,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
@@ -1334,6 +1334,34 @@ function crRowCmp(a,b){
 // canonical order / the team colour.
 function crFileRank(){ const m=new Map(); ((GAME&&Array.isArray(GAME.rows))?GAME.rows:[]).forEach((r,i)=>{ if(r&&r.code&&!m.has(r.code)) m.set(r.code, i); }); return m; }
 let crRowColCache={rows:0, map:new Map()};
+// A renamed row keeps its place and colour in the file's row list (GAME.rows). The rename is applied in memory at
+// once and written to the game's meta with the session save (re-read, change only `rows`, like the keepers).
+let crRowPend=[];                                    // [[old, new], …] since the last save
+function crFileRowsRename(oc, nc){
+  if(!GAME||!Array.isArray(GAME.rows)||!oc||!nc||oc===nc) return false;
+  if(!GAME.rows.some(r=>r&&r.code===oc)) return false;
+  GAME.rows=crRowsApplyRename(GAME.rows, oc, nc);    // a NEW array: the colour cache is keyed on it
+  crRowPend.push([oc, nc]); return true;
+}
+// the old row takes the new name where it stands; if the file already lists the new name, the old entry drops out
+function crRowsApplyRename(rows, oc, nc){
+  const has=rows.some(r=>r&&r.code===nc);
+  return has?rows.filter(r=>!(r&&r.code===oc)):rows.map(r=>(r&&r.code===oc)?Object.assign({}, r, {code:nc}):r);
+}
+function crRowPendN(){ return (!GAME||GAME._local)?0:crRowPend.length; }
+async function crRowsMetaSaveAll(){
+  if(!crRowPendN()) return;
+  let j; try{ j=await cohesionRead({action:'gameBundle', id:GAME.id}); }
+  catch(e){ throw new Error('row names not saved — could not re-read the game ('+e.message+')'); }
+  let fresh=j&&j.meta; if(typeof fresh==='string'){ try{ fresh=JSON.parse(fresh); }catch(_){ fresh=null; } }
+  if(!fresh||typeof fresh!=='object') throw new Error('row names not saved — could not read the game\'s current metadata');
+  if(Array.isArray(fresh.rows)){
+    let rows=fresh.rows; crRowPend.forEach(([oc,nc])=>{ if(rows.some(r=>r&&r.code===oc)) rows=crRowsApplyRename(rows, oc, nc); });
+    try{ await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:GAME.id, meta:Object.assign({}, fresh, {rows})}); }
+    catch(e){ throw new Error('row names not saved ('+e.message+')'); }
+  }
+  crRowPend=[]; crUpdatePending();
+}
 function crRowColours(){ const rows=(GAME&&GAME.rows)||null; if(crRowColCache.rows!==rows) crRowColCache={rows, map:cohRowColours(GAME)}; return crRowColCache.map; }
 // the colour an event is drawn in: its own, else its row's colour in the file, else the team default
 function crEvColour(e){ return (e&&e.color)||crRowColours().get((e&&e.code)||'')||crTeamColor(e); }
@@ -2819,7 +2847,7 @@ function crClone(e){ return JSON.parse(JSON.stringify(e)); }
 //    leave prompt). Existing rows edited get _dirty; new rows get _new and a
 //    temp _rowId; deleted existing rows go to crDeleted. Nothing hits the DB
 //    until save. ─────────────────────────────────────────────────────────────
-function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0 || crAAPendingN()>0 || crKprPendingN()>0; }
+function crHasPending(){ return crDeleted.length>0 || Object.keys(crRec).length>0 || EVENTS.some(e=>e._new||e._dirty) || crRosterPendingN()>0 || crAAPendingN()>0 || crKprPendingN()>0 || crRowPendN()>0; }
 function crPendingCount(){ return crDeleted.length + EVENTS.filter(e=>e._new||e._dirty).length + crRosterPendingN() + crAAPendingN() + crKprPendingN(); }
 function crUpdatePending(){
   const gl=document.getElementById('gameLine'); if(gl&&GAME) gl.textContent=`${GAME.title||GAME.id} — ${EVENTS.length} events`;
@@ -2892,6 +2920,7 @@ async function crSaveAll(){
   await crSaveRoster();                            // queued "+ add to team sheet" names (gameAdmin updateMeta)
   await crAASaveAll();                             // unsaved "Align this angle" start times (gameAdmin updateMeta)
   await crKprSaveAll();                            // unsaved goalkeeper spells (gameAdmin updateMeta)
+  await crRowsMetaSaveAll();                       // renamed rows keep their place / colour in the file's row list (gameAdmin updateMeta)
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
@@ -3129,12 +3158,14 @@ function baseCodeOf(code){
 function codeRenameBase(oldBase,newBase){
   oldBase=String(oldBase||'').trim(); newBase=String(newBase||'').trim().toUpperCase();
   if(!oldBase||!newBase||oldBase===newBase) return false;
+  const moved=new Map();
   EVENTS.forEach(e=>{
     const b=baseCodeOf(e.code);
     if(b!==oldBase) return;
-    e.code=e.code.slice(0, e.code.length-oldBase.length)+newBase;
+    const oc=e.code; e.code=e.code.slice(0, e.code.length-oldBase.length)+newBase; moved.set(oc, e.code);
     if(!e._new) e._dirty=true;
   });
+  moved.forEach((nc,oc)=>crFileRowsRename(oc, nc));   // each team's row keeps its place / colour in the file's row list
   const mv=(o)=>{ if(oldBase in o){ o[newBase]=o[oldBase]; delete o[oldBase]; } };
   mv(codeColorPref); saveCodeColors();
   // Carry the effective duration setting through the rename — a default-duration
@@ -3157,12 +3188,19 @@ function codeRenameBase(oldBase,newBase){
 }
 // Full-code rename (double-click a timeline row name): that exact code only.
 function crRenameFullCode(oldFull){
-  const v=(prompt('Rename event "'+oldFull+'" to:',oldFull)||'').trim().toUpperCase();
+  const v=(prompt('Rename event "'+oldFull+'" to:',oldFull)||'').replace(/\s+/g,' ').trim();   // kept as typed (no forced capitals)
   if(!v||v===oldFull) return;
-  EVENTS.forEach(e=>{ if(e.code===oldFull){ e.code=v; if(!e._new) e._dirty=true; } });
-  const swap=c=>c===oldFull?v:c;
-  crRowOrder=crRowOrder.map(swap); crExtraRows=crExtraRows.map(swap); crRowsSave();
-  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); buildCodePanel();
+  if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; }   // never overwrite a saved row order we haven't read
+  const evs=EVENTS.filter(e=>e.code===oldFull);
+  // one Undo puts the events, the row order, the extra rows and the file's row list back
+  undoStack.push({type:'bulkedit', snaps:evs.map(e=>({id:e._rowId, data:crClone(e)})), rowOrder:crRowOrder.slice(), extraRows:crExtraRows.slice(), fileRows:GAME&&GAME.rows, rowPend:crRowPend.length});
+  evs.forEach(e=>{ e.code=v; if(!e._new) e._dirty=true; });
+  const merge=l=>l.includes(v)?l.filter(c=>c!==oldFull):l.map(c=>c===oldFull?v:c);   // a name that already has a row keeps that row
+  crRowOrder=merge(crRowOrder); crExtraRows=merge(crExtraRows); crRowsSave();
+  crFileRowsRename(oldFull, v);
+  if(String(crActiveRow)===String(oldFull)) crActiveRow=v;
+  if(draft&&evs.some(e=>String(e._rowId)===String(activeId))) draft.code=v;
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); buildCodePanel(); if(!codeMode.on) renderPanel();
   if(crView==='tl') crDrawTL();
 }
 // ── Per-button editor: rename · lead/lag override · keyboard shortcut ──
@@ -4924,7 +4962,7 @@ function crFRApply(ids){
   if(!evs.length) return {events:0,matches:0};
   if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; }   // never overwrite a saved row order we haven't read
   const rowOrder0=crRowOrder.slice();
-  undoStack.push({type:'bulkedit', snaps:evs.map(e=>({id:e._rowId, data:crClone(e)})), rowOrder:rowOrder0});
+  undoStack.push({type:'bulkedit', snaps:evs.map(e=>({id:e._rowId, data:crClone(e)})), rowOrder:rowOrder0, fileRows:GAME&&GAME.rows, rowPend:crRowPend.length});
   const renamed={}; let matches=0;
   evs.forEach(e=>{ const oc=e.code||''; matches+=crFRProcess(e,re,o,true); if((e.code||'')!==oc) renamed[oc]=e.code; });
   // Timeline row order: a code that no longer exists hands its saved slot to
@@ -4933,6 +4971,7 @@ function crFRApply(ids){
   Object.entries(renamed).forEach(([oc,nc])=>{
     if(present.has(oc)) return;
     crRowOrder=crRowOrder.includes(nc)?crRowOrder.filter(c=>c!==oc):crRowOrder.map(c=>c===oc?nc:c);
+    crFileRowsRename(oc, nc);
   });
   if(crRowOrder.join('\u0001')!==rowOrder0.join('\u0001')) crRowsSave();
   crFRRefreshPage();
@@ -6129,7 +6168,9 @@ function undo(){
     draft=null;
   } else if(op.type==='bulkedit'){
     op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
+    if(op.extraRows) crExtraRows=op.extraRows.slice();
     if(op.rowOrder){ crRowOrder=op.rowOrder.slice(); crRowsSave(); }   // Find & Replace code renames
+    if('fileRows' in op&&GAME){ if(op.fileRows) GAME.rows=op.fileRows; crRowPend.length=Math.min(crRowPend.length, op.rowPend||0); }   // a renamed row's place / colour in the file's row list
     draft=null;
   } else if(op.type==='addmany'){                 // e.g. Gaelic Insights conversion
     const ids=new Set(op.rowIds.map(String));
