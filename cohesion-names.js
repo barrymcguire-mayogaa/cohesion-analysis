@@ -159,10 +159,19 @@
     return has?rows.filter(r=>!(r&&r.code===oc)):rows.map(r=>(r&&r.code===oc)?Object.assign({}, r, {code:nc}):r);
   }
 
+  function rowsAddCopy(rows, oc, nc){
+    if(rows.some(r=>r&&r.code===nc)) return rows;
+    const out=[]; rows.forEach(r=>{ out.push(r); if(r&&r.code===oc) out.push(Object.assign({}, r, {code:nc})); }); return out;
+  }
+
   // ── the walk over a game's meta ───────────────────────────────
   // Same contract as walkEvents. Changes are made on `meta` and returned as pieces
   // [{field:'rosters.home'|'keepers.away'|'playerRoster.teamA'|'rows', before, after}] — only fields that changed.
-  function walkMeta(meta, ctx, index, fn){
+  // ev (optional): {codes: the row codes that are this team's player rows on the game's events (before any change),
+  //                 still: the codes events carry AFTER the rename} — a row-list entry follows the events: it is
+  //                 renamed where it stands, or — when another row (the other team's player of the same name, an
+  //                 old row with no team) still uses the old code — it stays and a copy with the new name is added.
+  function walkMeta(meta, ctx, index, fn, ev){
     const pieces=[];
     const piece=(field, holder, k, work)=>{ const before=holder[k], after=work(clone(before));
       if(!same(before, after)){ pieces.push({field, before:clone(before), after:clone(after)}); holder[k]=after; } };
@@ -181,17 +190,18 @@
     if(Array.isArray(meta.rows)) piece('rows', meta, 'rows', rows=>{
       const ren=[];
       rows.forEach((r,i)=>{ if(!r||typeof r.code!=='string'||!r.code) return;
-        const p=index.get(L.cohNameKey(r.code)); if(!p||p.team==null) return;            // not a player's row
-        const n=fn({kind:'rowsMeta', team:up(p.team), name:r.code, group:'', pos:i}); if(typeof n==='string'&&n!==r.code) ren.push([r.code, n]); });
-      let out=rows; ren.forEach(x=>{ out=rowsApplyRename(out, x[0], x[1]); });
+        const p=index.get(L.cohNameKey(r.code)), t=(ev&&ev.codes&&ev.codes.has(r.code))?ctx.T:(p&&p.team!=null)?up(p.team):null;
+        if(t==null) return;                                                              // not a player's row
+        const n=fn({kind:'rowsMeta', team:t, name:r.code, group:'', pos:i}); if(typeof n==='string'&&n!==r.code&&!ren.some(x=>x[0]===r.code)) ren.push([r.code, n]); });
+      let out=rows; ren.forEach(x=>{ out=(ev&&ev.still&&ev.still.has(x[0]))?rowsAddCopy(out, x[0], x[1]):rowsApplyRename(out, x[0], x[1]); });
       return out; });
     return pieces;
   }
 
   // A kickout winner with no outcome ('?') is this team's only when the name is known for it and not for the other.
   function knownKeys(meta, rows, ctx, index){
-    const K={}; K[ctx.T]=new Set(); K[ctx.O]=new Set();
-    const fn=s=>{ if(s.team&&s.team!=='?'&&K[s.team]) K[s.team].add(pkey(s.name)); };
+    const K={codes:new Set()}; K[ctx.T]=new Set(); K[ctx.O]=new Set();
+    const fn=s=>{ if(s.team&&s.team!=='?'&&K[s.team]) K[s.team].add(pkey(s.name)); if(s.kind==='rowCode'&&s.team===ctx.T) K.codes.add(s.name); };
     walkEvents(meta, rows, ctx, index, fn); walkMeta(clone(meta), ctx, index, fn);
     return K;
   }
@@ -221,7 +231,7 @@
       if(SELF[s.kind]){ let set=selfEv.get(s.name); if(!set){ set=new Set(); selfEv.set(s.name, set); } set.add(s.id); return; }
       r.n[COUNT_OF[s.kind]]++; r.uses++;
       if(s.kind==='sheet'&&s.no&&!r.nos.includes(s.no)) r.nos.push(s.no); };
-    walkEvents(meta, rows, ctx, index, fn); walkMeta(clone(meta), ctx, index, fn);
+    walkEvents(meta, rows, ctx, index, fn); walkMeta(clone(meta), ctx, index, fn, {codes:known.codes});
     selfEv.forEach((set, n)=>{ const r=rec(n); r.n.player=set.size; r.uses+=set.size; });
     return {id:meta.id, side:ctx.side, T:ctx.T, O:ctx.O, names, left};
   }
@@ -389,7 +399,8 @@
     const S=new Set(F); S.add(target);
     const warnings=target&&F.size?warningsOf(m2, r2, ctx, index, known, S, target, {opponent:0, ambiguous:0, noTeam:0}):[];   // read BEFORE the rename below
     const sets=target&&F.size?walkEvents(m2, r2, ctx, index, fn):new Map();
-    const pieces=target&&F.size?walkMeta(m2, ctx, index, fn):[];
+    const still=new Set(r2.map(r=>r.data&&r.data.code).filter(c=>typeof c==='string'));
+    const pieces=target&&F.size?walkMeta(m2, ctx, index, fn, {codes:known.codes, still}):[];
     const lw=leftNotes(left);
     const data=new Map(); r2.forEach(r=>{ if(sets.has(r.id)) data.set(r.id, r.data); });
     const all=warnings.concat(lw);
