@@ -355,6 +355,8 @@
 .cohts-plist{border:1px solid var(--border,#333);border-radius:10px;max-height:min(380px,52vh);overflow-y:auto;margin:10px 0 12px;}
 .cohts-pgh{padding:6px 12px 3px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#777);background:var(--card,#252530);}
 .cohts-pi{padding:8px 12px;font:600 13.5px Barlow,sans-serif;cursor:pointer;border-bottom:1px solid var(--border,#333);}
+.cohts-pi.tm{background:var(--tc);}
+.cohts-pi.tm .cohts-pno{color:var(--t2,#bbb);opacity:.85;}
 .cohts-pi:hover,.cohts-pi.on{background:var(--accent,#4fc3f7);color:#fff;}
 .cohts-pno{float:right;margin-left:12px;font-weight:600;color:var(--t3,#888);opacity:.75;font-variant-numeric:tabular-nums;}
 .cohts-pno.unk{opacity:.5;}
@@ -637,10 +639,13 @@
         (o.sections||[]).forEach(sec=>{
           const items=(sec.items||[]).filter(it=>!q||T.nameKey(it.label).includes(q)||T.nameKey(it.value).includes(q));
           if(!items.length) return;
+          // a light wash of the section's team colour (sec.color), so the two teams' players read apart
+          let tint=''; { let hx=String(sec.color||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(hx)) hx=hx.replace(/./g,c=>c+c);
+            if(/^[0-9a-f]{6}$/i.test(hx)) tint='rgba('+parseInt(hx.slice(0,2),16)+','+parseInt(hx.slice(2,4),16)+','+parseInt(hx.slice(4,6),16)+',.2)'; }
           if(sec.label) h+=`<div class="cohts-pgh">${esc(sec.label)}</div>`;
           items.forEach(it=>{ const L=String(it.label), tail='. '+it.value, no=L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):'';
             const num=anyNo?`<span class="cohts-pno${no===''?' unk':''}">#${no===''?'..':esc(no)}</span>`:'';   // "#6" faded on the right; "#.." = no number known
-            h+=`<div class="cohts-pi${it.value===o.current?' on':''}" data-v="${vis.length}">${num}${esc(anyNo?it.value:it.label)}</div>`; vis.push(it.value); });
+            h+=`<div class="cohts-pi${tint?' tm':''}${it.value===o.current?' on':''}" data-v="${vis.length}"${tint?` style="--tc:${tint}"`:''}>${num}${esc(anyNo?it.value:it.label)}</div>`; vis.push(it.value); });
         });
         list.innerHTML=h||'<div class="cohts-pnone" style="padding:10px 12px;">No match — “Use typed name” keeps what you typed.</div>';
         idx=-1;

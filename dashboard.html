@@ -947,9 +947,10 @@ function dashPickPlayer(ev, current){
   const sections=[];
   sides.forEach(sd=>{
     const tn=(sd==='home'?GAME.homeTeam:GAME.awayTeam)||sd, sheet=cohTS.orderedNames(GAME, sd), on=new Set(sheet.map(cohTS.nameKey));
-    if(sheet.length) sections.push({label:tn+' · team sheet', items:sheet.map(n=>({value:n, label:cohTS.label(GAME, sd, n)}))});
+    const tcol=(sd==='home'?GAME.homeColor:GAME.awayColor)||(sd==='home'?'#2563eb':'#22c55e');
+    if(sheet.length) sections.push({label:tn+' · team sheet', color:tcol, items:sheet.map(n=>({value:n, label:cohTS.label(GAME, sd, n)}))});
     const rest=dashTeamNames(sd).filter(n=>!on.has(cohTS.nameKey(n)));
-    if(rest.length) sections.push({label:tn+' · this game', items:rest.map(n=>({value:n, label:n}))});
+    if(rest.length) sections.push({label:tn+' · this game', color:tcol, items:rest.map(n=>({value:n, label:n}))});
   });
   return cohTS.pick({title:'Assign player', message:[tc(ev.code), ev.gameTime].filter(Boolean).join(' @ '), sections, current});
 }

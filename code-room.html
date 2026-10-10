@@ -134,6 +134,9 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .acdrop::-webkit-scrollbar{width:10px;-webkit-appearance:none;}
 .acdrop::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:0 8px 8px 0;}
 .acdrop::-webkit-scrollbar-thumb{background:var(--accent);border-radius:6px;border:2px solid var(--panel);min-height:28px;}
+.acdrop div.tm{background:var(--tc);}
+.acdrop div.tm .acno{color:var(--t2);opacity:.85;}
+.acdrop div.tm .acno.unk{opacity:.6;}
 .acdrop div:hover,.acdrop div.on{background:var(--accent);color:#fff;}
 .acdrop .actag{float:right;margin-left:10px;font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);padding-top:3px;}
 .acdrop div:hover .actag,.acdrop div.on .actag{color:#fff;}
@@ -2696,6 +2699,19 @@ function crPlayers(){
   const out=(GAME&&window.cohTS)?cohTS.sheetFirst(GAME,'',l):l;   // team-sheet players first (number order); no sheet → unchanged
   out.crPlayerList=true; return out;
 }
+// Player pick lists are tinted with a light wash of each player's TEAM colour, so the two teams read apart at a glance.
+// A name on both teams' lists (or on neither) gets no tint.
+function crTintOf(hex, a){
+  let h=String(hex||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(h)) h=h.replace(/./g,c=>c+c);
+  if(!/^[0-9a-f]{6}$/i.test(h)) return '';
+  return 'rgba('+parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16)+','+a+')';
+}
+function crNameSides(){
+  const m=new Map(); if(!GAME) return m;
+  ['home','away'].forEach(sd=>{ let names=[]; try{ names=crSheetNames(sd).concat(crGameNames(sd)); }catch(_){}
+    names.forEach(n=>{ const k=crNameKey(n).replace(/['‘’‛ʼ`´]/g,''); if(!k) return; const was=m.get(k); m.set(k, was&&was!==sd?'both':sd); }); });
+  return m;
+}
 let acInput=null, acPick=null, acItems=[], acIdx=-1;
 function acNoop(){}
 function acPickCode(v){ setDraftCode(v); renderPanel(); }
@@ -2718,10 +2734,13 @@ function acShow(input, options, onPick, opt){
   // numbered player, one with no known number reads "#.." (a late change to the programme)
   const noOf=o=>{ if(!lab) return ''; const L=String(lab(o)), tail='. '+o; return L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):''; };
   const anyNo=!!lab&&options.some(o=>o&&noOf(o)!=='');
+  const sides=lab?crNameSides():null, tintOf=o=>{ if(!sides) return ''; const sd=sides.get(crNameKey(o).replace(/['‘’‛ʼ`´]/g,'')); if(sd!=='home'&&sd!=='away') return '';
+    return crTintOf(sd==='home'?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'), .2); };
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
     const no=anyNo?noOf(o):'', blk=show&&opt.tagBlock, tag=show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:'';
     const num=anyNo?`<span class="acno${no===''?' unk':''}" title="${no===''?'No number on the team sheet':'Team sheet number'}">#${no===''?'..':esc(no)}</span>`:'';
-    return `<div data-i="${i}">${blk?tag+num:num+tag}${esc(o)}</div>`; }).join('');
+    const tc=tintOf(o);
+    return `<div data-i="${i}"${tc?` class="tm" style="--tc:${tc}"`:''}>${blk?tag+num:num+tag}${esc(o)}</div>`; }).join('');
   const r=input.getBoundingClientRect();
   d.style.left=r.left+'px'; d.style.top=(r.bottom+3)+'px'; d.style.width=r.width+'px';
   d.style.display='block';   // explicit: .acdrop is display:none in the stylesheet, so '' would leave the list hidden
