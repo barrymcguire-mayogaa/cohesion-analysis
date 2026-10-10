@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -415,24 +415,73 @@
     const hist=new Uint32Array(256), n=bw*bh; for(let y=y0;y<y1;y++) for(let x=x0;x<x1;x++) hist[g[y*w+x]]++;
     let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i]; let sb=0, wb=0, best=-1, th=128;
     for(let i=0;i<256;i++){ wb+=hist[i]; if(!wb) continue; const wf=n-wb; if(!wf) break; sb+=i*hist[i]; const mb=sb/wb, mf=(sum-sb)/wf, q=wb*wf*(mb-mf)*(mb-mf); if(q>best){ best=q; th=i; } }
-    let ink=0, runs=0, tot=0; const cap=Math.max(3, 0.6*bh);
-    for(let y=y0;y<y1;y++){ let s=-1; for(let x=x0;x<=x1;x++){ const on=x<x1&&g[y*w+x]<=th; if(on){ ink++; if(s<0) s=x; } else if(s>=0){ const L=x-s; if(L<=cap){ runs++; tot+=L; } s=-1; } } }
-    if(!runs||ink<0.03*n||ink>0.75*n) return null;
-    return {sw:tot/runs, ink:ink/n};
+    // through every ink pixel: the shorter of the runs of ink across and down it; the average over the ink
+    const ink=new Uint8Array(n), hr=new Uint16Array(n), vr=new Uint16Array(n); let k=0;
+    for(let y=0;y<bh;y++) for(let x=0;x<bw;x++){ if(g[(y+y0)*w+x+x0]<=th){ ink[y*bw+x]=1; k++; } }
+    if(k<0.03*n||k>0.75*n) return null;
+    for(let y=0;y<bh;y++){ let s=-1; for(let x=0;x<=bw;x++){ const on=x<bw&&ink[y*bw+x]; if(on&&s<0) s=x; if(!on&&s>=0){ for(let i=s;i<x;i++) hr[y*bw+i]=x-s; s=-1; } } }
+    for(let x=0;x<bw;x++){ let s=-1; for(let y=0;y<=bh;y++){ const on=y<bh&&ink[y*bw+x]; if(on&&s<0) s=y; if(!on&&s>=0){ for(let i=s;i<y;i++) vr[i*bw+x]=y-s; s=-1; } } }
+    let tot=0; for(let i=0;i<n;i++) if(ink[i]) tot+=hr[i]<vr[i]?hr[i]:vr[i];
+    return {sw:tot/k, ink:k/n};
   }
   R.strokeWidth=strokeWidth;
+  // The number printed on a jersey. g: a grey picture of the jersey (w×h). The digits are the one or two shapes of
+  // the "other" colour in the lower middle of the shirt — white on maroon, blue on white — of a digit's size and not
+  // touching the edge. → {w, h, px (0 = ink, 255 = paper: only those shapes, with a margin), n: digits} | null
+  function digitBlob(g, w, h){
+    const top=Math.floor(0.36*h), hist=new Uint32Array(256); let n=0;
+    for(let y=top;y<h;y++) for(let x=0;x<w;x++){ hist[g[y*w+x]]++; n++; }
+    let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i]; let sb=0, wb=0, best=-1, th=128;
+    for(let i=0;i<256;i++){ wb+=hist[i]; if(!wb) continue; const wf=n-wb; if(!wf) break; sb+=i*hist[i]; const mb=sb/wb, mf=(sum-sb)/wf, q=wb*wf*(mb-mf)*(mb-mf); if(q>best){ best=q; th=i; } }
+    // the shirt is what most of the middle is
+    let dark=0, tot=0; for(let y=Math.floor(0.45*h);y<Math.floor(0.95*h);y++) for(let x=Math.floor(0.3*w);x<Math.floor(0.7*w);x++){ tot++; if(g[y*w+x]<=th) dark++; }
+    if(!tot) return null; const inkDark=dark<tot/2;
+    const bin=new Uint8Array(w*h); for(let y=top;y<h;y++) for(let x=0;x<w;x++){ const d=g[y*w+x]<=th; if(d===inkDark) bin[y*w+x]=1; }
+    const lab=new Int32Array(w*h), par=[0], find=x=>{ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; };
+    for(let y=top;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x; if(!bin[i]) continue; const A=x&&bin[i-1]?lab[i-1]:0, U=y>top&&bin[i-w]?lab[i-w]:0;
+      if(A&&U){ const a=find(A), q=find(U); if(a!==q) par[Math.max(a,q)]=Math.min(a,q); lab[i]=Math.min(a,q); } else if(A||U) lab[i]=A||U; else { par.push(par.length); lab[i]=par.length-1; } }
+    const C=new Map();
+    for(let y=top;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x; if(!bin[i]) continue; const c=find(lab[i]); lab[i]=c; let q=C.get(c); if(!q){ q={id:c,x0:x,x1:x,y0:y,y1:y,a:0}; C.set(c,q); } q.a++; if(x<q.x0) q.x0=x; if(x>q.x1) q.x1=x; if(y>q.y1) q.y1=y; }
+    const cand=[...C.values()].filter(q=>{ const ch=q.y1-q.y0+1, cw=q.x1-q.x0+1, xc=(q.x0+q.x1)/2, yc=(q.y0+q.y1)/2;
+      return ch>=0.2*h&&ch<=0.6*h&&cw<=0.42*w&&cw>=0.04*w&&cw<=1.1*ch&&q.x0>1&&q.x1<w-2&&q.y1<h-1&&q.y0>top&&xc>0.15*w&&xc<0.85*w&&yc>0.5*h&&q.a>=0.18*cw*ch; });
+    if(!cand.length) return null;
+    cand.sort((a,b)=>Math.abs((a.x0+a.x1)/2-w/2)-Math.abs((b.x0+b.x1)/2-w/2));
+    const first=cand[0], fh=first.y1-first.y0+1, pick=[first];
+    const mate=cand.slice(1).filter(q=>{ const qh=q.y1-q.y0+1, ov=Math.min(q.y1,first.y1)-Math.max(q.y0,first.y0), gap=q.x0>first.x1?q.x0-first.x1:first.x0-q.x1; return qh>0.7*fh&&qh<1.4*fh&&ov>0.6*Math.min(qh,fh)&&gap>=0&&gap<0.7*fh; })
+      .sort((a,b)=>Math.abs((a.x0+a.x1)/2-w/2)-Math.abs((b.x0+b.x1)/2-w/2))[0];
+    if(mate) pick.push(mate);
+    const ids=new Set(pick.map(q=>q.id)), x0=Math.min.apply(null,pick.map(q=>q.x0)), x1=Math.max.apply(null,pick.map(q=>q.x1)), y0=Math.min.apply(null,pick.map(q=>q.y0)), y1=Math.max.apply(null,pick.map(q=>q.y1));
+    const m=Math.round(0.45*(y1-y0+1)), ow=x1-x0+1+2*m, oh=y1-y0+1+2*m, px=new Uint8Array(ow*oh).fill(255);
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){ if(ids.has(lab[y*w+x])) px[(y-y0+m)*ow+(x-x0+m)]=0; }
+    return {w:ow, h:oh, px, n:pick.length};
+  }
+  R.digitBlob=digitBlob;
   // the words read inside one box → its lines, top to bottom: [{text, conf, weight (stroke width), box, words}]
   function boxLines(words){
     const ws=prep(words).filter(w=>/[A-Za-zÀ-ɏ0-9]/.test(w.text)); if(!ws.length) return [];
-    const H=med(ws.map(w=>w.h))||1, rows=[];
-    ws.slice().sort((a,b)=>a.yc-b.yc).forEach(w=>{ const r=rows[rows.length-1];
-      if(r&&Math.abs(w.yc-r.yc)<0.55*H){ r.ws.push(w); r.yc=r.ws.reduce((t,x)=>t+x.yc,0)/r.ws.length; } else rows.push({ws:[w], yc:w.yc}); });
-    return rows.map(r=>{ r.ws.sort((a,b)=>a.x0-b.x0);
-      const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length, cf=r.ws.filter(w=>w.conf!=null&&lt(w)).map(w=>w.conf);
+    const rows=[];
+    // words that share most of their height are one line (a tilted line, a word with a tail below the line)
+    // the engine's own lines, where it gave them (a box is read by itself): its word boxes are not always tight
+    if(ws.every(w=>w.ln!=null)){ const m=new Map(); ws.forEach(w=>{ if(!m.has(w.ln)) m.set(w.ln,{ws:[], y0:0, y1:0}); m.get(w.ln).ws.push(w); });
+      m.forEach(r=>{ const s=r.ws.slice().sort((a,b)=>a.yc-b.yc); r.y0=r.y1=s[s.length>>1].yc; rows.push(r); }); }
+    else ws.slice().sort((a,b)=>a.yc-b.yc).forEach(w=>{ let best=null, bo=0;
+      rows.forEach(r=>{ const ov=(Math.min(w.y1,r.y1)-Math.max(w.y0,r.y0))/Math.min(w.h,r.y1-r.y0); if(ov>bo){ bo=ov; best=r; } });
+      if(best&&bo>0.5){ best.ws.push(w); const s=best.ws.slice().sort((a,b)=>a.y0-b.y0), e=best.ws.slice().sort((a,b)=>a.y1-b.y1); best.y0=s[s.length>>1].y0; best.y1=e[e.length>>1].y1; }
+      else rows.push({ws:[w], y0:w.y0, y1:w.y1}); });
+    rows.sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1));
+    const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length;
+    let L=rows.map(r=>{ r.ws.sort((a,b)=>a.x0-b.x0);
+      // scraps at either end of a line (the edge of the box read as a letter or two)
+      while(r.ws.length>1&&(lt(r.ws[0])<3&&r.ws[0].conf!=null&&r.ws[0].conf<50&&!/^[ÓO]$/.test(r.ws[0].text))) r.ws.shift();
+      while(r.ws.length>1&&(lt(r.ws[r.ws.length-1])<3&&r.ws[r.ws.length-1].conf!=null&&r.ws[r.ws.length-1].conf<50&&!/^\(/.test(r.ws[r.ws.length-1].text))) r.ws.pop();
+      const cf=r.ws.filter(w=>w.conf!=null&&lt(w)).map(w=>w.conf);
       let ws2=0, wn=0; r.ws.forEach(w=>{ const k=lt(w); if(k>=2&&w.sw!=null){ ws2+=w.sw*k; wn+=k; } });
-      return {text:r.ws.map(w=>w.text).join(' '), letters:r.ws.reduce((t,w)=>t+lt(w),0), conf:cf.length?Math.min.apply(null,cf):null, weight:wn?ws2/wn:null, words:r.ws,
+      return {text:r.ws.map(w=>w.text).join(' '), letters:r.ws.reduce((t,w)=>t+lt(w),0), conf:cf.length?Math.min.apply(null,cf):null, mean:cf.length?cf.reduce((a,b)=>a+b,0)/cf.length:null, weight:wn?ws2/wn:null, words:r.ws,
         box:{x0:Math.min.apply(null,r.ws.map(w=>w.x0)), y0:Math.min.apply(null,r.ws.map(w=>w.y0)), x1:Math.max.apply(null,r.ws.map(w=>w.x1)), y1:Math.max.apply(null,r.ws.map(w=>w.y1))}}; })
       .filter(l=>l.letters>=3);
+    // more than three lines: the ones the reader could make nothing of (the rim of the box, the hem of the jersey) go
+    while(L.length>3){ const bad=L.map((l,i)=>({i, m:l.mean==null?100:l.mean})).filter(x=>x.m<45).sort((a,b)=>a.m-b.m)[0]; if(!bad) break; L.splice(bad.i,1); }
+    return L;
   }
   R.boxLines=boxLines;
   R.BOLD=1.15;                                    // a line whose strokes are this much wider than any other line of its box is the bold one
@@ -506,7 +555,7 @@
     const H=o.H, z={x0:Math.max(0,c.x0-1.2*H), y0:Math.max(0,c.y0-c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+c.pitch)};
     return (z.x1-z.x0>8*H&&z.y1-z.y0>3*H)?z:null;
   };
-  R.CLUB=1.18;
+  R.CLUB=1.12;
   // "16. Connor Gleeson Dún Mór Mhic Éil": the name in bold, the club after it in lighter (italic) type on the same line.
   // Where the first words of the lines are clearly heavier than their last words, each line is cut where the heavy
   // words stop; the tail goes to line.tail. A cut that is not clear-cut marks the line (line.unsure).
@@ -522,11 +571,10 @@
     const half=Math.log(B/L)/2, midv=Math.sqrt(B*L); let cut=0, unsure=0;
     rows.forEach(r=>{ const n=r.ws.length, s=r.ws.map(w=>(w.sw==null||lt(w)<2)?0:Math.max(-1.5,Math.min(1.5,Math.log(w.sw/midv)/half)));
       // the cut that best divides heavy words (before it) from light ones (after it); a name has at least one word
-      let bk=n, bv=-Infinity; for(let k=1;k<=n;k++){ let v=0; for(let i=0;i<n;i++) v+=i<k?s[i]:-s[i]; if(v>bv+1e-9){ bv=v; bk=k; } }
-      let sure=true;
+      let bk=n, bv=-Infinity, second=-Infinity; for(let k=1;k<=n;k++){ let v=0; for(let i=0;i<n;i++) v+=i<k?s[i]:-s[i]; if(v>bv+1e-9){ second=bv; bv=v; bk=k; } else if(v>second) second=v; }
+      let sure=n===1||bv-second>=0.5;                                           // moving the cut one word either way must clearly be worse
       // "Daniel Ó | Flaherty": a name does not end on a particle
       while(bk<n&&PARTICLE.test(r.ws[bk-1].text.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase())&&/^[A-ZÀ-Þ]/.test(r.ws[bk].text)){ bk++; sure=false; }
-      for(let i=0;i<n;i++){ if(lt(r.ws[i])<2) continue; const v=i<bk?s[i]:-s[i]; if(v<0.3) sure=false; }
       if(bk<2) sure=false;                                                      // a name of one word
       if(bk===n&&n>3) sure=false;                                               // no club found on a line of many words
       const l=r.l, name=r.ws.slice(0,bk), tail=r.ws.slice(bk);
@@ -1195,10 +1243,68 @@
         await job.race(Promise.race([failed, worker.setParameters(params||{})]));
         const r=await job.race(Promise.race([failed, worker.recognize(canvas, {}, {text:true, blocks:true, hocr:false, tsv:false})]));
         st.phase='ready';
-        const d=r&&r.data||{}; let ws=d.words;
-        if(!ws){ ws=[]; (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>ws.push(w))))); }
-        return ws.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
-      }, close };
+        const d=r&&r.data||{}; let ws=[], ln=0;                                  // .ln: which of the engine's own lines a word is on
+        (d.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>{ ln++; (l.words||[]).forEach(w=>{ if(w&&w.bbox) ws.push({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1, ln}); }); })));
+        if(!ws.length&&d.words) ws=d.words.filter(w=>w&&w.bbox).map(w=>({text:w.text, conf:w.confidence, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1}));
+        return ws;
+      },
+      async set(params){ await job.race(Promise.race([failed, worker.setParameters(params||{})])); },
+      close };
+  }
+
+  // ── a page of name boxes (jersey + three lines): each box read by itself ──
+  // the lowest of the colour channels: a white box on green grass is light, the grass is not
+  function minChannel(view){ const d=view.getContext('2d').getImageData(0,0,view.width,view.height).data, o=new Uint8Array(view.width*view.height); for(let i=0,j=0;j<o.length;i+=4,j++){ const a=d[i], b=d[i+1], c=d[i+2]; o[j]=a<b?(a<c?a:c):(b<c?b:c); } return o; }
+  // a part of the picture enlarged k times, in grey (stretch: to full contrast; inv: light on dark turned dark on light)
+  function zoomed(view, b, k, o){
+    o=o||{}; const x0=Math.max(0,Math.round(b.x0)), y0=Math.max(0,Math.round(b.y0)), x1=Math.min(view.width,Math.round(b.x1)), y1=Math.min(view.height,Math.round(b.y1));
+    const c=canvasOf((x1-x0)*k,(y1-y0)*k), g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(view, x0,y0,x1-x0,y1-y0, 0,0,c.width,c.height);
+    const im=g.getImageData(0,0,c.width,c.height), d=im.data, n=c.width*c.height, grey=new Uint8Array(n); let lo=255, hi=0;
+    for(let i=0,j=0;j<n;i+=4,j++){ const v=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8; grey[j]=v; if(v<lo) lo=v; if(v>hi) hi=v; }
+    const sp=hi-lo; for(let i=0,j=0;j<n;i+=4,j++){ let v=grey[j]; if(o.stretch&&sp>20) v=Math.round((v-lo)*255/sp); if(o.inv) v=255-v; grey[j]=v; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    g.putImageData(im,0,0);
+    return {canvas:c, grey, w:c.width, h:c.height, x0, y0, k:c.width/Math.max(1,x1-x0), ky:c.height/Math.max(1,y1-y0)};
+  }
+  const backTo=(z, ws)=>ws.map(v=>{ const s=R.strokeWidth(z.grey, z.w, z.h, v); return {text:v.text, conf:v.conf, ln:v.ln, x0:z.x0+v.x0/z.k, x1:z.x0+v.x1/z.k, y0:z.y0+v.y0/z.ky, y1:z.y0+v.y1/z.ky, sw:s?s.sw/z.k:null}; });
+  const P6={tessedit_pageseg_mode:'6', thresholding_method:'0', tessedit_char_whitelist:''};
+  // the number on the jersey over a box: the middle of the jersey, enlarged, digits only, as it is and inverted → {no, conf} | null
+  async function readJersey(eng, view, b){
+    const w=b.x1-b.x0, h=b.y1-b.y0, cx=(b.x0+b.x1)/2, zone={x0:cx-0.17*w, x1:cx+0.17*w, y0:b.y0-0.68*h, y1:b.y0-0.04*h};
+    if(zone.y0<0||zone.x0<0||zone.x1>view.width) return null;
+    const z=zoomed(view, zone, Math.max(2, Math.min(6, 150/Math.max(1,zone.y1-zone.y0))), {stretch:true}); if(R._dbg) b.jdbg=[dbg(z)];
+    const d=R.digitBlob(z.grey, z.w, z.h); if(!d) return null;
+    // only the digit shapes, black on white, at a size the reader likes
+    const c0=canvasOf(d.w,d.h), g0=c0.getContext('2d'), im=g0.createImageData(d.w,d.h); for(let i=0;i<d.w*d.h;i++){ im.data[4*i]=im.data[4*i+1]=im.data[4*i+2]=d.px[i]; im.data[4*i+3]=255; } g0.putImageData(im,0,0);
+    const k=72/d.h, c=canvasOf(d.w*k,d.h*k), g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.drawImage(c0,0,0,c.width,c.height);
+    const ws=await eng.pass(c, {tessedit_pageseg_mode:'8', thresholding_method:'0', tessedit_char_whitelist:'0123456789'});
+    let best=null; ws.forEach(v=>{ const t=String(v.text||'').trim(); if(/^\d{1,2}$/.test(t)&&+t>=1&&(!best||v.conf>best.conf)) best={no:+t, conf:v.conf}; });
+    return best;
+  }
+  R.JERSEY=true; R.BOXES=true; R.SUBZOOM=true;
+  const b64=u=>{ let t=''; for(let i=0;i<u.length;i+=8192) t+=String.fromCharCode.apply(null,u.subarray(i,i+8192)); return btoa(t); };
+  const dbg=(z,ws)=>({w:z.w, h:z.h, k:z.k, x0:z.x0, y0:z.y0, grey:b64(z.grey), words:ws||null});   // R._dbg: the measuring scripts keep what was read
+  // pg = {words (the whole picture's), …}: finds the boxes, reads each one, the jerseys, and the subs list again enlarged → pg.boxes
+  async function readBoxes(eng, view, work, pg){
+    const t0=performance.now(), W=view.width, H=view.height, T={};
+    const mc=minChannel(view); if(R._dbg) pg.mdbg={w:W, h:H, grey:b64(mc)};
+    const cand=R.findBoxes(mc, W, H).boxes; pg.found=cand.length; T.find=Math.round(performance.now()-t0);
+    if(cand.length<R.BOXMIN) return;
+    const boxes=[]; let t=performance.now();
+    for(const b of cand){ const hh=b.y1-b.y0, z=zoomed(view, {x0:b.x0+0.02*hh, y0:b.y0+0.02*hh, x1:b.x1-0.02*hh, y1:b.y1-0.02*hh}, Math.max(1.5, Math.min(4, 300/hh)));
+      const raw=await eng.pass(z.canvas, P6); boxes.push({x0:b.x0, y0:b.y0, x1:b.x1, y1:b.y1, words:backTo(z, raw), jersey:null}); if(R._dbg) boxes[boxes.length-1].dbg=dbg(z, raw); }
+    T.boxes=Math.round(performance.now()-t);
+    if(boxes.filter(b=>{ const L=R.boxLines(b.words); return L.length>=2&&L.length<=4; }).length<R.BOXMIN){ await eng.set({tessedit_char_whitelist:''}); return; }
+    t=performance.now();
+    if(R.JERSEY){ for(const b of boxes) b.jersey=await readJersey(eng, view, b); await eng.set({tessedit_char_whitelist:''}); }
+    T.jersey=Math.round(performance.now()-t); t=performance.now();
+    // the numbered list (the subs) again, enlarged and by itself: its letters are small on the whole page
+    const zone=R.SUBZOOM?R.subsZone(pg.words, boxes, W, H):null;
+    if(zone){ const z=zoomed(view, zone, Math.max(1.3, Math.min(3, 1900/(zone.x1-zone.x0)))), raw=await eng.pass(z.canvas, P6), ws=backTo(z, raw); if(R._dbg) pg.zdbg=dbg(z, raw);
+      pg.words=pg.words.filter(w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return !(xc>=zone.x0&&xc<=zone.x1&&yc>=zone.y0&&yc<=zone.y1); }).concat(ws); pg.zone=zone; }
+    else { const g=work.getContext('2d').getImageData(0,0,work.width,work.height).data, grey=new Uint8Array(work.width*work.height); for(let i=0,j=0;j<grey.length;i+=4,j++) grey[j]=g[i];
+      pg.words.forEach(w=>{ const s=R.strokeWidth(grey, work.width, work.height, w); w.sw=s?s.sw:null; }); }
+    T.subs=Math.round(performance.now()-t);
+    pg.boxes=boxes; pg.boxTimes=T;
   }
 
   // ── PDF (pdf.js) ──────────────────────────────────────────────
@@ -1281,7 +1387,9 @@
         const eng=await getOcr();
         for(let i=0;i<regs.length;i++){ const view=cropCanvas(src, W, H, regs[i]), work=greyStretch(view); await tick();
           const words=await eng.read(work, i+1, regs.length);
-          pages.push({n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped, width:view.width, height:view.height}); }
+          const pg={n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped, width:view.width, height:view.height};
+          if(R.BOXES) await readBoxes(eng, view, work, pg);
+          pages.push(pg); }
         usedRegions=regs;
       };
       if(kind==='pdf'){
@@ -1361,7 +1469,7 @@
         res.redeal=first=>{ const r=R.deal(comp, side, Object.assign({first}, ctx)); res.home=r.home; res.away=r.away; res.assign=r.assign; return res; };
       }
       const methods=[...new Set(pages.map(p=>p.method))];
-      res.pages=pages.map(p=>({n:p.n, method:p.method, image:p.image, scale:p.scale, side:p.side, model:p.model, pdfPage:p.pdfPage}));
+      res.pages=pages.map(p=>({n:p.n, method:p.method, image:p.image, scale:p.scale, side:p.side, model:p.model, pdfPage:p.pdfPage, stats:p.stats, boxTimes:p.boxTimes}));
       res.regions=usedRegions; res.pdfPages=kind==='pdf'?[...new Set(pages.map(p=>p.pdfPage||p.n))]:null;
       res.more=comp.more; res.extra=comp.extra.length;
       res.source={name:String(file.name||''), kind:kind==='pdf'?'pdf':'image', method:methods.length>1?'mixed':methods[0],
