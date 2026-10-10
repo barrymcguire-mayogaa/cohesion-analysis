@@ -343,12 +343,12 @@
     (rows||[]).forEach(r=>{ const e=r&&r.data; if(!e) return; const one={id:r.id, data:e}, got=[];
       walkEvents(meta, [one], ctx, index, s=>{ if(S.has(s.name)&&slotTeam(s, known, ctx)===ctx.T) got.push(s); });
       if(!got.length) return;
-      const selfNames=[...new Set(got.filter(s=>SELF[s.kind]&&s.kind!=='label').map(s=>s.name))];
+      const selfNames=[]; got.filter(s=>SELF[s.kind]&&s.kind!=='label').forEach(s=>{ if(!selfNames.some(n=>pkey(n)===pkey(s.name))) selfNames.push(s.name); });
       const roles=got.filter(s=>!(SELF[s.kind]&&s.kind!=='label'));           // label values and the named roles: one each
       // the row's own player repeats his label value — count him once
       selfNames.forEach(n=>{ if(!roles.some(s=>s.kind==='label'&&pkey(s.name)===pkey(n))) roles.push({kind:'player', name:n}); });
-      const distinct=[...new Set(roles.map(s=>s.name))];
-      if(distinct.length>=2){ sameN++; if(!sameTxt){ const a=roles.find(s=>s.name===distinct[0]), b=roles.find(s=>s.name===distinct[1]);
+      const distinct=[...new Set(roles.map(s=>pkey(s.name)))];          // spellings the Players tab already counts as one are not a clash
+      if(distinct.length>=2){ sameN++; if(!sameTxt){ const a=roles.find(s=>pkey(s.name)===distinct[0]), b=roles.find(s=>pkey(s.name)===distinct[1]);
         sameTxt='At '+clock(e)+' ('+tidy(e.code)+') '+q(a.name)+' is '+ROLE[a.kind]+' and '+q(b.name)+' is '+ROLE[b.kind]+' on the same event'; } }
       got.filter(s=>SELF[s.kind]).forEach(s=>{ if(!self.some(x=>x.e===e&&x.name===s.name)) self.push({e, name:s.name}); });
     });
@@ -357,12 +357,16 @@
     const t0=e=>+(e.start!=null?e.start:e.driveT)||0, t1=e=>+(e.end!=null?e.end:t0(e))||0;
     let ovN=0, ovTxt='';
     for(let i=0;i<self.length&&ovN<50;i++) for(let j=i+1;j<self.length;j++){
-      const a=self[i], b=self[j]; if(a.e===b.e||a.name===b.name) continue;
+      const a=self[i], b=self[j]; if(a.e===b.e||pkey(a.name)===pkey(b.name)) continue;
       if(!((L.cohIsShotRow(a.e)&&L.cohIsShotRow(b.e))||(a.e.code===b.e.code&&!a.e.playerRow))) continue;
       if(Math.min(t1(a.e), t1(b.e))-Math.max(t0(a.e), t0(b.e))<=0) continue;
       ovN++; if(!ovTxt) ovTxt=q(a.name)+' ('+tidy(a.e.code)+', '+clock(a.e)+') and '+q(b.name)+' ('+tidy(b.e.code)+', '+clock(b.e)+') are tagged at the same time';
     }
     if(ovN) add('strong', 'overlap', ovTxt+(ovN>1?' (and '+(ovN-1)+' more like it)':'')+' — one player cannot be in both.', ovN);
+    return W.concat(leftNotes(left));
+  }
+  function leftNotes(left){
+    const W=[], add=(level, code, text, n)=>W.push({level, code, text, n:n||1});
     if(left.opponent) add('info', 'opponent', 'The other team has a player with one of these names in this game ('+left.opponent+' place'+(left.opponent===1?'':'s')+') — left alone.', left.opponent);
     if(left.ambiguous) add('info', 'ambiguous', left.ambiguous+' kickout winner label'+(left.ambiguous===1?'':'s')+' with no kickout outcome: the team cannot be told, so '+(left.ambiguous===1?'it is':'they are')+' left alone.', left.ambiguous);
     if(left.noTeam) add('info', 'noTeam', left.noTeam+' place'+(left.noTeam===1?'':'s')+' where the name is on a row with no team — left alone.', left.noTeam);
@@ -383,13 +387,167 @@
       if(t===ctx.T){ counts[s.kind]=(counts[s.kind]||0)+1; return target; }
       if(t===ctx.O) left.opponent++; else if(t==='?') left.ambiguous++; else left.noTeam++; };
     const S=new Set(F); S.add(target);
-    const warnings=target&&F.size?warningsOf(m2, r2, ctx, index, known, S, target, {opponent:0, ambiguous:0, noTeam:0}):[];
+    const warnings=target&&F.size?warningsOf(m2, r2, ctx, index, known, S, target, {opponent:0, ambiguous:0, noTeam:0}):[];   // read BEFORE the rename below
     const sets=target&&F.size?walkEvents(m2, r2, ctx, index, fn):new Map();
     const pieces=target&&F.size?walkMeta(m2, ctx, index, fn):[];
-    const lw=warningsOf({}, [], ctx, index, known, new Set(), target, left).filter(w=>w.level==='info');
+    const lw=leftNotes(left);
     const data=new Map(); r2.forEach(r=>{ if(sets.has(r.id)) data.set(r.id, r.data); });
     const all=warnings.concat(lw);
     return {id:meta.id, title:meta.title||'', date:meta.date||'', opp:(ctx.side==='home'?meta.awayTeam:meta.homeTeam)||'', side:ctx.side,
       events:[...sets.entries()].map(x=>({id:x[0], sets:x[1]})), data, counts, pieces, meta:m2, warnings:all, left, strong:all.some(w=>w.level==='strong')};
   }
   const planEmpty=p=>!p||(!p.events.length&&!p.pieces.length);
+
+  // ── log + undo ────────────────────────────────────────────────
+  // A log is what makes a merge reversible (names and ids only):
+  //   {v:1, id, at, by, team, from:[…], target, status:'running'|'partial'|'applied'|'undone'|'partly undone',
+  //    games:[{id, title, date, events:[{id, sets:[{p, old, new}]}], meta:[{field, before, after}]}],
+  //    photo:[{action:'rename'|'delete'|'kept'|'failed', from, to?, done?, note?}]}
+  // Entries are written BEFORE the save they describe (so a save that went through but was never answered is
+  // still covered): undo treats a value that still equals `old` as "nothing to do".
+  function newLog(team, from, target, by){
+    return {v:1, id:'merge-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6), at:new Date().toISOString(), by:by||'', team, from:(from||[]).slice(), target:tidy(target), status:'running', games:[], photo:[]};
+  }
+  function logGame(log, plan){
+    let g=log.games.find(x=>String(x.id)===String(plan.id));
+    if(!g){ g={id:plan.id, title:plan.title, date:plan.date, events:[], meta:[]}; log.games.push(g); }
+    return g;
+  }
+  function logEvents(g, changes){
+    changes.forEach(c=>{ let ev=g.events.find(x=>String(x.id)===String(c.id)); if(!ev){ ev={id:c.id, sets:[]}; g.events.push(ev); }
+      c.sets.forEach(s=>{ if(!ev.sets.some(x=>same(x, {p:s.p, old:s.old, new:s.new}))) ev.sets.push({p:s.p.slice(), old:clone(s.old), new:clone(s.new)}); }); });
+  }
+  function logMeta(g, pieces){ pieces.forEach(p=>{ if(!g.meta.some(x=>same(x, p))) g.meta.push(clone(p)); }); }
+  const at=(o, p)=>{ let v=o; for(const k of p){ if(v==null||typeof v!=='object'||!own(v, k)) return undefined; v=v[k]; } return v; };
+  const put=(o, p, v)=>{ let h=o; for(let i=0;i<p.length-1;i++) h=h[p[i]]; h[p[p.length-1]]=v; };
+  // One game of a log against the game as it is NOW. Restores exactly the logged values on exactly the logged
+  // events: a value that is no longer what the merge wrote was changed by someone since — it is SKIPPED.
+  // -> {ops:[{id, data}], restored, already, skipped:[{id, field, expected, found}],
+  //     meta:{merged|null, restored:[field], already:[field], skipped:[field]}}
+  function undoGame(g, meta, rows){
+    const res={ops:[], restored:0, already:0, skipped:[], meta:{merged:null, restored:[], already:[], skipped:[]}};
+    const byId=new Map((rows||[]).map(r=>[String(r.id), r]));
+    (g.events||[]).forEach(ev=>{ const r=byId.get(String(ev.id));
+      if(!r||!r.data){ ev.sets.forEach(s=>res.skipped.push({id:ev.id, field:s.p.join(' › '), expected:s.new, found:null, why:'the event no longer exists'})); return; }
+      const d=clone(r.data); let n=0;
+      ev.sets.slice().reverse().forEach(s=>{ const cur=at(d, s.p);
+        if(same(cur, s.new)){ put(d, s.p, clone(s.old)); n++; res.restored++; }
+        else if(same(cur, s.old)) res.already++;
+        else res.skipped.push({id:ev.id, field:s.p.join(' › '), expected:s.new, found:cur===undefined?null:cur, why:'changed since the merge'}); });
+      if(n) res.ops.push({id:r.id, data:d}); });
+    const m=clone(meta)||{}; let ch=false;
+    (g.meta||[]).slice().reverse().forEach(p=>{ const path=p.field.split('.'), cur=at(m, path);
+      if(same(cur, p.after)){ put(m, path, clone(p.before)); ch=true; res.meta.restored.push(p.field); }
+      else if(same(cur, p.before)) res.meta.already.push(p.field);
+      else res.meta.skipped.push(p.field); });
+    if(ch) res.meta.merged=m;
+    return res;
+  }
+
+  // ── photos ────────────────────────────────────────────────────
+  // photos: {photoKey:{name}} of the team (playerPhotos list), from: the spellings being replaced (most used
+  // first), target. -> [{action:'rename', from, to} | {action:'clash', from, with}] — at most ONE rename; a photo
+  // is never put over another one.
+  //   rename  the old spelling has a photo and the correct one has none (or it is the same photo key and only
+  //           the name shown on it changes)
+  //   clash   both have a photo: the correct spelling's stays; the other is left (or deleted, if the user says so)
+  function photoPlan(photos, from, target){
+    photos=photos||{}; const tk=fkey(target), out=[], seen=new Set(); let taken=!!photos[tk];
+    (from||[]).forEach(f=>{ const k=fkey(f); if(!k||seen.has(k)||!photos[k]) return; seen.add(k);
+      if(k===tk){ if(photos[k].name!==tidy(target)) out.push({action:'rename', from:f, to:tidy(target), sameKey:true}); return; }
+      if(taken) out.push({action:'clash', from:f, with:photos[tk]?photos[tk].name:tidy(target)});
+      else { out.push({action:'rename', from:f, to:tidy(target)}); taken=true; } });
+    return out;
+  }
+
+  // ── runners (the only part that saves — through io) ───────────
+  // io = { bundle(id) -> {meta, events:[{id, data}]}        the game, FRESH (cohesionRead gameBundle)
+  //        saveEvents(ops) -> {results:[{ref, ok, error}]}  cohesionEventBatch
+  //        saveMeta(id, meta)                               gameAdmin updateMeta (whole meta)
+  //        photos(team) -> {photoKey:{name}}                playerPhotos list
+  //        photoRename(team, from, to) · photoDelete(team, name)
+  //        saveLog(log)                                     keep the log (called after every step) }
+  const CHUNK=100;
+  async function saveChanges(io, changes, dataOf){
+    for(let i=0;i<changes.length;i+=CHUNK){
+      const part=changes.slice(i, i+CHUNK), res=await io.saveEvents(part.map(c=>({action:'update', id:c.id, data:dataOf(c), ref:c.id})));
+      const bad=((res&&res.results)||[]).filter(r=>!r.ok);
+      if(bad.length||!res||!Array.isArray(res.results)||res.results.length!==part.length) throw new Error((bad.length||part.length)+' event(s) were not saved'+(bad[0]&&bad[0].error?' ('+bad[0].error+')':''));
+    }
+  }
+  // job = {team, from, target, order:[game ids], done:[ids], failed:null|{id, error}, photoChoice:{spelling:'keep'|'delete'}, log}
+  function newJob(team, from, target, order, by, photoChoice){
+    return {team, from:(from||[]).slice(), target:tidy(target), order:(order||[]).slice(), done:[], failed:null, photoChoice:photoChoice||{}, log:newLog(team, from, target, by)};
+  }
+  async function mergeOne(job, id, io){
+    let b=await io.bundle(id);                                        // FRESH: nothing edited meanwhile is overwritten
+    let plan=planGame(b.meta, b.events, job.team, job.from, job.target);
+    if(planEmpty(plan)) return {events:0, meta:0};
+    const g=logGame(job.log, plan), n=plan.events.length;
+    if(n){
+      logEvents(g, plan.events); io.saveLog(job.log);
+      await saveChanges(io, plan.events, c=>plan.data.get(c.id));
+      b=await io.bundle(id);                                          // read back: the names are there, and the meta is as it is NOW
+      plan=planGame(b.meta, b.events, job.team, job.from, job.target);
+      if(!plan||plan.events.length) throw new Error((plan?plan.events.length:n)+' event(s) still carry the old name after saving');
+    }
+    if(plan.pieces.length){ logMeta(g, plan.pieces); io.saveLog(job.log); await io.saveMeta(id, plan.meta); }
+    return {events:n, meta:plan.pieces.length};
+  }
+  // Game by game; stops at the first game that fails (job.failed says which) — call again with the same job to
+  // resume: games in job.done are not touched again, the failed one is planned afresh.
+  // -> {ok, done:[ids], failed:{id, error}|null, notDone:[ids]}
+  async function runMerge(job, io, progress){
+    progress=progress||function(){}; job.failed=null; job.log.status='running';
+    for(let i=0;i<job.order.length;i++){ const id=job.order[i]; if(job.done.includes(id)) continue;
+      progress({step:'game', id, i, n:job.order.length});
+      try{ const r=await mergeOne(job, id, io); job.done.push(id); progress({step:'done', id, i, n:job.order.length, r}); }
+      catch(e){ job.failed={id, error:(e&&e.message)||String(e)}; job.log.status='partial'; io.saveLog(job.log);
+        return {ok:false, done:job.done.slice(), failed:job.failed, notDone:job.order.filter(x=>!job.done.includes(x))}; }
+      io.saveLog(job.log);
+    }
+    progress({step:'photo'});
+    try{
+      const ph=photoPlan(await io.photos(job.team), job.from, job.target);
+      for(const a of ph){
+        if(a.action==='rename'){ const ent={action:'rename', from:a.from, to:a.to, sameKey:!!a.sameKey, done:false}; job.log.photo.push(ent); io.saveLog(job.log);
+          try{ await io.photoRename(job.team, a.from, a.to); ent.done=true; }
+          catch(e){ if(/already has a photo/i.test((e&&e.message)||'')){ ent.action='kept'; ent.note='the correct spelling already had a photo'; } else { ent.action='failed'; ent.note=(e&&e.message)||String(e); } } }
+        else if(job.photoChoice[a.from]==='delete'){ const ent={action:'delete', from:a.from, done:false}; job.log.photo.push(ent);
+          try{ await io.photoDelete(job.team, a.from); ent.done=true; }catch(e){ ent.action='failed'; ent.note=(e&&e.message)||String(e); } }
+        else job.log.photo.push({action:'kept', from:a.from, note:'the correct spelling already had a photo'});
+      }
+    }catch(e){ job.log.photo.push({action:'failed', from:'', note:'photos could not be read ('+((e&&e.message)||e)+')'}); }
+    job.log.status='applied'; io.saveLog(job.log);
+    return {ok:true, done:job.done.slice(), failed:null, notDone:[]};
+  }
+  // Undo a merge from its log. Re-reads every game first. Safe to run again after a failure.
+  // -> {ok, restored, already, skipped:[{game, id, field, expected, found, why}], metaSkipped:[{game, field}], photo:[text], failed:{id, error}|null}
+  async function runUndo(log, io, progress){
+    progress=progress||function(){};
+    const out={ok:true, restored:0, already:0, skipped:[], metaRestored:0, metaSkipped:[], photo:[], failed:null};
+    const games=(log.games||[]).slice().reverse();
+    for(let i=0;i<games.length;i++){ const g=games[i]; progress({step:'game', id:g.id, i, n:games.length});
+      try{
+        const b=await io.bundle(g.id), u=undoGame(g, b.meta, b.events);
+        if(u.ops.length) await saveChanges(io, u.ops, c=>c.data);
+        if(u.meta.merged) await io.saveMeta(g.id, u.meta.merged);
+        out.restored+=u.restored; out.already+=u.already; out.metaRestored+=u.meta.restored.length;
+        u.skipped.forEach(s=>out.skipped.push(Object.assign({game:g.title||g.id}, s)));
+        u.meta.skipped.forEach(f=>out.metaSkipped.push({game:g.title||g.id, field:f}));
+      }catch(e){ out.ok=false; out.failed={id:g.id, title:g.title, error:(e&&e.message)||String(e)}; return out; }
+    }
+    for(const p of (log.photo||[]).slice().reverse()){
+      if(p.action==='rename'&&p.done){ try{ await io.photoRename(log.team, p.to, p.from); p.done=false; out.photo.push('Photo moved back to “'+p.from+'”.'); }
+        catch(e){ out.photo.push('The photo could not be moved back to “'+p.from+'” ('+((e&&e.message)||e)+') — use Player Photos.'); } }
+      else if(p.action==='delete'&&p.done) out.photo.push('The photo of “'+p.from+'” was deleted in the merge and cannot be brought back — upload it again in Player Photos.');
+    }
+    log.status=(out.skipped.length||out.metaSkipped.length)?'partly undone':'undone'; log.undoneAt=new Date().toISOString();
+    io.saveLog(log);
+    return out;
+  }
+
+  const API={gameCtx, groupInfo, walkEvents, walkMeta, sheetWork, rowsApplyRename, scanGame, teamNames, bestSpelling, groupsOf, dist, nameParts, suggest,
+    planGame, planEmpty, newLog, logGame, logEvents, logMeta, undoGame, photoPlan, newJob, mergeOne, runMerge, runUndo, tidy, CHUNK};
+  if(NODE) module.exports=API; else root.cohNames=API;
+})(typeof window!=='undefined'?window:globalThis);
