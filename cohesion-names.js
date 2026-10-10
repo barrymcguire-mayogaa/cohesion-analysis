@@ -272,12 +272,12 @@
   // short forms that are the same first name (accent-folded). Only used when the surname is the same AND nobody
   // else in the team could be meant.
   const SHORT=[['patrick','paddy','pat','padraig','padraic','podge','paudie'], ['michael','mick','mike','mikey','micheal','mickey'], ['thomas','tom','tommy','tomas'],
-    ['james','jim','jimmy','jamie','seamus'], ['joseph','joe','joey'], ['daniel','dan','danny'], ['matthew','matt','mattie'], ['christopher','chris','christy'],
-    ['robert','rob','robbie','bob','bobby'], ['william','will','willie','bill','billy'], ['edward','ed','eddie','eamon','eamonn'], ['gerard','ger','gerry','gearoid'],
+    ['james','jim','jimmy','jamie'], ['joseph','joe','joey'], ['daniel','dan','danny'], ['matthew','matt','mattie'], ['christopher','chris','christy'],
+    ['robert','rob','robbie','bob','bobby'], ['william','will','willie','bill','billy'], ['edward','ed','eddie'], ['gerard','ger','gerry','gearoid'],
     ['david','dave','davy','daithi'], ['stephen','steven','steve','stevie'], ['andrew','andy'], ['anthony','tony'], ['nicholas','nick','nicky'], ['alexander','alex'],
     ['benjamin','ben'], ['samuel','sam'], ['joshua','josh'], ['oliver','ollie'], ['charles','charlie'], ['kevin','kev'], ['donal','donie','donall'], ['diarmuid','dermot','diarmaid'],
-    ['john','johnny','jack','sean'], ['peter','pete','peadar'], ['brendan','brendy'], ['cathal','charlie'], ['conor','connor','con'], ['darragh','dara','daire'], ['cillian','killian'],
-    ['ciaran','kieran'], ['niall','neil'], ['eoin','owen','eoghan'], ['aidan','aiden','aodhan'], ['rory','ruairi','ruaidhri'], ['shane','shay','shea','seaghan']];
+    ['john','johnny'], ['peter','pete','peadar'], ['brendan','brendy'], ['conor','connor','con'], ['darragh','dara','daire'], ['cillian','killian'],
+    ['ciaran','kieran'], ['niall','neil'], ['eoin','owen','eoghan'], ['aidan','aiden','aodhan'], ['rory','ruairi','ruaidhri']];
   function shortSet(first){ const i=SHORT.findIndex(s=>s.includes(first)); return i; }
   // groups: groupsOf(…). -> [{a:key, b:key, code, reason}] — every pair that LOOKS like one player.
   //   accents   the same letters once accents and punctuation are dropped                  (Seán / Sean)
@@ -312,3 +312,84 @@
     }
     return out;
   }
+
+  // ── the merge plan for one game ───────────────────────────────
+  const clock=e=>{ if(e&&e.gameTime) return String(e.gameTime); const t=Math.max(0, Math.round(+(e&&(e.start!=null?e.start:e.driveT))||0)); return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
+  const ROLE={player:'the row’s player', label:'a player on the row', plainPlayer:'the row’s player', rowCode:'the row’s name', assist:'the assist', koWon:'the kickout winner',
+    koTaken:'the kickout taker', koTarget:'the kickout target', subOut:'the player going off', subIn:'the player coming on'};
+  // Warnings, read from the game as it is BEFORE the merge. S = the spellings being merged + the correct one.
+  //   strong (the page asks for an extra confirmation): the spellings look like DIFFERENT players in this game —
+  //     sheet-numbers  two of them are on the team sheet with different numbers
+  //     same-event     two of them are on ONE event in different roles (shooter + assist, off + on, kicker + winner …)
+  //     overlap        two of them are the player of two shots, or of two rows of the same code, at the same time
+  //   warn:  sheet-merge  on the sheet twice → one entry (the number that exists is kept)
+  //   info:  opponent / ambiguous / noTeam — names that are NOT changed, and why
+  function warningsOf(meta, rows, ctx, index, known, S, target, left){
+    const W=[], add=(level, code, text, n)=>W.push({level, code, text, n:n||1});
+    const q=s=>'“'+s+'”';
+    // team sheet
+    const list=(meta.rosters&&!Array.isArray(meta.rosters)&&Array.isArray(meta.rosters[ctx.side]))?meta.rosters[ctx.side]:[];
+    const on=list.map(r=>TS.normEntry(r)).filter(ne=>ne&&S.has(ne.name));
+    if(on.length>=2&&on.some(ne=>ne.name!==target)){
+      const nums=[...new Set(on.map(ne=>ne.no).filter(Boolean))];
+      const txt=on.map(ne=>(ne.no?'#'+ne.no+' ':'')+q(ne.name)).join(' and ');
+      if(nums.length>=2){ const keep=on.find(ne=>ne.name===target)||on[0];
+        add('strong', 'sheet-numbers', txt+' are both on the team sheet with different numbers — they look like two different players. If you merge, one entry is kept'+(keep.no?' (#'+keep.no+')':'')+'.'); }
+      else add('warn', 'sheet-merge', txt+' are both on the team sheet — they become one entry'+(nums.length?' (#'+nums[0]+' kept)':'')+'.');
+    }
+    // one event, two of the spellings
+    const self=[];                                                   // [{e, name}] he is the row's player
+    let sameN=0, sameTxt='';
+    (rows||[]).forEach(r=>{ const e=r&&r.data; if(!e) return; const one={id:r.id, data:e}, got=[];
+      walkEvents(meta, [one], ctx, index, s=>{ if(S.has(s.name)&&slotTeam(s, known, ctx)===ctx.T) got.push(s); });
+      if(!got.length) return;
+      const selfNames=[...new Set(got.filter(s=>SELF[s.kind]&&s.kind!=='label').map(s=>s.name))];
+      const roles=got.filter(s=>!(SELF[s.kind]&&s.kind!=='label'));           // label values and the named roles: one each
+      // the row's own player repeats his label value — count him once
+      selfNames.forEach(n=>{ if(!roles.some(s=>s.kind==='label'&&pkey(s.name)===pkey(n))) roles.push({kind:'player', name:n}); });
+      const distinct=[...new Set(roles.map(s=>s.name))];
+      if(distinct.length>=2){ sameN++; if(!sameTxt){ const a=roles.find(s=>s.name===distinct[0]), b=roles.find(s=>s.name===distinct[1]);
+        sameTxt='At '+clock(e)+' ('+tidy(e.code)+') '+q(a.name)+' is '+ROLE[a.kind]+' and '+q(b.name)+' is '+ROLE[b.kind]+' on the same event'; } }
+      got.filter(s=>SELF[s.kind]).forEach(s=>{ if(!self.some(x=>x.e===e&&x.name===s.name)) self.push({e, name:s.name}); });
+    });
+    if(sameN) add('strong', 'same-event', sameTxt+(sameN>1?' (and '+(sameN-1)+' more like it)':'')+' — after the merge that is one player in both places.', sameN);
+    // two events at the same time
+    const t0=e=>+(e.start!=null?e.start:e.driveT)||0, t1=e=>+(e.end!=null?e.end:t0(e))||0;
+    let ovN=0, ovTxt='';
+    for(let i=0;i<self.length&&ovN<50;i++) for(let j=i+1;j<self.length;j++){
+      const a=self[i], b=self[j]; if(a.e===b.e||a.name===b.name) continue;
+      if(!((L.cohIsShotRow(a.e)&&L.cohIsShotRow(b.e))||(a.e.code===b.e.code&&!a.e.playerRow))) continue;
+      if(Math.min(t1(a.e), t1(b.e))-Math.max(t0(a.e), t0(b.e))<=0) continue;
+      ovN++; if(!ovTxt) ovTxt=q(a.name)+' ('+tidy(a.e.code)+', '+clock(a.e)+') and '+q(b.name)+' ('+tidy(b.e.code)+', '+clock(b.e)+') are tagged at the same time';
+    }
+    if(ovN) add('strong', 'overlap', ovTxt+(ovN>1?' (and '+(ovN-1)+' more like it)':'')+' — one player cannot be in both.', ovN);
+    if(left.opponent) add('info', 'opponent', 'The other team has a player with one of these names in this game ('+left.opponent+' place'+(left.opponent===1?'':'s')+') — left alone.', left.opponent);
+    if(left.ambiguous) add('info', 'ambiguous', left.ambiguous+' kickout winner label'+(left.ambiguous===1?'':'s')+' with no kickout outcome: the team cannot be told, so '+(left.ambiguous===1?'it is':'they are')+' left alone.', left.ambiguous);
+    if(left.noTeam) add('info', 'noTeam', left.noTeam+' place'+(left.noTeam===1?'':'s')+' where the name is on a row with no team — left alone.', left.noTeam);
+    return W;
+  }
+  // from: the spellings to replace (exact), target: the correct spelling. Nothing is written — the game is copied.
+  // -> {id, title, date, opp, side, events:[{id, sets:[{p, old, new}]}], data:Map(rowId -> the event after),
+  //     counts:{kind:n}, pieces:[{field, before, after}], meta (the whole meta after), warnings, left, strong}
+  //    | null when the team is not in the game.  Idempotent: planning an already-merged game changes nothing.
+  function planGame(meta, rows, team, from, target){
+    const ctx=gameCtx(meta, team); if(!ctx) return null;
+    target=tidy(target); const F=new Set((from||[]).filter(n=>n!==target));
+    const m2=clone(meta)||{}, r2=(rows||[]).map(r=>({id:r.id, data:clone(r.data)}));
+    const index=L.cohPlayerIndex(r2.map(r=>r.data), m2), known=knownKeys(m2, r2, ctx, index);
+    const counts={}, left={opponent:0, ambiguous:0, noTeam:0};
+    const fn=s=>{ if(!F.has(s.name)) return;
+      const t=slotTeam(s, known, ctx);
+      if(t===ctx.T){ counts[s.kind]=(counts[s.kind]||0)+1; return target; }
+      if(t===ctx.O) left.opponent++; else if(t==='?') left.ambiguous++; else left.noTeam++; };
+    const S=new Set(F); S.add(target);
+    const warnings=target&&F.size?warningsOf(m2, r2, ctx, index, known, S, target, {opponent:0, ambiguous:0, noTeam:0}):[];
+    const sets=target&&F.size?walkEvents(m2, r2, ctx, index, fn):new Map();
+    const pieces=target&&F.size?walkMeta(m2, ctx, index, fn):[];
+    const lw=warningsOf({}, [], ctx, index, known, new Set(), target, left).filter(w=>w.level==='info');
+    const data=new Map(); r2.forEach(r=>{ if(sets.has(r.id)) data.set(r.id, r.data); });
+    const all=warnings.concat(lw);
+    return {id:meta.id, title:meta.title||'', date:meta.date||'', opp:(ctx.side==='home'?meta.awayTeam:meta.homeTeam)||'', side:ctx.side,
+      events:[...sets.entries()].map(x=>({id:x[0], sets:x[1]})), data, counts, pieces, meta:m2, warnings:all, left, strong:all.some(w=>w.level==='strong')};
+  }
+  const planEmpty=p=>!p||(!p.events.length&&!p.pieces.length);
