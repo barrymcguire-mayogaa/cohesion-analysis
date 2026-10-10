@@ -539,8 +539,13 @@
   function outsideLines(words, boxes, o){
     const hh=med((boxes||[]).map(b=>b.y1-b.y0))||0;
     const inb=w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return (boxes||[]).some(b=>xc>=b.x0-0.04*hh&&xc<=b.x1+0.04*hh&&yc>=b.y0-1.05*hh&&yc<=b.y1+0.1*hh); };
-    const rest=(words||[]).filter(w=>w&&!inb(w)), fr=freeLayout(rest, {skew:(o||{}).skew});
-    return {lines:[].concat.apply([], fr.columns.map(c=>c.lines)), H:fr.H};
+    const rest=(words||[]).filter(w=>w&&!inb(w)&&/[A-Za-zÀ-ɏ0-9]/.test(String(w.text||''))), fr=freeLayout(rest, {skew:(o||{}).skew}), H=fr.H||1, lines=[];
+    // "FIR IONAID 16. Connor Gleeson …": the heading of the list standing right against its first line is cut from it
+    [].concat.apply([], fr.columns.map(c=>c.lines)).forEach(l=>{ const ws=(l.words||[]).slice().sort((a,b)=>a.rx0-b.rx0); let k=-1;
+      if(l.no==null&&ws.length>=3) for(let i=1;i<ws.length-1;i++){ if(isNumTok(ws[i].text)&&hasLetter(ws[i+1].text)&&RE_SUBSF.test(fold(ws.slice(0,i).map(w=>w.text).join(' ')).replace(/[^a-z\s]+/g,' ').trim())){ k=i; break; } }
+      if(k<0){ lines.push(l); return; }
+      [ws.slice(0,k), ws.slice(k)].forEach(part=>{ const x=rowLine([segOf(part)], H, null, null, true); x.free=true; lines.push(x); }); });
+    return {lines, H};
   }
   // the numbered list beside / under the formation (the subs): numbered lines above 15 whose numbers stand in one column
   function subsColumn(lines, H){
@@ -554,7 +559,7 @@
   // where to read the subs list again, enlarged: {x0,y0,x1,y1} in the picture, or null
   R.subsZone=function(words, boxes, W, Hh){
     const o=outsideLines(words, boxes), c=subsColumn(o.lines, o.H); if(!c) return null;
-    const H=o.H, z={x0:Math.max(0,c.x0-1.2*H), y0:Math.max(0,c.y0-2.5*c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+2.5*c.pitch)};   // room for a first or last line whose number was not read
+    const H=o.H, z={x0:Math.max(0,c.x0-0.7*H), y0:Math.max(0,c.y0-2.5*c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+2.5*c.pitch)};   // room for a first or last line whose number was not read
     return (z.x1-z.x0>8*H&&z.y1-z.y0>3*H)?z:null;
   };
   R.CLUB=1.12;
