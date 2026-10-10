@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -539,7 +539,12 @@
   function outsideLines(words, boxes, o){
     const hh=med((boxes||[]).map(b=>b.y1-b.y0))||0;
     const inb=w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return (boxes||[]).some(b=>xc>=b.x0-0.04*hh&&xc<=b.x1+0.04*hh&&yc>=b.y0-1.05*hh&&yc<=b.y1+0.1*hh); };
-    const rest=(words||[]).filter(w=>w&&!inb(w)&&/[A-Za-zÀ-ɏ0-9]/.test(String(w.text||''))), fr=freeLayout(rest, {skew:(o||{}).skew}), H=fr.H||1, lines=[];
+    const all=(words||[]).filter(w=>w&&!inb(w)&&/[A-Za-zÀ-ɏ0-9]/.test(String(w.text||'')));
+    // the list read again by itself (word.zone) comes with the engine's own lines: those are kept as they are, so a
+    // scrap beside the list cannot hook itself onto a number
+    const zoned=all.filter(w=>w.zone&&w.ln!=null), rest=all.filter(w=>!(w.zone&&w.ln!=null)), fr=freeLayout(rest.length?rest:zoned, {skew:(o||{}).skew}), H=fr.H||1, lines=[];
+    if(rest.length&&zoned.length){ const m=new Map(); prep(zoned).forEach(w=>{ w.rx0=w.x0; w.rx1=w.x1; w.ry=w.yc; if(!m.has(w.ln)) m.set(w.ln,[]); m.get(w.ln).push(w); });
+      m.forEach(ws=>{ const x=rowLine([segOf(ws)], H, null, null, true); x.free=true; fr.columns.push({lines:[x]}); }); }
     // "FIR IONAID 16. Connor Gleeson …": the heading of the list standing right against its first line is cut from it
     [].concat.apply([], fr.columns.map(c=>c.lines)).forEach(l=>{ const ws=(l.words||[]).slice().sort((a,b)=>a.rx0-b.rx0); let k=-1;
       if(l.no==null&&ws.length>=3) for(let i=1;i<ws.length-1;i++){ if(isNumTok(ws[i].text)&&hasLetter(ws[i+1].text)&&RE_SUBSF.test(fold(ws.slice(0,i).map(w=>w.text).join(' ')).replace(/[^a-z\s]+/g,' ').trim())){ k=i; break; } }
@@ -1315,6 +1320,7 @@
     // the numbered list (the subs) again, enlarged and by itself: its letters are small on the whole page
     const zone=R.SUBZOOM?R.subsZone(pg.words, boxes, W, H):null;
     if(zone){ const z=zoomed(view, zone, Math.max(1.3, Math.min(3, 1900/(zone.x1-zone.x0)))), raw=await eng.pass(z.canvas, P6), ws=backTo(z, raw); if(R._dbg) pg.zdbg=dbg(z, raw);
+      ws.forEach(w=>{ w.zone=true; });
       pg.words=pg.words.filter(w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return !(xc>=zone.x0&&xc<=zone.x1&&yc>=zone.y0&&yc<=zone.y1); }).concat(ws); pg.zone=zone; }
     else { const g=work.getContext('2d').getImageData(0,0,work.width,work.height).data, grey=new Uint8Array(work.width*work.height); for(let i=0,j=0;j<grey.length;i+=4,j++) grey[j]=g[i];
       pg.words.forEach(w=>{ const s=R.strokeWidth(grey, work.width, work.height, w); w.sw=s?s.sw:null; }); }
