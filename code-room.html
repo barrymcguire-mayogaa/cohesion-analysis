@@ -1486,6 +1486,7 @@ function crCommitDrag(d){
     if(nc && nc!==e.code){ const wasPR=!!e.playerRow; e.code=nc; e.team=teamFor(nc,e.labels||{})||(wasPR?e.team:''); e.category=catOf(nc)||e.category; if(wasPR) delete e.playerRow; }   // a player row moved to another row is no longer one (it keeps its player and team)
   }
   if(!e._new) e._dirty=true;
+  if(!d.dup&&d.snapshot) crKprFollow(e, d.snapshot);   // a kickout dragged across a keeper change: its taker follows
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   crSyncDraft(e);   // keep the editor in step if this event is selected
@@ -1513,6 +1514,7 @@ function crCreateEvent(code,t,half,labels,player,endT){
   EVENTS.push({ id:'manual-'+Date.now(), start:t, end:endT||t+4, half, code, team, player:player||'',
     outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
     category:catOf(code)||'Other', driveT:t, labels, _manual:true, _rowId:tmpId, _new:true });
+  crKprFollow(EVENTS[EVENTS.length-1], null);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
   refreshDatalists(); crBackup(); crUpdatePending(); pick(tmpId);
@@ -3546,7 +3548,7 @@ function crAssistCommit(inp){
   }
   if(v===cur) return;
   if(v&&sides.length===1) crAssistRemember(sides[0], v);
-  if(d.where==='code') codeShotAssist(v, d.group||'Assist');
+  if(d.where==='code'){ codeShotAssist(v, d.group||'Assist'); if(d.sub) crKprSubCheck(EVENTS.find(x=>String(x._rowId)===String(d.row))); }   // a SUB that takes off the keeper asks
   else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
 }
 // (c) Players used for a team in its OTHER games. listGames (already loaded
@@ -3688,7 +3690,7 @@ function crSubPanelHtml(e){
     warn.map(w=>`<div class="crsub-warn">⚠ ${esc(w)}</div>`).join('')+`</div>`;
 }
 // "Use these": the suggestions become the draft's Player Out / Player In (the event is now dirty; Save changes writes them).
-function crSubConfirm(){ const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!draft) return; crSubFold(e, true); renderPanel(); }
+function crSubConfirm(){ const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e||!draft) return; crSubFold(e, true); renderPanel(); crKprSubCheck(crSubDraftEvent(e)); }
 // Before a SUB event is saved: suggestions still showing are written as labels, and — in a game that records
 // 'Sub Detail' (the Tracker's "#18 ON for #13") — that label follows a changed pair when both have a sheet number.
 function crSubFold(e, only){
@@ -4008,8 +4010,9 @@ async function crKprAsk(D, o){
   crKpr.ticks={};
   const v=await cohesionModal({title:o.title, message:crKprAskBody(D, o.lead), buttons:[{label:o.no||'No — keep the kickouts', value:'no'}, {label:o.yes||('Yes — change '+D.auto.length+(D.other.length?' + any ticked':'')), value:'yes', primary:true}]});
   if(v!=='yes') return {v:'no', n:0, left:D.other};
+  if(o.onYes) o.onYes();
   const ticked=D.other.filter(r=>crKpr.ticks[String(r.e._rowId)]);
-  const still=r=>EVENTS.includes(r.e)&&(o.hold||crKprNK(crKprAt(D.side, r.e))===crKprNK(r.target));   // the keepers were not changed again while this was open
+  const still=r=>EVENTS.includes(r.e)&&crKprNK(crKprAt(D.side, r.e))===crKprNK(r.target);   // the keepers were not changed again while this was open
   return {v:'yes', n:crKprSetTakers(D.auto.concat(ticked).filter(still)), left:D.other.filter(r=>!ticked.includes(r))};
 }
 // The spell of `from` runs to the next named spell: "41:20 to the end of the game" / "41:20 to 55:10 (then Rory Byrne)".
@@ -4059,6 +4062,55 @@ async function crKprTimed(side, i, t){
   if(!crKprSetFrom(side, i, t)) return null;
   if(!named) return {v:'none', n:0};
   return crKprReconcile(side, was, {kind:'move', from:Math.max(1, Math.round(t))});
+}
+// A kickout ADDED in Edit mode (before = null) or just SAVED / DRAGGED (before = the event as it was): its taker
+// follows the keepers when that is safe — a blank one is filled when it is new, moved in time or newly a kickout;
+// one still carrying the keeper of where it WAS takes the keeper of where it is now. A name typed by hand, a
+// taker edited in this same save, and a kickout that did not move are left alone. Returns the name written, or ''.
+function crKprFollow(e, before){
+  if(!GAME||!e||!crKprIsKo(e)) return '';
+  const side=crKprSideOfTeam(e.team); if(!side) return '';
+  const L=e.labels=e.labels||{}, k=crKprKey(L), cur=crNameTidy(L[k]), target=crKprAt(side, e);
+  if(!target||crKprNK(cur)===crKprNK(target)) return '';
+  if(before){
+    const bl=before.labels||{}, was=crNameTidy(bl[crKprKey(bl)]), wasKo=crKprIsKo(before)&&crKprSideOfTeam(before.team)===side;
+    if(crKprNK(was)!==crKprNK(cur)) return '';                                   // the taker itself was edited
+    if(wasKo&&cohesionEventEnd(before)===cohesionEventEnd(e)) return '';         // not moved
+    if(cur&&!(wasKo&&crKprNK(cur)===crKprNK(crKprAt(side, before)))) return '';  // a hand-entered name stays
+  } else if(cur) return '';
+  if(k!==CR_KPR_GROUP) delete L[k];
+  L[CR_KPR_GROUP]=target; return target;
+}
+// A SUB event was saved (Edit panel save, "Use these", a Code-mode box): when its Player Out is the keeper in goal
+// for that team at that moment and it has a Player In, ASK whether the player coming on is the keeper from then.
+// Yes → a keeper change at the sub's time + the kickouts from then on (the same rule as a change made in the
+// panel). No → nothing. Asked once per sub in a session; not asked when that change is already there.
+const CR_KPR_NEAR=60;   // seconds: a change for the same player this close to the sub is the same change
+async function crKprSubCheck(e){
+  if(!GAME||!e||!crIsSubCode(e.code)) return null;
+  const side=crKprSideOfTeam(e.team); if(!side) return null;
+  const io=crSubIO(e), out=io.src.out==='label'&&io.out&&io.out.name, inn=io.src.in==='label'&&io.in&&io.in.name;
+  if(!out||!inn||crKprNK(out)===crKprNK(inn)) return null;
+  const t=Math.max(1, Math.round(e.driveT||0)), was=crKprClean(GAME)[side], id=String(e._rowId);
+  const inGoal=window.cohesionKeeperAt?cohesionKeeperAt(GAME, side, t):'';
+  if(!inGoal||crKprNK(inGoal)!==crKprNK(out)) return null;
+  if(was.some(s=>crKprNK(s.player)===crKprNK(inn)&&Math.abs(s.from-t)<=CR_KPR_NEAR)) return null;
+  if(crKpr.asked[id]) return null;
+  crKpr.asked[id]='asking';
+  const now=was.filter(s=>s.from!==t).concat([{from:t, player:inn}]).sort((a,b)=>a.from-b.from);
+  const D=crKprDelta(side, was, now), n=D.auto.length, nx=now.find(s=>s.from>t), T=crTeamOf(side)||side;
+  const lead='<b>'+esc(out)+'</b> is the '+esc(T)+' goalkeeper and is going off for <b>'+esc(inn)+'</b>.<br><br>'
+    +'Kickouts from '+fmt(t)+(nx?' to '+fmt(nx.from)+' (then '+esc(nx.player)+')':' to the end of the game')+', by where each clip ends:<br>';
+  const r=await crKprAsk(D, {title:esc(out+' is the goalkeeper. Make '+inn+' the keeper from '+fmt(t)+'?'), lead,
+    no:'No — nothing changes', yes:'Yes — '+inn+' in goal'+(n?', change '+crKprN(n):'')+(D.other.length?' + any ticked':''),
+    onYes:()=>{ const l=crKprRows(side), row=l.find(x=>x.from===t); if(row) row.player=crNameTidy(inn); else l.push({from:t, player:crNameTidy(inn)}); crKprRows(side); crAssistRemember(side, crNameTidy(inn)); }});
+  crKpr.asked[id]=r.v;
+  if(r.v==='yes'){
+    crKpr.status=inn+' in goal from '+fmt(t)+(r.n?' — changed '+crKprN(r.n):' — no kickouts to change')+crKprLeftText(r.left);
+    crUpdatePending(); crKprRender();
+    const st=document.getElementById('epStatus'); if(st&&!codeMode.on){ st.className='status ok'; st.textContent=crKpr.status+' · Goalkeepers updated'; }
+  }
+  return r;
 }
 // ✕ on a row.
 async function crKprRemoved(side, i){
@@ -5767,11 +5819,13 @@ function saveEvent(){
   Object.assign(e,data);
   ['labelsAll','playerTeam','playerRow'].forEach(k=>{ if(!(k in data)) delete e[k]; });   // fields the edit removed (a group back to one value …)
   if(!e._new) e._dirty=true;
+  crKprFollow(e, undoStack[undoStack.length-1].snapshot);   // a kickout moved in time: its taker follows the keepers
   crSyncKoTOLoc(e); crSyncKoBreaks(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   draft=null; pick(e._rowId);
   const st=document.getElementById('epStatus'); if(st){ st.className='status ok'; st.textContent='Queued ✓ — saved to Cohesion when you close the session'; }
+  crKprSubCheck(e);                               // a SUB that takes off the keeper in goal asks about the new keeper
 }
 
 // ── Shot outcome companions ──────────────────────────────────
@@ -5973,6 +6027,7 @@ function confirmAdd(){
   const row={ id:'manual-'+Date.now(), start:null, end:null, half, code, team,
               player, outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS),
               category:catOf(code)||'Other', driveT, labels, _manual:true, _rowId:tmpId, _new:true };
+  crKprFollow(row, null);                                          // a kickout: Kickout Taken By = the keeper in goal at that time
   EVENTS.push(row);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
