@@ -439,6 +439,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
             <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots and kickouts into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events) — the originals are kept">⇄ Convert shots</div>
+            <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack. Preview each one, then copy the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
             <div class="tlrb" id="koFixBtn" style="display:none;" onclick="crKoFixOpen()" title="Kickout chart scale — this game has kickouts that look saved on the old (pre-13 Sep 2026) kickout chart. Preview every kickout with its evidence, then convert the ticked ones to the current scale">⇅ Kickout scale</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
@@ -5536,16 +5537,106 @@ function crGiBtnSync(){
   const b=document.getElementById('giBtn'); if(!b) return;
   const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0;
   b.style.display=(n||k)?'':'none'; b.textContent=k?(n?'⇄ Convert shots + kickouts ('+(n+k)+')':'⇄ Convert kickouts ('+k+')'):'⇄ Convert shots ('+n+')';
+  const cb=document.getElementById('giCarryBtn');
+  if(cb){ const m=GAME?crGiCarryList().length:0; cb.style.display=m?'':'none'; cb.textContent='📍 Copy locations from originals ('+m+')'; }
+}
+// ── Locations / details marked on a GI original ───────────────
+// A location (or zone, leg, side, pressure, who took / won a kickout …) marked on an ORIGINAL "<Team> Shot" /
+// "<Team> Kickout" row is carried onto its converted row: at conversion (cohGiConvert), and — for a game converted
+// earlier — by "Copy locations from originals" below (cohGiCarryDetails: only into blanks, never over a value, never
+// part of a location onto a row that has one). Nothing is removed from the originals.
+// A copied shot location fills a blank Shot Attempts exactly as placing it on the pitch does (crAttemptFromLoc).
+const crGiCarryOpts={ attempt:(row,x,y)=>crAttemptFromLoc(undefined, row.code, row.labels, x, y) };
+function crGiCarryList(){
+  if(typeof cohGiCarryDetails!=='function'||!EVENTS.some(e=>(e.labels||{})['GI Source ID'])) return [];
+  return cohGiCarryDetails(EVENTS, GAME, crGiCarryOpts).map(it=>{ const e=EVENTS[it.index]; return Object.assign({}, it, {e, rowId:e._rowId, orig:EVENTS.find(o=>String(o.id)===String(it.originalId)&&!(o.labels||{})['GI Source ID'])}); });
+}
+// what one entry copies, in words — with the values
+function crGiCarryText(it){
+  const L=it.changes.labels||{}, val=g=>{ const k=Object.keys(L).find(x=>x.toLowerCase()===g.toLowerCase()); return k?L[k].join(' + '):''; };
+  const xk=Object.keys(L).find(k=>/^x[-_ ]/i.test(k)), yk=Object.keys(L).find(k=>/^y[-_ ]/i.test(k));
+  const G={attempt:'Shot Attempts','dead-ball type':'Deadball Shot Type',leg:'Shooting Leg',side:'Shot Side',pressure:'Shot Pressure',assist:'Assist',length:'Kickout Locations','won by':'Kickout Won By','taken by':'Kickout Taken By'};
+  return it.what.map(w=>w==='location'?'location ('+(xk?L[xk][0]:Math.round(it.changes.x))+', '+(yk?L[yk][0]:Math.round(it.changes.y))+')'
+    :w==='zone'?'zone '+val(it.kind==='ko'?'Kickout Zones':'Shot Zones')
+    :/^attempt \(/.test(w)?'attempt '+val('Shot Attempts')+' (from the location)'
+    :w+' '+val(G[w]||w)).join(' · ');
+}
+// Copy the given converted rows' (row ids) missing location / details from their originals: ONE queued bulk edit.
+function crGiCarryApply(ids){
+  const want=new Set((ids||[]).map(String)), todo=crGiCarryList().filter(it=>want.has(String(it.rowId)));
+  if(!todo.length) return {rows:0, locations:0, zones:0, details:0, attempts:0};
+  undoStack.push({type:'bulkedit', snaps:todo.map(it=>({id:it.e._rowId, data:crClone(it.e)}))});
+  todo.forEach(it=>{ const e=it.e; cohGiCarryApply(e, crClone(it.changes));
+    if(it.auto) crAutoAtt[e._rowId]=(e.labels||{})['Shot Attempts'];
+    if(!e._new) e._dirty=true; });
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const cur=activeId!=null&&todo.find(it=>String(it.rowId)===String(activeId));
+  if(cur&&draft){ const co=crCoordOf(cur.e)||{}; draft.x=co.x??null; draft.y=co.y??null; draft.groups=crDraftGroups(cur.e); if(!codeMode.on) renderPanel(); }
+  const t=cohGiCarryTally(todo.map(it=>({what:it.what, clash:[], auto:it.auto, derivedId:it.derivedId})));
+  return t;
+}
+function crGiCarryWords(t){
+  const pl=(n,w)=>n+' '+w+(n===1?'':'s'), a=[];
+  if(t.locations) a.push(pl(t.locations,'location')); if(t.zones) a.push(pl(t.zones,'zone')); if(t.details) a.push(pl(t.details,'other detail'));
+  if(t.attempts) a.push(pl(t.attempts,'attempt')+' set from the location');
+  return a.join(', ');
+}
+let crGiCarry=null;   // {items, ticks:{rowId:bool}}
+function crGiCarryBody(){
+  const C=crGiCarry, n=C.items.filter(it=>C.ticks[it.rowId]).length;
+  const th='padding:5px 6px;text-align:left;font:700 10px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);', td='padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top;';
+  const btn='padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;';
+  const rows=C.items.map(it=>'<tr>'
+    +'<td style="'+td+'"><input type="checkbox" data-gicarry="'+esc(String(it.rowId))+'" '+(C.ticks[it.rowId]?'checked':'')+' onchange="crGiCarryTick(this)"></td>'
+    +'<td style="'+td+'">'+fmt(it.e.driveT??it.e.start??0)+'</td>'
+    +'<td style="'+td+'white-space:nowrap;"><b>'+esc(it.e.code||'')+'</b>'+(it.e.player?'<br><span style="color:var(--t3);">'+esc(it.e.player)+'</span>':'')+'</td>'
+    +'<td style="'+td+'white-space:nowrap;color:var(--t2);">'+esc(it.orig?it.orig.code||'':'')+'</td>'
+    +'<td style="'+td+'">'+esc(crGiCarryText(it))+'</td></tr>').join('');
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Copy locations from originals — '+esc(GAME.title||'')+'</div>'
+    +'<button onclick="crGiCarryClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">These converted shots and kickouts have an <b>original</b> Gaelic Insights row that carries a location or details the converted row does not have. '
+    +'The stats and maps read the converted row, so what is marked on the original is not shown until it is copied across.<br>'
+    +'Only <b>blanks</b> are filled: a value already on a converted row is never changed, and a converted row that has its own location keeps it. Nothing is removed from the originals. Tick or untick any row.</div>'
+    +'<div style="max-height:min(60vh,620px);overflow:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+    +'<tr><th style="'+th+'"></th><th style="'+th+'">Video</th><th style="'+th+'">Converted row</th><th style="'+th+'">Original row</th><th style="'+th+'">Will be copied</th></tr>'+rows+'</table></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">'
+    +'<button onclick="crGiCarryAll(true)" style="'+btn+'">Tick all</button><button onclick="crGiCarryAll(false)" style="'+btn+'">Tick none</button>'
+    +'<span style="flex:1;font-size:11.5px;color:var(--t3);">'+C.items.length+' converted row'+(C.items.length===1?'':'s')+' · nothing is saved until you press Save changes; Undo reverses it in one step.</span>'
+    +'<button onclick="crGiCarryClose()" style="'+btn+'color:var(--t2);">Cancel</button>'
+    +'<button id="giCarryGo" onclick="crGiCarryGo()" '+(n?'':'disabled')+' style="padding:8px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;'+(n?'':'opacity:.45;')+'">Copy to '+n+' ticked row'+(n===1?'':'s')+'</button></div>';
+}
+function crGiCarryRender(){ const c=document.getElementById('giCarryCard'); if(c&&crGiCarry){ const sc=c.querySelector('table'), top=sc?sc.parentNode.scrollTop:0; c.innerHTML=crGiCarryBody(); const s2=c.querySelector('table'); if(s2) s2.parentNode.scrollTop=top; } }
+function crGiCarryOpen(){
+  if(!GAME) return;
+  crGiCarryClose();
+  const items=crGiCarryList(), ticks={}; items.forEach(it=>{ ticks[it.rowId]=true; });
+  if(!items.length){ crGiBtnSync(); return; }
+  crGiCarry={items, ticks};
+  const ov=document.createElement('div'); ov.id='giCarryOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
+  ov.innerHTML='<div id="giCarryCard" style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:900px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;font-family:Barlow,sans-serif;box-shadow:0 24px 64px rgba(0,0,0,.55);"></div>';
+  document.body.appendChild(ov); crGiCarryRender();
+}
+function crGiCarryClose(){ const ov=document.getElementById('giCarryOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crGiCarry=null; }
+function crGiCarryTick(inp){ if(!crGiCarry) return; crGiCarry.ticks[inp.getAttribute('data-gicarry')]=!!inp.checked; crGiCarryRender(); }
+function crGiCarryAll(on){ if(!crGiCarry) return; crGiCarry.items.forEach(it=>{ crGiCarry.ticks[it.rowId]=!!on; }); crGiCarryRender(); }
+function crGiCarryGo(){
+  if(!crGiCarry) return;
+  const ids=crGiCarry.items.filter(it=>crGiCarry.ticks[it.rowId]).map(it=>it.rowId);
+  crGiCarryClose(); if(!ids.length) return;
+  const t=crGiCarryApply(ids), pn=document.getElementById('epStatus');
+  if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ copied from the originals onto '+t.rows+' converted row'+(t.rows===1?'':'s')+': '+crGiCarryWords(t)+' — saved when you press Save changes; Undo reverses it'; }
 }
 // Queue converted rows; returns the new rows. No confirmation (see prompt).
 function crGiApply(add){
-  const rowIds=[], shotRow={};
+  const rowIds=[], shotRow={}, auto=new Set(((add.carried||{}).auto||[]).map(String));
   add.forEach(n=>{
     const tmpId='tmp-'+(++crTmpCounter);
     const row=Object.assign(crClone(n), { _manual:true, _rowId:tmpId, _new:true });
     const src=(n.labels||{})['GI Source ID'];
     if(/SHOT (OPEN|DEAD)/i.test(n.code||'')||(typeof cohGiIsDerivedKo==='function'&&cohGiIsDerivedKo(n))) shotRow[src]=tmpId;   // a KO's break rows go with it too
     else if(shotRow[src]) row._shotComp=shotRow[src];   // deleted with its shot, like crPushCompanion
+    if(auto.has(String(n.id))) crAutoAtt[tmpId]=(row.labels||{})['Shot Attempts'];   // set from the carried location: moving it re-derives it
     EVENTS.push(row); rowIds.push(tmpId);
   });
   if(!rowIds.length) return [];
@@ -5556,7 +5647,7 @@ function crGiApply(add){
 }
 async function crGiConvertPrompt(){
   if(!GAME||typeof cohGiConvert!=='function') return;
-  const add=cohGiConvert(EVENTS, GAME);
+  const add=cohGiConvert(EVENTS, GAME, crGiCarryOpts);
   if(!add.length){ crGiBtnSync(); return; }
   const c=cohGiCounts(add), pl=(n,w)=>n+' '+w+(n===1?'':'s');
   const parts=[]; if(c.shots||c.scores) parts.push(pl(c.shots,'shot event')+' + '+pl(c.scores,'score event'));
@@ -5567,12 +5658,14 @@ async function crGiConvertPrompt(){
       +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. ':'')
       +(c.kos?'Each GI or GIU kickout gets a KO event for the kicking team (Kickout Outcomes, Kickout Locations; a Gaelic Insights player goes to Kickout Won By when his team won it, otherwise Kickout Target) '
       +'and each break ball a BREAK WON event for the team that won it and a BREAK LOST event for the other. No turnover or foul events are added. ':'')
+      +(c.carriedRows?'<b>Marked on the originals and copied onto the new events:</b> '+crGiCarryWords(c)+' ('+c.carriedRows+' event'+(c.carriedRows===1?'':'s')+'). ':'')
+      +(c.lenClash?'<b>'+c.lenClash+' kickout'+(c.lenClash===1?' has':'s have')+' a Kickout Locations value on the original that differs from the Gaelic Insights length</b> — the Gaelic Insights length is kept; check '+(c.lenClash===1?'it':'them')+' after converting. ':'')
       +'The original GI events are kept unchanged and are not counted twice. '
       +'Nothing is saved until you close the session — Undo removes them all in one step.',
     buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
   if(!ok) return;
   crGiApply(add);
-  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':''].filter(Boolean).join(' + ')+' — saved when you close the session'; }
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
 }
 
 // ── Kickout chart-scale fix ───────────────────────────────────
