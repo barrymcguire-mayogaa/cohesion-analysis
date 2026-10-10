@@ -86,3 +86,117 @@
     }
     return {kind, team};
   }
+
+  // ── the ONE walk over a game's events (scan and rename both use it) ──
+  // rows: [{id, data}] as the read gateway serves them. index = cohPlayerIndex of the game BEFORE any change.
+  // fn(slot) is called for every name of EITHER team — slot = {kind, team, name, group, id, e, pos} — and may
+  // return a different name: the walk then writes it IN PLACE (key order kept, so an undo is exact) and records
+  // {p:[path], old, new} — the stored value at that path before / after.   -> Map(rowId -> [sets])
+  function walkEvents(meta, rows, ctx, index, fn){
+    const out=new Map();
+    (rows||[]).forEach(r=>{ const e=r&&r.data; if(!e||typeof e!=='object') return;
+      const sets=[], ask=(kind, team, name, group, pos)=>{ const v=fn({kind, team, name, group:group||'', id:r.id, e, pos:pos||0}); return (typeof v==='string'&&v!==name)?v:null; };
+      // whose row it is and whose player he is are read BEFORE anything on the event changes
+      const who=(e.playerRow||(!e.team&&!e.player))?L.cohPlayerRowOf(e, index):null;
+      const pTeam=e.player?up(L.cohPlayerTeam(e, meta)):'';
+      if(typeof e.player==='string'&&e.player){ const v=ask('player', pTeam, e.player); if(v!=null){ sets.push({p:['player'], old:e.player, new:v}); e.player=v; } }
+      if(who&&typeof e.code==='string'&&e.code){ const v=ask('rowCode', up(who.team), e.code); if(v!=null){ sets.push({p:['code'], old:e.code, new:v}); e.code=v; } }
+      const LB=e.labels;
+      if(LB&&typeof LB==='object') Object.keys(LB).forEach(g=>{
+        const gi=groupInfo(g, e, meta, ctx); if(!gi) return;
+        let ak=L.cohLabelKey(e.labelsAll, g), vals;
+        if(ak!=null&&ak!==g&&own(LB, ak)){ ak=null; vals=(LB[g]==null||LB[g]==='')?[]:[LB[g]]; }   // "ASSIST" and "assist" on one event: each keeps its own value
+        else vals=L.cohLabelValues(e, g);
+        if(!vals.length) return;
+        let ch=false; const next=vals.map((v,i)=>{ const n=typeof v==='string'?ask(gi.kind, gi.team, v, g, i):null; if(n!=null){ ch=true; return n; } return v; });
+        if(!ch) return;
+        const all=ak!=null?e.labelsAll[ak]:null;
+        if(Array.isArray(all)&&all.length>=2){ sets.push({p:['labelsAll', ak], old:all.slice(), new:next.slice()}); e.labelsAll[ak]=next.slice(); }
+        const last=next[next.length-1];
+        if(LB[g]!==last){ sets.push({p:['labels', g], old:LB[g], new:last}); LB[g]=last; }
+      });
+      if(sets.length) out.set(r.id, sets);
+    });
+    return out;
+  }
+
+  // ── team sheet entries ────────────────────────────────────────
+  function sheetRename(r, ne, name){
+    if(r&&typeof r==='object'){ const o=Object.assign({}, r); if(o.name!=null) o.name=name; else o.player=name; return o; }
+    const s=String(r), i=s.lastIndexOf(ne.name);
+    return i>=0?s.slice(0,i)+name+s.slice(i+ne.name.length):((ne.no?ne.no+' ':'')+name);
+  }
+  function sheetAdopt(r, ne, no, role){
+    const o=(r&&typeof r==='object')?Object.assign({}, r):{no:ne.no===''?null:+ne.no, name:ne.name};
+    if(no&&ne.no===''){ const k=['no','number','num','jersey','shirt'].find(x=>o[x]!=null)||'no'; o[k]=+no; }
+    if(role&&!ne.role) o.role=role;
+    return o;
+  }
+  // rename, then: the same name twice on one sheet becomes ONE entry — the one that already had the right spelling
+  // stays (its number and role win); a number or role it lacks is taken from the entry that goes.
+  function sheetWork(list, team, fn){
+    const ren=[];
+    const out=list.map((r,i)=>{ const ne=TS.normEntry(r); if(!ne) return r;
+      const n=fn({kind:'sheet', team, name:ne.name, no:ne.no, group:'', pos:i});
+      if(typeof n!=='string'||n===ne.name) return r;
+      ren.push(i); return sheetRename(r, ne, n); });
+    if(!ren.length) return out;
+    const drop=new Set();
+    [...new Set(ren.map(i=>TS.normEntry(out[i]).name))].forEach(name=>{
+      const hit=out.map((r,i)=>({i, ne:TS.normEntry(r)})).filter(x=>x.ne&&x.ne.name===name);
+      if(hit.length<2) return;
+      const keep=hit.find(x=>!ren.includes(x.i))||hit[0], rest=hit.filter(x=>x!==keep);
+      const no=keep.ne.no||((rest.find(x=>x.ne.no)||{ne:{}}).ne.no||''), role=keep.ne.role||((rest.find(x=>x.ne.role)||{ne:{}}).ne.role||'');
+      if(no!==keep.ne.no||role!==keep.ne.role) out[keep.i]=sheetAdopt(out[keep.i], keep.ne, no, role);
+      rest.forEach(x=>drop.add(x.i));
+    });
+    return out.filter((r,i)=>!drop.has(i));
+  }
+  // = code-room.html crRowsApplyRename (an inline function there): the old row takes the new name where it
+  // stands; if the file already lists the new name, the old entry drops out
+  function rowsApplyRename(rows, oc, nc){
+    const has=rows.some(r=>r&&r.code===nc);
+    return has?rows.filter(r=>!(r&&r.code===oc)):rows.map(r=>(r&&r.code===oc)?Object.assign({}, r, {code:nc}):r);
+  }
+
+  // ── the walk over a game's meta ───────────────────────────────
+  // Same contract as walkEvents. Changes are made on `meta` and returned as pieces
+  // [{field:'rosters.home'|'keepers.away'|'playerRoster.teamA'|'rows', before, after}] — only fields that changed.
+  function walkMeta(meta, ctx, index, fn){
+    const pieces=[];
+    const piece=(field, holder, k, work)=>{ const before=holder[k], after=work(clone(before));
+      if(!same(before, after)){ pieces.push({field, before:clone(before), after:clone(after)}); holder[k]=after; } };
+    const obj=o=>o&&typeof o==='object'&&!Array.isArray(o);
+    [['home', ctx.H, 'teamA'], ['away', ctx.A, 'teamB']].forEach(([side, team, ab])=>{
+      if(obj(meta.rosters)&&Array.isArray(meta.rosters[side])) piece('rosters.'+side, meta.rosters, side, list=>sheetWork(list, team, fn));
+      if(obj(meta.keepers)&&Array.isArray(meta.keepers[side])) piece('keepers.'+side, meta.keepers, side, list=>{
+        list.forEach((s,i)=>{ if(!obj(s)||typeof s.player!=='string'||!s.player) return;
+          const n=fn({kind:'keeper', team, name:s.player, group:'', pos:i}); if(typeof n==='string'&&n!==s.player) s.player=n; });
+        return list; });
+      if(obj(meta.playerRoster)&&obj(meta.playerRoster[ab])) piece('playerRoster.'+ab, meta.playerRoster, ab, map=>{
+        Object.keys(map).forEach(k=>{ const v=map[k]; if(typeof v!=='string'||!tidy(v)||isPTag(v)) return;
+          const n=fn({kind:'ptag', team, name:v, group:k, pos:0}); if(typeof n==='string'&&n!==v) map[k]=n; });
+        return map; });
+    });
+    if(Array.isArray(meta.rows)) piece('rows', meta, 'rows', rows=>{
+      const ren=[];
+      rows.forEach((r,i)=>{ if(!r||typeof r.code!=='string'||!r.code) return;
+        const p=index.get(L.cohNameKey(r.code)); if(!p||p.team==null) return;            // not a player's row
+        const n=fn({kind:'rowsMeta', team:up(p.team), name:r.code, group:'', pos:i}); if(typeof n==='string'&&n!==r.code) ren.push([r.code, n]); });
+      let out=rows; ren.forEach(x=>{ out=rowsApplyRename(out, x[0], x[1]); });
+      return out; });
+    return pieces;
+  }
+
+  // A kickout winner with no outcome ('?') is this team's only when the name is known for it and not for the other.
+  function knownKeys(meta, rows, ctx, index){
+    const K={}; K[ctx.T]=new Set(); K[ctx.O]=new Set();
+    const fn=s=>{ if(s.team&&s.team!=='?'&&K[s.team]) K[s.team].add(pkey(s.name)); };
+    walkEvents(meta, rows, ctx, index, fn); walkMeta(clone(meta), ctx, index, fn);
+    return K;
+  }
+  function slotTeam(s, known, ctx){
+    if(s.team!=='?') return s.team;
+    const k=pkey(s.name), t=known[ctx.T].has(k), o=known[ctx.O].has(k);
+    return t&&!o?ctx.T:o&&!t?ctx.O:'?';
+  }
