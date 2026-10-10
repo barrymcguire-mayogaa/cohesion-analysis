@@ -4022,6 +4022,50 @@ async function crKprAsk(D, o){
   const still=r=>EVENTS.includes(r.e)&&crKprNK(crKprAt(D.side, r.e))===crKprNK(r.target);   // the keepers were not changed again while this was open
   return {v:'yes', n:crKprSetTakers(D.auto.concat(ticked).filter(still)), left:D.other.filter(r=>!ticked.includes(r))};
 }
+// A keeper was taken out and NO keeper covers some kickouts any more (the starting keeper cleared, or a change
+// removed with nobody before it). The kickouts still carrying HIS name were filled in for him: ask whether to
+// blank them. Kickouts carrying any other name (hand-entered) are never touched. Returns {v, n}.
+function crKprOrphans(side, was){
+  const T=crTeamOf(side), out={rows:[], other:0, who:[]};
+  const at=(list,t)=>{ let w=''; (list||[]).forEach(s=>{ if(s.from<=t) w=s.player; }); return w; };
+  if(!T) return out;
+  const now=crKprClean(GAME)[side];
+  EVENTS.forEach(e=>{
+    if(String(e.team||'').toUpperCase()!==T||!crKprIsKo(e)) return;
+    const t=cohesionEventEnd(e), a=at(was,t); if(!a||at(now,t)) return;
+    const L=e.labels||{}, cur=crNameTidy(L[crKprKey(L)]); if(!cur) return;
+    if(crKprNK(cur)===crKprNK(a)){ out.rows.push({e, cur}); if(!out.who.some(n=>crKprNK(n)===crKprNK(a))) out.who.push(a); }
+    else out.other++;
+  });
+  return out;
+}
+function crKprClearTakers(rows){
+  rows=(rows||[]).filter(r=>r&&r.e&&EVENTS.includes(r.e));
+  if(!rows.length) return 0;
+  undoStack.push({type:'bulkedit', snaps:rows.map(r=>({id:r.e._rowId, data:crClone(r.e)}))});
+  rows.forEach(r=>{ const e=r.e, L=e.labels||{}; Object.keys(L).forEach(k=>{ if(k.toLowerCase()===CR_KPR_GROUP.toLowerCase()) delete L[k]; }); if(e.labelsAll) Object.keys(e.labelsAll).forEach(k=>{ if(k.toLowerCase()===CR_KPR_GROUP.toLowerCase()) delete e.labelsAll[k]; }); if(!e._new) e._dirty=true; });
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const cur=activeId!=null&&rows.find(r=>String(r.e._rowId)===String(activeId));
+  if(cur&&draft){ draft.groups=draft.groups.filter(x=>x.g.toLowerCase()!==CR_KPR_GROUP.toLowerCase()); if(!codeMode.on) renderPanel(); }
+  if(codeMode.on&&codeMode.shotQual) renderCodeLink();
+  return rows.length;
+}
+async function crKprClearAsk(side, was, said){
+  const O=crKprOrphans(side, was), T=crTeamOf(side)||side, n=O.rows.length, who=O.who.join(' / ');
+  const keep=said+' — kickouts already tagged keep their taker.';
+  if(!n){ crKpr.status=keep; crKprRender(); return {v:'none', n:0}; }
+  const v=await cohesionModal({title:esc('Remove '+who+' from the '+crKprN(n)+' he was filled into?'),
+    message:'<b>'+esc(T)+'</b> — no goalkeeper is set for '+(n===1?'this kickout':'these kickouts')+' any more.<br><br>'
+      +'<b>'+n+'</b> '+(n===1?'carries':'carry')+' '+esc(who)+' as Kickout Taken By — blanked on Yes<br>'
+      +(O.other?'<b>'+O.other+'</b> '+(O.other===1?'carries':'carry')+' another name (hand-entered) — left as '+(O.other===1?'it is':'they are')+'<br>':'')
+      +'<br>Queued like any edit: nothing is written until you save the session, and one Undo reverses it.',
+    buttons:[{label:'No — keep the name on them', value:'no'}, {label:'Yes — remove from '+n, value:'yes', primary:true}]});
+  if(v!=='yes'){ crKpr.status=keep; crKprRender(); return {v:'no', n:0}; }
+  const still=O.rows.filter(r=>!crKprAt(side, r.e));        // a keeper was not set again while the question was open
+  const done=crKprClearTakers(still);
+  crKpr.status=said+' — '+who+' removed from '+crKprN(done)+(O.other?' · '+O.other+' with another name left as '+(O.other===1?'it is':'they are'):'')+'.';
+  crKprRender(); return {v:'yes', n:done};
+}
 // The spell of `from` runs to the next named spell: "41:20 to the end of the game" / "41:20 to 55:10 (then Rory Byrne)".
 function crKprRangeText(side, from){
   const nx=crKprClean(GAME)[side].find(s=>s.from>from);
@@ -4034,6 +4078,7 @@ async function crKprReconcile(side, was, o){
   const targets=[]; D.auto.concat(D.other).forEach(r=>{ if(!targets.includes(r.target)) targets.push(r.target); });
   const to=targets.length===1?targets[0]:(o.who||'the keeper in goal');
   const said=o.kind==='remove'?'Change removed':o.kind==='move'?'Change moved to '+fmt(o.from):(o.who+' in goal from '+fmt(o.from));
+  if(!n&&!D.other.length&&o.kind==='remove'&&crKprOrphans(side, was).rows.length) return crKprClearAsk(side, was, said);
   if(!n&&!D.other.length){ crKpr.status=said+' — no kickouts to change'+(D.same?' ('+D.same+' already '+(D.same===1?'carries':'carry')+' the name)':'')+'.'; crKprRender(); return {v:'none', n:0}; }
   const title=o.kind==='remove'?'Hand the '+(n?crKprN(n):'kickouts')+' from '+fmt(o.from)+' back to '+to+'?'
     :o.kind==='move'?'Change '+(n?'the '+crKprN(n):'the kickouts')+' the new time moves to '+to+'?'
@@ -4051,7 +4096,8 @@ async function crKprNamed(side, i, name){
   if(!crKprSetPlayer(side, i, name)) return null;
   const who=(crKprRows(side).find(x=>x.from===from)||{}).player||'';
   if(!who){                                          // emptied
-    if(i===0||!old){ crKpr.status=i===0?'Starting keeper cleared — kickouts already tagged keep their taker.':''; crKprRender(); return {v:'none', n:0}; }
+    if(!old){ crKpr.status=''; crKprRender(); return {v:'none', n:0}; }
+    if(i===0) return crKprClearAsk(side, was, 'Starting keeper cleared');
     return crKprReconcile(side, was, {kind:'remove', from});
   }
   if(i===0&&!old){                                   // the starting keeper is set: fill, no question
@@ -4125,7 +4171,7 @@ async function crKprRemoved(side, i){
   const was=crKprClean(GAME)[side], from=row.from, named=!!row.player;
   crKprRemove(side, i);
   if(!named) return {v:'none', n:0};
-  if(i===0){ crKpr.status='Starting keeper cleared — kickouts already tagged keep their taker.'; crKprRender(); return {v:'none', n:0}; }
+  if(i===0) return crKprClearAsk(side, was, 'Starting keeper cleared');
   return crKprReconcile(side, was, {kind:'remove', from});
 }
 function crKprSpellText(side){ return crKprClean(GAME)[side].map(s=>esc(s.player)+' from '+fmt(s.from)).join(' · '); }
