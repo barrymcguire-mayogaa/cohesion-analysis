@@ -803,6 +803,9 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .py-kl li{display:flex;align-items:baseline;gap:10px;padding:5px 6px;font:400 17px 'Barlow',sans-serif;border-left:3px solid transparent;}
 .py-kl li span{flex:1;min-width:0;overflow-wrap:anywhere;} .py-kl li b{font-weight:600;font-variant-numeric:tabular-nums;} .py-kl li small{color:var(--t3);font-size:.72rem;white-space:nowrap;min-width:44px;text-align:right;}
 .py-kl li.sel{background:#1c3b4c;border-left-color:#19c3f0;}
+.py-kl li[data-pykrow]{cursor:pointer;border-radius:0 6px 6px 0;} .py-kl li[data-pykrow]:hover{background:rgba(255,255,255,.05);} .py-kl li.sel[data-pykrow]:hover{background:#234a5f;}
+.py-kl li[data-pykrow]:focus-visible{outline:2px solid #19c3f0;outline-offset:-2px;}
+.py-kselbar{margin:0 0 18px;align-items:center;} .py-khint{flex:1 1 260px;min-width:0;font-size:.82rem;color:var(--t3);line-height:1.35;}
 .py-kna{color:var(--t3);font-size:.9rem;padding:5px 6px;} .py-kf{font-size:.7rem;color:var(--t3);margin:4px 6px 0;}
 .py-kocap{font:700 15px 'Barlow',sans-serif;color:var(--t1);margin:0 2px 10px;overflow-wrap:anywhere;}
 .py-gktab th small{display:block;font-weight:400;color:var(--t3);font-size:.72rem;} .py-gktab td small{color:var(--t3);} .py-gktab .na{color:var(--t3);}
@@ -6552,14 +6555,24 @@ function pyInvDetail(I, key){
   return {p, max:p.top.length?p.top[0][1]:0, contests:W&&L&&won+lost>0?{won, lost, pct:ovPct(won, won+lost)}:null};
 }
 // What the sections under the table show: the selected player's shots (or the whole team's), after the chips
-function pyView(R, sel, F, I){   // I (optional): pyInvolvement — a player with involvement rows but no shot or assist can be selected too
+// the team's players named on any kickout in the selection (the kickout section's own pick list), by name
+function pyKoPlayers(R){
+  const m=new Map(), T=R&&R.team;
+  ((R&&R.kos)||[]).forEach(k=>{ const w=k.who; if(!w||w.team!==T) return; let r=m.get(w.key); if(!r){ r={key:w.key, names:{}}; m.set(w.key, r); } r.names[w.name]=(r.names[w.name]||0)+1; });
+  return [...m.values()].map(r=>({key:r.key, name:pyBestName(r.names)})).sort((a,b)=>{ const x=a.name.toLowerCase(), y=b.name.toLowerCase(); return x<y?-1:x>y?1:0; });
+}
+// TWO independent selections: sel (the players table, Game Involvement, the Selected player box) drives the shot sections
+// and the involvement detail; ksel (the Kickout Details box and lists) drives ONLY the kickout fields (koPlayer … mapKos).
+function pyView(R, sel, F, I, ksel){   // I (optional): pyInvolvement — a player with involvement rows but no shot or assist can be selected too
   const ip=sel&&I?I.players.find(p=>p.key===sel):null;
   const P=sel?(R.players.find(p=>p.key===sel)||(ip?{key:ip.key, name:ip.name, invOnly:true}:null)):null, key=P?P.key:null, T=R.team;
   const base=key?R.shots.filter(s=>s.pk===key):R.shots, shots=base.filter(s=>pyPass(s, F));
   const mapShots=shots.filter(s=>s.x!=null).sort((p,q)=>(q.xp||0)-(p.xp||0));
-  const own=R.kos.filter(k=>k.team===T), named=key?R.kos.filter(k=>k.who&&k.who.key===key&&k.who.team===T):[];
-  const koMine=key?named.filter(k=>k.who.won):own;
-  return {player:P, key, base, shots, mapShots, legs:pyLegStats(shots), zones:ttZoneStats(shots), pressure:pyPressure(shots), assistors:pyAssistors(shots, new Map(R.players.map(p=>[p.key, p.name]))),
+  const kip=ksel&&I?I.players.find(p=>p.key===ksel):null;
+  const KP=ksel?(pyKoPlayers(R).find(p=>p.key===ksel)||R.players.find(p=>p.key===ksel)||(kip?{key:kip.key, name:kip.name}:null)):null, kkey=KP?KP.key:null;
+  const own=R.kos.filter(k=>k.team===T), named=kkey?R.kos.filter(k=>k.who&&k.who.key===kkey&&k.who.team===T):[];
+  const koMine=kkey?named.filter(k=>k.who.won):own;
+  return {player:P, key, koPlayer:KP, koKey:kkey, base, shots, mapShots, legs:pyLegStats(shots), zones:ttZoneStats(shots), pressure:pyPressure(shots), assistors:pyAssistors(shots, new Map(R.players.map(p=>[p.key, p.name]))),
     koMine, koNamed:named.length, mapKos:koMine.filter(k=>k.x!=null)};
 }
 
@@ -6700,7 +6713,7 @@ function pyShootHTML(R, V, F){
 function pyKoListHTML(title, Lst, k, n, note, sel){
   const from='from '+k+' of '+pyGames(n);
   return `<div class="py-kl"><h4>${title}</h4>`
-    +(Lst.rows.length?'<ol>'+Lst.rows.map(r=>`<li class="${r.key===sel?'sel':''}"><span>${ssEsc(r.name)}</span><b>${r.n}</b>${note==='won'?`<small>${r.won} won</small>`:''}</li>`).join('')+'</ol>':'<div class="py-kna">n/a — no kickout player tags</div>')
+    +(Lst.rows.length?'<ol>'+Lst.rows.map(r=>{ const on=r.key===sel; return `<li class="${on?'sel':''}" data-pykrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected for the kickout map: ':'Show the kickouts of ')+r.name)}"><span>${ssEsc(r.name)}</span><b>${r.n}</b>${note==='won'?`<small>${r.won} won</small>`:''}</li>`; }).join('')+'</ol>':'<div class="py-kna">n/a — no kickout player tags</div>')
     +`<div class="py-kf">${ssEsc(from+(Lst.count>PY_TOP?' · top '+PY_TOP+' of '+Lst.count:''))}</div></div>`;
 }
 function pyKoMapSVG(kos, T){
@@ -6722,27 +6735,33 @@ function pyKoCardHTML(k, R, o){
   return i<0?h:h.slice(0,i)+row+h.slice(i);
 }
 function pyKoHTML(R, V){
-  const K=R.ko, T=R.team, n=K.n, sel=V.key;
+  const K=R.ko, T=R.team, n=K.n, sel=V.koKey, KP=V.koPlayer, names=pyKoPlayers(R);
+  // the section's own player box (the same component as the Selected player box); not there when no kickout names a player
+  const box=names.length?'<div class="py-selbar py-kselbar"><div class="py-selbox"><label for="pyKoSel">KICKOUT PLAYER</label><div class="py-selin">'
+    +`<input type="text" id="pyKoSel" list="pyKoNames" placeholder="All players — type or pick a name" value="${KP?ssEsc(KP.name):''}" autocomplete="off" spellcheck="false">`
+    +`<datalist id="pyKoNames">${names.map(p=>`<option value="${ssEsc(p.name)}"></option>`).join('')}</datalist>`
+    +`<button type="button" class="py-clear" data-pykclear="1" aria-label="Clear the kickout player"${KP?'':' disabled'}>✕</button></div></div>`
+    +`<div class="py-khint">${ssEsc('Separate from the Selected player above: pick a name here, or click one in the lists, to see only the kickouts he won.')}</div></div>`:'';
   const lists='<div class="py-klists">'+pyKoListHTML('TOTAL KO TARGETS', K.all, K.tgtGames, n, 'won', sel)+pyKoListHTML('SHORT KO TARGETS', K.S, K.tgtGames, n, 'won', sel)
     +pyKoListHTML('MEDIUM KO TARGETS', K.M, K.tgtGames, n, 'won', sel)+pyKoListHTML('LONG KO TARGETS', K.L, K.tgtGames, n, 'won', sel)+pyKoListHTML('TOTAL BREAKS WON', K.brk, K.anyGames, n, '', sel)+'</div>';
   const own=R.kos.filter(k=>k.team===T), located=V.koMine.filter(k=>k.x!=null).length;
   let cap, body;
-  if(V.player){
-    cap=V.player.name+' — kickouts won';
-    body=!V.koNamed?`<div class="tt-empty">${ssEsc(K.anyGames?V.player.name+' is not named on any kickout in these games.':'n/a — no kickout player tags in '+(n===1?'this game':'these '+n+' games')+', so no kickout can be tied to '+V.player.name+'.')}</div>`
-      :!V.koMine.length?`<div class="tt-empty">${ssEsc(V.player.name+' is named on '+V.koNamed+' kickout'+(V.koNamed===1?'':'s')+' but won none of them.')}</div>`
-      :!located?`<div class="tt-empty">${ssEsc(V.player.name+' won '+V.koMine.length+' kickout'+(V.koMine.length===1?'':'s')+' (named on '+V.koNamed+'), but none has a landing location tagged, so there is nothing to plot.')}</div>`
+  if(KP){
+    cap=KP.name+' — kickouts won';
+    body=!V.koNamed?`<div class="tt-empty">${ssEsc(K.anyGames?KP.name+' is not named on any kickout in these games.':'n/a — no kickout player tags in '+(n===1?'this game':'these '+n+' games')+', so no kickout can be tied to '+KP.name+'.')}</div>`
+      :!V.koMine.length?`<div class="tt-empty">${ssEsc(KP.name+' is named on '+V.koNamed+' kickout'+(V.koNamed===1?'':'s')+' but won none of them.')}</div>`
+      :!located?`<div class="tt-empty">${ssEsc(KP.name+' won '+V.koMine.length+' kickout'+(V.koMine.length===1?'':'s')+' (named on '+V.koNamed+'), but none has a landing location tagged, so there is nothing to plot.')}</div>`
       :`<div class="tt-pitchbox tk-pitchbox">${pyKoMapSVG(V.mapKos, T)}</div>${pyKoKeyHTML(T)}`;
-    if(located) body+=`<div class="dnote">${ssEsc('The '+located+' of '+V.koMine.length+' kickout'+(V.koMine.length===1?'':'s')+' won by '+V.player.name+' that '+(located===1?'has':'have')+' a landing location (he is named on '+V.koNamed+'). Kicking team’s 20m line at the top.')}</div>`;
+    if(located) body+=`<div class="dnote">${ssEsc('The '+located+' of '+V.koMine.length+' kickout'+(V.koMine.length===1?'':'s')+' won by '+KP.name+' that '+(located===1?'has':'have')+' a landing location (he is named on '+V.koNamed+'). Kicking team’s 20m line at the top.')}</div>`;
   } else {
     cap=T+' kickouts — no player selected';
     body=!own.length?`<div class="tt-empty">n/a — no ${ssEsc(T)} kickouts in ${n===1?'this game':'these '+n+' games'}.</div>`
       :!located?`<div class="tt-empty">n/a — none of ${ssEsc(T)}’s ${own.length} kickouts has a landing location tagged.</div>`
-      :`<div class="tt-pitchbox tk-pitchbox">${pyKoMapSVG(V.mapKos, T)}</div>${pyKoKeyHTML(T)}<div class="dnote">${ssEsc(T+'’s own kickouts with a landing location: '+located+' of '+own.length+'. Kicking team’s 20m line at the top. Select a player to see only the kickouts he won.')}</div>`;
+      :`<div class="tt-pitchbox tk-pitchbox">${pyKoMapSVG(V.mapKos, T)}</div>${pyKoKeyHTML(T)}<div class="dnote">${ssEsc(T+'’s own kickouts with a landing location: '+located+' of '+own.length+'. Kicking team’s 20m line at the top. '+(names.length?'Pick a player in the box above, or click a name in the lists, to see only the kickouts he won.':'No kickout here names a player, so the map cannot be narrowed to one.'))}</div>`;
   }
   const src=K.roles.length?'Player names come from '+[K.roles.includes('winner')?'the Kickout Won By tag (the player who won the kickout) or, in a Sportscode game, the kickout row’s second player and its break rows':'', K.roles.includes('target')?'Gaelic Insights kickout rows (the kicking team’s player the kickout went to, whether or not it was won — the small “won” figure is how many he won)':''].filter(Boolean).join(' and ')+'.'
     :'No kickout in these games names a player: Tracker and GIU files carry none, and the Kickout Won By tag is new in Code Room.';
-  return '<div class="py-korow"><div class="py-kleft">'+lists
+  return box+'<div class="py-korow"><div class="py-kleft">'+lists
     +`<div class="dnote">${ssEsc('Target lists count '+T+'’s OWN kickouts that name a '+T+' player ('+K.ownNamed+' of '+K.own+' own kickouts do), by the kickout’s length. Total breaks won counts break-ball kickouts won by a '+T+' player, on '+T+'’s own kickouts and, where the Kickout Won By tag is used, on the opposition’s. '+src+' “from k of n games” = the games that carry such names.')}</div></div>`
     +`<div class="tt-card tt-mapcard py-komap"><div class="py-kocap">${ssEsc(cap)}</div>${body}</div></div>`;
 }
@@ -6796,9 +6815,10 @@ function pyTipHTML(p, R, V, pinned){
 }
 
 // ── Players page wiring ──
-let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_SHOWN=PY_PAGE, PY_INV=null, PY_ISHOWN=PY_PAGE, PY_IPER=false;
+let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_KSEL=null, PY_SHOWN=PY_PAGE, PY_INV=null, PY_ISHOWN=PY_PAGE, PY_IPER=false;
 const PY_SORT={key:'total', dir:'desc'}, PY_F={types:new Set(), play:'both'}, PY_ISORT={key:'inv', dir:'desc'};
 function pyHas(key){ return !!key&&((!!PY_LAST&&PY_LAST.players.some(p=>p.key===key))||(!!PY_INV&&PY_INV.players.some(p=>p.key===key))); }   // a player of either table
+function pyKoHas(key){ return !!key&&!!PY_LAST&&PY_LAST.kos.some(k=>k.who&&k.who.team===PY_LAST.team&&k.who.key===key); }   // a player the kickout box lists
 function pySchedule(){ if(TAB!=='players'||!GAMES_READY) return; clearTimeout(PY_TIMER); PY_TIMER=setTimeout(pyRun, 40); }
 async function pyRun(){
   if(TAB!=='players'||!GAMES_READY) return;
@@ -6819,6 +6839,7 @@ async function pyRun(){
   PY_LAST=pyCompute(T, pool, id=>BUNDLES.get(id));
   // the selected player survives a filter change while he is still in the table; a new team starts clean
   PY_INV=pyInvolvement(T, pool, id=>BUNDLES.get(id));
+  if(prev!==T) PY_KSEL=null; else if(PY_KSEL&&!pyKoHas(PY_KSEL)) PY_KSEL=null;   // the kickout selection: the same rule, on its own
   if(prev!==T){ PY_SEL=null; PY_SHOWN=PY_PAGE; PY_ISHOWN=PY_PAGE; PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
   else if(PY_SEL&&!pyHas(PY_SEL)) PY_SEL=null;
   if(!pyInvSortKeys(pyInvCols(PY_INV)).includes(PY_ISORT.key)){ PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
@@ -6828,7 +6849,7 @@ function pyOpts(){ let col='#4fc3f7'; try{ col=ssDisplayColors(PY_LAST.team, '__
 function pyRender(parts){
   const body=ssEl('pyBody'); if(!body||!PY_LAST) return;
   ttHideTip();
-  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F, PY_INV);
+  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F, PY_INV, PY_KSEL);
   if(PY_VIEW.key){ const i=pySort(PY_LAST.players, PY_SORT.key, PY_SORT.dir).findIndex(p=>p.key===PY_VIEW.key); PY_SHOWN=pyShownFor(PY_LAST.players.length, i, PY_SHOWN); }   // the selected row is always among those shown
   if(PY_VIEW.key&&PY_INV&&PY_INV.players.length){ const C=pyInvCols(PY_INV), i=pySort(pyInvRows(PY_INV, C, PY_IPER), PY_ISORT.key, PY_ISORT.dir).findIndex(p=>p.key===PY_VIEW.key); if(i>=0) PY_ISHOWN=pyShownFor(PY_INV.players.length, i, PY_ISHOWN); }
   const o=pyOpts(), R=PY_LAST, V=PY_VIEW;
@@ -6845,7 +6866,15 @@ function pyFitHits(){
 }
 function pySelect(key){
   PY_SEL=pyHas(key)?key:null;
-  pyRender(['pyTableSec','pySelSec','pyInvSec','pyMapSec','pyShootSec','pyKoSec']);
+  pyRender(['pyTableSec','pySelSec','pyInvSec','pyMapSec','pyShootSec']);   // not the Kickout Details: that section has its own selection
+}
+// the KICKOUT selection (the Kickout Details box and its lists); the top selection is not touched
+function pyKoSelect(key){ PY_KSEL=pyKoHas(key)?key:null; pyRender(['pyKoSec']); }
+function pyKoPick(txt){
+  const k=pyKey(txt); if(!PY_LAST) return;
+  if(!k){ if(PY_KSEL) pyKoSelect(null); return; }
+  const all=pyKoPlayers(PY_LAST), hit=all.find(p=>p.key===k)||(()=>{ const a=all.filter(p=>p.key.indexOf(k)>=0); return a.length===1?a[0]:null; })();
+  if(hit) pyKoSelect(hit.key); else pyRender(['pyKoSec']);   // no such player: the box goes back to the current selection
 }
 function pySortBy(key){
   if(!PY_COLS.some(c=>c[0]===key)) return;
@@ -6880,14 +6909,20 @@ function pyClick(e){
   if((x=c('[data-pychip]'))){ pyChip(x.dataset.pychip); return true; }
   if((x=c('[data-pyclear]'))){ if(!x.disabled) pySelect(null); return true; }
   if((x=c('[data-pyrow]'))){ pySelect(x.dataset.pyrow===PY_SEL?null:x.dataset.pyrow); return true; }
-  if(c('#pySel')) return true;
+  if((x=c('[data-pykclear]'))){ if(!x.disabled) pyKoSelect(null); return true; }
+  if((x=c('[data-pykrow]'))){ pyKoSelect(x.dataset.pykrow===PY_KSEL?null:x.dataset.pykrow); return true; }
+  if(c('#pySel')||c('#pyKoSel')) return true;
   return false;
 }
 function pyInit(){
   const pane=ssEl('pane-players'); if(!pane||!pane.addEventListener) return;
-  pane.addEventListener('change', e=>{ if(e.target&&e.target.id==='pySel') pyPick(e.target.value); });
+  pane.addEventListener('change', e=>{ if(e.target&&e.target.id==='pySel') pyPick(e.target.value); else if(e.target&&e.target.id==='pyKoSel') pyKoPick(e.target.value); });
   pane.addEventListener('keydown', e=>{ const t=e.target; if(!t) return;
     if(t.id==='pySel'&&e.key==='Enter'){ e.preventDefault(); pyPick(t.value); return; }
+    if(t.id==='pyKoSel'&&e.key==='Enter'){ e.preventDefault(); pyKoPick(t.value); return; }
+    if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pykrow!=null){ e.preventDefault(); const k=t.dataset.pykrow, kl=t.closest?t.closest('.py-kl'):null, li=kl&&pane.querySelectorAll?[...pane.querySelectorAll('#pyKoSec .py-kl')].indexOf(kl):-1;
+      pyKoSelect(k===PY_KSEL?null:k);   // the section is redrawn: focus goes back to the same name in the same list
+      const row=li>=0?[...pane.querySelectorAll('#pyKoSec .py-kl')[li].querySelectorAll('[data-pykrow]')].find(r=>r.dataset.pykrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } return; }
     if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow, box=t.closest&&t.closest('#pyInvSec')?'#pyInvSec ':'#pyTableSec '; pySelect(k===PY_SEL?null:k);
       const row=pane.querySelector?[...pane.querySelectorAll(box+'[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
 }
