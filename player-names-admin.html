@@ -366,3 +366,110 @@ async function refresh(){
 }
 $('teamSel').addEventListener('change', e=>{ if(busy){ e.target.value = team; return; } pickTeam(e.target.value); });
 $('secSel').addEventListener('change', e=>{ if(busy){ e.target.value = section; return; } section = e.target.value; const hit = drawTeams(); pickTeam(hit ? hit.name : ''); });
+
+// ── The list ──────────────────────────────────────────────────────────────
+const spIndex = name => T.spellings.findIndex(s=>s.name===name);
+const hasPhoto = name => !!photos[cohPhotoKey(name)];
+const oddSpaces = name => name !== N.tidy(name);
+let targetTouched = false;
+function notDupKey(){ return 'coh_names_notdup_'+cohPhotoKey(team); }
+function notDup(){ try{ return JSON.parse(localStorage.getItem(notDupKey())||'[]'); }catch(_){ return []; } }
+const pairId = s => [s.a, s.b].sort().join('|');
+
+function renderAll(){
+  const nG = T.games.length;
+  $('teamMsg').textContent = plural(nG,'game')+' · '+plural(G.length,'player')+' · '+plural(T.spellings.length,'spelling')+(loadMs?' · read in '+(loadMs/1000).toFixed(1)+'s':'');
+  $('listStep').style.display = '';
+  const multi = G.filter(g=>g.spellings.length>1).length;
+  $('listSub').textContent = plural(T.spellings.length,'spelling')+' for '+plural(G.length,'player')+' in '+plural(nG,'game')+' of '+team
+    + (multi ? ' · '+plural(multi,'player has','players have')+' more than one spelling' : ' · no player has more than one spelling');
+  showErr('teamErr', failedLoads.length ? plural(failedLoads.length,'game')+' could not be read and '+(failedLoads.length===1?'is':'are')+' missing from this list: '
+    + failedLoads.map(f=>f.title+' ('+f.error+')').join('; ')+'. Press ↻ Refresh to try again — a merge is not offered until every game has been read.' : '');
+  renderSug(); renderTable(); renderBar(); renderHist();
+}
+function renderSug(){
+  const by = new Map(G.map(g=>[g.key, g])), hide = notDup();
+  const list = SUG.filter(s=>!hide.includes(pairId(s)));
+  const hidden = SUG.length - list.length;
+  $('sugBox').innerHTML = (list.length ? '<div class="st" style="margin-bottom:8px;color:var(--amber);">'+plural(list.length,'possible duplicate')+' — check each one; nothing is merged unless you say so</div>' : '')
+    + list.map(s=>{ const a = by.get(s.a), b = by.get(s.b), i = SUG.indexOf(s);
+      return '<div class="sug" data-sug="'+i+'"><span class="nm">'+esc(a.name)+'</span><span class="ct">'+plural(a.uses,'use')+'</span><span class="arrow">↔</span>'
+        + '<span class="nm">'+esc(b.name)+'</span><span class="ct">'+plural(b.uses,'use')+'</span><span class="why">'+esc(s.reason)+'</span>'
+        + '<button class="sec-btn" data-act="sug-merge">Review merge…</button><button class="sec-btn" data-act="sug-no" title="Do not suggest this pair again in this browser">Different players</button></div>'; }).join('')
+    + (hidden ? '<div class="st" style="margin:2px 0 10px;">'+plural(hidden,'pair')+' marked as different players · <button class="gl" data-act="sug-reset">show again</button></div>' : '')
+    + (list.length||hidden ? '<div style="height:8px"></div>' : '');
+}
+function num(v){ return '<td class="n'+(v?'':' z')+'">'+(v||'–')+'</td>'; }
+function gameLine(g){
+  const p = [], n = g.n;
+  if(n.player) p.push(plural(n.player,'event')+' as the row’s player');
+  if(n.assist) p.push(plural(n.assist,'assist'));
+  if(n.koWon) p.push(plural(n.koWon,'kickout')+' won');
+  if(n.koTaken) p.push(plural(n.koTaken,'kickout')+' taken');
+  if(n.koTarget) p.push(plural(n.koTarget,'kickout target'));
+  if(n.subs) p.push(plural(n.subs,'sub entry','sub entries'));
+  if(n.sheet) p.push('on the team sheet'+(g.nos.length?' (#'+g.nos.join(', #')+')':''));
+  if(n.keeper) p.push('goalkeeper');
+  if(n.ptag) p.push('in the P-tag list');
+  if(n.rows) p.push('a row in the Sportscode row list');
+  return '<span>'+esc(fmtDate(g.date))+'</span><b>v '+esc(g.opp)+'</b><span>'+esc(p.join(' · '))+'</span>';
+}
+function renderTable(){
+  const q = cohPhotoKey($('search').value), raw = $('search').value.trim().toLowerCase(), only = $('onlyDup').checked;
+  const groups = G.filter(g=>(!only || g.spellings.length>1) && (!raw || g.spellings.some(s=>s.name.toLowerCase().includes(raw) || (q && s.fold.includes(q)))));
+  let h = '<thead><tr><th></th><th>Spelling</th><th class="n" title="Events he is the row’s player on">Events</th><th class="n">Assists</th><th class="n" title="Kickout Won By">KO won</th>'
+    + '<th class="n" title="Kickout Taken By">KO taken</th><th class="n" title="Player Out / Player In on a substitution">Subs</th><th title="Team sheets he is on, with the numbers seen">Team sheets</th>'
+    + '<th class="n" title="Games he is entered as goalkeeper in">Keeper</th><th>Photo</th><th>Games</th></tr></thead><tbody>';
+  groups.forEach(g=>{
+    const many = g.spellings.length>1;
+    if(many) h += '<tr class="grp" data-grp="'+esc(g.key)+'"><td colspan="11">Same player — '+g.spellings.length+' spellings · '+plural(g.uses,'use')
+      + '<button class="sec-btn" data-act="grp-merge">Merge these…</button></td></tr>';
+    g.spellings.forEach(s=>{
+      const i = spIndex(s.name), on = ticked.has(s.name), op = opened.has(s.name);
+      h += '<tr class="'+(many?'in ':'')+(on?'tick':'')+'" data-i="'+i+'"><td class="c"><input type="checkbox" data-act="tick" '+(on?'checked':'')+' aria-label="Tick '+esc(s.name)+'"></td>'
+        + '<td><div class="sp">'+cohPlayerBadgeHTML(team, s.name, { size:26 })+'<span class="name" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+(oddSpaces(s.name)?'<span class="odd" title="This spelling has extra spaces">extra spaces</span>':'')+'</div></td>'
+        + num(s.n.player)+num(s.n.assist)+num(s.n.koWon)+num(s.n.koTaken)+num(s.n.subs)
+        + '<td>'+(s.n.sheet ? plural(s.n.sheet,'sheet')+(s.nos.length?' · #'+s.nos.join(', #'):'') : '<span style="color:var(--t3)">–</span>')+'</td>'
+        + num(s.n.keeper)+'<td>'+(hasPhoto(s.name)?'<span class="yes">Yes</span>':'<span style="color:var(--t3)">–</span>')+'</td>'
+        + '<td><button class="gl" data-act="open" aria-expanded="'+op+'">'+plural(s.games.length,'game')+' '+(op?'▴':'▾')+'</button></td></tr>';
+      if(op) h += '<tr class="det"><td colspan="11"><div class="det-g">'+s.games.map(gameLine).join('')+'</div></td></tr>';
+    });
+  });
+  if(!groups.length) h += '<tr><td colspan="11" style="padding:16px;color:var(--t2);">'+(T.spellings.length?'No name matches.':'No player names found in this team’s games yet.')+'</td></tr>';
+  $('nameTbl').innerHTML = h+'</tbody>';
+  $('listMsg').textContent = groups.length===G.length ? '' : 'Showing '+groups.length+' of '+plural(G.length,'player');
+}
+function tickedSpellings(){ return T ? T.spellings.filter(s=>ticked.has(s.name)) : []; }
+function renderBar(){
+  const list = tickedSpellings(), bar = $('mbar');
+  bar.classList.toggle('show', list.length>0);
+  if(!list.length){ targetTouched = false; return; }
+  $('mbarTxt').innerHTML = '<b style="color:var(--t1)">'+plural(list.length,'spelling')+' ticked</b> ('+plural(list.reduce((a,s)=>a+s.uses,0),'use')+')';
+  if(!targetTouched) $('target').value = N.bestSpelling(list);
+  $('targetList').innerHTML = [...new Set(list.map(s=>N.tidy(s.name)))].map(n=>'<option value="'+esc(n)+'">').join('');
+  $('pvBtn').disabled = busy || failedLoads.length>0;
+}
+function clearTicks(){ if(busy) return; ticked = new Set(); targetTouched = false; renderTable(); renderBar(); }
+function tickGroup(keys){
+  ticked = new Set(); keys.forEach(k=>{ const g = G.find(x=>x.key===k); if(g) g.spellings.forEach(s=>ticked.add(s.name)); });
+  targetTouched = false; renderTable(); renderBar(); preview();
+}
+$('target').addEventListener('input', ()=>{ targetTouched = true; });
+$('target').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); preview(); } });
+$('search').addEventListener('input', renderTable);
+$('onlyDup').addEventListener('change', renderTable);
+$('nameTbl').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el || busy) return;
+  const act = el.dataset.act, tr = el.closest('tr');
+  if(act==='grp-merge'){ tickGroup([tr.dataset.grp]); return; }
+  const s = T.spellings[+tr.dataset.i]; if(!s) return;
+  if(act==='tick'){ if(el.checked) ticked.add(s.name); else ticked.delete(s.name); tr.classList.toggle('tick', el.checked); renderBar(); }
+  else if(act==='open'){ if(opened.has(s.name)) opened.delete(s.name); else opened.add(s.name); renderTable(); }
+});
+$('sugBox').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el || busy) return;
+  if(el.dataset.act==='sug-reset'){ try{ localStorage.removeItem(notDupKey()); }catch(_){} renderSug(); return; }
+  const s = SUG[+el.closest('.sug').dataset.sug]; if(!s) return;
+  if(el.dataset.act==='sug-merge') tickGroup([s.a, s.b]);
+  else { try{ localStorage.setItem(notDupKey(), JSON.stringify(notDup().concat([pairId(s)]))); }catch(_){} renderSug(); }
+});
