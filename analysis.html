@@ -734,7 +734,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .py-tab{width:100%;border-collapse:separate;border-spacing:0;font:400 16px 'Barlow',sans-serif;font-variant-numeric:tabular-nums;min-width:860px;}
 .py-tab th{padding:0;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);}
 .py-tab th button{background:none;border:0;color:var(--accent);font:400 15px 'Barlow',sans-serif;letter-spacing:.02em;padding:12px 6px 10px;cursor:pointer;width:100%;text-align:inherit;}
-.py-tab th.on button{font-weight:700;} .py-sl{white-space:nowrap;}
+/* the sorted column's label is emboldened with a stroke, not a heavier face: a bold face is wider and would shift the columns */
+.py-tab th.on button{-webkit-text-stroke:.55px currentColor;} .py-tab th.on .py-sm{-webkit-text-stroke:0;} .py-sl{white-space:nowrap;}
 /* the sort marker: always there (its width is reserved), faint stacked arrows on an inactive column, a solid ▼ / ▲ on the active one */
 .py-sm{display:inline-block;position:relative;width:9px;height:12px;margin-left:4px;vertical-align:middle;font:normal 400 9px/12px 'Barlow',sans-serif;text-align:center;color:var(--t3);opacity:.75;transition:color .12s,opacity .12s;}
 .py-sm::before,.py-sm::after{content:'';position:absolute;left:1px;border-left:3.5px solid transparent;border-right:3.5px solid transparent;}
