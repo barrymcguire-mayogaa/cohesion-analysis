@@ -3816,11 +3816,23 @@ window.addEventListener('keydown', e=>{
 //    gets 'Kickout Taken By' = the keeper at that moment. No prompt, no key.
 //  · OVERRIDE: the Edit panel's Kickout Taken By box changes or clears one
 //    kickout (an outfield player taking it).
-//  · BACK-FILL: "Apply to this team's kickouts" fills the kickouts already in
-//    the game (a Tracker file does not know the keeper) after a confirmation
+//  · SETTING THE STARTING KEEPER (from blank) fills that team's kickouts that
+//    have NO taker straight away (crKprNamed → crKprApply): no button, no
+//    question; a kickout carrying another name is left alone.
+//  · CHANGING A KEEPER (a new change named, a name edited, a change removed or
+//    its time moved) ASKS about the kickouts whose keeper is now someone else
+//    (crKprDelta / crKprAsk): those carrying the old keeper or nothing change
+//    on Yes, hand-entered names are listed with tick boxes (unticked); No
+//    keeps the kickouts and still records the keeper change.
+//  · A SUB that takes off the keeper in goal ASKS whether the player coming on
+//    is the keeper from then (crKprSubCheck) — never automatic, once per sub.
+//  · BACK-FILL: "Apply to this team's kickouts" re-applies the keepers to the
+//    kickouts already in the game (e.g. after an import) after a confirmation
 //    with counts; kickouts carrying a DIFFERENT name are manual overrides and
-//    are left alone unless overwriting is chosen. It is a queued bulk edit —
-//    one Undo reverses it, nothing is written before the session is saved.
+//    are left alone unless overwriting is chosen.
+//  · Every one of these is a queued bulk edit (crKprSetTakers) — one Undo
+//    reverses the kickouts (the keeper spell itself stays), nothing is written
+//    before the session is saved.
 //  · SAVING: the spells are part of the game's meta. Unsaved spells count as
 //    pending changes (crHasPending / crPendingCount) and the session save
 //    (crSaveAll) writes them through gameAdmin updateMeta: the meta is RE-READ
@@ -3828,12 +3840,12 @@ window.addEventListener('keydown', e=>{
 //    kept in the crash backup (crBackup). A local-video session keeps them in
 //    memory only.
 const CR_KPR_GROUP='Kickout Taken By';
-let crKpr={open:false, base:'{"home":[],"away":[]}', status:''};
+let crKpr={open:false, base:'{"home":[],"away":[]}', status:'', asked:{}, ticks:{}};
 function crKprClean(meta){ const f=s=>window.cohesionKeeperSpells?cohesionKeeperSpells(meta||{}, s):[]; return {home:f('home'), away:f('away')}; }
 // Called when a game opens: remember the spells as loaded.
 function crKprReset(){
   const p=document.getElementById('crKpr'); if(p) p.style.display='none';
-  crKpr={open:false, base:JSON.stringify(crKprClean(GAME)), status:''};
+  crKpr={open:false, base:JSON.stringify(crKprClean(GAME)), status:'', asked:{}, ticks:{}};
 }
 function crKprChangedSides(){
   if(!GAME) return [];
@@ -3929,10 +3941,9 @@ function crKprPlan(side){
   });
   return P;
 }
-// Apply the plan as ONE queued bulk edit (one Undo). overwrite → also replace the different names.
-function crKprApply(side, overwrite){
-  const P=crKprPlan(side);
-  const todo=P.rows.filter(r=>r.kind==='fill'||(overwrite&&r.kind==='diff'));
+// Write 'Kickout Taken By' on a list of kickouts [{e, target}] as ONE queued bulk edit (one Undo). Returns how many.
+function crKprSetTakers(todo){
+  todo=(todo||[]).filter(r=>r&&r.e&&r.target);
   if(!todo.length) return 0;
   undoStack.push({type:'bulkedit', snaps:todo.map(r=>({id:r.e._rowId, data:crClone(r.e)}))});
   todo.forEach(r=>{ const e=r.e; e.labels=e.labels||{}; const k=crKprKey(e.labels); if(k!==CR_KPR_GROUP) delete e.labels[k]; e.labels[CR_KPR_GROUP]=r.target; if(!e._new) e._dirty=true; });
@@ -3945,6 +3956,118 @@ function crKprApply(side, overwrite){
   }
   if(codeMode.on&&codeMode.shotQual) renderCodeLink();
   return todo.length;
+}
+// Apply the plan as ONE queued bulk edit (one Undo). overwrite → also replace the different names.
+function crKprApply(side, overwrite){
+  return crKprSetTakers(crKprPlan(side).rows.filter(r=>r.kind==='fill'||(overwrite&&r.kind==='diff')));
+}
+// ── a keeper is set or changed: the kickouts already in the game ──
+// Names compared ignoring case, spacing and apostrophes.
+function crKprNK(s){ return crNameKey(s).replace(/['‘’‛ʼ`´]/g,'').replace(/\s+/g,''); }
+function crKprN(x){ return x+' kickout'+(x===1?'':'s'); }
+// "1 left as James Kelly" / "3 left as they are (James Kelly, Tom Parsons)"
+function crKprLeftText(rows){
+  if(!rows.length) return '';
+  const names=[]; rows.forEach(r=>{ if(!names.some(n=>crKprNK(n)===crKprNK(r.cur))) names.push(r.cur); });
+  return ' · '+rows.length+' left as '+(names.length===1?names[0]:'they are ('+names.join(', ')+')');
+}
+// The team's kickouts whose keeper differs between two lists of spells (was → now), by the clip-end rule:
+//   auto  — carry the keeper they had before, or nothing: these follow the change
+//   other — carry some other name (hand-entered): listed, changed only when ticked
+//   same  — already carry the new keeper
+// A kickout no keeper covers any more is in none of them (it keeps what it has).
+function crKprDelta(side, was, now){
+  const T=crTeamOf(side), D={side, auto:[], other:[], same:0};
+  const at=(list,t)=>{ let w=''; (list||[]).forEach(s=>{ if(s.from<=t) w=s.player; }); return w; };
+  if(!T) return D;
+  EVENTS.forEach(e=>{
+    if(String(e.team||'').toUpperCase()!==T||!crKprIsKo(e)) return;
+    const t=cohesionEventEnd(e), a=at(was,t), b=at(now,t);
+    if(!b||crKprNK(a)===crKprNK(b)) return;
+    const L=e.labels||{}, cur=crNameTidy(L[crKprKey(L)]);
+    if(!cur||crKprNK(cur)===crKprNK(a)) D.auto.push({e, cur, target:b, old:a});
+    else if(crKprNK(cur)===crKprNK(b)) D.same++;
+    else D.other.push({e, cur, target:b, old:a});
+  });
+  return D;
+}
+// A tick box of the question (hand-entered names): remembered until it is answered.
+function crKprTick(el){ if(el&&el.dataset) crKpr.ticks[String(el.dataset.id)]=!!el.checked; }
+function crKprAskBody(D, lead){
+  const olds=[]; D.auto.forEach(r=>{ if(r.old&&!olds.some(n=>crKprNK(n)===crKprNK(r.old))) olds.push(r.old); });
+  const blank=D.auto.filter(r=>!r.cur).length;
+  return (lead||'')
+    +'<b>'+D.auto.length+'</b> '+(D.auto.length===1?'carries':'carry')+' '+(olds.length?esc(olds.join(' / '))+' or no name':'no name')+' — changed on Yes'+(D.auto.length&&blank?' ('+blank+' blank)':'')+'<br>'
+    +(D.same?'<b>'+D.same+'</b> already '+(D.same===1?'carries':'carry')+' the new name<br>':'')
+    +(D.other.length?'<div style="margin-top:10px;"><b>'+D.other.length+'</b> '+(D.other.length===1?'carries':'carry')+' another name (hand-entered) — left as '+(D.other.length===1?'it is':'they are')+' unless ticked:'
+      +'<div id="crKprOthers" style="margin-top:4px;max-height:150px;overflow:auto;">'+D.other.map(r=>'<label style="display:flex;align-items:center;gap:8px;padding:2px 0;cursor:pointer;color:var(--t1);"><input type="checkbox" data-id="'+esc(String(r.e._rowId))+'" onchange="crKprTick(this)"><span style="font-family:\'DM Mono\',monospace;font-size:12px;">'+fmt(r.e.driveT||0)+'</span><span>'+esc(r.cur)+' <span style="color:var(--t3);">→ '+esc(r.target)+'</span></span></label>').join('')+'</div></div>':'')
+    +'<br>Earlier kickouts are not touched. Queued like any edit: nothing is written until you save the session, and one Undo reverses it.';
+}
+// Ask, then change: Yes → the auto kickouts and the ticked ones (one bulk edit). Returns {v, n, left}.
+async function crKprAsk(D, o){
+  crKpr.ticks={};
+  const v=await cohesionModal({title:o.title, message:crKprAskBody(D, o.lead), buttons:[{label:o.no||'No — keep the kickouts', value:'no'}, {label:o.yes||('Yes — change '+D.auto.length+(D.other.length?' + any ticked':'')), value:'yes', primary:true}]});
+  if(v!=='yes') return {v:'no', n:0, left:D.other};
+  const ticked=D.other.filter(r=>crKpr.ticks[String(r.e._rowId)]);
+  const still=r=>EVENTS.includes(r.e)&&(o.hold||crKprNK(crKprAt(D.side, r.e))===crKprNK(r.target));   // the keepers were not changed again while this was open
+  return {v:'yes', n:crKprSetTakers(D.auto.concat(ticked).filter(still)), left:D.other.filter(r=>!ticked.includes(r))};
+}
+// The spell of `from` runs to the next named spell: "41:20 to the end of the game" / "41:20 to 55:10 (then Rory Byrne)".
+function crKprRangeText(side, from){
+  const nx=crKprClean(GAME)[side].find(s=>s.from>from);
+  return fmt(from)+(nx?' to '+fmt(nx.from)+' (then '+esc(nx.player)+')':' to the end of the game');
+}
+// After the panel changed a side's spells (was = the named spells before): ask about the kickouts whose keeper is
+// now someone else. o = {kind:'name'|'remove'|'move', from, who}. The keeper change itself is already recorded.
+async function crKprReconcile(side, was, o){
+  const D=crKprDelta(side, was, crKprClean(GAME)[side]), T=crTeamOf(side)||side, n=D.auto.length;
+  const targets=[]; D.auto.concat(D.other).forEach(r=>{ if(!targets.includes(r.target)) targets.push(r.target); });
+  const to=targets.length===1?targets[0]:(o.who||'the keeper in goal');
+  const said=o.kind==='remove'?'Change removed':o.kind==='move'?'Change moved to '+fmt(o.from):(o.who+' in goal from '+fmt(o.from));
+  if(!n&&!D.other.length){ crKpr.status=said+' — no kickouts to change'+(D.same?' ('+D.same+' already '+(D.same===1?'carries':'carry')+' the name)':'')+'.'; crKprRender(); return {v:'none', n:0}; }
+  const title=o.kind==='remove'?'Hand the '+(n?crKprN(n):'kickouts')+' from '+fmt(o.from)+' back to '+to+'?'
+    :o.kind==='move'?'Change '+(n?'the '+crKprN(n):'the kickouts')+' the new time moves to '+to+'?'
+    :'Change '+(n?'the '+crKprN(n):'the kickouts')+' from '+fmt(o.from)+' onwards to '+to+'?';
+  const lead='<b>'+esc(T)+'</b> — '+(o.kind==='move'?'kickouts whose keeper changes with the new time':'kickouts from '+crKprRangeText(side, o.from))+', by where each clip ends<br><br>';
+  const r=await crKprAsk(D, {title:esc(title), lead});
+  crKpr.status=r.v==='yes'?('Changed '+crKprN(r.n)+' to '+to+crKprLeftText(r.left)):(said+' — kickouts left as they are.');
+  crKprRender(); return r;
+}
+// The panel's three edits. Each records the keeper change first, then fills or asks; they return what was done.
+// A NAME typed in a keeper box (committed — never per keystroke).
+async function crKprNamed(side, i, name){
+  const row=crKprRows(side)[i]; if(!row) return null;
+  const was=crKprClean(GAME)[side], old=row.player, from=row.from;
+  if(!crKprSetPlayer(side, i, name)) return null;
+  const who=(crKprRows(side).find(x=>x.from===from)||{}).player||'';
+  if(!who){                                          // emptied
+    if(i===0||!old){ crKpr.status=i===0?'Starting keeper cleared — kickouts already tagged keep their taker.':''; crKprRender(); return {v:'none', n:0}; }
+    return crKprReconcile(side, was, {kind:'remove', from});
+  }
+  if(i===0&&!old){                                   // the starting keeper is set: fill, no question
+    const P=crKprPlan(side), fill=P.rows.filter(r=>r.kind==='fill'), left=P.rows.filter(r=>r.kind==='diff');
+    const by=[]; fill.forEach(r=>{ const b=by.find(x=>x.who===r.target); if(b) b.n++; else by.push({who:r.target, n:1}); });
+    const done=crKprApply(side, false);
+    crKpr.status=(done?'Filled '+crKprN(done)+(by.length===1?' with '+by[0].who:' ('+by.map(b=>b.who+' '+b.n).join(' · ')+')'):who+' is the starting keeper — no blank kickouts to fill')+crKprLeftText(left);
+    crKprRender(); return {v:'fill', n:done, left};
+  }
+  return crKprReconcile(side, was, {kind:'name', from, who});
+}
+// A change's TIME edited.
+async function crKprTimed(side, i, t){
+  const was=crKprClean(GAME)[side], named=!!(crKprRows(side)[i]||{}).player;
+  if(!crKprSetFrom(side, i, t)) return null;
+  if(!named) return {v:'none', n:0};
+  return crKprReconcile(side, was, {kind:'move', from:Math.max(1, Math.round(t))});
+}
+// ✕ on a row.
+async function crKprRemoved(side, i){
+  const row=crKprRows(side)[i]; if(!row) return null;
+  const was=crKprClean(GAME)[side], from=row.from, named=!!row.player;
+  crKprRemove(side, i);
+  if(!named) return {v:'none', n:0};
+  if(i===0){ crKpr.status='Starting keeper cleared — kickouts already tagged keep their taker.'; crKprRender(); return {v:'none', n:0}; }
+  return crKprReconcile(side, was, {kind:'remove', from});
 }
 function crKprSpellText(side){ return crKprClean(GAME)[side].map(s=>esc(s.player)+' from '+fmt(s.from)).join(' · '); }
 async function crKprBackfill(side){
@@ -3998,7 +4121,7 @@ async function crKprSave(){
   if(!crKprPendingN()) return false;
   try{ await crKprWrite(); }
   catch(e){ crKpr.status=e.message; crKprRender(); cohesionModal({title:'Goalkeepers not saved', message:esc(e.message)}); return false; }
-  crKpr.status='Goalkeepers saved. Kickouts already tagged are only changed by “Apply to this team’s kickouts”.'; crKprRender();
+  crKpr.status='Goalkeepers saved.'; crKprRender();
   return true;
 }
 function crKprBuild(){
@@ -4029,10 +4152,10 @@ function crKprCommit(inp){
   if(inp.classList.contains('crkp-t')){
     const t=crKprParseT(inp.value);
     if(t==null){ inp.value=fmt(l[i].from); crKpr.status='Time not understood — use m:ss, e.g. 41:20.'; const st=document.getElementById('crKprStatus'); if(st) st.textContent=crKpr.status; return; }
-    if(Math.max(1,t)!==l[i].from) crKprSetFrom(side, i, t);
+    if(Math.max(1,t)!==l[i].from) return crKprTimed(side, i, t);
     return;
   }
-  crKprSetPlayer(side, i, inp.value);
+  return crKprNamed(side, i, inp.value);
 }
 function crKprTeamHtml(side){
   const l=crKprRows(side), T=crTeamOf(side)||side, P=crKprPlan(side), subs=crKprSubs(side), changed=crKprChangedSides().includes(side);
@@ -4054,7 +4177,7 @@ function crKprRender(){
   if(!crKpr.open||!GAME) return;
   const p=crKprBuild(), n=crKprPendingN();
   p.innerHTML='<div class="crfr-h"><span>GOALKEEPERS</span><span class="crfr-sub">who takes the kickouts · this game</span><span class="crfr-x" data-act="close" title="Close (Esc)">✕</span></div>'
-    +'<div class="crlc-note">A kickout tagged in Code mode is given the keeper in goal at that time. One kickout can be changed in its own Edit panel (Kickout Taken By).</div>'
+    +'<div class="crlc-note">Setting a keeper fills that team’s kickouts that have no taker; kickouts tagged later get the keeper in goal at that time. Changing a keeper asks about the kickouts from then on. One kickout can be changed in its own Edit panel (Kickout Taken By).</div>'
     +crKprTeamHtml('home')+crKprTeamHtml('away')
     +'<div class="craa-live" id="crKprLive"></div>'
     +'<div class="crfr-row crfr-btns">'+(GAME._local?'<span class="crlc-note" style="margin:0;">Local session — kept until the page closes.</span>'
@@ -4076,7 +4199,7 @@ function crKprClick(ev){
   else if(act==='now') crKprAddSpell(side, vNow());
   else if(act==='hint') crKprAddSpell(side, at);
   else if(act==='seek'){ vSeekDrive(at); crKprLive(); }
-  else if(act==='rm'){ const i=crKprRows(side).findIndex(r=>String(r.from)===String(from)); if(i>=0) crKprRemove(side, i); }
+  else if(act==='rm'){ const i=crKprRows(side).findIndex(r=>String(r.from)===String(from)); if(i>=0) crKprRemoved(side, i); }
   else if(act==='fill') crKprBackfill(side);
   else if(act==='save') crKprSave();
 }
