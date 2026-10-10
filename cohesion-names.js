@@ -200,3 +200,115 @@
     const k=pkey(s.name), t=known[ctx.T].has(k), o=known[ctx.O].has(k);
     return t&&!o?ctx.T:o&&!t?ctx.O:'?';
   }
+
+  // ── scan: every spelling used for the team's players in one game ──
+  const SELF={player:1, label:1, plainPlayer:1, rowCode:1};          // "the row's player" kinds
+  const ZERO=()=>({player:0, assist:0, koWon:0, koTaken:0, koTarget:0, subs:0, sheet:0, keeper:0, ptag:0, rows:0});
+  const COUNT_OF={assist:'assist', koWon:'koWon', koTaken:'koTaken', koTarget:'koTarget', subOut:'subs', subIn:'subs', sheet:'sheet', keeper:'keeper', ptag:'ptag', rowsMeta:'rows'};
+  // -> {id, side, T, O, names:Map(spelling -> {name, n:{player (EVENTS he is the row's player on), assist, koWon,
+  //      koTaken, koTarget, subs, sheet, keeper, ptag, rows}, nos:[sheet numbers], uses}),
+  //     left:{opponent, ambiguous, noTeam} (name slots NOT counted for this team)}   | null (team not in the game)
+  function scanGame(meta, rows, team){
+    const ctx=gameCtx(meta, team); if(!ctx) return null;
+    const index=L.cohPlayerIndex((rows||[]).map(r=>r.data), meta), known=knownKeys(meta, rows, ctx, index);
+    const names=new Map(), left={opponent:0, ambiguous:0, noTeam:0}, selfEv=new Map();
+    const rec=n=>{ let r=names.get(n); if(!r){ r={name:n, n:ZERO(), nos:[], uses:0}; names.set(n, r); } return r; };
+    const fn=s=>{ const t=slotTeam(s, known, ctx);
+      if(t!==ctx.T){ if(t===ctx.O) left.opponent++; else if(t==='?') left.ambiguous++; else left.noTeam++; return; }
+      if(typeof s.name!=='string'||!tidy(s.name)) return;
+      if(s.kind==='plainPlayer'&&isPTag(s.name)) return;             // a GIU P-tag is not a name
+      const r=rec(s.name);
+      if(SELF[s.kind]){ let set=selfEv.get(s.name); if(!set){ set=new Set(); selfEv.set(s.name, set); } set.add(s.id); return; }
+      r.n[COUNT_OF[s.kind]]++; r.uses++;
+      if(s.kind==='sheet'&&s.no&&!r.nos.includes(s.no)) r.nos.push(s.no); };
+    walkEvents(meta, rows, ctx, index, fn); walkMeta(clone(meta), ctx, index, fn);
+    selfEv.forEach((set, n)=>{ const r=rec(n); r.n.player=set.size; r.uses+=set.size; });
+    return {id:meta.id, side:ctx.side, T:ctx.T, O:ctx.O, names, left};
+  }
+
+  // ── a team's spellings over all its games ─────────────────────
+  // games: [{meta, events:[{id, data}]}] -> {spellings:[{name, key, fold, n, uses, nos, games:[{id, date, title, opp,
+  //   n, uses}]}] sorted by name, games:[{id, date, title, opp, side}] (the team's games, oldest first)}
+  function teamNames(games, team){
+    const by=new Map(), list=[];
+    (games||[]).forEach(g=>{ const sc=g&&g.meta?scanGame(g.meta, g.events||[], team):null; if(!sc) return;
+      const m=g.meta, opp=sc.side==='home'?m.awayTeam:m.homeTeam, info={id:m.id, date:m.date||'', title:m.title||'', opp:opp||'', side:sc.side, section:m.section==='club'?'club':'county'};
+      list.push(info);
+      sc.names.forEach(r=>{ let s=by.get(r.name); if(!s){ s={name:r.name, key:pkey(r.name), fold:fkey(r.name), n:ZERO(), uses:0, nos:[], games:[]}; by.set(r.name, s); }
+        Object.keys(r.n).forEach(k=>{ s.n[k]+=r.n[k]; }); s.uses+=r.uses; r.nos.forEach(x=>{ if(!s.nos.includes(x)) s.nos.push(x); });
+        s.games.push(Object.assign({}, info, {n:r.n, uses:r.uses, nos:r.nos})); }); });
+    const cmp=(a,b)=>String(a.date).localeCompare(String(b.date))||String(a.id).localeCompare(String(b.id));
+    list.sort(cmp);
+    const spellings=[...by.values()].filter(s=>s.key).sort((a,b)=>a.name.localeCompare(b.name, undefined, {sensitivity:'base'})||(a.name<b.name?-1:1));
+    spellings.forEach(s=>{ s.games.sort(cmp); s.nos.sort((a,b)=>a-b); });
+    return {spellings, games:list};
+  }
+  // the spelling a merge proposes: the most-used one (ties: on a team sheet, then the longer, then A–Z), tidied
+  function bestSpelling(list){
+    const a=(list||[]).slice().sort((x,y)=>y.uses-x.uses||y.n.sheet-x.n.sheet||y.name.length-x.name.length||(x.name<y.name?-1:1));
+    return a.length?tidy(a[0].name):'';
+  }
+  // same Players-tab key = the same player: [{key, spellings:[…most used first], uses}] sorted by name
+  function groupsOf(spellings){
+    const m=new Map();
+    (spellings||[]).forEach(s=>{ let g=m.get(s.key); if(!g){ g={key:s.key, spellings:[], uses:0}; m.set(s.key, g); } g.spellings.push(s); g.uses+=s.uses; });
+    const out=[...m.values()];
+    out.forEach(g=>{ g.spellings.sort((x,y)=>y.uses-x.uses||(x.name<y.name?-1:1)); g.name=bestSpelling(g.spellings); });
+    return out.sort((a,b)=>a.name.localeCompare(b.name, undefined, {sensitivity:'base'}));
+  }
+
+  // ── possible duplicates (SUGGESTED only — never merged by themselves) ──
+  // Optimal-string-alignment distance (insert, delete, substitute, swap two neighbours), capped at 3.
+  function dist(a, b){
+    if(a===b) return 0; if(Math.abs(a.length-b.length)>2) return 3;
+    const n=a.length, m=b.length, d=[]; for(let i=0;i<=n;i++){ d.push(new Array(m+1).fill(0)); d[i][0]=i; } for(let j=0;j<=m;j++) d[0][j]=j;
+    for(let i=1;i<=n;i++) for(let j=1;j<=m;j++){ const c=a[i-1]===b[j-1]?0:1;
+      d[i][j]=Math.min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+c);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]) d[i][j]=Math.min(d[i][j], d[i-2][j-2]+1); }
+    return Math.min(3, d[n][m]);
+  }
+  // first word = first name, the rest = surname ("O Donoghue", "Mc Andrew", "Óg Horkan" read as one word)
+  function nameParts(name){ const w=tidy(name).split(' '); return w.length<2?{first:fkey(name), last:''}:{first:fkey(w[0]), last:fkey(w.slice(1).join(' '))}; }
+  // short forms that are the same first name (accent-folded). Only used when the surname is the same AND nobody
+  // else in the team could be meant.
+  const SHORT=[['patrick','paddy','pat','padraig','padraic','podge','paudie'], ['michael','mick','mike','mikey','micheal','mickey'], ['thomas','tom','tommy','tomas'],
+    ['james','jim','jimmy','jamie','seamus'], ['joseph','joe','joey'], ['daniel','dan','danny'], ['matthew','matt','mattie'], ['christopher','chris','christy'],
+    ['robert','rob','robbie','bob','bobby'], ['william','will','willie','bill','billy'], ['edward','ed','eddie','eamon','eamonn'], ['gerard','ger','gerry','gearoid'],
+    ['david','dave','davy','daithi'], ['stephen','steven','steve','stevie'], ['andrew','andy'], ['anthony','tony'], ['nicholas','nick','nicky'], ['alexander','alex'],
+    ['benjamin','ben'], ['samuel','sam'], ['joshua','josh'], ['oliver','ollie'], ['charles','charlie'], ['kevin','kev'], ['donal','donie','donall'], ['diarmuid','dermot','diarmaid'],
+    ['john','johnny','jack','sean'], ['peter','pete','peadar'], ['brendan','brendy'], ['cathal','charlie'], ['conor','connor','con'], ['darragh','dara','daire'], ['cillian','killian'],
+    ['ciaran','kieran'], ['niall','neil'], ['eoin','owen','eoghan'], ['aidan','aiden','aodhan'], ['rory','ruairi','ruaidhri'], ['shane','shay','shea','seaghan']];
+  function shortSet(first){ const i=SHORT.findIndex(s=>s.includes(first)); return i; }
+  // groups: groupsOf(…). -> [{a:key, b:key, code, reason}] — every pair that LOOKS like one player.
+  //   accents   the same letters once accents and punctuation are dropped                  (Seán / Sean)
+  //   surname   the same first name; the surname differs by one letter (4+ letters) or two (8+)   (Barret / Barrett)
+  //   first     the same surname; the first name differs by one letter, same initial, 4+ letters   (Eamon / Eamonn)
+  //   initial   the same surname; one is just an initial and only ONE player of that surname fits it
+  //   short     the same surname; a known short form, and only ONE player of that surname fits it  (Tony / Anthony)
+  // Sharing a surname is never enough: Ryan / Fionn / Eoin / Shea O'Donoghue and Joe / Bob Tuohy are different people.
+  function suggest(groups){
+    const G=(groups||[]).map(g=>Object.assign({g, fold:fkey(g.name)}, nameParts(g.name))), out=[];
+    const sameLast=(x)=>G.filter(y=>y.last&&y.last===x.last);
+    for(let i=0;i<G.length;i++) for(let j=i+1;j<G.length;j++){
+      const a=G[i], b=G[j]; let code='', reason='';
+      if(a.fold&&a.fold===b.fold){ code='accents'; reason='Same letters — only accents or punctuation differ'; }
+      else if(a.last&&b.last&&a.first===b.first&&a.first.length>1){
+        const d=dist(a.last, b.last), mn=Math.min(a.last.length, b.last.length);
+        if((d===1&&mn>=4)||(d===2&&mn>=8)){ code='surname'; reason='Same first name — the surname differs by '+(d===1?'one letter':'two letters'); }
+      }
+      else if(a.last&&a.last===b.last){
+        const fa=a.first, fb=b.first;
+        if(fa.length>=4&&fb.length>=4&&fa[0]===fb[0]&&dist(fa, fb)===1){ code='first'; reason='Same surname — the first name differs by one letter'; }
+        else if((fa.length===1)!==(fb.length===1)){
+          const ini=fa.length===1?a:b, full=ini===a?b:a;
+          if(full.first[0]===ini.first&&sameLast(ini).filter(y=>y.first.length>1&&y.first[0]===ini.first).length===1){ code='initial'; reason='Initial only — the only player of that surname whose first name starts with “'+ini.first.toUpperCase()+'”'; }
+        }
+        else if(shortSet(fa)>=0&&SHORT.some(s=>s.includes(fa)&&s.includes(fb))){
+          const sets=SHORT.filter(s=>s.includes(fa)&&s.includes(fb));
+          if(sameLast(a).filter(y=>sets.some(s=>s.includes(y.first))).length===2){ code='short'; reason='Same surname — a short form of the same first name'; }
+        }
+      }
+      if(code) out.push({a:a.g.key, b:b.g.key, code, reason});
+    }
+    return out;
+  }
