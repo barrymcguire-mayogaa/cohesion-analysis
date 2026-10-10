@@ -427,7 +427,7 @@ function renderTable(){
     g.spellings.forEach(s=>{
       const i = spIndex(s.name), on = ticked.has(s.name), op = opened.has(s.name);
       h += '<tr class="'+(many?'in ':'')+(on?'tick':'')+'" data-i="'+i+'"><td class="c"><input type="checkbox" data-act="tick" '+(on?'checked':'')+' aria-label="Tick '+esc(s.name)+'"></td>'
-        + '<td><div class="sp">'+cohPlayerBadgeHTML(team, s.name, { size:26 })+'<span class="name" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+(oddSpaces(s.name)?'<span class="odd" title="This spelling has extra spaces">extra spaces</span>':'')+'</div></td>'
+        + '<td><div class="sp"><span class="name" title="'+esc(s.name)+'">'+esc(s.name)+'</span>'+(oddSpaces(s.name)?'<span class="odd" title="This spelling has extra spaces">extra spaces</span>':'')+(/[‘’ʼ`´]/.test(s.name)?'<span class="odd" style="color:var(--t3);border-color:var(--border);" title="Typed with a curly apostrophe ( ’ ) instead of the straight one ( \' )">curly ’</span>':'')+'</div></td>'
         + num(s.n.player)+num(s.n.assist)+num(s.n.koWon)+num(s.n.koTaken)+num(s.n.subs)
         + '<td>'+(s.n.sheet ? plural(s.n.sheet,'sheet')+(s.nos.length?' · #'+s.nos.join(', #'):'') : '<span style="color:var(--t3)">–</span>')+'</td>'
         + num(s.n.keeper)+'<td>'+(hasPhoto(s.name)?'<span class="yes">Yes</span>':'<span style="color:var(--t3)">–</span>')+'</td>'
@@ -517,7 +517,7 @@ function gamesTableHTML(games, stateOf){
     + games.map(p=>{
       const kinds = EVENT_KINDS.filter(k=>p.counts[k]).map(k=>'<span class="chip">'+KIND_TXT[k]+' × '+p.counts[k]+'</span>').join('');
       const st = stateOf ? stateOf(p.id) : null;
-      return '<tr><td><b>'+esc(fmtDate(p.date))+'</b><br><span style="color:var(--t2)">v '+esc(p.opp)+'</span></td><td class="n">'+p.events.length+'</td><td>'+(kinds||'<span style="color:var(--t3)">nothing</span>')+'</td>'
+      return '<tr><td style="white-space:nowrap"><b>'+esc(fmtDate(p.date))+'</b><br><span style="color:var(--t2)">v '+esc(p.opp)+'</span></td><td class="n">'+p.events.length+'</td><td>'+(kinds||'<span style="color:var(--t3)">nothing</span>')+'</td>'
         + '<td>'+(p.pieces.map(q=>'<div>'+esc(pieceTxt(q))+'</div>').join('')||(p.warnings.length?'':'<span style="color:var(--t3)">–</span>'))
         + p.warnings.map(w=>'<div class="w '+w.level+'">'+(w.level==='strong'?'⚠ ':'')+esc(w.text)+'</div>').join('')+'</td>'
         + (st?'<td class="state '+st[0]+'">'+esc(st[1])+'</td>':'')+'</tr>'; }).join('')
