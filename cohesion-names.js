@@ -167,10 +167,13 @@
   // ── the walk over a game's meta ───────────────────────────────
   // Same contract as walkEvents. Changes are made on `meta` and returned as pieces
   // [{field:'rosters.home'|'keepers.away'|'playerRoster.teamA'|'rows', before, after}] — only fields that changed.
-  // ev (optional): {codes: the row codes that are this team's player rows on the game's events (before any change),
-  //                 still: the codes events carry AFTER the rename} — a row-list entry follows the events: it is
-  //                 renamed where it stands, or — when another row (the other team's player of the same name, an
-  //                 old row with no team) still uses the old code — it stays and a copy with the new name is added.
+  // ev (optional): {codes: the codes of this team's player rows on the game's events, still: every code the events
+  //                 carry AFTER the rename, to(code): the new name a merge gives that code, or null}.
+  // A row-list entry follows the events: it is this team's when its events are (codes), when the game's players
+  // say so (index), when the merge's correct name is one of the team's player rows, or when no event uses it any
+  // more. It is renamed where it stands — or, when some other row (the other team's player of the same name, an
+  // old row with no team) still uses the old code, it stays and a copy with the new name is added beside it.
+  // Read from the events as they are, so it gives the same answer before and after the events are saved.
   function walkMeta(meta, ctx, index, fn, ev){
     const pieces=[];
     const piece=(field, holder, k, work)=>{ const before=holder[k], after=work(clone(before));
@@ -190,7 +193,9 @@
     if(Array.isArray(meta.rows)) piece('rows', meta, 'rows', rows=>{
       const ren=[];
       rows.forEach((r,i)=>{ if(!r||typeof r.code!=='string'||!r.code) return;
-        const p=index.get(L.cohNameKey(r.code)), t=(ev&&ev.codes&&ev.codes.has(r.code))?ctx.T:(p&&p.team!=null)?up(p.team):null;
+        const p=index.get(L.cohNameKey(r.code)), to=ev&&ev.to?ev.to(r.code):null;
+        const mine=ev&&((ev.codes&&ev.codes.has(r.code))||(to!=null&&ev.codes&&ev.codes.has(to))||(to!=null&&ev.still&&!ev.still.has(r.code)));
+        const t=mine?ctx.T:(p&&p.team!=null)?up(p.team):null;
         if(t==null) return;                                                              // not a player's row
         const n=fn({kind:'rowsMeta', team:t, name:r.code, group:'', pos:i}); if(typeof n==='string'&&n!==r.code&&!ren.some(x=>x[0]===r.code)) ren.push([r.code, n]); });
       let out=rows; ren.forEach(x=>{ out=(ev&&ev.still&&ev.still.has(x[0]))?rowsAddCopy(out, x[0], x[1]):rowsApplyRename(out, x[0], x[1]); });
@@ -291,7 +296,7 @@
   function shortSet(first){ const i=SHORT.findIndex(s=>s.includes(first)); return i; }
   // groups: groupsOf(…). -> [{a:key, b:key, code, reason}] — every pair that LOOKS like one player.
   //   accents   the same letters once accents and punctuation are dropped                  (Seán / Sean)
-  //   surname   the same first name; the surname differs by one letter (4+ letters) or two (8+)   (Barret / Barrett)
+  //   surname   the same first name; the surname differs by one letter (5+ letters) or two (8+)   (Barret / Barrett)
   //   first     the same surname; the first name differs by one letter, same initial, 4+ letters   (Eamon / Eamonn)
   //   initial   the same surname; one is just an initial and only ONE player of that surname fits it
   //   short     the same surname; a known short form, and only ONE player of that surname fits it  (Tony / Anthony)
@@ -304,7 +309,7 @@
       if(a.fold&&a.fold===b.fold){ code='accents'; reason='Same letters — only accents or punctuation differ'; }
       else if(a.last&&b.last&&a.first===b.first&&a.first.length>1){
         const d=dist(a.last, b.last), mn=Math.min(a.last.length, b.last.length);
-        if((d===1&&mn>=4)||(d===2&&mn>=8)){ code='surname'; reason='Same first name — the surname differs by '+(d===1?'one letter':'two letters'); }
+        if((d===1&&mn>=5)||(d===2&&mn>=8)){ code='surname'; reason='Same first name — the surname differs by '+(d===1?'one letter':'two letters'); }
       }
       else if(a.last&&a.last===b.last){
         const fa=a.first, fb=b.first;
@@ -399,8 +404,10 @@
     const S=new Set(F); S.add(target);
     const warnings=target&&F.size?warningsOf(m2, r2, ctx, index, known, S, target, {opponent:0, ambiguous:0, noTeam:0}):[];   // read BEFORE the rename below
     const sets=target&&F.size?walkEvents(m2, r2, ctx, index, fn):new Map();
-    const still=new Set(r2.map(r=>r.data&&r.data.code).filter(c=>typeof c==='string'));
-    const pieces=target&&F.size?walkMeta(m2, ctx, index, fn, {codes:known.codes, still}):[];
+    const still=new Set(), codes=new Set(known.codes);                // the events AFTER the rename
+    r2.forEach(r=>{ const c=r.data&&r.data.code; if(typeof c==='string') still.add(c); });
+    sets.forEach(list=>list.forEach(x=>{ if(x.p[0]==='code') codes.add(x.new); }));
+    const pieces=target&&F.size?walkMeta(m2, ctx, index, fn, {codes, still, to:c=>F.has(c)?target:null}):[];
     const lw=leftNotes(left);
     const data=new Map(); r2.forEach(r=>{ if(sets.has(r.id)) data.set(r.id, r.data); });
     const all=warnings.concat(lw);
