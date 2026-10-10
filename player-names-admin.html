@@ -362,7 +362,7 @@ async function refresh(){
   teamGames().forEach(g=>cache.delete(g.id));
   drawTeams();
   await pickTeam(team, true);
-  if(plan) preview();
+  if(plan && !job) preview();
 }
 $('teamSel').addEventListener('change', e=>{ if(busy){ e.target.value = team; return; } pickTeam(e.target.value); });
 $('secSel').addEventListener('change', e=>{ if(busy){ e.target.value = section; return; } section = e.target.value; const hit = drawTeams(); pickTeam(hit ? hit.name : ''); });
@@ -573,7 +573,6 @@ function downloadLog(log){
   const blob = new Blob([JSON.stringify(log, null, 1)], { type:'application/json' }), a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'cohesion-name-merge-'+safe(log.team)+'-'+safe(log.target)+'-'+String(log.at||'').slice(0,16).replace(/[:T]/g,'')+'.json';
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-  log._downloaded = true;
 }
 const STATUS = { running:'not finished', partial:'stopped part-way', applied:'applied', undone:'undone', 'partly undone':'partly undone' };
 function renderHist(){

@@ -343,6 +343,9 @@ select option{background:var(--card);}
   <a href="player-photos-admin.html" class="hdr-btn hdr-btn-admin" id="photosBtn" style="display:none" title="Player photos — upload a photo for any player; shown to signed-in users only">
     👤 Player Photos
   </a>
+  <a href="player-names-admin.html" class="hdr-btn hdr-btn-admin" id="namesBtn" style="display:none" title="Player names — find every spelling of a team's players across all its games and merge the wrong ones">
+    🔤 Player Names
+  </a>
   <a href="playlists.html" class="hdr-btn">
     🎞 Playlists
   </a>
@@ -528,6 +531,7 @@ if(auth === 'admin') {
   document.getElementById('codeRoomBtn').style.display = 'flex';
   document.getElementById('xpBtn').style.display = 'flex';
   document.getElementById('photosBtn').style.display = 'flex';
+  document.getElementById('namesBtn').style.display = 'flex';
 }
 
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
