@@ -555,3 +555,173 @@ function renderPreview(){
   if(c){ b.disabled = true; c.addEventListener('change', ()=>{ b.disabled = !c.checked; }); }
 }
 function cancelPreview(){ if(busy) return; plan = null; job = null; $('pvStep').style.display = 'none'; }
+
+// ── Logs (the last few, in this browser: names and ids only) ───────────────
+let logNotStored = false;
+function readLogs(){ try{ const l = JSON.parse(localStorage.getItem(LOG_KEY)||'[]'); return Array.isArray(l) ? l.filter(x=>x&&x.v===1&&x.id&&Array.isArray(x.games)) : []; }catch(_){ return []; } }
+function saveLog(log){
+  let list = readLogs().filter(l=>l.id!==log.id); list.unshift(log); list = list.slice(0, LOG_KEEP);
+  logNotStored = false;
+  for(;;){
+    try{ localStorage.setItem(LOG_KEY, JSON.stringify(list)); return; }
+    catch(_){ if(list.length>1) list.pop(); else { logNotStored = true; return; } }   // too big for this browser: only the download keeps it
+  }
+}
+function logTotals(log){ const g = log.games||[]; return { games:g.filter(x=>x.events.length||x.meta.length).length, events:g.reduce((a,x)=>a+x.events.length,0), meta:g.reduce((a,x)=>a+x.meta.length,0) }; }
+function downloadLog(log){
+  const safe = s => String(s||'').normalize('NFD').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+  const blob = new Blob([JSON.stringify(log, null, 1)], { type:'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'cohesion-name-merge-'+safe(log.team)+'-'+safe(log.target)+'-'+String(log.at||'').slice(0,16).replace(/[:T]/g,'')+'.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  log._downloaded = true;
+}
+const STATUS = { running:'not finished', partial:'stopped part-way', applied:'applied', undone:'undone', 'partly undone':'partly undone' };
+function renderHist(){
+  const logs = readLogs();
+  $('histBox').innerHTML = logs.length ? logs.map((l,i)=>{ const t = logTotals(l), d = new Date(l.at);
+    return '<div class="hist" data-log="'+i+'"><span class="when">'+esc(isNaN(d)?'':d.toLocaleString([], { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }))+'</span>'
+      + '<span class="what"><b>'+esc(l.team)+'</b> · '+l.from.map(esc).join(', ')+' → <b>'+esc(l.target)+'</b><br><span style="color:var(--t3);font-size:12px;">'+plural(t.events,'event')+' in '+plural(t.games,'game')
+      + (t.meta?' · '+plural(t.meta,'game setting'):'')+' · '+esc(STATUS[l.status]||l.status)+'</span></span>'
+      + '<button class="sec-btn" data-act="dl">⬇ Download log</button><button class="sec-btn danger" data-act="undo" '+(l.status==='undone'||busy?'disabled':'')+'>Undo this merge</button></div>'; }).join('')
+    : '<div style="font-size:13px;color:var(--t2);">No merges yet.</div>';
+}
+$('histBox').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const log = readLogs()[+el.closest('.hist').dataset.log]; if(!log) return;
+  if(el.dataset.act==='dl') downloadLog(log); else undoMerge(log);
+});
+$('logFile').addEventListener('change', async e=>{
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  try{
+    const log = JSON.parse(await f.text());
+    if(!log || log.v!==1 || !log.id || !log.team || !Array.isArray(log.games) || !Array.isArray(log.from)) throw new Error('not a COHESION name-merge log');
+    saveLog(log); renderHist(); $('histMsg').textContent = 'Log opened — it is at the top of the list.';
+  }catch(err){ $('histMsg').textContent = 'That file could not be opened: '+(err.message||err); }
+});
+
+// ── Apply · resume · undo (cohesion-names.js runners over the existing gateways) ──
+const io = {
+  bundle: id => readGame(id),
+  saveEvents: ops => cohesionEventBatch(ops),
+  saveMeta: (id, meta) => cohesionAuthFetch('gameAdmin', { action:'updateMeta', gameId:id, meta }),
+  photos: async t => { const j = await cohesionAuthFetch('playerPhotos', { action:'list', teams:[t] }); const e = (j.teams||{})[cohPhotoKey(t)]; return (e&&e.players)||{}; },
+  photoRename: (t, from, to) => cohesionAuthFetch('playerPhotos', { action:'rename', team:t, player:from, newPlayer:to }),
+  photoDelete: (t, name) => cohesionAuthFetch('playerPhotos', { action:'delete', team:t, player:name }),
+  saveLog
+};
+cohesionSetGuard(()=>busy);                 // closing the tab while a merge is being saved asks first
+function setBusy(b){ busy = b; $('teamSel').disabled = b; $('secSel').disabled = b; $('refreshBtn').disabled = b || !team; renderBar(); }
+// names remembered by other pages (team sheet editor, Code Room's Assist box) would keep offering the old spelling for a day
+function clearNameCaches(t){
+  try{ const k = cohPhotoKey(t); Object.keys(localStorage).forEach(x=>{ const m = /^(coh_ts_known_|coh_cr_assist_)(.*)$/.exec(x); if(m && cohPhotoKey(m[2])===k) localStorage.removeItem(x); }); }catch(_){}
+}
+async function afterWrite(teamName, ids){
+  clearNameCaches(teamName);
+  if(cohPhotoKey(teamName)!==cohPhotoKey(team)) return;
+  await Promise.all([ loadGames(ids, 'Reading the changed'), loadPhotos() ]);
+  rescan(); renderAll();
+}
+function jobState(id){
+  if(!job) return ['', ''];
+  if(job.done.includes(id)) return ['ok', 'Done'];
+  if(job.failed && job.failed.id===id) return ['bad', 'Failed'];
+  if(job.now===id) return ['busy', 'Saving…'];
+  return ['', job.failed ? 'Not done' : 'Waiting'];
+}
+function renderRun(extra){
+  const games = plan.games.filter(p=>!N.planEmpty(p));
+  $('pvBox').innerHTML = headHTML(job.from, job.target) + (extra||'') + (games.length ? gamesTableHTML(games, jobState) : '');
+}
+async function applyMerge(resume){
+  if(busy || !plan) return;
+  if(!resume){
+    const c = $('pvConfirm'); if(c && !c.checked) return;
+    const t = planTotals(plan);
+    const ok = await cohesionModal({ title:'Merge these names?', message:plan.from.map(n=>'“'+esc(n)+'”').join(', ')+' → <b>“'+esc(plan.target)+'”</b><br>'+plural(t.events,'event')+' in '+plural(t.games,'game')+' of '+esc(team)+' will be changed. You get a log to undo it with.',
+      buttons:[{ label:'Apply merge', value:true, primary:true }, { label:'Cancel', value:false }] });
+    if(ok!==true) return;
+    plan.photo.forEach((a,i)=>{ if(a.action==='clash'){ const r = document.querySelector('input[name="ph'+i+'"]:checked'); plan.choice[a.from] = r ? r.value : 'keep'; } });
+    job = N.newJob(team, plan.from, plan.target, plan.games.filter(p=>!N.planEmpty(p)).map(p=>p.id), sessionStorage.getItem('cohesion_user')||'', plan.choice);
+  }
+  setBusy(true);
+  $('pvTitle').textContent = 'Merging…'; $('pvSub').textContent = 'Keep this tab open until it finishes';
+  const bar = '<div class="prog show"><div class="prog-track"><div class="prog-bar" id="runBar"></div></div><div class="prog-msg" id="runMsg">Starting…</div></div>';
+  renderRun(bar);
+  let res;
+  try{
+    res = await N.runMerge(job, io, p=>{
+      if(p.step==='game'){ job.now = p.id; renderRun(bar); const g = plan.games.find(x=>x.id===p.id);
+        $('runBar').style.width = (100*job.done.length/Math.max(1, job.order.length))+'%'; $('runMsg').textContent = 'Game '+(job.done.length+1)+' of '+job.order.length+(g?': v '+g.opp+' ('+fmtDate(g.date)+')':'')+' — reading it again, then saving…'; }
+      else if(p.step==='photo'){ job.now = null; const m = $('runMsg'); if(m) m.textContent = 'Games done — checking the photo…'; const b = $('runBar'); if(b) b.style.width = '100%'; }
+    });
+  }catch(e){ res = { ok:false, done:job.done.slice(), failed:{ id:null, error:(e&&e.message)||String(e) }, notDone:job.order.filter(x=>!job.done.includes(x)) }; job.failed = res.failed; }
+  job.now = null;
+  try{ await afterWrite(job.team, job.order); }catch(_){}
+  ticked = new Set(); targetTouched = false; renderTable(); renderBar();
+  setBusy(false);
+  renderResult(res);
+}
+function photoNotes(log){
+  return (log.photo||[]).map(p=>p.action==='rename' ? (p.done ? 'Photo: moved from “'+p.from+'” to “'+p.to+'”.' : '')
+    : p.action==='delete' ? (p.done ? 'Photo: the one stored under “'+p.from+'” was deleted.' : '')
+    : p.action==='kept' ? 'Photo: “'+p.from+'” still has its own photo ('+(p.note||'not moved')+') — sort it out in Player Photos.'
+    : 'Photo: not changed'+(p.from?' for “'+p.from+'”':'')+' — '+(p.note||'')+'. Use Player Photos.').filter(Boolean);
+}
+function dlBlock(log, undoLabel){
+  return '<div class="big-dl"><button class="process-btn green" onclick="downloadLog(job.log)">⬇ Download log</button>'
+    + '<div class="txt"><b>Download the log and keep it.</b> It lists every value that was changed. A merge cannot be reversed without it — this browser only keeps the last '+LOG_KEEP+' logs'
+    + (logNotStored?', and <b style="color:var(--red)">this one was too big to keep here</b>':'')+'.</div>'
+    + '<button class="sec-btn danger" onclick="undoMerge(job.log)">'+undoLabel+'</button></div>';
+}
+function renderResult(res){
+  const log = job.log, t = logTotals(log), title = id=>{ const g = plan.games.find(x=>x.id===id); return g ? 'v '+g.opp+' ('+fmtDate(g.date)+')' : String(id); };
+  let h;
+  if(res.ok){
+    $('pvTitle').textContent = 'Merge finished'; $('pvSub').textContent = 'Saved '+new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    h = '<div class="note good"><b style="color:var(--green)">✓ Merged.</b> '+plural(t.events,'event')+' in '+plural(t.games,'game')+' now say “'+esc(log.target)+'”'
+      + (t.meta?' · '+plural(t.meta,'game setting')+' (team sheet, goalkeepers, row list) updated':'')+'.'
+      + photoNotes(log).map(x=>'<br>'+esc(x)).join('')+'</div>' + dlBlock(log, 'Undo this merge');
+  } else {
+    $('pvTitle').textContent = 'Merge stopped'; $('pvSub').textContent = 'Some games were changed, some were not';
+    h = '<div class="note strong"><b>⚠ The merge stopped'+(res.failed.id!=null?' at '+esc(title(res.failed.id)):'')+':</b> '+esc(res.failed.error)
+      + '<br><b style="color:var(--green)">Done ('+res.done.length+'):</b> '+(res.done.map(title).map(esc).join(' · ')||'none')
+      + '<br><b>Not done ('+res.notDone.length+'):</b> '+(res.notDone.map(title).map(esc).join(' · ')||'none')
+      + '<br>Press Resume to carry on from the game that failed — the games already done are not touched again.</div>'
+      + '<div class="btn-row"><button class="process-btn" onclick="applyMerge(true)">Resume</button></div>' + dlBlock(log, 'Undo what was done');
+  }
+  renderRun(h);
+  renderHist();
+}
+async function undoMerge(log){
+  if(busy || !log) return;
+  const t = logTotals(log);
+  const ok = await cohesionModal({ title:'Undo this merge?', message:'Put back '+log.from.map(n=>'“'+esc(n)+'”').join(', ')+' where “'+esc(log.target)+'” was written: '+plural(t.events,'event')+' in '+plural(t.games,'game')+' of '+esc(log.team)
+      +'.<br>Each game is read again first; a value somebody has changed since the merge is left as it is and listed.', buttons:[{ label:'Undo the merge', value:true, danger:true }, { label:'Cancel', value:false }] });
+  if(ok!==true) return;
+  setBusy(true);
+  $('pvStep').style.display = ''; $('pvTitle').textContent = 'Undoing…'; $('pvSub').textContent = 'Keep this tab open until it finishes';
+  $('pvBox').innerHTML = headHTML([log.target], log.from.join(' / ')) + '<div class="prog show"><div class="prog-track"><div class="prog-bar" id="runBar"></div></div><div class="prog-msg" id="runMsg">Starting…</div></div>';
+  let r;
+  try{ r = await N.runUndo(log, io, p=>{ if(p.step==='game'){ $('runBar').style.width = (100*p.i/Math.max(1,p.n))+'%'; $('runMsg').textContent = 'Game '+(p.i+1)+' of '+p.n+' — reading it again, then restoring…'; } }); }
+  catch(e){ r = { ok:false, restored:0, already:0, skipped:[], metaSkipped:[], metaRestored:0, photo:[], failed:{ error:(e&&e.message)||String(e) } }; }
+  try{ await afterWrite(log.team, log.games.map(g=>g.id)); }catch(_){}
+  setBusy(false); plan = null; job = null;
+  const show = v => v==null ? 'nothing' : '“'+(Array.isArray(v)?v.join(', '):v)+'”';
+  let h = r.ok
+    ? '<div class="note good"><b style="color:var(--green)">✓ Undone.</b> '+plural(r.restored,'value')+' put back'+(r.metaRestored?' · '+plural(r.metaRestored,'game setting')+' restored':'')
+      + (r.already?' · '+plural(r.already,'value')+' already had the old name':'')+'.'+r.photo.map(x=>'<br>'+esc(x)).join('')+'</div>'
+    : '<div class="note strong"><b>⚠ The undo stopped'+(r.failed.title?' at '+esc(r.failed.title):'')+':</b> '+esc(r.failed.error)+'<br>Nothing is lost — press “Undo this merge” on the log below to carry on.</div>';
+  if(r.skipped.length || r.metaSkipped.length) h += '<div class="note warn"><b>Left as they are — changed by someone since the merge ('+(r.skipped.length+r.metaSkipped.length)+'):</b><ul style="margin:6px 0 0 18px;">'
+    + r.skipped.slice(0,40).map(s=>'<li>'+esc(s.game)+' · event '+esc(s.id)+' · '+esc(s.field)+': expected '+esc(show(s.expected))+', found '+esc(show(s.found))+(s.why?' ('+esc(s.why)+')':'')+'</li>').join('')
+    + (r.skipped.length>40?'<li>… and '+(r.skipped.length-40)+' more (all in the log)</li>':'')
+    + r.metaSkipped.map(s=>'<li>'+esc(s.game)+' · '+esc(s.field.replace('rosters.','team sheet ').replace('keepers.','goalkeepers ').replace('playerRoster.','P-tag list ').replace('rows','Sportscode row list'))+'</li>').join('')+'</ul></div>';
+  $('pvTitle').textContent = r.ok ? 'Undo finished' : 'Undo stopped'; $('pvSub').textContent = log.from.join(', ')+' ← '+log.target;
+  $('pvBox').innerHTML = headHTML([log.target], log.from.join(' / ')) + h;
+  renderHist();
+  $('pvStep').scrollIntoView({ block:'start', behavior:'smooth' });
+}
+
+if(gated && auth==='admin'){ renderHist(); loadTeams(); }
+</script>
+</body>
+</html>
