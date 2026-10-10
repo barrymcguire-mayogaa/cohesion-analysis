@@ -569,7 +569,7 @@
   // lines: numbered lines with .words (each with .sw). → {on, cut, unsure, bold, light}
   function clubSplit(lines){
     const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length;
-    const rows=(lines||[]).map(l=>{ const ws=(l.words||[]).slice().sort((a,b)=>a.x0-b.x0); let k=0; while(k<ws.length&&!lt(ws[k])) k++; return {l, head:ws.slice(0,k), ws:ws.slice(k)}; })
+    const rows=(lines||[]).map(l=>{ const ws=(l.words||[]).slice().sort((a,b)=>a.x0-b.x0); let k=0; while(k<ws.length&&(!lt(ws[k])||/^[(\[{][A-Za-z.]{1,6}[)\]}]$/.test(ws[k].text))) k++; return {l, head:ws.slice(0,k), ws:ws.slice(k)}; })   // the number, and a "(GK)" after it
       .filter(r=>r.head.length&&r.ws.length>=2);
     const m=rows.filter(r=>r.ws.length>=3&&r.ws[0].sw!=null&&r.ws[r.ws.length-1].sw!=null&&lt(r.ws[0])>=2&&lt(r.ws[r.ws.length-1])>=2);
     if(m.length<4) return {on:false, cut:0, unsure:0};
@@ -583,17 +583,19 @@
       for(let k=1;k<n;k++){ const l=part(0,k), rt=part(k,n); if(l.m==null||rt.m==null||l.m-rt.m<0.55*D) continue; if(l.e+rt.e<be-1e-12){ be=l.e+rt.e; bk=k; bl=l.m; br=rt.m; } }
       let sure=true;
       if(bk<n){ // the words either side of the cut must each sit clearly with their own side
-        const near=(x,own,other)=>x==null||Math.abs(x-other)-Math.abs(x-own)>=0.25*D;
+        const near=(x,own,other)=>x==null||Math.abs(x-other)-Math.abs(x-own)>=0.35*D;
         let i=bk-1; while(i>0&&v[i]==null) i--; let j=bk; while(j<n-1&&v[j]==null) j++;
         sure=bl-br>=0.7*D&&near(v[i],bl,br)&&near(v[j],br,bl); }
       // "Daniel Ó | Flaherty": a name does not end on a particle
-      while(bk<n&&PARTICLE.test(r.ws[bk-1].text.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase())&&/^[A-ZÀ-Þ]/.test(r.ws[bk].text)){ bk++; sure=false; }
+      // (… nor is the particle itself left behind with the club when its own weight could not be measured: "Daniel | Ó Flaherty")
+      const NP=/^(?:ó|o|ní|ni|nic|mac|mc|de|uí|ui)$/, tx=i=>r.ws[i].text.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase(), cap=i=>/^[A-ZÀ-Þ]/.test(r.ws[i].text);
+      while(bk<n){ if(NP.test(tx(bk-1))&&cap(bk)){ bk++; sure=false; } else if(NP.test(tx(bk))&&v[bk]==null&&bk+1<n&&cap(bk+1)){ bk+=2; sure=false; } else break; }
       if(bk<2) sure=false;                                                      // a name of one word
       if(bk===n&&n>2) sure=false;                                               // no club found on a line of several words
       const l=r.l, name=r.ws.slice(0,bk), tail=r.ws.slice(bk);
       l.text=r.head.map(w=>w.text).join(' ')+' '+name.map(w=>w.text).join(' '); l.no=lineNo(l.text);
       if(tail.length){ l.tail=tail.map(w=>w.text).join(' '); cut++; }
-      const cf=r.head.concat(name).filter(w=>w.conf!=null&&/[A-Za-zÀ-ɏ0-9]/.test(w.text)).map(w=>w.conf); if(cf.length) l.conf=Math.min.apply(null,cf);
+      const cf=r.head.concat(name).filter(w=>w.conf!=null&&/[A-Za-zÀ-ɏ0-9]/.test(w.text)).map(w=>w.conf); if(cf.length) l.conf=Math.min(Math.min.apply(null,cf), l.fixed||l.nonum?50:100);
       if(!sure){ l.unsure=true; l.conf=Math.min(l.conf==null?100:l.conf, 50); unsure++; } });
     return {on:true, cut, unsure, bold:B, light:L};
   }
