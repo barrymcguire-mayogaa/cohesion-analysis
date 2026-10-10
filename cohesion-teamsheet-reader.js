@@ -379,9 +379,11 @@
     const found=[], Lh=Math.round(0.11*sw), Lv=Math.round(0.022*sh);
     const rowsOpen=bin=>{ for(let y=0;y<sh;y++){ let s=-1; for(let x=0;x<=sw;x++){ const on=x<sw&&bin[y*sw+x]; if(on&&s<0) s=x; if(!on&&s>=0){ if(x-s<Lh) for(let i=s;i<x;i++) bin[y*sw+i]=0; s=-1; } } } };
     // light = clearly lighter than the background, at several levels (glare and shadow differ across a photo)
-    (o.ks||[1.15,1.3,1.5,1.8,2.2,2.7]).forEach(k=>{
+    // … and at plain levels of lightness (a box at the dark edge of the page, where "the background" is the dark)
+    (o.ks||[1.15,1.3,1.5,1.8,2.2,2.7,-140,-165,-190,-215]).forEach(k=>{
       const bin=new Uint8Array(n);
-      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const b=BG[Math.min(ch-1,(y/c)|0)*cw+Math.min(cw-1,(x/c)|0)], v=P[y*sw+x]; if(v>k*b+8&&v>90) bin[y*sw+x]=1; }
+      if(k<0){ for(let i=0;i<n;i++) if(P[i]>-k) bin[i]=1; }
+      else for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const b=BG[Math.min(ch-1,(y/c)|0)*cw+Math.min(cw-1,(x/c)|0)], v=P[y*sw+x]; if(v>k*b+8&&v>90) bin[y*sw+x]=1; }
       // only runs of light at least a box wide and a box high are kept — a white jersey touching its box, a thin border line go
       rowsOpen(bin);
       for(let x=0;x<sw;x++){ let s=-1; for(let y=0;y<=sh;y++){ const on=y<sh&&bin[y*sw+x]; if(on&&s<0) s=y; if(!on&&s>=0){ if(y-s<Lv) for(let i=s;i<y;i++) bin[i*sw+x]=0; s=-1; } } }
@@ -480,7 +482,7 @@
         box:{x0:Math.min.apply(null,r.ws.map(w=>w.x0)), y0:Math.min.apply(null,r.ws.map(w=>w.y0)), x1:Math.max.apply(null,r.ws.map(w=>w.x1)), y1:Math.max.apply(null,r.ws.map(w=>w.y1))}}; })
       .filter(l=>l.letters>=3);
     // more than three lines: the ones the reader could make nothing of (the rim of the box, the hem of the jersey) go
-    while(L.length>3){ const bad=L.map((l,i)=>({i, m:l.mean==null?100:l.mean})).filter(x=>x.m<45).sort((a,b)=>a.m-b.m)[0]; if(!bad) break; L.splice(bad.i,1); }
+    while(L.length>3){ const bad=L.map((l,i)=>({i, m:l.mean==null?100:l.mean})).filter(x=>x.m<60).sort((a,b)=>a.m-b.m)[0]; if(!bad) break; L.splice(bad.i,1); }
     return L;
   }
   R.boxLines=boxLines;
@@ -552,7 +554,7 @@
   // where to read the subs list again, enlarged: {x0,y0,x1,y1} in the picture, or null
   R.subsZone=function(words, boxes, W, Hh){
     const o=outsideLines(words, boxes), c=subsColumn(o.lines, o.H); if(!c) return null;
-    const H=o.H, z={x0:Math.max(0,c.x0-1.2*H), y0:Math.max(0,c.y0-c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+c.pitch)};
+    const H=o.H, z={x0:Math.max(0,c.x0-1.2*H), y0:Math.max(0,c.y0-2.5*c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+2.5*c.pitch)};   // room for a first or last line whose number was not read
     return (z.x1-z.x0>8*H&&z.y1-z.y0>3*H)?z:null;
   };
   R.CLUB=1.12;
@@ -568,15 +570,21 @@
     if(m.length<4) return {on:false, cut:0, unsure:0};
     const B=med(m.map(r=>r.ws[0].sw)), L=med(m.map(r=>r.ws[r.ws.length-1].sw));
     if(!(B>=R.CLUB*L)) return {on:false, cut:0, unsure:0, bold:B, light:L};
-    const half=Math.log(B/L)/2, midv=Math.sqrt(B*L); let cut=0, unsure=0;
-    rows.forEach(r=>{ const n=r.ws.length, s=r.ws.map(w=>(w.sw==null||lt(w)<2)?0:Math.max(-1.5,Math.min(1.5,Math.log(w.sw/midv)/half)));
-      // the cut that best divides heavy words (before it) from light ones (after it); a name has at least one word
-      let bk=n, bv=-Infinity, second=-Infinity; for(let k=1;k<=n;k++){ let v=0; for(let i=0;i<n;i++) v+=i<k?s[i]:-s[i]; if(v>bv+1e-9){ second=bv; bv=v; bk=k; } else if(v>second) second=v; }
-      let sure=n===1||bv-second>=0.5;                                           // moving the cut one word either way must clearly be worse
+    const D=Math.log(B/L); let cut=0, unsure=0;
+    rows.forEach(r=>{ const n=r.ws.length, v=r.ws.map(w=>(w.sw==null||lt(w)<2)?null:Math.log(w.sw));
+      // the cut that best divides the line into heavy words, then light words (least spread on either side); a name has at least one word
+      const part=(i,j)=>{ const a=v.slice(i,j).filter(x=>x!=null); if(!a.length) return {m:null, e:0}; const m=a.reduce((p,q)=>p+q,0)/a.length; return {m, e:a.reduce((p,q)=>p+(q-m)*(q-m),0)}; };
+      let bk=n, be=Infinity, bl=null, br=null;
+      for(let k=1;k<n;k++){ const l=part(0,k), rt=part(k,n); if(l.m==null||rt.m==null||l.m-rt.m<0.55*D) continue; if(l.e+rt.e<be-1e-12){ be=l.e+rt.e; bk=k; bl=l.m; br=rt.m; } }
+      let sure=true;
+      if(bk<n){ // the words either side of the cut must each sit clearly with their own side
+        const near=(x,own,other)=>x==null||Math.abs(x-other)-Math.abs(x-own)>=0.25*D;
+        let i=bk-1; while(i>0&&v[i]==null) i--; let j=bk; while(j<n-1&&v[j]==null) j++;
+        sure=bl-br>=0.7*D&&near(v[i],bl,br)&&near(v[j],br,bl); }
       // "Daniel Ó | Flaherty": a name does not end on a particle
       while(bk<n&&PARTICLE.test(r.ws[bk-1].text.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase())&&/^[A-ZÀ-Þ]/.test(r.ws[bk].text)){ bk++; sure=false; }
       if(bk<2) sure=false;                                                      // a name of one word
-      if(bk===n&&n>3) sure=false;                                               // no club found on a line of many words
+      if(bk===n&&n>2) sure=false;                                               // no club found on a line of several words
       const l=r.l, name=r.ws.slice(0,bk), tail=r.ws.slice(bk);
       l.text=r.head.map(w=>w.text).join(' ')+' '+name.map(w=>w.text).join(' '); l.no=lineNo(l.text);
       if(tail.length){ l.tail=tail.map(w=>w.text).join(' '); cut++; }
@@ -609,12 +617,12 @@
     if(col){
       const inCol=l=>l.box&&l.yc>col.y0-0.8*col.pitch&&l.yc<col.y1+0.8*col.pitch;
       out.lines.forEach(l=>{ const f=fold(l.text).trim();
-        if(RE_KEEP.test(f)&&l.no==null){ subs.push(l); return; }
+        if(RE_SUBSF.test(f.replace(/[^a-z\s]+/g,' ').trim())&&l.no==null&&f.length<24){ l.text='Subs'; l.heading=true; subs.push(l); return; }
         if(inCol(l)&&l.no!=null&&Math.abs(l.box.x0-col.x)<2.5*H){ subs.push(l); return; }
         // a line of the list whose number was not read: it starts where the names start
         if(inCol(l)&&l.no==null&&!isNumTok(l.text)&&l.box.x0>col.x-H&&l.box.x0<col.x+7*H&&l.text.split(/\s+/).filter(w=>/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]+$/.test(w)).length>=2){ l.conf=Math.min(l.conf==null?100:l.conf, 50); l.nonum=true; subs.push(l); return; }
         l.outside=true; lines.push(l); });
-      const S=subs.filter(l=>!RE_KEEP.test(fold(l.text).trim())).sort((a,b)=>a.yc-b.yc);
+      const S=subs.filter(l=>!l.heading).sort((a,b)=>a.yc-b.yc);
       // a number that breaks the run between two that fit ("22 · 4 · 24") is put right; so is a missing one
       const fixed=[]; for(let i=1;i+1<S.length;i++){ const a=S[i-1], l=S[i], b=S[i+1]; if(a.no!=null&&b.no!=null&&b.no-a.no===2&&!a.fixed&&l.no!==a.no+1){ const n=a.no+1;
         if(l.no!=null){ l.text=l.text.replace(/^[#(\[]?\s*\d{1,2}[.\-–—:)\]]*\s*/, n+' '); if(l.words) l.words=l.words.slice().sort((p,q)=>p.x0-q.x0).map((w,k)=>k===0?Object.assign({},w,{text:String(n)}):w); }
@@ -623,10 +631,10 @@
       const cs=clubSplit(S.filter(l=>l.no!=null));
       st.subs=S.length; st.club=cs; st.fixed=fixed;
       S.forEach(l=>{ l.sub=true; });
-      subs.sort((a,b)=>a.yc-b.yc).forEach(l=>lines.push(l));
+      subs.sort((a,b)=>(b.heading?1:0)-(a.heading?1:0)||a.yc-b.yc).forEach(l=>lines.push(l));
       if(cs.on) notes.push('Subs: the club printed after each name (in lighter type) was cut off'+(cs.unsure?' — on '+cs.unsure+' line'+(cs.unsure===1?'':'s')+' the place to cut was not clear, so '+(cs.unsure===1?'it is':'they are')+' marked to check':'')+'.');
       if(fixed.length) notes.push('Sub number'+(fixed.length===1?' ':'s ')+fixed.join(', ')+' could not be read and '+(fixed.length===1?'was':'were')+' worked out from the lines above and below — check.');
-    } else out.lines.forEach(l=>{ if(RE_KEEP.test(fold(l.text).trim())&&l.no==null) return; l.outside=true; lines.push(l); });
+    } else out.lines.forEach(l=>{ l.outside=true; lines.push(l); });
     const shape=num.shape.join(' / ');
     if(num.method==='place') notes.unshift('Starters: numbers 1–15 were taken from the positions of the 15 name boxes on the page ('+shape+'), not read from the lines — check.'
       +(num.read?' The jersey numbers that could be read ('+num.read+') '+(num.agree===num.read?'all agree':'agree for '+num.agree)+'.':''));
