@@ -3352,7 +3352,7 @@ function tdHTML(R, V, o){
 //    has not cleared the 40 m arc (inside the arc, or behind the 20 m line the
 //    arc ends on) is its own "Inside arc" area and counts as SHORT —
 //    but only when the kicker LOST it more than TK_ARC_TOL_M inside: see THE INSIDE-ARC RULE (tkZoneFor).
-//  · OUT OF RANGE = a landing more than 92 m from the kicking goal (beyond the far
+//  · OUT OF RANGE = a landing more than 95 m from the kicking goal (beyond the far
 //    45 m line, where no kickout lands). The kickout is KEPT and counted as tagged
 //    (long, zones 7-9) but flagged `far`: a "check tag" ring on the landing map, a
 //    line on its card and a row in the "Landings to check" list (both sides' kickouts
@@ -3375,13 +3375,16 @@ function tdHTML(R, V, o){
 //    and its unmatched count are documented there), only when the game has no source
 //    tags at all. The same derived source feeds the Overview / Attacking source tables.
 // ═══════════════════════════════════════════════════════════════
-const TK_PITCH_M=137, TK_WIDTH_M=84, TK_ARC_M=40, TK_START_M=20, TK_SHORT_M=45, TK_MED_M=65, TK_VIEW_M=92;
+// TK_UNIT_M = 137 is the UNIT of a stored kickout position (Y-KOs = "% of 137 from the kicking goal", metres = Y x 1.37).
+// It is NOT the drawn pitch length and must not change. TK_DRAW_M = 140 is the pitch the map DRAWS: halfway (dashed) at
+// 70 m, the far 65 at 75 m (the two 65s 5 m either side of halfway) and the far 45 at 95 m = TK_VIEW_M, the bottom edge.
+const TK_UNIT_M=137, TK_DRAW_M=140, TK_WIDTH_M=84, TK_ARC_M=40, TK_START_M=20, TK_SHORT_M=45, TK_MED_M=65, TK_VIEW_M=95;
 const TK_TYPES=[['clean','Clean'],['break','Break'],['free','Free'],['sideline','Sideline'],['unspecified','Unspecified']];
 const TK_LENS=[['S','Short'],['M','Medium'],['L','Long']];
 const TK_ZKEYS=['arc',1,2,3,4,5,6,7,8,9];
 const TK_CHECK_TOL_M=2, TK_CHECK_TOL_X=2;   // "check" tolerance: metres past a 45 / 65 m line, % of the pitch width past a column line
 const TK_SRC_LEAD=5;   // seconds a SCORE / SHOT SOURCE row may start before its kickout event
-function tkDist(y){ return y*TK_PITCH_M/100; }
+function tkDist(y){ return y*TK_UNIT_M/100; }
 function tkLenOfDist(d){ return d<TK_SHORT_M?'S':d<TK_MED_M?'M':'L'; }
 // x = % across (0 = the kicker's left touchline), d = metres from the kicking goal
 function tkZoneOfM(x, d){
@@ -3703,12 +3706,12 @@ function tkContestSecHTML(R, V, o){
   return h+`<div class="dnote">${ssEsc(note+'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
 }
 // ii. zones — the kickout pitch, drawn TO SCALE from the kicking team's 20m line (the top edge, as in the
-// reference picture) to the far 45m line: 84 m wide, 72 m long (20 m → 92 m out), 1 m = TK_K units both ways.
+// reference picture) to the far 45m line: 84 m wide, 75 m long (20 m → 95 m out), 1 m = TK_K units both ways.
 // Nothing behind the 20m line is drawn: a kickout tagged there follows the Inside-arc rule, and its marker
 // sits clamped on the top edge.
 const TK_PM=1.2, TK_K=(100-2*TK_PM)/TK_WIDTH_M, TK_PH=+(2*TK_PM+(TK_VIEW_M-TK_START_M)*TK_K).toFixed(2);
 function tkPX(x){ return +(TK_PM+x*(100-2*TK_PM)/100).toFixed(2); }                                  // x = % across
-function tkPY(d){ return +(TK_PM+(Math.max(TK_START_M, Math.min(TK_VIEW_M, d))-TK_START_M)*TK_K).toFixed(2); }   // d = metres from the kicking goal (clamped to the view: 20 m → 92 m)
+function tkPY(d){ return +(TK_PM+(Math.max(TK_START_M, Math.min(TK_VIEW_M, d))-TK_START_M)*TK_K).toFixed(2); }   // d = metres from the kicking goal (clamped to the view: 20 m → 95 m)
 function tkArcD(x){ const lat=(x-50)*TK_WIDTH_M/100; return Math.sqrt(Math.max(0, TK_ARC_M*TK_ARC_M-lat*lat)); }   // the 40m arc's distance out at x
 const TK_ARC_X=(()=>{ const h=Math.sqrt(TK_ARC_M*TK_ARC_M-TK_START_M*TK_START_M)/TK_WIDTH_M*100; return [50-h, 50+h]; })();   // where the arc meets the 20m line
 let TK_PITCH=null;
@@ -3720,7 +3723,7 @@ function tkPitchArt(){
   const r13=+(13*TK_K).toFixed(2), r40=+(TK_ARC_M*TK_K).toFixed(2), c=TK_WIDTH_M/2, y20=tkPY(TK_START_M);
   s+=`<path d="M ${mx(c-13)} ${y20} A ${r13} ${r13} 0 0 0 ${mx(c+13)} ${y20}" fill="none" stroke="${W}" stroke-width=".8"/>`
     +`<path d="M ${tkPX(TK_ARC_X[0])} ${y20} A ${r40} ${r40} 0 0 0 ${tkPX(TK_ARC_X[1])} ${y20}" fill="none" stroke="${W}" stroke-width="1"/>`
-    +ln(TK_SHORT_M)+ln(TK_MED_M)+ln(TK_PITCH_M/2, {w:.9, dash:true})+ln(TK_PITCH_M-TK_MED_M)
+    +ln(TK_SHORT_M)+ln(TK_MED_M)+ln(TK_DRAW_M/2, {w:.9, dash:true})+ln(TK_DRAW_M-TK_MED_M)
     +`<rect x="${tkPX(0)}" y="${y20}" width="${+(100-2*TK_PM).toFixed(2)}" height="${+(len*TK_K).toFixed(2)}" fill="none" stroke="${W}" stroke-width="1"/>`;
   return TK_PITCH=s;
 }
@@ -3735,7 +3738,7 @@ const TK_ZG=(()=>{
   for(let c=0;c<3;c++){ shape[4+c]=rect(c, TK_SHORT_M, TK_MED_M); shape[7+c]=rect(c, TK_MED_M, TK_VIEW_M); }
   // label anchors: [x %, metres out] for the name, the won/taken figure and the win %; a = text-anchor
   const mid=c=>(x[c]+x[c+1])/2, lab={arc:{n:[50,23.4], v:[50,27.6], p:[50,31], a:'middle', sm:true}, 1:{n:[2.2,31.4], v:[2.2,37.8], p:[2.2,42.8], a:'start'}, 2:{one:[50,43.6]}, 3:{n:[97.8,31.4], v:[97.8,37.8], p:[97.8,42.8], a:'end'}};
-  for(let c=0;c<3;c++){ lab[4+c]={n:[x[c]+1.6,48.7], v:[mid(c),57.2], p:[mid(c),61.6], a:'middle'}; lab[7+c]={n:[x[c]+1.6,76.2], v:[mid(c),83.4], p:[mid(c),87.8], a:'middle'}; }
+  for(let c=0;c<3;c++){ lab[4+c]={n:[x[c]+1.6,48.7], v:[mid(c),57.2], p:[mid(c),61.6], a:'middle'}; lab[7+c]={n:[x[c]+1.6,79.2], v:[mid(c),86.4], p:[mid(c),90.8], a:'middle'}; }   // below the far 65 (75 m)
   return {shape, lab};
 })();
 function tkZoneName(z){ return z==='arc'?'INSIDE ARC':'ZONE '+z; }
