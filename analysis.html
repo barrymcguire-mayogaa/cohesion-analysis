@@ -430,8 +430,6 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-zv.na{fill-opacity:.6;font-weight:600;}
 .tt-zp{font-size:3.1px;font-weight:600;}
 .tt-zp.sm{font-size:2.5px;}
-.tt-zx{font-size:2.3px;font-weight:700;} .tt-zx.sm{font-size:2px;} .tt-zx.na{fill-opacity:.6;font-weight:600;}
-.tt-zl .tt-zxd .pos{fill:#8dffa6;} .tt-zl .tt-zxd .neg{fill:#ff9c94;}
 .tt-ztabcard{overflow-x:auto;}
 .tt-ztab{width:100%;border-collapse:collapse;font-size:.84rem;font-variant-numeric:tabular-nums;}
 .tt-ztab th,.tt-ztab td{padding:6px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -575,7 +573,6 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .tt-ztab thead th{font-size:9.5px;letter-spacing:.02em;}
   .tt-filters{gap:10px 14px;} .tt-fg .seg button{padding:10px 10px;} .tt-fg .chip{padding:9px 11px;}
   .tt-zn,.tt-zt{font-size:2.3px;} .tt-zv.sm{font-size:3.5px;} .tt-zp.sm{font-size:2.8px;}
-  .tt-zx{font-size:2.5px;} .tt-zx.sm{font-size:2.3px;} .tt-zx.sm .tt-zxd,.tt-zx1{display:none;}   /* small grid: split parts drop the difference, the Zone 5 strip drops xP */
   .tt-ir{font-size:.9rem;padding:8px 2px;}
 }
 /* ── Team Trends › Kickouts ── */
@@ -2823,19 +2820,12 @@ const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=
       '5:1':`M${x1} ${y1}H${x2}V${yb}${A}1 ${x1} ${ya}Z`, '5:2':`M${x1} ${ya}${A}0 ${x2} ${yb}V${y2}H${x1}Z`, '6:2':`M${x3} ${y1}H${ax1}${A}1 ${x2} ${yb}V${y2}H${x3}Z`},
     // label anchors (art units): zone name, and the centre of each block
     name:{1:[2.4,4.4], 2:[34.5,4.4], 3:[67.9,4.4], 4:[2.4,26.1], 5:[34.5,26.1], 6:[97.6,26.1], 7:[2.4,55.2], 8:[34.5,55.2], 9:[67.9,55.2]},
-    mid:{1:[17.2,12.4], 2:[50,12.4], 3:[82.8,12.4], '5:1':[50,35.5], '5:2':[50,50.6], 7:[17.2,63.2], 8:[50,63.2], 9:[82.8,63.2], '4:1':[25.4,29.4], '4:2':[13.2,44.2], '6:1':[74.6,29.4], '6:2':[86.8,44.2]} };
+    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], '5:1':[50,36.5], '5:2':[50,50.6], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
 })();
 const TT_ROWS=['inside the 20m line','between the 20m and 45m lines','beyond the 45m line'], TT_COLS=['left','centre','right'];
 function ttZoneWhere(z){ return TT_COLS[(z-1)%3]+', '+TT_ROWS[Math.floor((z-1)/3)]; }
 // colour by % scored: dark (0%) → gold (100%)
 function ttHeat(p){ const t=Math.max(0,Math.min(1,(p||0)/100)), a=[16,22,38], b=[255,208,52]; return 'rgb('+a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(',')+')'; }
-// the xP line of a grid block: the table's own figures and rounding (xp.toFixed(1), mrSigned(diff)); "xP n/a" when
-// the block has shots but none with a location + attempt type (the table's n/a). .tt-zxd = the difference (the first thing dropped when small).
-function ttZoneXpTxt(o, noDiff){
-  if(!o.xpShots) return 'xP n/a';
-  const d=o.diff;
-  return 'xP '+o.xp.toFixed(1)+(noDiff||d==null?'':`<tspan class="tt-zxd"> · <tspan class="${d>=0.05?'pos':d<=-0.05?'neg':'zero'}">${mrSigned(d)}</tspan></tspan>`);
-}
 function ttZoneSVG(Zs){
   const Y=v=>(v*TT_STR).toFixed(2);
   const block=(o,key)=>`<path class="tt-zs${o.shots?'':' none'}" d="${TT_ZG.shape[key]}"${o.shots?' fill="'+ttHeat(o.pct)+'"':''}/>`;
@@ -2845,11 +2835,10 @@ function ttZoneSVG(Zs){
     shapes+=`<g class="tt-zone" data-tip="zone:${Z.z}" tabindex="0" role="img" aria-label="${ssEsc(lab)}">`+(Z.sub?block(Z.sub['1'],Z.z+':1')+block(Z.sub['2'],Z.z+':2'):block(Z,String(Z.z)))+'</g>';
     labels+=`<text class="tt-zn" x="${nm[0]}" y="${Y(nm[1])}"${Z.z===6?' text-anchor="end"':''}>ZONE ${Z.z}</text>`;
     const txt=(o,key,tag)=>{ const m=TT_ZG.mid[key], big=!tag;
-      if(key==='5:2') return `<text class="tt-zp sm one${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1])}" text-anchor="middle">${tag} ${o.shots?o.scores+'/'+o.shots+' · '+ttPctTxt(o.pct)+`<tspan class="tt-zx1" data-zx="${key}"> · ${ttZoneXpTxt(o, true)}</tspan>`:'–'}</text>`;   // thin strip: one line (xP without the difference)
+      if(key==='5:2') return `<text class="tt-zp sm one${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1])}" text-anchor="middle">${tag} ${o.shots?o.scores+'/'+o.shots+' · '+ttPctTxt(o.pct):'–'}</text>`;   // thin strip: one line
       return (tag?`<text class="tt-zt" x="${m[0]}" y="${Y(m[1]-3.1)}" text-anchor="middle">${tag}</text>`:'')
         +`<text class="${big?'tt-zv':'tt-zv sm'}${o.shots?'':' na'}" x="${m[0]}" y="${Y(m[1]+(big?0:.3))}" text-anchor="middle">${o.shots?o.scores+'/'+o.shots:'–'}</text>`
-        +(o.shots?`<text class="${big?'tt-zp':'tt-zp sm'}" x="${m[0]}" y="${Y(m[1]+(big?4.1:3.2))}" text-anchor="middle">${ttPctTxt(o.pct)}</text>`
-          +`<text class="${big?'tt-zx':'tt-zx sm'}${o.xpShots?'':' na'}" data-zx="${key}" x="${m[0]}" y="${Y(m[1]+(big?7.2:5.9))}" text-anchor="middle">${ttZoneXpTxt(o)}</text>`:''); };
+        +(o.shots?`<text class="${big?'tt-zp':'tt-zp sm'}" x="${m[0]}" y="${Y(m[1]+(big?4.1:3.2))}" text-anchor="middle">${ttPctTxt(o.pct)}</text>`:''); };
     labels+=Z.sub?txt(Z.sub['1'],Z.z+':1','1-PT')+txt(Z.sub['2'],Z.z+':2','2-PT'):txt(Z,String(Z.z),'');
   });
   return ttPitchOpen('tt-zones','Shooting zones, goal at the top')+shapes+'</g><g class="tt-zl" aria-hidden="true">'+labels+'</g></svg>';
@@ -2998,7 +2987,7 @@ function ttHTML(R, V, o){
   const Zs=V.zones;
   h+=`<h2 class="ov-h">SHOOTING ZONES ${tag}</h2><div class="tt-zrow"><div class="tt-card tt-mapcard">`
     +(Zs.zoned?`<div class="tt-pitchbox">${ttZoneSVG(Zs)}</div><div class="tt-key"><span>0% scored</span><i class="tt-ramp"></i><span>100%</span><span><i class="tt-sw none"></i>no shots</span></div>`:'<div class="tt-empty">n/a — no shot zones or locations in these games.</div>')
-    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4, 5 and 6 are split on the 40m arc: 1-point attempts inside it, 2-point attempts outside (in Zone 5 that is the small strip between the arc and the 45m line). xP is the expected points from the shots in that part that have a location and an attempt type; the second number is points minus xP. '+Zs.zoned+' of '+V.S.shots.length+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
+    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4, 5 and 6 are split on the 40m arc: 1-point attempts inside it, 2-point attempts outside (in Zone 5 that is the small strip between the arc and the 45m line). '+Zs.zoned+' of '+V.S.shots.length+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
     +`<div class="tt-card tt-ztabcard">${ttZoneTableHTML(Zs)}<div class="dnote">xP covers shots with a location and an attempt type; Points − xP compares the points from those shots with their xP.</div></div></div>`;
   // iv. locations
   h+=`<h2 class="ov-h">SHOT LOCATIONS ${tag}</h2><div id="ttMapSec">`+ttMapSectionHTML(V, F, {col})+'</div>';
@@ -6721,7 +6710,7 @@ function pyShootHTML(R, V, F){
   const Zs=V.zones, n=V.shots.length;
   return '<div class="py-sdrow"><div class="tt-card tt-mapcard py-zg">'
     +(Zs.zoned?`<div class="tt-pitchbox">${ttZoneSVG(Zs).replace(/data-tip="zone:/g,'data-tip="pzone:')}</div><div class="tt-key"><span>0% scored</span><i class="tt-ramp"></i><span>100%</span><span><i class="tt-sw none"></i>no shots</span></div>`:`<div class="tt-empty">${n?'n/a — no shot zones or locations on these shots.':'No shots.'}</div>`)
-    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4, 5 and 6 are split on the 40m arc into 1-point and 2-point attempts. xP is the expected points from the shots in that part that have a location and an attempt type; the second number is points minus xP. '+Zs.zoned+' of '+n+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
+    +`<div class="dnote">${ssEsc('Scores / shots and % scored per zone, goal at the top. Zones 4, 5 and 6 are split on the 40m arc into 1-point and 2-point attempts. '+Zs.zoned+' of '+n+' shots have a zone ('+Zs.fromLabel+' tagged, '+Zs.fromLoc+' from the location)'+(Zs.unzoned?'; '+Zs.unzoned+' with neither are left out':'')+'.')}</div></div>`
     +`<div class="tt-card tt-ztabcard py-zt">${Zs.zoned?ttZoneTableHTML(Zs)+'<div class="dnote">xP covers shots with a location and an attempt type; PTS − xP compares the points from those shots with their xP.</div>':'<div class="tt-empty">'+(n?'n/a — no shot zones on these shots.':'No shots.')+'</div>'}</div>`
     +'<div class="py-sdcol">'+pyPrHTML(V.pressure)+pyAssistHTML(V.assistors, R, V)+'</div></div>';
 }
