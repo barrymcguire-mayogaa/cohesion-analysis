@@ -612,6 +612,10 @@
     const all=(boxes||[]).map(b=>{ const L=boxLines(b.words||[]); return Object.assign({}, b, {L, pick:L.length>=2&&L.length<=4?pickEnglish(L):null}); });
     const good=all.filter(b=>b.pick);
     if(good.length<R.BOXMIN) return null;
+    // … and it must be that design: most boxes hold exactly three lines, and the lines do not start with jersey numbers
+    // (a programme that prints "7 Seán Kelly" in a light banner is read the other way)
+    const numd=good.filter(b=>b.L.some(l=>lineNo(l.text)!=null||isNumTok(l.words[0].text))).length, three=good.filter(b=>b.L.length===3).length;
+    if(three<0.6*good.length||numd>0.3*good.length) return null;
     const rows=boxRows(good), num=numberBoxes(rows), seq=[].concat.apply([], rows), lines=[], notes=[];
     const st={boxes:good.length, shape:num.shape, method:num.method, jerseyRead:num.read, jerseyAgree:num.agree, three:0, bold:0, boldIsMiddle:0, boldNotMiddle:0, middle:0, guess:0, clash:[]};
     seq.forEach(b=>{ const p=b.pick, l=b.L[p.i]; let conf=l.conf==null?100:l.conf, why=[];
@@ -1313,7 +1317,7 @@
     for(const b of cand){ const hh=b.y1-b.y0, z=zoomed(view, {x0:b.x0+0.02*hh, y0:b.y0+0.02*hh, x1:b.x1-0.02*hh, y1:b.y1-0.02*hh}, Math.max(1.5, Math.min(4, 300/hh)));
       const raw=await eng.pass(z.canvas, P6); boxes.push({x0:b.x0, y0:b.y0, x1:b.x1, y1:b.y1, words:backTo(z, raw), jersey:null}); if(R._dbg) boxes[boxes.length-1].dbg=dbg(z, raw); }
     T.boxes=Math.round(performance.now()-t);
-    if(boxes.filter(b=>{ const L=R.boxLines(b.words); return L.length>=2&&L.length<=4; }).length<R.BOXMIN){ await eng.set({tessedit_char_whitelist:''}); return; }
+    if(!R.boxLayout(pg.words, boxes)){ await eng.set({tessedit_char_whitelist:''}); return; }          // not such a page: the plain reading stands, untouched
     t=performance.now();
     if(R.JERSEY){ for(const b of boxes) b.jersey=await readJersey(eng, view, b); await eng.set({tessedit_char_whitelist:''}); }
     T.jersey=Math.round(performance.now()-t); t=performance.now();
