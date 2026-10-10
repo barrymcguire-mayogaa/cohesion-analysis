@@ -1582,24 +1582,31 @@ function crKoZoneOf(x,y){
 }
 // ── Kickout chart geometry: TRUE metric scale (shared verbatim by code-room.html and
 // cohesion-graphics.js — test_ko_scale.js checks the two copies are identical) ──
-// The chart shows the kicking goal line (top) to the far 45 m line (bottom) = 92 m of the
-// 137 m pitch, 84 m wide, inside a 100 x 89 viewBox with a 1.2 margin. Stored Y-KOs are
-// % of the full pitch from the kicking goal (metres = Y x 1.37) and plot at exactly that
-// many metres; every line is drawn at its real distance (13, 20, 45, 65, 68.5, 72, 92 m).
-const KO_PM=1.2, KO_VB_H=89, KO_VIEW_M=92, KO_PITCH_M=137, KO_WIDTH_M=84;
-const KO_KY=(KO_VB_H-2*KO_PM)/KO_VIEW_M, KO_KX=(100-2*KO_PM)/KO_WIDTH_M;   // viewBox units per metre, down / across
+// The chart shows the kicking goal line (top) to the far 45 m line (bottom), 84 m wide,
+// drawn as a 140 m pitch (KO_DRAW_M): 13, 20, 45 and 65 m, then halfway (dashed) at 70 m,
+// the far 65 at 75 m — the two 65s sit 5 m either side of halfway — and the far 45 at
+// 95 m, the bottom edge (KO_VIEW_M). 100-wide viewBox, 1.2 margin.
+// STORED POSITIONS: Y-KOs is "% of 137 from the kicking goal", i.e. metres = Y x 1.37.
+// KO_UNIT_M = 137 is that UNIT — it is not the length of the drawn pitch, and it must not
+// change (every stored kickout, length band and zone depends on it). A kickout plots at
+// its stored metres on this picture; nothing is converted.
+// KO_KY is the scale the chart has always had (86.6 units for 92 m), so everything from
+// the goal line to the near 65 is exactly where it was; the box is simply 3 m taller.
+const KO_PM=1.2, KO_VIEW_M=95, KO_UNIT_M=137, KO_DRAW_M=140, KO_WIDTH_M=84;
+const KO_KY=86.6/92, KO_KX=(100-2*KO_PM)/KO_WIDTH_M;   // viewBox units per metre, down / across
+const KO_VB_H=+(2*KO_PM+KO_VIEW_M*KO_KY).toFixed(2);   // viewBox height (91.82)
 function koMY(m){ return KO_PM+m*KO_KY; }                                   // metres from the kicking goal -> viewBox y
 function koMX(m){ return KO_PM+m*KO_KX; }                                   // metres from the left touchline -> viewBox x
-function koPlotY(y){ return koMY(Math.max(0, Math.min(KO_VIEW_M, y*KO_PITCH_M/100))); }   // stored Y -> viewBox y (clamped to the view)
+function koPlotY(y){ return koMY(Math.max(0, Math.min(KO_VIEW_M, y*KO_UNIT_M/100))); }   // stored Y -> viewBox y (clamped to the view)
 function koLabelToView(y){ return koPlotY(y)/KO_VB_H*100; }                 // stored Y -> % down the drawn chart
-function koViewToLabel(v){ return Math.max(0, Math.min(KO_VIEW_M, (v*KO_VB_H/100-KO_PM)/KO_KY))*100/KO_PITCH_M; }   // % down the drawn chart -> stored Y
+function koViewToLabel(v){ return Math.max(0, Math.min(KO_VIEW_M, (v*KO_VB_H/100-KO_PM)/KO_KY))*100/KO_UNIT_M; }   // % down the drawn chart -> stored Y
 function koPitchArt(){
   const W='rgba(255,255,255,.92)', f=n=>(+n.toFixed(2)), c=KO_WIDTH_M/2, x0=KO_PM, x1=100-KO_PM, y0=koMY(0), y20=f(koMY(20));
   const ln=(m,o)=>'<line x1="'+x0+'" y1="'+f(koMY(m))+'" x2="'+x1+'" y2="'+f(koMY(m))+'" stroke="'+W+'" stroke-width="'+((o&&o.w)||.8)+'"'+(o&&o.dash?' stroke-dasharray="3.2,2.4"':'')+'/>';
   const arc=(r,half,w)=>'<path d="M '+f(koMX(c-half))+' '+y20+' A '+f(r*KO_KX)+' '+f(r*KO_KY)+' 0 0 0 '+f(koMX(c+half))+' '+y20+'" fill="none" stroke="'+W+'" stroke-width="'+w+'"/>';
-  let s=''; const band=(KO_VB_H-2*KO_PM)/9;
+  let s=''; const band=KO_VIEW_M*KO_KY/9;
   for(let i=0;i<9;i++) s+='<rect x="'+x0+'" y="'+f(y0+i*band)+'" width="'+f(x1-x0)+'" height="'+f(band)+'" fill="'+(i%2?'#2e7a24':'#35862a')+'"/>';
-  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="'+f(KO_VB_H-2*KO_PM)+'" fill="none" stroke="'+W+'" stroke-width="1"/>'
+  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="'+f(KO_VIEW_M*KO_KY)+'" fill="none" stroke="'+W+'" stroke-width="1"/>'
     +'<line x1="'+f(koMX(c-9.5))+'" y1="'+y0+'" x2="'+f(koMX(c-9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'      // large rectangle: 19 m x 13 m
     +'<line x1="'+f(koMX(c+9.5))+'" y1="'+y0+'" x2="'+f(koMX(c+9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'
     +'<rect x="'+f(koMX(c-7))+'" y="'+y0+'" width="'+f(14*KO_KX)+'" height="'+f(4.5*KO_KY)+'" fill="none" stroke="'+W+'" stroke-width=".8"/>'   // small rectangle: 14 m x 4.5 m
@@ -1607,7 +1614,7 @@ function koPitchArt(){
     +ln(13)+ln(20)
     +arc(13, 13, .9)                                                                                                                  // the D: 13 m radius on the 20 m line
     +arc(40, Math.sqrt(40*40-20*20), 1)                                                                                               // 40 m arc, centred on the goal, from the 20 m line
-    +ln(45)+ln(65)+ln(KO_PITCH_M/2, {w:1, dash:true})+ln(KO_PITCH_M-65);
+    +ln(45)+ln(65)+ln(KO_DRAW_M/2, {w:1, dash:true})+ln(KO_DRAW_M-65);   // near 65, halfway 70 (dashed), far 65 at 75
   return s;
 }
 // ── end kickout chart geometry ──
@@ -1796,7 +1803,7 @@ function crKoMap(){
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--accent);border-radius:14px;padding:20px;width:420px;max-width:calc(100vw - 40px);font-family:Barlow,sans-serif;pointer-events:auto;box-shadow:0 18px 48px rgba(0,0,0,.6);max-height:calc(100vh - 84px);overflow-y:auto;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Kickout landing</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the kickout landed — the kicking goal is at the top. <b id="koZone" style="color:var(--accent);">${px!=null?(crKoZoneOf(px,py).zone+' · '+crKoZoneOf(px,py).loc):''}</b></div>
-    <svg id="koSvg" viewBox="0 0 100 89" style="width:100%;aspect-ratio:100/89;background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
+    <svg id="koSvg" viewBox="0 0 100 ${KO_VB_H}" style="width:100%;aspect-ratio:100/${KO_VB_H};background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
 ${CR_PITCH_KO}
       <g id="koMark" style="display:${px!=null?'':'none'};"><circle id="koDot" cx="${px||0}" cy="${py!=null?koPlotY(py):0}" r="1.8" fill="#ffd700" stroke="#000" stroke-width=".4"/></g>
     </svg>
@@ -1805,7 +1812,7 @@ ${CR_PITCH_KO}
       <button id="koClear" style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">Clear</button>
       <button id="koX" style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;">Cancel</button>
     </div>
-    <div style="margin-top:10px;font-size:11px;color:var(--t3);">Lines: 13, 20, 45, 65 m, halfway, far 65, far 45 (bottom edge) — drawn to scale. Old kickouts in the wrong place? <a id="koFixLink" style="color:var(--accent);cursor:pointer;text-decoration:underline;">Check this game's kickout chart scale</a></div></div>`;
+    <div style="margin-top:10px;font-size:11px;color:var(--t3);">Lines: 13, 20, 45, 65 m, halfway (dashed, 70 m), far 65 (75 m), far 45 (bottom edge, 95 m). Old kickouts in the wrong place? <a id="koFixLink" style="color:var(--accent);cursor:pointer;text-decoration:underline;">Check this game's kickout chart scale</a></div></div>`;
   document.body.appendChild(ov);
   const close=()=>{ if(ov.parentNode) document.body.removeChild(ov); };
   const svg=ov.querySelector('#koSvg');
@@ -4345,7 +4352,7 @@ function renderCodePitch(){
     +' <span style="color:var(--t3);font-weight:400;text-transform:none;">— one click on the pitch · optional</span>'
     +'<span style="float:right;cursor:pointer;color:var(--t3);" onclick="codePitchClear()" title="Dismiss — tag stays, just without a location">✕</span></div>'
     +'<div style="display:flex;gap:10px;align-items:flex-start;">'
-    +'<svg id="cpSvg" viewBox="0 0 100 '+(ko?89:75)+'" style="width:230px;max-width:100%;background:#256e17;border-radius:8px;cursor:crosshair;display:block;flex:none;" onclick="codePitchClick(event)">'
+    +'<svg id="cpSvg" viewBox="0 0 100 '+(ko?KO_VB_H:75)+'" style="width:230px;max-width:100%;background:#256e17;border-radius:8px;cursor:crosshair;display:block;flex:none;" onclick="codePitchClick(event)">'
     +(ko?CR_PITCH_KO:CR_PITCH_SHOT)
     +'<g id="cpMark" style="display:none;"><circle id="cpDot" r="1.8" fill="#ffffff" stroke="#000" stroke-width=".4"/></g></svg>'
     +'<div id="cpInfo" style="font-size:11px;color:var(--t2);line-height:1.55;">'+(ko?'Click where it landed — the kicking goal is at the top.':'Click where it was struck from — goal at the top.')+'</div></div>';
@@ -5294,14 +5301,18 @@ async function crGiConvertPrompt(){
 // "% down that picture" (0 = the 20 m line, 100 = the far 45 m line), and the picture was
 // not linear: it drew 20 m at 1.2, 45 m at 29.4, 65 m at 52, halfway at 59.2, the far 65 m
 // at 66.8 and the far 45 m at 87.8 of an 89-unit box (marker y = Y x 0.89). Since then Y is
-// % of the full 137 m pitch from the kicking goal (the Match Tracker's convention). A
-// kickout saved on the old chart therefore reads wrong on every chart now. This tool finds
+// "% of 137 from the kicking goal" — metres x 100/137 (the Match Tracker's convention). A
+// kickout saved on the old chart therefore reads wrong on every chart now. The old
+// picture's lines map to the SAME lines of today's picture (drawn as a 140 m pitch):
+// 20 / 45 / 65 m, halfway = 70 m, far 65 = 75 m, far 45 = 95 m — so a kickout clicked on
+// the old chart's halfway lands on today's halfway. (10 Oct 2026: those last three were
+// 68.5 / 72 / 92 for one day; kickouts converted then keep those values — see crKoFixAudit.) This tool finds
 // them (crKoFixAudit), shows the evidence (crKoFixOpen) and converts the ticked ones
 // through the normal edit queue (crKoFixApply: _dirty rows + one Undo step). X is unchanged:
 // both charts store X as % across the same picture. A converted kickout carries the
 // "KO Scale Fix" label and is never offered again.
 const KO_FIX_LABEL='KO Scale Fix';
-const KO_OLD_ANCHORS=[[1.2,20],[29.4,45],[52,65],[59.2,68.5],[66.8,72],[87.8,92]];   // [old viewBox y, metres from the kicking goal]
+const KO_OLD_ANCHORS=[[1.2,20],[29.4,45],[52,65],[59.2,KO_DRAW_M/2],[66.8,KO_DRAW_M-65],[87.8,KO_VIEW_M]];   // [old viewBox y, metres from the kicking goal]
 function koOldYToM(y){
   const v=y*0.89, A=KO_OLD_ANCHORS; let i=0; while(i<A.length-2&&v>A[i+1][0]) i++;
   return A[i][1]+(v-A[i][0])*(A[i+1][1]-A[i][1])/(A[i+1][0]-A[i][0]);       // piecewise linear; the end segments extend to the picture's edges
@@ -5313,9 +5324,9 @@ function koMToOldY(m){
 function koBandOfM(m){ return m<45?0:m<65?1:2; }
 // Old-chart Y -> current Y, rounded to `dp` decimals without letting the rounding move it across a 45 / 65 m line.
 function koOldToCurY(y, dp){
-  const m=koOldYToM(y), k=Math.pow(10, dp||0), exact=Math.max(0, Math.min(100, m*100/KO_PITCH_M));
+  const m=koOldYToM(y), k=Math.pow(10, dp||0), exact=Math.max(0, Math.min(100, m*100/KO_UNIT_M));
   let r=Math.round(exact*k)/k;
-  if(koBandOfM(r*KO_PITCH_M/100)!==koBandOfM(m)) r=(r>exact?Math.floor(exact*k):Math.ceil(exact*k))/k;
+  if(koBandOfM(r*KO_UNIT_M/100)!==koBandOfM(m)) r=(r>exact?Math.floor(exact*k):Math.ceil(exact*k))/k;
   return r;
 }
 const KO_FIX_BANDS=['SHORT','MEDIUM','LONG'];
@@ -5335,25 +5346,25 @@ function crKoFixTags(e){
 function crKoFixAgree(tags, band){ return (tags.len==null||tags.len===band)&&(tags.zone==null||tags.zone===band); }
 // Every located kickout of the game with a verdict. Rules (the same words are shown in the preview):
 //  1. Own evidence. "old chart" when the tagged length / zone only fits the old chart, or the position is impossible on
-//     the current chart (inside the 20 m line, or beyond the far 45 m line: Y > 67.2, which no current chart can save).
+//     the current chart (inside the 20 m line, or beyond the far 45 m line = 95 m: Y > 69.4, which no current chart can save).
 //     "current" when the tags only fit the current chart.
 //  2. No evidence of its own (both charts give the same band, the tags fit neither, or there are no tags): it follows
 //     the game when the game is overwhelmingly one scale (3+ clear kickouts, 90%+ of them the same) — otherwise "unsure".
 //  Ticked by default: "old chart" only. "current" and "unsure" are never ticked for you.
-const KO_FIX_MIN_CLEAR=3, KO_FIX_SHARE=0.9, KO_FIX_MAX_Y=67.2, KO_FIX_MIN_M=20;
+const KO_FIX_MIN_CLEAR=3, KO_FIX_SHARE=0.9, KO_FIX_MAX_Y=69.4, KO_FIX_MIN_M=20;   // 69.4 = just past the far 45 (95 m / 1.37 = 69.34)
 function crKoFixAudit(events){
   const seq={}, rows=[];
   (events||EVENTS).filter(crKoFixIsKo).slice().sort((a,b)=>(a.driveT??a.start??0)-(b.driveT??b.start??0)).forEach(e=>{
     const t=String(e.team||'').toUpperCase(); seq[t]=(seq[t]||0)+1;
     const pos=crKoFixPos(e); if(!pos) return;
-    const tags=crKoFixTags(e), mCur=pos.y*KO_PITCH_M/100, mOld=koOldYToM(pos.y), bCur=koBandOfM(mCur), bOld=koBandOfM(mOld);
+    const tags=crKoFixTags(e), mCur=pos.y*KO_UNIT_M/100, mOld=koOldYToM(pos.y), bCur=koBandOfM(mCur), bOld=koBandOfM(mOld);
     const r={id:e._rowId, team:e.team||'', n:seq[t], t:e.driveT??e.start??0, x:pos.x, y:pos.y, native:pos.native, mCur, mOld, bCur, bOld, tags,
       newY:koOldToCurY(pos.y, 1), fixed:(e.labels||{})[KO_FIX_LABEL]||'', own:null, verdict:'unsure', reason:'', tick:false};
     const hasTag=tags.len!=null||tags.zone!=null, okCur=hasTag&&crKoFixAgree(tags,bCur), okOld=hasTag&&crKoFixAgree(tags,bOld);
     const tagTxt=[tags.lenText, tags.zoneText].filter(Boolean).join(' / ');
     if(r.fixed){ r.verdict='converted'; r.reason='Already converted ('+r.fixed+')'; }
     else if(mCur<KO_FIX_MIN_M){ r.own='old'; r.reason='Impossible on the current chart: '+Math.round(mCur)+' m is inside the 20 m line'; }
-    else if(pos.y>KO_FIX_MAX_Y){ r.own='old'; r.reason='Impossible on the current chart: '+Math.round(mCur)+' m is beyond the far 45 m line (Y > 67.2)'; }
+    else if(pos.y>KO_FIX_MAX_Y){ r.own='old'; r.reason='Impossible on the current chart: '+Math.round(mCur)+' m is beyond the far 45 m line (Y > '+KO_FIX_MAX_Y+')'; }
     else if(okOld&&!okCur){ r.own='old'; r.reason='Tagged '+tagTxt+' fits the old chart ('+KO_FIX_BANDS[bOld].toLowerCase()+'), not the current ('+KO_FIX_BANDS[bCur].toLowerCase()+')'; }
     else if(okCur&&!okOld){ r.own='cur'; r.reason='Tagged '+tagTxt+' fits the current chart ('+KO_FIX_BANDS[bCur].toLowerCase()+'), not the old ('+KO_FIX_BANDS[bOld].toLowerCase()+')'; }
     else r.why=!hasTag?'No length / zone tag to test':okCur?'Tagged '+tagTxt+' fits both charts':'Tagged '+tagTxt+' fits neither chart';
@@ -5384,7 +5395,7 @@ function crKoFixApply(ids){
     const y1=koOldToCurY(oldY, 1), y0=koOldToCurY(oldY, 0);
     if(pos.native) e.y=y1;
     if(pos.pair) e.labels[pos.pair.yg]=String(y0);
-    const band=koBandOfM((pos.native?y1:y0)*KO_PITCH_M/100), agree=crKoFixAgree(tags, band);
+    const band=koBandOfM((pos.native?y1:y0)*KO_UNIT_M/100), agree=crKoFixAgree(tags, band);
     e.labels=e.labels||{}; e.labels[KO_FIX_LABEL]=today+' · old chart Y '+oldY+(agree?'':' · check length / zone');
     if(!e._new) e._dirty=true;
     out.converted.push(e._rowId); if(!agree) out.check.push(e._rowId);
@@ -5427,7 +5438,7 @@ function crKoFixBody(){
     +'<div style="display:flex;gap:14px;align-items:flex-start;">'
     +'<div style="flex:none;width:190px;"><div style="font:700 11px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:var(--t3);margin-bottom:4px;">NOW</div>'+crKoFixPitch(false)
     +'<div style="font:700 11px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:var(--t3);margin:10px 0 4px;">AFTER CONVERTING THE TICKED ONES</div>'+crKoFixPitch(true)
-    +'<div style="font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.5;">Kicking goal at the top. Yellow = ticked, grey = left alone. Lines: 13, 20, 45, 65 m, halfway, far 65, far 45 (bottom).</div></div>'
+    +'<div style="font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.5;">Kicking goal at the top. Yellow = ticked, grey = left alone. Lines: 13, 20, 45, 65 m, halfway (70), far 65 (75), far 45 (bottom, 95).</div></div>'
     +'<div style="flex:1;min-width:0;max-height:min(62vh,640px);overflow:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
     +'<tr><th style="'+th+'"></th><th style="'+th+'">Kickout</th><th style="'+th+'">Video</th><th style="'+th+'">Tagged</th><th style="'+th+'text-align:right;">Stored Y</th><th style="'+th+'text-align:right;">Current</th><th style="'+th+'text-align:right;">If old chart</th><th style="'+th+'">Verdict</th></tr>'+rows+'</table></div></div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;">'

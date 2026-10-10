@@ -269,7 +269,7 @@ function sumKeys(tal,side,keys){ const b=side==='h'?tal.h:tal.a; return Object.e
 // ── Location maps (shots + kickouts plotted on the pitch) ─────
 function locPitchSvg(kind){
   if(kind==='shot') return `<svg id="locSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;display:block;"><rect x="1.2" y="1.20" width="97.6" height="7.15" fill="#35862a"/><rect x="1.2" y="8.35" width="97.6" height="7.15" fill="#2e7a24"/><rect x="1.2" y="15.50" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="22.90" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="30.17" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="37.45" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="44.73" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.40" fill="#2e7a24"/><rect x="1.2" y="59.40" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="3.50" fill="#2e7a24"/><rect x="1.2" y="70.30" width="97.6" height="3.50" fill="#35862a"/><rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="37.6" y1="1.2" x2="37.6" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="62.2" y1="1.2" x2="62.2" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><rect x="42.4" y="1.2" width="14.8" height="4.5" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><circle cx="49.8" cy="12.7" r=".7" fill="rgba(255,255,255,.92)"/><line x1="1.2" y1="15.5" x2="98.8" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 34.3 22.9 A 15.7 16.1 0 0 0 65.7 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/><path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><g id="mapMarks"></g></svg>`;
-  return `<svg id="locSvg" viewBox="0 0 100 89" style="width:100%;aspect-ratio:100/89;background:#256e17;border-radius:10px;display:block;">${koPitchArt()}<g id="mapMarks"></g></svg>`;
+  return `<svg id="locSvg" viewBox="0 0 100 ${KO_VB_H}" style="width:100%;aspect-ratio:100/${KO_VB_H};background:#256e17;border-radius:10px;display:block;">${koPitchArt()}<g id="mapMarks"></g></svg>`;
 }
 // Marker style: circle = open play, square = dead ball; colour by result
 // (1pt white / 2pt orange / goal yellow / other outcome red / penalty purple).
@@ -290,24 +290,31 @@ function locShotGlyph(e){
 let locMap={kind:'shot',team:'h'};
 // ── Kickout chart geometry: TRUE metric scale (shared verbatim by code-room.html and
 // cohesion-graphics.js — test_ko_scale.js checks the two copies are identical) ──
-// The chart shows the kicking goal line (top) to the far 45 m line (bottom) = 92 m of the
-// 137 m pitch, 84 m wide, inside a 100 x 89 viewBox with a 1.2 margin. Stored Y-KOs are
-// % of the full pitch from the kicking goal (metres = Y x 1.37) and plot at exactly that
-// many metres; every line is drawn at its real distance (13, 20, 45, 65, 68.5, 72, 92 m).
-const KO_PM=1.2, KO_VB_H=89, KO_VIEW_M=92, KO_PITCH_M=137, KO_WIDTH_M=84;
-const KO_KY=(KO_VB_H-2*KO_PM)/KO_VIEW_M, KO_KX=(100-2*KO_PM)/KO_WIDTH_M;   // viewBox units per metre, down / across
+// The chart shows the kicking goal line (top) to the far 45 m line (bottom), 84 m wide,
+// drawn as a 140 m pitch (KO_DRAW_M): 13, 20, 45 and 65 m, then halfway (dashed) at 70 m,
+// the far 65 at 75 m — the two 65s sit 5 m either side of halfway — and the far 45 at
+// 95 m, the bottom edge (KO_VIEW_M). 100-wide viewBox, 1.2 margin.
+// STORED POSITIONS: Y-KOs is "% of 137 from the kicking goal", i.e. metres = Y x 1.37.
+// KO_UNIT_M = 137 is that UNIT — it is not the length of the drawn pitch, and it must not
+// change (every stored kickout, length band and zone depends on it). A kickout plots at
+// its stored metres on this picture; nothing is converted.
+// KO_KY is the scale the chart has always had (86.6 units for 92 m), so everything from
+// the goal line to the near 65 is exactly where it was; the box is simply 3 m taller.
+const KO_PM=1.2, KO_VIEW_M=95, KO_UNIT_M=137, KO_DRAW_M=140, KO_WIDTH_M=84;
+const KO_KY=86.6/92, KO_KX=(100-2*KO_PM)/KO_WIDTH_M;   // viewBox units per metre, down / across
+const KO_VB_H=+(2*KO_PM+KO_VIEW_M*KO_KY).toFixed(2);   // viewBox height (91.82)
 function koMY(m){ return KO_PM+m*KO_KY; }                                   // metres from the kicking goal -> viewBox y
 function koMX(m){ return KO_PM+m*KO_KX; }                                   // metres from the left touchline -> viewBox x
-function koPlotY(y){ return koMY(Math.max(0, Math.min(KO_VIEW_M, y*KO_PITCH_M/100))); }   // stored Y -> viewBox y (clamped to the view)
+function koPlotY(y){ return koMY(Math.max(0, Math.min(KO_VIEW_M, y*KO_UNIT_M/100))); }   // stored Y -> viewBox y (clamped to the view)
 function koLabelToView(y){ return koPlotY(y)/KO_VB_H*100; }                 // stored Y -> % down the drawn chart
-function koViewToLabel(v){ return Math.max(0, Math.min(KO_VIEW_M, (v*KO_VB_H/100-KO_PM)/KO_KY))*100/KO_PITCH_M; }   // % down the drawn chart -> stored Y
+function koViewToLabel(v){ return Math.max(0, Math.min(KO_VIEW_M, (v*KO_VB_H/100-KO_PM)/KO_KY))*100/KO_UNIT_M; }   // % down the drawn chart -> stored Y
 function koPitchArt(){
   const W='rgba(255,255,255,.92)', f=n=>(+n.toFixed(2)), c=KO_WIDTH_M/2, x0=KO_PM, x1=100-KO_PM, y0=koMY(0), y20=f(koMY(20));
   const ln=(m,o)=>'<line x1="'+x0+'" y1="'+f(koMY(m))+'" x2="'+x1+'" y2="'+f(koMY(m))+'" stroke="'+W+'" stroke-width="'+((o&&o.w)||.8)+'"'+(o&&o.dash?' stroke-dasharray="3.2,2.4"':'')+'/>';
   const arc=(r,half,w)=>'<path d="M '+f(koMX(c-half))+' '+y20+' A '+f(r*KO_KX)+' '+f(r*KO_KY)+' 0 0 0 '+f(koMX(c+half))+' '+y20+'" fill="none" stroke="'+W+'" stroke-width="'+w+'"/>';
-  let s=''; const band=(KO_VB_H-2*KO_PM)/9;
+  let s=''; const band=KO_VIEW_M*KO_KY/9;
   for(let i=0;i<9;i++) s+='<rect x="'+x0+'" y="'+f(y0+i*band)+'" width="'+f(x1-x0)+'" height="'+f(band)+'" fill="'+(i%2?'#2e7a24':'#35862a')+'"/>';
-  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="'+f(KO_VB_H-2*KO_PM)+'" fill="none" stroke="'+W+'" stroke-width="1"/>'
+  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="'+f(KO_VIEW_M*KO_KY)+'" fill="none" stroke="'+W+'" stroke-width="1"/>'
     +'<line x1="'+f(koMX(c-9.5))+'" y1="'+y0+'" x2="'+f(koMX(c-9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'      // large rectangle: 19 m x 13 m
     +'<line x1="'+f(koMX(c+9.5))+'" y1="'+y0+'" x2="'+f(koMX(c+9.5))+'" y2="'+f(koMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'
     +'<rect x="'+f(koMX(c-7))+'" y="'+y0+'" width="'+f(14*KO_KX)+'" height="'+f(4.5*KO_KY)+'" fill="none" stroke="'+W+'" stroke-width=".8"/>'   // small rectangle: 14 m x 4.5 m
@@ -315,7 +322,7 @@ function koPitchArt(){
     +ln(13)+ln(20)
     +arc(13, 13, .9)                                                                                                                  // the D: 13 m radius on the 20 m line
     +arc(40, Math.sqrt(40*40-20*20), 1)                                                                                               // 40 m arc, centred on the goal, from the 20 m line
-    +ln(45)+ln(65)+ln(KO_PITCH_M/2, {w:1, dash:true})+ln(KO_PITCH_M-65);
+    +ln(45)+ln(65)+ln(KO_DRAW_M/2, {w:1, dash:true})+ln(KO_DRAW_M-65);   // near 65, halfway 70 (dashed), far 65 at 75
   return s;
 }
 // ── end kickout chart geometry ──
@@ -985,6 +992,8 @@ function dashMapData(){
 // diamond 2pt, triangle goal, square = dead-ball 1pt attempt. kind 'ko':
 // dot = retained, X = lost. opts.bg fills the whole viewBox (the pitch art
 // itself starts 1.2 units in).
+// Kickout map height for a 100-wide map: the same 109.6/89 vertical stretch as always, applied to the 0-95 m chart (113.08).
+const DASH_KO_MAP_H=+(KO_VB_H*109.6/89).toFixed(2);
 function dashMapSvg(kind,hHex,aHex,pxW,opts){
   opts=opts||{};
   const D=dashMapData();
@@ -992,7 +1001,7 @@ function dashMapSvg(kind,hHex,aHex,pxW,opts){
   // crop): the pitch art is stretched vertically inside a <g>, markers are
   // plotted in the OUTER space so they stay round — and smaller, like the
   // tracker's, so clusters read cleanly.
-  const vbH=kind==='shot'?75:89, H2=kind==='shot'?83.2:109.6, STR=H2/vbH;
+  const vbH=kind==='shot'?75:KO_VB_H, H2=kind==='shot'?83.2:DASH_KO_MAP_H, STR=kind==='shot'?H2/vbH:109.6/89;
   const evs=kind==='shot'?D.shots.slice().sort((p,q)=>(q.xp||0)-(p.xp||0)):D.kos;
   const colOf=s=>s==='h'?hHex:aHex;
   const marks=evs.map(m=>{
@@ -2034,7 +2043,7 @@ async function dashBuildInfographic(){
     const RH=54+22+rows.length*19+14;
     const KH=(Y1-Y0)-10-RH;
     const ky=panel(x,Y0,CW,KH,'KICKOUT LANDING MAP','· TOP = KICKING GOAL · DASHED = HALFWAY',ACC);
-    const ph=KH-(ky-Y0)-16, pw=Math.round(ph/1.096);
+    const ph=KH-(ky-Y0)-16, pw=Math.round(ph/(DASH_KO_MAP_H/100));   // panel height is fixed: the 0-95 m chart is the same height, a touch narrower
     const px=x+22, py=ky;
     const {svg}=dashMapSvg('ko',CH,CA,pw*2,{bg:PITCH});
     const im=await dashSvgImg(svg);
