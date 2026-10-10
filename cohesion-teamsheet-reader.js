@@ -1401,7 +1401,8 @@
         for(let i=0;i<regs.length;i++){ const view=cropCanvas(src, W, H, regs[i]), work=greyStretch(view); await tick();
           const words=await eng.read(work, i+1, regs.length);
           const pg={n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped, width:view.width, height:view.height};
-          if(R.BOXES) await readBoxes(eng, view, work, pg);
+          // a page of name boxes is also read box by box; if that part fails the plain reading above still stands
+          if(R.BOXES){ try{ await readBoxes(eng, view, work, pg); }catch(e){ if(e&&e.reader) throw e; delete pg.boxes; try{ console.error('[team sheet reader] name boxes', e); }catch(_){} } }
           pages.push(pg); }
         usedRegions=regs;
       };
@@ -1842,6 +1843,7 @@
         ${!both&&res.lists>1?`<div class="cohrd-note">This file holds two team lists; the ${res.assign.first===side?'first':'second'} one is shown${res.assign.why==='headings'?' (matched by the team name on the sheet)':' — check it is the right team'}. <button class="cohts-btn" type="button" data-a="other">Use the other list</button></div>`:''}
         ${low.length?`<div class="cohrd-flag">⚠ Check ${low.length===1?'this line':'these '+low.length+' lines'} against the picture — the reader was less sure of ${low.length===1?'it':'them'}: <span>${low.map(l=>esc(l.text.replace(/\t/g,' '))+' ('+Math.round(l.confidence)+'%)').join(' · ')}</span></div>`:''}
         ${r.placed&&r.placed.length?`<div class="cohrd-note">The number${r.placed.length===1?'':'s'} <b>${r.placed.join(', ')}</b> could not be read and ${r.placed.length===1?'was':'were'} worked out from the player’s place in the formation — check ${r.placed.length===1?'it':'them'}.</div>`:''}
+        ${(r.notes||[]).map(n=>`<div class="cohrd-note">${esc(n)}</div>`).join('')}
         ${both?'':tools(res)}
         ${r.adopted&&r.adopted.length?`<div class="cohrd-note">Changed to this team's existing spelling: ${r.adopted.map(a=>'“'+esc(a.from)+'” → <b>'+esc(a.to)+'</b>').join(' · ')}</div>`:''}
         ${r.dropped&&r.dropped.length?`<details class="cohrd-note"><summary>Left out as not players (${r.dropped.length})</summary>${r.dropped.map(d=>esc(d.text.replace(/\t/g,' '))+' <i>— '+esc(d.why)+'</i>').join('<br>')}</details>`:''}
