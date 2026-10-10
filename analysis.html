@@ -734,8 +734,15 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .py-tab{width:100%;border-collapse:separate;border-spacing:0;font:400 16px 'Barlow',sans-serif;font-variant-numeric:tabular-nums;min-width:860px;}
 .py-tab th{padding:0;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);}
 .py-tab th button{background:none;border:0;color:var(--accent);font:400 15px 'Barlow',sans-serif;letter-spacing:.02em;padding:12px 6px 10px;cursor:pointer;width:100%;text-align:inherit;}
-.py-tab th.on button{font-weight:700;} .py-tab th button i{font-style:normal;font-size:9px;margin-left:4px;vertical-align:middle;}
+.py-tab th.on button{font-weight:700;} .py-sl{white-space:nowrap;}
+/* the sort marker: always there (its width is reserved), faint stacked arrows on an inactive column, a solid ▼ / ▲ on the active one */
+.py-sm{display:inline-block;position:relative;width:9px;height:12px;margin-left:4px;vertical-align:middle;font:normal 400 9px/12px 'Barlow',sans-serif;text-align:center;color:var(--t3);opacity:.75;transition:color .12s,opacity .12s;}
+.py-sm::before,.py-sm::after{content:'';position:absolute;left:1px;border-left:3.5px solid transparent;border-right:3.5px solid transparent;}
+.py-sm::before{top:0;border-bottom:4.5px solid currentColor;} .py-sm::after{bottom:0;border-top:4.5px solid currentColor;}
+.py-sm.on{color:var(--accent);opacity:1;} .py-sm.on::before,.py-sm.on::after{display:none;}
 .py-tab th button:hover,.py-tab th button:focus-visible{color:#fff;outline:none;}
+.py-tab th button:hover .py-sm,.py-tab th button:focus-visible .py-sm{color:#fff;opacity:1;}
+.py-tab th button:focus-visible{box-shadow:inset 0 -2px 0 var(--accent);}
 .py-tab th.py-n,.py-tab td.py-n{text-align:left;} .py-tab th.py-b,.py-tab td.py-b{width:58px;text-align:center;padding-left:0;}
 .py-tab td{padding:9px 6px;text-align:center;border-bottom:8px solid var(--panel);background:transparent;}
 .py-tab td.py-n{font-weight:500;font-size:17px;white-space:nowrap;} .py-tab td.py-tot{font-weight:700;} .py-tab td.na{color:var(--t3);}
@@ -6560,10 +6567,16 @@ function pyView(R, sel, F, I){   // I (optional): pyInvolvement — a player wit
 function pyPct1(v){ return v==null?'n/a':(Math.round(v*10)/10)+'%'; }
 function pyGames(n){ return n+' game'+(n===1?'':'s'); }
 function pyInitials(name){ return cohPlayerInitials(name); }   // cohesion-photos.js
+// a sortable column header's button: the label with the sort marker tied to its last word (so the marker never wraps
+// onto a line of its own). The marker is always rendered: faint ⇅ arrows (CSS) when inactive, ▼ / ▲ on the sorted column.
+function pySortBtnHTML(attr, key, label, on, dir, tip){
+  const w=String(label).split(' '), last=w.pop();
+  return `<button type="button" ${attr}="${ssEsc(key)}" title="${ssEsc('Sort by '+(tip||label))}">${ssEsc(w.length?w.join(' ')+' ':'')}<span class="py-sl">${ssEsc(last)}<i class="py-sm${on?' on':''}" aria-hidden="true">${on?(dir==='asc'?'▲':'▼'):''}</i></span></button>`;
+}
 function pyTableHTML(R, S, sel, shown, col){
   const rows=pySort(R.players, S.key, S.dir), pg=pyPage(rows.length, shown);
   if(!rows.length) return `<div class="tt-card tt-empty">n/a — no shots or assists carry a player name in ${R.n===1?'this game':'these '+R.n+' games'}.</div>`;
-  const th=PY_COLS.map(c=>{ const on=S.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(S.dir==='asc'?'ascending':'descending'):'none'}"><button type="button" data-pysort="${c[0]}">${ssEsc(c[1])}${on?`<i aria-hidden="true">${S.dir==='asc'?'▲':'▼'}</i>`:''}</button></th>`; }).join('');
+  const th=PY_COLS.map(c=>{ const on=S.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(S.dir==='asc'?'ascending':'descending'):'none'}">${pySortBtnHTML('data-pysort', c[0], c[1], on, S.dir)}</th>`; }).join('');
   const td=(v,c)=>`<td${c?' class="'+c+'"':''}>${v}</td>`;
   const body=rows.slice(0, pg.shown).map(r=>{ const on=r.key===sel;
     return `<tr class="py-row${on?' sel':''}" data-pyrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+r.name)}">`
@@ -6584,7 +6597,7 @@ function pyInvHTML(I, sel, o){
   const per=!!o.per, C=pyInvCols(I), keys=pyInvSortKeys(C), S=o.sort&&keys.includes(o.sort.key)?o.sort:{key:'inv', dir:'desc'};
   const rows=pySort(pyInvRows(I, C, per), S.key, S.dir), pg=pyPage(rows.length, o.shown), col=o.col||'#4fc3f7';
   const heads=[['name','Player Name','']].concat([['inv','Involvements','Every Game Involvement Outcomes label on the player’s rows']], C.cols.map(c=>[c.k, c.label, c.value]), [['other','Other', C.other.length?'Other = '+C.other.join(', '):'No other involvement types in these games']]);
-  const th=heads.map(c=>{ const on=S.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(S.dir==='asc'?'ascending':'descending'):'none'}"${c[2]?` title="${ssEsc(c[2])}"`:''}><button type="button" data-pyisort="${c[0]}">${ssEsc(c[1])}${on?`<i aria-hidden="true">${S.dir==='asc'?'▲':'▼'}</i>`:''}</button></th>`; }).join('');
+  const th=heads.map(c=>{ const on=S.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(S.dir==='asc'?'ascending':'descending'):'none'}"${c[2]?` title="${ssEsc(c[2])}"`:''}>${pySortBtnHTML('data-pyisort', c[0], c[1], on, S.dir, c[2]?(c[0]==='inv'||c[0]==='other'?c[1]+' — '+c[2]:c[2]):'')}</th>`; }).join('');
   const td=(v,c,t)=>`<td class="${(c||'')+(v?'':' na')}"${t?` title="${ssEsc(t)}"`:''}>${pyInvNum(v, per)}</td>`;
   const body=rows.slice(0, pg.shown).map(r=>{ const on=r.key===sel;
     return `<tr class="py-row${on?' sel':''}" data-pyrow="${ssEsc(r.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+r.name)}">`
