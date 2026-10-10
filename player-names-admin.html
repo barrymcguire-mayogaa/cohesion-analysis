@@ -473,3 +473,85 @@ $('sugBox').addEventListener('click', e=>{
   if(el.dataset.act==='sug-merge') tickGroup([s.a, s.b]);
   else { try{ localStorage.setItem(notDupKey(), JSON.stringify(notDup().concat([pairId(s)]))); }catch(_){} renderSug(); }
 });
+
+// ── Preview ───────────────────────────────────────────────────────────────
+const KIND_TXT = { player:'row’s player', label:'player label', plainPlayer:'player label (raw row)', rowCode:'row name', assist:'assist', koWon:'kickout won by',
+  koTaken:'kickout taken by', koTarget:'kickout target', subOut:'player out', subIn:'player in' };
+const EVENT_KINDS = Object.keys(KIND_TXT);
+function pieceTxt(p){
+  const f = p.field.split('.')[0], a = Array.isArray(p.before)?p.before.length:0, b = Array.isArray(p.after)?p.after.length:0;
+  if(f==='rosters') return b<a ? 'Team sheet: '+(a-b+1)+' entries become one' : 'Team sheet: entry renamed';
+  if(f==='keepers') return 'Goalkeeper entry renamed';
+  if(f==='playerRoster') return 'P-tag list: name changed';
+  if(f==='rows') return b<a ? 'Sportscode row list: his row joins the row that already has the right name' : 'Sportscode row list: his row is renamed';
+  return p.field;
+}
+function preview(){
+  if(busy || !T) return;
+  const target = N.tidy($('target').value);
+  const from = tickedSpellings().sort((a,b)=>b.uses-a.uses || (a.name<b.name?-1:1)).map(s=>s.name).filter(n=>n!==target);
+  $('pvStep').style.display = ''; $('pvTitle').textContent = 'Preview'; $('pvSub').textContent = 'Nothing has been changed yet';
+  job = null;
+  if(!target || !from.length){
+    plan = null;
+    $('pvBox').innerHTML = '<div class="note warn">'+(!target ? 'Type the correct spelling first.' : 'Tick at least one spelling that is different from the correct one (“'+esc(target)+'”).')+'</div>';
+    return;
+  }
+  const games = teamGames().map(g=>cache.get(g.id)).filter(Boolean)
+    .sort((a,b)=>String(a.meta.date||'').localeCompare(String(b.meta.date||'')) || String(a.meta.id).localeCompare(String(b.meta.id)))
+    .map(b=>N.planGame(b.meta, b.events, team, from, target)).filter(p=>p && (!N.planEmpty(p) || p.warnings.length));
+  plan = { from, target, games, photo:N.photoPlan(photos, from, target), choice:{}, strong:games.some(p=>p.strong) };
+  renderPreview();
+  $('pvStep').scrollIntoView({ block:'start', behavior:'smooth' });
+}
+function planTotals(p){
+  const ch = p.games.filter(x=>!N.planEmpty(x));
+  return { games:ch.length, events:ch.reduce((a,x)=>a+x.events.length,0), sheets:ch.reduce((a,x)=>a+x.pieces.filter(q=>/^rosters/.test(q.field)).length,0),
+    keepers:ch.reduce((a,x)=>a+x.pieces.filter(q=>/^keepers/.test(q.field)).length,0), other:ch.reduce((a,x)=>a+x.pieces.filter(q=>!/^(rosters|keepers)/.test(q.field)).length,0) };
+}
+function headHTML(from, target){
+  return '<div class="pv-head">'+from.map(n=>'<span class="chip from">'+esc(n)+'</span>').join('')+'<span style="color:var(--t3)">→</span><span class="chip to">'+esc(target)+'</span></div>';
+}
+function gamesTableHTML(games, stateOf){
+  return '<div class="tbl-wrap" style="margin-top:12px;"><table class="pv"><thead><tr><th>Game</th><th style="text-align:right">Events</th><th>What changes on the events</th><th>Team sheet · goalkeepers · warnings</th>'+(stateOf?'<th>Progress</th>':'')+'</tr></thead><tbody>'
+    + games.map(p=>{
+      const kinds = EVENT_KINDS.filter(k=>p.counts[k]).map(k=>'<span class="chip">'+KIND_TXT[k]+' × '+p.counts[k]+'</span>').join('');
+      const st = stateOf ? stateOf(p.id) : null;
+      return '<tr><td><b>'+esc(fmtDate(p.date))+'</b><br><span style="color:var(--t2)">v '+esc(p.opp)+'</span></td><td class="n">'+p.events.length+'</td><td>'+(kinds||'<span style="color:var(--t3)">nothing</span>')+'</td>'
+        + '<td>'+(p.pieces.map(q=>'<div>'+esc(pieceTxt(q))+'</div>').join('')||(p.warnings.length?'':'<span style="color:var(--t3)">–</span>'))
+        + p.warnings.map(w=>'<div class="w '+w.level+'">'+(w.level==='strong'?'⚠ ':'')+esc(w.text)+'</div>').join('')+'</td>'
+        + (st?'<td class="state '+st[0]+'">'+esc(st[1])+'</td>':'')+'</tr>'; }).join('')
+    + '</tbody></table></div>';
+}
+function renderPreview(){
+  const p = plan, t = planTotals(p), strong = [];
+  p.games.forEach(g=>g.warnings.filter(w=>w.level==='strong').forEach(w=>strong.push('<li><b>'+esc(fmtDate(g.date))+' v '+esc(g.opp)+':</b> '+esc(w.text)+'</li>')));
+  const tk = cohPlayerKey(p.target), also = T.spellings.filter(s=>s.key===tk && s.name!==p.target && !p.from.includes(s.name));
+  const isNew = !T.spellings.some(s=>s.name===p.target);
+  let h = headHTML(p.from, p.target);
+  h += '<div class="pv-sum"><b>'+plural(t.events,'event')+'</b> in <b>'+plural(t.games,'game')+'</b> will change'
+    + (t.sheets?' · <b>'+plural(t.sheets,'team sheet')+'</b>':'')+(t.keepers?' · <b>'+plural(t.keepers,'goalkeeper list')+'</b>':'')+(t.other?' · '+plural(t.other,'other game setting'):'')
+    + (p.photo.length?' · photo: see below':'')+'.</div>';
+  if(isNew && !also.length) h += '<div class="note">“'+esc(p.target)+'” is a new spelling — no game uses it yet.</div>';
+  if(also.length) h += '<div class="note">'+also.map(s=>'“'+esc(s.name)+'”').join(', ')+' '+(also.length===1?'is another spelling':'are other spellings')+' of “'+esc(p.target)+'” that '+(also.length===1?'is':'are')+' not ticked — '+(also.length===1?'it stays as it is':'they stay as they are')+'.</div>';
+  if(strong.length) h += '<div class="note strong"><b>⚠ These spellings look like DIFFERENT players in '+plural(new Set(p.games.filter(g=>g.strong).map(g=>g.id)).size,'game')+'.</b> Merging makes them one player everywhere.'
+    + '<ul style="margin:6px 0 0 18px;">'+strong.join('')+'</ul>'
+    + '<label class="confirm"><input type="checkbox" id="pvConfirm"> <span>I have checked: these are the <b>same player</b>, and I want to merge them anyway.</span></label></div>';
+  h += t.games || p.games.length ? gamesTableHTML(p.games) : '';
+  if(!t.games && !p.photo.length) h += '<div class="note warn">Nothing to change — no game of '+esc(team)+' uses '+(p.from.length===1?'that spelling':'those spellings')+' for one of its players.</div>';
+  // photos
+  p.photo.forEach((a,i)=>{
+    if(a.action==='rename') h += '<div class="note"><b style="color:var(--t1)">Photo:</b> the photo stored under “'+esc(a.from)+'” '+(a.sameKey?'is kept — only the name shown on it changes to':'moves to')+' “'+esc(a.to)+'”.</div>';
+    else h += '<div class="note warn"><b>Photo clash:</b> “'+esc(a.from)+'” and “'+esc(p.target)+'” both have a photo. The photo of “'+esc(p.target)+'” is kept; nothing is overwritten. What about the other one?'
+      + '<div class="ph-choice"><label><input type="radio" name="ph'+i+'" value="keep" checked> Leave it where it is (you can sort it out in Player Photos)</label>'
+      + '<label><input type="radio" name="ph'+i+'" value="delete"> Delete it (cannot be undone)</label></div></div>';
+  });
+  h += '<div class="note">Each game is read again at the moment it is saved, so anything edited meanwhile in another tab is kept. Only '+esc(team)+'’s players are touched — an opponent with the same name is left alone. '
+    + 'Names in XML files, PDFs or images exported earlier are not changed.</div>';
+  h += '<div class="btn-row"><button class="process-btn" id="applyBtn" onclick="applyMerge()" '+((t.games||p.photo.length)?'':'disabled')+'>Apply merge'+(t.games?' to '+plural(t.games,'game'):'')+'</button>'
+    + '<button class="sec-btn" onclick="cancelPreview()">Cancel</button><span class="st" id="pvMsg"></span></div>';
+  $('pvBox').innerHTML = h;
+  const c = $('pvConfirm'), b = $('applyBtn');
+  if(c){ b.disabled = true; c.addEventListener('change', ()=>{ b.disabled = !c.checked; }); }
+}
+function cancelPreview(){ if(busy) return; plan = null; job = null; $('pvStep').style.display = 'none'; }
