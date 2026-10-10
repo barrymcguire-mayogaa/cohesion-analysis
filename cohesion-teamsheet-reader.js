@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -93,7 +93,7 @@
     const wds=[].concat.apply([], segs.map(s=>s.words)), cf=segs.map(s=>s.conf).filter(c=>c!=null);
     // recognised text: a scrap of one or two characters in front of "18 Seán MacMahon" is a mark, not part of the line
     if(cf.length) text=text.replace(/^[A-Za-z|!\[\].,:;'"“”‘’~_-]{1,2}\s+(?=#?\d{1,2}[.)\]:]?\s+[A-ZÀ-Þ])/,'');
-    return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h,
+    return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h, words:wds,
       box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
   }
   // layout(words, {glue, skew}) → {columns:[{x0,x1,lines}], spanning:[line], skew, H}
@@ -228,7 +228,7 @@
       for(let i=0;i<kept.length;i++){ const k=kept[i], ix=Math.min(w.x1,k.x1)-Math.max(w.x0,k.x0); if(ix<=0) continue; const iy=Math.min(w.y1,k.y1)-Math.max(w.y0,k.y0);
         if(iy>0&&ix*iy>0.25*Math.min(aw,(k.x1-k.x0)*(k.y1-k.y0))) return; }
       kept.push(w); });
-    return kept.map(w=>({text:w.text, x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf, pass:w.pass}));
+    return kept.map(w=>({text:w.text, x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf, pass:w.pass, sw:w.sw}));
   }
   R.mergeWords=mergeWords;
 
@@ -268,7 +268,7 @@
     for(let i=0;i<lines.length;i++){ const a=lines[i]; if(a.no==null||a.text.trim().split(/\s+/).length!==2) continue;
       let k=-1, bg=Infinity; lines.forEach((b,j)=>{ if(j===i||b.no!=null||isNumTok(b.text)||!/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]{2,}$/.test(b.text.trim())) return; const Hm=Math.max(a.h,b.h), gap=b.box.x0-a.box.x1;
         if(gap<0||gap>2.6*Hm||Math.abs(b.yc-a.yc)>0.5*Hm||Math.min(a.h,b.h)<0.6*Hm) return; if(gap<bg){ bg=gap; k=j; } });
-      if(k>=0){ const b=lines[k], cf=[a.conf,b.conf].filter(c=>c!=null); a.text+=' '+b.text.trim(); a.conf=cf.length?Math.min(Math.min.apply(null,cf), 60):null;
+      if(k>=0){ const b=lines[k], cf=[a.conf,b.conf].filter(c=>c!=null); a.text+=' '+b.text.trim(); a.words=(a.words||[]).concat(b.words||[]); a.conf=cf.length?Math.min(Math.min.apply(null,cf), 60):null;
         a.box={x0:Math.min(a.box.x0,b.box.x0), y0:Math.min(a.box.y0,b.box.y0), x1:Math.max(a.box.x1,b.box.x1), y1:Math.max(a.box.y1,b.box.y1)}; lines.splice(k,1); if(k<i) i--; } }
     // reading order: rows top to bottom (a row = lines whose middles are within half a line), left to right inside a row
     const order=L=>{ const rows=[]; L.slice().sort((a,b)=>a.yc-b.yc).forEach(l=>{ const r=rows[rows.length-1]; if(r&&Math.abs(l.yc-r.yc)<0.6*Math.max(l.h,r.h)){ r.L.push(l); } else rows.push({yc:l.yc, h:l.h, L:[l]}); });
@@ -354,6 +354,243 @@
   }
   R.formationNumbers=formationNumbers;
 
+  // ── 1f. name boxes: a jersey with the number on it, and under it a light box of three lines ──
+  // Some programmes print each starter as a jersey graphic (the number is on the jersey) over a light rounded box
+  // holding three centred lines: the Irish name, the ENGLISH NAME IN BOLD, the club. There is no "number + name"
+  // line to find, so the boxes themselves are looked for in the picture, each is read by itself, the bold line (else
+  // the middle one) is taken, and the numbers come from where the boxes stand (1 / 3 / 3 / 2 / 3 / 3).
+  //
+  // findBoxes(px, w, h) → {boxes:[{x0,y0,x1,y1,fill}]}   px: one byte a pixel, light = high. (The reader passes the
+  // LOWEST of the three colour channels, so a white box on green grass is light and the grass is not.)
+  function findBoxes(g, w, h, o){
+    o=o||{};
+    const f=Math.max(1, Math.round(Math.max(w,h)/(o.small||420))), sw=Math.floor(w/f), sh=Math.floor(h/f), n=sw*sh;
+    if(sw<40||sh<40) return {boxes:[], f};
+    // reduced by taking the lightest pixel of each block (thin dark letters go), then closed (what is left of bold letters goes)
+    const P=new Uint8Array(n), D=new Uint8Array(n);
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ let m=0; for(let j=0;j<f;j++){ const row=(y*f+j)*w+x*f; for(let i=0;i<f;i++){ const v=g[row+i]; if(v>m) m=v; } } P[y*sw+x]=m; }
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ let m=0; for(let j=-1;j<=1;j++){ const yy=y+j; if(yy<0||yy>=sh) continue; for(let i=-1;i<=1;i++){ const xx=x+i; if(xx<0||xx>=sw) continue; const v=P[yy*sw+xx]; if(v>m) m=v; } } D[y*sw+x]=m; }
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ let m=255; for(let j=-1;j<=1;j++){ const yy=y+j; if(yy<0||yy>=sh) continue; for(let i=-1;i<=1;i++){ const xx=x+i; if(xx<0||xx>=sw) continue; const v=D[yy*sw+xx]; if(v<m) m=v; } } P[y*sw+x]=m; }
+    // what the boxes lie on: a low percentile over a wide window, on a coarse grid
+    const c=4, cw=Math.ceil(sw/c), ch=Math.ceil(sh/c), C=new Uint8Array(cw*ch), BG=new Uint8Array(cw*ch), rr=Math.max(3, Math.round(Math.min(cw,ch)*0.16)), hist=new Uint32Array(256);
+    for(let y=0;y<ch;y++) for(let x=0;x<cw;x++) C[y*cw+x]=P[Math.min(sh-1,y*c+1)*sw+Math.min(sw-1,x*c+1)];
+    for(let y=0;y<ch;y++) for(let x=0;x<cw;x++){ hist.fill(0); let cnt=0; for(let yy=Math.max(0,y-rr);yy<=Math.min(ch-1,y+rr);yy++) for(let xx=Math.max(0,x-rr);xx<=Math.min(cw-1,x+rr);xx++){ hist[C[yy*cw+xx]]++; cnt++; }
+      let acc=0, v=0; const want=cnt*0.3; for(v=0;v<256;v++){ acc+=hist[v]; if(acc>=want) break; } BG[y*cw+x]=v; }
+    const found=[], Lh=Math.round(0.11*sw), Lv=Math.round(0.022*sh);
+    const rowsOpen=bin=>{ for(let y=0;y<sh;y++){ let s=-1; for(let x=0;x<=sw;x++){ const on=x<sw&&bin[y*sw+x]; if(on&&s<0) s=x; if(!on&&s>=0){ if(x-s<Lh) for(let i=s;i<x;i++) bin[y*sw+i]=0; s=-1; } } } };
+    // light = clearly lighter than the background, at several levels (glare and shadow differ across a photo)
+    (o.ks||[1.15,1.3,1.5,1.8,2.2,2.7]).forEach(k=>{
+      const bin=new Uint8Array(n);
+      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const b=BG[Math.min(ch-1,(y/c)|0)*cw+Math.min(cw-1,(x/c)|0)], v=P[y*sw+x]; if(v>k*b+8&&v>90) bin[y*sw+x]=1; }
+      // only runs of light at least a box wide and a box high are kept — a white jersey touching its box, a thin border line go
+      rowsOpen(bin);
+      for(let x=0;x<sw;x++){ let s=-1; for(let y=0;y<=sh;y++){ const on=y<sh&&bin[y*sw+x]; if(on&&s<0) s=y; if(!on&&s>=0){ if(y-s<Lv) for(let i=s;i<y;i++) bin[i*sw+x]=0; s=-1; } } }
+      rowsOpen(bin);
+      const lab=new Int32Array(n), par=[0], find=x=>{ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; };
+      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const i=y*sw+x; if(!bin[i]) continue; const A=x&&bin[i-1]?lab[i-1]:0, U=y&&bin[i-sw]?lab[i-sw]:0;
+        if(A&&U){ const a=find(A), q=find(U); if(a!==q) par[Math.max(a,q)]=Math.min(a,q); lab[i]=Math.min(a,q); } else if(A||U) lab[i]=A||U; else { par.push(par.length); lab[i]=par.length-1; } }
+      const comps=new Map();
+      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const i=y*sw+x; if(!bin[i]) continue; const cc=find(lab[i]); let q=comps.get(cc); if(!q){ q={x0:x,x1:x,y0:y,y1:y,area:0}; comps.set(cc,q); }
+        q.area++; if(x<q.x0) q.x0=x; if(x>q.x1) q.x1=x; if(y>q.y1) q.y1=y; }
+      comps.forEach(q=>{ const ww=q.x1-q.x0+1, hh=q.y1-q.y0+1, fill=q.area/(ww*hh);
+        if(ww<0.12*sw||ww>0.45*sw||hh<0.025*sh||hh>0.12*sh||ww/hh<1.8||ww/hh>6||fill<0.8) return;
+        found.push({x0:q.x0*f, y0:q.y0*f, x1:(q.x1+1)*f, y1:(q.y1+1)*f, fill}); });
+    });
+    // the boxes of one design are one size; of a box found at several levels the one nearest that size is kept
+    let B=found; const out=[];
+    if(B.length>=3){ const mh=med(B.map(b=>b.y1-b.y0)), mw=med(B.map(b=>b.x1-b.x0)); B.forEach(b=>{ const hh=b.y1-b.y0, ww=b.x1-b.x0; b.off=Math.abs(hh-mh)/mh+Math.abs(ww-mw)/mw-0.5*b.fill; b.ok=hh>0.72*mh&&hh<1.35*mh&&ww>0.65*mw&&ww<1.5*mw; });
+      B=B.filter(b=>b.ok).sort((a,b)=>a.off-b.off); }
+    B.forEach(b=>{ if(out.some(q=>{ const ix=Math.min(b.x1,q.x1)-Math.max(b.x0,q.x0), iy=Math.min(b.y1,q.y1)-Math.max(b.y0,q.y0); return ix>0&&iy>0&&ix*iy>0.3*Math.min((b.x1-b.x0)*(b.y1-b.y0),(q.x1-q.x0)*(q.y1-q.y0)); })) return; out.push({x0:b.x0, y0:b.y0, x1:b.x1, y1:b.y1, fill:b.fill}); });
+    out.sort((a,b)=>a.y0-b.y0||a.x0-b.x0);
+    return {boxes:out, f};
+  }
+  R.findBoxes=findBoxes;
+  R.BOXMIN=8;                                     // this many name boxes and the page is read box by box
+
+  // How heavy the letters in a part of the picture are: the usual width of a pen stroke, in pixels (bold text has
+  // wider strokes than regular text of the same size). g: grey bytes, dark ink on light. → {sw, ink} or null
+  function strokeWidth(g, w, h, b){
+    const x0=Math.max(0,Math.floor(b.x0)), x1=Math.min(w,Math.ceil(b.x1)), y0=Math.max(0,Math.floor(b.y0)), y1=Math.min(h,Math.ceil(b.y1)), bw=x1-x0, bh=y1-y0;
+    if(bw<3||bh<3) return null;
+    const hist=new Uint32Array(256), n=bw*bh; for(let y=y0;y<y1;y++) for(let x=x0;x<x1;x++) hist[g[y*w+x]]++;
+    let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i]; let sb=0, wb=0, best=-1, th=128;
+    for(let i=0;i<256;i++){ wb+=hist[i]; if(!wb) continue; const wf=n-wb; if(!wf) break; sb+=i*hist[i]; const mb=sb/wb, mf=(sum-sb)/wf, q=wb*wf*(mb-mf)*(mb-mf); if(q>best){ best=q; th=i; } }
+    let ink=0, runs=0, tot=0; const cap=Math.max(3, 0.6*bh);
+    for(let y=y0;y<y1;y++){ let s=-1; for(let x=x0;x<=x1;x++){ const on=x<x1&&g[y*w+x]<=th; if(on){ ink++; if(s<0) s=x; } else if(s>=0){ const L=x-s; if(L<=cap){ runs++; tot+=L; } s=-1; } } }
+    if(!runs||ink<0.03*n||ink>0.75*n) return null;
+    return {sw:tot/runs, ink:ink/n};
+  }
+  R.strokeWidth=strokeWidth;
+  // the words read inside one box → its lines, top to bottom: [{text, conf, weight (stroke width), box, words}]
+  function boxLines(words){
+    const ws=prep(words).filter(w=>/[A-Za-zÀ-ɏ0-9]/.test(w.text)); if(!ws.length) return [];
+    const H=med(ws.map(w=>w.h))||1, rows=[];
+    ws.slice().sort((a,b)=>a.yc-b.yc).forEach(w=>{ const r=rows[rows.length-1];
+      if(r&&Math.abs(w.yc-r.yc)<0.55*H){ r.ws.push(w); r.yc=r.ws.reduce((t,x)=>t+x.yc,0)/r.ws.length; } else rows.push({ws:[w], yc:w.yc}); });
+    return rows.map(r=>{ r.ws.sort((a,b)=>a.x0-b.x0);
+      const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length, cf=r.ws.filter(w=>w.conf!=null&&lt(w)).map(w=>w.conf);
+      let ws2=0, wn=0; r.ws.forEach(w=>{ const k=lt(w); if(k>=2&&w.sw!=null){ ws2+=w.sw*k; wn+=k; } });
+      return {text:r.ws.map(w=>w.text).join(' '), letters:r.ws.reduce((t,w)=>t+lt(w),0), conf:cf.length?Math.min.apply(null,cf):null, weight:wn?ws2/wn:null, words:r.ws,
+        box:{x0:Math.min.apply(null,r.ws.map(w=>w.x0)), y0:Math.min.apply(null,r.ws.map(w=>w.y0)), x1:Math.max.apply(null,r.ws.map(w=>w.x1)), y1:Math.max.apply(null,r.ws.map(w=>w.y1))}}; })
+      .filter(l=>l.letters>=3);
+  }
+  R.boxLines=boxLines;
+  R.BOLD=1.15;                                    // a line whose strokes are this much wider than any other line of its box is the bold one
+  // Which line of a box is the player's English name? The bold one; with no clear bold line, the middle of three.
+  // → {i, how:'bold'|'middle'|'guess', agree: bold line = middle line (null when that cannot be said), sure}
+  function pickEnglish(lines){
+    const n=(lines||[]).length; if(!n) return null;
+    const wt=lines.map(l=>l.weight), have=n>=2&&wt.every(v=>v!=null&&v>0);
+    let bold=null, ratio=0; if(have){ const s=wt.map((v,i)=>({v,i})).sort((a,b)=>b.v-a.v); ratio=s[0].v/s[1].v; if(ratio>=R.BOLD) bold=s[0].i; }
+    const mid=n===3?1:null;
+    if(bold!=null) return {i:bold, how:'bold', agree:mid==null?null:bold===mid, sure:mid==null?(n===2&&ratio>=1.3):bold===mid, ratio};
+    if(mid!=null) return {i:mid, how:'middle', agree:null, sure:true, ratio};
+    // one, two or four lines and nothing bold: the tallest line of two (the English name is set larger), the first of one, a middle one of four
+    let i=n===1?0:(n===2?((lines[1].box.y1-lines[1].box.y0)>(lines[0].box.y1-lines[0].box.y0)?1:0):1);
+    return {i, how:'guess', agree:null, sure:false, ratio};
+  }
+  R.pickEnglish=pickEnglish;
+  // boxes → rows, top to bottom, each left to right
+  function boxRows(B){
+    const hh=med(B.map(b=>b.y1-b.y0))||1, rows=[];
+    B.slice().sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1)).forEach(b=>{ const yc=(b.y0+b.y1)/2, r=rows[rows.length-1];
+      if(r&&Math.abs(yc-r.yc)<0.6*hh){ r.B.push(b); r.yc=r.B.reduce((t,x)=>t+(x.y0+x.y1)/2,0)/r.B.length; } else rows.push({yc, B:[b]}); });
+    return rows.map(r=>r.B.sort((a,b)=>a.x0-b.x0));
+  }
+  R.boxRows=boxRows;
+  const SHAPE=[1,3,3,2,3,3]; R.JSURE=75;
+  // Numbers for the boxes. Fifteen boxes standing 1 / 3 / 3 / 2 / 3 / 3: numbered 1–15 by place; a jersey number read
+  // with confidence that says otherwise is noted (box.clash). Any other arrangement (a box not found, another
+  // formation): the numbers read from the jerseys, and the gaps between two of them filled where the count fits.
+  // box.jersey = {no, conf} | null.  Sets box.no, box.by ('place' | 'jersey' | 'between' | null) → {method, shape, read, agree}
+  function numberBoxes(rows){
+    const seq=[].concat.apply([], rows), shape=rows.map(r=>r.length);
+    const std=shape.length===SHAPE.length&&shape.every((v,i)=>v===SHAPE[i]);
+    const jz=b=>b.jersey&&b.jersey.no>=1&&b.jersey.no<=40?b.jersey:null;
+    let read=0, agree=0;
+    if(std){ seq.forEach((b,i)=>{ b.no=i+1; b.by='place'; delete b.clash; const j=jz(b); if(j&&j.conf>=R.JSURE){ read++; if(j.no===b.no) agree++; else b.clash=j.no; } });
+      return {method:'place', shape, read, agree}; }
+    // not the usual shape: jersey numbers that rise in reading order
+    let last=null; seq.forEach((b,i)=>{ b.no=null; b.by=null; delete b.clash; const j=jz(b); if(!j||j.conf<60) return;
+      if(last&&!(j.no>last.no&&j.no-last.no>=i-last.i)) return; if(!last&&j.no<i+1) return;
+      b.no=j.no; b.by='jersey'; last={no:j.no, i}; read++; });
+    const known=seq.map((b,i)=>b.no!=null?i:-1).filter(i=>i>=0);
+    const fill=(a,b,start)=>{ for(let i=a;i<b;i++){ seq[i].no=start+(i-a); seq[i].by='between'; } };
+    if(known.length){
+      if(seq[known[0]].no===known[0]+1) fill(0, known[0], 1);
+      for(let k=0;k+1<known.length;k++){ const a=known[k], b=known[k+1]; if(seq[b].no-seq[a].no===b-a) fill(a+1, b, seq[a].no+1); }
+      const z=known[known.length-1]; if(seq[z].no+(seq.length-1-z)<=15) fill(z+1, seq.length, seq[z].no+1);
+    }
+    return {method:'jersey', shape, read, agree:read};
+  }
+  R.numberBoxes=numberBoxes;
+  // the lines of the page outside the boxes (and outside the jerseys over them)
+  function outsideLines(words, boxes, o){
+    const hh=med((boxes||[]).map(b=>b.y1-b.y0))||0;
+    const inb=w=>{ const xc=(w.x0+w.x1)/2, yc=(w.y0+w.y1)/2; return (boxes||[]).some(b=>xc>=b.x0-0.04*hh&&xc<=b.x1+0.04*hh&&yc>=b.y0-1.05*hh&&yc<=b.y1+0.1*hh); };
+    const rest=(words||[]).filter(w=>w&&!inb(w)), fr=freeLayout(rest, {skew:(o||{}).skew});
+    return {lines:[].concat.apply([], fr.columns.map(c=>c.lines)), H:fr.H};
+  }
+  // the numbered list beside / under the formation (the subs): numbered lines above 15 whose numbers stand in one column
+  function subsColumn(lines, H){
+    const S=lines.filter(l=>l.no!=null&&l.no>15&&l.no<=40&&l.box); if(S.length<3) return null;
+    const mx=med(S.map(l=>l.box.x0)), col=S.filter(l=>Math.abs(l.box.x0-mx)<2.5*H); if(col.length<3) return null;
+    col.sort((a,b)=>a.yc-b.yc);
+    const gaps=[]; for(let i=1;i<col.length;i++) gaps.push(col[i].yc-col[i-1].yc);
+    const pitch=Math.max(H, med(gaps)||H);
+    return {x:mx, lines:col, pitch, x0:mx, x1:Math.max.apply(null,col.map(l=>l.box.x1)), y0:col[0].box.y0, y1:col[col.length-1].box.y1};
+  }
+  // where to read the subs list again, enlarged: {x0,y0,x1,y1} in the picture, or null
+  R.subsZone=function(words, boxes, W, Hh){
+    const o=outsideLines(words, boxes), c=subsColumn(o.lines, o.H); if(!c) return null;
+    const H=o.H, z={x0:Math.max(0,c.x0-1.2*H), y0:Math.max(0,c.y0-c.pitch), x1:Math.min(W||1e9,c.x1+2*H), y1:Math.min(Hh||1e9,c.y1+c.pitch)};
+    return (z.x1-z.x0>8*H&&z.y1-z.y0>3*H)?z:null;
+  };
+  R.CLUB=1.18;
+  // "16. Connor Gleeson Dún Mór Mhic Éil": the name in bold, the club after it in lighter (italic) type on the same line.
+  // Where the first words of the lines are clearly heavier than their last words, each line is cut where the heavy
+  // words stop; the tail goes to line.tail. A cut that is not clear-cut marks the line (line.unsure).
+  // lines: numbered lines with .words (each with .sw). → {on, cut, unsure, bold, light}
+  function clubSplit(lines){
+    const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length;
+    const rows=(lines||[]).map(l=>{ const ws=(l.words||[]).slice().sort((a,b)=>a.x0-b.x0); let k=0; while(k<ws.length&&!lt(ws[k])) k++; return {l, head:ws.slice(0,k), ws:ws.slice(k)}; })
+      .filter(r=>r.head.length&&r.ws.length>=2);
+    const m=rows.filter(r=>r.ws.length>=3&&r.ws[0].sw!=null&&r.ws[r.ws.length-1].sw!=null&&lt(r.ws[0])>=2&&lt(r.ws[r.ws.length-1])>=2);
+    if(m.length<4) return {on:false, cut:0, unsure:0};
+    const B=med(m.map(r=>r.ws[0].sw)), L=med(m.map(r=>r.ws[r.ws.length-1].sw));
+    if(!(B>=R.CLUB*L)) return {on:false, cut:0, unsure:0, bold:B, light:L};
+    const half=Math.log(B/L)/2, midv=Math.sqrt(B*L); let cut=0, unsure=0;
+    rows.forEach(r=>{ const n=r.ws.length, s=r.ws.map(w=>(w.sw==null||lt(w)<2)?0:Math.max(-1.5,Math.min(1.5,Math.log(w.sw/midv)/half)));
+      // the cut that best divides heavy words (before it) from light ones (after it); a name has at least one word
+      let bk=n, bv=-Infinity; for(let k=1;k<=n;k++){ let v=0; for(let i=0;i<n;i++) v+=i<k?s[i]:-s[i]; if(v>bv+1e-9){ bv=v; bk=k; } }
+      let sure=true;
+      // "Daniel Ó | Flaherty": a name does not end on a particle
+      while(bk<n&&PARTICLE.test(r.ws[bk-1].text.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase())&&/^[A-ZÀ-Þ]/.test(r.ws[bk].text)){ bk++; sure=false; }
+      for(let i=0;i<n;i++){ if(lt(r.ws[i])<2) continue; const v=i<bk?s[i]:-s[i]; if(v<0.3) sure=false; }
+      if(bk<2) sure=false;                                                      // a name of one word
+      if(bk===n&&n>3) sure=false;                                               // no club found on a line of many words
+      const l=r.l, name=r.ws.slice(0,bk), tail=r.ws.slice(bk);
+      l.text=r.head.map(w=>w.text).join(' ')+' '+name.map(w=>w.text).join(' '); l.no=lineNo(l.text);
+      if(tail.length){ l.tail=tail.map(w=>w.text).join(' '); cut++; }
+      const cf=r.head.concat(name).filter(w=>w.conf!=null&&/[A-Za-zÀ-ɏ0-9]/.test(w.text)).map(w=>w.conf); if(cf.length) l.conf=Math.min.apply(null,cf);
+      if(!sure){ l.unsure=true; l.conf=Math.min(l.conf==null?100:l.conf, 50); unsure++; } });
+    return {on:true, cut, unsure, bold:B, light:L};
+  }
+  R.clubSplit=clubSplit;
+  // boxLayout(words, boxes, {width, height}) → a layout like freeLayout's (one team), or null when this is not such a page.
+  //   words: the whole picture's words (each may carry .sw). boxes: [{x0,y0,x1,y1, words:[…read inside it…], jersey:{no,conf}|null}]
+  function boxLayout(words, boxes, o){
+    o=o||{};
+    const all=(boxes||[]).map(b=>{ const L=boxLines(b.words||[]); return Object.assign({}, b, {L, pick:L.length>=2&&L.length<=4?pickEnglish(L):null}); });
+    const good=all.filter(b=>b.pick);
+    if(good.length<R.BOXMIN) return null;
+    const rows=boxRows(good), num=numberBoxes(rows), seq=[].concat.apply([], rows), lines=[], notes=[];
+    const st={boxes:good.length, shape:num.shape, method:num.method, jerseyRead:num.read, jerseyAgree:num.agree, three:0, bold:0, boldIsMiddle:0, boldNotMiddle:0, middle:0, guess:0, clash:[]};
+    seq.forEach(b=>{ const p=b.pick, l=b.L[p.i]; let conf=l.conf==null?100:l.conf, why=[];
+      if(b.L.length===3) st.three++;
+      if(p.how==='bold'){ st.bold++; if(p.agree===true) st.boldIsMiddle++; else if(p.agree===false) st.boldNotMiddle++; } else if(p.how==='middle') st.middle++; else st.guess++;
+      if(!p.sure) why.push(b.L.length===3?'the bold line is not the middle line':'the box did not read as three lines');
+      if(b.clash!=null){ why.push('the jersey reads '+b.clash); st.clash.push({no:b.no, jersey:b.clash, name:l.text}); }
+      if(num.method!=='place') why.push(b.by==='jersey'?'number read from the jersey':b.by==='between'?'number worked out from the jerseys beside it':'no number');
+      if(why.length) conf=Math.min(conf, 50);
+      const name=l.text.replace(/^[^A-Za-zÀ-ɏ]+/,'');
+      lines.push({text:(b.no!=null?b.no+' ':'')+name, no:b.no==null?null:b.no, conf, box:{x0:b.x0, y0:b.y0, x1:b.x1, y1:b.y1}, yc:(b.y0+b.y1)/2, h:l.box.y1-l.box.y0, boxed:true, why:why.join('; ')||undefined});
+      b.L.forEach((x,i)=>{ if(i!==p.i) lines.push({text:x.text, no:null, conf:x.conf, box:x.box, yc:(x.box.y0+x.box.y1)/2, h:x.box.y1-x.box.y0, inbox:true}); }); });
+    // the rest of the page: the numbered column (the subs) is kept, everything else is not a player
+    const out=outsideLines(words, all, o), H=out.H||1, col=subsColumn(out.lines, H), subs=[];
+    if(col){
+      const inCol=l=>l.box&&l.yc>col.y0-0.8*col.pitch&&l.yc<col.y1+0.8*col.pitch;
+      out.lines.forEach(l=>{ const f=fold(l.text).trim();
+        if(RE_KEEP.test(f)&&l.no==null){ subs.push(l); return; }
+        if(inCol(l)&&l.no!=null&&Math.abs(l.box.x0-col.x)<2.5*H){ subs.push(l); return; }
+        // a line of the list whose number was not read: it starts where the names start
+        if(inCol(l)&&l.no==null&&!isNumTok(l.text)&&l.box.x0>col.x-H&&l.box.x0<col.x+7*H&&l.text.split(/\s+/).filter(w=>/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]+$/.test(w)).length>=2){ l.conf=Math.min(l.conf==null?100:l.conf, 50); l.nonum=true; subs.push(l); return; }
+        l.outside=true; lines.push(l); });
+      const S=subs.filter(l=>!RE_KEEP.test(fold(l.text).trim())).sort((a,b)=>a.yc-b.yc);
+      // a number that breaks the run between two that fit ("22 · 4 · 24") is put right; so is a missing one
+      const fixed=[]; for(let i=1;i+1<S.length;i++){ const a=S[i-1], l=S[i], b=S[i+1]; if(a.no!=null&&b.no!=null&&b.no-a.no===2&&!a.fixed&&l.no!==a.no+1){ const n=a.no+1;
+        if(l.no!=null){ l.text=l.text.replace(/^[#(\[]?\s*\d{1,2}[.\-–—:)\]]*\s*/, n+' '); if(l.words) l.words=l.words.slice().sort((p,q)=>p.x0-q.x0).map((w,k)=>k===0?Object.assign({},w,{text:String(n)}):w); }
+        else { l.text=n+' '+l.text; if(l.words) l.words=[{text:String(n), x0:col.x, x1:col.x+H, y0:l.box.y0, y1:l.box.y1, conf:50, sw:null}].concat(l.words); }
+        l.no=n; l.fixed=true; l.conf=Math.min(l.conf==null?100:l.conf, 50); fixed.push(n); } }
+      const cs=clubSplit(S.filter(l=>l.no!=null));
+      st.subs=S.length; st.club=cs; st.fixed=fixed;
+      S.forEach(l=>{ l.sub=true; });
+      subs.sort((a,b)=>a.yc-b.yc).forEach(l=>lines.push(l));
+      if(cs.on) notes.push('Subs: the club printed after each name (in lighter type) was cut off'+(cs.unsure?' — on '+cs.unsure+' line'+(cs.unsure===1?'':'s')+' the place to cut was not clear, so '+(cs.unsure===1?'it is':'they are')+' marked to check':'')+'.');
+      if(fixed.length) notes.push('Sub number'+(fixed.length===1?' ':'s ')+fixed.join(', ')+' could not be read and '+(fixed.length===1?'was':'were')+' worked out from the lines above and below — check.');
+    } else out.lines.forEach(l=>{ if(RE_KEEP.test(fold(l.text).trim())&&l.no==null) return; l.outside=true; lines.push(l); });
+    const shape=num.shape.join(' / ');
+    if(num.method==='place') notes.unshift('Starters: numbers 1–15 were taken from the positions of the 15 name boxes on the page ('+shape+'), not read from the lines — check.'
+      +(num.read?' The jersey numbers that could be read ('+num.read+') '+(num.agree===num.read?'all agree':'agree for '+num.agree)+'.':''));
+    else notes.unshift('Starters: '+good.length+' name boxes were found in rows of '+shape+' — not the usual 1 / 3 / 3 / 2 / 3 / 3 — so the numbers were read from the jerseys where they could be ('+seq.filter(b=>b.by==='jersey').length+' read, '+seq.filter(b=>b.by==='between').length+' worked out, '+seq.filter(b=>b.no==null).length+' without a number). Check every number.');
+    st.clash.forEach(c=>notes.push('The jersey over “'+c.name+'” reads '+c.jersey+', but its place on the page is '+c.no+' — check.'));
+    if(st.boldNotMiddle||st.guess) notes.push((st.boldNotMiddle+st.guess)+' name box'+(st.boldNotMiddle+st.guess===1?'':'es')+' did not read as Irish name / bold English name / club — marked to check.');
+    lines.forEach(l=>{ l.free=true; });
+    const P=lines.filter(l=>l.box);
+    return {columns:[{x0:Math.min.apply(null,P.map(l=>l.box.x0)), x1:Math.max.apply(null,P.map(l=>l.box.x1)), lines, notes, boxed:true}], spanning:[], extra:[], skew:0, H, free:true, boxed:true, notes, stats:st};
+  }
+  R.boxLayout=boxLayout;
+
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
   const RE_V=/\s+(?:v|vs|versus)\.?\s+/i;
@@ -380,7 +617,7 @@
     teams=(teams||[]).filter(Boolean);
     // o.fixed: the columns already are the lists (a formation page, divided by where its numbers lie) — a repeated
     // number there is a misread, not the start of another team
-    if(o&&o.fixed){ let B=(columns||[]).map(c=>({lines:c.lines.slice(), numbered:c.lines.filter(l=>l.no!=null).length})); let more=0;
+    if(o&&o.fixed){ let B=(columns||[]).map(c=>({lines:c.lines.slice(), numbered:c.lines.filter(l=>l.no!=null).length, notes:c.notes, boxed:c.boxed})); let more=0;
       if(B.length>2){ more=B.length-2; B=B.slice(0,2); }
       B.forEach(b=>{ const L=b.lines.filter(l=>l.box); b.page=L.length?L[0].page:undefined; const P=L.filter(l=>l.page===b.page);
         b.box=P.length?{x0:Math.min.apply(null,P.map(l=>l.box.x0)), y0:Math.min.apply(null,P.map(l=>l.box.y0)), x1:Math.max.apply(null,P.map(l=>l.box.x1)), y1:Math.max.apply(null,P.map(l=>l.box.y1))}:null; });
@@ -468,7 +705,7 @@
   const RE_ROLE=new RegExp('(^|\\s)(?:[(\\[{]\\s*'+ROLE+'\\s*[)\\]}]?|'+ROLE+'\\s*[)\\]}])(?=\\s|$)','gi');
   const stripRole=c=>c.replace(RE_ROLE,'$1').replace(/ {2,}/g,' ').trim();
   R.stripRole=stripRole;
-  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)', cut:'cut off by the edge of the crop box', above:'a line above the numbered list'};
+  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)', cut:'cut off by the edge of the crop box', above:'a line above the numbered list', inbox:'Irish name / club in the player\u2019s name box', outside:'not in a name box or the numbered list', club:'club printed after the name'};
   R.WHY=WHY;
   // "15 | Liam Ó Conghaile ." → "15 Liam Ó Conghaile"; "8 JohnMaher" → "8 John Maher"; "7 sean Kelly" → "7 Sean Kelly"
   const NOSPLIT=/^(?:Mc|Mac|Mag|De|Le|La|Fitz|Ni|Nic|Ui|Mhic|Van|Du|Di|O)$/;
@@ -510,6 +747,8 @@
     const besideOfficial=l=>l.box&&l.conf!=null&&offs.some(q=>q!==l&&q.page===l.page&&l.box.x0>=q.box.x1&&Math.abs((q.box.y0+q.box.y1)-(l.box.y0+l.box.y1))/2<0.5*Math.max(q.box.y1-q.box.y0, l.box.y1-l.box.y0));
     (lines||[]).forEach(l=>{
       const raw=String(l.text==null?'':l.text);
+      if(l.inbox||l.outside){ if(/[A-Za-zÀ-ɏ0-9]/.test(raw)) drop(raw, l.inbox?'inbox':'outside'); return; }
+      if(l.tail) drop(l.tail+'  (after “'+raw.trim()+'”)', 'club');
       // table rules and stray marks an image reader picks up
       let cells=raw.split('\t').map(c=>c.replace(/[|¦]/g,' ').replace(/^[\s_~=•·*»«›‹]+|[\s_~=•·*»«›‹]+$/g,'').replace(/^[-–—.]+\s+|\s+[-–—]+$/g,'').replace(/ {2,}/g,' ')).filter(Boolean);
       let t=cells.join('\t');
@@ -606,16 +845,18 @@
       // columns gives clearly more numbered players, that reading is used
       // … or when it shows numbered players side by side on a row within one team (a formation) and finds as many
       if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=8&&(b>=a+2||(b>=a-1&&sideBySide(fr)>=3))) lay=fr; }
-      p.model=lay.free?'free':'columns';
+      // a page of name boxes (jersey + three lines): the boxes were found in the picture and read one by one
+      if(p.boxes&&p.boxes.length>=R.BOXMIN){ const bl=boxLayout(p.words, p.boxes, {skew:p.skew}); if(bl){ lay=bl; p.stats=bl.stats; } }
+      p.model=lay.boxed?'boxes':lay.free?'free':'columns';
       // a crop box: a line touching an edge of it was cut through by the box
       if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3||l.box.y0<=2||(p.height&&l.box.y1>=p.height-2))) l.cut=true; }));
       if(p.cuts&&p.cuts.length) lay.columns.concat([{lines:lay.spanning||[]}]).forEach(c=>c.lines.forEach(l=>{ if(l.box&&p.cuts.some(q=>q.xc>=l.box.x0-1&&q.xc<=l.box.x1+1&&q.yc>=l.box.y0-1&&q.yc<=l.box.y1+1)) l.cut=true; }));
       const tag=l=>{ l.page=p.n; return l; };
-      lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag)}));
+      lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag), notes:c.notes, boxed:c.boxed}));
       lay.spanning.forEach(l=>spanning.push(tag(l)));
       (lay.extra||[]).forEach(c=>c.lines.forEach(l=>extra.push(tag(l))));
     });
-    const lists=splitTeams(columns, [o.homeTeam, o.awayTeam], {fixed:(pages||[]).length===1&&pages[0].model==='free'});
+    const lists=splitTeams(columns, [o.homeTeam, o.awayTeam], {fixed:(pages||[]).length===1&&(pages[0].model==='free'||pages[0].model==='boxes')});
     return {lists:lists.slice(), more:lists.more||0, assign:assignTeams(lists, spanning, o.homeTeam, o.awayTeam), spanning, extra};
   }
   R.compose=compose;
@@ -643,7 +884,8 @@
   function finish(list, o){
     o=o||{};
     let placed=[];
-    if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
+    if(list&&list.boxed){ list.lines.forEach(l=>{ if(l.under) delete l.under; if(l.above) delete l.above; }); }
+    else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
       // a list of numbered players: an unnumbered line above its first number is a title or heading, not a player
       // (not when numbers stand on lines of their own — there a name may come before its number)
       const L=list.lines, first=L.findIndex(l=>l.no!=null&&l.no<=40);
@@ -655,7 +897,7 @@
     const lines=c.lines.map(l=>({text:l.text, confidence:l.conf, low:l.conf!=null&&l.conf<LOW, box:l.box, page:l.page}));
     const cf=lines.map(l=>l.confidence).filter(v=>v!=null);
     return {text:lines.map(l=>l.text).join('\n'), lines, confidence:cf.length?Math.round(cf.reduce((a,b)=>a+b,0)/cf.length):null,
-      dropped:c.dropped, adopted:c.adopted, joined:c.joined, placed, box:list?list.box:null, page:list?list.page:undefined};
+      dropped:c.dropped, adopted:c.adopted, joined:c.joined, placed, notes:(list&&list.notes)||[], boxed:!!(list&&list.boxed), box:list?list.box:null, page:list?list.page:undefined};
   }
   R.finish=finish;
   // Which list goes to which team. side: 'both' | 'home' | 'away'; o.first ('home'|'away') overrides the guess.
