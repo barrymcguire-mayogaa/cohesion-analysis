@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Player Names</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5;}
+select,input[type=text],input[type=search]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;max-width:100%;}
+select:focus,input[type=text]:focus,input[type=search]:focus{border-color:var(--accent);}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex:0 0 auto;}
+.process-btn{padding:11px 20px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;}
+.process-btn.green{background:var(--green);}
+.sec-btn{padding:7px 11px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+.team-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.team-row select#teamSel{min-width:240px;flex:0 1 340px;font-weight:600;}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:11px 14px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.strong{background:var(--red-bg);border-color:var(--red);color:var(--t1);}
+.note.strong b{color:var(--red);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--t1);}
+.note.lock{background:var(--accent-bg);border-color:var(--accent);color:var(--t1);margin:0 0 20px;}
+.note.lock b{color:var(--accent);}
+.prog{display:none;margin-top:14px;}
+.prog.show{display:block;}
+.prog-track{height:6px;border-radius:3px;background:var(--card);overflow:hidden;border:1px solid var(--border);}
+.prog-bar{height:100%;width:0;background:var(--accent);transition:width .2s;}
+.prog-msg{font-size:12px;color:var(--t2);margin-top:6px;}
+/* suggestions */
+.sug{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:9px;margin-bottom:8px;font-size:13px;}
+.sug .nm{font-weight:600;}
+.sug .ct{color:var(--t2);font-size:12px;}
+.sug .why{flex:1 1 220px;color:var(--amber);font-size:12px;}
+.sug .arrow{color:var(--t3);}
+/* the list */
+.list-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.list-bar input[type=search]{flex:0 1 280px;}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+table.nm{width:100%;border-collapse:collapse;font-size:13px;min-width:860px;}
+table.nm th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.nm td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.nm th.n,table.nm td.n{text-align:right;width:62px;font-variant-numeric:tabular-nums;}
+table.nm td.n.z{color:var(--t3);}
+table.nm td.c{width:34px;text-align:center;padding-right:0;}
+table.nm tr.grp td{background:var(--accent-bg);border-bottom:1px solid var(--border);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--accent);padding:6px 10px;}
+table.nm tr.grp .sec-btn{margin-left:10px;padding:4px 9px;}
+table.nm tr.in td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+table.nm tr.tick td{background:rgba(79,195,247,0.06);}
+table.nm tr.det td{background:var(--card);padding:8px 10px 10px 54px;font-size:12px;color:var(--t2);}
+table.nm tr:last-child td{border-bottom:none;}
+.sp{display:flex;align-items:center;gap:9px;min-width:0;}
+.sp .name{font-weight:600;white-space:pre;overflow:hidden;text-overflow:ellipsis;}
+.sp .odd{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--amber);border:1px solid var(--amber);border-radius:4px;padding:1px 5px;white-space:nowrap;}
+.gl{cursor:pointer;color:var(--accent);background:none;border:none;font:600 12px 'Barlow',sans-serif;padding:0;white-space:nowrap;}
+.gl:hover{text-decoration:underline;}
+.det-g{display:grid;grid-template-columns:92px minmax(140px,220px) 1fr;gap:3px 14px;}
+.det-g b{color:var(--t1);font-weight:600;}
+.yes{color:var(--green);font-weight:700;}
+.chip{display:inline-block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--t2);white-space:nowrap;margin:1px 4px 1px 0;}
+.chip.from{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);font-size:12px;letter-spacing:.2px;white-space:pre;}
+.chip.to{color:var(--green);border-color:var(--green);background:var(--green-bg);font-size:12px;letter-spacing:.2px;white-space:pre;}
+.chip.red{color:var(--red);border-color:var(--red);background:var(--red-bg);}
+.chip.amber{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);}
+/* merge bar */
+.mbar{position:sticky;bottom:0;z-index:40;margin:14px -22px -22px;padding:12px 22px;background:var(--panel);border-top:1px solid var(--accent);border-radius:0 0 12px 12px;display:none;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 -8px 24px var(--shadow);}
+.mbar.show{display:flex;}
+.mbar input[type=text]{flex:0 1 260px;font-weight:600;}
+.mbar .lbl{font-size:12px;color:var(--t2);}
+/* preview */
+.pv-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:6px;}
+.pv-sum{font-size:13px;color:var(--t2);margin:8px 0 2px;line-height:1.6;}
+.pv-sum b{color:var(--t1);}
+table.pv{width:100%;border-collapse:collapse;font-size:13px;min-width:760px;}
+table.pv th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.pv td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5;}
+table.pv tr:last-child td{border-bottom:none;}
+table.pv td.n{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;width:70px;}
+table.pv .w{font-size:12px;margin-top:4px;}
+table.pv .w.strong{color:var(--red);} table.pv .w.warn{color:var(--amber);} table.pv .w.info{color:var(--t3);}
+table.pv td.state{width:92px;white-space:nowrap;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3);}
+table.pv td.state.ok{color:var(--green);} table.pv td.state.bad{color:var(--red);} table.pv td.state.busy{color:var(--accent);}
+.confirm{display:flex;gap:9px;align-items:flex-start;margin-top:10px;font-size:13px;line-height:1.5;}
+.big-dl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:14px;border:1px dashed var(--accent);border-radius:10px;background:var(--accent-bg);}
+.big-dl .txt{flex:1 1 260px;font-size:12px;color:var(--t1);line-height:1.6;}
+.hist{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.hist:last-child{border-bottom:none;}
+.hist .when{color:var(--t3);font-size:12px;width:128px;flex:0 0 auto;}
+.hist .what{flex:1 1 260px;min-width:0;}
+.ph-choice{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12px;}
+.ph-choice label{display:flex;gap:6px;align-items:center;cursor:pointer;}
+@media(max-width:700px){ .page{padding:18px 12px 50px;} .step{padding:16px 12px;} .mbar{margin:14px -12px -16px;padding:12px;} .det-g{grid-template-columns:80px 1fr;} table.nm tr.det td{padding-left:14px;} }
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-config.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+<script src="cohesion-teamsheet.js"></script>
+<script src="cohesion-names.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">🔤 Player Names</div>
+  <div class="page-sub">
+    See every spelling used for a team's players across all its games, and merge the wrong spellings into the right one —
+    on every event, team sheet, goalkeeper entry and photo — in one go. A misspelt name splits a player's numbers on the
+    Analysis Players tab and loses his photo.
+  </div>
+  <div class="note lock">
+    <b>Nothing changes until you press Apply.</b> You see a preview first, every change is written to a log, and a merge can be undone from that log.
+    Names in files exported earlier (XML files already downloaded, PDFs, images) are not changed — export them again after a merge.
+  </div>
+
+  <!-- 1. TEAM -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Team</div><div class="step-sub">Every team in COHESION's games · all of the team's games are read</div></div></div>
+    <div class="team-row">
+      <select id="secSel" aria-label="Section" title="Which games: county, club or both"></select>
+      <select id="teamSel" aria-label="Team"><option value="">Loading teams…</option></select>
+      <button class="sec-btn" id="refreshBtn" onclick="refresh()" disabled title="Read the team's games again">↻ Refresh</button>
+      <span class="st" id="teamMsg"></span>
+    </div>
+    <div class="prog" id="loadProg"><div class="prog-track"><div class="prog-bar" id="loadBar"></div></div><div class="prog-msg" id="loadMsg"></div></div>
+    <div class="error-box" id="teamErr"></div>
+  </div>
+
+  <!-- 2. NAMES -->
+  <div class="step" id="listStep" style="display:none;">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title">Names</div><div class="step-sub" id="listSub"></div></div></div>
+    <div id="sugBox"></div>
+    <div class="list-bar">
+      <input type="search" id="search" placeholder="Search names…" autocomplete="off" spellcheck="false" aria-label="Search names">
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--t2);cursor:pointer;"><input type="checkbox" id="onlyDup"> Only names with more than one spelling</label>
+      <span class="st" id="listMsg"></span>
+    </div>
+    <div class="tbl-wrap"><table class="nm" id="nameTbl"></table></div>
+    <div class="mbar" id="mbar">
+      <span class="lbl" id="mbarTxt"></span>
+      <span class="lbl">Correct spelling</span>
+      <input type="text" id="target" list="targetList" autocomplete="off" spellcheck="false" aria-label="Correct spelling">
+      <datalist id="targetList"></datalist>
+      <button class="process-btn" id="pvBtn" onclick="preview()">Preview merge</button>
+      <button class="sec-btn" onclick="clearTicks()">Clear</button>
+    </div>
+  </div>
+
+  <!-- 3. PREVIEW / APPLY / RESULT -->
+  <div class="step" id="pvStep" style="display:none;">
+    <div class="step-header"><div class="step-num">3</div>
+      <div><div class="step-title" id="pvTitle">Preview</div><div class="step-sub" id="pvSub">Nothing has been changed yet</div></div></div>
+    <div id="pvBox"></div>
+  </div>
+
+  <!-- 4. HISTORY -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">↺</div>
+      <div><div class="step-title">Merges made in this browser</div><div class="step-sub">The last few logs are kept here. A merge can only be undone from its log — download it and keep it.</div></div></div>
+    <div id="histBox"></div>
+    <div class="btn-row">
+      <button class="sec-btn" onclick="document.getElementById('logFile').click()">Open a downloaded log…</button>
+      <input type="file" id="logFile" accept="application/json,.json" style="display:none">
+      <span class="st" id="histMsg"></span>
+    </div>
+  </div>
+</div>
