@@ -308,7 +308,8 @@
     const gOut = kind === 'shot' ? up(valCI(g, ['Shot Outcomes','ShotOutcome','Outcome']) || g.outcome) : kind === 'ko' ? up(valCI(g, ['Kickout Outcomes','KickoutOutcome']) || g.outcome) : '';
     const fOut = kind === 'shot' ? up(lbl(f, 'Shot Outcomes')) : kind === 'ko' ? up(lbl(f, 'Kickout Outcomes')) : '';
     const outDiffers = !!gOut && !!fOut && gOut !== fOut && !(kind === 'shot' && /SHOT (OPEN|DEAD)/.test(gCode) === false);
-    const koSideDiffers = kind === 'ko' && wonLost(gOut) && wonLost(fOut) && wonLost(gOut) !== wonLost(fOut);
+    // who won a kickout is only copied when both files agree which side won it (a game kickout whose outcome cannot be read gets no name)
+    const koSideDiffers = kind === 'ko' && wonLost(gOut) !== wonLost(fOut);
     Object.keys(f.labels || {}).forEach(grp => {
       const v = String(f.labels[grp] == null ? '' : f.labels[grp]).trim();
       if(!v || grp === MERGE_SRC || grp === GI_SRC || SKIP_FILL.test(grp) || /player labels$/i.test(grp)) return;
@@ -320,7 +321,7 @@
       }
       if(grp === 'Deadball Shot Type' && (shotKindDiffers || !dead(gCode))) return;
       if(grp === 'Shot Attempts' && outDiffers){ out.notes.push('Shot Attempts ' + v + ' not copied — the outcomes differ'); return; }
-      if(koSideDiffers && /^kickout (won by|target)$/i.test(grp)){ out.notes.push(grp + ' ' + v + ' not copied — the file has this kickout ' + (wonLost(fOut) === 'W' ? 'won' : 'lost')); return; }
+      if(koSideDiffers && /^kickout (won by|target)$/i.test(grp)){ out.notes.push(grp + ' ' + v + ' not copied — the file has this kickout ' + (wonLost(fOut) === 'W' ? 'won' : 'lost') + ', the game ' + (wonLost(gOut) === 'W' ? 'won' : wonLost(gOut) === 'L' ? 'lost' : 'with an outcome that cannot be read')); return; }
       out.labels[grp] = v; out.n++; out.what.push(grp + ' ' + v);
     });
     const pf = playerOf(f), pg = playerOf(g);
