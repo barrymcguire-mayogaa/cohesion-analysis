@@ -211,7 +211,8 @@
       if(!T && up(C) === 'THROW UP'){ items.push(Object.assign(base, { kind:'hop', rows:[row('HOP BALL', {}, null)] })); return; }
       if(!R){ leave(e, 'no row name'); return; }
       // any other row: the same name in capitals, its labels, no meaning added
-      items.push(Object.assign(base, { kind:'x:' + R, name: rest, rows:[withPlayer(row((T ? T + ' ' : '') + R, {}, null))] }));
+      // (category 'Other' whatever the name: "GOALKEEPER" / "OP WIDE" must not be filed under shots by their spelling)
+      items.push(Object.assign(base, { kind:'x:' + R, name: rest, rows:[Object.assign(withPlayer(row((T ? T + ' ' : '') + R, {}, null)), { category:'Other' })] }));
     });
     return { items, out: out.map(x => ({ code:x.code, n:x.n, reason:x.reason })) };
   }
