@@ -299,7 +299,7 @@ const grpRow = (g, cols, key, n) => '<tr class="grp"><td class="c"><input type="
 function renderPreview(){
   if(!scanned) return;
   const t = tally(); let h = '';
-  $('pvStep').style.display = ''; $('pvTitle').textContent = 'Preview'; $('pvSub').textContent = 'Nothing has been changed yet';
+  $('pvStep').style.display = ''; $('pvTitle').textContent = 'Preview'; $('pvSub').textContent = lastRun ? 'Read again after the last run — what is listed here has not been changed' : 'Nothing has been changed yet';
   h += '<div class="pv-sum"><b>'+plural(t.all,'’45')+'</b> found in <b>'+plural(t.games,'game')+'</b> · <b>'+t.move+'</b> not on the line · <b>'+t.online+'</b> already on the line'
     + ' · <b>'+t.att+'</b> not tagged 1 Point Attempt'+(t.noloc?' · '+t.noloc+' with no location':'')+(t.unclear+t.odd?' · <b>'+(t.unclear+t.odd)+'</b> not changed (see below)':'')+'.</div>';
   if(!t.move && !t.att) h += '<div class="note good"><b style="color:var(--green)">✓ Nothing to do.</b> '+(t.all ? 'Every ’45 that has a location is on the 45 m line, and every ’45 is a 1 Point Attempt.' : 'No ’45s found in these games.')+'</div>';
@@ -312,9 +312,9 @@ function renderPreview(){
       h += grpRow(g, 8, 'm', { all:rows.length, on:rows.filter(it=>!off.has(kMove(g,it))).length });
       rows.forEach(it=>{ const on = !off.has(kMove(g,it));
         h += '<tr class="'+(on?'':'off')+'"><td class="c"><input type="checkbox" data-k="'+esc(kMove(g,it))+'" '+(on?'checked':'')+' aria-label="Move this shot"></td>'+whoCells(it)
-          + '<td class="t"><span class="chip from">'+esc(num(it.depth))+'</span>→ <span class="chip to">'+esc(num(it.newDepth))+'</span></td><td class="t">'+esc(metresTxt(it))+'</td>'
+          + '<td class="t"><span class="chip from">'+esc(num(it.depth))+'</span> → <span class="chip to">'+esc(num(it.newDepth))+'</span></td><td class="t">'+esc(metresTxt(it))+'</td>'
           + '<td class="st0">'+it.sets.map(s=>esc(s.field==='y'?'y':s.label)+' '+esc(num(s.old))+' → '+esc(s.new)).join('<br>')+'</td>'
-          + '<td>'+(it.zone ? '<span class="chip from">'+esc(it.zone.old)+'</span>→ <span class="chip to">'+esc(it.zone.new)+'</span>' : '<span style="color:var(--t3)">no change</span>')
+          + '<td>'+(it.zone ? '<span class="chip from">'+esc(it.zone.old)+'</span> → <span class="chip to">'+esc(it.zone.new)+'</span>' : '<span style="color:var(--t3)">no change</span>')
           + (it.zoneNote?'<div class="w">'+esc(it.zoneNote)+'</div>':'')+'</td></tr>'; });
     });
     h += '</tbody></table></div>';
@@ -327,7 +327,7 @@ function renderPreview(){
       h += grpRow(g, 6, 'a', { all:rows.length, on:rows.filter(it=>!off.has(kAtt(g,it))).length });
       rows.forEach(it=>{ const on = !off.has(kAtt(g,it));
         h += '<tr class="'+(on?'':'off')+'"><td class="c"><input type="checkbox" data-k="'+esc(kAtt(g,it))+'" '+(on?'checked':'')+' aria-label="Set this shot to 1 Point Attempt"></td>'+whoCells(it)
-          + '<td>tagged <span class="chip from">'+(it.attempt.old?esc(it.attempt.old):'nothing')+'</span>→ <span class="chip to">'+esc(it.attempt.new)+'</span><div class="w">a ’45 is a 1-point attempt</div></td>'
+          + '<td>tagged <span class="chip from">'+(it.attempt.old?esc(it.attempt.old):'nothing')+'</span> → <span class="chip to">'+esc(it.attempt.new)+'</span><div class="w">a ’45 is a 1-point attempt</div></td>'
           + '<td class="w">'+(it.status==='noloc'?'no location — nothing to move':it.status==='move'?'not on the line (listed above)':it.status==='online'?'on the line':'not changed (see below)')+'</td></tr>'; });
     });
     h += '</tbody></table></div>';
