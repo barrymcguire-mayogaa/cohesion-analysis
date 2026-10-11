@@ -1337,6 +1337,13 @@ function ssGiShortTurnovers(events, T, O){
     const a=side(x.e), b=side(n.e);
     if(a&&b&&a!==b) out.add(n.e);
   });
+  // a converted game: the "Turnover Won" original is superseded by its "<TEAM> TOs" row (cohesion-gi.js), so that row
+  // stands for the same short shot — until a type is tagged on it, which then decides its class like any typed row
+  if(out.size){
+    const ids=new Set(); out.forEach(e=>ids.add(String(e.id)));
+    (events||[]).forEach(e=>{ if(!e||!ssGiDerived(e)||!ssIsTO(e)||!ids.has(String(ssL(e,'GI Source ID')).trim())) return;
+      if(!String(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome||'').trim()) out.add(e); });
+  }
   return out;
 }
 function ssToKind(e){
@@ -1496,7 +1503,8 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
     let kind=ssToKind(e); const side=mineT?'T':'O';
-    if(String(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome||'').trim()) typed=true;
+    // (the KICKOUT LOST row a Gaelic Insights conversion adds for a lost kickout is not a typed turnover of the file)
+    if(String(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome||'').trim()&&!(kind==='ko'&&ssGiDerived(e))) typed=true;
     if(ssToWinnerCoded(e)) winnerCoded=true;
     if(giShort.has(e)){ kind='shot'; g.toGiShort++; }
     if(kind==='ko') hasKoRow[side]=true;
@@ -1534,7 +1542,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   g.toKoGames=g.toKoSource?1:0;
   // shot attempts turned over: only where the format can tell (typed rows, or GI)
   // (the GI originals are looked at directly: in a converted game they are superseded, not gone)
-  const giFmt=winnerCoded&&events.some(e=>ssIsGiRawShot(e)&&ssGiShotOutcome(e));
+  const giFmt=(winnerCoded||events.some(e=>e&&!ssGiDerived(e)&&ssIsTO(e)&&ssToWinnerCoded(e)))&&events.some(e=>ssIsGiRawShot(e)&&ssGiShotOutcome(e));
   g.toShotGames=(typed||giFmt)?1:0;
   if(!g.toShotGames){ g.toLostShot=0; g.toWonShot=0; }
   g.toGames=(g.toLost+g.toWon)>0?1:0;

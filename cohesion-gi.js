@@ -29,6 +29,14 @@
  * plus both teams' BREAK WON / BREAK LOST rows for a break ball; the original
  * is superseded, the break rows are companions.
  *
+ * TURNOVERS (see the TURNOVERS block): a Gaelic Insights "<Team> Turnover Won"
+ * names the team that WON the ball, with the third from that team's view. Each
+ * gains a "<OTHER TEAM> TOs" row (the team that LOST it, the third flipped to
+ * that team's view, 'Turnover Outcomes' left blank to be typed in Code Room);
+ * the original stays in place and is superseded, so each turnover counts once.
+ * A kickout the kicking team LOST also gains the kicker's "<TEAM> TOs" row with
+ * 'Turnover Outcomes' = KICKOUT LOST — never a second one for the same kickout.
+ *
  * LOCATIONS AND DETAILS marked on an original before it is converted are carried
  * onto its derived shot / KO row (see the CARRY block); cohGiCarryDetails does the
  * same for a game converted earlier. Nothing is ever removed from an original.
@@ -167,7 +175,9 @@
   // Each converts to "<KICKING TEAM> KO" with Code Room's own labels
   // ('Kickout Outcomes' from the kicker's view, 'Kickout Locations'), plus —
   // break outcomes only — "<WINNER> BREAK WON" and "<LOSER> BREAK LOST".
-  // No TOs / FOUL companions: GI and GIU carry their own turnover / foul rows.
+  // A kickout the kicking team LOST also gets the kicker's "<TEAM> TOs" /
+  // KICKOUT LOST row (see TURNOVERS: Gaelic Insights writes no turnover for it).
+  // No FOUL companion: GI and GIU carry their own foul rows.
   // A row whose outcome cannot be read is left alone (never guessed).
   const KO_LEN = { 'SHORT':'KO SHORT', 'SKO':'KO SHORT', 'MID-RANGE':'KO MEDIUM', 'MID RANGE':'KO MEDIUM', 'MID':'KO MEDIUM',
     'MEDIUM':'KO MEDIUM', 'MKO':'KO MEDIUM', 'LONG':'KO LONG', 'LKO':'KO LONG' };
@@ -228,25 +238,113 @@
     return out;
   }
 
-  // Ids of GI originals that already have a derived SHOT or KO event.
+  // ── TURNOVERS ───────────────────────────────────────────────────
+  // GI: "<Team> Turnover Won" — the row's team WON the ball; its third
+  // ('turnover_zone' Own / Middle / Opp Third) is from the WINNER's view and its
+  // player is the winner's player. COHESION codes the team that LOST it:
+  // "<LOSER> TOs" with 'Turnover Locations' from the LOSER's view (Own ↔ Opp
+  // swapped, Middle unchanged). 'Turnover Outcomes' (the type) is not in a GI
+  // file, so it is left blank — never guessed — unless one was typed on the
+  // original. The winner's player is kept on the new row under HIS team's
+  // "<Team> Player Labels" group (the Sportscode convention: a KERRY TOs row
+  // carries the Mayo player who won the ball). A row whose other team cannot be
+  // read from the game is left alone. GIU "<Team> Turnover" rows already name
+  // the team that lost the ball and are not converted.
+  const TO_WON_RE = /^\s*(.+?)\s+turnovers?\s+won\s*$/i;
+  const TO_LOC_GROUPS = ['Turnover Locations','Turnover Location','turnover_zone','TurnoverZone','PitchArea'];
+  const TO_OUT_GROUPS = ['Turnover Outcomes','Turnover Outcome','TurnoverOutcome'];
+  function lblCI(e, names){
+    const L = (e && e.labels) || {}, keys = Object.keys(L);
+    for(const n of names){ const k = keys.find(x => x.toLowerCase() === n.toLowerCase());
+      if(k != null && L[k] != null && String(L[k]).trim()) return String(L[k]).trim(); }
+    return '';
+  }
+  function toThird(txt){
+    const K = up(txt);
+    return /DEFENSIVE|\bDEF\b|\bOWN\b/.test(K) ? 'DEFENSIVE THIRD' : /MIDDLE|\bMID\b/.test(K) ? 'MIDDLE THIRD'
+      : /ATTACKING|OFFENSIVE|\bATT\b|\bOPP/.test(K) ? 'ATTACKING THIRD' : '';
+  }
+  const flipThird = t => t === 'DEFENSIVE THIRD' ? 'ATTACKING THIRD' : t === 'ATTACKING THIRD' ? 'DEFENSIVE THIRD' : t;
+  // → { winner, loser, third (the LOSER's view, '' when not tagged) } or null.
+  function toMap(e, game){
+    if(!e || !e.code || lbl(e, GI_SRC)) return null;
+    const m = TO_WON_RE.exec(e.code);
+    if(!m) return null;
+    const winner = up(e.team) || up(m[1]), loser = koOtherTeam(game, winner);
+    if(!winner || !loser) return null;
+    return { winner, loser, third: flipThird(toThird(lblCI(e, TO_LOC_GROUPS))) };
+  }
+  function isGiTurnover(e, game){ return !!toMap(e, game); }
+  // A derived turnover row: "<TEAM> TOs" carrying the link label (from a
+  // "Turnover Won" original, or the KICKOUT LOST row of a lost kickout).
+  function isDerivedTo(e){ return !!lbl(e, GI_SRC) && /\sTOS\s*$/i.test((e && e.code) || ''); }
+  const baseOf = e => { const b = { start:e.start, end:e.end, half:e.half, driveT:e.driveT };
+    if(e.gameTime != null) b.gameTime = e.gameTime;
+    if(e.videoT != null) b.videoT = e.videoT;
+    return b; };
+  // Map one GI "Turnover Won" to its COHESION turnover row. Pure.
+  function cohGiMapTurnover(e, game){
+    const t = toMap(e, game);
+    if(!t) return [];
+    const L = e.labels || {}, labels = {};
+    const type = lblCI(e, TO_OUT_GROUPS);
+    if(type) labels['Turnover Outcomes'] = type;
+    if(t.third) labels['Turnover Locations'] = t.third;
+    const p = String(e.player || L['Player'] || '').trim();
+    if(p) labels[t.winner + ' Player Labels'] = p;
+    labels[GI_SRC] = String(e.id);
+    const row = Object.assign({ id:'gi-'+e.id+'-to', code:t.loser+' TOs', team:t.loser }, baseOf(e), {
+      player:p, outcome:type, subtype:'', category:'Turnovers', labels });
+    if(p) row.playerTeam = t.winner;
+    return [row];
+  }
+  // The kicker's KICKOUT LOST turnover for a lost kickout (Code Room's own rule:
+  // the third is the kickout's length from the kicking team's view).
+  const KO_LEN_THIRD = { 'KO SHORT':'DEFENSIVE THIRD', 'KO MEDIUM':'MIDDLE THIRD', 'KO LONG':'ATTACKING THIRD' };
+  const isKoLostTo = e => /\bTOS?\b/i.test((e && e.code) || '') && /KICK\s*OUT LOST|\bKO LOST\b/.test(up(lblCI(e, TO_OUT_GROUPS) || (e && e.outcome)));
+  function koLostRow(srcId, at, team, len){
+    const labels = { 'Turnover Outcomes':'KICKOUT LOST' };
+    if(KO_LEN_THIRD[up(len)]) labels['Turnover Locations'] = KO_LEN_THIRD[up(len)];
+    labels[GI_SRC] = String(srcId);
+    return Object.assign({ id:'gi-'+srcId+'-koto', code:team+' TOs', team }, baseOf(at), {
+      player:'', outcome:'KICKOUT LOST', subtype:'', category:'Turnovers', labels });
+  }
+  const KO_TO_WINDOW = 2;   // seconds: a KICKOUT LOST row this close to the kickout's start IS that kickout's
+  // true when the game already has the KICKOUT LOST row of this kickout (made by an
+  // earlier conversion, or by Code Room when the outcome was answered there)
+  function hasKoLostTo(list, srcId, team, start){
+    return list.some(x => x.team === team && (x.src === String(srcId) || (fin0(start) && fin0(x.start) && Math.abs(x.start - start) <= KO_TO_WINDOW)));
+  }
+  const fin0 = v => v != null && v !== '' && isFinite(+v);
+
+  // Ids of GI originals that already have a derived SHOT, KO or turnover event.
   function cohGiSuperseded(events){
-    const s = new Set();
+    const s = new Set(), tos = [];
     (events || []).forEach(e => {
       const id = lbl(e, GI_SRC);
-      if(id && (/SHOT (OPEN|DEAD)/i.test(e.code || '') || isDerivedKo(e))) s.add(id);
+      if(!id) return;
+      if(/SHOT (OPEN|DEAD)/i.test(e.code || '') || isDerivedKo(e)) s.add(id);
+      else if(isDerivedTo(e)) tos.push(id);
     });
+    // a derived TOs row supersedes a "Turnover Won" original (a lost kickout's
+    // KICKOUT LOST row supersedes nothing: the kickout answers to its KO row)
+    if(tos.length){
+      const won = new Set();
+      (events || []).forEach(e => { if(e && !lbl(e, GI_SRC) && TO_WON_RE.test(e.code || '')) won.add(String(e.id)); });
+      tos.forEach(id => { if(won.has(id)) s.add(id); });
+    }
     return s;
   }
   // Bare companion created by the conversion (a score or break row — not a
-  // shot or a kickout in its own right).
+  // shot, a kickout or a turnover in its own right).
   function cohGiIsCompanion(e){
-    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '') && !isDerivedKo(e);
+    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '') && !isDerivedKo(e) && !isDerivedTo(e);
   }
   // Per-event predicate factory: true for an original that is superseded.
   function cohGiSupersededFn(events){
     const s = cohGiSuperseded(events);
     return e => !!(s.size && e && !lbl(e, GI_SRC) && s.has(String(e.id))
-      && (isAnyGiShot(e) || /^\s*\S.*\s+kickout\s*$/i.test(e.code || '')));
+      && (isAnyGiShot(e) || /^\s*\S.*\s+kickout\s*$/i.test(e.code || '') || TO_WON_RE.test(e.code || '')));
   }
 
   // Map one GI shot to its COHESION shot (+ score companion). Pure.
@@ -469,26 +567,46 @@
   }
 
   // New events for every GI / GIU shot with no derived event yet. Idempotent.
-  // Kickouts too: an original whose id already appears as a "GI Source ID" is
-  // skipped, so a game whose shots were converted earlier only gains its
-  // kickouts. opts.kickouts === false / opts.shots === false limit the pass.
+  // Kickouts and turnovers too: an original whose id already appears as a "GI
+  // Source ID" is skipped, so a game whose shots were converted earlier only
+  // gains its kickouts and turnovers. opts.kickouts === false / opts.shots ===
+  // false / opts.turnovers === false limit the pass.
+  // KICKOUT LOST rows: a kickout converted in THIS pass gets one when the kicker
+  // lost it; a kickout converted EARLIER gets one from its derived KO row as it
+  // stands now (its 'Kickout Outcomes' may have been corrected since). Neither is
+  // added when the game already has that kickout's KICKOUT LOST row.
   function cohGiConvert(events, game, opts){
-    const done = new Set();
-    (events || []).forEach(e => { const id = lbl(e, GI_SRC); if(id) done.add(id); });
-    const doShots = !(opts && opts.shots === false), doKos = !(opts && opts.kickouts === false);
+    const done = new Set(), koRow = new Map(), koTos = [];
+    (events || []).forEach(e => { const id = lbl(e, GI_SRC); if(!id) { if(isKoLostTo(e)) koTos.push({ team:up(e.team), start:+e.start, src:'' }); return; }
+      done.add(id);
+      if(isDerivedKo(e) && !koRow.has(id)) koRow.set(id, e);
+      if(isKoLostTo(e)) koTos.push({ team:up(e.team), start:+e.start, src:id }); });
+    const doShots = !(opts && opts.shots === false), doKos = !(opts && opts.kickouts === false), doTos = !(opts && opts.turnovers === false);
     const out = [], plans = [];
+    const addKoTo = (srcId, at, team, len) => { if(!team || hasKoLostTo(koTos, srcId, team, +at.start)) return;
+      koTos.push({ team, start:+at.start, src:String(srcId) }); out.push(koLostRow(srcId, at, team, len)); };
     (events || []).forEach(e => {
       const gi = doShots && isGiShot(e), giu = doShots && !gi && isGiuShot(e);
-      const ko = !gi && !giu && doKos && isGiKickout(e, game);
-      if(!gi && !giu && !ko) return;
+      const ko = !gi && !giu && isGiKickout(e, game);
+      const to = !gi && !giu && !ko && doTos && isGiTurnover(e, game);
+      if(!gi && !giu && !ko && !to) return;
       const id = String(e.id);
-      if(!id || done.has(id)) return;
+      if(!id) return;
+      if(ko && done.has(id)){           // converted earlier: only its KICKOUT LOST row may be missing
+        const d = koRow.get(id);
+        if(doTos && d && /LOST/.test(up(lbl(d, 'Kickout Outcomes') || d.outcome))) addKoTo(id, d, up(d.team), lbl(d, 'Kickout Locations'));
+        return;
+      }
+      if(done.has(id) || (ko && !doKos)) return;
       done.add(id);
+      if(to){ cohGiMapTurnover(e, game).forEach(n => out.push(n)); return; }
       const rows = gi ? cohGiMapShot(e) : giu ? cohGiuMapShot(e, game) : cohGiMapKickout(e, game);
       // the shot / KO row (never a score or break companion) takes its original's location and details
       const p = (rows.length && !(opts && opts.carry === false)) ? carryPlan(rows[0], e, game, opts, true) : null;
       if(p){ cohGiCarryApply(rows[0], p); p.derivedId = rows[0].id; plans.push(p); }
       rows.forEach(n => out.push(n));
+      // after the carry, so a length marked on the original gives the turnover its third
+      if(ko && doTos && rows.length && /LOST/.test(up(rows[0].outcome))) addKoTo(id, rows[0], rows[0].team, lbl(rows[0], 'Kickout Locations'));
     });
     // what was carried — a property of the returned list (not of any event): see cohGiCounts
     Object.defineProperty(out, 'carried', { value: carryTally(plans), enumerable:false });
@@ -496,18 +614,20 @@
   }
   // Counts for the confirmation text.
   function cohGiCounts(newEvents){
-    let shots = 0, scores = 0, kos = 0, breaks = 0;
+    let shots = 0, scores = 0, kos = 0, breaks = 0, tos = 0, koTos = 0;
     (newEvents || []).forEach(e => { const c = e.code || '';
       if(/SHOT (OPEN|DEAD)/i.test(c)) shots++; else if(isDerivedKo(e)) kos++;
+      else if(isDerivedTo(e)){ if(/-koto$/.test(String(e.id))) koTos++; else tos++; }
       else if(/\sBREAK (WON|LOST)\s*$/i.test(c)) breaks++; else scores++; });
     const k = (newEvents && newEvents.carried) || {};
-    return { shots, scores, kos, breaks, locations:k.locations||0, zones:k.zones||0, details:k.details||0, attempts:k.attempts||0,
+    return { shots, scores, kos, breaks, tos, koTos, locations:k.locations||0, zones:k.zones||0, details:k.details||0, attempts:k.attempts||0,
       carriedRows:k.rows||0, lenClash:k.lenClash||0, clashes:k.clashes||[] };
   }
 
   // cohGiIsShot = any original the conversion handles (GI "<Team> Shot" or a GIU shot).
   const api = { cohGiConvert, cohGiSuperseded, cohGiSupersededFn, cohGiIsCompanion, cohGiIsShot:isAnyGiShot,
     cohGiIsKickout:isGiKickout, cohGiIsDerivedKo:isDerivedKo, cohGiMapKickout,
+    cohGiIsTurnover:isGiTurnover, cohGiIsDerivedTo:isDerivedTo, cohGiMapTurnover,
     cohGiIsGiShot:isGiShot, cohGiIsGiuShot:isGiuShot, cohGiMapShot, cohGiuMapShot, cohGiuRosterName, cohGiCounts,
     cohGiCarryDetails, cohGiCarryApply, cohGiCarryTally:carryTally, COH_GI_SRC:GI_SRC };
   Object.assign(root, api);

@@ -800,7 +800,7 @@ function dashMomentumData(){
         const v=k.includes('GOAL')?5:(k.includes('2 POINT')||k.includes('TWO'))?4:3;
         items.push({s,m,v,kind:v===5?'goal':v===4?'2pt':'1pt'});
       } else items.push({s,m,v:2});
-    } else if(/TURNOVER|\bTOS?\b/i.test(e.code||'')){
+    } else if(/TURNOVER|\bTOS?\b/i.test(e.code||'')&&!giSup(e)){   // a converted GI "Turnover Won": its "<TEAM> TOs" row is counted instead
       items.push({s:s==='h'?'a':'h', m, v:1});
     }
   });
@@ -1747,7 +1747,7 @@ function dashInfographicData(S){
   const kos=ev.filter(x=>/KICKOUT|\bKO\b/.test(x.c)&&!giSup(x.e)).map(x=>({...x,out:koOut(x.e),len:up(lab(x.e,'Kickout Locations'))})).filter(x=>x.out);
   const lenTagged=kos.some(x=>x.len);
   // turnovers
-  const tos=ev.filter(x=>/\bTOS?\b|TURNOVER/.test(x.c)).map(x=>({...x,out:up(lab(x.e,'Turnover Outcomes'))}));
+  const tos=ev.filter(x=>/\bTOS?\b|TURNOVER/.test(x.c)&&!giSup(x.e)).map(x=>({...x,out:up(lab(x.e,'Turnover Outcomes'))}));
   const LOSS=new Set(['SHORT','BLOCKED','SAVE','WOODWORK']);
   // First possession-defining event after a shot decides whether it was conceded.
   const possAfter=sh=>{

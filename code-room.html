@@ -438,7 +438,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <span id="mxChip"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
-            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots and kickouts into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events) — the originals are kept">⇄ Convert shots</div>
+            <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots, kickouts and turnovers into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events; TOs events for the team that lost the ball) — the originals are kept">⇄ Convert shots</div>
             <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack. Preview each one, then copy the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
             <div class="tlrb" id="koFixBtn" style="display:none;" onclick="crKoFixOpen()" title="Kickout chart scale — this game has kickouts that look saved on the old (pre-13 Sep 2026) kickout chart. Preview every kickout with its evidence, then convert the ticked ones to the current scale">⇅ Kickout scale</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
@@ -2640,6 +2640,12 @@ function renderPanel(){
   // Defined custom groups (from cohesion-config.js) applicable to this code
   // render as dropdowns of valid options; everything else stays free-text.
   const defined=(window.cohesionGroupsFor?window.cohesionGroupsFor(draft.code):[]);
+  // A turnover row always offers its TYPE (the 'Turnover Outcomes' list of cohesion-config.js COHESION_EVENT_LINKS), set or
+  // not — a converted Gaelic Insights turnover arrives without one, to be filled in here.
+  if(/\bTOS?\b|TURNOVER/i.test(draft.code||'')&&!/SOURCE/i.test(draft.code||'')&&window.cohesionLinkFor){
+    const lk=cohesionLinkFor(draft.code);
+    if(lk&&/^turnover outcomes?$/i.test(lk.group||'')&&!defined.some(d=>d.name.toLowerCase()===lk.group.toLowerCase())) defined.unshift({name:lk.group, options:(lk.options||[]).slice()});
+  }
   const definedNames=new Set(defined.map(d=>d.name.toLowerCase()));
   const curMap={}; draft.groups.forEach(({g,v})=>{curMap[g.toLowerCase()]=v;});
   // Shots always show every shot label (attempt, dead-ball type, leg, side,
@@ -5533,10 +5539,17 @@ function crGiKoUnconverted(){
   const done=new Set(); EVENTS.forEach(e=>{ const id=(e.labels||{})['GI Source ID']; if(id) done.add(String(id)); });
   return EVENTS.filter(e=>cohGiIsKickout(e,GAME)&&!done.has(String(e.id))).length;
 }
+// Turnover rows the conversion would add (cohesion-gi.js): one "<TEAM> TOs" per Gaelic Insights "Turnover Won" not yet
+// converted, plus the KICKOUT LOST row of every lost kickout that has none (kickouts converted earlier included).
+function crGiToUnconverted(){
+  if(typeof cohGiConvert!=='function'||typeof cohGiIsDerivedTo!=='function') return 0;
+  return cohGiConvert(EVENTS, GAME, {carry:false}).filter(cohGiIsDerivedTo).length;
+}
 function crGiBtnSync(){
   const b=document.getElementById('giBtn'); if(!b) return;
-  const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0;
-  b.style.display=(n||k)?'':'none'; b.textContent=k?(n?'⇄ Convert shots + kickouts ('+(n+k)+')':'⇄ Convert kickouts ('+k+')'):'⇄ Convert shots ('+n+')';
+  const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0, t=GAME?crGiToUnconverted():0;
+  const what=[n?'shots':'', k?'kickouts':'', t?'turnovers':''].filter(Boolean);
+  b.style.display=what.length?'':'none'; b.textContent='⇄ Convert '+(what.join(' + ')||'shots')+' ('+(n+k+t)+')';
   const cb=document.getElementById('giCarryBtn');
   if(cb){ const m=GAME?crGiCarryList().length:0; cb.style.display=m?'':'none'; cb.textContent='📍 Copy locations from originals ('+m+')'; }
 }
@@ -5652,12 +5665,17 @@ async function crGiConvertPrompt(){
   const c=cohGiCounts(add), pl=(n,w)=>n+' '+w+(n===1?'':'s');
   const parts=[]; if(c.shots||c.scores) parts.push(pl(c.shots,'shot event')+' + '+pl(c.scores,'score event'));
   if(c.kos) parts.push(pl(c.kos,'kickout event')+' + '+pl(c.breaks||0,'break event'));
-  const ok=await cohesionModal({ title:'Convert Gaelic Insights '+(c.kos?(c.shots?'shots and kickouts':'kickouts'):'shots'),
+  if(c.tos) parts.push(pl(c.tos,'turnover event'));
+  if(c.koTos) parts.push(pl(c.koTos,'kickout-lost turnover event'));
+  const kinds=[(c.shots||c.scores)?'shots':'', c.kos?'kickouts':'', (c.tos||c.koTos)?'turnovers':''].filter(Boolean);
+  const ok=await cohesionModal({ title:'Convert Gaelic Insights '+(kinds.length>1?kinds.slice(0,-1).join(', ')+' and '+kinds[kinds.length-1]:kinds[0]||'events'),
     message:'Create '+parts.join(' and ')+'?<br><br>'
       +(c.shots||c.scores?'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
       +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. ':'')
       +(c.kos?'Each GI or GIU kickout gets a KO event for the kicking team (Kickout Outcomes, Kickout Locations; a Gaelic Insights player goes to Kickout Won By when his team won it, otherwise Kickout Target) '
-      +'and each break ball a BREAK WON event for the team that won it and a BREAK LOST event for the other. No turnover or foul events are added. ':'')
+      +'and each break ball a BREAK WON event for the team that won it and a BREAK LOST event for the other. No foul events are added. ':'')
+      +(c.tos?'Each Gaelic Insights "Turnover Won" gets a TOs event for the team that LOST the ball, with the third turned round to that team&rsquo;s view (the winner&rsquo;s own third becomes the loser&rsquo;s ATTACKING THIRD). The turnover type is left blank for you to fill in; the player who won the ball stays on it under his own team. ':'')
+      +(c.koTos?'Each kickout the kicking team lost gets that team&rsquo;s TOs event with the type KICKOUT LOST (none is added where the game already has one for that kickout). ':'')
       +(c.carriedRows?'<b>Marked on the originals and copied onto the new events:</b> '+crGiCarryWords(c)+' ('+c.carriedRows+' event'+(c.carriedRows===1?'':'s')+'). ':'')
       +(c.lenClash?'<b>'+c.lenClash+' kickout'+(c.lenClash===1?' has':'s have')+' a Kickout Locations value on the original that differs from the Gaelic Insights length</b> — the Gaelic Insights length is kept; check '+(c.lenClash===1?'it':'them')+' after converting. ':'')
       +'The original GI events are kept unchanged and are not counted twice. '
@@ -5665,7 +5683,7 @@ async function crGiConvertPrompt(){
     buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
   if(!ok) return;
   crGiApply(add);
-  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':'', c.tos?c.tos+' turnovers':'', c.koTos?c.koTos+' kickout-lost turnovers':''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
 }
 
 // ── Kickout chart-scale fix ───────────────────────────────────
@@ -6086,7 +6104,11 @@ function crKoCompanions(row, value){
       crPushCompanion(row,'FOUL',fl,foulTeam);
     }
   }
-  if(/LOST/.test(v)){
+  // not when the game already has this kickout's KICKOUT LOST turnover (a converted Gaelic Insights kickout saved earlier)
+  const giId=String((row.labels||{})['GI Source ID']||'');
+  const hasTo=!!giId&&EVENTS.some(x=>x!==row&&/\bTOS?\b/i.test(x.code||'')&&String((x.labels||{})['GI Source ID']||'')===giId
+    &&/KICK\s*OUT LOST|\bKO LOST\b/i.test(String((x.labels||{})['Turnover Outcomes']||x.outcome||'')));
+  if(/LOST/.test(v)&&!hasTo){
     const tl={'Turnover Outcomes':'KICKOUT LOST'};
     const loc=crKoLocToThird(row); if(loc) tl[crGN('Turnover Locations')]=loc;
     crPushCompanion(row,'TOs',tl);
