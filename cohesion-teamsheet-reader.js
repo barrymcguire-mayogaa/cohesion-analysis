@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone, strip:w.strip, row:w.row,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -242,7 +242,8 @@
     const ws=prep(words); if(!ws.length) return {columns:[], spanning:[], extra:[], skew:0, H:0, free:true};
     const skew=o.skew===false?0:estimateSkew(ws), cs=Math.cos(skew), sn=Math.sin(skew);
     ws.forEach(w=>{ const rx=w.xc*cs+w.yc*sn, ry=-w.xc*sn+w.yc*cs, hw=(w.x1-w.x0)/2; w.rx0=rx-hw; w.rx1=rx+hw; w.ry=ry; });
-    const lv=ws.map(w=>({text:w.text, x0:w.rx0, x1:w.rx1, y0:w.ry-w.h/2, y1:w.ry+w.h/2, h:w.h, xc:(w.rx0+w.rx1)/2, yc:w.ry, _w:w}));
+    // a name strip read by itself (word.strip) is a line already; only the rest is put together from where the words lie
+    const lv=ws.filter(w=>w.strip==null).map(w=>({text:w.text, x0:w.rx0, x1:w.rx1, y0:w.ry-w.h/2, y1:w.ry+w.h/2, h:w.h, xc:(w.rx0+w.rx1)/2, yc:w.ry, _w:w}));
     const H=med(ws.map(w=>w.h))||1;
     let segs=[];
     chain(lv).forEach(c=>{ const wsC=c.map(x=>x._w).sort((a,b)=>a.rx0-b.rx0);
@@ -270,6 +271,10 @@
         if(gap<0||gap>2.6*Hm||Math.abs(b.yc-a.yc)>0.5*Hm||Math.min(a.h,b.h)<0.6*Hm) return; if(gap<bg){ bg=gap; k=j; } });
       if(k>=0){ const b=lines[k], cf=[a.conf,b.conf].filter(c=>c!=null); a.text+=' '+b.text.trim(); a.words=(a.words||[]).concat(b.words||[]); a.conf=cf.length?Math.min(Math.min.apply(null,cf), 60):null;
         a.box={x0:Math.min(a.box.x0,b.box.x0), y0:Math.min(a.box.y0,b.box.y0), x1:Math.max(a.box.x1,b.box.x1), y1:Math.max(a.box.y1,b.box.y1)}; lines.splice(k,1); if(k<i) i--; } }
+    const strips=new Map(); ws.forEach(w=>{ if(w.strip!=null){ if(!strips.has(w.strip)) strips.set(w.strip,[]); strips.get(w.strip).push(w); } });
+    if(strips.size){ const rows=new Map();
+      strips.forEach(g=>{ const l=rowLine([segOf(g)], H, null, null, true); l.strip=true; lines.push(l); if(g[0].row!=null){ if(!rows.has(g[0].row)) rows.set(g[0].row,[]); rows.get(g[0].row).push(l); } });
+      rows.forEach(L=>{ const y=L.reduce((t,l)=>t+l.yc,0)/L.length; L.forEach(l=>{ l.yc=y; }); }); }       // the strips of one row of the formation, however the page bends
     // reading order: rows top to bottom (a row = lines whose middles are within half a line), left to right inside a row
     const order=L=>{ const rows=[]; L.slice().sort((a,b)=>a.yc-b.yc).forEach(l=>{ const r=rows[rows.length-1]; if(r&&Math.abs(l.yc-r.yc)<0.6*Math.max(l.h,r.h)){ r.L.push(l); } else rows.push({yc:l.yc, h:l.h, L:[l]}); });
       return [].concat.apply([], rows.map(r=>r.L.sort((a,b)=>a.box.x0-b.box.x0))); };
@@ -306,7 +311,7 @@
         if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d){ d=dy; nx=m; } }); if(nx){ pitch.set(n,d); if(!above.has(nx)||d<pitch.get(above.get(nx))) above.set(nx,n); } });
     const P=med([...pitch.values()]);
     const own=new Map();
-    L.forEach(u=>{ if(u.no!=null||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
+    L.forEach(u=>{ if(u.no!=null||u.strip||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
       let best=null, bd=Infinity;
       num.forEach(n=>{ if(n.page!==u.page) return; const Hn=hh(n), dy=yc(u)-yc(n); if(dy<0.45*Hn||dy>5*Hn) return; if(n.box.x0>u.box.x0+1.5*Hn) return;
         const d=dy+0.5*Math.max(0,u.box.x0-n.box.x1); if(d<bd){ bd=d; best=n; } });
@@ -329,11 +334,13 @@
   // repeated or out of order is given the number of its place — only when the count of lines between the two sure
   // ones is exactly right. Such a line is marked unsure (line.placed). Nothing else is touched.
   function formationNumbers(lines){
-    const F=(lines||[]).filter(l=>l&&l.free&&l.box&&!l.under), yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>l.box.y1-l.box.y0;
+    let F=(lines||[]).filter(l=>l&&l.free&&l.box&&!l.under); const yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>l.box.y1-l.box.y0;
+    // where the banners were read one by one, a numbered line of the first reading that the reader was unsure of is not counted as a place
+    if(F.filter(l=>l.strip).length>=R.STRIPMIN) F=F.filter(l=>l.strip||l.no==null||l.conf==null||l.conf>=LOW);
     const numd=F.filter(l=>l.no!=null);
     if(numd.length<8) return [];
     const nameLike=t=>t.split(/\s+/).filter(w=>/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]+$/.test(w)).length>=2;
-    const like=l=>l.no==null&&!isNumTok(l.text)&&!RE_KEEP.test(fold(l.text).trim())&&nameLike(l.text)&&numd.some(n=>n.page===l.page&&Math.abs(yc(n)-yc(l))<0.6*Math.max(hh(n),hh(l))&&hh(l)>0.6*hh(n));
+    const like=l=>l.no==null&&!isNumTok(l.text)&&!RE_KEEP.test(fold(l.text).trim())&&(l.strip?hasLetter(l.text):nameLike(l.text)&&numd.some(n=>n.page===l.page&&Math.abs(yc(n)-yc(l))<0.6*Math.max(hh(n),hh(l))&&hh(l)>0.6*hh(n)));
     const P=F.filter(l=>l.no!=null||like(l)), m=Math.min(15,P.length);
     if(m<8) return [];
     const sure=i=>P[i].no===i+1; let agree=0; for(let i=0;i<m;i++) if(sure(i)) agree++;
@@ -663,6 +670,124 @@
   }
   R.boxLayout=boxLayout;
 
+  // ── 1g. name strips: a banner "7 Seán Kelly", or a number box with the name beside it ──
+  // A programme photographed at an angle bends: the lines of one page run at different tilts, and a reading of the
+  // whole page loses the number of one banner and half the name of the next. The banners themselves are easy to find
+  // in the picture — dark shapes of one thickness, either long (number and name in white on the banner) or about
+  // square (the number alone; the name stands to its right on a light strip). Each is then read by itself, levelled
+  // by its own tilt, and its words replace what the reading of the whole page made of that spot.
+  //
+  // findAnchors(px, w, h) → {anchors:[{x0,y0,x1,y1, cx,cy, len, thick, angle (degrees), wide}]}   px: one byte a pixel,
+  // light = high (the reader passes the lowest colour channel, so a maroon or navy banner is dark).
+  function findAnchors(g, w, h, o){
+    o=o||{};
+    const f=Math.max(1, Math.round(Math.max(w,h)/(o.small||700))), sw=Math.floor(w/f), sh=Math.floor(h/f), n=sw*sh, L=Math.max(sw,sh);
+    if(sw<40||sh<40) return {anchors:[], f};
+    const P=new Uint8Array(n), W1=sw+1, I=new Float64Array(W1*(sh+1)), M=new Float32Array(n), r=Math.max(4, Math.round(L/12));
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ let s=0; for(let j=0;j<f;j++){ const row=(y*f+j)*w+x*f; for(let i=0;i<f;i++) s+=g[row+i]; } P[y*sw+x]=s/(f*f); }
+    for(let y=0;y<sh;y++){ let s=0; for(let x=0;x<sw;x++){ s+=P[y*sw+x]; I[(y+1)*W1+x+1]=I[y*W1+x+1]+s; } }
+    for(let y=0;y<sh;y++){ const y0=Math.max(0,y-r), y1=Math.min(sh,y+r+1); for(let x=0;x<sw;x++){ const x0=Math.max(0,x-r), x1=Math.min(sw,x+r+1); M[y*sw+x]=(I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0])/((y1-y0)*(x1-x0)); } }
+    const found=[];
+    // dark = clearly darker than its wide surroundings, at several levels (shadow and glare differ across a photo), and at plain levels of darkness
+    (o.ks||[0.85,0.75,0.62,0.5,0.4,-40,-60,-80]).forEach(k=>{
+      const bin=new Uint8Array(n); for(let i=0;i<n;i++) if(k<0?P[i]<-k:P[i]<k*M[i]) bin[i]=1;
+      const lab=new Int32Array(n), par=[0], find=x=>{ while(par[x]!==x){ par[x]=par[par[x]]; x=par[x]; } return x; };
+      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const i=y*sw+x; if(!bin[i]) continue; const A=x&&bin[i-1]?lab[i-1]:0, U=y&&bin[i-sw]?lab[i-sw]:0;
+        if(A&&U){ const a=find(A), q=find(U); if(a!==q) par[Math.max(a,q)]=Math.min(a,q); lab[i]=Math.min(a,q); } else if(A||U) lab[i]=A||U; else { par.push(par.length); lab[i]=par.length-1; } }
+      const C=new Map();
+      for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){ const i=y*sw+x; if(!bin[i]) continue; const c=find(lab[i]); let q=C.get(c); if(!q){ q={x0:x,x1:x,y0:y,y1:y,a:0,top:new Map(),bot:new Map()}; C.set(c,q); }
+        q.a++; if(x<q.x0) q.x0=x; if(x>q.x1) q.x1=x; if(y>q.y1) q.y1=y; if(!q.top.has(x)) q.top.set(x,y); q.bot.set(x,y); }
+      C.forEach(q=>{ const ww=q.x1-q.x0+1, hh=q.y1-q.y0+1; if(hh<0.018*L||hh>0.09*L||ww<0.7*hh||ww>0.6*sw) return;
+        // its tilt: the line halfway between its top and bottom edge, column by column (the rounded ends left out)
+        const xs=[], ys=[], th=[], cut=Math.round(0.12*ww); for(let x=q.x0+cut;x<=q.x1-cut;x++){ if(!q.top.has(x)) continue; xs.push(x); ys.push((q.top.get(x)+q.bot.get(x)+1)/2); th.push(q.bot.get(x)-q.top.get(x)+1); }
+        if(xs.length<4) return;
+        const mx=xs.reduce((a,b)=>a+b,0)/xs.length, my=ys.reduce((a,b)=>a+b,0)/ys.length; let sxx=0, sxy=0; xs.forEach((x,i)=>{ sxx+=(x-mx)*(x-mx); sxy+=(x-mx)*(ys[i]-my); });
+        const sl=sxx?sxy/sxx:0, thick=med(th), fill=q.a/(thick*ww);
+        if(fill<0.55||thick<0.018*L||Math.abs(sl)>0.4) return;
+        found.push({x0:q.x0*f, y0:q.y0*f, x1:(q.x1+1)*f, y1:(q.y1+1)*f, cx:(mx+0.5)*f, cy:my*f, angle:Math.atan(sl)*180/Math.PI, thick:thick*f, len:ww*f/Math.cos(Math.atan(sl)), fill}); });
+    });
+    // the shapes of one design are one thickness; of a shape found at several levels the best-filled is kept
+    let B=found; const out=[];
+    if(B.length>=3){ const mt=med(B.map(b=>b.thick)); B=B.filter(b=>b.thick>0.7*mt&&b.thick<1.4*mt); }
+    B.sort((a,b)=>b.fill-a.fill).forEach(b=>{ if(out.some(q=>{ const ix=Math.min(b.x1,q.x1)-Math.max(b.x0,q.x0), iy=Math.min(b.y1,q.y1)-Math.max(b.y0,q.y0); return ix>0&&iy>0&&ix*iy>0.3*Math.min((b.x1-b.x0)*(b.y1-b.y0),(q.x1-q.x0)*(q.y1-q.y0)); })) return;
+      b.wide=b.len>2.5*b.thick; out.push(b); });
+    out.sort((a,b)=>a.cy-b.cy||a.cx-b.cx);
+    return {anchors:out, f};
+  }
+  R.findAnchors=findAnchors;
+  R.STRIPMIN=8;                                   // this many name strips read and their readings are used
+  // The tilt of the text in a strip of the picture, in degrees: the angle at which its rows of letters separate most
+  // sharply from the gaps between them. r = {x, y (the middle of the strip's left end), len, tall}.
+  function textTilt(g, w, h, r, o){
+    o=o||{};
+    const step=Math.max(1, Math.round(r.tall/48)), nx=Math.floor(r.len/step), ny=Math.floor(r.tall/step), max=o.max||16, E=new Float64Array(Math.max(1,ny));
+    if(nx<8||ny<6) return {angle:0, sharp:0};
+    const score=a=>{ const t=Math.tan(a*Math.PI/180); let s=0;
+      for(let j=0;j<ny;j++){ const v=(j-ny/2)*step; let e=0; for(let i=1;i<nx-1;i++){ const u=i*step, x=Math.round(r.x+u), y=Math.round(r.y+v+u*t); if(x<1||y<0||x>=w-1||y>=h) continue; e+=Math.abs(g[y*w+x+1]-g[y*w+x-1]); } E[j]=e; }
+      for(let j=1;j<ny;j++){ const d=E[j]-E[j-1]; s+=d*d; } return s; };
+    let best=0, bs=-1; const all=[];
+    for(let a=-max;a<=max;a++){ const s=score(a); all.push(s); if(s>bs){ bs=s; best=a; } }
+    let fine=best; for(let a=best-0.75;a<=best+0.75;a+=0.25){ const s=score(a); if(s>bs){ bs=s; fine=a; } }
+    const m=med(all);
+    return {angle:fine, sharp:m?bs/m:0};
+  }
+  R.textTilt=textTilt;
+  // Strips in reading order: rows top to bottom (each row followed along its own tilt), left to right. Sets a.row.
+  function stripRows(A){
+    const rows=[];
+    (A||[]).slice().sort((a,b)=>a.cy-b.cy).forEach(a=>{ let best=null, bd=Infinity;
+      rows.forEach(r=>{ r.forEach(b=>{ const t=Math.tan((a.tilt+b.tilt)/2*Math.PI/180), d=Math.abs(a.cy-(b.cy+(a.cx-b.cx)*t)); if(d<0.7*Math.max(a.thick,b.thick)&&d<bd){ bd=d; best=r; } }); });
+      if(best) best.push(a); else rows.push([a]); });
+    rows.forEach(r=>r.sort((a,b)=>a.cx-b.cx));
+    rows.sort((p,q)=>p.reduce((t,a)=>t+a.cy,0)/p.length-q.reduce((t,a)=>t+a.cy,0)/q.length);
+    rows.forEach((r,i)=>r.forEach(a=>{ a.row=i; }));
+    return rows;
+  }
+  R.stripRows=stripRows;
+  // What one strip read as → {no, conf, words} or null when it is not a name. words: [{text, conf, x0…}] left to right;
+  // digit: {no, conf} read from a number box by itself (else the number is the first word of the strip).
+  function stripLine(words, digit){
+    let ws=(words||[]).filter(w=>w&&/[A-Za-zÀ-ɏ0-9]/.test(String(w.text||''))).slice().sort((a,b)=>a.x0-b.x0);
+    const lt=w=>w.text.replace(/[^A-Za-zÀ-ɏ]/g,'').length, num=w=>/^[|\[(]?\d{1,2}[.)\]|]?$/.test(w.text);
+    let no=null, nc=null;
+    if(digit&&digit.no>=1&&digit.no<=40){ no=digit.no; nc=digit.conf; }
+    else { const k=ws.findIndex(num); if(k>=0&&k<=1&&(k===0||lt(ws[0])<3)&&ws.slice(k+1).some(w=>lt(w)>=3)){ no=+ws[k].text.replace(/\D/g,''); nc=ws[k].conf; ws=ws.slice(k+1); } }
+    // scraps at either end (the rim of the banner, the fading end of a light strip) go; a "(C)" stays
+    const scrap=w=>!/^[(\[]?[A-Za-z.]{1,4}[)\]]$/.test(w.text)&&(lt(w)<3&&!/^[ÓO]$/.test(w.text)||w.conf!=null&&w.conf<35&&lt(w)<5);
+    while(ws.length&&scrap(ws[0])) ws.shift();
+    while(ws.length&&(scrap(ws[ws.length-1])||/^[ÓO]$/.test(ws[ws.length-1].text))) ws.pop();
+    const nameish=ws.filter(w=>/^[A-ZÀ-Þ][A-Za-zÀ-ɏ'’-]{2,}$/.test(w.text.replace(/[.,;:]+$/,'')));
+    const cf=ws.filter(w=>w.conf!=null&&lt(w)).map(w=>w.conf);
+    if(!nameish.length||ws.length>6||(cf.length&&cf.reduce((a,b)=>a+b,0)/cf.length<45)) return null;
+    if(no<1||no>40){ no=null; nc=null; }
+    return {no, conf:nc, words:ws};
+  }
+  R.stripLine=stripLine;
+  // The numbers of the strips against their places. S: the strips of the formation in reading order, each {no (or
+  // null), conf}; a strip that was found but did not read is there too, as a place ({no:null, gap:true}). The numbers
+  // of a formation rise from place to place, so the largest set of strips whose numbers do is taken as right; a
+  // number outside it (a "7" read as "1"), or a missing one, is worked out from the strips either side when the
+  // count between them fits, and otherwise left as read. Either way that strip is marked unsure (s.placed / s.odd).
+  function stripNumbers(S){
+    const n=(S||[]).length, len=new Array(n).fill(0), prev=new Array(n).fill(-1); let end=-1;
+    for(let j=0;j<n;j++){ if(S[j].no==null) continue; len[j]=1;
+      for(let i=0;i<j;i++){ if(S[i].no!=null&&S[j].no-S[i].no>=j-i&&len[i]+1>len[j]){ len[j]=len[i]+1; prev[j]=i; } }
+      if(end<0||len[j]>len[end]) end=j; }
+    const ok=new Set(); for(let k=end;k>=0;k=prev[k]) ok.add(k);
+    const placed=[];
+    if(ok.size<4) return placed;
+    for(let i=0;i<n;i++){ const s=S[i]; if(ok.has(i)||s.gap) continue;
+      let a=i-1; while(a>=0&&!ok.has(a)) a--; let b=i+1; while(b<n&&!ok.has(b)) b++;
+      let no=null;
+      if(a>=0&&b<n){ if(S[b].no-S[a].no===b-a) no=S[a].no+(i-a); }
+      else if(b<n){ if(S[b].no-(b-i)>=1) no=S[b].no-(b-i); }
+      else if(a>=0&&S[a].no+(i-a)<=15) no=S[a].no+(i-a);
+      if(no!=null){ s.was=s.no; s.no=no; s.placed=true; placed.push(no); } else if(s.no!=null) s.odd=true;
+      s.conf=Math.min(s.conf==null?100:s.conf, 50); }
+    return placed;
+  }
+  R.stripNumbers=stripNumbers;
+
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
   const RE_V=/\s+(?:v|vs|versus)\.?\s+/i;
@@ -918,6 +1043,8 @@
       // … or when it shows numbered players side by side on a row within one team (a formation) and finds as many
       if(!p.layout&&p.free!==false&&!p.glue){ const fr=freeLayout(p.words, {skew:p.skew}), a=players(lay), b=players(fr); if(b>=8&&(b>=a+2||(b>=a-1&&sideBySide(fr)>=3))) lay=fr; }
       // a page of name boxes (jersey + three lines): the boxes were found in the picture and read one by one
+      // name strips were read one by one: they are lines wherever they lie, so the page is read without columns
+      if(p.strips&&!p.layout) lay=freeLayout(p.words, {skew:p.skew});
       if(p.boxes&&p.boxes.length>=R.BOXMIN){ const bl=boxLayout(p.words, p.boxes, {skew:p.skew}); if(bl){ lay=bl; p.stats=bl.stats; } }
       p.model=lay.boxed?'boxes':lay.free?'free':'columns';
       // a crop box: a line touching an edge of it was cut through by the box
@@ -1290,7 +1417,7 @@
     return {canvas:c, grey, w:c.width, h:c.height, x0, y0, k:c.width/Math.max(1,x1-x0), ky:c.height/Math.max(1,y1-y0)};
   }
   const backTo=(z, ws)=>ws.map(v=>{ const s=R.strokeWidth(z.grey, z.w, z.h, v); return {text:v.text, conf:v.conf, ln:v.ln, x0:z.x0+v.x0/z.k, x1:z.x0+v.x1/z.k, y0:z.y0+v.y0/z.ky, y1:z.y0+v.y1/z.ky, sw:s?s.sw/z.k:null}; });
-  const P6={tessedit_pageseg_mode:'6', thresholding_method:'0', tessedit_char_whitelist:''};
+  const P6={tessedit_pageseg_mode:'6', thresholding_method:'0', tessedit_char_whitelist:''}, P7={tessedit_pageseg_mode:'7', thresholding_method:'0', tessedit_char_whitelist:''};
   // the number on the jersey over a box: the middle of the jersey, enlarged, digits only, as it is and inverted → {no, conf} | null
   async function readJersey(eng, view, b){
     const w=b.x1-b.x0, h=b.y1-b.y0, cx=(b.x0+b.x1)/2, zone={x0:cx-0.17*w, x1:cx+0.17*w, y0:b.y0-0.68*h, y1:b.y0-0.04*h};
@@ -1330,6 +1457,79 @@
       pg.words.forEach(w=>{ const s=R.strokeWidth(grey, work.width, work.height, w); w.sw=s?s.sw:null; }); }
     T.subs=Math.round(performance.now()-t);
     pg.boxes=boxes; pg.boxTimes=T;
+  }
+
+  // ── name strips (a banner, a number box and the name beside it): each read by itself, levelled ──
+  // a levelled strip of the picture in grey at full contrast; r = {cx,cy,w,h,angle}; px: the height to read it at
+  function stripCanvas(view, r, px, inv){
+    const reg=Object.assign({turn:0}, r), c=cropCanvas(view, view.width, view.height, reg, px*r.w/r.h, 4), g=c.getContext('2d'), im=g.getImageData(0,0,c.width,c.height), d=im.data, hist=new Uint32Array(256), n=d.length/4;
+    for(let i=0;i<d.length;i+=4){ const v=(d[i]*77+d[i+1]*150+d[i+2]*29)>>8; d[i]=v; hist[v]++; }
+    let lo=0, hi=255, acc=0; for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>=n*0.02){ lo=v; break; } } acc=0; for(let v=255;v>=0;v--){ acc+=hist[v]; if(acc>=n*0.02){ hi=v; break; } }
+    const sp=Math.max(1,hi-lo); for(let i=0;i<d.length;i+=4){ let v=Math.max(0,Math.min(255,Math.round((d[i]-lo)*255/sp))); if(inv) v=255-v; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    g.putImageData(im,0,0);
+    return {canvas:c, reg, k:c.width/r.w};
+  }
+  const stripBack=(z, ws)=>ws.map(v=>{ const p=R.geom.cropPoint(z.reg, (v.x0+v.x1)/2/z.k, (v.y0+v.y1)/2/z.k), hw=(v.x1-v.x0)/2/z.k, hh=(v.y1-v.y0)/2/z.k; return {text:v.text, conf:v.conf, x0:p[0]-hw, x1:p[0]+hw, y0:p[1]-hh, y1:p[1]+hh}; });
+  R.STRIPS=true;
+  // pg = {words (the whole picture's), …}: finds the banners / number boxes, reads each strip, and puts those words in place of the first reading's → pg.strips
+  async function readStrips(eng, view, pg){
+    const t0=performance.now(), W=view.width, H=view.height, mc=minChannel(view), A=R.findAnchors(mc, W, H).anchors; pg.anchors=A.length;
+    if(A.length<R.STRIPMIN) return;
+    const rad=d=>d*Math.PI/180, got=[];
+    // a number box: the name stands to its right, as far as the next box of its row or the edge, and at the tilt of its own letters
+    A.forEach(a=>{ a.tilt=a.angle; if(a.wide) return; const x=a.x1+0.15*a.thick; a.tilt=R.textTilt(mc, W, H, {x, y:a.cy, len:Math.min(4*a.thick, W-x), tall:a.thick}).angle; });
+    R.stripRows(A);
+    // a number by itself: digits only, dark on light
+    const digits=async r=>{ const zd=stripCanvas(view, r, 48, true), ds=await eng.pass(zd.canvas, {tessedit_pageseg_mode:'8', thresholding_method:'0', tessedit_char_whitelist:'0123456789'}); await eng.set({tessedit_char_whitelist:''});
+      let best=null; ds.forEach(v=>{ const t=String(v.text||'').trim(); if(/^\d{1,2}$/.test(t)&&+t>=1&&(!best||v.conf>best.conf)) best={no:+t, conf:v.conf}; }); return best; };
+    // Each strip is read at two sizes; where the two readings agree that is the name. Where they do not, a third size
+    // (and, beside a number box, the tilt of the other names, then no tilt) is tried until two readings agree; if none
+    // do, the surest is kept and the line is marked unsure.
+    const key=l=>l?R.foldKey(l.words.map(w=>w.text).join('')):'', worth=l=>l?l.words.reduce((t,w)=>t+(w.conf||0),0)/l.words.length*Math.min(2,l.words.length):0;
+    const SIZE=[[64,1],[80,0.9],[48,1]], tl=A.filter(a=>!a.wide).map(a=>a.tilt).sort((x,y)=>x-y), flat=tl.length?tl[tl.length>>1]:0;
+    const fadas=l=>l.words.reduce((t,w)=>t+w.text.replace(/[^À-ɏ]/g,'').length,0);
+    for(const a of A){ let digit=null; const plan=[], seen=[];
+      if(a.wide) SIZE.forEach(z=>plan.push({t:a.tilt, px:z[0], k:z[1]}));
+      else { digit=await digits({cx:(a.x0+a.x1)/2, cy:a.cy, w:0.76*(a.x1-a.x0), h:0.76*a.thick, angle:0}); if(digit&&digit.conf<60) digit=null;
+        [a.tilt, flat, 0].filter((t,i,L)=>L.findIndex(u=>Math.abs(u-t)<1.5)===i).forEach((t,i)=>SIZE.slice(0,i?2:3).forEach(z=>plan.push({t, px:z[0], k:z[1]}))); }
+      let pick=null, agreed=false;
+      for(const p of plan){ const cs=Math.cos(rad(p.t)), sn=Math.sin(rad(p.t)); let r;
+        if(a.wide) r={cx:a.cx, cy:a.cy, w:a.len-0.15*a.thick, h:0.86*p.k*a.thick, angle:p.t};
+        else { let len=Math.min(7.5*a.thick, (W-2-a.x1)/Math.max(0.5,cs)-0.1*a.thick);
+          A.forEach(b=>{ if(b!==a&&b.row===a.row&&b.x0>a.x1) len=Math.min(len, b.x0-a.x1-0.3*a.thick); });
+          if(len<1.5*a.thick) break;
+          const off=(a.x1-a.cx)+0.1*a.thick+len/2; r={cx:a.cx+off*cs, cy:a.cy+off*sn, w:len, h:0.95*p.k*a.thick, angle:p.t}; }
+        const z=stripCanvas(view, r, p.px, a.wide), raw=await eng.pass(z.canvas, P7), line=R.stripLine(stripBack(z, raw), digit), me={z, line, t:p.t, raw};
+        const twin=line&&seen.find(q=>q.line&&key(q.line)===key(line)&&(a.wide?q.line.no===line.no:true)); seen.push(me);
+        // of two that agree: the one with the fadas (the reader drops them, it does not make them up), else the surer
+        if(twin){ pick=fadas(line)!==fadas(twin.line)?(fadas(line)>fadas(twin.line)?me:twin):(line.words.length>=twin.line.words.length&&worth(line)>=0.9*worth(twin.line)?me:twin); agreed=true; break; } }
+      if(!pick) pick=seen.filter(q=>q.line).sort((p,q)=>worth(q.line)-worth(p.line))[0]||null;
+      if(R._dbg) a.dbg={text:seen.map(q=>q.raw.map(v=>v.text+'('+Math.round(v.conf)+')').join(' ')).join(' ¦ '), digit, agreed, line:pick&&((pick.line.no==null?'':pick.line.no+' ')+pick.line.words.map(w=>w.text).join(' '))};
+      if(!pick){ got.push({a, gap:true, no:digit?digit.no:null, conf:digit?digit.conf:null}); continue; }
+      const line=pick.line; a.tilt=pick.t;
+      // a banner whose number was not made out with the name: its left end again, by itself
+      if(a.wide&&line.no==null){ const cs=Math.cos(rad(a.tilt)), sn=Math.sin(rad(a.tilt)), off=-(a.len/2-0.55*a.thick), d=await digits({cx:a.cx+off*cs, cy:a.cy+off*sn, w:0.8*a.thick, h:0.76*a.thick, angle:a.tilt});
+        if(d&&d.conf>=60){ line.no=d.no; line.conf=d.conf; } }
+      got.push({a, no:line.no, conf:line.conf, names:line.words, unsure:!agreed, reach:{cx:pick.z.reg.cx, cy:pick.z.reg.cy, w:pick.z.reg.w, h:1.1*a.thick, angle:a.tilt}}); }
+    // reading order; a strip with no number counts only in a row of the formation that has numbered ones; then the numbers against the places
+    got.sort((p,q)=>p.a.row-q.a.row||p.a.cx-q.a.cx);
+    let S=got.filter(s=>s.no!=null||got.some(q=>q!==s&&q.a.row===s.a.row&&q.no!=null&&!q.gap));
+    // (banners and number boxes in one picture are two teams' pages; so are numbers that occur twice — those are left as read)
+    const placed=[]; [true,false].forEach(k=>{ const G=S.filter(s=>s.a.wide===k), nos=G.map(s=>s.no).filter(n=>n!=null); if(nos.length-new Set(nos).size<=2) R.stripNumbers(G).forEach(n=>placed.push(n)); });
+    S=S.filter(s=>!s.gap);
+    S.forEach(s=>{ const a=s.a, out=s.names.map(w=>Object.assign({}, w, s.unsure||s.placed||s.odd?{conf:Math.min(w.conf==null?100:w.conf, 50)}:null));
+      // the number first: where the box is, or where the strip starts
+      if(s.no!=null) out.unshift({text:String(s.no), conf:s.conf, x0:a.x0, x1:a.wide?Math.min(a.x0+a.thick, out[0].x0-1):a.x1, y0:a.cy-0.3*a.thick, y1:a.cy+0.3*a.thick});
+      s.words=out; });
+    got.length=0; S.forEach(s=>got.push(s)); pg.stripPlaced=placed;
+    pg.stripTime=Math.round(performance.now()-t0); if(R._dbg) pg.adbg=A;
+    if(got.length<R.STRIPMIN) return;                                               // not such a page: the plain reading stands, untouched
+    // what the first reading made of those spots goes; the strips' own words come in, each strip marked as one line
+    const inside=(w,s)=>{ const p=R.geom.local(s.reach, (w.x0+w.x1)/2, (w.y0+w.y1)/2); return p[0]>=-0.2*s.a.thick&&p[0]<=s.reach.w+0.2*s.a.thick&&p[1]>=0&&p[1]<=s.reach.h; };
+    const box=(w,a)=>(w.x0+w.x1)/2>=a.x0&&(w.x0+w.x1)/2<=a.x1&&(w.y0+w.y1)/2>=a.y0&&(w.y0+w.y1)/2<=a.y1;
+    pg.words=pg.words.filter(w=>!got.some(s=>inside(w,s)||box(w,s.a)));
+    got.forEach((s,i)=>s.words.forEach(w=>{ w.strip=i; w.row=s.a.row; pg.words.push(w); }));
+    pg.strips=got.length;
   }
 
   // ── PDF (pdf.js) ──────────────────────────────────────────────
@@ -1415,6 +1615,8 @@
           const pg={n:i+1, method:'ocr', words, image:view, scale:1, side:regs[i].side, flipped:eng.flipped, width:view.width, height:view.height};
           // a page of name boxes is also read box by box; if that part fails the plain reading above still stands
           if(R.BOXES){ try{ await readBoxes(eng, view, work, pg); }catch(e){ if(e&&e.reader) throw e; delete pg.boxes; try{ console.error('[team sheet reader] name boxes', e); }catch(_){} } }
+          // … and so are the banners of a formation page; a failure there leaves the plain reading too
+          if(R.STRIPS&&!pg.boxes){ const keep=pg.words; try{ await readStrips(eng, view, pg); }catch(e){ if(e&&e.reader) throw e; pg.words=keep; delete pg.strips; try{ console.error('[team sheet reader] name strips', e); }catch(_){} } }
           pages.push(pg); }
         usedRegions=regs;
       };
