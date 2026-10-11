@@ -439,7 +439,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
             <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots, kickouts and turnovers into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events; TOs events for the team that lost the ball) — the originals are kept">⇄ Convert shots</div>
-            <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals / fix thirds — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack, or turnover / foul rows whose third was written by a rule since corrected (a Gaelic Insights turnover with no zone; a long kickout lost read as the attacking third). Preview each one, then apply the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
+            <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals / fix thirds — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack, or turnover / foul rows whose third was written by a rule since corrected (a Gaelic Insights turnover with no zone; a medium or long kickout lost read as the attacking third). Preview each one, then apply the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
             <div class="tlrb" id="koFixBtn" style="display:none;" onclick="crKoFixOpen()" title="Kickout chart scale — this game has kickouts that look saved on the old (pre-13 Sep 2026) kickout chart. Preview every kickout with its evidence, then convert the ticked ones to the current scale">⇅ Kickout scale</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
@@ -5618,12 +5618,12 @@ function crGiBtnSync(){
 // earlier — by "Copy locations from originals" below (cohGiCarryDetails: only into blanks, never over a value, never
 // part of a location onto a row that has one). Nothing is removed from the originals.
 // A copied shot location fills a blank Shot Attempts exactly as placing it on the pitch does (crAttemptFromLoc).
-// THIRDS (12 Oct 2026). The same button also offers the rows whose third was written by a rule since corrected
+// THIRDS (11 Oct 2026). The same button also offers the rows whose third was written by a rule since corrected
 // (cohesion-gi.js cohGiThirdFixes — only these exact patterns, any other value is left alone):
 //  · a converted Gaelic Insights turnover with NO 'Turnover Locations' whose "Turnover Won" original has no zone
 //    label → DEFENSIVE THIRD (Gaelic Insights leaves the zone off a turnover won in the opposition's third);
-//  · ANY game: a KICKOUT LOST turnover saying ATTACKING THIRD whose kickout is KO LONG with no landing marked beyond
-//    the far 45 m line → MIDDLE THIRD, and the FOUL row of a free at such a kickout (see crKoLocToThird).
+//  · ANY game: a KICKOUT LOST turnover saying ATTACKING THIRD whose kickout is KO LONG or KO MEDIUM with no landing
+//    marked beyond the far 45 m line → MIDDLE THIRD, and the FOUL row of a free at such a LONG kickout (see crKoLocToThird).
 // They go through the same preview, the same queue (_dirty rows) and the same single Undo step.
 const crGiCarryOpts={ attempt:(row,x,y)=>crAttemptFromLoc(undefined, row.code, row.labels, x, y) };
 function crGiCarryList(){
@@ -5642,7 +5642,7 @@ function crGiCarryName(list){ const f=list.some(it=>it.fix), c=list.some(it=>!it
 // what one entry copies, in words — with the values
 function crGiCarryText(it){
   if(it.fix) return it.fix.group+': '+(it.fix.from||'none')+' → '+it.fix.to+(it.kind==='to-zone'?' — no zone on the original: won in the opposition’s third'
-    :' — the kickout is KO LONG with no landing marked beyond the far 45 m line');
+    :' — the kickout is KO '+(it.fix.len||'LONG')+' with no landing marked beyond the far 45 m line');
   const L=it.changes.labels||{}, val=g=>{ const k=Object.keys(L).find(x=>x.toLowerCase()===g.toLowerCase()); return k?L[k].join(' + '):''; };
   const xk=Object.keys(L).find(k=>/^x[-_ ]/i.test(k)), yk=Object.keys(L).find(k=>/^y[-_ ]/i.test(k));
   const G={attempt:'Shot Attempts','dead-ball type':'Deadball Shot Type',leg:'Shooting Leg',side:'Shot Side',pressure:'Shot Pressure',assist:'Assist',length:'Kickout Locations','won by':'Kickout Won By','taken by':'Kickout Taken By'};
@@ -5697,7 +5697,7 @@ function crGiCarryBody(){
     +'Only <b>blanks</b> are filled: a value already on a converted row is never changed, and a converted row that has its own location keeps it. Nothing is removed from the originals. ':'')
     +(nFix?(nCopy?'<br>':'')+'<b>Thirds</b> ('+nFix+' row'+(nFix===1?'':'s')+'): these rows carry a third written by a rule that has since been corrected. '
     +'A Gaelic Insights turnover with <b>no zone</b> was won in the opposition&rsquo;s third, so the team that lost it gets DEFENSIVE THIRD (only where the row has no third). '
-    +'A <b>long kickout</b> lands in the middle third &mdash; ATTACKING THIRD is only right where the landing is marked beyond the far 45 m line &mdash; so a lost long kickout&rsquo;s turnover (and the foul of a free at it) becomes MIDDLE THIRD. '
+    +'A <b>medium or long kickout</b> lands in the middle third &mdash; ATTACKING THIRD is only right where the landing is marked beyond the far 45 m line &mdash; so a lost medium or long kickout&rsquo;s turnover (and the foul of a free at a long one) becomes MIDDLE THIRD. '
     +'No other third is touched: a row set to anything else is not listed. ':'')
     +'Tick or untick any row.</div>'
     +'<div style="max-height:min(60vh,620px);overflow:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
@@ -6244,7 +6244,7 @@ function crSyncKoBreaks(row){
 // MEDIUM and LONG between the 45s (middle third — a long kickout is beyond the 65 m line, which is inside it).
 // ATTACKING THIRD only for a LONG kickout whose MARKED landing is beyond the far 45 m line (KO_VIEW_M = 95 m; the
 // current chart ends there, so only a Tracker tap or an old-chart position can say so). The tagged length decides
-// defensive v middle even where a marked landing disagrees. Until 12 Oct 2026 LONG read ATTACKING THIRD — rows saved
+// defensive v middle even where a marked landing disagrees. Until 11 Oct 2026 LONG read ATTACKING THIRD — rows saved
 // then are offered by crThirdFixList. The same rule as cohesion-gi.js koLostThird (test_thirds.js checks the two agree).
 function crKoLocToThird(row){
   const k=String((row&&row.labels||{})['Kickout Locations']||'').toUpperCase();

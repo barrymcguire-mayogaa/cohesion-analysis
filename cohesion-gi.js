@@ -39,7 +39,7 @@
  * A kickout the kicking team LOST also gains the kicker's "<TEAM> TOs" row with
  * 'Turnover Outcomes' = KICKOUT LOST — never a second one for the same kickout.
  * cohGiThirdFixes lists the rows saved before those two third rules were corrected
- * (12 Oct 2026) — see the THIRDS block.
+ * (11 Oct 2026) — see the THIRDS block.
  *
  * LOCATIONS AND DETAILS marked on an original before it is converted are carried
  * onto its derived shot / KO row (see the CARRY block); cohGiCarryDetails does the
@@ -320,11 +320,11 @@
   const KO_LEN_THIRD = { SHORT:'DEFENSIVE THIRD', MEDIUM:'MIDDLE THIRD', LONG:'MIDDLE THIRD' };
   const KO_UNIT_M = 137, KO_FAR45_M = 95;
   const koLenOf = ko => { const K = up(lbl(ko, 'Kickout Locations')); return /SHORT/.test(K) ? 'SHORT' : /MEDIUM/.test(K) ? 'MEDIUM' : /LONG/.test(K) ? 'LONG' : ''; };
+  const koBeyondFar45 = ko => { const pos = carryPos(ko, 'KOs', ''); return !!pos && pos.y * KO_UNIT_M / 100 > KO_FAR45_M; };
   function koLostThird(ko){
     const len = koLenOf(ko);
     if(len !== 'LONG') return KO_LEN_THIRD[len] || '';
-    const pos = carryPos(ko, 'KOs', '');
-    return pos && pos.y * KO_UNIT_M / 100 > KO_FAR45_M ? 'ATTACKING THIRD' : KO_LEN_THIRD.LONG;
+    return koBeyondFar45(ko) ? 'ATTACKING THIRD' : KO_LEN_THIRD.LONG;
   }
   const isKoLostTo = e => /\bTOS?\b/i.test((e && e.code) || '') && /KICK\s*OUT LOST|\bKO LOST\b/.test(up(lblCI(e, TO_OUT_GROUPS) || (e && e.outcome)));
   function koLostRow(srcId, at, team){   // at = the kickout's KO row
@@ -591,15 +591,19 @@
     return out;
   }
 
-  // ── THIRDS: rows saved before two third rules were corrected (12 Oct 2026) ──
+  // ── THIRDS: rows saved before two third rules were corrected (11 Oct 2026) ──
   // cohGiThirdFixes(events, game) lists them. Pure — nothing is changed; running it
   // on the corrected rows finds nothing. Only these exact patterns, never any other value:
   //  'to-zone'   a converted "<TEAM> TOs" row with NO 'Turnover Locations' whose "Turnover
   //              Won" original (the other team's) has no zone label → DEFENSIVE THIRD
   //              (see TURNOVERS). Gaelic Insights games only.
   //  'ko-third'  a KICKOUT LOST turnover row saying ATTACKING THIRD whose kickout is
-  //              KO LONG with no marked landing beyond the far 45 m line → MIDDLE THIRD
-  //              (the old rule read KO LONG as the attacking third; see koLostThird).
+  //              KO LONG or KO MEDIUM with no marked landing beyond the far 45 m line →
+  //              MIDDLE THIRD. LONG: the old rule read it as the attacking third (see
+  //              koLostThird). MEDIUM: 45-65 m is the middle third, so ATTACKING is wrong
+  //              for it too — the old rule never wrote that, so such a row was left behind
+  //              when its kickout's length was changed later, or was set by hand. A SHORT
+  //              kickout, or one marked beyond the far 45, is not this pattern.
   //  'ko-foul'   the FOUL row Code Room logs for a free at such a kickout, 'Foul Areas'
   //              from the FOULING team's view: the kicker's own foul (KO FREE LOST)
   //              saying ATTACKING THIRD, or the opposition's (KO FREE WON) saying
@@ -609,7 +613,7 @@
   // row tied to something that is not a kickout is left alone), else the derived KO
   // row with the same 'GI Source ID', else the nearest KO row of the right team
   // starting within KO_TO_WINDOW seconds. No kickout found = left alone.
-  //   → [{ index, id, kind, group, from ('' = none), to, koIndex | originalId }]
+  //   → [{ index, id, kind, group, from ('' = none), to, koIndex + len (LONG | MEDIUM) | originalId }]
   const isKoRow = e => /(^|\s)(KO|KICKOUTS?)\s*$/i.test(String((e && e.code) || '').trim()) && !/\bTOS?\b|TURNOVER/i.test((e && e.code) || '');
   function koOfRow(events, r, game, want){   // want(ko) → is this a kickout the row can belong to
     if(r._shotComp != null){
@@ -629,13 +633,15 @@
     const out = [], byId = new Map(), one = (e, g) => { const v = valsOf(e, g); return v.length === 1 ? up(v[0]) : ''; };
     events.forEach(e => { if(e && !lbl(e, GI_SRC) && e.id != null && !byId.has(String(e.id))) byId.set(String(e.id), e); });
     const longNotBeyond = k => !!k && koLenOf(k) === 'LONG' && koLostThird(k) === 'MIDDLE THIRD';
+    // the turnover row: a MEDIUM kickout too (see 'ko-third' above); never one marked beyond the far 45, whatever its length
+    const midNotBeyond = k => !!k && (koLenOf(k) === 'LONG' || koLenOf(k) === 'MEDIUM') && !koBeyondFar45(k);
     events.forEach((r, index) => {
       if(!r) return;
       const c = String(r.code || ''), T = up(r.team);
       if(/\bTOS?\s*$/i.test(c) && isKoLostTo(r)){
         if(one(r, 'Turnover Locations') !== 'ATTACKING THIRD') return;
         const k = koOfRow(events, r, game, x => up(x.team) === T);
-        if(longNotBeyond(k)) out.push({ index, id:r.id, kind:'ko-third', group:'Turnover Locations', from:'ATTACKING THIRD', to:'MIDDLE THIRD', koIndex:events.indexOf(k) });
+        if(midNotBeyond(k)) out.push({ index, id:r.id, kind:'ko-third', group:'Turnover Locations', from:'ATTACKING THIRD', to:'MIDDLE THIRD', koIndex:events.indexOf(k), len:koLenOf(k) });
       } else if(isDerivedTo(r)){
         const o = byId.get(lbl(r, GI_SRC)), t = o && toMap(o, game);
         if(t && !t.zoned && t.loser === T && !lblCI(r, ['Turnover Locations','Turnover Location']))
@@ -646,7 +652,7 @@
         const own = area === 'ATTACKING THIRD';                               // the kicker's own foul, or the opposition's
         const k = koOfRow(events, r, game, x => (up(x.team) === T) === own && T && up(x.team)
           && (own ? /FREE LOST/ : /FREE WON/).test(up(lbl(x, 'Kickout Outcomes') || x.outcome)));
-        if(longNotBeyond(k)) out.push({ index, id:r.id, kind:'ko-foul', group:'Foul Areas', from:area, to:'MIDDLE THIRD', koIndex:events.indexOf(k) });
+        if(longNotBeyond(k)) out.push({ index, id:r.id, kind:'ko-foul', group:'Foul Areas', from:area, to:'MIDDLE THIRD', koIndex:events.indexOf(k), len:koLenOf(k) });
       }
     });
     return out;
