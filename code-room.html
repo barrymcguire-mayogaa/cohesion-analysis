@@ -5608,11 +5608,16 @@ function crGiToUnconverted(){
   if(typeof cohGiConvert!=='function'||typeof cohGiIsDerivedTo!=='function') return 0;
   return cohGiConvert(EVENTS, GAME, {carry:false}).filter(cohGiIsDerivedTo).length;
 }
+// A GIU game's possessions, fouls, solo-and-goes and throw-ups not yet converted (cohesion-gi.js "GIU: OTHER ROWS").
+function crGiOtherUnconverted(){
+  if(typeof cohGiConvert!=='function'||typeof cohGiIsDerivedOther!=='function') return 0;
+  return cohGiConvert(EVENTS, GAME, {carry:false}).filter(cohGiIsDerivedOther).length;
+}
 function crGiBtnSync(){
   const b=document.getElementById('giBtn'); if(!b) return;
-  const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0, t=GAME?crGiToUnconverted():0;
-  const what=[n?'shots':'', k?'kickouts':'', t?'turnovers':''].filter(Boolean);
-  b.style.display=what.length?'':'none'; b.textContent='⇄ Convert '+(what.join(' + ')||'shots')+' ('+(n+k+t)+')';
+  const n=GAME?crGiUnconverted():0, k=GAME?crGiKoUnconverted():0, t=GAME?crGiToUnconverted():0, o=GAME?crGiOtherUnconverted():0;
+  const what=[n?'shots':'', k?'kickouts':'', t?'turnovers':'', o?'possessions / fouls':''].filter(Boolean);
+  b.style.display=what.length?'':'none'; b.textContent='⇄ Convert '+(what.join(' + ')||'shots')+' ('+(n+k+t+o)+')';
   const cb=document.getElementById('giCarryBtn');
   if(cb){ const L=GAME?crGiCarryList():[], m=L.length; cb.style.display=m?'':'none'; cb.textContent='📍 '+crGiCarryName(L)+' ('+m+')'; }
 }
@@ -5761,14 +5766,21 @@ async function crGiConvertPrompt(){
   if(c.kos) parts.push(pl(c.kos,'kickout event')+' + '+pl(c.breaks||0,'break event'));
   if(c.tos) parts.push(pl(c.tos,'turnover event'));
   if(c.koTos) parts.push(pl(c.koTos,'kickout-lost turnover event'));
-  const kinds=[(c.shots||c.scores)?'shots':'', c.kos?'kickouts':'', (c.tos||c.koTos)?'turnovers':''].filter(Boolean);
+  if(c.poss) parts.push(pl(c.poss,'possession event'));
+  if(c.fouls) parts.push(pl(c.fouls,'foul event'));
+  if(c.solos) parts.push(pl(c.solos,'solo-and-go event'));
+  if(c.hops) parts.push(pl(c.hops,'hop-ball event'));
+  const giuTo=add.some(e=>cohGiIsDerivedTo(e)&&/-to$/.test(String(e.id))&&!/turnovers?\s+won/i.test((EVENTS.find(o=>String(o.id)===String((e.labels||{})['GI Source ID'])&&!(o.labels||{})['GI Source ID'])||{}).code||''));
+  const kinds=[(c.shots||c.scores)?'shots':'', c.kos?'kickouts':'', (c.tos||c.koTos)?'turnovers':'', (c.poss||c.fouls||c.solos||c.hops)?'possessions and fouls':''].filter(Boolean);
   const ok=await cohesionModal({ title:'Convert Gaelic Insights '+(kinds.length>1?kinds.slice(0,-1).join(', ')+' and '+kinds[kinds.length-1]:kinds[0]||'events'),
     message:'Create '+parts.join(' and ')+'?<br><br>'
       +(c.shots||c.scores?'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
       +'1 POINT / 2 POINT / GOAL event, so the scoreboard, stats and maps work. ':'')
       +(c.kos?'Each GI or GIU kickout gets a KO event for the kicking team (Kickout Outcomes, Kickout Locations; a Gaelic Insights player goes to Kickout Won By when his team won it, otherwise Kickout Target) '
       +'and each break ball a BREAK WON event for the team that won it and a BREAK LOST event for the other. No foul events are added. ':'')
-      +(c.tos?'Each Gaelic Insights "Turnover Won" gets a TOs event for the team that LOST the ball, with the third turned round to that team&rsquo;s view (the winner&rsquo;s own third becomes the loser&rsquo;s ATTACKING THIRD; a turnover with no zone was won in the opposition&rsquo;s third, so it becomes the loser&rsquo;s DEFENSIVE THIRD). The turnover type is left blank for you to fill in; the player who won the ball stays on it under his own team. ':'')
+      +(c.poss||c.fouls||c.solos||c.hops?'<span id="giuOtherNote">Each GIU possession gets a TEAM POSSESSION event with the same start and end, keeping where it came from (PossFrom) and its PitchArea; each GIU foul a FOUL event for the team that committed it, with Foul Areas from its PitchArea (Own = DEFENSIVE, Middle, Opp = ATTACKING THIRD); each "Solo and Go" a SOLO AND GO event and each "Throw Up" a HOP BALL event (no team). Sideline, Out for 45, Goalkeeper and OP Wide rows are not converted. </span>':'')
+      +(giuTo?'<span id="giuToNote">Each GIU "Turnover" gets a TOs event for the same team (the team that lost the ball) with Turnover Locations from its PitchArea'+(c.freeAgainst?'; <b>'+c.freeAgainst+' of them '+(c.freeAgainst===1?'has':'have')+' that team&rsquo;s own foul at the same moment and '+(c.freeAgainst===1?'gets':'get')+' the type FREE AGAINST</b>, the rest are left with no type':'; the type is left blank')+'. </span>':'')
+      +(c.tos&&!giuTo?'Each Gaelic Insights "Turnover Won" gets a TOs event for the team that LOST the ball, with the third turned round to that team&rsquo;s view (the winner&rsquo;s own third becomes the loser&rsquo;s ATTACKING THIRD; a turnover with no zone was won in the opposition&rsquo;s third, so it becomes the loser&rsquo;s DEFENSIVE THIRD). The turnover type is left blank for you to fill in; the player who won the ball stays on it under his own team. ':'')
       +(c.koTos?'Each kickout the kicking team lost gets that team&rsquo;s TOs event with the type KICKOUT LOST (none is added where the game already has one for that kickout); its third follows the kickout&rsquo;s length &mdash; short DEFENSIVE, medium and long MIDDLE. ':'')
       +(c.carriedRows?'<b>Marked on the originals and copied onto the new events:</b> '+crGiCarryWords(c)+' ('+c.carriedRows+' event'+(c.carriedRows===1?'':'s')+'). ':'')
       +(c.lenClash?'<b>'+c.lenClash+' kickout'+(c.lenClash===1?' has':'s have')+' a Kickout Locations value on the original that differs from the Gaelic Insights length</b> — the Gaelic Insights length is kept; check '+(c.lenClash===1?'it':'them')+' after converting. ':'')
@@ -5777,7 +5789,7 @@ async function crGiConvertPrompt(){
     buttons:[{label:'Cancel',value:false},{label:'Convert',value:true,primary:true}] });
   if(!ok) return;
   crGiApply(add);
-  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':'', c.tos?c.tos+' turnovers':'', c.koTos?c.koTos+' kickout-lost turnovers':''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':'', c.tos?c.tos+' turnovers'+(c.freeAgainst?' ('+c.freeAgainst+' FREE AGAINST)':''):'', c.koTos?c.koTos+' kickout-lost turnovers':'', c.poss?c.poss+' possessions':'', c.fouls?c.fouls+' fouls':'', c.solos?c.solos+' solo and go':'', c.hops?c.hops+' hop ball'+(c.hops===1?'':'s'):''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
 }
 
 // ── Merge another XML ─────────────────────────────────────────

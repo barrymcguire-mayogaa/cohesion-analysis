@@ -582,7 +582,8 @@ function dashComputeStats(){
   const koAll=s=>of(s,KO).filter(e=>koOut(e)&&!giSup(e));   // a converted GI / GIU kickout: its derived KO is counted instead
   const koWonN=s=>koAll(s).filter(e=>koWonStr(koOut(e),s)).length;
   const koBreak=(s,won)=>koAll(s).filter(e=>koOut(e).includes(won?'BREAK WON':'BREAK LOST')).length;
-  const fouls=(s,z)=>of(s,/\bFOUL\b/i).filter(e=>{ if(!z) return true;
+  const fouls=(s,z)=>of(s,/\bFOUL\b/i).filter(e=>{ if(giSup(e)) return false;   // a converted GIU "<Team> Foul": its "<TEAM> FOUL" row is counted instead
+    if(!z) return true;
     return up((e.labels||{})['Foul Areas']||'').includes(z); }).length;
   const cards=(s,t)=>of(s,/\bCARD\b/i).filter(e=>up((e.labels||{})['Card Outcomes']||'').includes(t)).length;
 
@@ -1815,7 +1816,7 @@ function dashInfographicData(S){
           LONG:w(k.filter(x=>x.len.includes('LONG'))),H1:w(k.filter(x=>x.e.half==='1st Half')),H2:w(k.filter(x=>x.e.half==='2nd Half'))};
     d.poss=ev.filter(x=>x.s===s&&/TEAM POSSESSION/.test(x.c)).length;
     d.att=ev.filter(x=>x.s===s&&/\bATTACKS?\b/.test(x.c)).length;
-    d.fouls=ev.filter(x=>x.s===s&&/\bFOUL$/.test(x.c)).length;
+    d.fouls=ev.filter(x=>x.s===s&&/\bFOUL$/.test(x.c)&&!giSup(x.e)).length;
     // turnovers conceded = in-play TOs (not SHOT ATTEMPT / kickout-lost rows)
     //   + own kickouts lost + shots that handed the ball over
     const to=tos.filter(x=>x.s===s);

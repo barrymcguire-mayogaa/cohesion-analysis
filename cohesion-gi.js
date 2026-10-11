@@ -41,6 +41,11 @@
  * cohGiThirdFixes lists the rows saved before those two third rules were corrected
  * (11 Oct 2026) — see the THIRDS block.
  *
+ * A GIU GAME'S OTHER ROWS (see the GIU: OTHER ROWS block): "<Team> Poss", "<Team> Foul", "<Team> Turnover",
+ * "<Team> Solo and Go" and "Throw Up" convert the same way — "<TEAM> TEAM POSSESSION", "<TEAM> FOUL" ('Foul Areas'),
+ * "<TEAM> TOs" ('Turnover Locations'; FREE AGAINST when that team's own foul is at the same moment), "<TEAM> SOLO AND
+ * GO", "HOP BALL" — originals kept and superseded. Sideline / Out for 45 / Goalkeeper / OP Wide are not converted.
+ *
  * LOCATIONS AND DETAILS marked on an original before it is converted are carried
  * onto its derived shot / KO row (see the CARRY block); cohGiCarryDetails does the
  * same for a game converted earlier. Nothing is ever removed from an original.
@@ -342,20 +347,69 @@
   }
   const fin0 = v => v != null && v !== '' && isFinite(+v);
 
+  // ── GIU: OTHER ROWS ─────────────────────────────────────────────
+  // A GIU file's possessions, fouls, turnovers, solo-and-goes and throw-ups, read ONLY in a GIU game (one with a
+  // "<Team> Shot (P)/(F)" row, or PossFrom / KODistance labels) and only under the exact names a GIU file writes
+  // ("Kerry Foul" — never a COHESION "KERRY FOUL"):
+  //   "<Team> Poss"         → "<TEAM> TEAM POSSESSION", same span, PossFrom and PitchArea kept (Analysis counts the
+  //                           converted row and reads a shot's source from its PossFrom)
+  //   "<Team> Foul"         → "<TEAM> FOUL" — the row's team COMMITTED the foul; 'Foul Areas' from PitchArea, that
+  //                           team's view (Own → DEFENSIVE, Middle, Opp → ATTACKING THIRD)
+  //   "<Team> Turnover"     → "<TEAM> TOs" — the row's team LOST the ball; 'Turnover Locations' from PitchArea (already
+  //                           the loser's view). A type typed on the original is kept; otherwise FREE AGAINST when the
+  //                           SAME team's "Foul" row starts within FA_WINDOW seconds (GIU writes Poss → Foul →
+  //                           Turnover for a free conceded in possession); otherwise blank, never guessed.
+  //   "<Team> Solo and Go"  → "<TEAM> SOLO AND GO"
+  //   "Throw Up"            → "HOP BALL" (no team; a hop ball in play — never THROW-IN, which starts a half)
+  // "<Team> Sideline", "Out for 45", "Goalkeeper", "OP Wide" have no COHESION meaning defined and are left as they are.
+  const FA_WINDOW = 4;
+  const GIU_OTHER = [ [/^\s*(.+?)\s+Poss\s*$/, 'poss'], [/^\s*(.+?)\s+Foul\s*$/, 'foul'], [/^\s*(.+?)\s+Turnovers?(?:\s+Lost)?\s*$/, 'to'],
+    [/^\s*(.+?)\s+Solo and Go\s*$/, 'solo'] ];
+  function isGiuGame(events){
+    return (events || []).some(e => e && !lbl(e, GI_SRC) && (/\sshot\s*\(\s*[pf]\s*\)\s*$/i.test(e.code || '') || lbl(e, 'PossFrom') || lbl(e, 'KODistance')));
+  }
+  // → { kind:'poss'|'foul'|'to'|'solo'|'hop', team } or null. The row's own wording only (see above).
+  function giuOther(e){
+    if(!e || !e.code || lbl(e, GI_SRC)) return null;
+    const C = String(e.code);
+    if(/^\s*Throw Up\s*$/.test(C)) return { kind:'hop', team:'' };
+    for(const [re, kind] of GIU_OTHER){ const m = re.exec(C); if(!m) continue;
+      if(kind === 'foul' && /technical/i.test(C)) return null;
+      const team = up(e.team) || up(m[1]); return team ? { kind, team } : null; }
+    return null;
+  }
+  const OTHER_CODE = { poss:'TEAM POSSESSION', foul:'FOUL', to:'TOs', solo:'SOLO AND GO' };
+  const OTHER_CAT = { poss:'Possession & Attack', foul:'Fouls', to:'Turnovers', solo:'Other', hop:'Other' };
+  // A converted row of this block that is NOT a turnover: "<TEAM> TEAM POSSESSION / FOUL / SOLO AND GO", "HOP BALL".
+  function isDerivedOther(e){ return !!lbl(e, GI_SRC) && /(\sTEAM POSSESSION|\sFOUL|\sSOLO AND GO|^\s*HOP BALL)\s*$/i.test((e && e.code) || '') && !/TECHNICAL/i.test(e.code || ''); }
+  // Map one such row to its COHESION row. Pure. `fa` true → a turnover with no type becomes FREE AGAINST.
+  function cohGiuMapOther(e, fa){
+    const k = giuOther(e); if(!k) return [];
+    const L = e.labels || {}, labels = {}, third = toThird(L['PitchArea']);
+    let outcome = '';
+    if(k.kind === 'poss'){ if(L['PossFrom']) labels['PossFrom'] = String(L['PossFrom']).trim(); if(L['PitchArea']) labels['PitchArea'] = String(L['PitchArea']).trim(); }
+    else if(k.kind === 'foul'){ if(third) labels['Foul Areas'] = third; }
+    else if(k.kind === 'to'){ outcome = lblCI(e, TO_OUT_GROUPS) || (fa ? 'FREE AGAINST' : '');
+      if(outcome) labels['Turnover Outcomes'] = outcome; if(third) labels['Turnover Locations'] = third; }
+    labels[GI_SRC] = String(e.id);
+    return [Object.assign({ id:'gi-'+e.id+'-'+k.kind, code: k.kind === 'hop' ? 'HOP BALL' : k.team+' '+OTHER_CODE[k.kind], team:k.team }, baseOf(e), {
+      player:'', outcome, subtype:'', category:OTHER_CAT[k.kind], labels })];
+  }
+
   // Ids of GI originals that already have a derived SHOT, KO or turnover event.
   function cohGiSuperseded(events){
     const s = new Set(), tos = [];
     (events || []).forEach(e => {
       const id = lbl(e, GI_SRC);
       if(!id) return;
-      if(/SHOT (OPEN|DEAD)/i.test(e.code || '') || isDerivedKo(e)) s.add(id);
+      if(/SHOT (OPEN|DEAD)/i.test(e.code || '') || isDerivedKo(e) || isDerivedOther(e)) s.add(id);
       else if(isDerivedTo(e)) tos.push(id);
     });
-    // a derived TOs row supersedes a "Turnover Won" original (a lost kickout's
+    // a derived TOs row supersedes a "Turnover Won" original, or a GIU "<Team> Turnover" (a lost kickout's
     // KICKOUT LOST row supersedes nothing: the kickout answers to its KO row)
     if(tos.length){
       const won = new Set();
-      (events || []).forEach(e => { if(e && !lbl(e, GI_SRC) && TO_WON_RE.test(e.code || '')) won.add(String(e.id)); });
+      (events || []).forEach(e => { if(e && !lbl(e, GI_SRC) && (TO_WON_RE.test(e.code || '') || (giuOther(e) || {}).kind === 'to')) won.add(String(e.id)); });
       tos.forEach(id => { if(won.has(id)) s.add(id); });
     }
     return s;
@@ -363,13 +417,13 @@
   // Bare companion created by the conversion (a score or break row — not a
   // shot, a kickout or a turnover in its own right).
   function cohGiIsCompanion(e){
-    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '') && !isDerivedKo(e) && !isDerivedTo(e);
+    return !!lbl(e, GI_SRC) && !/SHOT/i.test((e && e.code) || '') && !isDerivedKo(e) && !isDerivedTo(e) && !isDerivedOther(e);
   }
   // Per-event predicate factory: true for an original that is superseded.
   function cohGiSupersededFn(events){
     const s = cohGiSuperseded(events);
     return e => !!(s.size && e && !lbl(e, GI_SRC) && s.has(String(e.id))
-      && (isAnyGiShot(e) || /^\s*\S.*\s+kickout\s*$/i.test(e.code || '') || TO_WON_RE.test(e.code || '')));
+      && (isAnyGiShot(e) || /^\s*\S.*\s+kickout\s*$/i.test(e.code || '') || TO_WON_RE.test(e.code || '') || !!giuOther(e)));
   }
 
   // Map one GI shot to its COHESION shot (+ score companion). Pure.
@@ -436,6 +490,10 @@
     if(e.videoT != null) base.videoT = e.videoT;
     const shot = Object.assign({ id:'gi-'+e.id+'-shot'+(seq?'-'+seq:''), code }, base, {
       player, outcome:o, subtype:k.type, category:'Shots & Scores', labels });
+    // a name that came from a jersey number remembers the number and the name written (pTag / pTagName), so it can
+    // follow the team sheet if the player at that number is changed later (cohesion-merge.js cohPTagFixes)
+    const pm = /^P\s*(\d+)$/i.exec(tag);
+    if(pm && player && player !== tag){ shot.pTag = 'P' + (+pm[1]); shot.pTagName = player; }
     const out = [shot];
     if(SCORES.has(o)){
       out.push(Object.assign({ id:'gi-'+e.id+'-score'+(seq?'-'+seq:''), code: TEAM+' '+o }, base, {
@@ -647,6 +705,7 @@
         if(t && !t.zoned && t.loser === T && !lblCI(r, ['Turnover Locations','Turnover Location']))
           out.push({ index, id:r.id, kind:'to-zone', group:'Turnover Locations', from:'', to:'DEFENSIVE THIRD', originalId:o.id });
       } else if(/\sFOUL\s*$/i.test(c)){
+        if(isDerivedOther(r)) return;                                         // a GIU file's own foul: its third is the file's, not a kickout rule's
         const area = one(r, 'Foul Areas');
         if(area !== 'ATTACKING THIRD' && area !== 'DEFENSIVE THIRD') return;
         const own = area === 'ATTACKING THIRD';                               // the kicker's own foul, or the opposition's
@@ -662,7 +721,9 @@
   // Kickouts and turnovers too: an original whose id already appears as a "GI
   // Source ID" is skipped, so a game whose shots were converted earlier only
   // gains its kickouts and turnovers. opts.kickouts === false / opts.shots ===
-  // false / opts.turnovers === false limit the pass.
+  // false / opts.turnovers === false limit the pass. A GIU game's possessions, fouls, solo-and-goes and throw-ups
+  // (opts.others === false leaves them) and its "<Team> Turnover" rows (with the turnovers) convert too — see GIU:
+  // OTHER ROWS; opts.fa === false leaves their FREE AGAINST type unset. out.freeAgainst = how many were set.
   // KICKOUT LOST rows: a kickout converted in THIS pass gets one when the kicker
   // lost it; a kickout converted EARLIER gets one from its derived KO row as it
   // stands now (its 'Kickout Outcomes' may have been corrected since). Neither is
@@ -674,6 +735,10 @@
       if(isDerivedKo(e) && !koRow.has(id)) koRow.set(id, e);
       if(isKoLostTo(e)) koTos.push({ team:up(e.team), start:+e.start, src:id }); });
     const doShots = !(opts && opts.shots === false), doKos = !(opts && opts.kickouts === false), doTos = !(opts && opts.turnovers === false);
+    const doOther = !(opts && opts.others === false), doFa = !(opts && opts.fa === false), giuLike = isGiuGame(events);
+    // a GIU game's own fouls, by team: a turnover of that team within FA_WINDOW s of one is a FREE AGAINST
+    const fouls = giuLike ? (events || []).filter(e => (giuOther(e) || {}).kind === 'foul').map(e => ({ team:giuOther(e).team, start:+e.start })) : [];
+    let faN = 0;
     const out = [], plans = [];
     const addKoTo = (srcId, at, team) => { if(!team || hasKoLostTo(koTos, srcId, team, +at.start)) return;
       koTos.push({ team, start:+at.start, src:String(srcId) }); out.push(koLostRow(srcId, at, team)); };
@@ -681,6 +746,16 @@
       const gi = doShots && isGiShot(e), giu = doShots && !gi && isGiuShot(e);
       const ko = !gi && !giu && isGiKickout(e, game);
       const to = !gi && !giu && !ko && doTos && isGiTurnover(e, game);
+      const oth = (!gi && !giu && !ko && !to && giuLike) ? giuOther(e) : null;
+      if(oth){                              // GIU: possession / foul / turnover / solo and go / throw-up
+        const oid = String(e.id);
+        if(!oid || done.has(oid) || (oth.kind === 'to' ? !doTos : !doOther)) return;
+        done.add(oid);
+        const fa = doFa && oth.kind === 'to' && !lblCI(e, TO_OUT_GROUPS) && fouls.some(f => f.team === oth.team && fin0(e.start) && Math.abs(f.start - e.start) <= FA_WINDOW);
+        if(fa) faN++;
+        cohGiuMapOther(e, fa).forEach(n => out.push(n));
+        return;
+      }
       if(!gi && !giu && !ko && !to) return;
       const id = String(e.id);
       if(!id) return;
@@ -702,17 +777,19 @@
     });
     // what was carried — a property of the returned list (not of any event): see cohGiCounts
     Object.defineProperty(out, 'carried', { value: carryTally(plans), enumerable:false });
+    Object.defineProperty(out, 'freeAgainst', { value: faN, enumerable:false });
     return out;
   }
   // Counts for the confirmation text.
   function cohGiCounts(newEvents){
-    let shots = 0, scores = 0, kos = 0, breaks = 0, tos = 0, koTos = 0;
+    let shots = 0, scores = 0, kos = 0, breaks = 0, tos = 0, koTos = 0, poss = 0, fouls = 0, solos = 0, hops = 0;
     (newEvents || []).forEach(e => { const c = e.code || '';
       if(/SHOT (OPEN|DEAD)/i.test(c)) shots++; else if(isDerivedKo(e)) kos++;
+      else if(isDerivedOther(e)){ if(/TEAM POSSESSION\s*$/i.test(c)) poss++; else if(/FOUL\s*$/i.test(c)) fouls++; else if(/SOLO AND GO\s*$/i.test(c)) solos++; else hops++; }
       else if(isDerivedTo(e)){ if(/-koto$/.test(String(e.id))) koTos++; else tos++; }
       else if(/\sBREAK (WON|LOST)\s*$/i.test(c)) breaks++; else scores++; });
     const k = (newEvents && newEvents.carried) || {};
-    return { shots, scores, kos, breaks, tos, koTos, locations:k.locations||0, zones:k.zones||0, details:k.details||0, attempts:k.attempts||0,
+    return { shots, scores, kos, breaks, tos, koTos, poss, fouls, solos, hops, freeAgainst:(newEvents && newEvents.freeAgainst) || 0, locations:k.locations||0, zones:k.zones||0, details:k.details||0, attempts:k.attempts||0,
       carriedRows:k.rows||0, lenClash:k.lenClash||0, clashes:k.clashes||[] };
   }
 
@@ -720,6 +797,7 @@
   const api = { cohGiConvert, cohGiSuperseded, cohGiSupersededFn, cohGiIsCompanion, cohGiIsShot:isAnyGiShot,
     cohGiIsKickout:isGiKickout, cohGiIsDerivedKo:isDerivedKo, cohGiMapKickout,
     cohGiIsTurnover:isGiTurnover, cohGiIsDerivedTo:isDerivedTo, cohGiMapTurnover,
+    cohGiuOther:giuOther, cohGiIsDerivedOther:isDerivedOther, cohGiuMapOther, cohGiIsGiuGame:isGiuGame,
     cohGiIsGiShot:isGiShot, cohGiIsGiuShot:isGiuShot, cohGiMapShot, cohGiuMapShot, cohGiuRosterName, cohGiCounts,
     cohGiCarryDetails, cohGiCarryApply, cohGiCarryTally:carryTally, cohGiThirdFixes, cohGiKoLostThird:koLostThird, COH_GI_SRC:GI_SRC };
   Object.assign(root, api);

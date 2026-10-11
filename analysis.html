@@ -1409,8 +1409,9 @@ function ssPossSrc(events, skip, shotMode){
   const live=events.filter(e=>e&&!skip(e));
   if(!live.some(e=>/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))||!!ssLblCI(e, SS_SRC_LABELS))){
     const poss=[];
-    // "<Team> Poss" as a GIU file writes it, or the "<TEAM> TEAM POSSESSION" a merged GIU possession becomes (it keeps PossFrom)
-    events.forEach((e,i)=>{ if(!e) return; const c=ssUC(e.code); if(!/\s(POSS|TEAM POSSESSION)$/.test(c)) return;
+    // "<Team> Poss" as a GIU file writes it, or the "<TEAM> TEAM POSSESSION" a converted / merged GIU possession becomes (it keeps
+    // PossFrom); a converted game's ORIGINAL "Poss" rows are superseded and skipped, so each possession is read once
+    events.forEach((e,i)=>{ if(!e||skip(e)) return; const c=ssUC(e.code); if(!/\s(POSS|TEAM POSSESSION)$/.test(c)) return;
       const team=ssUC(e.team)||c.replace(/\s+(TEAM POSSESSION|POSS)$/,''), st=ssEvT(e); if(!team) return;
       poss.push({team, from:ssLblCI(e,['PossFrom'])||'', s:st, en:e.end!=null?Math.max(st, +e.end):st, i}); });
     if(poss.some(q=>q.from)){

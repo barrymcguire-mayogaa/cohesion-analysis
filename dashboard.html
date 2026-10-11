@@ -649,11 +649,11 @@ const CHIP_DEFS={
     {label:'TOs',   key:'tos',   filter:e=>e.category==='Turnovers'&&!giSup(e), color:'#ff7043'},   // a converted "Turnover Won": its "<TEAM> TOs" row is listed instead
   ],
   giu:[
-    {label:'Possession', key:'poss',   filter:e=>/\bPoss\b/i.test(e.code),          color:'#42a5f5'},
+    {label:'Possession', key:'poss',   filter:e=>(/\bPoss\b/i.test(e.code)&&!giSup(e))||/TEAM POSSESSION/i.test(e.code||''),          color:'#42a5f5'},   // a converted "<Team> Poss": its "<TEAM> TEAM POSSESSION" row is listed instead
     {label:'Shots',      key:'shots',  filter:e=>(/Shot\s*\([PF]\)/i.test(e.code)&&!giSup(e))||/SHOT OPEN PLAY|SHOT DEAD/i.test(e.code||''),   color:'#ffd700', dark:true},
     {label:'KOs',        key:'kos',    filter:e=>(/Kickout/i.test(e.code)&&!giSup(e))||/\sKO$/i.test(e.code||''), color:'#ab47bc'},
     {label:'TOs',        key:'tos',    filter:e=>/Turnover|\bTOs\b/i.test(e.code||'')&&!giSup(e), color:'#ff7043'},
-    {label:'Fouls',      key:'fouls',  filter:e=>/\bFoul\b/i.test(e.code),           color:'#f44336'},
+    {label:'Fouls',      key:'fouls',  filter:e=>/\bFoul\b/i.test(e.code)&&!giSup(e),           color:'#f44336'},
     {label:'Cards',      key:'cards',  filter:e=>/\bCard\b/i.test(e.code),           color:'#ef5350'},
   ],
   sc:[

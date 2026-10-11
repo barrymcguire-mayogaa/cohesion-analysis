@@ -1826,13 +1826,15 @@ async function processGame(){
         // As for Gaelic Insights: each GIU shot ("<Team> Shot (P)/(F)",
         // "Shot Sideline", and "45"/"Penalty" carrying a ShotOutcome) also
         // gets a COHESION SHOT OPEN PLAY / SHOT DEADBALL event plus the bare
-        // score companion; originals are kept and superseded (cohesion-gi.js).
+        // score companion; originals are kept and superseded (cohesion-gi.js). The same pass
+        // converts the file's possessions, fouls, turnovers, solo-and-goes and throw-ups
+        // (TEAM POSSESSION / FOUL / TOs / SOLO AND GO / HOP BALL — cohesion-gi.js "GIU: OTHER ROWS").
         if(typeof cohGiConvert === 'function'){
           const giuDerived = cohGiConvert(events, { homeTeam, awayTeam });
           if(giuDerived.length){
             const gc = cohGiCounts(giuDerived);
             events.push(...giuDerived);
-            console.log(`✓ GIU: created ${gc.shots} shot events + ${gc.scores} score events, ${gc.kos} kickout events + ${gc.breaks} break events + ${gc.koTos} kickout-lost turnover events`);
+            console.log(`✓ GIU: created ${gc.shots} shot events + ${gc.scores} score events, ${gc.kos} kickout events + ${gc.breaks} break events + ${gc.koTos} kickout-lost turnover events, ${gc.poss} possession events, ${gc.fouls} foul events, ${gc.tos} turnover events (${gc.freeAgainst} FREE AGAINST), ${gc.solos} solo-and-go events, ${gc.hops} hop-ball events`);
           }
         }
 
