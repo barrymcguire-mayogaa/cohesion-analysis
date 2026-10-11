@@ -810,7 +810,10 @@ function renderSV(){
 
   const toRe=e=>(/TURNOVER|\bTOS?\b/i.test(e.code||'')||e.category==='Turnovers')&&!giSup(e);   // a converted GI "Turnover Won" is counted once, as its "<TEAM> TOs" row
   const tos=tallyOutcome(toRe, ['Turnover Outcomes','TurnoverOutcome','turnover_zone','Turnover Location']);
-  h+=statSection('Turnovers', `${codeCount(toRe,'h')} won &nbsp;|&nbsp; ${codeCount(toRe,'a')} won`, statRows(tos, tos.group||'Turnover Outcomes'));
+  // "<TEAM> TOs" / GIU "<Team> Turnover" rows belong to the team that LOST the ball; only an unconverted Gaelic Insights
+  // "<Team> Turnover Won" row belongs to the team that won it — the heading says which the numbers are.
+  const toWord=ALL.some(e=>toRe(e)&&/(TURNOVERS?|\bTOS?)\s+WON\b/i.test(e.code||''))?'won':'lost';
+  h+=statSection('Turnovers', `${codeCount(toRe,'h')} ${toWord} &nbsp;|&nbsp; ${codeCount(toRe,'a')} ${toWord}`, statRows(tos, tos.group||'Turnover Outcomes'));
 
   // 'Shot Source Outcomes' = a converted GI shot's source (SHOT SOURCE rows stay out)
   const src=tallyOutcome(e=>(isShot(e)&&!/SHOT SOURCE/i.test(e.code||''))||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source','Shot Source Outcomes']);
