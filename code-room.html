@@ -606,7 +606,7 @@ function filterGames(){
 async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
@@ -660,7 +660,7 @@ async function startLocalSession(){
          title:home+' v '+away+' (local video)',
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crAttNote={id:null,text:''};
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
@@ -1722,13 +1722,15 @@ function crCoordOf(e){
 // cohesion-xp.js's geometry (xpForShot with a stub attempt → parts.dist) in
 // the tracker convention, which is how Code Room stores placed shots (goal at
 // the top, X = lateral %, Y = % down the drawn half-pitch). The threshold is
-// the DRAWN arc: on the model's metre scale it sits at ~41.8 m (the drawing's
-// arc is ~4% large relative to its 13/20/45 m lines), and tagged 1pt/2pt
-// attempts split exactly on it. Never touches a value someone set — only a
-// blank one, or one this feature set earlier in the session (so moving the
-// location again re-derives it). Penalties and GIU "For Goal" shots are left
-// alone (their attempt is a Goal Attempt).
-const CR_ARC_2PT_M=41.8;
+// the 40 m arc: the shot pitch is drawn to true scale (shotPitchArt), so the
+// drawn arc is 40 m out on the model's metre scale. (Until Oct 2026 the
+// picture's arc was ~4% large and the threshold was 41.8 m to match it; no
+// open-play attempt in the real games lies between the two.) Never touches a
+// value someone set — only a blank one, or one this feature set earlier in
+// the session (so moving the location again re-derives it). Penalties and GIU
+// "For Goal" shots are left alone (their attempt is a Goal Attempt). A '45 is
+// ALWAYS a 1 Point Attempt, however far out it is placed.
+const CR_ARC_2PT_M=40;
 let crAutoAtt={};                  // rowId → attempt value auto-set this session
 let crAttNote={id:null,text:''};   // "attempt set from location: 2pt" for the Edit panel / Locate
 function crShotDistM(x,y){
@@ -1749,9 +1751,39 @@ function crAttemptFromLoc(rowId, code, labels, x, y){
   const src=get('GI Source ID');
   if(src){ const o=EVENTS.find(e=>String(e.id)===src&&!(e.labels||{})['GI Source ID']);
     if(o&&forGoal((o.labels||{})['ShootingIntent'])) return ''; }
+  if(cohIs45(get('Deadball Shot Type'))) return '1 Point Attempt';
   const d=crShotDistM(x,y);
   if(d==null) return '';
   return d>CR_ARC_2PT_M?'2 Point Attempt':'1 Point Attempt';
+}
+// ── '45s are taken ON the 45 m line ─────────────────────────
+// When a location is placed or moved for a shot whose Deadball Shot Type is a
+// '45 (cohIs45: '45 · 45 · '45 SHOT), its Y goes onto the drawn 45 m line
+// (CR_45_Y, the stored Y that plots on it); X stays where it was clicked. The
+// same when the type is set to '45 AFTER the location was placed in this
+// session — and set back to something else, the location returns to where it
+// was clicked. Only a location clicked this session moves (crLocClick): a '45
+// that was already saved stays where it is.
+const CR_45_Y=Math.round(shotLabelY(45)*10)/10;   // 69.3
+let crLocClick={};                 // rowId → {x,y} as clicked this session, before any snap
+function crIs45(labels){ const L=labels||{}; for(const k in L) if(k.toLowerCase()==='deadball shot type'&&cohIs45(L[k])) return true; return false; }
+function cr45Y(labels, y){ return crIs45(labels)?CR_45_Y:y; }
+function crLocClicked(rowId, x, y){ crLocClick[rowId]={x:Math.round(x*10)/10, y:Math.round(y*10)/10}; }
+// the dead-ball type changed: the Y this session's click should now sit at, or null to leave the location alone
+function cr45Resnap(rowId, labels, x, y){
+  const c=crLocClick[rowId];
+  if(!c||x==null||y==null||c.x!==x||(y!==c.y&&y!==CR_45_Y)) return null;   // not placed this session (or moved since by something else)
+  const ny=cr45Y(labels, c.y); return ny===y?null:ny;
+}
+// Edit panel / Locate: the draft's Deadball Shot Type changed
+function crDraft45Sync(name){
+  if(!draft||String(name||'').toLowerCase()!=='deadball shot type'||!CR_LOC_RE.test(draft.code||'')) return;
+  const lbls={}; draft.groups.forEach(r=>lbls[r.g]=r.v);
+  const ny=cr45Resnap(activeId, lbls, draft.x, draft.y);
+  if(ny!=null){ draft.y=ny;
+    const z=draft.groups.find(r=>r.g==='Shot Zones'); if(z) z.v=crZoneOf(draft.x, draft.y);
+    crSyncCoordGroups('shot'); }
+  else if(draft.x!=null&&crAutoAtt[activeId]) crDraftAutoAttempt();
 }
 function crAttNoteText(att){ return 'attempt set from location: '+(/^2/.test(att)?'2pt':'1pt'); }
 // After placing on a map: update existing X-/Y- label rows in the draft, or
@@ -1805,7 +1837,7 @@ function smApplyGlyph(ov,x,y){
 function crShotMap(){
   if(!draft) return;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
-  let px=draft.x, py=draft.y;
+  let px=draft.x, py=draft.y, clickY=null;   // clickY: where the pitch was clicked in THIS opening (py may be snapped: a '45)
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:64px 20px 0 0;z-index:10005;pointer-events:none;';
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--accent);border-radius:14px;padding:20px;width:420px;max-width:calc(100vw - 40px);font-family:Barlow,sans-serif;pointer-events:auto;box-shadow:0 18px 48px rgba(0,0,0,.6);max-height:calc(100vh - 84px);overflow-y:auto;">
@@ -1828,6 +1860,7 @@ function crShotMap(){
     const r=svg.getBoundingClientRect();
     px=Math.max(0,Math.min(100,((e.clientX-r.left)/r.width)*100));
     py=Math.max(0,Math.min(100,((e.clientY-r.top)/r.height)*100));
+    clickY=py; const l45={}; draft.groups.forEach(g=>l45[g.g]=g.v); py=cr45Y(l45, py);   // a '45 goes onto the 45 m line
     smApplyGlyph(ov,px,py);
     ov.querySelector('#smMark').style.display='';
     ov.querySelector('#smZone').textContent=crZoneOf(px,py)+' · '+Math.round(px)+','+Math.round(py);
@@ -1843,6 +1876,7 @@ function crShotMap(){
   ov.querySelector('#smGo').onclick=()=>{
     if(px==null) return;
     draft.x=Math.round(px*10)/10; draft.y=Math.round(py*10)/10;
+    if(clickY!=null) crLocClicked(activeId, px, clickY);
     const zone=crZoneOf(px,py);
     const i=draft.groups.findIndex(r=>r.g==='Shot Zones');
     if(i>=0) draft.groups[i].v=zone; else draft.groups.push({g:'Shot Zones',v:zone});
@@ -2832,13 +2866,14 @@ function crTeamColor(e){ if(!(e&&e.team)) return '#9ca3af'; const H=(GAME.homeTe
 function setDraftColor(v){ if(!draft)return; draft.color=v||''; refreshSave(); if(crView==='tl') crDrawTL(); }
 function setDraftColorHex(v){ v=(v||'').trim(); if(!v){ setDraftColor(''); return; } if(/^#?[0-9a-fA-F]{6}$/.test(v)){ if(v[0]!=='#') v='#'+v; setDraftColor(v); const ci=document.getElementById('evColor'); if(ci) ci.value=v; } }
 function crResetColor(){ setDraftColor(''); const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); const def=crDefColour(e); const ci=document.getElementById('evColor'); if(ci) ci.value=def; const hx=document.getElementById('evColorHex'); if(hx) hx.value=''; }
-function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; refreshSave(); } }
+function setLabelIdx(i,v){ if(draft&&draft.groups[i]){ draft.groups[i].v=v; crDraft45Sync(draft.groups[i].g); refreshSave(); } }
 function setDefinedLabel(name,value){
   if(!draft)return;
   let idx=-1; draft.groups.forEach((x,i)=>{ if(x.g.toLowerCase()===name.toLowerCase()) idx=i; });   // the last value of the group (the one its dropdown shows)
   if(value===''){ if(idx>=0) draft.groups.splice(idx,1); }
   else if(idx>=0) draft.groups[idx].v=value;
   else draft.groups.push({g:name,v:value});
+  crDraft45Sync(name);
   refreshSave(); renderPanel();
 }
 function removeLabelIdx(i){ if(draft){ draft.groups.splice(i,1); renderPanel(); } }
@@ -4668,9 +4703,10 @@ function codePitchClick(ev){
   const py=codePitch.kind==='ko'?Math.round(koViewToLabel(vy)*10)/10:vy;
   const row=EVENTS.find(e=>e._rowId===codePitch.rowId);
   if(!row){ codePitchClear(); return; }                        // tag was undone
-  const desc=crApplyLocToRow(row, codePitch.kind, px, py);
+  if(codePitch.kind==='shot') crLocClicked(row._rowId, px, py);
+  const desc=crApplyLocToRow(row, codePitch.kind, px, codePitch.kind==='shot'?cr45Y(row.labels, py):py);   // a '45 goes onto the 45 m line
   const dot=document.getElementById('cpDot');
-  if(dot){ dot.setAttribute('cx',px); dot.setAttribute('cy',codePitch.kind==='ko'?koPlotY(py):vy*0.75); document.getElementById('cpMark').style.display=''; }
+  if(dot){ dot.setAttribute('cx',px); dot.setAttribute('cy',codePitch.kind==='ko'?koPlotY(py):row.y*0.75); document.getElementById('cpMark').style.display=''; }
   const info=document.getElementById('cpInfo');
   if(info) info.innerHTML='<b style="color:var(--green);">✓ '+esc(desc)+'</b><br>Click again to adjust.';
   crBackup(); crUpdatePending(); renderList();
@@ -4747,6 +4783,13 @@ function codeShotQual(group,value){
   sq.labels=sq.labels||{};
   if(sq.labels[group]===value) delete sq.labels[group]; else sq.labels[group]=value;
   if(group==='Kickout Locations') crSyncKoTOLoc(sq);
+  if(group==='Deadball Shot Type'&&CR_LOC_RE.test(sq.code||'')){   // '45 set (or unset) after the location was clicked: on / off the 45 m line
+    const ny=cr45Resnap(sq._rowId, sq.labels, sq.x, sq.y);
+    if(ny!=null) crApplyLocToRow(sq, 'shot', sq.x, ny);
+    else if(sq.x!=null&&sq.y!=null&&crAutoAtt[sq._rowId]){ const att=crAttemptFromLoc(sq._rowId, sq.code, sq.labels, sq.x, sq.y); if(att){ sq.labels['Shot Attempts']=att; crAutoAtt[sq._rowId]=att; } }
+    if(codePitch&&codePitch.rowId===sq._rowId){ const dot=document.getElementById('cpDot'); if(dot&&sq.y!=null) dot.setAttribute('cy',sq.y*0.75); }
+    renderList();
+  }
   crBackup(); crUpdatePending(); renderCodeLink();
 }
 function codeShotAssist(value, group){
