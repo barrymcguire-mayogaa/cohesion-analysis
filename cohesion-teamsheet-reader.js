@@ -804,7 +804,7 @@
   // its own tilt and enlarged (its type is small, and on a bent page it runs at another tilt than the formation).
   // → [{x0,y0,x1,y1}] in the picture, or [] when there is no such list
   function listZones(words, W, Hh){
-    const fr=freeLayout(words), H=fr.H||1, S=[].concat.apply([], fr.columns.map(c=>c.lines)).filter(l=>l.no!=null&&l.no>15&&l.no<=40&&l.box&&!l.strip&&l.h<2.2*H);
+    const fr=freeLayout(words), H=fr.H||1, S=[].concat.apply([], fr.columns.map(c=>c.lines)).filter(l=>l.no!=null&&l.no>15&&l.box&&!l.strip&&l.h<2.2*H);     // (a "19" read as "49" is still a line of the list)
     if(S.length<4) return [];
     S.sort((a,b)=>a.box.x0-b.box.x0);
     const cols=[]; S.forEach(l=>{ const c=cols[cols.length-1]; if(c&&l.box.x0-c.x<5*H){ c.L.push(l); c.x=med(c.L.map(q=>q.box.x0)); } else cols.push({x:l.box.x0, L:[l]}); });
@@ -813,6 +813,19 @@
         y0:Math.max(0, Math.min.apply(null,c.L.map(l=>l.box.y0))-3.2*hh), y1:Math.min(Hh||1e9, Math.max.apply(null,c.L.map(l=>l.box.y1))+3.6*hh), n:c.L.length}; }).filter(z=>z.x1-z.x0>6*H);
   }
   R.listZones=listZones;
+  // In a list column read by itself the numbers run on by one. A number that breaks a run of two — and shares its last
+  // figure with the number expected there ("49" or "9" for 19: the first figure lost to a fold or the edge) — where the
+  // line after it fits, or there is none, is put right and the line marked unsure. → the numbers put right
+  function listNumbers(lines){
+    const by=new Map(), fixed=[]; (lines||[]).forEach(l=>{ if(l&&l.zid!=null&&l.ly!=null&&l.no!=null&&!l.under){ if(!by.has(l.zid)) by.set(l.zid,[]); by.get(l.zid).push(l); } });
+    by.forEach(L=>{ L.sort((a,b)=>a.ly-b.ly);
+      for(let i=2;i<L.length;i++){ const a=L[i-2], b=L[i-1], l=L[i], nx=L[i+1], n=b.no+1;
+        if(b.no!==a.no+1||l.no===n||b.fixed||l.no%10!==n%10||(nx&&nx.no!==n+1)) continue;
+        l.text=l.text.replace(/^[#(\[]?\s*\d{1,2}/, String(n)); l.no=n; l.fixed=true; l.conf=Math.min(l.conf==null?100:l.conf, 50); fixed.push(n); } });
+    return fixed;
+  }
+  R.listNumbers=listNumbers;
+  R.LISTTILT=1.5; R.LISTGAIN=1.1;                 // a column read again is used when it is tilted this much (degrees), or reads this much surer than the first reading of it
 
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
@@ -1112,7 +1125,7 @@
     o=o||{};
     let placed=[];
     if(list&&list.boxed){ list.lines.forEach(l=>{ if(l.under) delete l.under; if(l.above) delete l.above; }); }
-    else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
+    else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines); listNumbers(list.lines);
       // a banner read by itself, and an unsure line of the first reading with the same number (or that number alone): the second is a stray reading of that spot
       const sn=new Set(list.lines.filter(l=>l.strip&&l.no!=null).map(l=>l.no));
       list.lines.forEach(l=>{ if(l.stray) delete l.stray; if(sn.size>=R.STRIPMIN&&!l.strip&&l.conf!=null&&(l.no!=null?sn.has(l.no)&&l.conf<LOW:isNumTok(l.text)&&sn.has(+l.text.replace(/\D/g,'')))) l.stray=true; });
@@ -1576,6 +1589,10 @@
     // a column whose measured tilt stands apart from the others' is read at theirs as well, and the surer reading kept
     for(let i=0;i<zones.length;i++){ let d=await read(zones[i], T[i]); if(zones.length>2&&Math.abs(T[i]-mid)>2.5){ const e=await read(zones[i], mid); if(e.sum>d.sum) d=e; } done.push(d); }
     const inside=(v,r)=>{ const p=R.geom.local(r, (v.x0+v.x1)/2, (v.y0+v.y1)/2); return p[0]>=0&&p[0]<=r.w&&p[1]>=0&&p[1]<=r.h; };
+    // a column that stands level, and that the first reading read about as surely, is left as it was
+    const use=d=>Math.abs(d.tilt)>=R.LISTTILT||d.sum>R.LISTGAIN*d.was;
+    const sure=ws=>ws.reduce((a,v)=>a+(/[A-Za-zÀ-ɏ]{3}/.test(v.text)?v.conf||0:0),0);
+    for(let i=done.length-1;i>=0;i--){ const d=done[i]; d.was=sure(pg.words.filter(v=>v.strip==null&&inside(v,d.reg))); if(R._dbg){ const cnt=ws=>ws.filter(v=>/[A-Za-zÀ-ɏ]{3}/.test(v.text)).length, old=pg.words.filter(v=>v.strip==null&&inside(v,d.reg)); (pg.zdbg2=pg.zdbg2||[]).push({tilt:d.tilt, was:Math.round(d.was)+'/'+cnt(old)+'='+Math.round(d.was/Math.max(1,cnt(old))), now:Math.round(d.sum)+'/'+cnt(d.ws)+'='+Math.round(d.sum/Math.max(1,cnt(d.ws))), kept:use(d)}); } if(!use(d)) done.splice(i,1); }
     pg.words=pg.words.filter(v=>v.strip!=null||!done.some(d=>inside(v,d.reg)));
     done.forEach(d=>d.ws.forEach(v=>pg.words.push(v))); pg.zones=done.map(d=>({cx:Math.round(d.reg.cx), cy:Math.round(d.reg.cy), w:Math.round(d.reg.w), h:Math.round(d.reg.h), tilt:d.tilt, words:d.ws.length}));
   }
