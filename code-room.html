@@ -5805,14 +5805,14 @@ function crMergeOpen(){
   if(!GAME){ alert('Open a game first.'); return; }
   if(typeof cohMergePlan!=='function') return;
   crMergeClose();
-  crMerge={name:'', text:'', plan:null, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}};
+  crMerge={name:'', text:'', plan:null, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}, offsetFrom:{}, markSel:{}};
   const ov=document.createElement('div'); ov.id='mergeOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
   ov.innerHTML='<div id="mergeCard" style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:1080px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;font-family:Barlow,sans-serif;box-shadow:0 24px 64px rgba(0,0,0,.55);"></div>'
     +'<input type="file" id="mergeFile" accept=".xml,.json,text/xml,application/xml" style="display:none;" onchange="crMergeFile(this)">';
   document.body.appendChild(ov); crMergeRender();
 }
-function crMergeClose(){ const ov=document.getElementById('mergeOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crMerge=null; }
+function crMergeClose(){ if(crMgMark) crMergeMarkEnd(); const ov=document.getElementById('mergeOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crMerge=null; }
 function crMergeFile(inp){
   const f=(inp.files||[])[0]; if(!f||!crMerge) return;
   const rd=new FileReader();
@@ -5823,12 +5823,12 @@ function crMergeFile(inp){
 // (also what the headless tests call: the file's text, already decoded)
 function crMergeSetText(name, text){
   if(!crMerge) return;
-  Object.assign(crMerge, {name, text, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}});
+  Object.assign(crMerge, {name, text, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}, offsetFrom:{}, markSel:{}});
   crMergePlanNow();
 }
 function crMergePlanNow(){
   const M=crMerge; if(!M) return;
-  M.plan=cohMergePlan(EVENTS, GAME, M.text, {offsets:M.offsets});
+  M.plan=cohMergePlan(EVENTS, GAME, M.text, {offsets:M.offsets, offsetFrom:M.offsetFrom});
   if(M.plan.ok) M.plan.types.forEach(T=>{ if(!M.modes[T.kind]) M.modes[T.kind]=T.mode; });
   crMergeRender();
 }
@@ -5839,9 +5839,43 @@ function crMergeTick(inp){ if(!crMerge) return; const k=inp.getAttribute('data-k
 function crMergeTickAll(kind, on){ if(!crMerge||!crMerge.plan.ok) return; const T=crMerge.plan.types.find(x=>x.kind===kind); if(!T) return;
   T.rows.forEach(r=>{ if(on) delete crMerge.off[r.key]; else crMerge.off[r.key]=true; }); crMergeRender(); }
 function crMergeOffset(half, inp){ if(!crMerge) return; const v=String(inp.value||'').trim();
-  if(v===''||!isFinite(+v)) delete crMerge.offsets[half]; else crMerge.offsets[half]=+v;
+  if(v===''||!isFinite(+v)){ delete crMerge.offsets[half]; delete crMerge.offsetFrom[half]; } else { crMerge.offsets[half]=+v; crMerge.offsetFrom[half]='typed'; }
   crMergePlanNow(); }
-function crMergeOffsetAuto(half){ if(!crMerge) return; delete crMerge.offsets[half]; crMergePlanNow(); }
+function crMergeOffsetAuto(half){ if(!crMerge) return; delete crMerge.offsets[half]; delete crMerge.offsetFrom[half]; crMergePlanNow(); }
+// ── Mark on video: set a half's offset from the picture ──
+// The user picks an event of the FILE for the half (its period start by default), the dialog steps aside, he plays the
+// video to that exact moment and presses Set here. The video position is read as everywhere in Code Room (vNow(): the
+// main angle's clock, what "Set to current video moment" writes into an event's driveT) and turned into the game's event
+// clock the way that half's own rows relate the two (driveT = start + k): the offset is (position − k) − the event's
+// time in the file, so the chosen event would sit exactly where the video is. It then wins over the computed readings
+// for that half until "use computed".
+let crMgMark=null;   // {half, key, label, fileT, k}
+function crMergeMarkOffset(videoDrive, k, fileT){ return Math.round((videoDrive-(k==null?0:k)-fileT)*100)/100; }
+function crMergeMark(half){
+  const M=crMerge; if(!M||!M.plan||!M.plan.ok||!(YTP&&YTP.getCurrentTime)) return;
+  const a=M.plan.align.find(x=>x.half===half); if(!a||!a.marks.length) return;
+  const m=a.marks.find(x=>x.key===(M.markSel[half]||a.marks[0].key))||a.marks[0];
+  crMgMark={half, key:m.key, label:m.label, fileT:m.fileT, k:a.clock.k};
+  document.getElementById('mergeOv').style.display='none';
+  const bar=document.createElement('div'); bar.id='mergeMarkBar';
+  bar.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:10007;background:var(--panel);color:var(--t1);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px);font-family:Barlow,sans-serif;font-size:12.5px;box-shadow:0 12px 40px rgba(0,0,0,.6);';
+  const b=(t,fn,x)=>'<button onclick="'+fn+'" style="'+CR_MG_BTN+'padding:5px 9px;'+(x||'')+'">'+t+'</button>';
+  bar.innerHTML='<span id="mergeMarkText"><b>'+esc(half)+'</b> — play to <b>'+esc(m.label)+'</b> and press Set here</span>'
+    +b('−5s','crMergeMarkNudge(-5)')+b('−1s','crMergeMarkNudge(-1)')+b('+1s','crMergeMarkNudge(1)')+b('+5s','crMergeMarkNudge(5)')
+    +'<span id="mergeMarkNow" style="color:var(--t3);min-width:74px;"></span>'
+    +b('Set here','crMergeMarkSet()','border-color:var(--green);background:var(--green);color:#fff;')+b('Cancel','crMergeMarkEnd()','color:var(--t2);');
+  document.body.appendChild(bar);
+  crMgMark.timer=setInterval(()=>{ const el=document.getElementById('mergeMarkNow'); if(el) el.textContent='video '+fmt(vNow()); },250);
+}
+function crMergeMarkNudge(d){ if(crMgMark&&YTP&&YTP.seekTo) vSeekDrive(Math.max(0, vNow()+d)); }
+function crMergeMarkEnd(){ if(crMgMark&&crMgMark.timer) clearInterval(crMgMark.timer); crMgMark=null;
+  const bar=document.getElementById('mergeMarkBar'); if(bar&&bar.parentNode) bar.parentNode.removeChild(bar);
+  const ov=document.getElementById('mergeOv'); if(ov) ov.style.display='flex'; }
+function crMergeMarkSet(){
+  const K=crMgMark; if(!K||!crMerge) return;
+  crMerge.offsets[K.half]=crMergeMarkOffset(vNow(), K.k, K.fileT); crMerge.offsetFrom[K.half]='video'; crMerge.markSel[K.half]=K.key;
+  crMergeMarkEnd(); crMergePlanNow();
+}
 function crMergePlay(driveT){ if(YTP&&YTP.seekTo){ vSeekDrive(Math.max(0,+driveT||0)); try{ if(YTP.playVideo) YTP.playVideo(); }catch(_){} } }
 const CR_MG_MODE={fill:'Keep the game’s + fill blanks', file:'Take the file’s', both:'Keep both', none:'Don’t bring in'};
 function crMergePlayerText(r){
@@ -5882,22 +5916,36 @@ function crMergeBody(){
   if(!P||!P.ok) return h+'<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button onclick="crMergeClose()" style="'+CR_MG_BTN+'color:var(--t2);">Close</button></div>';
 
   // alignment
-  const sgn=v=>(v>0?'+':'')+(Math.round(v*100)/100);
-  h+='<div style="font-size:11.5px;color:var(--t2);margin:10px 0 4px;line-height:1.5;">Clocks: the game’s clock is the reference. For each half the file is moved by ONE offset — the middle difference of the kickouts both have (shots when the kickouts cannot decide). You can type an offset instead; nothing is merged for a half with no offset.</div>'
+  const sgn=v=>(v>0?'+':'')+(Math.round(v*100)/100), hasVid=!!(YTP&&YTP.getCurrentTime);
+  h+='<div id="mergeClockNote" style="font-size:11.5px;color:var(--t2);margin:10px 0 4px;line-height:1.5;">Clocks: the game’s clock is the reference, and for each half the file is moved by ONE offset. '
+    +'It is read three ways — from the <b>shots</b> both have, from the <b>kickouts</b> both have, and from the <b>throw-in</b> (the file’s period start against the game’s). The shots decide when enough of them agree, then the kickouts, then the throw-in: '
+    +'two analysts stamp a kickout a few seconds apart, so the kickouts carry that habit, and the throw-in is a single tag. You can type an offset or set it from the video; nothing is merged for a half with no offset.</div>'
     +'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeAlign" style="width:100%;border-collapse:collapse;font-size:11.5px;">'
-    +'<tr><th style="'+th+'">Half</th><th style="'+th+'">Offset (s) game − file</th><th style="'+th+'">From</th><th style="'+th+'">Kickouts paired</th><th style="'+th+'">Shots paired</th><th style="'+th+'">Spread</th><th style="'+th+'">Check</th></tr>'
+    +'<tr><th style="'+th+'">Half</th><th style="'+th+'">Offset used (s) game − file</th><th style="'+th+'">Readings</th><th style="'+th+'">Paired with this offset</th><th style="'+th+'">Check on the video</th></tr>'
     +P.align.map(a=>{
-      const cnt=c=>c?'<b>'+c.paired+'</b> of '+c.game+' in the game / '+c.file+' in the file'+(Math.abs(c.lag)>=1?'<br><span style="color:var(--t3);">tagged '+Math.abs(c.lag)+' s '+(c.lag<0?'earlier':'later')+' in the game</span>':''):'—';
-      const hint=(a.koOffset!=null&&a.shotOffset!=null&&Math.abs(a.koOffset-a.shotOffset)>=2&&a.offset!=null)?'<br><span style="color:var(--t3);">kickouts say '+sgn(a.koOffset)+' ('+a.koAgree+' agree), shots say '+sgn(a.shotOffset)+' ('+a.shotAgree+' agree)</span>':'';
-      const first=a.first?('<button onclick="crMergePlay('+(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+')" style="'+CR_MG_BTN+'padding:3px 8px;font-size:11px;" title="'+(YTP&&YTP.seekTo?'Play this moment in the video':'No video is loaded')+'">▶ '+fmt(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+'</button> '
-        +'<span style="color:var(--t3);">'+(a.first.paired?'first paired event: the file’s '+esc(a.first.code)+' = the game’s '+esc(a.first.gameCode):'the file’s first event of this half, '+esc(a.first.code)+', would be here')+'</span>'):'—';
-      return '<tr data-half="'+esc(a.half)+'"><td style="'+td+'white-space:nowrap;"><b>'+esc(a.half)+'</b></td>'
-        +'<td style="'+td+'white-space:nowrap;"><input type="text" value="'+(a.offset==null?'':a.offset)+'" placeholder="type seconds" data-half="'+esc(a.half)+'" onchange="crMergeOffset(this.getAttribute(\'data-half\'), this)" style="width:92px;padding:3px 6px;border-radius:5px;border:1px solid '+(a.offset==null?'#dc2626':'var(--border)')+';background:var(--card);color:var(--t1);font-size:12px;">'
-        +(a.typed?' <a href="#" onclick="crMergeOffsetAuto(\''+_cq(a.half)+'\');return false;" style="color:var(--accent);font-size:11px;">auto</a>':'')+'</td>'
-        +'<td style="'+td+'">'+(a.offset==null?'<span style="color:#f87171;">not lined up — '+esc(a.reason||'')+'. Nothing of this half is merged unless you type an offset.</span>'
-          :a.typed?'typed by you':esc(a.source)+hint)+'</td>'
-        +'<td style="'+td+'">'+cnt(a.ko)+'</td><td style="'+td+'">'+cnt(a.shot)+'</td>'
-        +'<td style="'+td+'white-space:nowrap;">'+(a.spread?sgn(a.spread.min)+' … '+sgn(a.spread.max)+' s':'—')+'</td><td style="'+td+'">'+first+'</td></tr>'; }).join('')+'</table></div>';
+      const R=a.readings, d=v=>a.offset==null?'':' <span style="color:var(--t3);">('+(Math.abs(v-a.offset)<0.005?'used':sgn(v-a.offset)+' s')+')</span>';
+      const line=(name,r,extra)=>'<div data-reading="'+name+'">'+name+': '+(r?'<b>'+sgn(r.offset)+'</b>'+d(r.offset)+' <span style="color:var(--t3);">'+extra+'</span>':'<span style="color:var(--t3);">'+extra+'</span>')+'</div>';
+      const readings=line('shots', R.shots, R.shots?R.shots.agree+' of '+R.shots.of+' agree'+(R.shots.confident?'':' — too few to rely on'):'none to compare')
+        +line('kickouts', R.kickouts, R.kickouts?R.kickouts.agree+' of '+R.kickouts.of+' agree'+(R.kickouts.confident?'':' — too few to rely on'):'none to compare')
+        +line('throw-in', R.anchor, R.anchor?(R.anchor.what==='NA Whistle'?'the file’s NA Whistle':'the file’s P START')+' at '+fmt(R.anchor.fileT)+' ↔ the game’s clock start':'not available — '+a.anchorWhy)
+        +(a.check?'<div data-check="1" style="color:#f59e0b;font-weight:700;margin-top:3px;">⚠ the readings differ by '+a.gap+' s — check with ▶ play this moment</div>':'');
+      const src=a.offset==null?'<span style="color:#f87171;">not lined up — '+esc(a.reason||'')+'. Nothing of this half is merged unless you type an offset or set it from the video.</span>'
+        :a.source==='video'?'<b style="color:var(--accent);">set from the video</b>':a.source==='typed'?'typed by you':'from the '+esc(a.source);
+      const back=a.typed?' · <a href="#" data-auto="1" onclick="crMergeOffsetAuto(\''+_cq(a.half)+'\');return false;" style="color:var(--accent);">use computed'+(a.computed?' ('+sgn(a.computed.offset)+', '+a.computed.source+')':'')+'</a>':'';
+      const cnt=(n,c)=>c?n+' <b>'+c.paired+'</b> of '+c.game+' / '+c.file+(Math.abs(c.lag)>=1?' <span style="color:var(--t3);">(tagged '+Math.abs(c.lag)+' s '+(c.lag<0?'earlier':'later')+' in the game)</span>':''):'';
+      const first=a.first?('<button onclick="crMergePlay('+(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+')" style="'+CR_MG_BTN+'padding:3px 8px;font-size:11px;" title="'+(hasVid?'Play this moment in the video':'No video is loaded')+'">▶ '+fmt(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+'</button> '
+        +'<span style="color:var(--t3);">'+(a.first.paired?'the file’s '+esc(a.first.code)+' = the game’s '+esc(a.first.gameCode):'the file’s first event of this half, '+esc(a.first.code)+', would be here')+'</span>'):'';
+      const sel=M.markSel[a.half]||(a.marks[0]||{}).key||'';
+      const mark=a.marks.length?('<div style="margin-top:5px;display:flex;gap:5px;align-items:center;flex-wrap:wrap;"><select data-mark="'+esc(a.half)+'" onchange="crMerge.markSel[this.getAttribute(\'data-mark\')]=this.value" '+(hasVid?'':'disabled')+' style="max-width:230px;padding:3px 5px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:11.5px;">'
+        +a.marks.map(m=>'<option value="'+esc(m.key)+'"'+(m.key===sel?' selected':'')+'>'+esc(m.label)+'</option>').join('')+'</select>'
+        +'<button data-markbtn="'+esc(a.half)+'" onclick="crMergeMark(this.getAttribute(\'data-markbtn\'))" '+(hasVid?'':'disabled')+' style="'+CR_MG_BTN+'padding:3px 8px;font-size:11px;'+(hasVid?'':'opacity:.45;cursor:default;')+'" title="Find this event in the video and set the offset from it">⌖ Mark on video</button>'
+        +(hasVid?'':'<span data-novideo="1" style="color:var(--t3);">no video is loaded</span>')+'</div>'):'';
+      return '<tr data-half="'+esc(a.half)+'" data-source="'+esc(a.source)+'"'+(a.check?' data-amber="1"':'')+' style="'+(a.check?'box-shadow:inset 3px 0 0 #f59e0b;':'')+'"><td style="'+td+'white-space:nowrap;"><b>'+esc(a.half)+'</b></td>'
+        +'<td style="'+td+'"><input type="text" value="'+(a.offset==null?'':a.offset)+'" placeholder="type seconds" data-half="'+esc(a.half)+'" onchange="crMergeOffset(this.getAttribute(\'data-half\'), this)" style="width:92px;padding:3px 6px;border-radius:5px;border:1px solid '+(a.offset==null?'#dc2626':'var(--border)')+';background:var(--card);color:var(--t1);font-size:12px;">'
+        +'<div data-src="1" style="margin-top:3px;">'+src+back+'</div></td>'
+        +'<td style="'+td+'">'+readings+'</td>'
+        +'<td style="'+td+'">'+(a.offset==null?'—':cnt('kickouts',a.ko)+'<br>'+cnt('shots',a.shot)+'<br>'+cnt('turnovers',a.to)+(a.spread?'<br><span style="color:var(--t3);">'+esc(a.spreadOf)+' spread '+sgn(a.spread.min)+' … '+sgn(a.spread.max)+' s</span>':''))+'</td>'
+        +'<td style="'+td+'">'+first+mark+'</td></tr>'; }).join('')+'</table></div>';
 
   // types
   const ops=crMergeOpsNow();
