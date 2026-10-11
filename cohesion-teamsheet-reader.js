@@ -33,10 +33,10 @@
   const foldKey=s=>fold(s).replace(/[^a-z0-9]+/g,'');
   const hasLetter=s=>/[A-Za-zÀ-ɏ]/.test(s);
   const isNumTok=s=>/^#?\d{1,2}[.):]?$/.test(String(s).trim());
-  // the jersey number a line starts with ("7 Name", "7. Name", "7<TAB>Name") or ends with ("Name (7)"), else null
+  // the jersey number a line starts with ("7 Name", "7. Name", "7<TAB>Name", "16(GK) Name") or ends with ("Name (7)"), else null
   function lineNo(text){
     const s=String(text==null?'':text).trim();
-    let m=/^[#(\[]?\s*(\d{1,2})(?:\s*[.\-–—:)\]]+\s*|\s+)(?=\S)/.exec(s);
+    let m=/^[#(\[]?\s*(\d{1,2})(?:\s*[.\-–—:)\]]+\s*|\s+|(?=[(\[][A-Za-z]))(?=\S)/.exec(s);
     if(m&&hasLetter(s.slice(m[0].length))) return +m[1];
     m=/[(\[]\s*#?\s*(\d{1,2})\s*[)\]]\s*$/.exec(s);
     if(m&&hasLetter(s.slice(0,m.index))) return +m[1];
@@ -93,6 +93,8 @@
     const wds=[].concat.apply([], segs.map(s=>s.words)), cf=segs.map(s=>s.conf).filter(c=>c!=null);
     // recognised text: a scrap of one or two characters in front of "18 Seán MacMahon" is a mark, not part of the line
     if(cf.length) text=text.replace(/^[A-Za-z|!\[\].,:;'"“”‘’~_-]{1,2}\s+(?=#?\d{1,2}[.)\]:]?\s+[A-ZÀ-Þ])/,'');
+    // … and so is an unsure scrap of small letters after a numbered name ("21 Paul Conroy vi")
+    if(cf.length&&plain&&wds.length>2){ const z=wds.slice().sort((a,b)=>a.rx0-b.rx0).pop(); if(z.conf!=null&&z.conf<60&&/^[a-zß-ÿ|!.,:;'"~_-]{1,2}$/.test(z.text)&&lineNo(text)!=null&&text.endsWith(' '+z.text)) text=text.slice(0,-z.text.length-1); }
     return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h, words:wds,
       box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
   }
@@ -301,7 +303,9 @@
   // it, nearer to it than to any other numbered line, and well before the place the next numbered line of that
   // column is expected — so a player whose number was simply not read stays visible.
   function nameBlocks(lines){
-    const L=(lines||[]).filter(l=>l&&l.box), num=L.filter(l=>l.no!=null&&l.no<=40);
+    const L=(lines||[]).filter(l=>l&&l.box), strips=L.filter(l=>l.strip).length>=R.STRIPMIN;
+    // (where the banners were read one by one, an unsure numbered line of the first reading among them is not a player's line)
+    const num=L.filter(l=>l.no!=null&&l.no<=40&&!(strips&&!l.strip&&l.no<=15&&l.conf!=null&&l.conf<LOW));
     L.forEach(l=>{ if(l.under) delete l.under; });
     if(num.length<8) return {on:false, under:0};
     const yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>Math.max(1,l.box.y1-l.box.y0);
@@ -720,7 +724,7 @@
   // sharply from the gaps between them. r = {x, y (the middle of the strip's left end), len, tall}.
   function textTilt(g, w, h, r, o){
     o=o||{};
-    const step=Math.max(1, Math.round(r.tall/48)), nx=Math.floor(r.len/step), ny=Math.floor(r.tall/step), max=o.max||16, E=new Float64Array(Math.max(1,ny));
+    const step=Math.max(1, Math.round(r.tall/(o.rows||48))), nx=Math.floor(r.len/step), ny=Math.floor(r.tall/step), max=o.max||16, E=new Float64Array(Math.max(1,ny));
     if(nx<8||ny<6) return {angle:0, sharp:0};
     const score=a=>{ const t=Math.tan(a*Math.PI/180); let s=0;
       for(let j=0;j<ny;j++){ const v=(j-ny/2)*step; let e=0; for(let i=1;i<nx-1;i++){ const u=i*step, x=Math.round(r.x+u), y=Math.round(r.y+v+u*t); if(x<1||y<0||x>=w-1||y>=h) continue; e+=Math.abs(g[y*w+x+1]-g[y*w+x-1]); } E[j]=e; }
@@ -787,6 +791,20 @@
     return placed;
   }
   R.stripNumbers=stripNumbers;
+  // Where the numbered list under a formation (the subs) stands, column by column: the lines of the first reading that
+  // start with a number above 15, grouped by where they start. Each column is then read again by itself, levelled by
+  // its own tilt and enlarged (its type is small, and on a bent page it runs at another tilt than the formation).
+  // → [{x0,y0,x1,y1}] in the picture, or [] when there is no such list
+  function listZones(words, W, Hh){
+    const fr=freeLayout(words), H=fr.H||1, S=[].concat.apply([], fr.columns.map(c=>c.lines)).filter(l=>l.no!=null&&l.no>15&&l.no<=40&&l.box&&!l.strip&&l.h<2.2*H);
+    if(S.length<4) return [];
+    S.sort((a,b)=>a.box.x0-b.box.x0);
+    const cols=[]; S.forEach(l=>{ const c=cols[cols.length-1]; if(c&&l.box.x0-c.x<5*H){ c.L.push(l); c.x=med(c.L.map(q=>q.box.x0)); } else cols.push({x:l.box.x0, L:[l]}); });
+    return cols.map((c,i)=>{ const hh=med(c.L.map(l=>l.box.y1-l.box.y0))||H, nx=cols[i+1];
+      return {x0:Math.max(0, Math.min.apply(null,c.L.map(l=>l.box.x0))-1.2*hh), x1:nx?Math.min.apply(null,nx.L.map(l=>l.box.x0))-1.4*hh:(W||1e9),
+        y0:Math.max(0, Math.min.apply(null,c.L.map(l=>l.box.y0))-3.2*hh), y1:Math.min(Hh||1e9, Math.max.apply(null,c.L.map(l=>l.box.y1))+3.6*hh), n:c.L.length}; }).filter(z=>z.x1-z.x0>6*H);
+  }
+  R.listZones=listZones;
 
   // ── 2. lines → team lists ─────────────────────────────────────
   // Is this line a team's name used as a heading? ("GARRYMORE", "Garrymore GAA", "CLG Béal an Mhuirthead")
@@ -902,7 +920,7 @@
   const RE_ROLE=new RegExp('(^|\\s)(?:[(\\[{]\\s*'+ROLE+'\\s*[)\\]}]?|'+ROLE+'\\s*[)\\]}])(?=\\s|$)','gi');
   const stripRole=c=>c.replace(RE_ROLE,'$1').replace(/ {2,}/g,' ').trim();
   R.stripRole=stripRole;
-  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)', cut:'cut off by the edge of the crop box', above:'a line above the numbered list', inbox:'Irish name / club in the player\u2019s name box', outside:'not in a name box or the numbered list', club:'club printed after the name'};
+  const WHY={marks:'no letters or numbers', official:'manager / official', team:'team name', position:'position heading', event:'fixture / date / venue', bracket:'only a note in brackets', across:'a line across both columns', column:'a second column beside the names', under:'line under a numbered player (Irish name / club)', cut:'cut off by the edge of the crop box', above:'a line above the numbered list', inbox:'Irish name / club in the player\u2019s name box', outside:'not in a name box or the numbered list', club:'club printed after the name', stray:'an unsure first reading of a banner that was then read by itself'};
   R.WHY=WHY;
   // "15 | Liam Ó Conghaile ." → "15 Liam Ó Conghaile"; "8 JohnMaher" → "8 John Maher"; "7 sean Kelly" → "7 Sean Kelly"
   const NOSPLIT=/^(?:Mc|Mac|Mag|De|Le|La|Fitz|Ni|Nic|Ui|Mhic|Van|Du|Di|O)$/;
@@ -944,7 +962,7 @@
     const besideOfficial=l=>l.box&&l.conf!=null&&offs.some(q=>q!==l&&q.page===l.page&&l.box.x0>=q.box.x1&&Math.abs((q.box.y0+q.box.y1)-(l.box.y0+l.box.y1))/2<0.5*Math.max(q.box.y1-q.box.y0, l.box.y1-l.box.y0));
     (lines||[]).forEach(l=>{
       const raw=String(l.text==null?'':l.text);
-      if(l.inbox||l.outside){ if(/[A-Za-zÀ-ɏ0-9]/.test(raw)) drop(raw, l.inbox?'inbox':'outside'); return; }
+      if(l.inbox||l.outside||l.stray){ if(/[A-Za-zÀ-ɏ0-9]/.test(raw)) drop(raw, l.inbox?'inbox':l.stray?'stray':'outside'); return; }
       if(l.tail) drop(l.tail+'  (after “'+raw.trim()+'”)', 'club');
       // table rules and stray marks an image reader picks up
       let cells=raw.split('\t').map(c=>c.replace(/[|¦]/g,' ').replace(/^[\s_~=•·*»«›‹]+|[\s_~=•·*»«›‹]+$/g,'').replace(/^[-–—.]+\s+|\s+[-–—]+$/g,'').replace(/ {2,}/g,' ')).filter(Boolean);
@@ -967,7 +985,7 @@
       }
       // "7 Jack Coyne (Ballyhaunis)" / "(Capt.)" → the note in brackets goes; "Name (7)" is a number and stays
       if(!RE_KEEP.test(f)){
-        cells=cells.map(c=>stripRole(c).replace(RE_BRACKET,'').trim()).filter(Boolean);
+        cells=cells.map(c=>stripRole(c.replace(/^(#?\d{1,2})(?=[(\[][A-Za-z])/,'$1 ')).replace(RE_BRACKET,'').trim()).filter(Boolean);
         const t2=cells.join('\t');
         if(!/[A-Za-zÀ-ɏ0-9]/.test(t2)) return drop(raw,'bracket');
         t=t2;
@@ -1048,7 +1066,9 @@
       if(p.boxes&&p.boxes.length>=R.BOXMIN){ const bl=boxLayout(p.words, p.boxes, {skew:p.skew}); if(bl){ lay=bl; p.stats=bl.stats; } }
       p.model=lay.boxed?'boxes':lay.free?'free':'columns';
       // a crop box: a line touching an edge of it was cut through by the box
-      if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3||l.box.y0<=2||(p.height&&l.box.y1>=p.height-2))) l.cut=true; }));
+      if(p.width) lay.columns.forEach(c=>c.lines.forEach(l=>{ if(l.box&&(l.box.x0<=3||l.box.x1>=p.width-3||l.box.y0<=2||(p.height&&l.box.y1>=p.height-2))) l.cut=true;
+        // a number standing right at the left edge may have lost a figure to it ("19" read as "9"): that line is marked unsure
+        else if(l.box&&l.no!=null&&l.conf!=null&&l.box.x0<0.5*(l.box.y1-l.box.y0)) l.conf=Math.min(l.conf, 50); }));
       if(p.cuts&&p.cuts.length) lay.columns.concat([{lines:lay.spanning||[]}]).forEach(c=>c.lines.forEach(l=>{ if(l.box&&p.cuts.some(q=>q.xc>=l.box.x0-1&&q.xc<=l.box.x1+1&&q.yc>=l.box.y0-1&&q.yc<=l.box.y1+1)) l.cut=true; }));
       const tag=l=>{ l.page=p.n; return l; };
       lay.columns.forEach(c=>columns.push({lines:c.lines.map(tag), notes:c.notes, boxed:c.boxed}));
@@ -1085,6 +1105,9 @@
     let placed=[];
     if(list&&list.boxed){ list.lines.forEach(l=>{ if(l.under) delete l.under; if(l.above) delete l.above; }); }
     else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
+      // a banner read by itself, and an unsure line of the first reading with the same number: the second is a stray reading of that spot
+      const sn=new Set(list.lines.filter(l=>l.strip&&l.no!=null).map(l=>l.no));
+      list.lines.forEach(l=>{ if(l.stray) delete l.stray; if(sn.size>=R.STRIPMIN&&!l.strip&&l.no!=null&&sn.has(l.no)&&l.conf!=null&&l.conf<LOW) l.stray=true; });
       // a list of numbered players: an unnumbered line above its first number is a title or heading, not a player
       // (not when numbers stand on lines of their own — there a name may come before its number)
       const L=list.lines, first=L.findIndex(l=>l.no!=null&&l.no<=40);
@@ -1530,6 +1553,23 @@
     pg.words=pg.words.filter(w=>!got.some(s=>inside(w,s)||box(w,s.a)));
     got.forEach((s,i)=>s.words.forEach(w=>{ w.strip=i; w.row=s.a.row; pg.words.push(w); }));
     pg.strips=got.length;
+    await readLists(eng, view, pg);
+  }
+
+  // the numbered list under the formation (the subs): each of its columns again, levelled and enlarged, read twice and merged
+  async function readLists(eng, view, pg){
+    const W=view.width, H=view.height, zones=R.listZones(pg.words, W, H); if(!zones.length) return;
+    const mc=minChannel(view), done=[];
+    const tilt=q=>R.textTilt(mc, W, H, {x:q.x0, y:(q.y0+q.y1)/2, len:q.x1-q.x0, tall:q.y1-q.y0}, {rows:Math.round((q.y1-q.y0)/3), max:10}).angle;
+    const T=zones.map(tilt), srt=T.slice().sort((a,b)=>a-b), mid=srt[srt.length>>1];
+    const read=async(q,t)=>{ const w=q.x1-q.x0, h=q.y1-q.y0, z=stripCanvas(view, {cx:(q.x0+q.x1)/2, cy:(q.y0+q.y1)/2, w, h, angle:t}, Math.min(2*h, 1900*h/Math.max(w,h)), false), got=[];
+      for(const th of ['0','2']) got.push(await eng.pass(z.canvas, {tessedit_pageseg_mode:'6', thresholding_method:th, tessedit_char_whitelist:''}));
+      const ws=stripBack(z, R.mergeWords(got)); ws.forEach(v=>{ v.zone=true; }); return {reg:z.reg, ws, tilt:t, sum:ws.reduce((a,v)=>a+(/[A-Za-zÀ-ɏ]{3}/.test(v.text)?v.conf||0:0),0)}; };
+    // a column whose measured tilt stands apart from the others' is read at theirs as well, and the surer reading kept
+    for(let i=0;i<zones.length;i++){ let d=await read(zones[i], T[i]); if(zones.length>2&&Math.abs(T[i]-mid)>2.5){ const e=await read(zones[i], mid); if(e.sum>d.sum) d=e; } done.push(d); }
+    const inside=(v,r)=>{ const p=R.geom.local(r, (v.x0+v.x1)/2, (v.y0+v.y1)/2); return p[0]>=0&&p[0]<=r.w&&p[1]>=0&&p[1]<=r.h; };
+    pg.words=pg.words.filter(v=>v.strip!=null||!done.some(d=>inside(v,d.reg)));
+    done.forEach(d=>d.ws.forEach(v=>pg.words.push(v))); pg.zones=done.map(d=>({cx:Math.round(d.reg.cx), cy:Math.round(d.reg.cy), w:Math.round(d.reg.w), h:Math.round(d.reg.h), tilt:d.tilt, words:d.ws.length}));
   }
 
   // ── PDF (pdf.js) ──────────────────────────────────────────────
