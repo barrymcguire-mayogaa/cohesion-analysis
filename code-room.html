@@ -5929,7 +5929,7 @@ function crMergeBody(){
   if(outRows.length) h+=h3('Left out')+'<div id="mergeLeftOut" style="font-size:11.5px;color:var(--t2);line-height:1.6;">'+outRows.map(esc).join('<br>')+'</div>';
   const can=ops.adds.length||ops.edits.length||ops.deletes.length;
   h+='<div style="display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">'
-    +'<div id="mergeSummary" style="flex:1;font-size:12.5px;line-height:1.5;"><b>This merge '+esc(ops.summary)+'.</b>'
+    +'<div id="mergeSummary" style="flex:1;font-size:12.5px;line-height:1.5;"><b>'+(can?'This merge '+esc(ops.summary):'Nothing to bring in — everything chosen is already in the game')+'.</b>'
     +(ops.counts.twice?'<br><span style="color:#f59e0b;">'+ops.counts.twice+' event'+(ops.counts.twice===1?'':'s')+' will be in the game twice (Keep both) — the stats will count '+(ops.counts.twice===1?'it':'them')+' twice.</span>':'')
     +'<br><span style="color:var(--t3);">'+ops.counts.addRows+' new row'+(ops.counts.addRows===1?'':'s')+', '+ops.counts.filledRows+' changed, '+ops.counts.removedRows+' removed · queued, not saved, until you close the session.</span></div>'
     +'<button onclick="crMergeClose()" style="'+CR_MG_BTN+'color:var(--t2);">Cancel</button>'
@@ -5969,9 +5969,13 @@ function crMergeGo(){
   const ops=crMergeOpsNow(); if(!ops) return;
   const name=crMerge.name; crMergeClose();
   if(!crMergeQueue(ops)) return;
-  const pn=document.getElementById('epStatus');
-  if(pn){ pn.className='status ok'; pn.textContent='Merge queued ✓ '+name+': '+ops.summary+' — saved when you close the session; Undo takes the whole merge back'; }
+  crMgStatus('Merge queued ✓ '+name+': '+ops.summary+' — saved when you close the session; Undo takes the whole merge back');
   crPTagBtnSync();
+}
+// the result line: the edit panel's status, or — with no event selected — the empty panel itself
+function crMgStatus(text){
+  const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent=text; return; }
+  const p=document.getElementById('epanel'); if(p&&/\bempty\b/.test(p.className)) p.innerHTML='<div class="status ok" id="mgStatus" style="margin-bottom:10px;text-align:left;">'+esc(text)+'</div>Select an event.';
 }
 
 // ── P-numbers → names from the team sheet ─────────────────────
@@ -6032,8 +6036,8 @@ function crPTagGo(){
   if(!crPTag) return;
   const ids=crPTag.items.filter(it=>crPTag.ticks[it.rowId]).map(it=>it.rowId);
   crPTagClose(); if(!ids.length) return;
-  const t=crPTagApply(ids), pn=document.getElementById('epStatus');
-  if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+t.values+' player number'+(t.values===1?'':'s')+' replaced by the team-sheet name on '+t.rows+' event'+(t.rows===1?'':'s')+' — saved when you close the session; Undo reverses it'; }
+  const t=crPTagApply(ids);
+  crMgStatus('Queued ✓ player numbers replaced by the team-sheet name on '+t.rows+' event'+(t.rows===1?'':'s')+' ('+t.values+' value'+(t.values===1?'':'s')+') — saved when you close the session; Undo reverses it');
 }
 
 // ── Kickout chart-scale fix ───────────────────────────────────
