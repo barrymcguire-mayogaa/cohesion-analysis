@@ -47,7 +47,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .drop .row:hover{background:var(--hover);}
 
 /* editor */
-.grid{display:grid;grid-template-columns:1fr 400px;gap:14px;align-items:start;}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start;}
 .vwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
 .editcol{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain;}
 @media(max-width:900px){.editcol{max-height:none;overflow-y:visible;}}
@@ -77,15 +77,15 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vtime{margin-left:auto;font:700 12px 'Barlow Condensed',sans-serif;color:var(--t2);}
 
 .list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:48vh;margin-top:14px;}
-.lfilter{padding:8px;border-bottom:1px solid var(--border);display:flex;gap:6px;}
-.lfilter input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
+.lfilter{padding:8px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.lfilter input{flex:1;min-width:140px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
 .lfilter select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px;color:var(--t1);font:12px 'Barlow',sans-serif;}
 .levents{overflow-y:auto;flex:1;}
 .list.tlon{max-height:66vh;}
 .viewtog{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;flex:none;}
 .viewtog button{background:var(--card);border:none;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;padding:7px 10px;cursor:pointer;}
 .viewtog button.on{background:var(--accent);color:#fff;}
-.tlzwrap{display:flex;gap:3px;margin-left:auto;}
+.tlzwrap{display:flex;gap:3px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
 .tlzb{width:24px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:700 14px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);overflow:hidden;line-height:1;}
 .tlzb:hover{border-color:var(--accent);color:var(--accent);}
 .tlrb{height:26px;padding:0 8px;border-radius:5px;display:flex;align-items:center;gap:2px;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);white-space:nowrap;}
