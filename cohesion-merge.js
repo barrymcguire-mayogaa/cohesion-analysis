@@ -38,21 +38,27 @@
  *                          (no meaning is invented for it).
  * FREE AGAINST: a file foul BY a team whose own turnover starts within FA_WINDOW
  * seconds is that turnover's type — offered only where the turnover's type is blank.
+ * (These are cohesion-gi.js's own conversions — "GIU: OTHER ROWS" — so a merged row and a converted GIU game agree.)
  *
- * CLOCKS. The game's clock is the reference. Per half, the offset (game − file) is
- * the median difference of paired same-team KICKOUTS (shots when the kickouts cannot
- * decide); every event of the file in that half is moved by that ONE offset, so the
- * file's own order is kept. Different analysts tag a shot or a turnover a few
- * seconds apart, so pairing allows each event type its own measured lag. A half
- * that cannot be lined up gets no offset and nothing of it is merged (a typed
- * offset can be supplied). driveT / gameTime are written the way the game's own
- * rows in that half carry them.
+ * CLOCKS. The game's clock is the reference. Per half there are up to three readings of the offset (game − file):
+ *   shots     the offset most same-team SHOTS agree on (median of those pairs);
+ *   kickouts  the same from the KICKOUTS — two analysts stamp a kickout several seconds apart (the kick v the catch),
+ *             so this reading carries that habit;
+ *   throw-in  the file's period start (GIU "P1 / P2 START", the Gaelic Insights "NA Whistle" that starts the half)
+ *             against the game's own (the moment its rows' gameTime counts from: "1H 00:00") — one event, so it is
+ *             only as good as that one tag; "not available" when either side has none.
+ * The half's offset is the first of: one typed or set from the video by the user, the shots when confident, the
+ * kickouts when confident, the throw-in. Every event of the file in that half is moved by that ONE offset, so the
+ * file's own order is kept; all readings are reported and a half whose readings differ by more than CHECK_GAP seconds
+ * is flagged for a look at the video. Pairing allows each event type its own measured lag (kickouts ≈ 5 s here). A
+ * half with no offset gets nothing merged. driveT / gameTime are written the way the game's own rows carry them.
  *
  * PLAYER NUMBERS. A GIU file names a player only by jersey number ("P13" = number 13 of that team). It is turned into
  * the name at that number on the game's team sheet (cohesion-gi.js cohGiuRosterName: meta.rosters[side], the admin's
  * P-tag map first) when there is one; with no player at that number the row keeps "P13" — never a guess. A row whose
- * name came from a number remembers it in the field `pTag`. cohPTagFixes lists every value that is STILL a bare
- * P-number (for a team sheet added or changed later); a value that is not a bare P-number is never touched.
+ * name came from a number remembers the number and the name written (`pTag`, `pTagName`). cohPTagFixes lists every
+ * value that is STILL a bare P-number, and every remembered name whose number now has a different player on the
+ * sheet (see P-NUMBERS); a value someone typed is never touched.
  *
  * A FORMAT is an adapter (ADAPTERS): text → the file's events as the admin upload
  * reads them. Gaelic Insights and GIU are supported; any other format is refused
@@ -69,6 +75,7 @@
   const BIAS_WINDOW = 20;       // ± seconds searched for an event type's own lag
   const TOL = { ko:8, shot:8, to:10 };   // ± seconds round the lag within which two events are the same one
   const TOL_DEFAULT = 8;
+  const CHECK_GAP = 3;          // seconds: readings of one half further apart than this are flagged
   const EDGE = 600, BREAK = 240;         // a file with no half labels: how far outside a half's anchors an event may sit; a gap this long is a break
   const KIND_NAME = { shot:'Shots', ko:'Kickouts', to:'Turnovers', foul:'Fouls', poss:'Possessions', solo:'Solo and Go', hop:'Throw Up → HOP BALL' };
   const KIND_WORD = { shot:['shot','shots'], ko:['kickout','kickouts'], to:['turnover','turnovers'], foul:['foul','fouls'], poss:['possession','possessions'],
@@ -85,6 +92,7 @@
   const clone = o => JSON.parse(JSON.stringify(o));
   const isPTag = s => /^P\s*\d+$/i.test(String(s || '').trim());
   const pTagOf = s => { const m = /^P\s*(\d+)$/i.exec(String(s || '').trim()); return m ? 'P' + (+m[1]) : ''; };
+  const clockOf = t => { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const plural = (n, w) => n + ' ' + (n === 1 ? w[0] : w[1]);
 
   // ── reading a file ──────────────────────────────────────────────
@@ -135,16 +143,17 @@
           raw.push({ id: i.id || String(raw.length + 1), start:i.start, end:i.end, half: labels['Half'] || null, code:i.code, team: teamOfCode(i.code, game),
             player: labels['Player'] || '', outcome: labels['ShotOutcome'] || labels['KickoutOutcome'] || labels['PossFrom'] || '', subtype: labels['KODistance'] || labels['PitchArea'] || '', labels });
         });
-        return { raw, skipped: markers.length ? [{ code:'P1 / P2 START', n:markers.length, reason:'period markers — not events' }] : [] };
+        const starts = {}; markers.forEach(m => { const h = HALVES[+/^P(\d)/.exec(m.code)[1] - 1]; if(h && starts[h] == null) starts[h] = m.start; });
+        return { raw, starts, startName:'P START', skipped: markers.length ? [{ code:'P1 / P2 START', n:markers.length, reason:'period markers — not events (read for the throw-in reading)' }] : [] };
       } },
     // Gaelic Insights: one <instance> per LABEL (merged by <ID>), labels renamed as stored; NA Whistle is ignored by the
     // import. The file says no half: each event's half comes from the alignment with the game.
     'gaelic-insights': { name:'Gaelic Insights XML', short:'gi', consumed:['Assist','Description','Outcome','KickoutOutcome','KickoutLength','TurnoverZone','Source','Player'],
       read(text, game){
-        const map = new Map(); let whistles = new Set();
+        const map = new Map(), whistles = new Map();
         instancesOf(text).forEach(i => {
           if(!i.id) return;
-          if(i.code === 'NA Whistle'){ whistles.add(i.id); return; }
+          if(i.code === 'NA Whistle'){ whistles.set(i.id, i.start); return; }
           if(!map.has(i.id)) map.set(i.id, { id:i.id, start:i.start, end:i.end, code:i.code, L:{} });
           const l = i.labels[0]; if(l && l[0] && l[1]) map.get(i.id).L[l[0]] = l[1];
         });
@@ -154,7 +163,14 @@
           if(L['turnover_zone']) c['TurnoverZone'] = L['turnover_zone']; if(L['Source']) c['Source'] = L['Source'];
           return { id:ev.id, start:ev.start, end:ev.end, half:null, code:ev.code, team: teamOfCode(ev.code, game), player: L['Player'] || '',
             outcome: L['Outcome'] || '', subtype: L['Description'] || L['Kickout_Length'] || '', labels:c }; });
-        return { raw, skipped: whistles.size ? [{ code:'NA Whistle', n:whistles.size, reason:'period whistles — the import ignores them' }] : [] };
+        // the whistles that START a period (the upload's own reading): the first one; then every whistle with play resuming within
+        // 300 s that follows a break of 240 s or more, or is the first whistle after an end-of-period one (no play within 300 s of it)
+        const W = [...new Set(whistles.values())].sort((a, b) => a - b), play = raw.map(e => e.start), starts = {}, list = [];
+        const after = t => { for(const g of play) if(g >= t) return g; return null; }, gapBefore = t => { let p = null; for(const g of play){ if(g < t) p = g; else break; } return p == null ? Infinity : t - p; };
+        const resumes = t => { const f = after(t); return f != null && f - t <= 300; };
+        W.forEach((t, i) => { if(!i){ list.push(t); return; } if(!resumes(t)) return; if(gapBefore(t) >= BREAK || !resumes(W[i-1])) list.push(t); });
+        list.forEach((t, i) => { if(HALVES[i]) starts[HALVES[i]] = t; });
+        return { raw, starts, startName:'NA Whistle', skipped: whistles.size ? [{ code:'NA Whistle', n:whistles.size, reason:'period whistles — the import ignores them (read for the throw-in reading)' }] : [] };
       } },
   };
 
@@ -172,7 +188,7 @@
   }
   // → [{ key, srcId, kind, team, ft, fe, half, code (the file's), rows:[main, companions…] }] + what cannot be converted
   function fileItems(raw, game, adapter, keep){
-    const derived = GI.cohGiConvert(raw, game, { carry:false }), bySrc = new Map(), items = [], out = [];
+    const derived = GI.cohGiConvert(raw, game, { carry:false, fa:false }), bySrc = new Map(), items = [], out = [];   // (FREE AGAINST is the merge's own, ticked, step)
     derived.forEach(d => { const s = lbl(d, GI_SRC); if(!bySrc.has(s)) bySrc.set(s, []); bySrc.get(s).push(d); });
     const consumed = new Set(adapter.consumed.map(s => s.toLowerCase()));
     const extra = (e, also) => { const o = {}; Object.keys(e.labels || {}).forEach(g => { const w = g.toLowerCase();
@@ -183,12 +199,15 @@
     raw.forEach(e => {
       const id = String(e.id), d = bySrc.get(id), base = { key:id, srcId:id, team:e.team, ft:e.start, fe:Math.max(e.start, e.end), half:e.half, code:e.code };
       if(d && d.length){
-        const main = d[0], kind = /SHOT (OPEN|DEAD)/i.test(main.code) ? 'shot' : GI.cohGiIsDerivedKo(main) ? 'ko' : 'to';
+        const main = d[0], MC = up(main.code), kind = /SHOT (OPEN|DEAD)/.test(MC) ? 'shot' : GI.cohGiIsDerivedKo(main) ? 'ko' : GI.cohGiIsDerivedTo(main) ? 'to'
+          : /TEAM POSSESSION$/.test(MC) ? 'poss' : /FOUL$/.test(MC) ? 'foul' : /SOLO AND GO$/.test(MC) ? 'solo' : 'hop';
         const rows = d.map(r => { const c = clone(r); delete c.labels[GI_SRC]; delete c.videoT; return c; });
-        Object.assign(rows[0].labels, extra(e, null));
+        // the file's labels the conversion did not use (PitchArea is used when it became the row's third)
+        const used = (rows[0].labels['Foul Areas'] || rows[0].labels['Turnover Locations']) ? ['pitcharea'] : null, more = extra(e, used);
+        Object.keys(more).forEach(g => { if(keyCI(rows[0].labels, g) == null) rows[0].labels[g] = more[g]; });
         const tg = pTagOf((e.labels || {})['Player'] || e.player);
-        if(tg && kind === 'shot'){ rows[0].pTag = tg; base.pTag = tg; base.pName = isPTag(rows[0].player) ? '' : rows[0].player; }
-        items.push(Object.assign(base, { kind, team: kind === 'to' ? up(main.team) : up(main.team) || e.team, rows }));
+        if(tg && kind === 'shot'){ base.pTag = tg; base.pName = isPTag(rows[0].player) ? '' : rows[0].player; }
+        items.push(Object.assign(base, { kind, team: kind === 'hop' ? '' : up(main.team) || e.team, rows }));
         return;
       }
       const C = String(e.code || '').trim(), T = e.team, rest = T ? C.slice(T.length).trim() : C, R = up(rest);
@@ -196,19 +215,12 @@
         labels: Object.assign({}, labels, extra(e, also)) });
       const withPlayer = r => { const tag = String((e.labels || {})['Player'] || e.player || '').trim(); if(!tag || !T) return r;
         const p = (isPTag(tag) && GI.cohGiuRosterName(game, T, tag)) || tag; r.player = p; r.labels[T + ' Player Labels'] = p;
-        if(isPTag(tag)){ r.pTag = pTagOf(tag); base.pTag = r.pTag; base.pName = isPTag(p) ? '' : p; } return r; };
+        if(isPTag(tag)){ base.pTag = pTagOf(tag); base.pName = isPTag(p) ? '' : p; if(base.pName){ r.pTag = base.pTag; r.pTagName = p; } } return r; };
       if(/kickout$/i.test(C) && T){   // kept as an event (it can pair with the game's kickout) but there is nothing to convert
         const v = String((e.labels || {})['KickoutOutcome'] || '').trim();
         items.push(Object.assign(base, { kind:'ko', rows:[], bad:'its kickout outcome ' + (v ? '“' + v + '” ' : '') + 'cannot be read as won or lost by either team' })); return; }
       if(/turnovers?\s+won$/i.test(C)){ leave(e, 'the team that lost the ball could not be read'); return; }
       if(/shot/i.test(C) && T && GI.cohGiIsShot(e)){ leave(e, 'the shot could not be converted'); return; }
-      if(T && /^turnovers?(\s+lost)?$/i.test(rest)){ const t = thirdOf((e.labels || {})['PitchArea']), L = {}; if(t) L['Turnover Locations'] = t;
-        items.push(Object.assign(base, { kind:'to', rows:[withPlayer(row(T + ' TOs', L, t ? ['pitcharea'] : null))] })); return; }
-      if(T && R === 'FOUL'){ const t = thirdOf((e.labels || {})['PitchArea']), L = {}; if(t) L['Foul Areas'] = t;
-        items.push(Object.assign(base, { kind:'foul', rows:[withPlayer(row(T + ' FOUL', L, t ? ['pitcharea'] : null))] })); return; }
-      if(T && R === 'POSS'){ items.push(Object.assign(base, { kind:'poss', rows:[withPlayer(row(T + ' TEAM POSSESSION', {}, null))] })); return; }
-      if(T && R === 'SOLO AND GO'){ items.push(Object.assign(base, { kind:'solo', rows:[withPlayer(row(T + ' SOLO AND GO', {}, null))] })); return; }
-      if(!T && up(C) === 'THROW UP'){ items.push(Object.assign(base, { kind:'hop', rows:[row('HOP BALL', {}, null)] })); return; }
       if(!R){ leave(e, 'no row name'); return; }
       // any other row: the same name in capitals, its labels, no meaning added
       // (category 'Other' whatever the name: "GOALKEEPER" / "OP WIDE" must not be filed under shots by their spelling)
@@ -320,6 +332,7 @@
         return;
       }
       if(grp === 'Deadball Shot Type' && (shotKindDiffers || !dead(gCode))) return;
+      if(kind === 'ko' && /^pitcharea$/i.test(grp) && valCI(g, ['Kickout Locations','KickoutLength','KODistance'])) return;   // the game's kickout says its length: the file's third adds nothing
       if(grp === 'Shot Attempts' && outDiffers){ out.notes.push('Shot Attempts ' + v + ' not copied — the outcomes differ'); return; }
       if(koSideDiffers && /^kickout (won by|target)$/i.test(grp)){ out.notes.push(grp + ' ' + v + ' not copied — the file has this kickout ' + (wonLost(fOut) === 'W' ? 'won' : 'lost') + ', the game ' + (wonLost(gOut) === 'W' ? 'won' : wonLost(gOut) === 'L' ? 'lost' : 'with an outcome that cannot be read')); return; }
       out.labels[grp] = v; out.n++; out.what.push(grp + ' ' + v);
@@ -328,7 +341,7 @@
     if(pf){
       const fk = Object.keys(f.labels || {}).find(x => /player labels$/i.test(x)) || '', team = f.playerTeam || (fk ? up(fk.replace(/\s*player labels$/i, '')) : up(f.team));
       const tg = f.pTag || pTagOf(pf);
-      if(!pg){ out.player = { name:pf, group:fk, team, was:'', pTag:tg }; out.n++; out.what.push('player ' + (tg && !isPTag(pf) ? tg + ' → ' : '') + pf); }
+      if(!pg){ out.player = { name:pf, group:fk, team, was:'', pTag:tg, pTagName: f.pTagName || '' }; out.n++; out.what.push('player ' + (tg && !isPTag(pf) ? tg + ' → ' : '') + pf); }
       else if(isPTag(pg) && !isPTag(pf)){ out.player = { name:pf, group:fk, team, was:pg, pTag:pTagOf(pg) }; out.n++; out.what.push('player ' + pg + ' → ' + pf); }
       else if(up(pg) !== up(pf) && !(isPTag(pf) && !isPTag(pg))) out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept');
     }
@@ -347,6 +360,7 @@
         const k = old[0] || ed.player.group || ((ed.player.team || up(row.team) || 'Unassigned') + ' Player Labels');
         row.labels[k] = ed.player.name; row.player = ed.player.name;
         if(ed.player.pTag) row.pTag = ed.player.pTag;
+        if(ed.player.pTagName) row.pTagName = ed.player.pTagName; else delete row.pTagName;   // a name from the other FILE is not the sheet's: it does not follow the sheet
         if(ed.player.team && ed.player.team !== up(row.team)) row.playerTeam = ed.player.team;
       }
     }
@@ -395,30 +409,42 @@
     items.forEach(it => { const g = byMarker.get(marker(it.srcId) + '|' + it.kind); if(g){ it.already = g; g.used = true; } });
     const Gfree = G.filter(g => !g.used), Ffree = items.filter(it => !it.already);
 
-    // per half: the offset
+    // per half: the readings of the offset, and the one used
     const gameHalves = HALVES.filter(h => events.some(e => e && e.half === h));
     events.forEach(e => { if(e && e.half && gameHalves.indexOf(e.half) < 0 && HALVES.indexOf(e.half) < 0) gameHalves.push(e.half); });
     const fileHalves = [...new Set(items.map(it => it.half).filter(Boolean))], halved = fileHalves.length > 0;
     const halves = gameHalves.slice(); fileHalves.forEach(h => { if(halves.indexOf(h) < 0) halves.push(h); });
     halves.sort((a, b) => { const x = HALVES.indexOf(a), y = HALVES.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
-    const typed = opts.offsets || {}, align = [], off = {}, allClock = halfClock(events, null);
+    const typed = opts.offsets || {}, from = opts.offsetFrom || {}, align = [], off = {}, allClock = halfClock(events, null), starts = rd.starts || {};
+    const r2 = v => Math.round(v * 100) / 100;
     halves.forEach(h => {
       const inG = k => Gfree.filter(g => g.kind === k && g.half === h), inF = k => Ffree.filter(f => f.kind === k && (!halved || f.half === h));
       const gk = inG('ko'), fk = inF('ko'), gs = inG('shot'), fs = inF('shot');
-      const ek = estimate(gk, fk), es = estimate(gs, fs);
+      const ek = estimate(gk, fk), es = estimate(gs, fs), c = halfClock(events, h);
+      const reading = (est, nG, nF) => est ? { offset: est.offset, agree: est.pairs.length, of: Math.min(nG, nF), next: est.second, confident: confident(est, nG, nF) } : null;
+      // the throw-in: the file's period start against the moment the game's own rows count gameTime from
+      const anchor = (starts[h] != null && c.ref != null) ? { offset: r2(c.ref - starts[h]), fileT: starts[h], gameT: c.ref, what: rd.startName } : null;
       const a = { half:h, offset:null, source:'', confident:false, typed:false, inGame: events.some(e => e && e.half === h), fileEvents: halved ? items.filter(f => f.half === h).length : null,
-        koOffset: ek ? ek.offset : null, shotOffset: es ? es.offset : null, koAgree: ek ? ek.pairs.length : 0, shotAgree: es ? es.pairs.length : 0 };
-      if(fin(typed[h])){ a.offset = +typed[h]; a.source = 'typed'; a.typed = true; }
-      else if(confident(ek, gk.length, fk.length)){ a.offset = ek.offset; a.source = 'kickouts'; a.confident = true; }
-      else if(confident(es, gs.length, fs.length)){ a.offset = es.offset; a.source = 'shots'; a.confident = true; }
+        readings: { shots: reading(es, gs.length, fs.length), kickouts: reading(ek, gk.length, fk.length), anchor },
+        anchorWhy: anchor ? '' : starts[h] == null ? 'the file has no ' + (rd.startName === 'NA Whistle' ? 'whistle that starts this half' : 'period-start marker for this half')
+          : 'the game’s rows in this half carry no game clock (gameTime), so its throw-in moment is not stored' };
+      const R = a.readings;
+      a.shotOffset = R.shots ? R.shots.offset : null; a.koOffset = R.kickouts ? R.kickouts.offset : null;
+      if(fin(typed[h])){ a.offset = +typed[h]; a.source = from[h] === 'video' ? 'video' : 'typed'; a.typed = true; }
+      else if(R.shots && R.shots.confident){ a.offset = R.shots.offset; a.source = 'shots'; a.confident = true; }
+      else if(R.kickouts && R.kickouts.confident){ a.offset = R.kickouts.offset; a.source = 'kickouts'; a.confident = true; }
+      else if(anchor){ a.offset = anchor.offset; a.source = 'throw-in'; }
       else a.reason = !a.inGame ? 'the game has no events in this half' : (!gk.length && !gs.length) ? 'the game has no kickouts or shots in this half to line up with'
-        : (!fk.length && !fs.length) ? 'the file has no kickouts or shots for this half' : 'too few kickouts and shots agree on one offset'
-          + (ek ? ' (kickouts: best ' + ek.pairs.length + ' of ' + Math.min(gk.length, fk.length) + (ek.second ? ', next best ' + ek.second : '') + ')' : '');
-      const c = halfClock(events, h); a.clock = c.n ? c : { n:0, k:allClock.k, ref:null };
+        : (!fk.length && !fs.length) ? 'the file has no kickouts or shots for this half' : 'too few shots and kickouts agree on one offset'
+          + (es ? ' (shots: best ' + es.pairs.length + ' of ' + Math.min(gs.length, fs.length) + (es.second ? ', next best ' + es.second : '') + ')' : '') + '; ' + a.anchorWhy;
+      // what the automatic choice would be (shown beside a typed / video offset), and whether the readings disagree
+      a.computed = (R.shots && R.shots.confident) ? { offset:R.shots.offset, source:'shots' } : (R.kickouts && R.kickouts.confident) ? { offset:R.kickouts.offset, source:'kickouts' } : anchor ? { offset:anchor.offset, source:'throw-in' } : null;
+      const vals = [R.shots && R.shots.confident ? R.shots.offset : null, R.kickouts && R.kickouts.confident ? R.kickouts.offset : null, anchor ? anchor.offset : null].filter(v => v != null);
+      a.gap = vals.length > 1 ? r2(Math.max.apply(null, vals) - Math.min.apply(null, vals)) : 0; a.check = a.gap > CHECK_GAP;
+      a.clock = c.n ? c : { n:0, k:allClock.k, ref:null };
       if(a.offset != null) off[h] = a.offset;
       align.push(a);
     });
-
     // a file with no half labels: each event's half from where it sits among the aligned halves
     if(!halved){
       const times = items.map(it => it.ft).sort((x, y) => x - y), done = halves.filter(h => off[h] != null), span = {};
@@ -449,11 +475,22 @@
         ps.forEach(p => { p.f.pair = p.g; p.g.paired = p.f; p.f.lag = p.d; });
         pairsOf[k + '|' + h] = { n:ps.length, bias: Math.round(bias * 10) / 10, res: ps.map(p => p.d - bias) }; });
     });
-    align.forEach(a => { if(a.offset == null) return;
+    align.forEach(a => {
+      // the file's events of this half, for "mark on the video": the period start first, then the first kickout and shot, then all in time order
+      const mine = items.filter(f => f.half === a.half || (!halved && f.half == null && a.offset == null)).sort((x, y) => x.ft - y.ft), ev = [];
+      const lab = f => f.code + ' — file ' + clockOf(f.ft);
+      if(starts[a.half] != null) ev.push({ key:'start', label: (rd.startName === 'NA Whistle' ? 'NA Whistle (throw-in)' : 'P' + (HALVES.indexOf(a.half) + 1) + ' START (throw-in)') + ' — file ' + clockOf(starts[a.half]), fileT: starts[a.half] });
+      const fko = mine.find(f => f.kind === 'ko'), fsh = mine.find(f => f.kind === 'shot');
+      if(fko) ev.push({ key:'ko|' + fko.srcId, label:'first kickout: ' + lab(fko), fileT:fko.ft });
+      if(fsh) ev.push({ key:'shot|' + fsh.srcId, label:'first shot: ' + lab(fsh), fileT:fsh.ft });
+      mine.forEach(f => ev.push({ key:f.kind + '|' + f.srcId + '|all', label: lab(f), fileT:f.ft }));
+      a.marks = ev;
+      if(a.offset == null) return;
       const cnt = k => ({ paired:(pairsOf[k + '|' + a.half] || { n:0 }).n, game: G.filter(g => g.kind === k && g.half === a.half).length, file: items.filter(f => f.kind === k && f.half === a.half).length,
         lag:(pairsOf[k + '|' + a.half] || { bias:0 }).bias });
       a.ko = cnt('ko'); a.shot = cnt('shot'); a.to = cnt('to');
-      const src = pairsOf[(a.source === 'shots' ? 'shot' : 'ko') + '|' + a.half], res = src ? src.res : [];
+      const src = pairsOf[(a.source === 'kickouts' ? 'ko' : 'shot') + '|' + a.half], res = src ? src.res : [];
+      a.spreadOf = a.source === 'kickouts' ? 'kickouts' : 'shots';
       a.spread = res.length ? { min: Math.round(Math.min.apply(null, res) * 10) / 10, max: Math.round(Math.max.apply(null, res) * 10) / 10 } : null;
       const firstPair = items.filter(f => f.half === a.half && f.pair && (f.kind === 'ko' || f.kind === 'shot')).sort((x, y) => x.ft - y.ft)[0];
       const firstAny = items.filter(f => f.half === a.half).sort((x, y) => x.ft - y.ft)[0], f0 = firstPair || firstAny;
@@ -564,40 +601,60 @@
     return kept.sort((a, b) => ((a.driveT == null ? 0 : a.driveT) - (b.driveT == null ? 0 : b.driveT)) || ((a.start == null ? 0 : a.start) - (b.start == null ? 0 : b.start)));
   }
 
-  // ── P-numbers still on the game's rows ──────────────────────────
-  // For a team sheet added or changed AFTER the rows were stored. Lists every value that is a bare P-number:
+  // ── P-numbers on the game's rows, and the team sheet ────────────
+  // For a team sheet added or changed AFTER the rows were stored. Two kinds of change are listed:
+  //  FILL    a value that is a bare P-number and now has a player at that number:
   //   · the row's player field and its "<TEAM> Player Labels" value — number of THAT team (the player's own team:
   //     the label's team, else playerTeam, else the row's team);
   //   · Assist, Kickout Taken By, Kickout Target, Player In, Player Out — the row's team;
   //   · Kickout Won By — the kicking team when the kickout was won, the other team when it was lost (skipped when
   //     the outcome does not say).
-  // `to` = the name now at that number ('' = no player at that number: the value stays). A superseded Gaelic Insights /
-  // GIU original is not listed (it is the file's own record and keeps its number), nor is the raw 'Player' label of any
-  // row, nor a group holding several values. Pure — nothing is changed; apply with cohPTagApply.
-  //   → [{ index, id, code, team, changes:[{ where:'player'|'label', group, from, to, team }], n (changes with a name) }]
+  //  FOLLOW  a value that was WRITTEN from a number (the row remembers it: pTag + pTagName for the player, pTagL
+  //     {group:{tag, name, team}} for another label) when the sheet now has a DIFFERENT name at that number — only
+  //     while the row still holds exactly the name that was written (a value someone has typed since is left alone and
+  //     not offered), and never when the number is now empty on the sheet (the name stays).
+  // `to` = the name now at that number ('' = no player at that number: a bare P-number stays). A superseded Gaelic
+  // Insights / GIU original is not listed (it is the file's own record), nor the raw 'Player' label of any row, nor a
+  // group holding several values. A row named before this was built has no pTag and cannot follow. Pure — nothing is
+  // changed; apply with cohPTagApply.
+  //   → [{ index, id, code, team, changes:[{ where:'player'|'label', group, from, to, team, tag, follow }], n (changes with a name) }]
   const PTAG_ROW_GROUPS = ['assist','kickout taken by','kickout target','player in','player out'];
+  const sameName = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   function cohPTagFixes(events, game){
     events = events || [];
     const sup = GI.cohGiSupersededFn(events), out = [], H = up(game && game.homeTeam), A = up(game && game.awayTeam), other = T => T === H ? A : T === A ? H : '';
     events.forEach((e, index) => { if(!e || sup(e)) return;
       const L = e.labels || {}, T = up(e.team) || teamOfCode(e.code, game), ch = []; let own = up(e.playerTeam);
-      const want = (where, group, val, team) => { if(!isPTag(val)) return; if(group && e.labelsAll && Array.isArray(e.labelsAll[group]) && e.labelsAll[group].length > 1) return;
-        ch.push({ where, group, from: pTagOf(val), to: team ? (GI.cohGiuRosterName(game, team, val) || '') : '', team: team || '' }); };
+      const multi = g => !!(g && e.labelsAll && Array.isArray(e.labelsAll[g]) && e.labelsAll[g].length > 1);
+      const want = (where, group, val, team) => { if(!isPTag(val) || multi(group)) return;
+        ch.push({ where, group, from: pTagOf(val), tag: pTagOf(val), to: team ? (GI.cohGiuRosterName(game, team, val) || '') : '', team: team || '', follow:false }); };
+      const follow = (where, group, val, tag, name, team) => { if(!tag || !name || !team || isPTag(val) || multi(group) || !sameName(val, name)) return;
+        const now = GI.cohGiuRosterName(game, team, tag); if(now && !sameName(now, name)) ch.push({ where, group, from: String(val).trim(), tag, to: now, team, follow:true }); };
+      let pKey = '';
       Object.keys(L).forEach(g => { const m = /^(.*?)\s*player labels$/i.exec(g), w = g.toLowerCase();
-        if(m){ const pt = up(m[1]) === H || up(m[1]) === A ? up(m[1]) : (own || T); want('label', g, L[g], pt); if(isPTag(L[g]) && !own) own = pt; return; }
-        if(PTAG_ROW_GROUPS.indexOf(w) >= 0) want('label', g, L[g], T);
-        else if(w === 'kickout won by'){ const s = wonLost(valCI(e, ['Kickout Outcomes','Kickout Outcome']) || e.outcome); if(s) want('label', g, L[g], s === 'W' ? T : other(T)); } });
+        if(m){ const pt = up(m[1]) === H || up(m[1]) === A ? up(m[1]) : (own || T); want('label', g, L[g], pt); if(!own) own = pt; pKey = pKey || g; return; }
+        const tl = e.pTagL && e.pTagL[g];
+        if(PTAG_ROW_GROUPS.indexOf(w) >= 0){ want('label', g, L[g], T); if(tl) follow('label', g, L[g], tl.tag, tl.name, tl.team || T); }
+        else if(w === 'kickout won by'){ const s = wonLost(valCI(e, ['Kickout Outcomes','Kickout Outcome']) || e.outcome); if(s) want('label', g, L[g], s === 'W' ? T : other(T));
+          if(tl) follow('label', g, L[g], tl.tag, tl.name, tl.team); } });
       want('player', '', e.player, own || T);
+      if(e.pTag && e.pTagName){ if(pKey) follow('label', pKey, L[pKey], e.pTag, e.pTagName, own || T); follow('player', '', e.player, e.pTag, e.pTagName, own || T); }
       if(ch.length) out.push({ index, id:e.id, code:e.code, team:T, changes:ch, n: ch.filter(c => c.to).length });
     });
     return out;
   }
-  // Write the named changes of one entry onto its row, in place; a change with no name is left. Returns how many were written.
+  // Write the named changes of one entry onto its row, in place; a change with no name is left. The row remembers the
+  // number and the name written, so it can follow the sheet later. Returns how many values were written.
   function cohPTagApply(row, entry){
     let n = 0; row.labels = row.labels || {};
     (entry.changes || []).forEach(c => { if(!c.to) return;
-      if(c.where === 'player'){ if(pTagOf(row.player) === c.from){ row.player = c.to; row.pTag = c.from; n++; } }
-      else if(pTagOf(row.labels[c.group]) === c.from){ row.labels[c.group] = c.to; if(/player labels$/i.test(c.group)) row.pTag = c.from; n++; } });
+      const isPl = c.where === 'player' || /player labels$/i.test(c.group);
+      const cur = c.where === 'player' ? row.player : row.labels[c.group];
+      if(c.follow ? !sameName(cur, c.from) : pTagOf(cur) !== c.from) return;
+      if(c.where === 'player') row.player = c.to; else row.labels[c.group] = c.to;
+      if(isPl){ row.pTag = c.tag; row.pTagName = c.to; }
+      else { row.pTagL = row.pTagL || {}; row.pTagL[c.group] = { tag:c.tag, name:c.to, team:c.team }; }
+      n++; });
     return n;
   }
 

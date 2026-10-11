@@ -5994,12 +5994,15 @@ function crMgStatus(text){
 // A GIU file names a player only by jersey number ("P13"). It becomes a name when the row is converted / merged and
 // the team sheet has a player at that number; a team sheet added or changed LATER is applied here (cohesion-merge.js
 // cohPTagFixes): every value that is still a bare P-number and now has a player at that number is offered — preview,
-// ticks, one queued bulk edit, one Undo. A P-number with no player at that number stays; anything that is not a bare
-// P-number is never touched (so a name already written is not chased if the sheet later changes).
+// ticks, one queued bulk edit, one Undo. A P-number with no player at that number stays. A name that was WRITTEN from
+// a number (the row keeps pTag + pTagName) follows the sheet: when the player at that number is changed later, old name
+// → new name is offered the same way — only while the row still holds the name that was written; a number emptied on
+// the sheet offers nothing. Rows named before pTag existed have nothing to follow.
 let crPTag=null;   // {items, ticks:{rowId:bool}}
 function crPTagList(){ if(!GAME||typeof cohPTagFixes!=='function') return []; return cohPTagFixes(EVENTS, GAME).map(f=>Object.assign({}, f, {e:EVENTS[f.index], rowId:EVENTS[f.index]._rowId})); }
 function crPTagBtnSync(){ const b=document.getElementById('ptagBtn'); if(!b) return; const n=GAME?crPTagList().filter(f=>f.n).length:0; b.style.display=n?'':'none'; b.textContent='# P-numbers → names ('+n+')'; }
-function crPTagText(f){ return f.changes.map(c=>(c.where==='player'?'player':c.group)+': '+c.from+(c.to?' → '+c.to:' — no player '+c.from.replace(/\D/g,'')+' on the '+(c.team||'team')+' sheet')).filter((v,i,a)=>a.indexOf(v)===i).join(' · '); }
+function crPTagText(f){ return f.changes.map(c=>(c.where==='player'?'player':c.group)+': '+c.from+(c.to?' → '+c.to:' — no player '+c.from.replace(/\D/g,'')+' on the '+(c.team||'team')+' sheet')
+  +(c.follow?' (number '+c.tag.replace(/\D/g,'')+' changed on the team sheet)':'')).filter((v,i,a)=>a.indexOf(v)===i).join(' · '); }
 function crPTagBody(){
   const C=crPTag, n=C.items.filter(it=>C.ticks[it.rowId]).length, stay={};
   crPTagList().forEach(f=>f.changes.forEach(c=>{ if(!c.to) stay[(c.team||'?')+' '+c.from.replace(/\D/g,'')]=1; }));
@@ -6009,8 +6012,10 @@ function crPTagBody(){
   const sk=Object.keys(stay);
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Player numbers → names — '+esc(GAME.title||'')+'</div>'
     +'<button onclick="crPTagClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
-    +'<div style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">These events name a player only by jersey number (“P13”, as a GIU file does) and the team sheet now has a player at that number. '
-    +'Only a value that is exactly a P-number is changed; a number with no player on the sheet stays as it is, and a name is never changed.'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">'
+    +(C.items.some(it=>it.changes.some(c=>c.to&&!c.follow))?'These events name a player only by jersey number (“P13”, as a GIU file does) and the team sheet now has a player at that number. ':'')
+    +(C.items.some(it=>it.changes.some(c=>c.follow))?'<b>Numbers that changed hands:</b> a name that was written from a jersey number follows the team sheet — where the sheet now has a different player at that number, the old name is replaced by the new one. Only where the event still holds exactly the name that was written from the sheet; a name someone typed is left alone. ':'')
+    +'A number with no player on the sheet stays as it is.'
     +(sk.length?'<br><b>Staying as numbers</b> (no player at that number on the team sheet): '+esc(sk.sort().join(', '))+'.':'')+' Tick or untick any row.</div>'
     +'<div style="max-height:min(60vh,620px);overflow:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
     +'<tr><th style="'+th+'"></th><th style="'+th+'">Video</th><th style="'+th+'">Row</th><th style="'+th+'">Change</th></tr>'+rows+'</table></div>'
