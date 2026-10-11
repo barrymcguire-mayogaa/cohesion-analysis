@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone, strip:w.strip, row:w.row, ly:w.ly,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone, strip:w.strip, row:w.row, ly:w.ly, placed:w.placed,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -279,7 +279,7 @@
         a.box={x0:Math.min(a.box.x0,b.box.x0), y0:Math.min(a.box.y0,b.box.y0), x1:Math.max(a.box.x1,b.box.x1), y1:Math.max(a.box.y1,b.box.y1)}; lines.splice(k,1); if(k<i) i--; } }
     const strips=new Map(); ws.forEach(w=>{ if(w.strip!=null){ if(!strips.has(w.strip)) strips.set(w.strip,[]); strips.get(w.strip).push(w); } });
     if(strips.size){ const rows=new Map();
-      strips.forEach(g=>{ const l=rowLine([segOf(g)], H, null, null, true); l.strip=true; lines.push(l); if(g[0].row!=null){ if(!rows.has(g[0].row)) rows.set(g[0].row,[]); rows.get(g[0].row).push(l); } });
+      strips.forEach(g=>{ const l=rowLine([segOf(g)], H, null, null, true); l.strip=true; if(g.some(w=>w.placed)) l.placed=true; lines.push(l); if(g[0].row!=null){ if(!rows.has(g[0].row)) rows.set(g[0].row,[]); rows.get(g[0].row).push(l); } });
       rows.forEach(L=>{ const y=L.reduce((t,l)=>t+l.yc,0)/L.length; L.forEach(l=>{ l.yc=y; }); }); }       // the strips of one row of the formation, however the page bends
     // reading order: rows top to bottom (a row = lines whose middles are within half a line), left to right inside a row
     const order=L=>{ const rows=[]; L.slice().sort((a,b)=>a.yc-b.yc).forEach(l=>{ const r=rows[rows.length-1]; if(r&&Math.abs(l.yc-r.yc)<0.6*Math.max(l.h,r.h)){ r.L.push(l); } else rows.push({yc:l.yc, h:l.h, L:[l]}); });
@@ -309,7 +309,8 @@
   function nameBlocks(lines){
     const L=(lines||[]).filter(l=>l&&l.box), strips=L.filter(l=>l.strip).length>=R.STRIPMIN;
     // (where the banners were read one by one, an unsure numbered line of the first reading among them is not a player's line)
-    const num=L.filter(l=>l.no!=null&&l.no<=40&&!(strips&&!l.strip&&l.no<=15&&l.conf!=null&&l.conf<LOW));
+    // … and a banner whose number was not made out is a player's line all the same
+    const num=L.filter(l=>(l.no!=null&&l.no<=40||l.strip&&hasLetter(l.text))&&!(strips&&!l.strip&&l.no<=15&&l.conf!=null&&l.conf<LOW));
     L.forEach(l=>{ if(l.under) delete l.under; });
     if(num.length<8) return {on:false, under:0};
     // (two lines of one list column that was read by itself are compared where they stand in that levelled reading; two columns are never compared)
@@ -319,7 +320,7 @@
     num.forEach(n=>{ let d=Infinity, nx=null; num.forEach(m=>{ if(m===n||m.page!==n.page||m.zid!==n.zid) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
         if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d){ d=dy; nx=m; } }); if(nx){ pitch.set(n,d); if(!above.has(nx)||d<pitch.get(above.get(nx))) above.set(nx,n); } });
     const P=med([...pitch.values()]);
-    const own=new Map();
+    const own=new Map(), late=[];
     L.forEach(u=>{ if(u.no!=null||u.strip||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
       let best=null, bd=Infinity;
       num.forEach(n=>{ if(n.page!==u.page||apart(n,u)) return; const same=n.zid===u.zid, Hn=hh(n), dy=same?yc(u)-yc(n):yb(u)-yb(n);
@@ -331,12 +332,17 @@
       // the next player is expected one row on: the spacing to the numbered line below, or that of the row above if
       // it is tighter (the line below may be the one after next, when a number in between was not read)
       let p=pitch.has(best)?pitch.get(best):P; const up=above.get(best); if(up&&pitch.get(up)<p) p=pitch.get(up);
-      if(p&&((best.zid===u.zid?yc(u)-yc(best):yb(u)-yb(best)))>0.85*p) return;
+      if(p&&((best.zid===u.zid?yc(u)-yc(best):yb(u)-yb(best)))>0.85*p){ late.push({u, p}); return; }
       own.set(u,best); });
     const owners=new Set(own.values());
     if(owners.size<0.5*num.length) return {on:false, under:0};
     own.forEach((n,u)=>{ u.under=true; });
-    return {on:true, under:own.size};
+    // a line standing where the next player is expected is a player whose number was not read: it stays — and the
+    // lines under IT (its Irish name, its club) are left out like the others
+    const heads=[]; let more=0;
+    late.sort((a,b)=>yb(a.u)-yb(b.u)).forEach(g=>{ const h=heads.find(q=>{ const dy=yb(g.u)-yb(q.u), Hq=Math.max(1,q.u.box.y1-q.u.box.y0); return q.u.page===g.u.page&&!apart(q.u,g.u)&&dy>=0.45*Hq&&dy<=0.85*q.p&&q.u.box.x0<=g.u.box.x0+1.5*Hq; });
+      if(h){ g.u.under=true; more++; } else heads.push(g); });
+    return {on:true, under:own.size+more};
   }
   R.nameBlocks=nameBlocks;
 
@@ -1126,6 +1132,8 @@
     let placed=[];
     if(list&&list.boxed){ list.lines.forEach(l=>{ if(l.under) delete l.under; if(l.above) delete l.above; }); }
     else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines); listNumbers(list.lines);
+      // (… and the banners whose number was worked out from their place when they were read one by one)
+      list.lines.forEach(l=>{ if(l.strip&&l.placed&&l.no!=null&&placed.indexOf(l.no)<0) placed.push(l.no); }); placed.sort((a,b)=>a-b);
       // a banner read by itself, and an unsure line of the first reading with the same number (or that number alone): the second is a stray reading of that spot
       const sn=new Set(list.lines.filter(l=>l.strip&&l.no!=null).map(l=>l.no));
       list.lines.forEach(l=>{ if(l.stray) delete l.stray; if(sn.size>=R.STRIPMIN&&!l.strip&&l.conf!=null&&(l.no!=null?sn.has(l.no)&&l.conf<LOW:isNumTok(l.text)&&sn.has(+l.text.replace(/\D/g,'')))) l.stray=true; });
@@ -1563,7 +1571,7 @@
     S=S.filter(s=>!s.gap);
     S.forEach(s=>{ const a=s.a, out=s.names.map(w=>Object.assign({}, w, s.unsure||s.placed||s.odd?{conf:Math.min(w.conf==null?100:w.conf, 50)}:null));
       // the number first: where the box is, or where the strip starts
-      if(s.no!=null) out.unshift({text:String(s.no), conf:s.conf, x0:a.x0, x1:a.wide?Math.min(a.x0+a.thick, out[0].x0-1):a.x1, y0:a.cy-0.3*a.thick, y1:a.cy+0.3*a.thick});
+      if(s.no!=null) out.unshift({text:String(s.no), conf:s.conf, placed:!!s.placed, x0:a.x0, x1:a.wide?Math.min(a.x0+a.thick, out[0].x0-1):a.x1, y0:a.cy-0.3*a.thick, y1:a.cy+0.3*a.thick});
       s.words=out; });
     got.length=0; S.forEach(s=>got.push(s)); pg.stripPlaced=placed;
     pg.stripTime=Math.round(performance.now()-t0); if(R._dbg) pg.adbg=A;
