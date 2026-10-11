@@ -48,7 +48,7 @@
   // word = {text, x0,y0,x1,y1 (y grows downward), conf (0–100, or null for exact PDF text)}
   function prep(words){
     return (words||[]).filter(w=>w&&String(w.text||'').trim()&&w.x1>w.x0&&w.y1>w.y0&&!(w.conf!=null&&w.conf<15&&!/[A-Za-zÀ-ɏ0-9]/.test(w.text)))
-      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone, strip:w.strip, row:w.row,
+      .map(w=>({text:String(w.text).trim(), x0:w.x0, y0:w.y0, x1:w.x1, y1:w.y1, conf:w.conf==null?null:+w.conf, sw:w.sw==null?null:+w.sw, ln:w.ln, zone:w.zone, strip:w.strip, row:w.row, ly:w.ly,
         h:w.y1-w.y0, xc:(w.x0+w.x1)/2, yc:(w.y0+w.y1)/2}));
   }
   // Words that follow one another on a line (small gap, same height band) → chains.
@@ -62,6 +62,7 @@
         if(gap<-0.35*H||gap>1.1*H) continue;
         if(Math.abs(w.yc-t.yc)>0.5*H) continue;
         if(Math.min(t.h,w.h)<0.4*H) continue;                 // a headline next to small print is not one line
+        if(t.z!==w.z) continue;                               // nor are words of two columns of a list that were read one by one
         if(gap<bg){ bg=gap; best=i; }
       }
       if(best<0){ chains.push([w]); tails.push(w); w._c=chains.length-1; }
@@ -95,7 +96,9 @@
     if(cf.length) text=text.replace(/^[A-Za-z|!\[\].,:;'"“”‘’~_-]{1,2}\s+(?=#?\d{1,2}[.)\]:]?\s+[A-ZÀ-Þ])/,'');
     // … and so is an unsure scrap of small letters after a numbered name ("21 Paul Conroy vi")
     if(cf.length&&plain&&wds.length>2){ const z=wds.slice().sort((a,b)=>a.rx0-b.rx0).pop(); if(z.conf!=null&&z.conf<60&&/^[a-zß-ÿ|!.,:;'"~_-]{1,2}$/.test(z.text)&&lineNo(text)!=null&&text.endsWith(' '+z.text)) text=text.slice(0,-z.text.length-1); }
-    return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h, words:wds,
+    // a column of a list read by itself, levelled: where its lines stand in that levelled reading (line.ly), for telling what is under what
+    const zid=wds.length&&typeof wds[0].zone==='number'&&wds.every(w=>w.zone===wds[0].zone&&w.ly!=null)?wds[0].zone:undefined;
+    return {text, no:lineNo(text), conf:cf.length?Math.min.apply(null,cf):null, yc:yc==null?segs.reduce((t,x)=>t+x.yc,0)/segs.length:yc, h:h==null?Math.max.apply(null,segs.map(x=>x.h)):h, words:wds, zid, ly:zid==null?undefined:med(wds.map(w=>w.ly)),
       box:{x0:Math.min.apply(null,wds.map(w=>w.x0)), y0:Math.min.apply(null,wds.map(w=>w.y0)), x1:Math.max.apply(null,wds.map(w=>w.x1)), y1:Math.max.apply(null,wds.map(w=>w.y1))}};
   }
   // layout(words, {glue, skew}) → {columns:[{x0,x1,lines}], spanning:[line], skew, H}
@@ -245,7 +248,7 @@
     const skew=o.skew===false?0:estimateSkew(ws), cs=Math.cos(skew), sn=Math.sin(skew);
     ws.forEach(w=>{ const rx=w.xc*cs+w.yc*sn, ry=-w.xc*sn+w.yc*cs, hw=(w.x1-w.x0)/2; w.rx0=rx-hw; w.rx1=rx+hw; w.ry=ry; });
     // a name strip read by itself (word.strip) is a line already; only the rest is put together from where the words lie
-    const lv=ws.filter(w=>w.strip==null).map(w=>({text:w.text, x0:w.rx0, x1:w.rx1, y0:w.ry-w.h/2, y1:w.ry+w.h/2, h:w.h, xc:(w.rx0+w.rx1)/2, yc:w.ry, _w:w}));
+    const lv=ws.filter(w=>w.strip==null).map(w=>({text:w.text, x0:w.rx0, x1:w.rx1, y0:w.ry-w.h/2, y1:w.ry+w.h/2, h:w.h, xc:(w.rx0+w.rx1)/2, yc:w.ry, z:typeof w.zone==='number'?w.zone:undefined, _w:w}));
     const H=med(ws.map(w=>w.h))||1;
     let segs=[];
     chain(lv).forEach(c=>{ const wsC=c.map(x=>x._w).sort((a,b)=>a.rx0-b.rx0);
@@ -255,7 +258,8 @@
       segs.push(segOf(wsC.slice(from), o.glue)); });
     // a number by itself + the name to its right
     const used=new Set(), lines=[];
-    const bare=segs.filter(s=>isNumTok(s.text)).sort((a,b)=>a.x0-b.x0);
+    // (… or a number with only its note after it: "16(GK)" + "Conor Carroll")
+    const bare=segs.filter(s=>isNumTok(s.text)||/^#?\d{1,2}\s?[(\[][A-Za-z.]{1,6}[)\]]$/.test(s.text)).sort((a,b)=>a.x0-b.x0);
     bare.forEach(n=>{ let best=null, bg=Infinity;
       segs.forEach(t=>{ if(t===n||used.has(t)||isNumTok(t.text)||lineNo(t.text)!=null||!hasLetter(t.text)) return; const Hm=Math.max(n.h,t.h), gap=t.x0-n.x1;
         if(gap<-0.3*Hm||gap>3.5*Hm||Math.abs(t.yc-n.yc)>0.55*Hm||Math.min(n.h,t.h)<0.45*Hm) return; if(gap<bg){ bg=gap; best=t; } });
@@ -308,22 +312,26 @@
     const num=L.filter(l=>l.no!=null&&l.no<=40&&!(strips&&!l.strip&&l.no<=15&&l.conf!=null&&l.conf<LOW));
     L.forEach(l=>{ if(l.under) delete l.under; });
     if(num.length<8) return {on:false, under:0};
-    const yc=l=>(l.box.y0+l.box.y1)/2, hh=l=>Math.max(1,l.box.y1-l.box.y0);
+    // (two lines of one list column that was read by itself are compared where they stand in that levelled reading; two columns are never compared)
+    const yb=l=>(l.box.y0+l.box.y1)/2, yc=l=>l.ly!=null?l.ly:yb(l), hh=l=>Math.max(1,l.ly!=null?l.h:l.box.y1-l.box.y0), apart=(a,b)=>a.zid!=null&&b.zid!=null&&a.zid!==b.zid;
     // each numbered line's distance to the next numbered line below it in its column
     const pitch=new Map(), above=new Map();
-    num.forEach(n=>{ let d=Infinity, nx=null; num.forEach(m=>{ if(m===n||m.page!==n.page) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
+    num.forEach(n=>{ let d=Infinity, nx=null; num.forEach(m=>{ if(m===n||m.page!==n.page||m.zid!==n.zid) return; const dy=yc(m)-yc(n); if(dy<0.6*hh(n)) return;
         if(m.box.x0<n.box.x1+hh(n)&&m.box.x1>n.box.x0-hh(n)&&dy<d){ d=dy; nx=m; } }); if(nx){ pitch.set(n,d); if(!above.has(nx)||d<pitch.get(above.get(nx))) above.set(nx,n); } });
     const P=med([...pitch.values()]);
     const own=new Map();
     L.forEach(u=>{ if(u.no!=null||u.strip||isNumTok(u.text)||!hasLetter(u.text)||RE_KEEP.test(fold(u.text).trim())) return;
       let best=null, bd=Infinity;
-      num.forEach(n=>{ if(n.page!==u.page) return; const Hn=hh(n), dy=yc(u)-yc(n); if(dy<0.45*Hn||dy>5*Hn) return; if(n.box.x0>u.box.x0+1.5*Hn) return;
+      num.forEach(n=>{ if(n.page!==u.page||apart(n,u)) return; const same=n.zid===u.zid, Hn=hh(n), dy=same?yc(u)-yc(n):yb(u)-yb(n);
+        // (in such a column, small type to the right of a name — the club — may stand level with it)
+        const beside=same&&u.zid!=null&&u.box.x0>n.box.x1&&hh(u)<0.85*Hn;
+        if(dy<(beside?-0.4:0.45)*Hn||dy>5*Hn) return; if(n.box.x0>u.box.x0+1.5*Hn) return;
         const d=dy+0.5*Math.max(0,u.box.x0-n.box.x1); if(d<bd){ bd=d; best=n; } });
       if(!best) return;
       // the next player is expected one row on: the spacing to the numbered line below, or that of the row above if
       // it is tighter (the line below may be the one after next, when a number in between was not read)
       let p=pitch.has(best)?pitch.get(best):P; const up=above.get(best); if(up&&pitch.get(up)<p) p=pitch.get(up);
-      if(p&&(yc(u)-yc(best))>0.85*p) return;
+      if(p&&((best.zid===u.zid?yc(u)-yc(best):yb(u)-yb(best)))>0.85*p) return;
       own.set(u,best); });
     const owners=new Set(own.values());
     if(owners.size<0.5*num.length) return {on:false, under:0};
@@ -1105,9 +1113,9 @@
     let placed=[];
     if(list&&list.boxed){ list.lines.forEach(l=>{ if(l.under) delete l.under; if(l.above) delete l.above; }); }
     else if(list){ nameBlocks(list.lines); placed=formationNumbers(list.lines);
-      // a banner read by itself, and an unsure line of the first reading with the same number: the second is a stray reading of that spot
+      // a banner read by itself, and an unsure line of the first reading with the same number (or that number alone): the second is a stray reading of that spot
       const sn=new Set(list.lines.filter(l=>l.strip&&l.no!=null).map(l=>l.no));
-      list.lines.forEach(l=>{ if(l.stray) delete l.stray; if(sn.size>=R.STRIPMIN&&!l.strip&&l.no!=null&&sn.has(l.no)&&l.conf!=null&&l.conf<LOW) l.stray=true; });
+      list.lines.forEach(l=>{ if(l.stray) delete l.stray; if(sn.size>=R.STRIPMIN&&!l.strip&&l.conf!=null&&(l.no!=null?sn.has(l.no)&&l.conf<LOW:isNumTok(l.text)&&sn.has(+l.text.replace(/\D/g,'')))) l.stray=true; });
       // a list of numbered players: an unnumbered line above its first number is a title or heading, not a player
       // (not when numbers stand on lines of their own — there a name may come before its number)
       const L=list.lines, first=L.findIndex(l=>l.no!=null&&l.no<=40);
@@ -1561,10 +1569,10 @@
     const W=view.width, H=view.height, zones=R.listZones(pg.words, W, H); if(!zones.length) return;
     const mc=minChannel(view), done=[];
     const tilt=q=>R.textTilt(mc, W, H, {x:q.x0, y:(q.y0+q.y1)/2, len:q.x1-q.x0, tall:q.y1-q.y0}, {rows:Math.round((q.y1-q.y0)/3), max:10}).angle;
-    const T=zones.map(tilt), srt=T.slice().sort((a,b)=>a-b), mid=srt[srt.length>>1];
+    zones.forEach((q,i)=>{ q.id=i+1; }); const T=zones.map(tilt), srt=T.slice().sort((a,b)=>a-b), mid=srt[srt.length>>1];
     const read=async(q,t)=>{ const w=q.x1-q.x0, h=q.y1-q.y0, z=stripCanvas(view, {cx:(q.x0+q.x1)/2, cy:(q.y0+q.y1)/2, w, h, angle:t}, Math.min(2*h, 1900*h/Math.max(w,h)), false), got=[];
       for(const th of ['0','2']) got.push(await eng.pass(z.canvas, {tessedit_pageseg_mode:'6', thresholding_method:th, tessedit_char_whitelist:''}));
-      const ws=stripBack(z, R.mergeWords(got)); ws.forEach(v=>{ v.zone=true; }); return {reg:z.reg, ws, tilt:t, sum:ws.reduce((a,v)=>a+(/[A-Za-zÀ-ɏ]{3}/.test(v.text)?v.conf||0:0),0)}; };
+      const mw=R.mergeWords(got), ws=stripBack(z, mw); ws.forEach((v,j)=>{ v.zone=q.id; v.ly=z.reg.cy+((mw[j].y0+mw[j].y1)/2/z.k-z.reg.h/2); }); return {reg:z.reg, ws, tilt:t, sum:ws.reduce((a,v)=>a+(/[A-Za-zÀ-ɏ]{3}/.test(v.text)?v.conf||0:0),0)}; };
     // a column whose measured tilt stands apart from the others' is read at theirs as well, and the surer reading kept
     for(let i=0;i<zones.length;i++){ let d=await read(zones[i], T[i]); if(zones.length>2&&Math.abs(T[i]-mid)>2.5){ const e=await read(zones[i], mid); if(e.sum>d.sum) d=e; } done.push(d); }
     const inside=(v,r)=>{ const p=R.geom.local(r, (v.x0+v.x1)/2, (v.y0+v.y1)/2); return p[0]>=0&&p[0]<=r.w&&p[1]>=0&&p[1]<=r.h; };
