@@ -268,7 +268,7 @@ function sumKeys(tal,side,keys){ const b=side==='h'?tal.h:tal.a; return Object.e
 
 // ── Location maps (shots + kickouts plotted on the pitch) ─────
 function locPitchSvg(kind){
-  if(kind==='shot') return `<svg id="locSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;display:block;"><rect x="1.2" y="1.20" width="97.6" height="7.15" fill="#35862a"/><rect x="1.2" y="8.35" width="97.6" height="7.15" fill="#2e7a24"/><rect x="1.2" y="15.50" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="22.90" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="30.17" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="37.45" width="97.6" height="7.28" fill="#2e7a24"/><rect x="1.2" y="44.73" width="97.6" height="7.28" fill="#35862a"/><rect x="1.2" y="52.00" width="97.6" height="7.40" fill="#2e7a24"/><rect x="1.2" y="59.40" width="97.6" height="7.40" fill="#35862a"/><rect x="1.2" y="66.80" width="97.6" height="3.50" fill="#2e7a24"/><rect x="1.2" y="70.30" width="97.6" height="3.50" fill="#35862a"/><rect x="1.2" y="1.2" width="97.6" height="72.6" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="37.6" y1="1.2" x2="37.6" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="62.2" y1="1.2" x2="62.2" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><rect x="42.4" y="1.2" width="14.8" height="4.5" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><circle cx="49.8" cy="12.7" r=".7" fill="rgba(255,255,255,.92)"/><line x1="1.2" y1="15.5" x2="98.8" y2="15.5" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 34.3 22.9 A 15.7 16.1 0 0 0 65.7 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width=".9"/><path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><g id="mapMarks"></g></svg>`;
+  if(kind==='shot') return `<svg id="locSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;display:block;">${shotPitchArt()}<g id="mapMarks"></g></svg>`;
   return `<svg id="locSvg" viewBox="0 0 100 ${KO_VB_H}" style="width:100%;aspect-ratio:100/${KO_VB_H};background:#256e17;border-radius:10px;display:block;">${koPitchArt()}<g id="mapMarks"></g></svg>`;
 }
 // Marker style: circle = open play, square = dead ball; colour by result
@@ -326,6 +326,47 @@ function koPitchArt(){
   return s;
 }
 // ── end kickout chart geometry ──
+// ── Shot map geometry: TRUE scale (shared verbatim by code-room.html and cohesion-graphics.js —
+// test_shotmap_scale.js checks the two copies are identical) ──
+// The attacking half, goal at the top, in a 100 x 75 box. The goal line and the 13, 20 and
+// 45 m lines are exactly where the picture has always had them (y = 1.2, 15.5, 22.9, 52), and
+// so are the touchlines (1.2 / 98.8). Everything else is drawn to measure on the scale the xP
+// model reads a position with (cohesion-xp.js): across, 0.878 m per X unit either side of
+// x = 50; down, straight-line between those four lines. Large rectangle 19 m wide to the 13 m
+// line, small rectangle 14 x 4.5 m, penalty spot 11 m, the D = 13 m from the middle of the
+// 20 m line, the arc = 40 m from the middle of the goal line, drawn beyond the 20 m line (it
+// meets it 34.64 m either side). The down scale changes at each line, so the two curves are
+// sampled points, not SVG arcs.
+// STORED POSITIONS ARE NOT TOUCHED: a shot is X = % across, Y = % down this box, plotted at
+// (X, Y x 0.75) as before. Only the white lines moved.
+const SHOT_VB_H=75, SHOT_M_PER_X=0.878, SHOT_ARC_M=40;
+const SHOT_LINES=[[0,1.2],[13,15.5],[20,22.9],[45,52]];   // [metres from the goal line, viewBox y]
+function shotMX(m){ return 50+m/SHOT_M_PER_X; }                             // metres right of the goal's centre -> viewBox x
+function shotMY(m){ const A=SHOT_LINES; let i=0; while(i<A.length-2&&m>A[i+1][0]) i++;   // metres from the goal line -> viewBox y
+  return A[i][1]+(m-A[i][0])*(A[i+1][1]-A[i][1])/(A[i+1][0]-A[i][0]); }
+function shotLabelY(m){ return shotMY(m)*100/SHOT_VB_H; }                   // metres from the goal line -> stored Y (% down the box)
+// the points r metres from the spot cDepth metres out on the centre line, no nearer the goal than `from`: [[x,y],…] left to right
+function shotLocus(cDepth, r, from){ const pts=[];
+  for(let a=-90;a<=90;a++){ const lat=r*Math.sin(a*Math.PI/180), d=cDepth+r*Math.cos(a*Math.PI/180); if(d>=from-1e-9) pts.push([+shotMX(lat).toFixed(2), +shotMY(d).toFixed(2)]); }
+  return pts; }
+function shotPitchArt(){
+  const W='rgba(255,255,255,.92)', f=n=>(+n.toFixed(2)), x0=1.2, x1=98.8, y0=shotMY(0);
+  const ln=m=>'<line x1="'+x0+'" y1="'+f(shotMY(m))+'" x2="'+x1+'" y2="'+f(shotMY(m))+'" stroke="'+W+'" stroke-width=".8"/>';
+  const curve=(c,r,w)=>'<path d="M '+shotLocus(c,r,20).map(p=>p[0]+' '+p[1]).join(' L ')+'" fill="none" stroke="'+W+'" stroke-width="'+w+'"/>';
+  const bands=[[1.2,7.15],[8.35,7.15],[15.5,7.4],[22.9,7.28],[30.17,7.28],[37.45,7.28],[44.73,7.28],[52,7.4],[59.4,7.4],[66.8,3.5],[70.3,3.5]];   // the mowing stripes, as they were
+  let s=bands.map((b,i)=>'<rect x="'+x0+'" y="'+b[0].toFixed(2)+'" width="'+f(x1-x0)+'" height="'+b[1].toFixed(2)+'" fill="'+(i%2?'#2e7a24':'#35862a')+'"/>').join('');
+  s+='<rect x="'+x0+'" y="'+y0+'" width="'+f(x1-x0)+'" height="72.6" fill="none" stroke="'+W+'" stroke-width="1"/>'
+    +'<line x1="'+f(shotMX(-9.5))+'" y1="'+y0+'" x2="'+f(shotMX(-9.5))+'" y2="'+f(shotMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'      // large rectangle: 19 m x 13 m
+    +'<line x1="'+f(shotMX(9.5))+'" y1="'+y0+'" x2="'+f(shotMX(9.5))+'" y2="'+f(shotMY(13))+'" stroke="'+W+'" stroke-width=".8"/>'
+    +'<rect x="'+f(shotMX(-7))+'" y="'+y0+'" width="'+f(14/SHOT_M_PER_X)+'" height="'+f(shotMY(4.5)-y0)+'" fill="none" stroke="'+W+'" stroke-width=".8"/>'   // small rectangle: 14 m x 4.5 m
+    +'<circle cx="50" cy="'+f(shotMY(11))+'" r=".7" fill="'+W+'"/>'                                                                     // penalty spot: 11 m
+    +ln(13)+ln(20)
+    +curve(20, 13, .9)                                                                                                                   // the D: 13 m from the middle of the 20 m line
+    +curve(0, SHOT_ARC_M, 1)                                                                                                             // 40 m arc, centred on the goal, from the 20 m line
+    +ln(45);
+  return s;
+}
+// ── end shot map geometry ──
 // Coordinates: native e.x/e.y first, else Match Tracker label pairs
 // (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...), 0-100 scale.
 // Older Mayo Sportscode timelines tag on a pitch rotated 90° (goal at X=100):

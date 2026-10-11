@@ -2812,7 +2812,7 @@ function ttPitchArt(){
   if(TT_PITCH!=null) return TT_PITCH;
   let s='';
   try{ if(typeof cohesionGraphics==='function') s=String(cohesionGraphics({game:{}, events:[]}).locPitchSvg('shot')).replace(/^<svg[^>]*>/,'').replace('<g id="mapMarks"></g></svg>',''); }catch(_){ s=''; }
-  if(!s||/<\/svg>/.test(s)) s='<rect x="1.2" y="1.2" width="97.6" height="72.6" fill="#2e7a24" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 8.4 22.9 A 46.4 46.2 0 0 0 91.2 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>';
+  if(!s||/<\/svg>/.test(s)) s='<rect x="1.2" y="1.2" width="97.6" height="72.6" fill="#2e7a24" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="22.9" x2="98.8" y2="22.9" stroke="rgba(255,255,255,.92)" stroke-width=".8"/><path d="M 10.55 22.9 A 45.56 46.56 0 0 0 89.45 22.9" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1"/><line x1="1.2" y1="52" x2="98.8" y2="52" stroke="rgba(255,255,255,.92)" stroke-width=".8"/>';
   return TT_PITCH=s;
 }
 function ttPitchOpen(cls, label){ return `<svg class="tt-pitch ${cls}" viewBox="0 0 100 ${TT_MAP_H}" role="group" aria-label="${ssEsc(label)}"><rect x="0" y="0" width="100" height="${TT_MAP_H}" fill="#256e17"/><g transform="scale(1,${TT_STR.toFixed(4)})">${ttPitchArt()}`; }
