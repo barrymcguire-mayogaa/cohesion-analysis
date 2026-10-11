@@ -634,6 +634,7 @@ async function openGame(id){
   initVH();
   crUpdatePending();
   renderList();
+  if(document.getElementById('mgStatus')) renderPanel();   // a result line left by the previous game's merge
 }
 
 // ── Local-video session: code a brand-new game against a file on this
