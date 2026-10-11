@@ -1259,12 +1259,27 @@ function ssSrcCat(txt){
 //     Turnover" is followed by "Donegal Poss".
 //  2. Gaelic Insights "<Team> Turnover Won": the event's team WON the ball.
 //  3. The tagged third ('Turnover Locations' DEFENSIVE / MIDDLE / ATTACKING
-//     THIRD; GIU 'PitchArea' and GI 'turnover_zone' Own / Middle / Opp Third)
-//     is ALWAYS from the EVENT TEAM's point of view. Tracker: a ball over the
-//     OPPOSITION endline is logged ATTACKING THIRD, a "turned over in the
-//     loser's DEFENSIVE third" starts the winners' attack, and KICKOUT LOST
-//     rows read SHORT→DEFENSIVE, MEDIUM→MIDDLE, LONG→ATTACKING (the kicking
-//     team's view). GI: 1037 of 1408 "Turnover Won" zones are 'Own Third'.
+//     THIRD; GIU 'PitchArea'; GI 'turnover_zone' Own / Middle Third) is ALWAYS
+//     from the EVENT TEAM's point of view. The thirds: DEFENSIVE = own goal
+//     line to own 45 m line, MIDDLE = 45 m line to 45 m line (both 65s are
+//     inside it), ATTACKING = beyond the opposition's 45. Tracker: a ball over
+//     the OPPOSITION endline is logged ATTACKING THIRD, a "turned over in the
+//     loser's DEFENSIVE third" starts the winners' attack. A KICKOUT LOST row
+//     is written by Code Room / the Gaelic Insights conversion from the
+//     kickout's length, the kicking team's view: SHORT→DEFENSIVE,
+//     MEDIUM→MIDDLE, LONG→MIDDLE, ATTACKING only when the landing is marked
+//     beyond the far 45 m line (until 12 Oct 2026 LONG was written ATTACKING;
+//     Code Room offers those rows for correction). No number on this page
+//     reads a kickout-lost row's third (class (b) below has none).
+//  3a. GI writes ONLY 'Own Third' and 'Middle Third' (33 files, 1,155
+//     "Turnover Won" rows: 762 Own, 279 Middle, 114 with NO zone label, never
+//     an 'Opp Third'). The rows with no zone label are the turnovers won in
+//     the OPPOSITION's third (confirmed from video), so a GI "Turnover Won"
+//     with no zone label reads as the winner's ATTACKING third (ssToThird) —
+//     the loser's DEFENSIVE third, exactly what its converted "<LOSER> TOs"
+//     row says (cohesion-gi.js), so a converted and an unconverted game agree.
+//     Only a GI "Turnover Won" original: a converted row, a GIU "Turnover" or
+//     any other row with no third stays unlocated.
 //  So for the selected team T: an event of T keeps its third, an event of
 //  the opposition has DEFENSIVE and ATTACKING swapped; rule 1/2 says whether
 //  T lost or won it.
@@ -1352,8 +1367,13 @@ function ssToKind(e){
   if(/SHOT ATTEMPT/.test(K)) return 'shot';
   return 'play';
 }
-// third in the EVENT TEAM's view: 'DEF' | 'MID' | 'ATT' | null
-function ssToThird(e){ return ssThirdTxt(ssLblCI(e,SS_TO_LOC_GROUPS)); }
+// third in the EVENT TEAM's view: 'DEF' | 'MID' | 'ATT' | null (a GI "Turnover Won" with no zone label: 'ATT' — rule 3a)
+const SS_GI_TO_WON_RE=/^\s*\S.*\s+turnovers?\s+won\s*$/i;
+function ssToThird(e){
+  const z=ssLblCI(e,SS_TO_LOC_GROUPS);
+  if(!z&&!ssGiDerived(e)&&SS_GI_TO_WON_RE.test(String(e.code||''))) return 'ATT';
+  return ssThirdTxt(z);
+}
 function ssThirdTxt(txt){
   const K=ssUC(txt);
   if(!K) return null;
