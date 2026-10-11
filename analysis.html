@@ -2818,8 +2818,10 @@ function ttPitchArt(){
 function ttPitchOpen(cls, label){ return `<svg class="tt-pitch ${cls}" viewBox="0 0 100 ${TT_MAP_H}" role="group" aria-label="${ssEsc(label)}"><rect x="0" y="0" width="100" height="${TT_MAP_H}" fill="#256e17"/><g transform="scale(1,${TT_STR.toFixed(4)})">${ttPitchArt()}`; }
 // iii. zones — geometry in the pitch art's own units, on its drawn lines:
 // touchlines 1.2 / 98.8, end line 1.2, 20m line 22.9, 45m line 52, thirds at
-// 33.3 / 66.7 (where a shot's X is plotted), and the drawn 40m arc.
-const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=52, y3=73.8, rx=46.4, ry=46.2, ax0=8.4, ax1=91.2, cx=(ax0+ax1)/2;
+// 33.3 / 66.7 (where a shot's X is plotted), and the drawn 40m arc: 40 m from the
+// middle of the goal line on the art's own scale (0.878 m per X unit; down, the 20m-45m
+// spacing), from the 20m line - between those two lines it is an exact ellipse.
+const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=52, y3=73.8, rx=+(40/0.878).toFixed(2), ry=+(40*(y2-y1)/25).toFixed(2), ah=+(Math.sqrt(40*40-20*20)/0.878).toFixed(2), ax0=+(50-ah).toFixed(2), ax1=+(50+ah).toFixed(2), cx=(ax0+ax1)/2;
   const cy=y1-ry*Math.sqrt(1-Math.pow((cx-ax0)/rx,2)), yAt=x=>cy+ry*Math.sqrt(1-Math.pow((x-cx)/rx,2));
   const ya=+yAt(x1).toFixed(2), yb=+yAt(x2).toFixed(2), A=`A${rx} ${ry} 0 0 `;
   const rect=(a,b,c,d)=>`M${a} ${b}H${c}V${d}H${a}Z`;
@@ -2832,7 +2834,7 @@ const TT_ZG=(()=>{ const x0=1.2, x1=33.3, x2=66.7, x3=98.8, y0=1.2, y1=22.9, y2=
     // label anchors (art units): zone name, and the centre of each block
     stripUp:2.8,   // art units the Zone 5 strip's small-grid hit area reaches above the arc
     name:{1:[2.4,4.4], 2:[34.5,4.4], 3:[67.9,4.4], 4:[2.4,26.1], 5:[34.5,26.1], 6:[97.6,26.1], 7:[2.4,55.2], 8:[34.5,55.2], 9:[67.9,55.2]},
-    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], '5:1':[50,36.5], '5:2':[50,50.6], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
+    mid:{1:[17.2,13.6], 2:[50,13.6], 3:[82.8,13.6], '5:1':[50,36.5], '5:2':[50,49.6], 7:[17.2,64.4], 8:[50,64.4], 9:[82.8,64.4], '4:1':[23.6,31.6], '4:2':[13.2,45.6], '6:1':[76.4,31.6], '6:2':[86.8,45.6]} };
 })();
 const TT_ROWS=['inside the 20m line','between the 20m and 45m lines','beyond the 45m line'], TT_COLS=['left','centre','right'];
 function ttZoneWhere(z){ return TT_COLS[(z-1)%3]+', '+TT_ROWS[Math.floor((z-1)/3)]; }
