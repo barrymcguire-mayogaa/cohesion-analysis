@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — ’45s on the 45 m line</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-bottom:20px;}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--accent-bg);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 13px 'Barlow Condensed',sans-serif;color:var(--accent);flex-shrink:0;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;}
+.step-sub{font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5;}
+select,input[type=text],input[type=search]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;max-width:100%;}
+select:focus,input[type=text]:focus,input[type=search]:focus{border-color:var(--accent);}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex:0 0 auto;}
+.process-btn{padding:11px 20px;border-radius:9px;background:var(--accent);color:#fff;font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;border:none;cursor:pointer;transition:all .15s;}
+.process-btn:hover{opacity:.9;}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;}
+.process-btn.green{background:var(--green);}
+.sec-btn{padding:7px 11px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;}
+.team-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.team-row select#teamSel{min-width:240px;flex:0 1 340px;font-weight:600;}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+.note{border-radius:8px;padding:11px 14px;margin-top:12px;font-size:12px;line-height:1.6;border:1px solid var(--border);background:var(--card);color:var(--t2);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);color:var(--amber);}
+.note.strong{background:var(--red-bg);border-color:var(--red);color:var(--t1);}
+.note.strong b{color:var(--red);}
+.note.good{background:var(--green-bg);border-color:var(--green);color:var(--t1);}
+.note.lock{background:var(--accent-bg);border-color:var(--accent);color:var(--t1);margin:0 0 20px;}
+.note.lock b{color:var(--accent);}
+.prog{display:none;margin-top:14px;}
+.prog.show{display:block;}
+.prog-track{height:6px;border-radius:3px;background:var(--card);overflow:hidden;border:1px solid var(--border);}
+.prog-bar{height:100%;width:0;background:var(--accent);transition:width .2s;}
+.prog-msg{font-size:12px;color:var(--t2);margin-top:6px;}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+.chip{display:inline-block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--t2);white-space:nowrap;margin:1px 4px 1px 0;}
+.chip.from{color:var(--amber);border-color:var(--amber);background:var(--amber-bg);font-size:12px;letter-spacing:.2px;}
+.chip.to{color:var(--green);border-color:var(--green);background:var(--green-bg);font-size:12px;letter-spacing:.2px;}
+.chip.red{color:var(--red);border-color:var(--red);background:var(--red-bg);}
+/* preview */
+.pv-sum{font-size:13px;color:var(--t2);margin:0 0 4px;line-height:1.7;}
+.pv-sum b{color:var(--t1);}
+.pv-h{font:700 14px 'Barlow Condensed',sans-serif;letter-spacing:.6px;margin:20px 0 4px;}
+.pv-hs{font-size:12px;color:var(--t3);line-height:1.5;margin-bottom:8px;}
+table.pv{width:100%;border-collapse:collapse;font-size:13px;min-width:860px;}
+table.pv th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.pv td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.5;}
+table.pv tr:last-child td{border-bottom:none;}
+table.pv td.c,table.pv th.c{width:34px;text-align:center;padding-right:0;}
+table.pv td.t{white-space:nowrap;font-variant-numeric:tabular-nums;}
+table.pv tr.grp td{background:var(--accent-bg);font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--accent);padding:6px 10px;}
+table.pv tr.grp td .sub{color:var(--t2);font-weight:600;letter-spacing:.3px;margin-left:8px;}
+table.pv tr.off td{opacity:.5;}
+table.pv .w{font-size:12px;color:var(--t3);}
+table.pv .st0{font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums;}
+table.pv td.state{width:92px;white-space:nowrap;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t3);}
+table.pv td.state.ok{color:var(--green);} table.pv td.state.bad{color:var(--red);} table.pv td.state.busy{color:var(--accent);}
+.big-dl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:14px;border:1px dashed var(--accent);border-radius:10px;background:var(--accent-bg);}
+.big-dl .txt{flex:1 1 260px;font-size:12px;color:var(--t1);line-height:1.6;}
+.hist{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.hist:last-child{border-bottom:none;}
+.hist .when{color:var(--t3);font-size:12px;width:128px;flex:0 0 auto;}
+.hist .what{flex:1 1 260px;min-width:0;}
+.page-sub{font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:16px;}
+details.more{margin-top:14px;font-size:13px;color:var(--t2);}
+details.more summary{cursor:pointer;color:var(--accent);font-weight:600;}
+details.more ul{margin:8px 0 0 18px;line-height:1.7;}
+@media(max-width:700px){ .page{padding:18px 12px 50px;} .step{padding:16px 12px;} }
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-config.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-gi.js"></script>
+<script src="cohesion-xp.js"></script>
+<script src="cohesion-shot45.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">📍 ’45s on the 45 m line</div>
+  <div class="page-sub">
+    A ’45 is always taken on the 45 m line and is always a 1 Point Attempt. Code Room now puts a newly marked ’45 on the line;
+    the ones saved before that were placed by hand and sit a metre or two either side of it. This page finds them in every game and
+    moves them onto the line — the depth only; where across the pitch the kick was taken is left exactly as it is.
+  </div>
+  <div class="note lock">
+    <b>Nothing changes until you press Apply.</b> You see every shot first and can untick any of them. Every value that is written goes
+    into a log, old and new. <b>The log is the only way back</b> — it is the one record of where each ’45 was — so download it and keep it.
+    Shots already on the line are never touched, so running this twice changes nothing.
+  </div>
+
+  <!-- 1. GAMES -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">1</div>
+      <div><div class="step-title">Games</div><div class="step-sub">Every game is read and checked for ’45s (dead-ball shots whose Deadball Shot Type is ’45)</div></div></div>
+    <div class="team-row">
+      <select id="secSel" aria-label="Section" title="Which games: county, club or both"></select>
+      <button class="sec-btn" id="refreshBtn" onclick="scan(true)" disabled title="Read every game again">↻ Scan again</button>
+      <span class="st" id="scanMsg"></span>
+    </div>
+    <div class="prog" id="loadProg"><div class="prog-track"><div class="prog-bar" id="loadBar"></div></div><div class="prog-msg" id="loadMsg"></div></div>
+    <div class="error-box" id="scanErr"></div>
+  </div>
+
+  <!-- 2. PREVIEW -->
+  <div class="step" id="pvStep" style="display:none;">
+    <div class="step-header"><div class="step-num">2</div>
+      <div><div class="step-title" id="pvTitle">Preview</div><div class="step-sub" id="pvSub">Nothing has been changed yet</div></div></div>
+    <div id="pvBox"></div>
+  </div>
+
+  <!-- 3. RESULT -->
+  <div class="step" id="resStep" style="display:none;">
+    <div class="step-header"><div class="step-num">3</div>
+      <div><div class="step-title" id="resTitle">Result</div><div class="step-sub" id="resSub"></div></div></div>
+    <div id="resBox"></div>
+  </div>
+
+  <!-- LOGS -->
+  <div class="step">
+    <div class="step-header"><div class="step-num">↺</div>
+      <div><div class="step-title">Logs kept in this browser</div><div class="step-sub">The last few runs. A log lists every value that was changed, old and new, with the event it is on — it is the way back. Download it and keep it.</div></div></div>
+    <div id="histBox"></div>
+  </div>
+</div>
+
+<script>
+// ── Auth (same gate as admin.html / player-names-admin.html; every call is re-checked server-side) ──
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('cohesion_theme',n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const S = window.cohShot45;
+const CONCURRENCY = 4;                      // games read at a time
+const LOG_KEY = 'coh_shot45_logs', LOG_KEEP = 5;
+const plural = (n, one, many) => n + ' ' + (n===1 ? one : (many || one+'s'));
+const fmtDate = d => { const m=/^(\d{4})-(\d\d)-(\d\d)/.exec(String(d||'')); return m ? m[3]+'/'+m[2]+'/'+m[1] : (d||'no date'); };
+const fmtClock = s => { s = Math.max(0, Math.round(+s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+const num = v => { const n = +v; return isFinite(n) ? String(Math.round(n*10)/10) : String(v); };
+
+let allGames = [];                          // listGames: [{id, meta}] — every game the admin can see
+let section = 'all';                        // 'county' | 'club' | 'all'
+const cache = new Map();                    // game id -> {meta, events:[{id, data}]} (memory only)
+let failedLoads = [];                       // [{id, title, error}] games that could not be read
+let plans = [];                             // cohShot45.planGame of every game read, oldest first (only games with a ’45)
+let off = new Set();                        // unticked boxes: 'm|gameId|rowId' (move) · 'a|gameId|rowId' (attempt)
+let job = null, lastRun = null;             // a run in progress · the last one's result
+let busy = false, scanTok = 0, scanned = false;
+
+function showErr(id, msg){ const el=$(id); el.textContent = msg||''; el.classList.toggle('show', !!msg); }
+const metaOf = g => { let m=(g&&g.meta)||{}; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ m={}; } } return (m.id==null&&g&&g.id!=null) ? Object.assign({}, m, {id:g.id}) : m; };
+const secOf = m => (m&&m.section)==='club' ? 'club' : 'county';       // = netlify/functions/data.js
+const titleOf = m => m.title || ((m.homeTeam||'')+' v '+(m.awayTeam||''));
+function gamesInSection(){ return allGames.filter(g => section==='all' || secOf(metaOf(g))===section); }
+
+// ── Read every game (cached in memory; ↻ Scan again reads them all again) ──
+async function readGame(id){
+  let last;
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const b = await cohesionRead({ action:'gameBundle', id });
+      const meta = metaOf({ id, meta:b.meta });
+      return { meta, events:(b.events||[]).filter(r=>r&&r.data&&typeof r.data==='object').map(r=>({ id:r.id, data:r.data })) };
+    }catch(e){ last = e; if(attempt===0) await new Promise(r=>setTimeout(r, 700)); }
+  }
+  throw last;
+}
+async function loadGames(ids, label){
+  const prog = $('loadProg'), bar = $('loadBar'), msg = $('loadMsg'), tok = scanTok;
+  const list = gamesInSection().filter(g => ids ? ids.includes(g.id) : !cache.has(g.id));
+  if(list.length){ prog.classList.add('show'); bar.style.width='0%'; msg.textContent = (label||'Reading')+' '+plural(list.length,'game')+'…'; }
+  let next = 0, done = 0;
+  async function worker(){
+    while(next < list.length){
+      const g = list[next++], m = metaOf(g);
+      try{ const b = await readGame(g.id); if(tok!==scanTok) return; cache.set(g.id, b); failedLoads = failedLoads.filter(f=>f.id!==g.id); }
+      catch(e){ if(tok!==scanTok) return; cache.delete(g.id); failedLoads = failedLoads.filter(f=>f.id!==g.id).concat([{ id:g.id, title:titleOf(m), error:(e&&e.message)||String(e) }]); }
+      done++; bar.style.width = (100*done/list.length).toFixed(1)+'%';
+      msg.textContent = 'Read '+done+' of '+plural(list.length,'game')+'…';
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker));
+  if(tok!==scanTok) return false;
+  prog.classList.remove('show');
+  return true;
+}
+function replan(){
+  plans = gamesInSection().map(g=>cache.get(g.id)).filter(Boolean).map(b=>S.planGame(b.meta, b.events)).filter(p=>p.items.length)
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)) || String(a.id).localeCompare(String(b.id)));
+}
+async function scan(again){
+  if(busy) return;
+  const tok = ++scanTok; scanned = false;
+  showErr('scanErr',''); $('refreshBtn').disabled = true; $('scanMsg').textContent = 'Reading games…';
+  if(again || !allGames.length){
+    try{ const j = await cohesionRead({ action:'listGames', section:'all' }); allGames = j.games || []; }
+    catch(e){ if(tok===scanTok){ showErr('scanErr','Could not load the games list: '+(e.message||e)); $('scanMsg').textContent=''; $('refreshBtn').disabled = false; } return; }
+    if(again){ cache.clear(); failedLoads = []; }
+  }
+  const t0 = performance.now();
+  try{ if(typeof cohesionXpReady==='function') await cohesionXpReady(); }catch(_){}       // the published xP model's metre scale (bundled one otherwise)
+  const ok = await loadGames();
+  if(!ok || tok!==scanTok) return;
+  scanned = true; $('refreshBtn').disabled = false;
+  replan(); renderScan(Math.round(performance.now()-t0)); renderPreview();
+}
+function renderScan(ms){
+  const n = gamesInSection().length, read = gamesInSection().filter(g=>cache.has(g.id)).length;
+  $('scanMsg').textContent = plural(read,'game')+' read'+(read<n?' of '+n:'')+(ms?' in '+(ms/1000).toFixed(1)+'s':'')+' · '+plural(plans.length,'game has','games have')+' a ’45';
+  const inSec = new Set(gamesInSection().map(g=>g.id)), bad = failedLoads.filter(f=>inSec.has(f.id));
+  showErr('scanErr', bad.length ? plural(bad.length,'game')+' could not be read and '+(bad.length===1?'was':'were')+' NOT checked: '
+    + bad.map(f=>f.title+' ('+f.error+')').join('; ')+'. Press ↻ Scan again to try again.' : '');
+}
+$('secSel').addEventListener('change', e=>{ if(busy){ e.target.value = section; return; } section = e.target.value; try{ localStorage.setItem('coh_shot45_section', section); }catch(_){} off = new Set(); scan(false); });
+
+// ── Preview ───────────────────────────────────────────────────────────────
+const kMove = (g, it) => 'm|'+g.id+'|'+it.id, kAtt = (g, it) => 'a|'+g.id+'|'+it.id;
+const each = f => plans.forEach(g=>g.items.forEach(it=>f(g, it)));
+function tally(){
+  const t = { all:0, games:plans.length, move:0, att:0, online:0, noloc:0, unclear:0, odd:0, zone:0, moveOn:0, attOn:0, zoneOn:0, gamesOn:new Set() };
+  each((g, it)=>{ t.all++;
+    if(it.status==='move'){ t.move++; if(it.zone) t.zone++; if(!off.has(kMove(g,it))){ t.moveOn++; if(it.zone) t.zoneOn++; t.gamesOn.add(g.id); } }
+    else t[it.status]++;
+    if(it.attempt){ t.att++; if(!off.has(kAtt(g,it))){ t.attOn++; t.gamesOn.add(g.id); } } });
+  return t;
+}
+const convTxt = g => !g.conv ? '' : !g.conv.sure ? '' : g.conv.conv==='sportscode_rot' ? 'rotated Sportscode coordinates — the depth is in the X label' : '';
+function metresTxt(it){
+  const a = S.depthM(it.depth), b = S.depthM(it.newDepth); if(a==null||b==null) return '';
+  const d = a-b; return Math.abs(d)<0.05 ? 'under 0.1 m' : Math.abs(d).toFixed(1)+' m '+(d>0?'towards goal':'out from goal');
+}
+const whoCells = it => '<td>'+esc(it.team)+'</td><td>'+(it.player?esc(it.player):'<span style="color:var(--t3)">–</span>')+'</td><td class="t">'+esc(it.half)+' · '+fmtClock(it.start)+'</td>';
+const grpRow = (g, cols, key, n) => '<tr class="grp"><td class="c"><input type="checkbox" data-grp="'+key+'|'+esc(g.id)+'" '+(n.on===n.all?'checked':'')+' aria-label="Tick every row of this game"></td><td colspan="'+(cols-1)+'">'
+  + esc(fmtDate(g.date))+' · '+esc(g.title)+(convTxt(g)?'<span class="sub">'+esc(convTxt(g))+'</span>':'')+'</td></tr>';
+function renderPreview(){
+  if(!scanned) return;
+  const t = tally(); let h = '';
+  $('pvStep').style.display = ''; $('pvTitle').textContent = 'Preview'; $('pvSub').textContent = 'Nothing has been changed yet';
+  h += '<div class="pv-sum"><b>'+plural(t.all,'’45')+'</b> found in <b>'+plural(t.games,'game')+'</b> · <b>'+t.move+'</b> not on the line · <b>'+t.online+'</b> already on the line'
+    + ' · <b>'+t.att+'</b> not tagged 1 Point Attempt'+(t.noloc?' · '+t.noloc+' with no location':'')+(t.unclear+t.odd?' · <b>'+(t.unclear+t.odd)+'</b> not changed (see below)':'')+'.</div>';
+  if(!t.move && !t.att) h += '<div class="note good"><b style="color:var(--green)">✓ Nothing to do.</b> '+(t.all ? 'Every ’45 that has a location is on the 45 m line, and every ’45 is a 1 Point Attempt.' : 'No ’45s found in these games.')+'</div>';
+  // (a) the moves
+  if(t.move){
+    h += '<div class="pv-h">Move onto the 45 m line — '+plural(t.move,'shot')+'</div><div class="pv-hs">Depth is the stored Y: % down the shot map from the goal end; the 45 m line is drawn at '+S.LINE_Y
+      + '. Metres are on the expected-points model’s scale. Only the depth is written — the across-pitch value stays exactly as it is.</div>'
+      + '<div class="tbl-wrap"><table class="pv" id="moveTbl"><thead><tr><th class="c"></th><th>Team</th><th>Player</th><th>Time (video)</th><th>Depth</th><th>Moves</th><th>What is written</th><th>Zone</th></tr></thead><tbody>';
+    plans.forEach(g=>{ const rows = g.items.filter(it=>it.status==='move'); if(!rows.length) return;
+      h += grpRow(g, 8, 'm', { all:rows.length, on:rows.filter(it=>!off.has(kMove(g,it))).length });
+      rows.forEach(it=>{ const on = !off.has(kMove(g,it));
+        h += '<tr class="'+(on?'':'off')+'"><td class="c"><input type="checkbox" data-k="'+esc(kMove(g,it))+'" '+(on?'checked':'')+' aria-label="Move this shot"></td>'+whoCells(it)
+          + '<td class="t"><span class="chip from">'+esc(num(it.depth))+'</span>→ <span class="chip to">'+esc(num(it.newDepth))+'</span></td><td class="t">'+esc(metresTxt(it))+'</td>'
+          + '<td class="st0">'+it.sets.map(s=>esc(s.field==='y'?'y':s.label)+' '+esc(num(s.old))+' → '+esc(s.new)).join('<br>')+'</td>'
+          + '<td>'+(it.zone ? '<span class="chip from">'+esc(it.zone.old)+'</span>→ <span class="chip to">'+esc(it.zone.new)+'</span>' : '<span style="color:var(--t3)">no change</span>')
+          + (it.zoneNote?'<div class="w">'+esc(it.zoneNote)+'</div>':'')+'</td></tr>'; });
+    });
+    h += '</tbody></table></div>';
+  }
+  // (b) the attempts
+  if(t.att){
+    h += '<div class="pv-h">Set to 1 Point Attempt — '+plural(t.att,'shot')+'</div><div class="pv-hs">A ’45 is a 1-point attempt. These are tagged something else, or nothing. Each has its own tick, separate from the move above.</div>'
+      + '<div class="tbl-wrap"><table class="pv" id="attTbl"><thead><tr><th class="c"></th><th>Team</th><th>Player</th><th>Time (video)</th><th>Shot Attempts</th><th>Location</th></tr></thead><tbody>';
+    plans.forEach(g=>{ const rows = g.items.filter(it=>it.attempt); if(!rows.length) return;
+      h += grpRow(g, 6, 'a', { all:rows.length, on:rows.filter(it=>!off.has(kAtt(g,it))).length });
+      rows.forEach(it=>{ const on = !off.has(kAtt(g,it));
+        h += '<tr class="'+(on?'':'off')+'"><td class="c"><input type="checkbox" data-k="'+esc(kAtt(g,it))+'" '+(on?'checked':'')+' aria-label="Set this shot to 1 Point Attempt"></td>'+whoCells(it)
+          + '<td>tagged <span class="chip from">'+(it.attempt.old?esc(it.attempt.old):'nothing')+'</span>→ <span class="chip to">'+esc(it.attempt.new)+'</span><div class="w">a ’45 is a 1-point attempt</div></td>'
+          + '<td class="w">'+(it.status==='noloc'?'no location — nothing to move':it.status==='move'?'not on the line (listed above)':it.status==='online'?'on the line':'not changed (see below)')+'</td></tr>'; });
+    });
+    h += '</tbody></table></div>';
+  }
+  // (c) not changed
+  const left = []; each((g, it)=>{ if(it.status==='unclear'||it.status==='odd') left.push([g, it]); });
+  if(left.length) h += '<div class="note warn"><b>Not changed ('+left.length+'):</b><ul style="margin:6px 0 0 18px;">'
+    + left.map(([g, it])=>'<li>'+esc(fmtDate(g.date))+' · '+esc(g.title)+' — '+esc(it.team)+(it.player?' · '+esc(it.player):'')+' · '+esc(it.half)+' '+fmtClock(it.start)+': '
+      + (it.status==='unclear' ? '<b>convention unclear</b> — this game’s shot coordinates could be either way round ('+esc(it.why)+'), so its ’45 is left where it is rather than guessed. Move it in Code Room.'
+        : '<b>location not recognised</b> — '+esc(it.why)+'. Move it in Code Room.')+'</li>').join('')+'</ul></div>';
+  const picked = t.moveOn + t.attOn;
+  if(t.move || t.att){
+    h += '<div class="note">Each game is read again at the moment it is saved, so anything edited meanwhile in another tab is kept, and a shot that is on the line by then is not written. '
+      + 'If one game fails the others are still done, and the failure is shown. XML files, PDFs or images exported earlier are not changed.</div>'
+      + '<div class="btn-row"><button class="process-btn" id="applyBtn" onclick="applyRun()" '+(picked&&!busy?'':'disabled')+'>Apply — '+(picked ? plural(t.moveOn,'move')+(t.zoneOn?' ('+plural(t.zoneOn,'zone')+' updated)':'')+(t.attOn?' · '+plural(t.attOn,'attempt'):'')+' in '+plural(t.gamesOn.size,'game') : 'nothing ticked')+'</button>'
+      + '<span class="st" id="pvMsg"></span></div>';
+  }
+  $('pvBox').innerHTML = h;
+}
+$('pvBox').addEventListener('change', e=>{
+  const el = e.target; if(!el || el.type!=='checkbox') return;
+  if(busy){ el.checked = !el.checked; return; }
+  if(el.dataset.k){ if(el.checked) off.delete(el.dataset.k); else off.add(el.dataset.k); }
+  else if(el.dataset.grp){ const i = el.dataset.grp.indexOf('|'), part = el.dataset.grp.slice(0, i), gid = el.dataset.grp.slice(i+1), g = plans.find(p=>String(p.id)===gid); if(!g) return;
+    g.items.filter(it=>part==='m'?it.status==='move':!!it.attempt).forEach(it=>{ const k = part==='m'?kMove(g,it):kAtt(g,it); if(el.checked) off.delete(k); else off.add(k); }); }
+  renderPreview();
+});
+
+// ── Logs (the last few, in this browser) ───────────────────────────────────
+let logNotStored = false;
+function readLogs(){ try{ const l = JSON.parse(localStorage.getItem(LOG_KEY)||'[]'); return Array.isArray(l) ? l.filter(x=>x&&x.v===1&&x.id&&Array.isArray(x.games)) : []; }catch(_){ return []; } }
+function saveLog(log){
+  let list = readLogs().filter(l=>l.id!==log.id); list.unshift(log); list = list.slice(0, LOG_KEEP);
+  logNotStored = false;
+  for(;;){
+    try{ localStorage.setItem(LOG_KEY, JSON.stringify(list)); return; }
+    catch(_){ if(list.length>1) list.pop(); else { logNotStored = true; return; } }   // too big for this browser: only the download keeps it
+  }
+}
+function download(name, type, text){
+  const blob = new Blob([text], { type }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+const logName = (log, ext) => 'cohesion-45-line-'+String(log.at||'').slice(0,16).replace(/[:T]/g,'')+'.'+ext;
+function downloadLog(log, kind){
+  if(kind==='csv') download(logName(log,'csv'), 'text/csv', '﻿'+S.logCsv(log));
+  else download(logName(log,'json'), 'application/json', JSON.stringify(log, null, 1));
+}
+const STATUS = { running:'not finished', partial:'some games failed', applied:'applied' };
+function renderHist(){
+  const logs = readLogs();
+  $('histBox').innerHTML = logs.length ? logs.map((l,i)=>{ const t = S.logTotals(l), d = new Date(l.at);
+    return '<div class="hist" data-log="'+i+'"><span class="when">'+esc(isNaN(d)?'':d.toLocaleString([], { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }))+'</span>'
+      + '<span class="what"><b>'+plural(t.rows,'shot')+'</b> changed in '+plural(t.games,'game')+'<br><span style="color:var(--t3);font-size:12px;">'+plural(t.values,'value')+' written'
+      + (t.failed?' · '+plural(t.failed,'game')+' failed':'')+' · '+esc(STATUS[l.status]||l.status)+'</span></span>'
+      + '<button class="sec-btn" data-act="json">⬇ Log (JSON)</button><button class="sec-btn" data-act="csv">⬇ Log (CSV)</button></div>'; }).join('')
+    : '<div style="font-size:13px;color:var(--t2);">No runs yet.</div>';
+}
+$('histBox').addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const log = readLogs()[+el.closest('.hist').dataset.log]; if(log) downloadLog(log, el.dataset.act);
+});
+
+// ── Apply (cohesion-shot45.js runner over the existing gateways) ───────────
+const io = { bundle: id => readGame(id), saveEvents: ops => cohesionEventBatch(ops), saveLog };
+cohesionSetGuard(()=>busy);                 // closing the tab while the games are being saved asks first
+function setBusy(b){ busy = b; $('secSel').disabled = b; $('refreshBtn').disabled = b; }
+function jobState(id){
+  const r = job && job.results[id];
+  if(r) return r.ok ? ['ok', 'Done'] : ['bad', 'Failed'];
+  return job && job.now===id ? ['busy', 'Saving…'] : ['', 'Waiting'];
+}
+function runTable(){
+  return '<div class="tbl-wrap" style="margin-top:12px;"><table class="pv" id="runTbl"><thead><tr><th>Game</th><th>Asked for</th><th>Saved</th><th>Progress</th></tr></thead><tbody>'
+    + job.order.map(id=>{ const g = job.titles[id], p = Object.values(job.picks[id]), st = jobState(id), r = job.results[id];
+      return '<tr><td><b>'+esc(fmtDate(g.date))+'</b> · '+esc(g.title)+'</td><td>'+plural(p.filter(x=>x.move).length,'move')+' · '+plural(p.filter(x=>x.attempt).length,'attempt')+'</td>'
+        + '<td>'+(r ? plural(r.rows,'shot')+(r.skipped?' · '+r.skipped+' no longer needed':'')+(r.error?'<div class="w" style="color:var(--red)">'+esc(r.error)+'</div>':'') : '<span style="color:var(--t3)">–</span>')+'</td>'
+        + '<td class="state '+st[0]+'">'+st[1]+'</td></tr>'; }).join('')+'</tbody></table></div>';
+}
+async function applyRun(){
+  if(busy || !scanned) return;
+  const picks = {}, titles = {};
+  each((g, it)=>{ const move = it.status==='move' && !off.has(kMove(g,it)), attempt = !!it.attempt && !off.has(kAtt(g,it)); if(!move && !attempt) return;
+    (picks[g.id] = picks[g.id] || {})[it.id] = { move, attempt }; titles[g.id] = { title:g.title, date:g.date }; });
+  const order = plans.map(g=>g.id).filter(id=>picks[id]), t = tally();
+  if(!order.length) return;
+  const ok = await cohesionModal({ title:'Move these ’45s onto the line?', message:plural(t.moveOn,'shot')+' moved onto the 45 m line'+(t.zoneOn?' ('+plural(t.zoneOn,'zone label')+' updated)':'')
+      + (t.attOn?' · '+plural(t.attOn,'shot')+' set to 1 Point Attempt':'')+' — in '+plural(order.length,'game')+'.<br>You get a log of every value changed. Download it: it is the only way back.',
+    buttons:[{ label:'Apply', value:true, primary:true }, { label:'Cancel', value:false }] });
+  if(ok!==true) return;
+  job = { order, picks, titles, results:{}, now:null, log:S.newLog(sessionStorage.getItem('cohesion_user')||'') };
+  setBusy(true); renderPreview();
+  $('resStep').style.display = ''; $('resTitle').textContent = 'Saving…'; $('resSub').textContent = 'Keep this tab open until it finishes';
+  const bar = '<div class="prog show"><div class="prog-track"><div class="prog-bar" id="runBar"></div></div><div class="prog-msg" id="runMsg">Starting…</div></div>';
+  const draw = () => { const w = $('runBar') ? $('runBar').style.width : '0%', m = $('runMsg') ? $('runMsg').textContent : ''; $('resBox').innerHTML = bar + runTable(); $('runBar').style.width = w; $('runMsg').textContent = m; };
+  draw(); $('resStep').scrollIntoView({ block:'start', behavior:'smooth' });
+  let res;
+  try{
+    res = await S.runApply(job, io, p=>{
+      if(p.step==='game'){ job.now = p.id; draw(); $('runBar').style.width = (100*p.i/Math.max(1,p.n))+'%'; $('runMsg').textContent = 'Game '+(p.i+1)+' of '+p.n+': '+job.titles[p.id].title+' — reading it again, then saving…'; }
+      else if(p.step==='done'){ job.results[p.id] = p.res; job.now = null; draw(); $('runBar').style.width = (100*(p.i+1)/Math.max(1,p.n))+'%'; }
+    });
+  }catch(e){ res = { ok:false, games:order.filter(id=>!job.results[id]).map(id=>({ id, ok:false, rows:0, skipped:0, error:(e&&e.message)||String(e) })) }; res.games.forEach(r=>{ job.results[r.id] = r; }); }
+  job.now = null; lastRun = job;
+  // read the games that were written again, and show what is left
+  scanTok++; try{ await loadGames(order, 'Reading the changed'); }catch(_){}
+  off = new Set(); replan(); setBusy(false); renderScan(0); renderPreview(); renderResult(); renderHist();
+}
+function renderResult(){
+  const log = lastRun.log, t = S.logTotals(log), bad = lastRun.order.filter(id=>!lastRun.results[id].ok), good = lastRun.order.length - bad.length;
+  const left = tally();
+  $('resTitle').textContent = bad.length ? 'Finished — '+plural(bad.length,'game')+' failed' : 'Finished';
+  $('resSub').textContent = 'Saved '+new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  let h = '';
+  if(t.rows) h += '<div class="note good"><b style="color:var(--green)">✓ '+plural(t.rows,'shot')+' changed in '+plural(t.games,'game')+'</b> ('+plural(t.values,'value')+' written)'+(good&&!bad.length?' — every game was saved.':'.')+'</div>';
+  if(bad.length) h += '<div class="note strong"><b>⚠ '+plural(bad.length,'game')+' failed'+(t.rows?' — the others were saved':'')+':</b><ul style="margin:6px 0 0 18px;">'
+    + bad.map(id=>'<li><b>'+esc(lastRun.titles[id].title)+'</b> ('+esc(fmtDate(lastRun.titles[id].date))+'): '+esc(lastRun.results[id].error)+'</li>').join('')
+    + '</ul>The preview above has been read again and shows what is still to do — press Apply there to try those again.</div>';
+  if(!t.rows && !bad.length) h += '<div class="note">Nothing needed writing — every ticked shot was already as asked when its game was read again.</div>';
+  h += '<div class="note">'+(left.move||left.att ? 'Read again after saving: <b style="color:var(--t1)">'+left.move+'</b> still not on the line · <b style="color:var(--t1)">'+left.att+'</b> still not 1 Point Attempt (ticked off, failed, or not changed — see the preview above).'
+    : 'Read again after saving: every ’45 with a location is on the line and every ’45 is a 1 Point Attempt.')+'</div>';
+  if(t.rows) h += '<div class="big-dl"><button class="process-btn green" onclick="downloadLog(lastRun.log,\'json\')">⬇ Download log (JSON)</button><button class="sec-btn" onclick="downloadLog(lastRun.log,\'csv\')">⬇ Log as CSV</button>'
+    + '<div class="txt"><b>Download the log and keep it — it is the way back.</b> It lists every value that was changed, old and new, with the game and the event it is on. Nothing else records where each ’45 was; this browser only keeps the last '+LOG_KEEP+' logs'
+    + (logNotStored?', and <b style="color:var(--red)">this one was too big to keep here</b>':'')+'.</div></div>';
+  $('resBox').innerHTML = h + runTable();
+}
+
+if(gated && auth==='admin'){
+  const secs = (typeof cohesionSections==='function' ? cohesionSections() : ['county','club']);
+  try{ section = localStorage.getItem('coh_shot45_section') || 'all'; }catch(_){}
+  if(!['county','club','all'].includes(section) || (section!=='all' && !secs.includes(section))) section = 'all';
+  $('secSel').innerHTML = [['all','County + club'],['county','County games'],['club','Club games']].filter(o=>o[0]==='all'?secs.length>1:secs.includes(o[0]))
+    .map(o=>'<option value="'+o[0]+'"'+(o[0]===section?' selected':'')+'>'+o[1]+'</option>').join('');
+  if(!$('secSel').value) section = $('secSel').options.length ? $('secSel').options[0].value : 'all'; else section = $('secSel').value;
+  renderHist(); scan(false);
+}
+</script>
+</body>
+</html>
