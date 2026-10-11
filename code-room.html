@@ -5771,7 +5771,7 @@ async function crGiConvertPrompt(){
   if(c.solos) parts.push(pl(c.solos,'solo-and-go event'));
   if(c.hops) parts.push(pl(c.hops,'hop-ball event'));
   const giuTo=add.some(e=>cohGiIsDerivedTo(e)&&/-to$/.test(String(e.id))&&!/turnovers?\s+won/i.test((EVENTS.find(o=>String(o.id)===String((e.labels||{})['GI Source ID'])&&!(o.labels||{})['GI Source ID'])||{}).code||''));
-  const kinds=[(c.shots||c.scores)?'shots':'', c.kos?'kickouts':'', (c.tos||c.koTos)?'turnovers':'', (c.poss||c.fouls||c.solos||c.hops)?'possessions and fouls':''].filter(Boolean);
+  const kinds=[(c.shots||c.scores)?'shots':'', c.kos?'kickouts':'', (c.tos||c.koTos)?'turnovers':'', (c.poss||c.fouls||c.solos||c.hops)?'possession / foul rows':''].filter(Boolean);
   const ok=await cohesionModal({ title:'Convert Gaelic Insights '+(kinds.length>1?kinds.slice(0,-1).join(', ')+' and '+kinds[kinds.length-1]:kinds[0]||'events'),
     message:'Create '+parts.join(' and ')+'?<br><br>'
       +(c.shots||c.scores?'Each GI or GIU shot gets a SHOT OPEN PLAY / SHOT DEADBALL event (outcome, attempt, dead-ball type, player, assist, source) and each score its '
