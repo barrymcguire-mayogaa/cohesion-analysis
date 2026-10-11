@@ -1338,12 +1338,15 @@ function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.co
 const SS_GI_SHORT_WINDOW=10;   // seconds, shot start → turnover start; must be LESS than this
 function ssEvT(e){ return e.start!=null?+e.start:(+e.driveT||0); }
 function ssGiDerived(e){ return !!String(ssL(e,'GI Source ID')||'').trim(); }
+// a row brought in by Code Room's "Merge another XML" (cohesion-merge.js): an event of its own, counted like any Code Room
+// row — but it is not one of the Gaelic Insights file's rows, so the "next event" of the short-shot inference steps over it
+function ssMerged(e){ return !!String(ssL(e,'Merge Source ID')||'').trim(); }
 function ssIsGiRawShot(e){ const c=String(e.code||''); return /^\s*\S.*\s+shot\s*$/i.test(c)&&!/SOURCE|ASSIST/i.test(c)&&!ssGiDerived(e); }
 function ssGiShotOutcome(e){ return ssUC(ssL(e,'Outcome')||e.outcome); }
 function ssGiShortTurnovers(events, T, O){
   const out=new Set();
   const side=e=>ssSideOf(e,T)?'T':ssSideOf(e,O)?'O':'';
-  const seq=(events||[]).filter(e=>e&&!ssGiDerived(e)).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
+  const seq=(events||[]).filter(e=>e&&!ssGiDerived(e)&&!ssMerged(e)).map((e,i)=>({e,i,t:ssEvT(e)})).sort((a,b)=>a.t-b.t||a.i-b.i);
   seq.forEach((x,k)=>{
     if(!ssIsGiRawShot(x.e)||ssGiShotOutcome(x.e)!=='SHORT') return;
     const n=seq[k+1]; if(!n) return;
@@ -1406,8 +1409,9 @@ function ssPossSrc(events, skip, shotMode){
   const live=events.filter(e=>e&&!skip(e));
   if(!live.some(e=>/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))||!!ssLblCI(e, SS_SRC_LABELS))){
     const poss=[];
-    events.forEach((e,i)=>{ if(!e) return; const c=ssUC(e.code); if(!/\sPOSS$/.test(c)) return;
-      const team=ssUC(e.team)||c.replace(/\s+POSS$/,''), st=ssEvT(e); if(!team) return;
+    // "<Team> Poss" as a GIU file writes it, or the "<TEAM> TEAM POSSESSION" a merged GIU possession becomes (it keeps PossFrom)
+    events.forEach((e,i)=>{ if(!e) return; const c=ssUC(e.code); if(!/\s(POSS|TEAM POSSESSION)$/.test(c)) return;
+      const team=ssUC(e.team)||c.replace(/\s+(TEAM POSSESSION|POSS)$/,''), st=ssEvT(e); if(!team) return;
       poss.push({team, from:ssLblCI(e,['PossFrom'])||'', s:st, en:e.end!=null?Math.max(st, +e.end):st, i}); });
     if(poss.some(q=>q.from)){
       poss.sort((a,b)=>a.s-b.s||a.i-b.i);

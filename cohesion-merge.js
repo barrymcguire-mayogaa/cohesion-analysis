@@ -48,6 +48,12 @@
  * offset can be supplied). driveT / gameTime are written the way the game's own
  * rows in that half carry them.
  *
+ * PLAYER NUMBERS. A GIU file names a player only by jersey number ("P13" = number 13 of that team). It is turned into
+ * the name at that number on the game's team sheet (cohesion-gi.js cohGiuRosterName: meta.rosters[side], the admin's
+ * P-tag map first) when there is one; with no player at that number the row keeps "P13" — never a guess. A row whose
+ * name came from a number remembers it in the field `pTag`. cohPTagFixes lists every value that is STILL a bare
+ * P-number (for a team sheet added or changed later); a value that is not a bare P-number is never touched.
+ *
  * A FORMAT is an adapter (ADAPTERS): text → the file's events as the admin upload
  * reads them. Gaelic Insights and GIU are supported; any other format is refused
  * by name, never guessed.
@@ -78,6 +84,7 @@
   const median = a => { if(!a.length) return null; const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2; };
   const clone = o => JSON.parse(JSON.stringify(o));
   const isPTag = s => /^P\s*\d+$/i.test(String(s || '').trim());
+  const pTagOf = s => { const m = /^P\s*(\d+)$/i.exec(String(s || '').trim()); return m ? 'P' + (+m[1]) : ''; };
   const plural = (n, w) => n + ' ' + (n === 1 ? w[0] : w[1]);
 
   // ── reading a file ──────────────────────────────────────────────
@@ -179,6 +186,8 @@
         const main = d[0], kind = /SHOT (OPEN|DEAD)/i.test(main.code) ? 'shot' : GI.cohGiIsDerivedKo(main) ? 'ko' : 'to';
         const rows = d.map(r => { const c = clone(r); delete c.labels[GI_SRC]; delete c.videoT; return c; });
         Object.assign(rows[0].labels, extra(e, null));
+        const tg = pTagOf((e.labels || {})['Player'] || e.player);
+        if(tg && kind === 'shot'){ rows[0].pTag = tg; base.pTag = tg; base.pName = isPTag(rows[0].player) ? '' : rows[0].player; }
         items.push(Object.assign(base, { kind, team: kind === 'to' ? up(main.team) : up(main.team) || e.team, rows }));
         return;
       }
@@ -186,7 +195,8 @@
       const row = (code, labels, also) => ({ id:'', code, team:T, start:e.start, end:e.end, half:e.half, player:'', outcome:'', subtype:'', category:catOf(code),
         labels: Object.assign({}, labels, extra(e, also)) });
       const withPlayer = r => { const tag = String((e.labels || {})['Player'] || e.player || '').trim(); if(!tag || !T) return r;
-        const p = (isPTag(tag) && GI.cohGiuRosterName(game, T, tag)) || tag; r.player = p; r.labels[T + ' Player Labels'] = p; return r; };
+        const p = (isPTag(tag) && GI.cohGiuRosterName(game, T, tag)) || tag; r.player = p; r.labels[T + ' Player Labels'] = p;
+        if(isPTag(tag)){ r.pTag = pTagOf(tag); base.pTag = r.pTag; base.pName = isPTag(p) ? '' : p; } return r; };
       if(/kickout$/i.test(C) && T){   // kept as an event (it can pair with the game's kickout) but there is nothing to convert
         const v = String((e.labels || {})['KickoutOutcome'] || '').trim();
         items.push(Object.assign(base, { kind:'ko', rows:[], bad:'its kickout outcome ' + (v ? '“' + v + '” ' : '') + 'cannot be read as won or lost by either team' })); return; }
@@ -315,8 +325,9 @@
     const pf = playerOf(f), pg = playerOf(g);
     if(pf){
       const fk = Object.keys(f.labels || {}).find(x => /player labels$/i.test(x)) || '', team = f.playerTeam || (fk ? up(fk.replace(/\s*player labels$/i, '')) : up(f.team));
-      if(!pg){ out.player = { name:pf, group:fk, team, was:'' }; out.n++; out.what.push('player ' + pf); }
-      else if(isPTag(pg) && !isPTag(pf)){ out.player = { name:pf, group:fk, team, was:pg }; out.n++; out.what.push('player ' + pg + ' → ' + pf); }
+      const tg = f.pTag || pTagOf(pf);
+      if(!pg){ out.player = { name:pf, group:fk, team, was:'', pTag:tg }; out.n++; out.what.push('player ' + (tg && !isPTag(pf) ? tg + ' → ' : '') + pf); }
+      else if(isPTag(pg) && !isPTag(pf)){ out.player = { name:pf, group:fk, team, was:pg, pTag:pTagOf(pg) }; out.n++; out.what.push('player ' + pg + ' → ' + pf); }
       else if(up(pg) !== up(pf) && !(isPTag(pf) && !isPTag(pg))) out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept');
     }
     return out;
@@ -333,6 +344,7 @@
         const old = Object.keys(row.labels).filter(k => /player labels$/i.test(k) && (!String(row.labels[k] || '').trim() || isPTag(row.labels[k])));
         const k = old[0] || ed.player.group || ((ed.player.team || up(row.team) || 'Unassigned') + ' Player Labels');
         row.labels[k] = ed.player.name; row.player = ed.player.name;
+        if(ed.player.pTag) row.pTag = ed.player.pTag;
         if(ed.player.team && ed.player.team !== up(row.team)) row.playerTeam = ed.player.team;
       }
     }
@@ -453,7 +465,7 @@
       const rows = mine.map(it => {
         const a = it.half ? align.find(x => x.half === it.half) : null, o = it.half != null ? off[it.half] : null, main0 = it.rows[0] || { code:'' };
         const r = { key: k + '|' + it.srcId, srcId: it.srcId, kind:k, half: it.half, team: it.team, fileCode: it.code, code: main0.code, player: playerOf(main0), fileT: it.ft, t:null, driveT:null,
-          status:'', reason:'', gi:null, fills:null, notes:[], rows:[] };
+          pTag: it.pTag || '', pName: it.pName || '', status:'', reason:'', gi:null, fills:null, notes:[], rows:[] };
         if(it.already){ r.status = 'already'; r.gi = it.already.i; r.t = it.already.t; r.driveT = fin(it.already.e.driveT) ? +it.already.e.driveT : null; r.half = it.already.half || it.half; return r; }
         if(o == null){ r.status = 'out'; r.reason = it.half ? 'its half (' + it.half + ') is not lined up with the game' : 'it falls outside the halves that could be lined up'; return r; }
         const mk = marker(it.srcId);
@@ -550,7 +562,44 @@
     return kept.sort((a, b) => ((a.driveT == null ? 0 : a.driveT) - (b.driveT == null ? 0 : b.driveT)) || ((a.start == null ? 0 : a.start) - (b.start == null ? 0 : b.start)));
   }
 
-  const api = { cohMergeDetect, cohMergePlan, cohMergeOps, cohMergeApply, cohMergeApplyEdit:applyEdit, cohMergeFormats:() => Object.keys(ADAPTERS).map(k => ADAPTERS[k].name),
+  // ── P-numbers still on the game's rows ──────────────────────────
+  // For a team sheet added or changed AFTER the rows were stored. Lists every value that is a bare P-number:
+  //   · the row's player field and its "<TEAM> Player Labels" value — number of THAT team (the player's own team:
+  //     the label's team, else playerTeam, else the row's team);
+  //   · Assist, Kickout Taken By, Kickout Target, Player In, Player Out — the row's team;
+  //   · Kickout Won By — the kicking team when the kickout was won, the other team when it was lost (skipped when
+  //     the outcome does not say).
+  // `to` = the name now at that number ('' = no player at that number: the value stays). A superseded Gaelic Insights /
+  // GIU original is not listed (it is the file's own record and keeps its number), nor is the raw 'Player' label of any
+  // row, nor a group holding several values. Pure — nothing is changed; apply with cohPTagApply.
+  //   → [{ index, id, code, team, changes:[{ where:'player'|'label', group, from, to, team }], n (changes with a name) }]
+  const PTAG_ROW_GROUPS = ['assist','kickout taken by','kickout target','player in','player out'];
+  function cohPTagFixes(events, game){
+    events = events || [];
+    const sup = GI.cohGiSupersededFn(events), out = [], H = up(game && game.homeTeam), A = up(game && game.awayTeam), other = T => T === H ? A : T === A ? H : '';
+    events.forEach((e, index) => { if(!e || sup(e)) return;
+      const L = e.labels || {}, T = up(e.team) || teamOfCode(e.code, game), ch = []; let own = up(e.playerTeam);
+      const want = (where, group, val, team) => { if(!isPTag(val)) return; if(group && e.labelsAll && Array.isArray(e.labelsAll[group]) && e.labelsAll[group].length > 1) return;
+        ch.push({ where, group, from: pTagOf(val), to: team ? (GI.cohGiuRosterName(game, team, val) || '') : '', team: team || '' }); };
+      Object.keys(L).forEach(g => { const m = /^(.*?)\s*player labels$/i.exec(g), w = g.toLowerCase();
+        if(m){ const pt = up(m[1]) === H || up(m[1]) === A ? up(m[1]) : (own || T); want('label', g, L[g], pt); if(isPTag(L[g]) && !own) own = pt; return; }
+        if(PTAG_ROW_GROUPS.indexOf(w) >= 0) want('label', g, L[g], T);
+        else if(w === 'kickout won by'){ const s = wonLost(valCI(e, ['Kickout Outcomes','Kickout Outcome']) || e.outcome); if(s) want('label', g, L[g], s === 'W' ? T : other(T)); } });
+      want('player', '', e.player, own || T);
+      if(ch.length) out.push({ index, id:e.id, code:e.code, team:T, changes:ch, n: ch.filter(c => c.to).length });
+    });
+    return out;
+  }
+  // Write the named changes of one entry onto its row, in place; a change with no name is left. Returns how many were written.
+  function cohPTagApply(row, entry){
+    let n = 0; row.labels = row.labels || {};
+    (entry.changes || []).forEach(c => { if(!c.to) return;
+      if(c.where === 'player'){ if(pTagOf(row.player) === c.from){ row.player = c.to; row.pTag = c.from; n++; } }
+      else if(pTagOf(row.labels[c.group]) === c.from){ row.labels[c.group] = c.to; if(/player labels$/i.test(c.group)) row.pTag = c.from; n++; } });
+    return n;
+  }
+
+  const api = { cohPTagFixes, cohPTagApply, cohMergeDetect, cohMergePlan, cohMergeOps, cohMergeApply, cohMergeApplyEdit:applyEdit, cohMergeFormats:() => Object.keys(ADAPTERS).map(k => ADAPTERS[k].name),
     COH_MERGE_SRC:MERGE_SRC, COH_MERGE_MODES:MODES };
   Object.assign(root, api);
   if(typeof module !== 'undefined' && module.exports) module.exports = api;

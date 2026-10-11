@@ -634,6 +634,8 @@ function setVM(m){viewMode=m;document.getElementById('vtE')?.classList.toggle('o
 function detectFormat(evs){
   // Converted GI / GIU games keep their format: ignore the derived (uppercase) events.
   if(evs.some(e=>e.labels&&e.labels['GI Source ID'])) evs=evs.filter(e=>!(e.labels&&e.labels['GI Source ID']));
+  // rows merged in from a second file (Code Room › Merge another XML) do not change the game's own format either
+  if(evs.some(e=>e.labels&&e.labels['Merge Source ID'])) evs=evs.filter(e=>!(e.labels&&e.labels['Merge Source ID']));
   if(!evs.length)return'gi';
   if(evs.some(e=>/\([PF]\)/.test(e.code)))return'giu';
   if(evs.some(e=>e.code===e.code.toUpperCase()&&/[A-Z]{2}/.test(e.code)))return'sc';

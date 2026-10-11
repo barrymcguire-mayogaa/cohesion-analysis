@@ -324,6 +324,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-merge.js"></script>
 <script src="cohesion-periods.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="crests/index.js"></script>
@@ -441,6 +442,8 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots, kickouts and turnovers into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events; TOs events for the team that lost the ball) — the originals are kept">⇄ Convert shots</div>
             <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals / fix thirds — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack, or turnover / foul rows whose third was written by a rule since corrected (a Gaelic Insights turnover with no zone; a medium or long kickout lost read as the attacking third). Preview each one, then apply the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
             <div class="tlrb" id="koFixBtn" style="display:none;" onclick="crKoFixOpen()" title="Kickout chart scale — this game has kickouts that look saved on the old (pre-13 Sep 2026) kickout chart. Preview every kickout with its evidence, then convert the ticked ones to the current scale">⇅ Kickout scale</div>
+            <div class="tlrb" id="ptagBtn" style="display:none;" onclick="crPTagOpen()" title="Player numbers → names — this game has events that name a player only by jersey number (P13, as a GIU file does) and the team sheet now has a player at that number. Preview, tick, replace; a number with no player on the sheet stays">#</div>
+            <div class="tlrb" id="mergeBtn" onclick="crMergeOpen()" title="Merge another XML — bring in a second file of this match (another analyst’s coding): its clock is lined up with the game’s, events in both keep the game’s version and gain what it lacks, events only in the file are added as COHESION rows. Preview first; one Undo; nothing saved until you close the session">⧉ Merge XML</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
@@ -1183,7 +1186,7 @@ function renderList(){
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
-  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync();
+  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync(); crPTagBtnSync();
   const fb=document.getElementById('flagBtn');
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
@@ -3851,6 +3854,7 @@ function crTeamSheetEdit(){
       Object.keys(sheets).forEach(side=>{ GAME.rosters[side]=(merged.rosters||{})[side]||[]; q[side]=[]; });
       crBackup(); crUpdatePending(); renderList();
       if(codeMode&&codeMode.on&&document.getElementById('codePlayers')) buildCodePlayers();
+      if(crPTagList().some(f=>f.n)) crPTagOpen();   // events still naming a player by a number this sheet now names
     } });
 }
 // ── "+ add to team sheet" ────────────────────────────────────
@@ -5776,6 +5780,262 @@ async function crGiConvertPrompt(){
   const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+[(c.shots||c.scores)?c.shots+' shots + '+c.scores+' scores':'', c.kos?c.kos+' kickouts + '+(c.breaks||0)+' breaks':'', c.tos?c.tos+' turnovers':'', c.koTos?c.koTos+' kickout-lost turnovers':''].filter(Boolean).join(' + ')+(c.carriedRows?' · carried from the originals: '+crGiCarryWords(c):'')+(c.lenClash?' · '+c.lenClash+' kickout length'+(c.lenClash===1?'':'s')+' to check':'')+' — saved when you close the session'; }
 }
 
+// ── Merge another XML ─────────────────────────────────────────
+// A second file of the same match (another analyst's coding) is merged into the open game (cohesion-merge.js — the
+// rules are written there): its clock is lined up with the game's half by half, the events both have are paired, and
+// by default the game's own event stays and only gains what it lacks; events only in the file are added, converted to
+// COHESION rows carrying 'Merge Source ID'. Everything goes through the normal queue — new rows _new, changed rows
+// _dirty, ONE Undo step (type 'merge') — and nothing is saved until the session is saved.
+let crMerge=null;   // {name, text, plan, modes:{kind:mode}, off:{entry key:true}, faOff:{}, open:{kind:true}, offsets:{half:seconds}}
+const CR_MG_BTN='padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;';
+function crMergeSources(){ const m={}; EVENTS.forEach(e=>{ const v=String((e.labels||{})[COH_MERGE_SRC]||''); const t=v.split(':')[0]; if(t) m[t]=(m[t]||0)+1; }); return m; }
+function crMergeOpen(){
+  if(!GAME){ alert('Open a game first.'); return; }
+  if(typeof cohMergePlan!=='function') return;
+  crMergeClose();
+  crMerge={name:'', text:'', plan:null, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}};
+  const ov=document.createElement('div'); ov.id='mergeOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
+  ov.innerHTML='<div id="mergeCard" style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:1080px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;font-family:Barlow,sans-serif;box-shadow:0 24px 64px rgba(0,0,0,.55);"></div>'
+    +'<input type="file" id="mergeFile" accept=".xml,.json,text/xml,application/xml" style="display:none;" onchange="crMergeFile(this)">';
+  document.body.appendChild(ov); crMergeRender();
+}
+function crMergeClose(){ const ov=document.getElementById('mergeOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crMerge=null; }
+function crMergeFile(inp){
+  const f=(inp.files||[])[0]; if(!f||!crMerge) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ let text=''; try{ text=cohScDecode(new Uint8Array(rd.result)); }catch(_){ text=''; } crMergeSetText(f.name, text); };
+  rd.onerror=()=>{ if(crMerge){ crMerge.name=f.name; crMerge.plan={ok:false, error:'The file could not be read.'}; crMergeRender(); } };
+  rd.readAsArrayBuffer(f); inp.value='';
+}
+// (also what the headless tests call: the file's text, already decoded)
+function crMergeSetText(name, text){
+  if(!crMerge) return;
+  Object.assign(crMerge, {name, text, modes:{}, off:{}, faOff:{}, open:{}, offsets:{}});
+  crMergePlanNow();
+}
+function crMergePlanNow(){
+  const M=crMerge; if(!M) return;
+  M.plan=cohMergePlan(EVENTS, GAME, M.text, {offsets:M.offsets});
+  if(M.plan.ok) M.plan.types.forEach(T=>{ if(!M.modes[T.kind]) M.modes[T.kind]=T.mode; });
+  crMergeRender();
+}
+function crMergeOpsNow(){ const M=crMerge; return (M&&M.plan&&M.plan.ok)?cohMergeOps(M.plan, {modes:M.modes, off:M.off, faOff:M.faOff}):null; }
+function crMergeMode(sel){ if(!crMerge) return; crMerge.modes[sel.getAttribute('data-kind')]=sel.value; crMergeRender(); }
+function crMergeToggle(kind){ if(!crMerge) return; crMerge.open[kind]=!crMerge.open[kind]; crMergeRender(); }
+function crMergeTick(inp){ if(!crMerge) return; const k=inp.getAttribute('data-key'), o=inp.getAttribute('data-fa')?crMerge.faOff:crMerge.off; if(inp.checked) delete o[k]; else o[k]=true; crMergeRender(); }
+function crMergeTickAll(kind, on){ if(!crMerge||!crMerge.plan.ok) return; const T=crMerge.plan.types.find(x=>x.kind===kind); if(!T) return;
+  T.rows.forEach(r=>{ if(on) delete crMerge.off[r.key]; else crMerge.off[r.key]=true; }); crMergeRender(); }
+function crMergeOffset(half, inp){ if(!crMerge) return; const v=String(inp.value||'').trim();
+  if(v===''||!isFinite(+v)) delete crMerge.offsets[half]; else crMerge.offsets[half]=+v;
+  crMergePlanNow(); }
+function crMergeOffsetAuto(half){ if(!crMerge) return; delete crMerge.offsets[half]; crMergePlanNow(); }
+function crMergePlay(driveT){ if(YTP&&YTP.seekTo){ vSeekDrive(Math.max(0,+driveT||0)); try{ if(YTP.playVideo) YTP.playVideo(); }catch(_){} } }
+const CR_MG_MODE={fill:'Keep the game’s + fill blanks', file:'Take the file’s', both:'Keep both', none:'Don’t bring in'};
+function crMergePlayerText(r){
+  if(r.pTag){ const n=r.pTag.replace(/\D/g,''); return r.pName?r.pTag+' → '+r.pName:r.pTag+' — no player '+n+' on the team sheet'; }
+  return r.player||'';
+}
+// what one entry does under the chosen mode, in words
+function crMergeRowText(r, mode){
+  if(r.status==='already') return {t:'already in the game from this file', dim:true};
+  if(r.status==='out') return {t:'left out — '+r.reason, dim:true};
+  if(mode==='none') return {t:'not brought in', dim:true};
+  const lb=row=>Object.keys(row.labels||{}).filter(g=>g!==COH_MERGE_SRC&&!/player labels$/i.test(g)).map(g=>g+' '+row.labels[g]).join(' · ');
+  const comp=r.rows.length>1?' + '+r.rows.slice(1).map(x=>x.code).join(', '):'';
+  if(r.status==='new') return {t:'only in the new file — added as '+r.code+comp+(lb(r.rows[0])?' ('+lb(r.rows[0])+')':''), flag:true};
+  const at=fmt(r.gameDriveT!=null?r.gameDriveT:r.driveT);
+  if(r.unusable) return {t:'in both — the game’s '+r.gameCode+' at '+at+' stays as it is', note:r.notes.join(' · '), dim:true};
+  if(mode==='file') return {t:'in both — the game’s '+r.gameCode+' at '+at+' is replaced by the file’s '+r.code+comp+(lb(r.rows[0])?' ('+lb(r.rows[0])+')':'')};
+  if(mode==='both') return {t:'in both — the file’s '+r.code+comp+' is added as well: this event will be in the game TWICE', warn:true};
+  return r.fills&&r.fills.n?{t:'in both — the game’s '+r.gameCode+' at '+at+' gains: '+r.fills.what.join(' · '), note:r.notes.join(' · ')}
+    :{t:'in both — nothing to add to the game’s '+r.gameCode+' at '+at, note:r.notes.join(' · '), dim:true};
+}
+function crMergeBody(){
+  const M=crMerge, P=M.plan, th='padding:5px 6px;text-align:left;font:700 10px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--panel);', td='padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:top;';
+  const h3=t=>'<div style="font:800 13px \'Barlow Condensed\',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);margin:16px 0 6px;">'+t+'</div>';
+  const src=crMergeSources(), srcKeys=Object.keys(src);
+  let h='<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Merge another XML — '+esc(GAME.title||GAME.id||'')+'</div>'
+    +'<button onclick="crMergeClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">Bring in a second file of this match (another analyst’s coding). An event that is in both stays as the game has it and only gains the details it lacks; an event only in the file is added, converted to COHESION rows. '
+    +'Supported: '+esc(cohMergeFormats().join(', '))+'. Nothing is saved until you close the session; Undo takes the whole merge back in one step.</div>';
+  h+=h3('1 · The file')+'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;">'
+    +'<button onclick="document.getElementById(\'mergeFile\').click()" style="'+CR_MG_BTN+'">'+(M.name?'Choose another file…':'Choose file…')+'</button>'
+    +(M.name?'<b>'+esc(M.name)+'</b>':'<span style="color:var(--t3);">No file chosen.</span>')
+    +(P&&P.formatName?'<span style="color:var(--t2);">· '+esc(P.formatName)+'</span>':'')
+    +(P&&P.ok?'<span style="color:var(--green);">· '+esc(P.fileTeams.join(' v '))+' — matches the game</span><span style="color:var(--t3);">· '+P.fileEvents+' events</span>':'')+'</div>';
+  if(srcKeys.length) h+='<div style="font-size:11.5px;color:var(--t3);margin-top:6px;">Already merged into this game: '+srcKeys.map(k=>esc(k)+' ('+src[k]+' row'+(src[k]===1?'':'s')+')').join(', ')
+    +(P&&P.ok&&src[P.tag]?' — <b style="color:var(--t2);">this file has been merged before</b>; what it already gave is not added again.':'')+'</div>';
+  if(P&&!P.ok) h+='<div id="mergeError" style="margin-top:10px;padding:10px 12px;border:1px solid #dc2626;border-radius:8px;color:#f87171;font-size:12.5px;line-height:1.5;">'+esc(P.error)+'</div>';
+  if(!P||!P.ok) return h+'<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button onclick="crMergeClose()" style="'+CR_MG_BTN+'color:var(--t2);">Close</button></div>';
+
+  // alignment
+  const sgn=v=>(v>0?'+':'')+(Math.round(v*100)/100);
+  h+='<div style="font-size:11.5px;color:var(--t2);margin:10px 0 4px;line-height:1.5;">Clocks: the game’s clock is the reference. For each half the file is moved by ONE offset — the middle difference of the kickouts both have (shots when the kickouts cannot decide). You can type an offset instead; nothing is merged for a half with no offset.</div>'
+    +'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeAlign" style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+    +'<tr><th style="'+th+'">Half</th><th style="'+th+'">Offset (s) game − file</th><th style="'+th+'">From</th><th style="'+th+'">Kickouts paired</th><th style="'+th+'">Shots paired</th><th style="'+th+'">Spread</th><th style="'+th+'">Check</th></tr>'
+    +P.align.map(a=>{
+      const cnt=c=>c?'<b>'+c.paired+'</b> of '+c.game+' in the game / '+c.file+' in the file'+(Math.abs(c.lag)>=1?'<br><span style="color:var(--t3);">tagged '+Math.abs(c.lag)+' s '+(c.lag<0?'earlier':'later')+' in the game</span>':''):'—';
+      const hint=(a.koOffset!=null&&a.shotOffset!=null&&Math.abs(a.koOffset-a.shotOffset)>=2&&a.offset!=null)?'<br><span style="color:var(--t3);">kickouts say '+sgn(a.koOffset)+' ('+a.koAgree+' agree), shots say '+sgn(a.shotOffset)+' ('+a.shotAgree+' agree)</span>':'';
+      const first=a.first?('<button onclick="crMergePlay('+(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+')" style="'+CR_MG_BTN+'padding:3px 8px;font-size:11px;" title="'+(YTP&&YTP.seekTo?'Play this moment in the video':'No video is loaded')+'">▶ '+fmt(a.first.gameDriveT!=null?a.first.gameDriveT:a.first.driveT)+'</button> '
+        +'<span style="color:var(--t3);">'+(a.first.paired?'first paired event: the file’s '+esc(a.first.code)+' = the game’s '+esc(a.first.gameCode):'the file’s first event of this half, '+esc(a.first.code)+', would be here')+'</span>'):'—';
+      return '<tr data-half="'+esc(a.half)+'"><td style="'+td+'white-space:nowrap;"><b>'+esc(a.half)+'</b></td>'
+        +'<td style="'+td+'white-space:nowrap;"><input type="text" value="'+(a.offset==null?'':a.offset)+'" placeholder="type seconds" data-half="'+esc(a.half)+'" onchange="crMergeOffset(this.getAttribute(\'data-half\'), this)" style="width:92px;padding:3px 6px;border-radius:5px;border:1px solid '+(a.offset==null?'#dc2626':'var(--border)')+';background:var(--card);color:var(--t1);font-size:12px;">'
+        +(a.typed?' <a href="#" onclick="crMergeOffsetAuto(\''+_cq(a.half)+'\');return false;" style="color:var(--accent);font-size:11px;">auto</a>':'')+'</td>'
+        +'<td style="'+td+'">'+(a.offset==null?'<span style="color:#f87171;">not lined up — '+esc(a.reason||'')+'. Nothing of this half is merged unless you type an offset.</span>'
+          :a.typed?'typed by you':esc(a.source)+hint)+'</td>'
+        +'<td style="'+td+'">'+cnt(a.ko)+'</td><td style="'+td+'">'+cnt(a.shot)+'</td>'
+        +'<td style="'+td+'white-space:nowrap;">'+(a.spread?sgn(a.spread.min)+' … '+sgn(a.spread.max)+' s':'—')+'</td><td style="'+td+'">'+first+'</td></tr>'; }).join('')+'</table></div>';
+
+  // types
+  const ops=crMergeOpsNow();
+  h+=h3('2 · What to bring in')+'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeTypes" style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+    +'<tr><th style="'+th+'"></th><th style="'+th+'">Event type</th><th style="'+th+'">In the game</th><th style="'+th+'">In the file</th><th style="'+th+'">In both</th><th style="'+th+'">Only in the file</th><th style="'+th+'">Only in the game</th><th style="'+th+'">Choice</th></tr>';
+  P.types.forEach(T=>{
+    const mode=M.modes[T.kind]||T.mode, open=!!M.open[T.kind], simple=!T.nGame&&!T.paired;
+    const opts=(simple?['fill','none']:['fill','file','both','none']).map(m=>'<option value="'+m+'"'+(m===mode?' selected':'')+'>'+(simple&&m==='fill'?'Bring in':CR_MG_MODE[m])+'</option>').join('');
+    const extra=[T.already?T.already+' already merged':'', T.out?T.out+' left out':''].filter(Boolean).join(' · ');
+    h+='<tr data-kind="'+esc(T.kind)+'" style="'+(mode==='none'?'opacity:.6;':'')+'"><td style="'+td+'cursor:pointer;width:18px;" onclick="crMergeToggle(\''+_cq(T.kind)+'\')">'+(open?'▾':'▸')+'</td>'
+      +'<td style="'+td+'cursor:pointer;" onclick="crMergeToggle(\''+_cq(T.kind)+'\')"><b>'+esc(T.name)+'</b>'+(T.defined?'':'<br><span style="color:var(--t3);">no COHESION meaning defined — comes in under its own name in capitals</span>')+(extra?'<br><span style="color:var(--t3);">'+extra+'</span>':'')+'</td>'
+      +'<td style="'+td+'">'+T.nGame+'</td><td style="'+td+'">'+T.nFile+'</td><td style="'+td+'">'+T.paired+'</td><td style="'+td+'">'+T.fileOnly+'</td><td style="'+td+'">'+T.gameOnly+'</td>'
+      +'<td style="'+td+'"><select data-kind="'+esc(T.kind)+'" onchange="crMergeMode(this)" style="padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:12px;">'+opts+'</select></td></tr>';
+    if(open){
+      h+='<tr><td colspan="8" style="padding:0 0 0 22px;border-bottom:1px solid var(--border);"><div style="max-height:340px;overflow:auto;"><table data-rows="'+esc(T.kind)+'" style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+        +'<tr><th style="'+th+'"><a href="#" onclick="crMergeTickAll(\''+_cq(T.kind)+'\',true);return false;" style="color:var(--accent);">all</a> <a href="#" onclick="crMergeTickAll(\''+_cq(T.kind)+'\',false);return false;" style="color:var(--accent);">none</a></th>'
+        +'<th style="'+th+'">Video</th><th style="'+th+'">Half</th><th style="'+th+'">Team</th><th style="'+th+'">Player</th><th style="'+th+'">What happens</th></tr>'
+        +T.rows.map(r=>{ const x=crMergeRowText(r, mode), live=r.status!=='already'&&r.status!=='out'&&mode!=='none'&&!r.unusable&&!(r.status==='paired'&&mode==='fill'&&!(r.fills&&r.fills.n));
+          const gp=r.status==='paired'&&r.gamePlayer?'<br><span style="color:var(--t3);">game: '+esc(r.gamePlayer)+'</span>':'';
+          return '<tr data-key="'+esc(r.key)+'" data-status="'+r.status+'"><td style="'+td+'"><input type="checkbox" data-key="'+esc(r.key)+'" '+(live&&!M.off[r.key]?'checked':'')+' '+(live?'':'disabled')+' onchange="crMergeTick(this)"></td>'
+            +'<td style="'+td+'white-space:nowrap;">'+(r.driveT!=null?fmt(r.driveT):'—')+'</td><td style="'+td+'white-space:nowrap;">'+esc(HALF_SHORT(r.half))+'</td><td style="'+td+'white-space:nowrap;">'+esc(r.team||'—')+'</td>'
+            +'<td style="'+td+'">'+esc(crMergePlayerText(r))+gp+'</td>'
+            +'<td style="'+td+(x.dim?'color:var(--t3);':'')+'">'+(x.flag?'<span style="color:var(--accent);font-weight:700;">NEW</span> ':'')+(x.warn?'<span style="color:#f59e0b;font-weight:700;">TWICE</span> ':'')+esc(x.t)+(x.note?'<br><span style="color:var(--t3);">'+esc(x.note)+'</span>':'')+'</td></tr>'; }).join('')
+        +'</table></div></td></tr>';
+    }
+  });
+  h+='</table></div>';
+  // FREE AGAINST
+  if(P.fa.length){
+    h+=h3('3 · Free against')+'<div style="font-size:11.5px;color:var(--t2);margin-bottom:6px;line-height:1.5;">The file has a foul BY a team at the moment that team lost the ball: the turnover’s type is FREE AGAINST. Only a turnover whose type is blank is filled.</div>'
+      +'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeFa" style="width:100%;border-collapse:collapse;font-size:11.5px;"><tr><th style="'+th+'"></th><th style="'+th+'">Video</th><th style="'+th+'">Turnover</th><th style="'+th+'">Evidence in the file</th><th style="'+th+'">What happens</th></tr>'
+      +P.fa.map(f=>{ const st=ops.fa.find(x=>x.key===f.key)||{state:'skip', why:''}, live=st.state==='game'||st.state==='new'||st.state==='off';
+        const txt=st.state==='game'?'sets Turnover Outcomes = FREE AGAINST on the game’s '+f.gameCode:st.state==='new'?'the new '+f.team+' TOs row comes in with Turnover Outcomes = FREE AGAINST':st.state==='off'?'not filled':'not filled — '+st.why;
+        return '<tr data-key="'+esc(f.key)+'" data-state="'+st.state+'"><td style="'+td+'"><input type="checkbox" data-fa="1" data-key="'+esc(f.key)+'" '+(live&&st.state!=='off'?'checked':'')+' '+(live?'':'disabled')+' onchange="crMergeTick(this)"></td>'
+          +'<td style="'+td+'white-space:nowrap;">'+(f.driveT!=null?fmt(f.driveT):'—')+'</td><td style="'+td+'white-space:nowrap;"><b>'+esc(f.team)+'</b> lost the ball</td>'
+          +'<td style="'+td+'">'+esc(f.foulCode)+' and '+esc(f.toCode)+', '+Math.abs(f.gap)+' s apart</td><td style="'+td+(live&&st.state!=='off'?'':'color:var(--t3);')+'">'+esc(txt)+'</td></tr>'; }).join('')+'</table></div>';
+  }
+  // left out
+  const outRows=[]; P.types.forEach(T=>{ const by={}; T.rows.forEach(r=>{ if(r.status==='out') by[r.reason]=(by[r.reason]||0)+1; }); Object.keys(by).forEach(k=>outRows.push(by[k]+' × '+T.name+' — '+k)); });
+  P.leftOut.forEach(o=>outRows.push(o.n+' × '+o.code+' — '+o.reason));
+  if(outRows.length) h+=h3('Left out')+'<div id="mergeLeftOut" style="font-size:11.5px;color:var(--t2);line-height:1.6;">'+outRows.map(esc).join('<br>')+'</div>';
+  const can=ops.adds.length||ops.edits.length||ops.deletes.length;
+  h+='<div style="display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">'
+    +'<div id="mergeSummary" style="flex:1;font-size:12.5px;line-height:1.5;"><b>This merge '+esc(ops.summary)+'.</b>'
+    +(ops.counts.twice?'<br><span style="color:#f59e0b;">'+ops.counts.twice+' event'+(ops.counts.twice===1?'':'s')+' will be in the game twice (Keep both) — the stats will count '+(ops.counts.twice===1?'it':'them')+' twice.</span>':'')
+    +'<br><span style="color:var(--t3);">'+ops.counts.addRows+' new row'+(ops.counts.addRows===1?'':'s')+', '+ops.counts.filledRows+' changed, '+ops.counts.removedRows+' removed · queued, not saved, until you close the session.</span></div>'
+    +'<button onclick="crMergeClose()" style="'+CR_MG_BTN+'color:var(--t2);">Cancel</button>'
+    +'<button id="mergeGo" onclick="crMergeGo()" '+(can?'':'disabled')+' style="padding:8px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;'+(can?'':'opacity:.45;')+'">Apply merge</button></div>';
+  return h;
+}
+function HALF_SHORT(h){ return h==='1st Half'?'1H':h==='2nd Half'?'2H':h==='ET 1st Half'?'ET1':h==='ET 2nd Half'?'ET2':(h||'—'); }
+function crMergeRender(){ const c=document.getElementById('mergeCard'); if(!c||!crMerge) return; const top=c.scrollTop, inner={};
+  c.querySelectorAll('table[data-rows]').forEach(t=>{ inner[t.getAttribute('data-rows')]=t.parentNode.scrollTop; });
+  c.innerHTML=crMergeBody(); c.scrollTop=top;
+  c.querySelectorAll('table[data-rows]').forEach(t=>{ const v=inner[t.getAttribute('data-rows')]; if(v) t.parentNode.scrollTop=v; }); }
+// Queue the ops: edits (_dirty), removals (crDeleted), new rows (_new) — ONE undo step.
+function crMergeQueue(ops){
+  const snaps=[], dels=[], rowIds=[], mainTmp={}, gone=new Set(ops.deletes.map(i=>EVENTS[i]).filter(Boolean));
+  ops.edits.forEach(ed=>{ const e=EVENTS[ed.i]; if(!e||gone.has(e)) return;
+    snaps.push({id:e._rowId, data:crClone(e)});
+    const d=crClone(ed); if(d.player&&d.player.team) d.player.group=crPG(d.player.team);   // the game's own spelling of the player group
+    cohMergeApplyEdit(e, d); if(!e._new) e._dirty=true; });
+  gone.forEach(e=>{ dels.push({data:crClone(e), wasNew:!!e._new}); if(!e._new) crDeleted.push({id:e._rowId}); });
+  if(gone.size) EVENTS=EVENTS.filter(e=>!gone.has(e));
+  ops.adds.forEach(n=>{ const tmpId='tmp-'+(++crTmpCounter), row=Object.assign(crClone(n), {_manual:true, _rowId:tmpId, _new:true}), main=row._mergeMain; delete row._mergeMain;
+    if(main){ if(mainTmp[main]) row._shotComp=mainTmp[main]; }   // a score / break / kickout-lost row goes with its event, like crPushCompanion
+    else mainTmp[n.id]=tmpId;
+    EVENTS.push(row); rowIds.push(tmpId); });
+  if(!snaps.length&&!dels.length&&!rowIds.length) return false;
+  undoStack.push({type:'merge', rowIds, snaps, dels});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  if(gone.size&&activeId!=null&&!EVENTS.some(x=>String(x._rowId)===String(activeId))){ activeId=null; draft=null; }
+  const periods=[...new Set(EVENTS.map(e=>e.half).filter(Boolean))], sel=document.getElementById('eperiod');
+  if(sel){ const keep=sel.value; sel.innerHTML='<option value="">All periods</option>'+periods.map(p=>`<option value="${p}">${p}</option>`).join(''); sel.value=keep; }
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const cur=activeId!=null&&EVENTS.find(x=>String(x._rowId)===String(activeId));
+  if(cur&&draft&&snaps.some(s=>String(s.id)===String(activeId))){ crSyncDraft(cur); if(!codeMode.on) renderPanel(); }
+  return true;
+}
+function crMergeGo(){
+  const ops=crMergeOpsNow(); if(!ops) return;
+  const name=crMerge.name; crMergeClose();
+  if(!crMergeQueue(ops)) return;
+  const pn=document.getElementById('epStatus');
+  if(pn){ pn.className='status ok'; pn.textContent='Merge queued ✓ '+name+': '+ops.summary+' — saved when you close the session; Undo takes the whole merge back'; }
+  crPTagBtnSync();
+}
+
+// ── P-numbers → names from the team sheet ─────────────────────
+// A GIU file names a player only by jersey number ("P13"). It becomes a name when the row is converted / merged and
+// the team sheet has a player at that number; a team sheet added or changed LATER is applied here (cohesion-merge.js
+// cohPTagFixes): every value that is still a bare P-number and now has a player at that number is offered — preview,
+// ticks, one queued bulk edit, one Undo. A P-number with no player at that number stays; anything that is not a bare
+// P-number is never touched (so a name already written is not chased if the sheet later changes).
+let crPTag=null;   // {items, ticks:{rowId:bool}}
+function crPTagList(){ if(!GAME||typeof cohPTagFixes!=='function') return []; return cohPTagFixes(EVENTS, GAME).map(f=>Object.assign({}, f, {e:EVENTS[f.index], rowId:EVENTS[f.index]._rowId})); }
+function crPTagBtnSync(){ const b=document.getElementById('ptagBtn'); if(!b) return; const n=GAME?crPTagList().filter(f=>f.n).length:0; b.style.display=n?'':'none'; b.textContent='# P-numbers → names ('+n+')'; }
+function crPTagText(f){ return f.changes.map(c=>(c.where==='player'?'player':c.group)+': '+c.from+(c.to?' → '+c.to:' — no player '+c.from.replace(/\D/g,'')+' on the '+(c.team||'team')+' sheet')).filter((v,i,a)=>a.indexOf(v)===i).join(' · '); }
+function crPTagBody(){
+  const C=crPTag, n=C.items.filter(it=>C.ticks[it.rowId]).length, stay={};
+  crPTagList().forEach(f=>f.changes.forEach(c=>{ if(!c.to) stay[(c.team||'?')+' '+c.from.replace(/\D/g,'')]=1; }));
+  const th='padding:5px 6px;text-align:left;font:700 10px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);', td='padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:top;';
+  const rows=C.items.map(it=>'<tr><td style="'+td+'"><input type="checkbox" data-ptag="'+esc(String(it.rowId))+'" '+(C.ticks[it.rowId]?'checked':'')+' onchange="crPTagTick(this)"></td>'
+    +'<td style="'+td+'">'+fmt(it.e.driveT??it.e.start??0)+'</td><td style="'+td+'white-space:nowrap;"><b>'+esc(it.e.code||'')+'</b></td><td style="'+td+'">'+esc(crPTagText(it))+'</td></tr>').join('');
+  const sk=Object.keys(stay);
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Player numbers → names — '+esc(GAME.title||'')+'</div>'
+    +'<button onclick="crPTagClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">These events name a player only by jersey number (“P13”, as a GIU file does) and the team sheet now has a player at that number. '
+    +'Only a value that is exactly a P-number is changed; a number with no player on the sheet stays as it is, and a name is never changed.'
+    +(sk.length?'<br><b>Staying as numbers</b> (no player at that number on the team sheet): '+esc(sk.sort().join(', '))+'.':'')+' Tick or untick any row.</div>'
+    +'<div style="max-height:min(60vh,620px);overflow:auto;border:1px solid var(--border);border-radius:8px;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+    +'<tr><th style="'+th+'"></th><th style="'+th+'">Video</th><th style="'+th+'">Row</th><th style="'+th+'">Change</th></tr>'+rows+'</table></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;"><button onclick="crPTagAll(true)" style="'+CR_MG_BTN+'">Tick all</button><button onclick="crPTagAll(false)" style="'+CR_MG_BTN+'">Tick none</button>'
+    +'<span style="flex:1;font-size:11.5px;color:var(--t3);">'+C.items.length+' event'+(C.items.length===1?'':'s')+' · nothing is saved until you close the session; Undo reverses it in one step.</span>'
+    +'<button onclick="crPTagClose()" style="'+CR_MG_BTN+'color:var(--t2);">Cancel</button>'
+    +'<button id="ptagGo" onclick="crPTagGo()" '+(n?'':'disabled')+' style="padding:8px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;'+(n?'':'opacity:.45;')+'">Replace on '+n+' ticked event'+(n===1?'':'s')+'</button></div>';
+}
+function crPTagRender(){ const c=document.getElementById('ptagCard'); if(c&&crPTag){ const sc=c.querySelector('table'), top=sc?sc.parentNode.scrollTop:0; c.innerHTML=crPTagBody(); const s2=c.querySelector('table'); if(s2) s2.parentNode.scrollTop=top; } }
+function crPTagOpen(){
+  if(!GAME) return; crPTagClose();
+  const items=crPTagList().filter(f=>f.n), ticks={}; items.forEach(it=>{ ticks[it.rowId]=true; });
+  if(!items.length){ crPTagBtnSync(); return; }
+  crPTag={items, ticks};
+  const ov=document.createElement('div'); ov.id='ptagOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
+  ov.innerHTML='<div id="ptagCard" style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:820px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;font-family:Barlow,sans-serif;box-shadow:0 24px 64px rgba(0,0,0,.55);"></div>';
+  document.body.appendChild(ov); crPTagRender();
+}
+function crPTagClose(){ const ov=document.getElementById('ptagOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crPTag=null; }
+function crPTagTick(inp){ if(!crPTag) return; crPTag.ticks[inp.getAttribute('data-ptag')]=!!inp.checked; crPTagRender(); }
+function crPTagAll(on){ if(!crPTag) return; crPTag.items.forEach(it=>{ crPTag.ticks[it.rowId]=!!on; }); crPTagRender(); }
+// Replace the P-numbers of the given rows (row ids) that now have a name: ONE queued bulk edit. Returns {rows, values}.
+function crPTagApply(ids){
+  const want=new Set((ids||[]).map(String)), todo=crPTagList().filter(f=>f.n&&want.has(String(f.rowId)));
+  if(!todo.length) return {rows:0, values:0};
+  undoStack.push({type:'bulkedit', snaps:todo.map(f=>({id:f.e._rowId, data:crClone(f.e)}))});
+  let values=0; todo.forEach(f=>{ values+=cohPTagApply(f.e, f); if(!f.e._new) f.e._dirty=true; });
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const cur=activeId!=null&&todo.find(f=>String(f.rowId)===String(activeId));
+  if(cur&&draft){ crSyncDraft(cur.e); if(!codeMode.on) renderPanel(); }
+  return {rows:todo.length, values};
+}
+function crPTagGo(){
+  if(!crPTag) return;
+  const ids=crPTag.items.filter(it=>crPTag.ticks[it.rowId]).map(it=>it.rowId);
+  crPTagClose(); if(!ids.length) return;
+  const t=crPTagApply(ids), pn=document.getElementById('epStatus');
+  if(pn){ pn.className='status ok'; pn.textContent='Queued ✓ '+t.values+' player number'+(t.values===1?'':'s')+' replaced by the team-sheet name on '+t.rows+' event'+(t.rows===1?'':'s')+' — saved when you close the session; Undo reverses it'; }
+}
+
 // ── Kickout chart-scale fix ───────────────────────────────────
 // Until 13 Sep 2026 Code Room's kickout chart started at the 20 m line and saved Y as
 // "% down that picture" (0 = the 20 m line, 100 = the far 45 m line), and the picture was
@@ -6389,6 +6649,12 @@ function undo(){
   } else if(op.type==='addmany'){                 // e.g. Gaelic Insights conversion
     const ids=new Set(op.rowIds.map(String));
     EVENTS=EVENTS.filter(x=>!ids.has(String(x._rowId))); activeId=null; draft=null;
+  } else if(op.type==='merge'){                   // Merge another XML: new rows out, changed rows back, removed rows back
+    const ids=new Set(op.rowIds.map(String));
+    EVENTS=EVENTS.filter(x=>!ids.has(String(x._rowId)));
+    op.snaps.forEach(s=>{ const e=EVENTS.find(x=>String(x._rowId)===String(s.id)); if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,s.data); } });
+    op.dels.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
+    activeId=null; draft=null;
   } else if(op.type==='bulkdelete'){
     op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
     draft=null;
