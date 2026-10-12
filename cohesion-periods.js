@@ -22,6 +22,25 @@
  *       after the 2nd-half throw-in starts ET1, and the next THROW-IN at least
  *       5 minutes later starts ET2. A game without such a throw-in → null, so
  *       every caller behaves exactly as it did before for it.
+ *
+ *   cohEtClock(half, t, ref)   the game clock the upload writes ("ET1 03:12"): admin.html getGameTime, to the digit.
+ *   cohEtFixFind(meta, events, opts)
+ *                        → null, or what Code Room's "Mark extra time" repair would do to a SAVED game whose extra
+ *                        time was stored as 2nd Half (a Tracker game uploaded before 12 Oct 2026). Pure: changes nothing.
+ *       A game needs it only when NO event is marked as extra time AND extra time can be located:
+ *         'rows'      the stored stray period rows — events whose code is the file's own name for an ET period
+ *                     ("Extra Time 1" / "Extra Time 2": anything cohScPeriodName maps to ET 1st / 2nd Half). Their
+ *                     start is the exact period start on the file's clock: an event is in the period when its own
+ *                     start is at or after it, and its clock is start − period start — exactly what an upload does.
+ *                     An event whose start is missing, or not on the file's clock (coded in Code Room: start = video
+ *                     time), is placed by its video time (driveT) against the period row's video time instead.
+ *         'throwins'  otherwise the late throw-ins (cohUnmarkedET), on the events' driveT ?? start time line.
+ *       → { evidence, starts:{e1,e2} (each {half, file, video, row} or null), strays:[index…], periods:[meta.scPeriods
+ *           entries of the stray rows], changes:[{i, half, gameTime, from:{half, gameTime}, clock:'file'|'video'}],
+ *           counts:{e1,e2} }
+ *       Only half and gameTime are ever proposed (gameTime only where the event has one); a stray row is never in
+ *       changes. opts.h2 = the caller's 2nd-half start (default: the earliest 2nd-half THROW-IN); opts.periodName =
+ *       cohScPeriodName (default: the global / cohesion-labels.js).
  */
 (function(root){
   const COH_COUNTIES=new Set(('ANTRIM ARMAGH CARLOW CAVAN CLARE CORK DERRY DONEGAL DOWN DUBLIN FERMANAGH GALWAY KERRY KILDARE KILKENNY LAOIS LEITRIM LIMERICK LONGFORD LOUTH MAYO MEATH MONAGHAN OFFALY ROSCOMMON SLIGO TIPPERARY TYRONE WATERFORD WESTMEATH WEXFORD WICKLOW LONDON').split(' ').concat(['NEW YORK']));
@@ -54,7 +73,54 @@
     const half=COH_HALF_MIN[cohGameLevel(meta)], base={'1H':0, '2H':half, 'ET1':2*half, 'ET2':2*half+COH_ET_MIN}[String(tag||'').toUpperCase()];
     return base==null?null:base+Math.floor(Math.max(0, +secs||0)/60);
   }
-  const api={ COH_COUNTIES, COH_HALF_MIN, COH_ET_MIN, cohGameLevel, cohPeriodOf, cohUnmarkedET, cohTotalMinutes };
+  // The upload's game clock (admin.html getGameTime), to the digit: the same arithmetic on the same numbers.
+  const COH_HALF_PFX={'1st Half':'1H','2nd Half':'2H','ET 1st Half':'ET1','ET 2nd Half':'ET2'};
+  function cohEtClock(half, t, ref){
+    const mins=(t-(ref||0))/60, m=Math.floor(mins), s=Math.round((mins-m)*60);
+    return (COH_HALF_PFX[half]||'ET2')+' '+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  }
+  const COH_ET_HALVES=['ET 1st Half','ET 2nd Half'];
+  function cohEtFixFind(meta, events, opts){
+    opts=opts||{}; const L=events||[];
+    for(let i=0;i<L.length;i++){ const e=L[i]; if(!e) continue; const k=cohPeriodOf(e.half); if(k==='e1'||k==='e2') return null; }   // extra time IS marked
+    let nameOf=opts.periodName||root.cohScPeriodName;
+    if(!nameOf&&typeof require==='function'){ try{ nameOf=require('./cohesion-labels.js').cohScPeriodName; }catch(_){} }
+    const num=v=>(v!=null&&v!==''&&isFinite(+v))?+v:null, tOf=e=>(e.driveT??e.start)??0, isTI=e=>/THROW.?IN$/i.test(String(e.code||''));
+    // (a) the stray period rows
+    const strays=[], ref=[null,null];
+    if(nameOf) L.forEach((e,i)=>{ if(!e) return; const k=COH_ET_HALVES.indexOf(nameOf(e.code)); if(k<0) return; strays.push(i);
+      const f=num(e.start), v=num(e.driveT); if(f==null&&v==null) return;
+      if(!ref[k]||(f??Infinity)<(ref[k].file??Infinity)) ref[k]={half:COH_ET_HALVES[k], file:f, video:v, row:i}; });
+    let evidence=null, starts={e1:null, e2:null};
+    if(ref[0]||ref[1]){ evidence='rows'; starts={e1:ref[0], e2:ref[1]}; }
+    else if(!strays.length){
+      let h2=num(opts.h2);
+      if(h2==null) L.forEach(e=>{ if(e&&isTI(e)&&cohPeriodOf(e.half)==='h2'){ const t=tOf(e); if(h2==null||t<h2) h2=t; } });
+      const U=cohUnmarkedET(meta, L, h2, null); if(!U) return null;
+      const at=t=>{ if(t==null) return null; const i=L.findIndex(e=>e&&isTI(e)&&tOf(e)===t); return {file:i>=0?num(L[i].start):null, video:t, row:i>=0?i:null}; };
+      evidence='throwins'; starts={e1:Object.assign({half:COH_ET_HALVES[0]}, at(U.e1)), e2:U.e2==null?null:Object.assign({half:COH_ET_HALVES[1]}, at(U.e2))};
+    } else return null;
+    const skip=new Set(strays), changes=[], counts={e1:0, e2:0};
+    // where an event stands against a period start: on the file's clock when both have one and the event's two clocks
+    // sit together the way the period row's do (an upload's event), else on the video.
+    const pos=(e, S)=>{
+      if(!S) return null;
+      if(evidence==='throwins') return {d:tOf(e)-S.video, clock:'video'};
+      const f=num(e.start), v=num(e.driveT);
+      if(S.file!=null&&f!=null&&(S.video==null||v==null||Math.abs((v-f)-(S.video-S.file))<=2)) return {d:f-S.file, clock:'file'};
+      if(S.video!=null&&v!=null) return {d:v-S.video, clock:'video'};
+      return null;
+    };
+    L.forEach((e,i)=>{ if(!e||skip.has(i)) return;
+      const p2=pos(e, starts.e2), p1=pos(e, starts.e1), k=(p2&&p2.d>=0)?1:(p1&&p1.d>=0)?0:-1; if(k<0) return;
+      const P=k?p2:p1, S=k?starts.e2:starts.e1, half=COH_ET_HALVES[k], c={i, half, from:{half:e.half, gameTime:e.gameTime}, clock:P.clock};
+      if(typeof e.gameTime==='string'&&e.gameTime) c.gameTime=P.clock==='file'?cohEtClock(half, +e.start, S.file):cohEtClock(half, P.d, 0);
+      changes.push(c); counts[k?'e2':'e1']++; });
+    if(!changes.length) return null;
+    const periods=evidence==='rows'?ref.filter(Boolean).map(r=>{ const e=L[r.row], p={code:r.half, start:e.start, end:e.end}; if(e.code!==r.half) p.fileCode=e.code; return p; }).filter(p=>isFinite(+p.start)&&isFinite(+p.end)&&p.start!=null&&p.end!=null):[];
+    return {evidence, starts, strays, periods, changes, counts};
+  }
+  const api={ COH_COUNTIES, COH_HALF_MIN, COH_ET_MIN, cohGameLevel, cohPeriodOf, cohUnmarkedET, cohTotalMinutes, cohEtClock, cohEtFixFind };
   Object.assign(root, api);
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

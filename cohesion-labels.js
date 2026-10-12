@@ -335,7 +335,7 @@ function cohScImport(insts, opts){
 
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
   cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohPlayerIndex, cohPlayerRowOf, cohNameKey,
-  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS,
+  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS, cohScPeriodName,
   cohScPlainGroup, cohRgb16ToHex, cohHexToRgb16, cohScRows, cohScRowsFromDom, cohRowRgb16, cohRowColours, cohRowsMergeMeta};
 
 /* ── Existing games: bring back the label values the old import dropped ──
