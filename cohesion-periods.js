@@ -9,6 +9,7 @@
  *                        club game; otherwise it is a county game when both
  *                        teams are counties, else a club game.
  *   COH_HALF_MIN         the length of a half: club 30, county 35 minutes.
+ *   cohTotalMinutes(meta, tag, secs)   minutes of the whole game at a period clock (the scoreboards' small total).
  *   cohPeriodOf(half)    which period an event's half label means:
  *                        'h1' | 'h2' | 'e1' | 'e2'.
  *   cohUnmarkedET(meta, events, h2, e1)
@@ -45,7 +46,15 @@
     L.forEach(e=>{ if(!e||!isTI(e)) return; const t=tOf(e); if(t>=x1+300&&(x2==null||t<x2)) x2=t; });
     return {e1:x1, e2:x2};
   }
-  const api={ COH_COUNTIES, COH_HALF_MIN, cohGameLevel, cohPeriodOf, cohUnmarkedET };
+  // Minutes of the whole game at a point of a period's own clock, on the NOMINAL period lengths (added time is not carried
+  // forward): 2H 10:00 is 40 for a club game (30-minute halves) and 45 for a county game (35). Extra time: two 10-minute
+  // periods after the two halves. tag = '1H' | '2H' | 'ET1' | 'ET2'; secs = seconds into that period.
+  const COH_ET_MIN=10;
+  function cohTotalMinutes(meta, tag, secs){
+    const half=COH_HALF_MIN[cohGameLevel(meta)], base={'1H':0, '2H':half, 'ET1':2*half, 'ET2':2*half+COH_ET_MIN}[String(tag||'').toUpperCase()];
+    return base==null?null:base+Math.floor(Math.max(0, +secs||0)/60);
+  }
+  const api={ COH_COUNTIES, COH_HALF_MIN, COH_ET_MIN, cohGameLevel, cohPeriodOf, cohUnmarkedET, cohTotalMinutes };
   Object.assign(root, api);
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
