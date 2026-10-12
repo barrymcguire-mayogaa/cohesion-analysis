@@ -69,6 +69,13 @@
 (function(root){
   const GI = (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require('./cohesion-gi.js') : root;
   const GI_SRC = 'GI Source ID', MERGE_SRC = 'Merge Source ID';
+  // A file's own name for a period -> COHESION's: a GIU file calls extra time "ET 1" / "ET 2" (COHESION: "ET 1st Half" /
+  // "ET 2nd Half"). Anything else is passed through as written.
+  function halfName(h){
+    const t = String(h == null ? '' : h).trim(); if(!t) return null;
+    const m = /^(?:ET|EXTRA[\s-]*TIME)\s*(?:-\s*)?(1|2|1ST|2ND|FIRST|SECOND)(?:\s+HALF)?$/i.exec(t);
+    return m ? (/^(1|1ST|FIRST)$/i.test(m[1]) ? 'ET 1st Half' : 'ET 2nd Half') : t;
+  }
   const HALVES = ['1st Half','2nd Half','ET 1st Half','ET 2nd Half'], HALF_PFX = { '1st Half':'1H', '2nd Half':'2H', 'ET 1st Half':'ET1', 'ET 2nd Half':'ET2' };
   const FA_WINDOW = 4;          // seconds between a team's foul and its own turnover (file clock)
   const EST_WINDOW = 4;         // ± seconds: anchors that agree on one offset
@@ -140,7 +147,7 @@
         instancesOf(text).forEach(i => {
           if(/^P\d START$/.test(i.code)){ markers.push(i); return; }
           const labels = {}; i.labels.forEach(([g, t]) => { if(g && t) labels[g] = t; });
-          raw.push({ id: i.id || String(raw.length + 1), start:i.start, end:i.end, half: labels['Half'] || null, code:i.code, team: teamOfCode(i.code, game),
+          raw.push({ id: i.id || String(raw.length + 1), start:i.start, end:i.end, half: halfName(labels['Half']), code:i.code, team: teamOfCode(i.code, game),
             player: labels['Player'] || '', outcome: labels['ShotOutcome'] || labels['KickoutOutcome'] || labels['PossFrom'] || '', subtype: labels['KODistance'] || labels['PitchArea'] || '', labels });
         });
         const starts = {}; markers.forEach(m => { const h = HALVES[+/^P(\d)/.exec(m.code)[1] - 1]; if(h && starts[h] == null) starts[h] = m.start; });

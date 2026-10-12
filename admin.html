@@ -1779,6 +1779,9 @@ async function processGame(){
           let half, refStart, offset;
           if(labels['Half']){
             half = labels['Half'];
+            // a GIU file calls extra time "ET 1" / "ET 2": COHESION's names, so those events take the ET period's own start
+            { const m = /^(?:ET|EXTRA[\s-]*TIME)\s*(?:-\s*)?(1|2|1ST|2ND|FIRST|SECOND)(?:\s+HALF)?$/i.exec(String(half).trim());
+              if(m){ half = /^(1|1ST|FIRST)$/i.test(m[1]) ? 'ET 1st Half' : 'ET 2nd Half'; labels['Half'] = half; } }
             if(half === '2nd Half'){ refStart = xmlP2; offset = offset2H; }
             else if(half === 'ET 1st Half'){ refStart = xmlP3; offset = offsetET1; }
             else if(half === 'ET 2nd Half'){ refStart = xmlP4; offset = offsetET2; }
