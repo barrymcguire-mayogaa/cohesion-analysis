@@ -443,6 +443,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="giCarryBtn" style="display:none;" onclick="crGiCarryOpen()" title="Copy locations from originals / fix thirds — this game has converted shots / kickouts whose ORIGINAL Gaelic Insights rows carry a location or details (zone, leg, side, pressure …) the converted rows lack, or turnover / foul rows whose third was written by a rule since corrected (a Gaelic Insights turnover with no zone; a medium or long kickout lost read as the attacking third). Preview each one, then apply the ticked ones; nothing is removed from the originals">📍 Copy locations from originals</div>
             <div class="tlrb" id="koFixBtn" style="display:none;" onclick="crKoFixOpen()" title="Kickout chart scale — this game has kickouts that look saved on the old (pre-13 Sep 2026) kickout chart. Preview every kickout with its evidence, then convert the ticked ones to the current scale">⇅ Kickout scale</div>
             <div class="tlrb" id="ptagBtn" style="display:none;" onclick="crPTagOpen()" title="Player numbers → names — this game has events that name a player only by jersey number (P13, as a GIU file does) and the team sheet now has a player at that number. Preview, tick, replace; a number with no player on the sheet stays">#</div>
+            <div class="tlrb" id="koDupBtn" style="display:none;" onclick="crKoDupOpen()" title="Duplicate kickouts — this game has two kickouts by the same team in the same half within 20 seconds of each other: most likely the same kickout twice (until 11 Oct 2026 “Merge XML” could bring a kickout in a second time). Preview each pair with what would be kept, copied and removed; a row brought in by a merge is proposed, two of the game’s own rows are left for you to check on the video. Queued, one Undo; nothing is saved until you close the session">⚠</div>
             <div class="tlrb" id="mergeBtn" onclick="crMergeOpen()" title="Merge another XML — bring in a second file of this match (another analyst’s coding): its clock is lined up with the game’s, events in both keep the game’s version and gain what it lacks, events only in the file are added as COHESION rows. Preview first; one Undo; nothing saved until you close the session">⧉ Merge XML</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
@@ -1187,7 +1188,7 @@ function renderList(){
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
-  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync(); crPTagBtnSync();
+  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync(); crPTagBtnSync(); crKoDupBtnSync();
   const fb=document.getElementById('flagBtn');
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
@@ -6037,6 +6038,90 @@ function crMergeGo(){
 function crMgStatus(text){
   const pn=document.getElementById('epStatus'); if(pn){ pn.className='status ok'; pn.textContent=text; return; }
   const p=document.getElementById('epanel'); if(p&&/\bempty\b/.test(p.className)) p.innerHTML='<div class="status ok" id="mgStatus" style="margin-bottom:10px;text-align:left;">'+esc(text)+'</div>Select an event.';
+}
+
+// ── Duplicate kickouts ─────────────────────────────────────────
+// Until 11 Oct 2026 "Merge XML" paired kickouts only within ±8 s, so a kickout the two analysts stamped further apart
+// came in as a second "<TEAM> KO" row. cohesion-merge.js cohKoDupFind lists every two live kickouts of one team in one
+// half within 20 s (the merge's own window): where exactly ONE was brought in by a merge it is proposed for removal,
+// ticked; two of the game's own rows (or two merged rows) are listed unticked for the user to choose on the video. The
+// kept row gains only what it lacks; the removed kickout's own break / kickout-lost rows go with it. Apply = one queued
+// change (crMergeQueue: removed rows → crDeleted, the kept rows _dirty), ONE Undo, saved on "Close session & save all".
+let crKoDup=null;   // {pick:{key:'a'|'b'|''}, on:{key:bool}}
+const crKoDupKey=p=>String(EVENTS[p.a.index]._rowId)+'|'+String(EVENTS[p.b.index]._rowId);
+function crKoDupList(){ if(!GAME||typeof cohKoDupFind!=='function') return {window:20, pairs:[]}; const F=cohKoDupFind(EVENTS, GAME); F.pairs.forEach(p=>{ p.rk=crKoDupKey(p); }); return F; }
+function crKoDupBtnSync(){ const b=document.getElementById('koDupBtn'); if(!b) return; let n=0; try{ n=GAME?crKoDupList().pairs.length:0; }catch(_){ n=0; }
+  b.style.display=n?'':'none'; b.textContent='⚠ Duplicate kickouts ('+n+')'; }
+function crKoDupRowLine(p, w, pick){
+  const s=p[w], e=EVENTS[s.index], t=e.driveT??e.start??0, role=!pick?'':pick===w?'remove':'keep';
+  const src=s.merged?'brought in by a merge ('+s.merged+')':s.src?'the game’s own (converted from the uploaded file)':'the game’s own';
+  return '<div data-side="'+w+'" data-role="'+role+'" style="display:flex;align-items:center;gap:8px;padding:3px 0;'+(role==='remove'?'color:var(--t3);':'')+'">'
+    +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;font:700 10.5px \'Barlow Condensed\',sans-serif;letter-spacing:.4px;color:var(--t3);"><input type="radio" name="kodup-'+esc(p.rk)+'" data-kodup-pick="'+esc(p.rk)+'" value="'+w+'" '+(pick===w?'checked':'')+' onchange="crKoDupPick(this)">REMOVE</label>'
+    +'<button onclick="crMergePlay('+(+t)+')" title="Play this moment" style="padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--t1);cursor:pointer;font-size:10px;">▶</button>'
+    +'<span style="white-space:nowrap;font-variant-numeric:tabular-nums;">'+fmt(t)+'</span>'
+    +'<span style="white-space:nowrap;color:var(--t3);">'+esc(s.gameTime||'')+'</span>'
+    +'<span style="flex:1;min-width:0;'+(role==='remove'?'text-decoration:line-through;':'')+'"><b>'+esc(s.code)+'</b> · '+esc(s.outcome||'no outcome')+(s.length?' · '+esc(s.length):'')+' <span style="color:var(--t3);">— '+esc(src)+'</span></span>'
+    +(role?'<b data-tag="1" style="font:700 10.5px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;color:'+(role==='remove'?'#ef4444':'#22c55e')+';white-space:nowrap;">'+(role==='remove'?'REMOVED':'KEPT')+'</b>':'')+'</div>';
+}
+function crKoDupPairHtml(p){
+  const C=crKoDup, pick=C.pick[p.rk]||'', on=!!C.on[p.rk]&&!!pick, pl=pick?p.plans[pick]:null, own=!p.tick;
+  let det='';
+  if(pl){
+    const li=(lab, txt, col)=>'<div style="margin-top:2px;"><span style="color:'+(col||'var(--t3)')+';font-weight:700;">'+lab+'</span> '+txt+'</div>';
+    det+=li('Copied to the kept row:', pl.fills.what.length?esc(pl.fills.what.join(' · ')):'nothing — the kept row lacks nothing the removed row has', pl.fills.what.length?'#22c55e':'');
+    det+=li('Different, NOT copied (the kept row stays as it is):', pl.notes.length?esc(pl.notes.join(' · ')):'no differences', pl.notes.length?'#f59e0b':'');
+    det+=li('Goes with it:', pl.companions.length?pl.companions.length+' row'+(pl.companions.length===1?'':'s')+' — '+esc(pl.companions.map(c=>c.code+' ('+c.what+')').join(' · ')):'no other rows');
+    if(pl.left.length) det+=li('Left in the game:', esc(pl.left.map(c=>c.code+' — '+c.why).join(' · ')), '#f59e0b');
+  } else det='<div style="margin-top:2px;color:#f59e0b;">Nothing is removed unless you choose: look at both on the video (▶), then mark the row to REMOVE.</div>';
+  return '<div data-pair="'+esc(p.rk)+'" data-own="'+(own?1:0)+'" style="border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:8px;'+(on?'':'opacity:.92;')+'">'
+    +'<div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" data-kodup="'+esc(p.rk)+'" '+(on?'checked':'')+' '+(pick?'':'disabled')+' onchange="crKoDupTick(this)">'
+    +'<b style="font:800 13px \'Barlow Condensed\',sans-serif;letter-spacing:.4px;">'+esc(p.team)+' · '+esc(p.half||'no half')+'</b>'
+    +'<b data-gap="1" style="white-space:nowrap;">'+p.gap+' s apart</b>'
+    +'<span data-note="1" style="flex:1;color:'+(own?'#f59e0b':'var(--t2)')+';">'+esc(p.note)+'</span></div>'
+    +'<div style="margin:4px 0 2px 22px;">'+crKoDupRowLine(p,'a',pick)+crKoDupRowLine(p,'b',pick)+'</div>'
+    +'<div data-detail="1" style="margin-left:22px;font-size:11.5px;color:var(--t2);line-height:1.5;">'+det+'</div></div>';
+}
+function crKoDupBody(){
+  const F=crKoDupList(), C=crKoDup, n=F.pairs.filter(p=>C.on[p.rk]&&C.pick[p.rk]).length, auto=F.pairs.filter(p=>p.tick).length, own=F.pairs.length-auto;
+  return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Duplicate kickouts — '+esc(GAME.title||'')+'</div>'
+    +'<button onclick="crKoDupClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
+    +'<div id="koDupIntro" style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">Two kickouts by the <b>same team</b> in the <b>same half</b> within <b>'+F.window+' seconds</b> of each other — one team does not take two kickouts that close, so these are most likely the same kickout twice. '
+    +'Until 11 October 2026 “Merge XML” could bring a kickout in a second time when the two analysts had stamped it more than 8 s apart.<br>'
+    +'<b>Brought in by a merge:</b> that row is the one proposed for removal (ticked) — the game’s own row is kept and gains only details it lacks; nothing it already says is replaced. '
+    +'<b>Both the game’s own</b> (or both merged): left unticked — check the video and choose. '
+    +'The removed kickout’s own break / kickout-lost rows go with it. A file’s original “… Kickout” row beside its converted KO is by design and is never listed.<br>'
+    +F.pairs.length+' pair'+(F.pairs.length===1?'':'s')+': '+auto+' proposed, '+own+' to check on the video.</div>'
+    +'<div id="koDupPairs" style="max-height:min(60vh,640px);overflow:auto;font-size:12px;">'+F.pairs.map(crKoDupPairHtml).join('')+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;"><button onclick="crKoDupAll(true)" style="'+CR_MG_BTN+'">Tick all proposed</button><button onclick="crKoDupAll(false)" style="'+CR_MG_BTN+'">Tick none</button>'
+    +'<span style="flex:1;font-size:11.5px;color:var(--t3);">nothing is saved until you close the session; Undo reverses it in one step.</span>'
+    +'<button onclick="crKoDupClose()" style="'+CR_MG_BTN+'color:var(--t2);">Cancel</button>'
+    +'<button id="koDupGo" onclick="crKoDupGo()" '+(n?'':'disabled')+' style="padding:8px 16px;border-radius:8px;border:1px solid var(--green);background:var(--green);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;'+(n?'':'opacity:.45;')+'">Remove '+n+' ticked duplicate'+(n===1?'':'s')+'</button></div>';
+}
+function crKoDupRender(){ const c=document.getElementById('koDupCard'); if(c&&crKoDup){ const sc=document.getElementById('koDupPairs'), top=sc?sc.scrollTop:0; c.innerHTML=crKoDupBody(); const s2=document.getElementById('koDupPairs'); if(s2) s2.scrollTop=top; } }
+function crKoDupOpen(){
+  if(!GAME) return; crKoDupClose();
+  const F=crKoDupList(); if(!F.pairs.length){ crKoDupBtnSync(); return; }
+  crKoDup={pick:{}, on:{}}; F.pairs.forEach(p=>{ crKoDup.pick[p.rk]=p.remove; crKoDup.on[p.rk]=p.tick; });
+  const ov=document.createElement('div'); ov.id='koDupOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
+  ov.innerHTML='<div id="koDupCard" style="background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;padding:20px;width:960px;max-width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow-y:auto;font-family:Barlow,sans-serif;box-shadow:0 24px 64px rgba(0,0,0,.55);"></div>';
+  document.body.appendChild(ov); crKoDupRender();
+}
+function crKoDupClose(){ const ov=document.getElementById('koDupOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); crKoDup=null; }
+function crKoDupTick(inp){ if(!crKoDup) return; const k=inp.getAttribute('data-kodup'); crKoDup.on[k]=!!inp.checked&&!!crKoDup.pick[k]; crKoDupRender(); }
+// choosing the row to remove: for a pair with nothing proposed this also ticks it (the choice IS the decision)
+function crKoDupPick(inp){ if(!crKoDup) return; const k=inp.getAttribute('data-kodup-pick'), was=crKoDup.pick[k]; crKoDup.pick[k]=inp.value; if(!was) crKoDup.on[k]=true; crKoDupRender(); }
+function crKoDupAll(on){ if(!crKoDup) return; crKoDupList().pairs.forEach(p=>{ crKoDup.on[p.rk]=!!on&&p.tick&&!!crKoDup.pick[p.rk]; }); crKoDupRender(); }
+// Remove the chosen row of each given pair ({pair key: 'a'|'b'}): ONE queued change, one Undo. Returns the ops (null = nothing done).
+function crKoDupApply(choice){
+  const F=crKoDupList(), ch={}; F.pairs.forEach(p=>{ ch[p.key]=(choice&&choice[p.rk])||''; });
+  const ops=cohKoDupOps(F, ch); if(!ops.deletes.length) return null;
+  return crMergeQueue(ops)?ops:null;
+}
+function crKoDupGo(){
+  if(!crKoDup) return; const choice={}; Object.keys(crKoDup.on).forEach(k=>{ if(crKoDup.on[k]&&crKoDup.pick[k]) choice[k]=crKoDup.pick[k]; });
+  crKoDupClose(); const ops=crKoDupApply(choice); if(!ops) return;
+  crMgStatus('Duplicate kickouts ✓ '+ops.summary+' — saved when you close the session; Undo puts them back');
 }
 
 // ── P-numbers → names from the team sheet ─────────────────────
