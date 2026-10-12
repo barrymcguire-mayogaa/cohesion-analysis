@@ -324,7 +324,7 @@
   function playerOf(e){ const p = String((e && e.player) || '').trim(); if(p) return p; const L = (e && e.labels) || {}; const k = Object.keys(L).find(x => /player labels$/i.test(x)); return k ? String(L[k] || '').trim() : ''; }
   // → { labels:{group:value}, player:{name, group, team, was}, n, what:[words], notes:[words] }
   function fillPlan(g, f, kind){
-    const out = { labels:{}, player:null, n:0, what:[], notes:[] };
+    const out = { labels:{}, player:null, n:0, what:[], notes:[], diffs:[] };
     const gCode = up(g.code), fCode = up(f.code), dead = c => /SHOT DEAD ?BALL/.test(c);
     const shotKindDiffers = kind === 'shot' && /SHOT (OPEN|DEAD)/.test(gCode) && dead(gCode) !== dead(fCode);
     if(shotKindDiffers) out.notes.push('the file has it as ' + (dead(fCode) ? 'a dead ball' + (lbl(f, 'Deadball Shot Type') ? ' (' + lbl(f, 'Deadball Shot Type') + ')' : '') : 'open play') + ' — the game’s is kept');
@@ -339,13 +339,14 @@
       const have = valCI(g, aliasOf(grp));
       if(have){
         if(up(have) !== up(v) && !sameThird(have, v) && aliasOf(grp).length > 1 && keyCI(g.labels, grp) == null) return;   // the game says it in its own format's words
-        if(up(have) !== up(v) && !sameThird(have, v)) out.notes.push(grp + ': the file says ' + v + ' — the game’s ' + have + ' is kept');
+        if(up(have) !== up(v) && !sameThird(have, v)){ out.notes.push(grp + ': the file says ' + v + ' — the game’s ' + have + ' is kept'); out.diffs.push({ group:grp, kept:have, other:v, why:'' }); }
         return;
       }
       if(grp === 'Deadball Shot Type' && (shotKindDiffers || !dead(gCode))) return;
       if(kind === 'ko' && /^pitcharea$/i.test(grp) && valCI(g, ['Kickout Locations','KickoutLength','KODistance'])) return;   // the game's kickout says its length: the file's third adds nothing
       if(grp === 'Shot Attempts' && outDiffers){ out.notes.push('Shot Attempts ' + v + ' not copied — the outcomes differ'); return; }
-      if(koSideDiffers && /^kickout (won by|target)$/i.test(grp)){ out.notes.push(grp + ' ' + v + ' not copied — the file has this kickout ' + (wonLost(fOut) === 'W' ? 'won' : 'lost') + ', the game ' + (wonLost(gOut) === 'W' ? 'won' : wonLost(gOut) === 'L' ? 'lost' : 'with an outcome that cannot be read')); return; }
+      if(koSideDiffers && /^kickout (won by|target)$/i.test(grp)){ out.notes.push(grp + ' ' + v + ' not copied — the file has this kickout ' + (wonLost(fOut) === 'W' ? 'won' : 'lost') + ', the game ' + (wonLost(gOut) === 'W' ? 'won' : wonLost(gOut) === 'L' ? 'lost' : 'with an outcome that cannot be read'));
+        out.diffs.push({ group:grp, kept:'', other:v, why:'side' }); return; }
       out.labels[grp] = v; out.n++; out.what.push(grp + ' ' + v);
     });
     const pf = playerOf(f), pg = playerOf(g);
@@ -354,7 +355,7 @@
       const tg = f.pTag || pTagOf(pf);
       if(!pg){ out.player = { name:pf, group:fk, team, was:'', pTag:tg, pTagName: f.pTagName || '' }; out.n++; out.what.push('player ' + (tg && !isPTag(pf) ? tg + ' → ' : '') + pf); }
       else if(isPTag(pg) && !isPTag(pf)){ out.player = { name:pf, group:fk, team, was:pg, pTag:pTagOf(pg) }; out.n++; out.what.push('player ' + pg + ' → ' + pf); }
-      else if(up(pg) !== up(pf) && !(isPTag(pf) && !isPTag(pg))) out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept');
+      else if(up(pg) !== up(pf) && !(isPTag(pf) && !isPTag(pg))){ out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept'); out.diffs.push({ group:'player', kept:pg, other:pf, why:'' }); }
     }
     return out;
   }
@@ -364,6 +365,8 @@
     Object.keys(ed.labels || {}).forEach(g => { const k = keyCI(row.labels, g) || g; if(String(row.labels[k] == null ? '' : row.labels[k]).trim()) return;   // never over a value
       GI.cohGiCarryApply(row, { labels:{ [k]:[ed.labels[g]] } });
       if(TO_OUT.some(n => n.toLowerCase() === k.toLowerCase()) && !String(row.outcome || '').trim()) row.outcome = ed.labels[g]; });
+    if(fin(ed.x) && fin(ed.y) && !(fin(row.x) && fin(row.y))){ row.x = +ed.x; row.y = +ed.y; }   // a location, only onto a row with none (the duplicate-kickout fix)
+    if(ed.outcome && !String(row.outcome || '').trim()) row.outcome = ed.outcome;
     if(ed.player){
       const cur = playerOf(row);
       if(!cur || (isPTag(cur) && !isPTag(ed.player.name))){
@@ -612,6 +615,135 @@
     return kept.sort((a, b) => ((a.driveT == null ? 0 : a.driveT) - (b.driveT == null ? 0 : b.driveT)) || ((a.start == null ? 0 : a.start) - (b.start == null ? 0 : b.start)));
   }
 
+  // ── duplicate kickouts ──────────────────────────────────────────
+  // Until 11 Oct 2026 the merge paired kickouts only within ±8 s, so a kickout the two analysts stamped further apart was
+  // brought in as a NEW "<TEAM> KO" row: the same kickout twice. cohKoDupFind lists such pairs in a game as it stands:
+  //   CANDIDATES  two LIVE kickout rows of the SAME team in the SAME half whose starts are within KO_DUP_WINDOW seconds
+  //               (the merge's own kickout window — one team's kickouts are never that close: 27–30 s at the closest in
+  //               the real games measured). Live = a COHESION kickout row; never a Gaelic Insights / GIU original
+  //               ("Kerry Kickout" — superseded by its converted KO, that pair is by design). Closest first, each row in
+  //               one pair only. The gap is the difference of the rows' `start` (of `driveT` when either has no start).
+  //   WHICH GOES  exactly one of the two carries 'Merge Source ID' → that one is proposed (remove:'a'|'b', tick:true):
+  //               the game's own row stays. Both or neither → remove:'', tick:false — the user chooses on the video.
+  //   FILLS       the kept row gains what it LACKS and the removed row has, by the merge's own rule and guards
+  //               (fillPlan: never over a value; Kickout Won By / Target only when both rows agree who won; a third only
+  //               when there is no length). A landing position (x / y and the X-…/Y-… label pair, with its 'KO Scale
+  //               Fix' note) only when the kept row has NO position at all. Every difference that is not copied is listed.
+  //   COMPANIONS  the removed kickout's own rows go with it:
+  //               · merged row: every row with the same 'Merge Source ID' (the merge writes one id on the KO, its BREAK
+  //                 WON / BREAK LOST rows and its KICKOUT LOST turnover);
+  //               · any row: the rows tied to it this session (_shotComp = its _rowId);
+  //               · converted row (GI Source ID): the BREAK WON / BREAK LOST / KICKOUT LOST TOs / FOUL rows of either team
+  //                 on the identical start with the same GI Source ID, and its ORIGINAL row (left in, the original would no
+  //                 longer be superseded: counted again, and offered for conversion again).
+  //               A row the KEPT kickout could own (same id / link) is never removed — it is listed as left, with why; so
+  //               is a row that only LOOKS like the removed kickout's (same start, no saved link). When the kept row has
+  //               no outcome and takes the removed row's, the removed row's companions stay (they are now the kept row's).
+  // Pure — nothing is changed. cohKoDupOps(found, choice) → { edits, deletes } in cohMergeOps' shape (adds: none), so
+  // Code Room queues them the way it queues a merge (one Undo step) and cohKoDupApply / cohMergeApply do it on a list.
+  //   → { window, pairs:[{ key, team, half, gap, by, a:{…}, b:{…}, remove, tick, note, plans:{ a:<if a is removed>, b:<if b is> } }] }
+  //     plan: { keep, gone, fills:{labels, player, x, y, outcome, what:[]}, notes:[], companions:[{index, code, what}], left:[{index, code, why}] }
+  const KO_DUP_WINDOW = TOL.ko, KO_FIX_NOTE = 'KO Scale Fix', POS_KEY = /^[xy][-_ ]/i, KO_OUT = ['Kickout Outcomes','Kickout Outcome','KickoutOutcome'];
+  const koOutOf = e => valCI(e, KO_OUT) || String((e && e.outcome) || '').trim();
+  function koPos(e){
+    const L = (e && e.labels) || {}, keys = Object.keys(L), pairs = [];
+    keys.forEach(k => { const m = /^x([-_ ].*)$/i.exec(k); if(!m) return;
+      const yk = keys.find(k2 => /^y/i.test(k2) && k2.slice(1).toLowerCase() === m[1].toLowerCase());
+      if(yk && fin(parseFloat(L[k])) && fin(parseFloat(L[yk]))) pairs.push({ xk:k, yk, x:parseFloat(L[k]), y:parseFloat(L[yk]) }); });
+    const native = fin(e && e.x) && fin(e && e.y);
+    if(!native && !pairs.length) return null;
+    return { native, x: native ? +e.x : pairs[0].x, y: native ? +e.y : pairs[0].y, pairs };
+  }
+  const isKoCompanion = x => { const C = up(x && x.code);
+    return /\sBREAK (WON|LOST)$/.test(C) || (/\sFOUL$/.test(C) && !/TECHNICAL/.test(C)) || (/\bTOS$/.test(C) && /KICK\s*OUT LOST|\bKO LOST\b/.test(up(valCI(x, TO_OUT) || x.outcome))); };
+  function dupPlan(events, ki, ri, game){
+    const k = events[ki], r = events[ri], fp = fillPlan(k, r, 'ko'), fills = { labels:{}, player:fp.player, x:null, y:null, outcome:'', what:[] }, notes = [];
+    const kOut = koOutOf(k), rOut = koOutOf(r), kp = koPos(k), rp = koPos(r);
+    Object.keys(fp.labels).forEach(g => { if(POS_KEY.test(g) || g === KO_FIX_NOTE) return;
+      if(KO_OUT.some(n => n.toLowerCase() === g.toLowerCase()) && kOut) return;            // the kept row says its outcome in its `outcome` field
+      fills.labels[g] = fp.labels[g]; fills.what.push(g + ' ' + fp.labels[g]); });
+    if(!kOut && rOut){ fills.outcome = rOut; if(!Object.keys(fills.labels).some(g => KO_OUT.indexOf(g) >= 0)){ fills.labels['Kickout Outcomes'] = rOut; fills.what.push('Kickout Outcomes ' + rOut); } }
+    if(fp.player) fills.what.push('player ' + fp.player.name);
+    if(rp && !kp){
+      if(rp.native){ fills.x = rp.x; fills.y = rp.y; }
+      rp.pairs.forEach(p => { fills.labels[p.xk] = String(r.labels[p.xk]).trim(); fills.labels[p.yk] = String(r.labels[p.yk]).trim(); });
+      if(lbl(r, KO_FIX_NOTE)) fills.labels[KO_FIX_NOTE] = lbl(r, KO_FIX_NOTE);
+      fills.what.push('landing position (' + rp.x + ', ' + rp.y + ')');
+    } else if(rp && kp && (Math.abs(rp.x - kp.x) > 0.5 || Math.abs(rp.y - kp.y) > 0.5))
+      notes.push('landing position: kept row has (' + kp.x + ', ' + kp.y + '), removed row has (' + rp.x + ', ' + rp.y + ')');
+    let outSaid = false;
+    fp.diffs.forEach(d => { if(POS_KEY.test(d.group) || d.group === KO_FIX_NOTE) return;
+      if(d.why === 'side'){ notes.push(d.group + ' ' + d.other + ' not copied — the two rows disagree on who won the kickout'); return; }
+      if(KO_OUT.some(n => n.toLowerCase() === String(d.group).toLowerCase())) outSaid = true;
+      notes.push(d.group + ': kept row says ' + d.kept + ', removed row says ' + d.other); });
+    if(!outSaid && kOut && rOut && up(kOut) !== up(rOut)) notes.unshift('Kickout Outcomes: kept row says ' + kOut + ', removed row says ' + rOut);
+    // the removed kickout's own rows
+    const m = lbl(r, MERGE_SRC), src = lbl(r, GI_SRC), km = lbl(k, MERGE_SRC), ks = lbl(k, GI_SRC), companions = [], left = [];
+    const T = up(r.team) || teamOfCode(r.code, game), H = up(game && game.homeTeam), A = up(game && game.awayTeam), opp = T === H ? A : T === A ? H : '';
+    const tied = (x, row) => row._rowId != null && x._shotComp != null && String(x._shotComp) === String(row._rowId);
+    const sameStart = x => fin(x.start) && fin(r.start) ? +x.start === +r.start : (!fin(x.start) && !fin(r.start) && fin(x.driveT) && fin(r.driveT) && +x.driveT === +r.driveT);
+    const ofTeams = x => { const t = up(x.team) || teamOfCode(x.code, game); return t === T || (!!opp && t === opp); };
+    const keptOwns = x => tied(x, k) || (!!km && lbl(x, MERGE_SRC) === km) || (!!ks && (lbl(x, GI_SRC) === ks || (!lbl(x, GI_SRC) && !lbl(x, MERGE_SRC) && String(x.id) === ks)));
+    events.forEach((x, j) => { if(!x || j === ri || j === ki) return;
+      let what = '';
+      if(tied(x, r)) what = 'tied to it this session';
+      else if(m){ if(lbl(x, MERGE_SRC) === m) what = 'same Merge Source ID'; }
+      else if(src && lbl(x, GI_SRC) === src){
+        if(isKoCompanion(x) && sameStart(x) && ofTeams(x)) what = 'same GI Source ID, same start';
+        else { left.push({ index:j, code:x.code, why:'it carries the same GI Source ID but is not a break / kickout-lost / foul row on this kickout’s own start' }); return; } }
+      else if(src && !lbl(x, GI_SRC) && !lbl(x, MERGE_SRC) && String(x.id) === src && /\skickouts?\s*$/i.test(x.code || '')) what = 'its original row in the uploaded file';
+      else if(!src && isKoCompanion(x) && sameStart(x) && ofTeams(x) && !lbl(x, GI_SRC) && !lbl(x, MERGE_SRC) && x._shotComp == null){
+        left.push({ index:j, code:x.code, why:'it sits on this kickout’s start but no saved link ties it to this kickout — remove it by hand if it is this kickout’s' }); return; }
+      if(!what) return;
+      if(keptOwns(x)){ left.push({ index:j, code:x.code, why:'it could equally belong to the kept kickout (same id / link)' }); return; }
+      if(fills.outcome && !/original row/.test(what)){ left.push({ index:j, code:x.code, why:'the kept kickout had no outcome and takes this one’s (' + fills.outcome + '), so this row is now the kept kickout’s' }); return; }
+      companions.push({ index:j, code:x.code, what });
+    });
+    return { keep:ki, gone:ri, fills, notes, companions, left };
+  }
+  function cohKoDupFind(events, game){
+    events = events || [];
+    const sup = GI.cohGiSupersededFn(events), live = [];
+    events.forEach((e, i) => { if(!e || !e.code || !isKoRow(e) || sup(e) || GI.cohGiIsKickout(e, game)) return;   // never an original
+      const team = up(e.team) || teamOfCode(e.code, game); if(!team) return;
+      live.push({ i, e, team, half: e.half || '' }); });
+    const cand = [];
+    for(let a = 0; a < live.length; a++) for(let b = a + 1; b < live.length; b++){
+      const p = live[a], q = live[b]; if(p.team !== q.team || p.half !== q.half) continue;
+      const byStart = fin(p.e.start) && fin(q.e.start), d = byStart ? +q.e.start - +p.e.start : (fin(p.e.driveT) && fin(q.e.driveT)) ? +q.e.driveT - +p.e.driveT : null;
+      if(d == null || Math.abs(d) > KO_DUP_WINDOW) continue;
+      const ps = lbl(p.e, GI_SRC), qs = lbl(q.e, GI_SRC);
+      if((ps && !lbl(q.e, GI_SRC) && String(q.e.id) === ps) || (qs && !lbl(p.e, GI_SRC) && String(p.e.id) === qs)) continue;   // an original and its converted row
+      cand.push(d < 0 ? { p:q, q:p, d:-d, by: byStart ? 'start' : 'driveT' } : { p, q, d, by: byStart ? 'start' : 'driveT' });
+    }
+    cand.sort((x, y) => x.d - y.d || x.p.i - y.p.i);
+    const used = new Set(), pairs = [];
+    const side = o => ({ index:o.i, id:o.e.id, code:o.e.code, start: fin(o.e.start) ? +o.e.start : null, driveT: fin(o.e.driveT) ? +o.e.driveT : null, gameTime:o.e.gameTime || '',
+      outcome: koOutOf(o.e), length: valCI(o.e, ['Kickout Locations','KickoutLength','KODistance']), merged: lbl(o.e, MERGE_SRC), src: lbl(o.e, GI_SRC) });
+    cand.forEach(c => { if(used.has(c.p.i) || used.has(c.q.i)) return; used.add(c.p.i); used.add(c.q.i);
+      const a = side(c.p), b = side(c.q), one = !!a.merged !== !!b.merged, remove = one ? (a.merged ? 'a' : 'b') : '';
+      pairs.push({ key: c.p.i + '|' + c.q.i, team:c.p.team, half:c.p.half, gap: Math.round(c.d * 10) / 10, by:c.by, a, b, remove, tick:one,
+        note: one ? 'the ' + (remove === 'a' ? 'earlier' : 'later') + ' row was brought in by a merge — the game’s own row is kept'
+          : (a.merged ? 'both rows were brought in by a merge — check the video' : 'both are the game’s own — check the video'),
+        plans: { a: dupPlan(events, c.q.i, c.p.i, game), b: dupPlan(events, c.p.i, c.q.i, game) } }); });
+    pairs.sort((x, y) => (HALVES.indexOf(x.half) - HALVES.indexOf(y.half)) || ((x.a.start == null ? x.a.driveT : x.a.start) - (y.a.start == null ? y.a.driveT : y.a.start)));
+    return { window:KO_DUP_WINDOW, pairs };
+  }
+  // choice {pair key: 'a' | 'b' | ''} = which row of the pair to remove ('' = leave the pair); a pair not named takes its
+  // proposal when it is a ticked one.
+  function cohKoDupOps(found, choice){
+    const edits = [], dels = new Set(); let n = 0, fills = 0, comps = 0;
+    ((found && found.pairs) || []).forEach(p => {
+      const w = choice && Object.prototype.hasOwnProperty.call(choice, p.key) ? choice[p.key] : (p.tick ? p.remove : '');
+      if(w !== 'a' && w !== 'b') return;
+      const pl = p.plans[w]; n++; dels.add(pl.gone); pl.companions.forEach(c => { dels.add(c.index); comps++; });
+      if(pl.fills.what.length){ fills += pl.fills.what.length; edits.push({ i:pl.keep, labels:Object.assign({}, pl.fills.labels), player:pl.fills.player, x:pl.fills.x, y:pl.fills.y, outcome:pl.fills.outcome, what:pl.fills.what.slice() }); }
+    });
+    return { adds:[], edits: edits.filter(e => !dels.has(e.i)), deletes:[...dels].sort((a, b) => a - b), counts:{ pairs:n, companions:comps, fills, removedRows:dels.size, filledRows:edits.length },
+      summary: n ? 'removes ' + n + ' duplicate kickout' + (n === 1 ? '' : 's') + (comps ? ' with ' + comps + ' companion row' + (comps === 1 ? '' : 's') : '') + (fills ? '; copies ' + fills + ' detail' + (fills === 1 ? '' : 's') + ' to the kept row' + (edits.length === 1 ? '' : 's') : '') : 'nothing to remove' };
+  }
+  function cohKoDupApply(events, ops){ return cohMergeApply(events, { adds:[], edits:ops.edits, deletes:ops.deletes }); }
+
   // ── P-numbers on the game's rows, and the team sheet ────────────
   // For a team sheet added or changed AFTER the rows were stored. Two kinds of change are listed:
   //  FILL    a value that is a bare P-number and now has a player at that number:
@@ -670,7 +802,7 @@
   }
 
   const api = { cohPTagFixes, cohPTagApply, cohMergeDetect, cohMergePlan, cohMergeOps, cohMergeApply, cohMergeApplyEdit:applyEdit, cohMergeFormats:() => Object.keys(ADAPTERS).map(k => ADAPTERS[k].name),
-    COH_MERGE_SRC:MERGE_SRC, COH_MERGE_MODES:MODES };
+    cohKoDupFind, cohKoDupOps, cohKoDupApply, COH_KO_DUP_WINDOW:KO_DUP_WINDOW, COH_MERGE_SRC:MERGE_SRC, COH_MERGE_MODES:MODES };
   Object.assign(root, api);
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
