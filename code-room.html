@@ -6062,8 +6062,11 @@ function crKoDupMark(rk, on){
     if(crKoDupList(true).pairs.length) crKoDupRender(); else crKoDupClose(); }
   crMgStatus(on?'Marked not a duplicate — saved when you close the session; Undo takes the mark off':'Pair shown again');
 }
-function crKoDupBtnSync(){ const b=document.getElementById('koDupBtn'); if(!b) return; let n=0; try{ n=GAME?crKoDupList().pairs.length:0; }catch(_){ n=0; }
-  b.style.display=n?'':'none'; b.textContent='⚠ Duplicate kickouts ('+n+')'; }
+// The button also stays (quieter wording) for a game whose only close pairs were marked "not a duplicate", so "Show again" can be reached later.
+function crKoDupBtnSync(){ const b=document.getElementById('koDupBtn'); if(!b) return; let n=0, d=0; try{ if(GAME){ const P=crKoDupList(true).pairs; d=P.filter(p=>p.dismissed).length; n=P.length-d; } }catch(_){ n=0; d=0; }
+  b.style.display=(n||d)?'':'none'; b.textContent=n?'⚠ Duplicate kickouts ('+n+')':'✓ Close kickouts kept ('+d+')';
+  b.title=n?'Duplicate kickouts — this game has two kickouts by the same team in the same half within 20 seconds of each other: review them and remove the extra one'
+    :'Close kickouts you marked “not a duplicate” — open to show a pair again'; }
 function crKoDupRowLine(p, w, pick){
   const s=p[w], e=EVENTS[s.index], t=e.driveT??e.start??0, role=!pick?'':pick===w?'remove':'keep';
   const src=s.merged?'brought in by a merge ('+s.merged+')':s.src?'the game’s own (converted from the uploaded file)':'the game’s own';
@@ -6118,7 +6121,7 @@ function crKoDupBody(){
 function crKoDupRender(){ const c=document.getElementById('koDupCard'); if(c&&crKoDup){ const sc=document.getElementById('koDupPairs'), top=sc?sc.scrollTop:0; c.innerHTML=crKoDupBody(); const s2=document.getElementById('koDupPairs'); if(s2) s2.scrollTop=top; } }
 function crKoDupOpen(){
   if(!GAME) return; crKoDupClose();
-  const F=crKoDupList(); if(!F.pairs.length){ crKoDupBtnSync(); return; }
+  const F=crKoDupList(); if(!F.pairs.length&&!crKoDupList(true).pairs.length){ crKoDupBtnSync(); return; }
   crKoDup={pick:{}, on:{}}; F.pairs.forEach(p=>{ crKoDup.pick[p.rk]=p.remove; crKoDup.on[p.rk]=p.tick; });
   const ov=document.createElement('div'); ov.id='koDupOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10006;';
