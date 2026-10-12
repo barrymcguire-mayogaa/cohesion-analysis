@@ -1177,6 +1177,12 @@ function ssGameTally(meta, events, T){
   g.possGames=g.possData?1:0;
   g.shotsPossG=g.possData?g.shots:0;
   g.tosPossG=g.possData?g.tosConceded:0;
+  // PRODUCTIVITY = points ÷ possessions × 10. Points count only in a game
+  // where THIS team has possession rows (possData is true when either side
+  // has them), so a game without possessions adds neither points nor
+  // possessions: Σ ptsPossG ÷ Σ possCount × 10.
+  g.prodGames=g.possCount>0?1:0;
+  g.ptsPossG=g.possCount>0?g.pts:0;
   // momentum from the chronological score sequence
   g.scoreSeq.sort((x,y)=>x.t-y.t);
   g.runs=0; g.runPts=0; g.runTwoPts=0;
@@ -1798,6 +1804,7 @@ function ssMetrics(){
     ['POSSESSION','Possessions per Game','possession-tracked games only', a=>a.possGames>0?per(a.possCount,a.possGames):null],
     ['POSSESSION','Poss → Shot %','possession-tracked games only', a=>(a.possCount>0)?pct(a.shotsPossG,a.possCount):null],
     ['POSSESSION','Turnover Rate %','turnovers per possession', a=>(a.possCount>0)?pct(a.tosPossG,a.possCount):null],
+    ['POSSESSION','Productivity','points per 10 possessions · possession-tracked games only', a=>(a.possCount>0)?{v:a.ptsPossG/a.possCount*10, txt:(a.ptsPossG/a.possCount*10).toFixed(2)}:null],
     ['SCORE ORIGIN','From Own KO %','of sourced scores', a=>a.srcData?pct(a.srcOwnKO,a.srcTotal):null],
     ['SCORE ORIGIN','From Opp KO %','', a=>a.srcData?pct(a.srcOppKO,a.srcTotal):null],
     ['SCORE ORIGIN','From Turnovers %','', a=>a.srcData?pct(a.srcTO,a.srcTotal):null],
