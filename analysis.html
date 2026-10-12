@@ -1684,7 +1684,8 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
 //      shots from the same possStartSec, and a possession row is one run of
 //      entries with the SAME team and source, so every source row that
 //      overlaps a possession of its team says that possession's source. Each
-//      source row goes to the one possession of its team it overlaps most.
+//      source row goes to the one possession of its team whose span it matches
+//      best (shared time ÷ time covered together).
 //      (This is also the tag the POINTS are attributed by, so a score and the
 //      possession it came from always land in the same category.)
 //   3. START EVENT — a possession with no shot has no source row; it takes
@@ -1708,7 +1709,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
 //    label / tag / start (how many each rule decided), both, agree, list[]
 // ═══════════════════════════════════════════════════════════════
 const SS_PSRC_TOL=2;    // seconds an event may start AFTER the possession row does
-const SS_PSRC_LAG=10;   // seconds between the event's end and the possession's start (real games: 0 for 553 of 574 matched events, at most 6)
+const SS_PSRC_LAG=10;   // seconds between the event's end and the possession's start (7 real club games: the event's span contains the start for 468 of 493 matched possessions; the rest follow it by 1 – 8 s, mostly a shot attempt gathered)
 const SS_PSRC_CACHE=new WeakMap();
 // The table's rows, in display order, each a set of the existing source categories (SS_SRC_CATS — no second vocabulary):
 // TURNOVER is the page's "after an in-play turnover" set (SS_SRC_TO_KEYS: FORCED TO, UNFORCED TO, the plain TURNOVER of a
@@ -1729,8 +1730,8 @@ function ssPsRowOf(cat){ const r=SS_PSRC_ROWS.find(x=>x.cats.includes(cat)); ret
 //  · at most SS_PSRC_MAX_NI of its points have no tagged source, and the tagged points do not exceed its points;
 //  · where a possession has BOTH its own tag / label and a start event (≥ SS_PSRC_MIN_BOTH of them), the two name the
 //    same row for at least SS_PSRC_MIN_AGREE of them.
-// The 7 real Tracker club games (14 team-games, 524 possessions): 0 – 9.4 % not identified (14 in all, 2.7 %), 0 % of
-// points untagged, agreement 91 – 100 % (302 of 306); the real GIU game: 0 %, 60 of 60. So 10 % / 80 % keeps every real
+// The 7 real Tracker club games (14 team-games, 524 possessions): 0 – 9.4 % not identified (13 in all, 2.5 %), 0 % of
+// points untagged, agreement 91 – 100 % (304 of 309); the two real GIU games: 0 %, 142 of 142. So 10 % / 80 % keeps every real
 // game and withholds a game whose coding cannot carry the split (e.g. possession rows with no source rows and no
 // turnover / kickout rows around them). A withheld game is counted in the note, never shown in part.
 const SS_PSRC_MAX_NI=0.10, SS_PSRC_MIN_AGREE=0.80, SS_PSRC_MIN_BOTH=10;
@@ -1755,9 +1756,13 @@ function ssPossSources(events, H, A, skip){
     if(ssIsFoul(e)&&/FREE AGAINST/.test(ssUC(ssLblCI(e,SS_FOUL_AREA_GROUPS)))) cands.push({e,i,s,en,win:other(team),cat:'FREE',ko:0,used:false});
   });
   poss.sort((a,b)=>a.s-b.s||a.i-b.i);
-  // rule 2: each source row → the possession of its team it overlaps most (touching counts; the earlier on a tie)
-  srcRows.sort((a,b)=>a.s-b.s||a.i-b.i).forEach(r=>{ let best=null, bo=-1;
-    poss.forEach(q=>{ if(q.team!==r.team) return; const o=Math.min(q.en,r.en)-Math.max(q.s,r.s); if(o>=0&&o>bo){ bo=o; best=q; } });
+  // rule 2: each source row → the possession of its team whose span it matches best: shared time ÷ the time the two cover
+  // together (1 = the same span; touching counts as 0), then the nearer start, then the earlier row. (Plain "most shared
+  // time" would hand every source row to a possession row that was left running over several others.)
+  srcRows.sort((a,b)=>a.s-b.s||a.i-b.i).forEach(r=>{ let best=null, bo=-1, bd=0;
+    poss.forEach(q=>{ if(q.team!==r.team) return; const o=Math.min(q.en,r.en)-Math.max(q.s,r.s); if(o<0) return;
+      const u=Math.max(q.en,r.en)-Math.min(q.s,r.s), sc=u>0?o/u:1, d=Math.abs(q.s-r.s);
+      if(!best||sc>bo||(sc===bo&&d<bd)){ bo=sc; bd=d; best=q; } });
     if(best){ if(!best.tag) best.tag=r.cat; else if(best.tag!==r.cat) best.tagMixed=true; } });
   // rule 3: the start event (one event → one possession, in time order)
   poss.forEach((q,k)=>{ let best=null, bg=0;
@@ -2718,9 +2723,9 @@ function ovProdSrcHTML(P, T){
     if(c.few) return `<div class="pd-gv${cls} ps-few" role="cell"><b title="Only ${pl(c.poss,'possession')}: too few to read as a rate">${ovProdTxt(c.v)}</b>${cnt}<em>only ${c.poss} poss</em></div>`;
     return `<div class="pd-gv${cls}" role="cell"><b>${ovProdTxt(c.v)}</b>${cnt}<div class="tt-bar"><i style="width:${S.hi>0?Math.max(0,Math.min(100,c.v/S.hi*100)).toFixed(1):0}%"></i></div></div>`; };
   const tot=(t, cls)=>`<div class="pd-gv${cls}" role="cell">`+(t?`<b>${ovProdTxt(t.v)}</b><span>${t.pts} pts · ${t.poss} poss</span>`:'<b class="na">n/a</b><span>no possession rows</span>')+'</div>';
-  let h=`<h3 class="ps-h">BY WHERE THE BALL CAME FROM</h3><div class="pd-games ps-src" role="table" aria-label="Productivity by where the ball came from"><div class="pd-g pd-hd" role="row"><div role="columnheader">SOURCE</div><div role="columnheader">${ssEsc(T)}</div><div role="columnheader">OPPOSITION</div></div>`
-    +S.rows.map(r=>`<div class="pd-g${r.k==='NI'?' ps-ni':''}" role="row" data-src="${r.k}"><div class="pd-gn" role="cell"><b>${ssEsc(r.label)}</b></div>${cellv(r.team,'')}${cellv(r.opposition,' opp')}</div>`).join('')
-    +`<div class="pd-g ps-tot" role="row" data-src="TOTAL"><div class="pd-gn" role="cell"><b>${part?'Total of these games':'All sources'}</b></div>${tot(S.total.team,'')}${tot(S.total.opposition,' opp')}</div></div>`;
+  let h=`<h3 class="ps-h">BY WHERE THE BALL CAME FROM</h3><div class="pd-games ps-src" role="table" aria-label="Productivity by where the ball came from"><div class="ps-r pd-g pd-hd" role="row"><div role="columnheader">SOURCE</div><div role="columnheader">${ssEsc(T)}</div><div role="columnheader">OPPOSITION</div></div>`
+    +S.rows.map(r=>`<div class="ps-r pd-g${r.k==='NI'?' ps-ni':''}" role="row" data-src="${r.k}"><div class="pd-gn" role="cell"><b>${ssEsc(r.label)}</b></div>${cellv(r.team,'')}${cellv(r.opposition,' opp')}</div>`).join('')
+    +`<div class="ps-r pd-g ps-tot" role="row" data-src="TOTAL"><div class="pd-gn" role="cell"><b>${part?'Total of these games':'All sources'}</b></div>${tot(S.total.team,'')}${tot(S.total.opposition,' opp')}</div></div>`;
   const hw=S.how, nAll=hw.label+hw.tag+hw.start+hw.ni;
   const note='Source split: '+ovFromNote(S.games, P.n)
     +(S.withheld?' — source split not available for '+pl(S.withheld,'game')+' (too many possessions or points there cannot be given a source)':'')
