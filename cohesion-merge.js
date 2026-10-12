@@ -80,7 +80,11 @@
   const FA_WINDOW = 4;          // seconds between a team's foul and its own turnover (file clock)
   const EST_WINDOW = 4;         // ± seconds: anchors that agree on one offset
   const BIAS_WINDOW = 20;       // ± seconds searched for an event type's own lag
-  const TOL = { ko:8, shot:8, to:10 };   // ± seconds round the lag within which two events are the same one
+  // ± seconds round the lag within which two events are the same one. Kickouts get a wide window: two analysts stamp a
+  // kickout anywhere from the ball being placed to it landing (and a re-timed game moves them again), so a tight window
+  // left some unpaired and brought the same kickout in twice — while one team's kickouts are never that close together
+  // (27 s and 30 s at the closest in the two real games measured), so the nearest one within 20 s is the same kickout.
+  const TOL = { ko:20, shot:8, to:10 };
   const TOL_DEFAULT = 8;
   const CHECK_GAP = 3;          // seconds: readings of one half further apart than this are flagged
   const EDGE = 600, BREAK = 240;         // a file with no half labels: how far outside a half's anchors an event may sit; a gap this long is a break
