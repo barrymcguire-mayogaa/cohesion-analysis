@@ -37,7 +37,7 @@
  *         'throwins'  otherwise the late throw-ins (cohUnmarkedET), on the events' driveT ?? start time line.
  *       → { evidence, starts:{e1,e2} (each {half, file, video, row} or null), strays:[index…], periods:[meta.scPeriods
  *           entries of the stray rows], changes:[{i, half, gameTime, from:{half, gameTime}, clock:'file'|'video'}],
- *           counts:{e1,e2} }
+ *           counts:{e1,e2}, before:[{i, half, by}] (a THROW-IN up to 5 s before a period start: left as it is) }
  *       Only half and gameTime are ever proposed (gameTime only where the event has one); a stray row is never in
  *       changes. opts.h2 = the caller's 2nd-half start (default: the earliest 2nd-half THROW-IN); opts.periodName =
  *       cohScPeriodName (default: the global / cohesion-labels.js).
@@ -118,7 +118,10 @@
       changes.push(c); counts[k?'e2':'e1']++; });
     if(!changes.length) return null;
     const periods=evidence==='rows'?ref.filter(Boolean).map(r=>{ const e=L[r.row], p={code:r.half, start:e.start, end:e.end}; if(e.code!==r.half) p.fileCode=e.code; return p; }).filter(p=>isFinite(+p.start)&&isFinite(+p.end)&&p.start!=null&&p.end!=null):[];
-    return {evidence, starts, strays, periods, changes, counts};
+    // a throw-in stamped a moment BEFORE a period start stays where it is (an upload reads it the same way): told, not changed
+    const moved=new Set(changes.map(c=>c.i)), before=[];
+    L.forEach((e,i)=>{ if(!e||skip.has(i)||moved.has(i)||!isTI(e)) return; [starts.e1, starts.e2].forEach(S=>{ const P=pos(e, S); if(P&&P.d<0&&P.d>=-5) before.push({i, half:S.half, by:-P.d}); }); });
+    return {evidence, starts, strays, periods, changes, counts, before};
   }
   const api={ COH_COUNTIES, COH_HALF_MIN, COH_ET_MIN, cohGameLevel, cohPeriodOf, cohUnmarkedET, cohTotalMinutes, cohEtClock, cohEtFixFind };
   Object.assign(root, api);
