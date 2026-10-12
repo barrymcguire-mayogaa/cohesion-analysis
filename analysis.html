@@ -188,6 +188,21 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
 .pz-dir svg{flex:1;height:12px;min-width:30px;margin-right:-12px;}
 .pz-dir i{width:0;height:0;border-left:11px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent;}
 .pz-note{font-size:.7rem;color:var(--t3);margin-top:8px;line-height:1.45;}
+/* Overview › Productivity (rendered only when the team has possession rows) */
+.ov-prod{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px 22px;}
+.pd-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+.pd-kpis .kpi-t{overflow-wrap:anywhere;} .pd-kpis .kpi-v{font-variant-numeric:tabular-nums;}
+.kpi-v.pd-pos{color:#22c55e;} .kpi-v.pd-neg{color:#ef4444;}
+.pd-games{margin-top:18px;border-top:1px solid var(--border);}
+.pd-g{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);gap:6px 18px;align-items:center;padding:8px 2px;border-bottom:1px solid var(--border);}
+.pd-g.pd-hd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--accent);}
+.pd-g.pd-hd>div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pd-gn{min-width:0;} .pd-gn b{display:block;font:700 15px 'Barlow',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .pd-gn small{font-size:.72rem;color:var(--t3);}
+.pd-gv{display:flex;align-items:baseline;gap:2px 8px;flex-wrap:wrap;min-width:0;}
+.pd-gv b{font:700 17px 'Barlow',sans-serif;font-variant-numeric:tabular-nums;min-width:2.7em;} .pd-gv b.na{color:var(--t3);font-weight:400;}
+.pd-gv span{font-size:.74rem;color:var(--t2);white-space:nowrap;}
+.pd-gv .tt-bar i{background:var(--accent);} .pd-gv.opp .tt-bar i{background:#9a9aa8;}
+.ov-prod>.dnote+.dnote{margin-top:4px;}
 @media (max-width:1100px){
   .ov-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px;}
   .ov-recent{grid-template-columns:repeat(3,minmax(0,1fr));}
@@ -207,6 +222,8 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
   .pz-heads{font-size:10.5px;letter-spacing:0;} .pitch{aspect-ratio:145/88;}
   .pz-l{font-size:14px;} .pz-p{font-size:30px;} .pz-c{font-size:16px;min-height:20px;} .pz-l:nth-of-type(4){margin-top:18px;}
   .ov-basisnote{padding-top:0;}
+  .ov-prod{padding:12px;} .pd-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;} .pd-kpis .kpi:last-child{grid-column:1 / -1;}
+  .pd-g{gap:4px 10px;} .pd-gn b{font-size:13.5px;} .pd-gv b{font-size:15px;} .pd-gv span{font-size:.68rem;}
 }
 /* ── MATCH REPORTS ── */
 #mrStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
@@ -2406,6 +2423,29 @@ function ovTurnovers(aT, aO){
   return { data:(aT.toGames||0)>0, games:aT.toGames||0, locGames:aT.toLocGames||0, koGames:aT.toKoGames||0, shotGames:aT.toShotGames||0, giShort:aT.toGiShort||0,
     lostLoc:aT.toLostLoc||0, wonLoc:aT.toWonLoc||0, thirds:['DEF','MID','ATT'].map(third), team:t, opposition:o };
 }
+// PRODUCTIVITY = total points ÷ possessions × 10 (the points a side delivers
+// from every 10 possessions). `used` = the Overview's per-game rows {g,tT,tO}.
+// Only games where the TEAM has possession rows count (tT.possCount>0): a game
+// without them adds neither points nor possessions. The total is Σpoints ÷
+// Σpossessions × 10 — NOT the mean of the per-game figures. The opposition's
+// figure in a game is absent (null, never 0) when it has no possession rows
+// there; its total and the difference then cover only the games both sides
+// have. data:false → the Overview renders no Productivity block at all.
+function ovProdVal(pts, poss){ return poss>0?pts/poss*10:null; }
+function ovProductivity(used, T){
+  const side=(pts, poss)=>({pts, poss, v:ovProdVal(pts, poss)});
+  const per=(used||[]).filter(r=>r.tT&&r.tO&&r.tT.possCount>0).map(r=>{ const g=r.g||{}, home=ssUC(g.homeTeam)===T;
+    return {id:g.id, opp:String((home?g.awayTeam:g.homeTeam)||'Unknown').trim(), date:g.date||'',
+      team:side(r.tT.pts, r.tT.possCount), opposition:r.tO.possCount>0?side(r.tO.pts, r.tO.possCount):null}; });
+  const sum=(list, k, f)=>list.reduce((s,m)=>s+m[k][f], 0);
+  const both=per.filter(m=>m.opposition);
+  const team=side(sum(per,'team','pts'), sum(per,'team','poss'));
+  const opposition=both.length?Object.assign(side(sum(both,'opposition','pts'), sum(both,'opposition','poss')), {games:both.length}):null;
+  // the difference compares like with like: the team over the games the opposition figure covers
+  const teamBoth=both.length===per.length?team:side(sum(both,'team','pts'), sum(both,'team','poss'));
+  return {data:per.length>0, games:per.length, n:(used||[]).length, team, opposition, teamBoth,
+    diff:(opposition&&teamBoth.v!=null&&opposition.v!=null)?teamBoth.v-opposition.v:null, per};
+}
 // Everything the Overview shows for team T. `games` = the filtered, ticked
 // game metas; bundleOf(id) -> {meta, events} (already fetched).
 function ovCompute(T, games, basis, bundleOf){
@@ -2424,7 +2464,7 @@ function ovCompute(T, games, basis, bundleOf){
     kpis:ovKpis(aT, n, basis),
     scoreSrc:Object.assign(ovSourceSet(aT,'srcP:',aT.srcPtsTagged), {games:aT.srcScoreGames||0, scores:aT.srcScoresTagged||0, allPts:aT.pts||0, poss:aT.srcPossGames||0}),
     shotSrc:Object.assign(ovSourceSet(aT,'srcH:',aT.srcShotsTagged), {games:aT.srcShotGames||0, allShots:aT.shots||0, poss:aT.srcPossGames||0}),
-    to:ovTurnovers(aT, aO), aggT:aT, aggO:aO };
+    to:ovTurnovers(aT, aO), prod:ovProductivity(used, T), aggT:aT, aggO:aO };
 }
 // a source read from GIU possession rows (ssPossSrc) is said wherever it is shown
 function ovPossNote(k){ return k>0?' · in '+k+' game'+(k===1?'':'s')+' (GIU) the source is derived from the possession each shot falls in':''; }
@@ -2508,6 +2548,31 @@ function ovRecentHTML(recent){
               :`<div class="mc-score"><span class="na">score n/a</span></div>`)+'</a>';
   }).join('')+'</div>';
 }
+// The PRODUCTIVITY block. '' when no selected game has possession rows for
+// the team — no heading, no n/a cards. (A reference line — e.g. a benchmark
+// figure the analyst trusts — would go on the .tt-bar of each row and beside
+// the two headline values here; none is drawn: no sourced figure exists yet.)
+function ovProdTxt(v){ return v==null?'n/a':v.toFixed(2); }
+function ovProdWork(s){ return s.pts+' point'+(s.pts===1?'':'s')+' from '+s.poss+' possession'+(s.poss===1?'':'s'); }
+function ovProdHTML(P, T){
+  if(!P||!P.data) return '';
+  const o=P.opposition, part=o&&o.games<P.games;
+  const card=(title, v, cls, detail, basis)=>`<div class="kpi"><div class="kpi-t">${ssEsc(title)}</div><div class="kpi-v ${v==null?'na':cls}">${ssEsc(v==null?'n/a':v)}</div><div class="kpi-d">${ssEsc(detail)}</div><div class="kpi-b">${ssEsc(basis)}</div></div>`;
+  const dTxt=P.diff==null?null:(P.diff>0?'+':P.diff<0?'−':'')+Math.abs(P.diff).toFixed(2);
+  let h='<h2 class="ov-h">PRODUCTIVITY</h2><div class="ov-prod"><div class="pd-kpis">'
+    +card(T, ovProdTxt(P.team.v), '', ovProdWork(P.team), 'points per 10 possessions')
+    +card('OPPOSITION', o?ovProdTxt(o.v):null, '', o?ovProdWork(o):'no opposition possession rows', o?(part?ovFromNote(o.games, P.games):'points per 10 possessions'):'')
+    +card('DIFFERENCE', dTxt, P.diff>=0.005?'pd-pos':P.diff<=-0.005?'pd-neg':'', dTxt==null?'':T+' − opposition'+(part?' ('+ovProdTxt(P.teamBoth.v)+' − '+ovProdTxt(o.v)+')':''), dTxt==null?'':(part?'the '+o.games+' game'+(o.games===1?'':'s')+' both sides have':'same games'))
+    +'</div>';
+  let hi=0; P.per.forEach(m=>{ hi=Math.max(hi, m.team.v||0, m.opposition?m.opposition.v||0:0); });
+  const cellv=(s, cls)=>`<div class="pd-gv${cls}" role="cell">`+(s?`<b>${ovProdTxt(s.v)}</b><span>${s.pts} pts · ${s.poss} poss</span><div class="tt-bar"><i style="width:${hi>0?Math.max(0,Math.min(100,s.v/hi*100)).toFixed(1):0}%"></i></div>`
+    :'<b class="na">n/a</b><span>no possession rows</span>')+'</div>';
+  h+=`<div class="pd-games" role="table" aria-label="Productivity game by game"><div class="pd-g pd-hd" role="row"><div role="columnheader">GAME</div><div role="columnheader">${ssEsc(T)}</div><div role="columnheader">OPPOSITION</div></div>`
+    +P.per.map(m=>`<div class="pd-g" role="row"><div class="pd-gn" role="cell"><b>vs ${ssEsc(m.opp)}</b><small>${ssEsc(ovShortDate(m.date)||'date n/a')}</small></div>${cellv(m.team,'')}${cellv(m.opposition,' opp')}</div>`).join('')+'</div>';
+  h+=`<div class="dnote">${ssEsc(ovFromNote(P.games, P.n)+(P.games<P.n?' — the others have no possession rows':'')+(P.games>1?' · the headline figures are all the points ÷ all the possessions × 10 across those games, not the average of the game-by-game figures':'')+' · game-by-game bars share one scale.')}</div>`
+    +'<div class="dnote">Productivity = total points ÷ possessions × 10 (a goal counts 3, a two-pointer 2).</div></div>';
+  return h;
+}
 function ovHTML(R){
   const T=R.team, n=R.n;
   if(!R.nBasis) return `<div class="soon"><p>No games for ${ssEsc(T)} in the current filters.</p></div>`;
@@ -2516,6 +2581,8 @@ function ovHTML(R){
   h+=ovRecentHTML(R.recent);
   // b. KPI cards
   h+='<div class="ov-kpis">'+R.kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
+  // b2. productivity (omitted entirely when no game has possession rows for the team)
+  h+=ovProdHTML(R.prod, T);
   // c. doughnuts
   const sc=R.scoreSrc, sh=R.shotSrc;
   h+='<h2 class="ov-h">HOW SCORES AND SHOTS WERE BUILT</h2><div class="ov-donuts">'
