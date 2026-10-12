@@ -31,12 +31,13 @@
  *         'rows'      the stored stray period rows — events whose code is the file's own name for an ET period
  *                     ("Extra Time 1" / "Extra Time 2": anything cohScPeriodName maps to ET 1st / 2nd Half). Their
  *                     start is the exact period start on the file's clock: an event is in the period when its own
- *                     start is at or after it, and its clock is start − period start — exactly what an upload does.
+ *                     start is at or after it, and its clock is start − period start — exactly what an upload does
+ *                     (with the upload's rule for the period's THROW-IN stamped a moment before the row: cohScLeadThrowIn).
  *                     An event whose start is missing, or not on the file's clock (coded in Code Room: start = video
  *                     time), is placed by its video time (driveT) against the period row's video time instead.
  *         'throwins'  otherwise the late throw-ins (cohUnmarkedET), on the events' driveT ?? start time line.
  *       → { evidence, starts:{e1,e2} (each {half, file, video, row} or null), strays:[index…], periods:[meta.scPeriods
- *           entries of the stray rows], changes:[{i, half, gameTime, from:{half, gameTime}, clock:'file'|'video'}],
+ *           entries of the stray rows], changes:[{i, half, gameTime, from:{half, gameTime}, clock:'file'|'video', lead?}],
  *           counts:{e1,e2}, before:[{i, half, by}] (a THROW-IN up to 5 s before a period start: left as it is) }
  *       Only half and gameTime are ever proposed (gameTime only where the event has one); a stray row is never in
  *       changes. opts.h2 = the caller's 2nd-half start (default: the earliest 2nd-half THROW-IN); opts.periodName =
@@ -84,7 +85,8 @@
     opts=opts||{}; const L=events||[];
     for(let i=0;i<L.length;i++){ const e=L[i]; if(!e) continue; const k=cohPeriodOf(e.half); if(k==='e1'||k==='e2') return null; }   // extra time IS marked
     let nameOf=opts.periodName||root.cohScPeriodName;
-    if(!nameOf&&typeof require==='function'){ try{ nameOf=require('./cohesion-labels.js').cohScPeriodName; }catch(_){} }
+    let lead=opts.leadThrowIn||root.cohScLeadThrowIn;   // the upload's rule for a period's throw-in stamped a moment before its row
+    if((!nameOf||!lead)&&typeof require==='function'){ try{ const LB=require('./cohesion-labels.js'); nameOf=nameOf||LB.cohScPeriodName; lead=lead||LB.cohScLeadThrowIn; }catch(_){} }
     const num=v=>(v!=null&&v!==''&&isFinite(+v))?+v:null, tOf=e=>(e.driveT??e.start)??0, isTI=e=>/THROW.?IN$/i.test(String(e.code||''));
     // (a) the stray period rows
     const strays=[], ref=[null,null];
@@ -107,14 +109,15 @@
       if(!S) return null;
       if(evidence==='throwins') return {d:tOf(e)-S.video, clock:'video'};
       const f=num(e.start), v=num(e.driveT);
-      if(S.file!=null&&f!=null&&(S.video==null||v==null||Math.abs((v-f)-(S.video-S.file))<=2)) return {d:f-S.file, clock:'file'};
+      if(S.file!=null&&f!=null&&(S.video==null||v==null||Math.abs((v-f)-(S.video-S.file))<=2)) return (lead&&lead(e.code, f, S.file))?{d:0, clock:'file', lead:true}:{d:f-S.file, clock:'file'};
       if(S.video!=null&&v!=null) return {d:v-S.video, clock:'video'};
       return null;
     };
     L.forEach((e,i)=>{ if(!e||skip.has(i)) return;
       const p2=pos(e, starts.e2), p1=pos(e, starts.e1), k=(p2&&p2.d>=0)?1:(p1&&p1.d>=0)?0:-1; if(k<0) return;
       const P=k?p2:p1, S=k?starts.e2:starts.e1, half=COH_ET_HALVES[k], c={i, half, from:{half:e.half, gameTime:e.gameTime}, clock:P.clock};
-      if(typeof e.gameTime==='string'&&e.gameTime) c.gameTime=P.clock==='file'?cohEtClock(half, +e.start, S.file):cohEtClock(half, P.d, 0);
+      if(typeof e.gameTime==='string'&&e.gameTime) c.gameTime=P.clock==='file'?cohEtClock(half, P.lead?S.file:+e.start, S.file):cohEtClock(half, P.d, 0);
+      if(P.lead) c.lead=S.file-(+e.start);   // the period's throw-in, stamped this many seconds before its row
       changes.push(c); counts[k?'e2':'e1']++; });
     if(!changes.length) return null;
     const periods=evidence==='rows'?ref.filter(Boolean).map(r=>{ const e=L[r.row], p={code:r.half, start:e.start, end:e.end}; if(e.code!==r.half) p.fileCode=e.code; return p; }).filter(p=>isFinite(+p.start)&&isFinite(+p.end)&&p.start!=null&&p.end!=null):[];

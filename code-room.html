@@ -6215,6 +6215,7 @@ function crEtFixBody(){
     +'<div id="etFixNot" style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:4px;"><b>NOT changed:</b> where an event sits on the video, its code, labels, players, location or anything else — only its period and its game clock. 1st- and 2nd-half events are not touched.'
     +(byVideo?' <span data-byvideo="1">'+byVideo+' event'+(byVideo===1?' has':'s have')+' no file time (coded in Code Room): placed by video time against the period row’s place on the video.</span>':'')
     +(noClock?' <span data-noclock="1">'+noClock+' event'+(noClock===1?' has':'s have')+' no game clock and get'+(noClock===1?'s':'')+' none.</span>':'')
+    +F.changes.filter(c=>c.lead!=null).map(c=>' <span data-lead="1">The '+esc(EVENTS[c.i].code||'')+' stamped '+(Math.round(c.lead*100)/100)+' s before the '+esc(c.half)+' row starts that period ('+esc(c.gameTime||'00:00')+'), as an upload reads it.</span>').join('')
     +(F.before.length?' <span data-before="1">'+F.before.map(b=>{ const e=EVENTS[b.i]; return 'The '+esc(e.code||'')+' at '+esc(e.gameTime||fmt(e.driveT??0))+' is stamped '+(Math.round(b.by*100)/100)+' s before the '+esc(b.half)+' start and stays in '+esc(e.half||'its period')+', as an upload reads it.'; }).join(' ')+'</span>':'')
     +'</div>'
     +'<div id="etFixRows" style="max-height:min(46vh,480px);overflow:auto;">'+block('ET 1st Half','e1')+block('ET 2nd Half','e2')+'</div>'

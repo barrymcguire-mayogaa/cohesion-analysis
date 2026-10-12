@@ -153,6 +153,11 @@ function cohScPeriodName(code){
   const m=/^(?:ET|EXTRA[\s-]*TIME)\s*(?:-\s*)?(1|2|1ST|2ND|FIRST|SECOND)(?:\s+HALF)?$/i.exec(t);
   return m?(/^(1|1ST|FIRST)$/i.test(m[1])?'ET 1st Half':'ET 2nd Half'):null;
 }
+// The THROW-IN that starts an extra-time period can be stamped a moment BEFORE its period row (the Match Tracker writes
+// it 0.1 s earlier): it belongs to that period, at 00:00 — not to the 2nd half with a 2H 47:33 clock, which would make
+// the 2nd half look 48 minutes long. One rule for the upload (cohScImport) and Code Room's "Mark extra time".
+const COH_SC_TI_LEAD=2;   // seconds
+function cohScLeadThrowIn(code, start, ref){ return ref!=null&&start<ref&&start>=ref-COH_SC_TI_LEAD&&/THROW.?IN$/i.test(String(code||'')); }
 const COH_SC_NEUTRAL=new Set(['THROW-IN','Count']);                    // never a player row
 function cohScDecode(buffer){
   const u8=new Uint8Array(buffer.buffer?buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset+buffer.byteLength):buffer);
@@ -285,8 +290,9 @@ function cohScImport(insts, opts){
     const labels={}, lists={};
     (inst.labels||[]).forEach(l=>{ const g=cohScPlainGroup(l[0])||'NO_GROUP', t=l[1]||''; if(!t) return; labels[g]=t; (lists[g]=lists[g]||[]).push(t); });
     let half='1st Half';
-    if(refs['ET 2nd Half']!==null && start>=refs['ET 2nd Half']) half='ET 2nd Half';
-    else if(refs['ET 1st Half']!==null && start>=refs['ET 1st Half']) half='ET 1st Half';
+    const inET=h=>refs[h]!==null && (start>=refs[h] || cohScLeadThrowIn(code, start, refs[h]));   // (its throw-in a moment before the row: that period)
+    if(inET('ET 2nd Half')) half='ET 2nd Half';
+    else if(inET('ET 1st Half')) half='ET 1st Half';
     else if(refs['2nd Half']!==null && start>=refs['2nd Half']) half='2nd Half';
     const offset=offsets[half]||0;
     const driveT=Math.max(0, Math.round(start+offset)-2);
@@ -302,7 +308,7 @@ function cohScImport(insts, opts){
     const kept={}, all={};
     Object.keys(labels).forEach(g=>{ if(g==='Team Name') return; const k=g==='NO_GROUP'?'General':g; kept[k]=labels[g]; stats.labelValues+=lists[g].length; if(lists[g].length>1){ all[k]=lists[g].slice(); stats.extraValues+=lists[g].length-1; } });
     const ev={ id:inst.id||String(events.length+1), start:start, end:end, half };   // exact file times (driveT stays a whole video second)
-    if(opts.gameTime) ev.gameTime=opts.gameTime(half, start, refs);
+    if(opts.gameTime) ev.gameTime=opts.gameTime(half, (/^ET/.test(half)&&start<refs[half])?refs[half]:start, refs);   // the leading throw-in: 00:00
     let cat=category(code), playerRow=false;
     if(!team && !COH_SC_NEUTRAL.has(code)){
       const p=players.get(cohNameKey(code));
@@ -335,7 +341,7 @@ function cohScImport(insts, opts){
 
 if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, cohLabelValues, cohLabelHas, cohLabelPairs, cohLabelSetValues, cohLabelReplace, cohLabelsNormalize,
   cohIsPlayerGroup, cohPlayerGroupTeam, cohEventPlayers, cohPlayerTeam, cohPlayerIndex, cohPlayerRowOf, cohNameKey,
-  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS, cohScPeriodName,
+  cohScDecode, cohScInstances, cohScFromDom, cohScCategory, cohScSheetName, cohScPlayerIndex, cohScImport, COH_SC_PERIODS, cohScPeriodName, cohScLeadThrowIn, COH_SC_TI_LEAD,
   cohScPlainGroup, cohRgb16ToHex, cohHexToRgb16, cohScRows, cohScRowsFromDom, cohRowRgb16, cohRowColours, cohRowsMergeMeta};
 
 /* ── Existing games: bring back the label values the old import dropped ──
