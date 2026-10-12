@@ -701,7 +701,9 @@
     });
     return { keep:ki, gone:ri, fills, notes, companions, left };
   }
-  function cohKoDupFind(events, game){
+  // A pair the user marked "not a duplicate" (both rows carry the plain field koNotDup — not a label, so it is never
+  // exported) is left out; opts.dismissed === true returns those pairs too, flagged dismissed:true, so they can be shown again.
+  function cohKoDupFind(events, game, opts){
     events = events || [];
     const sup = GI.cohGiSupersededFn(events), live = [];
     events.forEach((e, i) => { if(!e || !e.code || !isKoRow(e) || sup(e) || GI.cohGiIsKickout(e, game)) return;   // never an original
@@ -714,15 +716,17 @@
       if(d == null || Math.abs(d) > KO_DUP_WINDOW) continue;
       const ps = lbl(p.e, GI_SRC), qs = lbl(q.e, GI_SRC);
       if((ps && !lbl(q.e, GI_SRC) && String(q.e.id) === ps) || (qs && !lbl(p.e, GI_SRC) && String(p.e.id) === qs)) continue;   // an original and its converted row
-      cand.push(d < 0 ? { p:q, q:p, d:-d, by: byStart ? 'start' : 'driveT' } : { p, q, d, by: byStart ? 'start' : 'driveT' });
+      const off = !!(p.e.koNotDup && q.e.koNotDup);
+      if(off && !(opts && opts.dismissed)) continue;
+      cand.push(d < 0 ? { p:q, q:p, d:-d, off, by: byStart ? 'start' : 'driveT' } : { p, q, d, off, by: byStart ? 'start' : 'driveT' });
     }
     cand.sort((x, y) => x.d - y.d || x.p.i - y.p.i);
     const used = new Set(), pairs = [];
     const side = o => ({ index:o.i, id:o.e.id, code:o.e.code, start: fin(o.e.start) ? +o.e.start : null, driveT: fin(o.e.driveT) ? +o.e.driveT : null, gameTime:o.e.gameTime || '',
       outcome: koOutOf(o.e), length: valCI(o.e, ['Kickout Locations','KickoutLength','KODistance']), merged: lbl(o.e, MERGE_SRC), src: lbl(o.e, GI_SRC) });
     cand.forEach(c => { if(used.has(c.p.i) || used.has(c.q.i)) return; used.add(c.p.i); used.add(c.q.i);
-      const a = side(c.p), b = side(c.q), one = !!a.merged !== !!b.merged, remove = one ? (a.merged ? 'a' : 'b') : '';
-      pairs.push({ key: c.p.i + '|' + c.q.i, team:c.p.team, half:c.p.half, gap: Math.round(c.d * 10) / 10, by:c.by, a, b, remove, tick:one,
+      const a = side(c.p), b = side(c.q), one = !c.off && (!!a.merged !== !!b.merged), remove = one ? (a.merged ? 'a' : 'b') : '';
+      pairs.push({ key: c.p.i + '|' + c.q.i, team:c.p.team, half:c.p.half, gap: Math.round(c.d * 10) / 10, by:c.by, a, b, remove, tick:one, dismissed:c.off,
         note: one ? 'the ' + (remove === 'a' ? 'earlier' : 'later') + ' row was brought in by a merge — the game’s own row is kept'
           : (a.merged ? 'both rows were brought in by a merge — check the video' : 'both are the game’s own — check the video'),
         plans: { a: dupPlan(events, c.q.i, c.p.i, game), b: dupPlan(events, c.p.i, c.q.i, game) } }); });

@@ -6049,7 +6049,19 @@ function crMgStatus(text){
 // change (crMergeQueue: removed rows → crDeleted, the kept rows _dirty), ONE Undo, saved on "Close session & save all".
 let crKoDup=null;   // {pick:{key:'a'|'b'|''}, on:{key:bool}}
 const crKoDupKey=p=>String(EVENTS[p.a.index]._rowId)+'|'+String(EVENTS[p.b.index]._rowId);
-function crKoDupList(){ if(!GAME||typeof cohKoDupFind!=='function') return {window:20, pairs:[]}; const F=cohKoDupFind(EVENTS, GAME); F.pairs.forEach(p=>{ p.rk=crKoDupKey(p); }); return F; }
+function crKoDupList(all){ if(!GAME||typeof cohKoDupFind!=='function') return {window:20, pairs:[]}; const F=cohKoDupFind(EVENTS, GAME, all?{dismissed:true}:null); F.pairs.forEach(p=>{ p.rk=crKoDupKey(p); }); return F; }
+// "Not a duplicate" (two real kickouts close together, e.g. a retaken one): both rows are marked so the pair is not offered
+// again; "Show again" takes the mark off. Queued like any edit (one Undo step); the mark is a plain field, never exported.
+function crKoDupMark(rk, on){
+  const p=crKoDupList(true).pairs.find(x=>x.rk===rk); if(!p) return;
+  const rows=[EVENTS[p.a.index], EVENTS[p.b.index]].filter(Boolean), snaps=rows.map(e=>({id:e._rowId, data:crClone(e)}));
+  rows.forEach(e=>{ if(on) e.koNotDup=true; else delete e.koNotDup; if(!e._new) e._dirty=true; });
+  undoStack.push({type:'merge', rowIds:[], snaps, dels:[]});
+  crBackup(); crUpdatePending(); renderList(); crKoDupBtnSync();
+  if(crKoDup){ if(on){ delete crKoDup.pick[rk]; delete crKoDup.on[rk]; } else { crKoDup.pick[rk]=p.remove||''; crKoDup.on[rk]=false; }
+    if(crKoDupList(true).pairs.length) crKoDupRender(); else crKoDupClose(); }
+  crMgStatus(on?'Marked not a duplicate — saved when you close the session; Undo takes the mark off':'Pair shown again');
+}
 function crKoDupBtnSync(){ const b=document.getElementById('koDupBtn'); if(!b) return; let n=0; try{ n=GAME?crKoDupList().pairs.length:0; }catch(_){ n=0; }
   b.style.display=n?'':'none'; b.textContent='⚠ Duplicate kickouts ('+n+')'; }
 function crKoDupRowLine(p, w, pick){
@@ -6073,16 +6085,21 @@ function crKoDupPairHtml(p){
     det+=li('Goes with it:', pl.companions.length?pl.companions.length+' row'+(pl.companions.length===1?'':'s')+' — '+esc(pl.companions.map(c=>c.code+' ('+c.what+')').join(' · ')):'no other rows');
     if(pl.left.length) det+=li('Left in the game:', esc(pl.left.map(c=>c.code+' — '+c.why).join(' · ')), '#f59e0b');
   } else det='<div style="margin-top:2px;color:#f59e0b;">Nothing is removed unless you choose: look at both on the video (▶), then mark the row to REMOVE.</div>';
+  if(p.dismissed) return '<div data-pair="'+esc(p.rk)+'" data-dismissed="1" style="border:1px dashed var(--border);border-radius:9px;padding:8px 10px;margin-bottom:8px;color:var(--t3);">'
+    +'<div style="display:flex;align-items:center;gap:8px;"><b style="font:800 13px \'Barlow Condensed\',sans-serif;letter-spacing:.4px;">'+esc(p.team)+' · '+esc(p.half||'no half')+'</b><b style="white-space:nowrap;">'+p.gap+' s apart</b>'
+    +'<span style="flex:1;">marked not a duplicate — two separate kickouts</span><button data-kodup-show="'+esc(p.rk)+'" onclick="crKoDupMark(this.getAttribute(\'data-kodup-show\'), false)" style="'+CR_MG_BTN+'">Show again</button></div>'
+    +'<div style="margin:4px 0 2px 22px;">'+['a','b'].map(w=>{ const s=p[w], e=EVENTS[s.index], t=e.driveT??e.start??0; return '<div style="padding:2px 0;">'+fmt(t)+' '+esc(s.gameTime||'')+' · <b>'+esc(s.code)+'</b> · '+esc(s.outcome||'no outcome')+(s.length?' · '+esc(s.length):'')+'</div>'; }).join('')+'</div></div>';
   return '<div data-pair="'+esc(p.rk)+'" data-own="'+(own?1:0)+'" style="border:1px solid var(--border);border-radius:9px;padding:8px 10px;margin-bottom:8px;'+(on?'':'opacity:.92;')+'">'
     +'<div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" data-kodup="'+esc(p.rk)+'" '+(on?'checked':'')+' '+(pick?'':'disabled')+' onchange="crKoDupTick(this)">'
     +'<b style="font:800 13px \'Barlow Condensed\',sans-serif;letter-spacing:.4px;">'+esc(p.team)+' · '+esc(p.half||'no half')+'</b>'
     +'<b data-gap="1" style="white-space:nowrap;">'+p.gap+' s apart</b>'
-    +'<span data-note="1" style="flex:1;color:'+(own?'#f59e0b':'var(--t2)')+';">'+esc(p.note)+'</span></div>'
+    +'<span data-note="1" style="flex:1;color:'+(own?'#f59e0b':'var(--t2)')+';">'+esc(p.note)+'</span>'
+    +'<button data-kodup-not="'+esc(p.rk)+'" onclick="crKoDupMark(this.getAttribute(\'data-kodup-not\'), true)" title="These are two separate kickouts (for example a retaken one): do not offer this pair again" style="'+CR_MG_BTN+'white-space:nowrap;">Not a duplicate</button></div>'
     +'<div style="margin:4px 0 2px 22px;">'+crKoDupRowLine(p,'a',pick)+crKoDupRowLine(p,'b',pick)+'</div>'
     +'<div data-detail="1" style="margin-left:22px;font-size:11.5px;color:var(--t2);line-height:1.5;">'+det+'</div></div>';
 }
 function crKoDupBody(){
-  const F=crKoDupList(), C=crKoDup, n=F.pairs.filter(p=>C.on[p.rk]&&C.pick[p.rk]).length, auto=F.pairs.filter(p=>p.tick).length, own=F.pairs.length-auto;
+  const FA=crKoDupList(true), F={window:FA.window, pairs:FA.pairs.filter(p=>!p.dismissed)}, gone=FA.pairs.filter(p=>p.dismissed), C=crKoDup, n=F.pairs.filter(p=>C.on[p.rk]&&C.pick[p.rk]).length, auto=F.pairs.filter(p=>p.tick).length, own=F.pairs.length-auto;
   return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="font:800 17px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;flex:1;">Duplicate kickouts — '+esc(GAME.title||'')+'</div>'
     +'<button onclick="crKoDupClose()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;">✕</button></div>'
     +'<div id="koDupIntro" style="font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:10px;">Two kickouts by the <b>same team</b> in the <b>same half</b> within <b>'+F.window+' seconds</b> of each other — one team does not take two kickouts that close, so these are most likely the same kickout twice. '
@@ -6090,8 +6107,9 @@ function crKoDupBody(){
     +'<b>Brought in by a merge:</b> that row is the one proposed for removal (ticked) — the game’s own row is kept and gains only details it lacks; nothing it already says is replaced. '
     +'<b>Both the game’s own</b> (or both merged): left unticked — check the video and choose. '
     +'The removed kickout’s own break / kickout-lost rows go with it. A file’s original “… Kickout” row beside its converted KO is by design and is never listed.<br>'
-    +F.pairs.length+' pair'+(F.pairs.length===1?'':'s')+': '+auto+' proposed, '+own+' to check on the video.</div>'
-    +'<div id="koDupPairs" style="max-height:min(60vh,640px);overflow:auto;font-size:12px;">'+F.pairs.map(crKoDupPairHtml).join('')+'</div>'
+    +'If a pair really is two kickouts (a retaken one, say), press <b>Not a duplicate</b> and it will not be offered again.<br>'
+    +F.pairs.length+' pair'+(F.pairs.length===1?'':'s')+': '+auto+' proposed, '+own+' to check on the video'+(gone.length?' · '+gone.length+' marked not a duplicate':'')+'.</div>'
+    +'<div id="koDupPairs" style="max-height:min(60vh,640px);overflow:auto;font-size:12px;">'+F.pairs.map(crKoDupPairHtml).join('')+gone.map(crKoDupPairHtml).join('')+'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:12px;"><button onclick="crKoDupAll(true)" style="'+CR_MG_BTN+'">Tick all proposed</button><button onclick="crKoDupAll(false)" style="'+CR_MG_BTN+'">Tick none</button>'
     +'<span style="flex:1;font-size:11.5px;color:var(--t3);">nothing is saved until you close the session; Undo reverses it in one step.</span>'
     +'<button onclick="crKoDupClose()" style="'+CR_MG_BTN+'color:var(--t2);">Cancel</button>'
