@@ -146,6 +146,13 @@ function cohScPlainGroup(g){
 }
 const COH_SC_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
 const COH_SC_SKIP=new Set(COH_SC_PERIODS.concat(['Count']));          // never stored as events
+// A period row's COHESION name, or null when the row is not a period row. The Match Tracker writes extra time as
+// "Extra Time 1" / "Extra Time 2" (other files: "ET 1", "ET1" …) — COHESION's names are "ET 1st Half" / "ET 2nd Half".
+function cohScPeriodName(code){
+  const t=String(code==null?'':code).trim(); if(COH_SC_PERIODS.indexOf(t)>=0) return t;
+  const m=/^(?:ET|EXTRA[\s-]*TIME)\s*(?:-\s*)?(1|2|1ST|2ND|FIRST|SECOND)(?:\s+HALF)?$/i.exec(t);
+  return m?(/^(1|1ST|FIRST)$/i.test(m[1])?'ET 1st Half':'ET 2nd Half'):null;
+}
 const COH_SC_NEUTRAL=new Set(['THROW-IN','Count']);                    // never a player row
 function cohScDecode(buffer){
   const u8=new Uint8Array(buffer.buffer?buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset+buffer.byteLength):buffer);
@@ -259,17 +266,21 @@ function cohScImport(insts, opts){
   const homeTeam=String(opts.homeTeam||''), awayTeam=String(opts.awayTeam||''), HOME=homeTeam.toUpperCase(), AWAY=awayTeam.toUpperCase();
   const meta={homeTeam, awayTeam}, category=opts.category||cohScCategory;
   const refs={'1st Half':null,'2nd Half':null,'ET 1st Half':null,'ET 2nd Half':null};
-  insts.forEach(i=>{ if(Object.prototype.hasOwnProperty.call(refs, i.code) && refs[i.code]===null) refs[i.code]=i.start; });
+  insts.forEach(i=>{ const p=cohScPeriodName(i.code); if(p && refs[p]===null) refs[p]=i.start; });
   const stats={instances:insts.length, events:0, labelValues:0, multiValueEvents:0, extraValues:0, playerRows:0, playerTeamOtherRow:0, unmatchedCodes:{}};
   if(refs['1st Half']===null) return {events:[], error:'Could not find "1st Half" marker in the XML.', markers:refs, stats};
   if(refs['2nd Half']===null) return {events:[], error:'Could not find "2nd Half" marker in the XML.', markers:refs, stats};
   const vs=opts.videoStarts||null;
   const offsets={}; COH_SC_PERIODS.forEach(h=>{ offsets[h]=vs ? (vs[h]!=null&&refs[h]!==null ? vs[h]-refs[h] : null) : 0; });
+  // The file marks extra time but no video start was given for it: those events keep the offset of the period before
+  // (where they sat on the video before extra time was recognised) and the periods are reported, so the caller can ask.
+  stats.etNoVideoStart=[];
+  if(vs) ['ET 1st Half','ET 2nd Half'].forEach((h,k)=>{ if(refs[h]!==null && offsets[h]===null){ stats.etNoVideoStart.push(h); offsets[h]=offsets[k?'ET 1st Half':'2nd Half']; } });
   const players=cohScPlayerIndex(insts, opts);
   const events=[];
   insts.forEach(inst=>{
     const code=inst.code||'';
-    if(COH_SC_SKIP.has(code)) return;
+    if(COH_SC_SKIP.has(code) || cohScPeriodName(code)) return;
     const start=inst.start||0, end=inst.end||0;
     const labels={}, lists={};
     (inst.labels||[]).forEach(l=>{ const g=cohScPlainGroup(l[0])||'NO_GROUP', t=l[1]||''; if(!t) return; labels[g]=t; (lists[g]=lists[g]||[]).push(t); });
@@ -318,7 +329,7 @@ function cohScImport(insts, opts){
   }
   stats.events=events.length;
   // the file's own period rows (code, start, end), so a raw-clock export can give them back exactly: meta.scPeriods
-  const periods=insts.filter(i=>Object.prototype.hasOwnProperty.call(refs, i.code)).map(i=>({code:i.code, start:i.start, end:i.end}));
+  const periods=insts.filter(i=>cohScPeriodName(i.code)).map(i=>{ const code=cohScPeriodName(i.code), p={code, start:i.start, end:i.end}; if(code!==i.code) p.fileCode=i.code; return p; });
   return {events, error:null, markers:refs, offsets, stats, periods};
 }
 
@@ -345,7 +356,7 @@ if(typeof module!=='undefined'&&module.exports) module.exports={cohLabelKey, coh
 function cohScRestore(rows, insts, opts){
   const wantTimes=!!(opts&&opts.times);
   const stats={stored:(rows||[]).length, matched:0, notInFile:0, moved:0, recoded:0, events:0, values:0, already:0, editedGroups:0, fileExtraValues:0, times:0, timeEvents:0};
-  const byId=new Map(); (insts||[]).forEach(i=>{ if(!COH_SC_SKIP.has(i.code||'')) byId.set(String(i.id), i); });
+  const byId=new Map(); (insts||[]).forEach(i=>{ if(!COH_SC_SKIP.has(i.code||'') && !cohScPeriodName(i.code)) byId.set(String(i.id), i); });
   const updates=[];
   (rows||[]).forEach(r=>{
     const d=r&&r.data; if(!d) return;

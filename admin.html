@@ -2391,6 +2391,10 @@ async function processGame(){
           gameTime: getGameTime, category: getCategory, rosters: scSheet,
         });
         if(sc.error){ showError(sc.error); return; }
+        if(sc.stats.etNoVideoStart && sc.stats.etNoVideoStart.length){
+          showError('This file has extra time (' + sc.stats.etNoVideoStart.join(' and ') + '). Tick “This game has extra time” and enter where each extra-time period starts on the video, then upload again.');
+          return;
+        }
         scRowsMeta = cohScRowsFromDom(doc); scPeriodsMeta = sc.periods || null;
         if(sc.stats.breakPairs && sc.stats.breakPairs.added) console.log(`✓ Sportscode: ${sc.stats.breakPairs.added} opposition break rows added (${sc.stats.breakPairs.kickouts} break-ball kickouts)`);
         events.push(...sc.events);
