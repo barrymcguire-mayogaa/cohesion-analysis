@@ -197,6 +197,23 @@ function cohXmlCarryFor(carry, homeTeam, awayTeam){
   return { flipped:flip, rosters:{home:R[side('home')], away:R[side('away')]}, keepers:{home:K[side('home')], away:K[side('away')]},
            homeColor:carry[side('home')+'Color']||'', awayColor:carry[side('away')+'Color']||'' };
 }
+// Batch upload: lay team sheets + goalkeepers onto a game's freshly built details (which never hold them).
+// The STORED game's own win (a batch re-upload must not wipe them); else the ones the file carries.
+// Carried colours are used only for a side whose colour the batch sheet did not give (opts.homeColorGiven / awayColorGiven).
+// → what was applied, for the log: e.g. ['team sheets kept', 'goalkeepers from file', 'colours from file'].
+function cohCarryApply(gameMeta, carry, stored, opts){
+  opts=opts||{}; const out=[]; if(!gameMeta) return out;
+  const n=o=>{ const s=cohCarrySides(o); return s.home.length+s.away.length; };
+  const c=carry?cohXmlCarryFor(carry, gameMeta.homeTeam, gameMeta.awayTeam):null;
+  [['rosters','team sheets'],['keepers','goalkeepers']].forEach(([k,label])=>{
+    if(stored&&n(stored[k])){ gameMeta[k]=stored[k]; out.push(label+' kept'); }
+    else if(c&&n(c[k])){ gameMeta[k]=c[k]; out.push(label+' from file'); }
+  });
+  let col=false;
+  if(c){ [['homeColor',opts.homeColorGiven],['awayColor',opts.awayColorGiven]].forEach(([k,given])=>{ if(!given&&c[k]){ gameMeta[k]=c[k]; col=true; } }); }
+  if(col) out.push('colours from file');
+  return out;
+}
 function cohScUnesc(s){
   return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1')
     .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCodePoint(parseInt(h,16))).replace(/&#(\d+);/g,(m,d)=>String.fromCodePoint(+d))
@@ -827,4 +844,4 @@ function cohToRolesTxt(e, meta){
   return out.join(' · ');
 }
 function cohFoulers(e, meta){ const T=cohUp(e&&e.team); return cohEventPlayers(e, meta).filter(p=>cohUp(p.team)===T); }
-if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor});
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor, cohCarryApply});

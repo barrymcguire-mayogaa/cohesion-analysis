@@ -224,6 +224,7 @@ header{
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
+<script src="cohesion-labels.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -715,6 +716,15 @@ async function attachXmlToGame(gameId, file) {
   try {
     game.xmlFile = file;
     game.xmlText = await file.text();
+    // A Code Room export carries its team sheets, goalkeepers and colours. A colour the sheet did not give
+    // (still the default) takes the file's — shown in the colour box, still editable. Sheets and goalkeepers
+    // are stored with the game on upload (buildBatchGameMeta).
+    const carry = cohXmlCarryRead(game.xmlText);
+    if (carry) {
+      const c = cohXmlCarryFor(carry, game.homeTeam, game.awayTeam);
+      if (c.homeColor && String(game.homeColor || '').toUpperCase() === '#0B2447') game.homeColor = c.homeColor;
+      if (c.awayColor && String(game.awayColor || '').toUpperCase() === '#22C55E') game.awayColor = c.awayColor;
+    }
     game.parseStatus = 'not_parsed'; // Will be validated on Parse All
     renderBatchTable();
     showToast(`XML attached: ${file.name}`, 'success');
@@ -1252,9 +1262,14 @@ async function uploadReadyGames() {
   }
 
   try {
+    // Team sheets and goalkeepers live on the stored game: read the stored games once so a batch re-upload
+    // keeps them; a new game takes those its Code Room export carries (cohesion-labels.js cohCarryApply).
+    const storedMeta = {};
+    try { ((await cohesionRead({ action:'listGames', section:'all' })).games || []).forEach(r => { let m = r && r.meta; if (typeof m === 'string') { try { m = JSON.parse(m); } catch(_) { m = null; } } if (m && m.id) storedMeta[m.id] = m; }); } catch(_) {}
     const payload = {
       games: readyGames.map(game => {
         const gameMeta = buildBatchGameMeta(game);
+        cohCarryApply(gameMeta, cohXmlCarryRead(game.xmlText), storedMeta[gameMeta.id] || null, { homeColorGiven: true, awayColorGiven: true });   // colours: the table's boxes stand
         return {
           gameId: gameMeta.id,
           gameMeta,
