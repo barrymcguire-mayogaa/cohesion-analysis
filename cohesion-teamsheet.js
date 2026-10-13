@@ -384,7 +384,7 @@
  *   game,                       the game's meta (id, homeTeam, awayTeam, rosters…)
  *   known:{home:[],away:[]},    each team's known player names (type-to-search + spelling match)
  *   loadKnown(side)→Promise<[names]>   optional, merged in when it arrives
- *   persist:false,              keep the result in memory only (a local-video session)
+ *   persist:false,              no database write (a local-video session — the caller keeps it)
  *   onSaved(mergedMeta, sheets) called after a successful save
  *   io:{read,write}             optional replacements for cohesionRead / cohesionAuthFetch
  * }) → {el, close}
@@ -418,7 +418,7 @@
     const badgeHtml=(side, name)=>(badge&&String(name||'').trim())?badge(teamName(side), T.tidyName(name), {size:26, color:(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e')}):'';
     const card=document.createElement('div'); card.className='cohts-card'+(badge?' cohts-ph':''); ov.appendChild(card);
     card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
-      <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept until the page closes.'}</div>
+      <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept in this browser with your events.'}</div>
       <div class="cohts-bar cohts-rdbar"><label class="cohts-btn cohts-file">📷 Read both teams from one photo / PDF<input type="file" accept="image/*,application/pdf" data-read="both" aria-label="Read both teams from one photo or PDF"></label><span class="cohts-soon">Read on this device — the file is not uploaded. The reader itself is downloaded from a public CDN (jsDelivr) the first time it is used, then kept by the browser.</span></div>
       <div class="cohts-rd" data-rd="both"></div>
       <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>

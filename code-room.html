@@ -378,9 +378,9 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
     </div>
     <div class="frow" style="align-items:center;gap:14px;">
       <label style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);">Home colour
-        <input type="color" id="lvHomeCol" value="#4fc3f7" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
+        <input type="color" id="lvHomeCol" value="#4fc3f7" oninput="lvColTouched.home=true" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
       <label style="flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);">Away colour
-        <input type="color" id="lvAwayCol" value="#22c55e" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
+        <input type="color" id="lvAwayCol" value="#22c55e" oninput="lvColTouched.away=true" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
     </div>
     <input type="file" id="lvFile" accept="video/*" style="margin-bottom:4px;">
     <button class="startbtn" onclick="startLocalSession()">▶ Start coding session</button>
@@ -656,7 +656,20 @@ function lvColourAuto(which){
   const nm=document.getElementById(which==='home'?'lvHome':'lvAway').value;
   const sl=String(nm||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
   const C=window.COHESION_TEAM_COLOURS||{};
-  if(C[sl]&&C[sl].primary) document.getElementById(which==='home'?'lvHomeCol':'lvAwayCol').value=C[sl].primary;
+  if(C[sl]&&C[sl].primary&&!lvColTouched[which]) document.getElementById(which==='home'?'lvHomeCol':'lvAwayCol').value=C[sl].primary;
+  lvColourFromBackup();
+}
+// A local session kept in this browser for these two teams carries the colours
+// it was coded with: they come back on the setup form, unless a colour was
+// picked by hand this time (the hand-picked one wins and is kept from then on).
+let lvColTouched={home:false, away:false};
+function lvLocalId(home, away){ return 'local-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_'); }
+function lvColourFromBackup(){
+  const home=(document.getElementById('lvHome').value||'').trim().toUpperCase(), away=(document.getElementById('lvAway').value||'').trim().toUpperCase();
+  if(!home||!away) return;
+  let L=null; try{ L=(JSON.parse(localStorage.getItem('coh_cr_'+lvLocalId(home,away))||'null')||{}).local; }catch(_){}
+  if(!L||typeof L!=='object') return;
+  [['home','lvHomeCol',L.homeColor],['away','lvAwayCol',L.awayColor]].forEach(([w,id,c])=>{ if(!lvColTouched[w]&&/^#[0-9a-f]{6}$/i.test(String(c||''))) document.getElementById(id).value=c; });
 }
 async function startLocalSession(){
   const home=(document.getElementById('lvHome').value||'').trim().toUpperCase();
@@ -665,7 +678,8 @@ async function startLocalSession(){
   const st=document.getElementById('setupStatus');
   if(!home||!away){ st.innerHTML='<span class="err">Enter both team names.</span>'; return; }
   if(!file){ st.innerHTML='<span class="err">Choose a video file.</span>'; return; }
-  const lid='local-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_');
+  const lid=lvLocalId(home, away);
+  lvColourFromBackup();
   GAME={ id:lid, _local:true, homeTeam:home, awayTeam:away,
          homeColor:document.getElementById('lvHomeCol').value||'#4fc3f7',
          awayColor:document.getElementById('lvAwayCol').value||'#22c55e',
@@ -3000,11 +3014,26 @@ function crBackup(){
     };
     if(crRosterPendingN()){ const q=crRosterQueue(); payload.roster={home:q.home.slice(), away:q.away.slice()}; }
     if(crEtPend&&crEtPend.length) payload.etPeriods=crEtPend;   // "Mark extra time": the removed period rows, still to be written to the game's period rows
-    if(payload.updates.length||payload.inserts.length||payload.deletes.length||payload.roster) localStorage.setItem(crBackupKey(),JSON.stringify(payload));
+    const L=crLocalExtras(); if(L) payload.local=L;
+    if(payload.updates.length||payload.inserts.length||payload.deletes.length||payload.roster||crLocalExtrasN(L)) localStorage.setItem(crBackupKey(),JSON.stringify(payload));
     else localStorage.removeItem(crBackupKey());
   }catch(_){}
 }
 function crClearBackup(){ try{ localStorage.removeItem(crBackupKey()); }catch(_){} }
+// A local-video session has no stored game, so what would normally live on the
+// game rides in the backup with the events: both team sheets, the goalkeeper
+// spells and the two team colours. Colours alone never keep a backup alive.
+function crLocalExtras(){
+  if(!GAME||!GAME._local) return null;
+  const R=(GAME.rosters&&typeof GAME.rosters==='object'&&!Array.isArray(GAME.rosters))?GAME.rosters:{};
+  return { rosters:{home:Array.isArray(R.home)?R.home:[], away:Array.isArray(R.away)?R.away:[]}, keepers:crKprClean(GAME),
+           homeColor:GAME.homeColor||'', awayColor:GAME.awayColor||'' };
+}
+function crLocalExtrasN(L){
+  if(!L||typeof L!=='object') return 0;
+  const n=o=>['home','away'].reduce((a,s)=>a+((o&&Array.isArray(o[s]))?o[s].length:0),0);
+  return n(L.rosters)+n(L.keepers);
+}
 // Row-id hygiene: after loading/restoring, bump the tmp counter past every
 // existing tmp-N id and re-id any duplicated NEW rows. Duplicates arise when
 // a backup restore brings back tmp-N events while the counter restarts at 0 —
@@ -3027,9 +3056,23 @@ async function crRestoreBackup(){
   const rs=(bk.roster&&typeof bk.roster==='object')?bk.roster:{};
   const n=((bk.updates&&bk.updates.length)||0)+((bk.inserts&&bk.inserts.length)||0)+((bk.deletes&&bk.deletes.length)||0)+
     (Array.isArray(rs.home)?rs.home.length:0)+(Array.isArray(rs.away)?rs.away.length:0);
-  if(!n){ crClearBackup(); return; }
-  const c=await cohesionModal({title:'Unsaved changes found', message:'You have '+n+' unsaved change(s) from a previous Code Room session on this game. Restore them?', buttons:[{label:'Restore',value:'restore',primary:true},{label:'Discard',value:'discard',danger:true}]});
+  const L=(GAME&&GAME._local&&bk.local&&typeof bk.local==='object')?bk.local:null;
+  if(!n&&!crLocalExtrasN(L)){ crClearBackup(); return; }
+  let msg='You have '+n+' unsaved change(s) from a previous Code Room session on this game. Restore them?';
+  if(GAME&&GAME._local){
+    const cnt=o=>['home','away'].map(s=>(o&&Array.isArray(o[s]))?o[s].length:0), rn=cnt(L&&L.rosters), kn=cnt(L&&L.keepers);
+    const bits=[n+' event'+(n===1?'':'s')];
+    if(rn[0]+rn[1]) bits.push('team sheets ('+esc(GAME.homeTeam)+' '+rn[0]+', '+esc(GAME.awayTeam)+' '+rn[1]+')');
+    if(kn[0]+kn[1]) bits.push('goalkeepers');
+    msg='A local session for these two teams is kept in this browser: <b>'+bits.join('</b>, <b>')+'</b>. Restore it?';
+  }
+  const c=await cohesionModal({title:(GAME&&GAME._local)?'Earlier local session found':'Unsaved changes found', message:msg, buttons:[{label:'Restore',value:'restore',primary:true},{label:'Discard',value:'discard',danger:true}]});
   if(c!=='restore'){ crClearBackup(); return; }
+  if(L){
+    const arr=(o,s)=>(o&&Array.isArray(o[s]))?o[s]:[];
+    GAME.rosters={home:arr(L.rosters,'home'), away:arr(L.rosters,'away')};
+    GAME.keepers={home:arr(L.keepers,'home'), away:arr(L.keepers,'away')};
+  }
   (bk.updates||[]).forEach(u=>{ const e=EVENTS.find(x=>String(x._rowId)===String(u.id)); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,u.data); e._dirty=true; } });
   (bk.deletes||[]).forEach(id=>{ const idx=EVENTS.findIndex(x=>String(x._rowId)===String(id)); if(idx>=0){ crDeleted.push({id:EVENTS[idx]._rowId}); EVENTS.splice(idx,1); } });
   (bk.inserts||[]).forEach(ins=>{ EVENTS.push({...ins.data,_rowId:ins.tmp,_new:true}); });
@@ -3942,7 +3985,7 @@ function crTeamSheetEdit(){
 // updateMeta (admin-only — the same role every Code Room save needs). Nothing
 // is written before Save; the queue rides in the session backup. meta.
 // playerRoster (the admin's P-tag → name map) is never touched — it needs a
-// P-number. A local-video session keeps the name in memory only.
+// P-number. A local-video session keeps the name in the backup (crLocalExtras).
 let crRosterAdds={gid:null, home:[], away:[]};
 function crRosterQueue(){
   if(crRosterAdds.gid!==((GAME&&GAME.id)||null)) crRosterAdds={gid:(GAME&&GAME.id)||null, home:[], away:[]};
@@ -4054,8 +4097,8 @@ window.addEventListener('keydown', e=>{
 //    pending changes (crHasPending / crPendingCount) and the session save
 //    (crSaveAll) writes them through gameAdmin updateMeta: the meta is RE-READ
 //    and only keepers[side] of a side changed here is replaced. They are not
-//    kept in the crash backup (crBackup). A local-video session keeps them in
-//    memory only.
+//    kept in the crash backup (crBackup) — except in a local-video session,
+//    which has no stored game: there they ride in the backup (crLocalExtras).
 const CR_KPR_GROUP='Kickout Taken By';
 let crKpr={open:false, base:'{"home":[],"away":[]}', status:'', asked:{}, ticks:{}};
 function crKprClean(meta){ const f=s=>window.cohesionKeeperSpells?cohesionKeeperSpells(meta||{}, s):[]; return {home:f('home'), away:f('away')}; }
@@ -4104,7 +4147,7 @@ function crKprParseT(v){
   const m=/^(?:(\d+):)?(\d+):(\d{1,2})$/.exec(v); if(!m||+m[3]>59) return null;
   return (+(m[1]||0))*3600+(+m[2])*60+(+m[3]);
 }
-function crKprAfter(){ crUpdatePending(); crKprRender(); }
+function crKprAfter(){ if(GAME&&GAME._local) crBackup(); crUpdatePending(); crKprRender(); }
 function crKprSetPlayer(side, i, name){
   const l=crKprRows(side), r=l[i]; if(!r) return false;
   let v=crNameTidy(name);
@@ -4493,7 +4536,7 @@ function crKprRender(){
     +'<div class="crlc-note">Setting a keeper fills that team’s kickouts that have no taker; kickouts tagged later get the keeper in goal at that time. Changing a keeper asks about the kickouts from then on. One kickout can be changed in its own Edit panel (Kickout Taken By).</div>'
     +crKprTeamHtml('home')+crKprTeamHtml('away')
     +'<div class="craa-live" id="crKprLive"></div>'
-    +'<div class="crfr-row crfr-btns">'+(GAME._local?'<span class="crlc-note" style="margin:0;">Local session — kept until the page closes.</span>'
+    +'<div class="crfr-row crfr-btns">'+(GAME._local?'<span class="crlc-note" style="margin:0;">Local session — kept in this browser with your events.</span>'
       :'<button class="cbtn mini crfr-all" data-act="save"'+(n?'':' disabled')+'>Save goalkeepers</button><span class="crlc-note" style="margin:0;">'+(n?'Not saved yet — also saved with the session.':'No unsaved changes.')+'</span>')+'</div>'
     +'<div class="crfr-status" id="crKprStatus">'+esc(crKpr.status||'')+'</div>';
   crKprLive();
