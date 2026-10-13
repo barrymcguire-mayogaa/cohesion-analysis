@@ -670,6 +670,10 @@ function lvColourFromBackup(){
   let L=null; try{ L=(JSON.parse(localStorage.getItem('coh_cr_'+lvLocalId(home,away))||'null')||{}).local; }catch(_){}
   if(!L||typeof L!=='object') return;
   [['home','lvHomeCol',L.homeColor],['away','lvAwayCol',L.awayColor]].forEach(([w,id,c])=>{ if(!lvColTouched[w]&&/^#[0-9a-f]{6}$/i.test(String(c||''))) document.getElementById(id).value=c; });
+  // competition and date: only into a box left empty — whatever is typed this time wins
+  const comp=document.getElementById('lvComp'), dt=document.getElementById('lvDate');
+  if(!comp.value.trim()&&typeof L.competition==='string'&&L.competition) comp.value=L.competition;
+  if(!dt.value&&/^\d{4}-\d{2}-\d{2}$/.test(String(L.date||''))) dt.value=L.date;
 }
 async function startLocalSession(){
   const home=(document.getElementById('lvHome').value||'').trim().toUpperCase();
@@ -3022,12 +3026,14 @@ function crBackup(){
 function crClearBackup(){ try{ localStorage.removeItem(crBackupKey()); }catch(_){} }
 // A local-video session has no stored game, so what would normally live on the
 // game rides in the backup with the events: both team sheets, the goalkeeper
-// spells and the two team colours. Colours alone never keep a backup alive.
+// spells, the two team colours, the competition and the date. Colours, competition
+// and date alone never keep a backup alive. (Timeline row order and extra rows
+// have their own per-game store, crRowsSave — also keyed by the two team names.)
 function crLocalExtras(){
   if(!GAME||!GAME._local) return null;
   const R=(GAME.rosters&&typeof GAME.rosters==='object'&&!Array.isArray(GAME.rosters))?GAME.rosters:{};
   return { rosters:{home:Array.isArray(R.home)?R.home:[], away:Array.isArray(R.away)?R.away:[]}, keepers:crKprClean(GAME),
-           homeColor:GAME.homeColor||'', awayColor:GAME.awayColor||'' };
+           homeColor:GAME.homeColor||'', awayColor:GAME.awayColor||'', competition:GAME.competition||'', date:GAME.date||'' };
 }
 function crLocalExtrasN(L){
   if(!L||typeof L!=='object') return 0;
