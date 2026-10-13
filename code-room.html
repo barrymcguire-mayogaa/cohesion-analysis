@@ -3346,6 +3346,7 @@ function cbeSave(base){
   saveCodeClip();
   Object.keys(codeHotkeys).forEach(k=>{ if(codeHotkeys[k]===target) delete codeHotkeys[k]; });
   if(_cbeCapture&&_cbeCapture.key) codeHotkeys[_cbeCapture.key]=target;   // stealing a key reassigns it
+  if(/^TOS$/i.test(target)){ try{ if(_cbeCapture&&_cbeCapture.key) localStorage.removeItem('cr_hkNoDefTOs'); else localStorage.setItem('cr_hkNoDefTOs','1'); }catch(_){} }   // T is TOs' default key unless it was cleared here
   saveCodeHotkeys();
   _cbeCapture=null;
   const ov=document.getElementById('cbeOv'); if(ov) ov.remove();
@@ -3406,16 +3407,20 @@ function buildCodePanel(){
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`+
-    `<span style="color:var(--t3);font-size:10px;align-self:center;">Ⓝ events save with no team · Shift+click a button (or Alt+key) tags ONE event for the other team</span>`;
+    `<span style="color:var(--t3);font-size:10px;align-self:center;">Ⓝ events save with no team · Shift+click or Option/Alt+click a button, or Option/Alt + its key, tags ONE event for the other team · ] switches team</span>`;
   let bases=[...new Set([...EVENTS.map(e=>baseCodeOf(e.code)).filter(Boolean), ...crTplCodes, ...crSessionCodes])];
   if(!bases.length) bases=CODE_DEFAULT_EVENTS.slice();
+  // Default key: T tags TOs — whenever TOs has no key and T is free. Clearing TOs' key in its button editor switches the
+  // default off (cr_hkNoDefTOs); giving it any key switches it back on.
+  { const tb=bases.find(b=>/^TOS$/i.test(b)); let off=false; try{ off=localStorage.getItem('cr_hkNoDefTOs')==='1'; }catch(_){}
+    if(tb&&!off&&!Object.keys(codeHotkeys).some(k=>codeHotkeys[k]===tb)&&codeHotkeys['t']===undefined&&codeHotkeys['T']===undefined&&!CR_RESERVED_KEYS.has('t')){ codeHotkeys['t']=tb; saveCodeHotkeys(); } }
   codeEvtList=orderBases(bases);   // honour the coder's saved key assignments
   fillTplSelect();
   const hkOf=b=>{ const k=Object.keys(codeHotkeys).find(k2=>codeHotkeys[k2]===b); return k||null; };
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>{
     const hk=hkOf(b);
     const chip=hk?`<span class="hk" title="Keyboard shortcut">${esc(hk===' '?'Space':hk)}</span>`:(i<9?`<span class="hk">${i+1}</span>`:'');
-    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${_cq(b)}',{otherTeam:event.shiftKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${_cq(b)}')">✏</span></button>`;
+    return `<button class="cbtn evt${crRec[b]?' rec':''}" onclick="codeTag('${_cq(b)}',{otherTeam:event.shiftKey||event.altKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${_cq(b)}')">✏</span></button>`;
   }).join('')
     +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`
     +`<button class="cbtn" onclick="codeTrackerPicker()" title="Add events from the tracker app's standard set — their outcome prompts and labels come built in">＋ Tracker events…</button>`;
@@ -4894,6 +4899,13 @@ document.addEventListener('keydown', e=>{
   else if(e.key==='-'){ e.preventDefault(); vrateStep(-1); }
   else if(e.key==='='||e.key==='+'){ e.preventDefault(); vrateStep(1); }
 });
+// The key a hotkey press means. With Option/Alt held a Mac sends a different character (Option+T is "†", Option+1 is "¡"),
+// so the letter / digit is read from the physical key instead — otherwise Option + a hotkey never matched anything.
+function codeKeyOf(e){
+  if(e.altKey){ const c=String(e.code||''); if(/^Key[A-Z]$/.test(c)) return c.slice(3).toLowerCase(); if(/^Digit\d$/.test(c)) return c.slice(5); }
+  return e.key;
+}
+function codeHotkeyBase(e){ const k=codeKeyOf(e); return codeHotkeys[k]||(e.altKey&&k.length===1?codeHotkeys[k.toUpperCase()]:undefined); }
 // Hotkeys (Code mode only): Space = play/pause, 1–9 = tag that event button.
 document.addEventListener('keydown', e=>{
   if(!codeMode.on) return;
@@ -4910,13 +4922,14 @@ document.addEventListener('keydown', e=>{
     if(e.key>='1'&&e.key<='9'){ const opts=codeMode.pendingLink.link.options; const i=+e.key-1; if(opts[i]){ e.preventDefault(); codeApplyOutcome(opts[i]); } return; }
     // a LETTER hotkey mid-prompt behaves like tapping its button: skip the
     // prompt and tag the next event (digits stay reserved for the options)
-    const hb2=codeHotkeys[e.key];
+    const hb2=codeHotkeyBase(e);
     if(hb2&&codeEvtList.includes(hb2)&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); codeTag(hb2,{otherTeam:e.altKey}); return; }
     return;
   }
-  const hkBase=codeHotkeys[e.key];
+  const hkBase=codeHotkeyBase(e);
   if(hkBase&&codeEvtList.includes(hkBase)&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); codeTag(hkBase,{otherTeam:e.altKey}); return; }
-  if(e.key>='1'&&e.key<='9'){ const i=+e.key-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i]); } }
+  const dk=codeKeyOf(e);
+  if(dk>='1'&&dk<='9'&&!e.ctrlKey&&!e.metaKey){ const i=+dk-1; if(codeEvtList[i]){ e.preventDefault(); codeTag(codeEvtList[i],{otherTeam:e.altKey}); } }
 });
 
 // ── Find & Replace (Cmd/Ctrl+F — Sportscode-style) ────────────
