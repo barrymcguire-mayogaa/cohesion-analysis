@@ -167,6 +167,36 @@ function cohScDecode(buffer){
   else                                  text=new TextDecoder('utf-8').decode(u8);
   return text.replace(/^﻿/,'');
 }
+// ── Game details carried inside a COHESION-exported XML ───────────────────
+// Code Room's Export XML writes the game's team sheets, goalkeeper spells and
+// team colours as ONE XML comment (base64 JSON, so no character can break the
+// comment); the upload reads it back. A comment is ignored by anything else
+// that opens the file. Nothing is written when there is nothing to carry.
+const COH_CARRY_TAG='COHESION-GAME';
+function cohB64Enc(str){ if(typeof Buffer!=='undefined') return Buffer.from(str,'utf8').toString('base64'); const u=new TextEncoder().encode(str); let b=''; u.forEach(c=>{ b+=String.fromCharCode(c); }); return btoa(b); }
+function cohB64Dec(b64){ if(typeof Buffer!=='undefined') return Buffer.from(b64,'base64').toString('utf8'); const b=atob(b64), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return new TextDecoder('utf-8').decode(u); }
+function cohCarrySides(o){ const a=s=>(o&&typeof o==='object'&&!Array.isArray(o)&&Array.isArray(o[s]))?o[s]:[]; return {home:a('home'), away:a('away')}; }
+function cohXmlCarryBuild(meta){
+  if(!meta) return '';
+  const R=cohCarrySides(meta.rosters), K=cohCarrySides(meta.keepers), hex=c=>/^#[0-9a-f]{6}$/i.test(String(c||''))?c:'';
+  const d={v:1, homeTeam:meta.homeTeam||'', awayTeam:meta.awayTeam||'', homeColor:hex(meta.homeColor), awayColor:hex(meta.awayColor), rosters:R, keepers:K};
+  if(!(R.home.length+R.away.length+K.home.length+K.away.length)&&!d.homeColor&&!d.awayColor) return '';
+  return '<!-- '+COH_CARRY_TAG+':'+cohB64Enc(JSON.stringify(d))+' -->';
+}
+function cohXmlCarryRead(xmlText){
+  const m=new RegExp('<!--\\s*'+COH_CARRY_TAG+':([A-Za-z0-9+/=]+)\\s*-->').exec(String(xmlText||'')); if(!m) return null;
+  try{ const d=JSON.parse(cohB64Dec(m[1])); return (d&&typeof d==='object')?d:null; }catch(_){ return null; }
+}
+// The carried details laid onto THIS upload's home / away. The sides follow the team NAMES, so a file
+// uploaded with home and away the other way round still gives each team its own sheet, keeper and colour.
+function cohXmlCarryFor(carry, homeTeam, awayTeam){
+  if(!carry) return null;
+  const k=s=>String(s||'').trim().toUpperCase(), R=cohCarrySides(carry.rosters), K=cohCarrySides(carry.keepers);
+  const flip=!!k(homeTeam)&&k(carry.homeTeam)!==k(homeTeam)&&k(carry.awayTeam)===k(homeTeam)&&(!k(awayTeam)||k(carry.homeTeam)===k(awayTeam));
+  const side=s=>flip?(s==='home'?'away':'home'):s;
+  return { flipped:flip, rosters:{home:R[side('home')], away:R[side('away')]}, keepers:{home:K[side('home')], away:K[side('away')]},
+           homeColor:carry[side('home')+'Color']||'', awayColor:carry[side('away')+'Color']||'' };
+}
 function cohScUnesc(s){
   return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1')
     .replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCodePoint(parseInt(h,16))).replace(/&#(\d+);/g,(m,d)=>String.fromCodePoint(+d))
@@ -797,4 +827,4 @@ function cohToRolesTxt(e, meta){
   return out.join(' · ');
 }
 function cohFoulers(e, meta){ const T=cohUp(e&&e.team); return cohEventPlayers(e, meta).filter(p=>cohUp(p.team)===T); }
-if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers});
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor});

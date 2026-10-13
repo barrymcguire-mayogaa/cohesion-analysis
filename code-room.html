@@ -6945,7 +6945,7 @@ window.addEventListener('keydown', e=>{
 function crExportXml(){
   if(!EVENTS.length){ alert('No events to export.'); return; }
   const base=(document.getElementById('crXmlBase')||{}).value||'video';
-  const blob=new Blob([cohXmlBuild(EVENTS, {base, meta:GAME, rowOrder:crRows(EVENTS), colourOf:crCodeColour})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
+  const blob=new Blob([cohXmlBuild(EVENTS, {base, meta:GAME, rowOrder:crRows(EVENTS), colourOf:crCodeColour, carry:true})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   const safe=cohXmlFileStem(GAME);

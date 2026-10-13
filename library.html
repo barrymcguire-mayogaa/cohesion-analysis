@@ -1139,6 +1139,10 @@ async function confirmEdit(){
     if(g.angles&&g.angles.length<=1) delete g.angles;
   }
   try{
+    // This page's copy of the game dates from when the Library opened. Team sheets and goalkeepers are edited
+    // elsewhere (Code Room, Dashboard), so the stored ones are re-read and kept — never overwritten by an old copy.
+    try{ let fm=(await cohesionRead({ action:'gameBundle', id: pendingEditId })).meta; if(typeof fm==='string') fm=JSON.parse(fm);
+      if(fm&&typeof fm==='object') ['rosters','keepers'].forEach(k=>{ if(fm[k]!==undefined) g[k]=fm[k]; else delete g[k]; }); }catch(_){}
     await libAdminFetch('gameAdmin', { action:'updateMeta', gameId: pendingEditId, meta: g });
     // Renaming a team migrates its events (team field, code prefixes, player
     // label groups) so stats keep working; also heals games renamed before

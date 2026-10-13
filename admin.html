@@ -1418,7 +1418,24 @@ async function setFile(f){
     // 2H-start estimate, spot-check samples). Failure is harmless — the
     // wizard simply works without assists.
     try { gsPreScan(await f.text()); gsRenderRows(); } catch(_){ gsPre = null; }
+    try { prefillFromCarry(cohXmlCarryRead(cohScDecode(await f.arrayBuffer()))); } catch(_){}
   }
+}
+// A Code Room export carries its team sheets, goalkeepers and team colours (cohesion-labels.js cohXmlCarry*).
+// On a NEW upload the colours go onto the form (still editable) and, when no away team is entered yet, both team names; the
+// sheets and goalkeepers are stored with the game when it is processed. An update of a stored game leaves
+// the form alone — the stored game's own details stand.
+function prefillFromCarry(carry){
+  if(!carry) return;
+  const R=carry.rosters||{}, K=carry.keepers||{}, n=o=>((o.home||[]).length+(o.away||[]).length);
+  const bits=[]; if(n(R)) bits.push('team sheets'); if(n(K)) bits.push('goalkeepers'); if(carry.homeColor||carry.awayColor) bits.push('colours');
+  const badge=document.getElementById('srcBadge');
+  if(badge&&bits.length) badge.textContent='🎬 COHESION Code Room export — '+bits.join(', ')+' included ✓';
+  if(isReparse) return;
+  const hEl=document.getElementById('homeTeam'), aEl=document.getElementById('awayTeam');
+  if(!aEl.value.trim()&&carry.homeTeam&&carry.awayTeam){ hEl.value=carry.homeTeam; aEl.value=carry.awayTeam; }   // fixture not entered yet (the home box starts with a default name)
+  const c=cohXmlCarryFor(carry, hEl.value, aEl.value);
+  [['home',c.homeColor],['away',c.awayColor]].forEach(([s,v])=>{ if(/^#[0-9a-fA-F]{6}$/.test(v||'')){ document.getElementById(s+'Color').value=v; document.getElementById(s+'ColorHex').value=v; } });
 }
 
 function prefillFromGT(d){
@@ -1650,6 +1667,7 @@ async function processGame(){
 
   let events = [];
   let scRowsMeta = null, scPeriodsMeta = null;   // the Sportscode file's <ROWS> (order + colours) and its period rows → gameMeta.rows / gameMeta.scPeriods
+  let xmlCarry = null;                           // team sheets + goalkeepers a Code Room export carries → gameMeta.rosters / gameMeta.keepers
 
   try{
     // ── Skip XML (for adding new angles only) ──────────────────
@@ -1691,6 +1709,7 @@ async function processGame(){
       else if(bom[0]===0xFE && bom[1]===0xFF) text = new TextDecoder('utf-16be').decode(buffer);
       else                                      text = new TextDecoder('utf-8').decode(buffer);
       text = text.replace(/^\uFEFF/,''); // strip any lingering BOM character
+      try{ xmlCarry = cohXmlCarryFor(cohXmlCarryRead(text), homeTeam, awayTeam); }catch(_){ xmlCarry = null; }
 
       setProgress(40, 'Parsing XML…');
       const parser = new DOMParser();
@@ -2514,10 +2533,22 @@ async function processGame(){
     // rebuilt from scratch on every save, so without this a re-parse would
     // silently wipe out roster data saved via "Manage Players".
     let existingPlayerRoster;
+    // The team sheets (rosters) and goalkeeper spells (keepers) are entered in Code Room / the Dashboard /
+    // the Library, never on this form — so an update must carry them forward too, or it silently wipes them.
+    // They are RE-READ here (the game list on this page was loaded when the page opened and can be behind).
+    // A new game takes them from the file when it is a Code Room export.
+    const sidesN = o => (o && typeof o === 'object' && !Array.isArray(o)) ? ['home','away'].reduce((a,s) => a + (Array.isArray(o[s]) ? o[s].length : 0), 0) : 0;
+    let keepRosters = null, keepKeepers = null;
     if(isReparse){
       const rIdxForRoster = parseInt(document.getElementById('reparseGame').value);
-      existingPlayerRoster = (!isNaN(rIdxForRoster) && reparseGames[rIdxForRoster]) ? reparseGames[rIdxForRoster].playerRoster : undefined;
+      const exMeta = (!isNaN(rIdxForRoster) && reparseGames[rIdxForRoster]) || null;
+      existingPlayerRoster = exMeta ? exMeta.playerRoster : undefined;
+      let nowMeta = exMeta;
+      try{ let fm = (await cohesionRead({ action:'gameBundle', id: gameId })).meta; if(typeof fm === 'string') fm = JSON.parse(fm); if(fm && typeof fm === 'object') nowMeta = fm; }catch(_){}
+      if(nowMeta){ if(sidesN(nowMeta.rosters)) keepRosters = nowMeta.rosters; if(sidesN(nowMeta.keepers)) keepKeepers = nowMeta.keepers; }
     }
+    if(!keepRosters && xmlCarry && sidesN(xmlCarry.rosters)) keepRosters = xmlCarry.rosters;
+    if(!keepKeepers && xmlCarry && sidesN(xmlCarry.keepers)) keepKeepers = xmlCarry.keepers;
     // The file's row order + colours and its period rows (Sportscode). A re-parse
     // with no XML, or with a file that has no <ROWS>, keeps what the game had.
     let metaRows = (scRowsMeta && scRowsMeta.length) ? scRowsMeta : null, metaPeriods = (scPeriodsMeta && scPeriodsMeta.length) ? scPeriodsMeta : null;
@@ -2548,6 +2579,8 @@ async function processGame(){
       eventCount: events.length,
       ...(anglesField ? {angles: anglesField} : {}),
       ...(existingPlayerRoster ? {playerRoster: existingPlayerRoster} : {}),
+      ...(keepRosters ? {rosters: keepRosters} : {}),
+      ...(keepKeepers ? {keepers: keepKeepers} : {}),
       ...(metaRows ? {rows: metaRows} : {}),
       ...(metaPeriods ? {scPeriods: metaPeriods} : {}),
     };

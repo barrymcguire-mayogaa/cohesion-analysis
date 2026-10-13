@@ -215,6 +215,7 @@ function cohXmlBuild(events, opts){
     const rows=cohXmlRows(events, codes, meta, {order:opts.rowOrder, colourOf:opts.colourOf});
     lines.push('<ROWS>'); rows.forEach(r=>lines.push('  <row>','    <code>'+_xesc(r.code)+'</code>','    <R>'+r.rgb[0]+'</R>','    <G>'+r.rgb[1]+'</G>','    <B>'+r.rgb[2]+'</B>','  </row>')); lines.push('</ROWS>');
   }
+  if(opts.carry&&typeof cohXmlCarryBuild==='function'){ const c=cohXmlCarryBuild(meta); if(c) lines.push(c); }   // team sheets, goalkeepers, colours → read back by the upload
   lines.push('</file>');
   return lines.join('\n');
 }
