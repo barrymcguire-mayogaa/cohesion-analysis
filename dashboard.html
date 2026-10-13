@@ -1171,7 +1171,7 @@ function dashAssistChoices(ev, g){
     :x=>{ const L=x.labels||{}, r=x.player?[{name:x.player, team:x.team}]:[]; Object.keys(L).forEach(k=>{ if(L[k]&&/ PLAYER LABELS$/i.test(k)) r.push({name:L[k], team:k.replace(/ PLAYER LABELS$/i,'')}); }); return r; };
   ALL.forEach(x=>{ playersOf(x).forEach(p=>{ if(String(p.team||'').toUpperCase()===T) tagged.push(p.name); });
     if(String(x.team||'').toUpperCase()!==T) return;
-    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) tagged.push(L[k]); }); });
+    const L=x.labels||{}; Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||k==='Kickout Target'||/^player (out|in)$/i.test(k))) tagged.push(L[k]); }); });
   tagged.map(tidy).sort((a,b)=>a.localeCompare(b)).forEach(add);
   });
   return out;

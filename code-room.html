@@ -3640,7 +3640,7 @@ function crGameNames(side){
     if(e.player&&String(pt||'').toUpperCase()===T) out.push(e.player);
     Object.keys(L).forEach(k=>{ if(L[k]&&k.toUpperCase()===T+' PLAYER LABELS') ((typeof cohLabelValues==='function')?cohLabelValues(e,k):[L[k]]).forEach(v=>out.push(v)); });
     if(String(e.team||'').toUpperCase()!==T) return;
-    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) out.push(L[k]); });
+    Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||k==='Kickout Target'||/^player (out|in)$/i.test(k))) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
   return crNotTheirs(side, out.map(crNameTidy).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
@@ -5890,7 +5890,7 @@ function crGiCarryText(it){
     :' — the kickout is KO '+(it.fix.len||'LONG')+' with no landing marked beyond the far 45 m line');
   const L=it.changes.labels||{}, val=g=>{ const k=Object.keys(L).find(x=>x.toLowerCase()===g.toLowerCase()); return k?L[k].join(' + '):''; };
   const xk=Object.keys(L).find(k=>/^x[-_ ]/i.test(k)), yk=Object.keys(L).find(k=>/^y[-_ ]/i.test(k));
-  const G={attempt:'Shot Attempts','dead-ball type':'Deadball Shot Type',leg:'Shooting Leg',side:'Shot Side',pressure:'Shot Pressure',assist:'Assist',length:'Kickout Locations','won by':'Kickout Won By','taken by':'Kickout Taken By'};
+  const G={attempt:'Shot Attempts','dead-ball type':'Deadball Shot Type',leg:'Shooting Leg',side:'Shot Side',pressure:'Shot Pressure',assist:'Assist',length:'Kickout Locations','won by':'Kickout Won By','taken by':'Kickout Taken By',target:'Kickout Target'};
   return it.what.map(w=>w==='location'?'location ('+(xk?L[xk][0]:Math.round(it.changes.x))+', '+(yk?L[yk][0]:Math.round(it.changes.y))+')'
     :w==='zone'?'zone '+val(it.kind==='ko'?'Kickout Zones':'Shot Zones')
     :/^attempt \(/.test(w)?'attempt '+val('Shot Attempts')+' (from the location)'

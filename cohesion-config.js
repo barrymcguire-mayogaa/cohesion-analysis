@@ -26,6 +26,21 @@ window.COHESION_LABEL_GROUPS = [
   { name: 'Turnover Locations', options: ['DEFENSIVE THIRD', 'MIDDLE THIRD', 'ATTACKING THIRD'], appliesTo: /\bTOS?\b|TURNOVER/ },
   { name: 'Score Source Score Outcomes', options: ['1 POINT', '2 POINT', 'GOAL'], appliesTo: /SCORE SOURCE/ },
   { name: 'Kickout Locations', options: ['KO SHORT', 'KO MEDIUM', 'KO LONG'], appliesTo: /\bKO\b|KICKOUT/ },
+  // (order = the order of the boxes in Code Room: Kickout Taken By, Kickout Target, Kickout Won By)
+  // players:true + playersTeam:'own' — the player who TOOK the kickout (the
+  // goalkeeper, or an outfield player taking one). Always a player of the
+  // kicking team (the row's team); nobody is left out of the list. Same rows as
+  // Kickout Won By. Code Room fills it from the game's goalkeepers
+  // (meta.keepers — see cohesionKeeperAt) when a kickout is tagged.
+  { name: 'Kickout Taken By', options: [], players: true, playersTeam: 'own',
+    appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
+  // players:true + playersTeam:'own' — the player the kickout was AIMED AT: always a player of the kicking team (the
+  // row's team), whatever the outcome, and independent of Kickout Won By (the target is not always the winner; neither
+  // fills the other). The same 'Kickout Target' label the Gaelic Insights conversion writes for a lost kickout's
+  // intended receiver (cohesion-gi.js) and Analysis › Players reads. Optional. Same rows as the other two.
+  // ('own' rather than no playersTeam: the list is the same team, and nobody — not the row's player — is left out.)
+  { name: 'Kickout Target', options: [], players: true, playersTeam: 'own',
+    appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
   // players:true + playersTeam:'koWinner' — the player who WON the kickout. He
   // belongs to the kicking team (the row's team) when 'Kickout Outcomes' says
   // WON, to the opposition when it says LOST; with no outcome yet both teams'
@@ -34,13 +49,6 @@ window.COHESION_LABEL_GROUPS = [
   // Kickout Locations, minus turnover rows (TOs · KICKOUT LOST) and the
   // score/shot SOURCE and ASSIST rows, whatever their code is called.
   { name: 'Kickout Won By', options: [], players: true, playersTeam: 'koWinner',
-    appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
-  // players:true + playersTeam:'own' — the player who TOOK the kickout (the
-  // goalkeeper, or an outfield player taking one). Always a player of the
-  // kicking team (the row's team); nobody is left out of the list. Same rows as
-  // Kickout Won By. Code Room fills it from the game's goalkeepers
-  // (meta.keepers — see cohesionKeeperAt) when a kickout is tagged.
-  { name: 'Kickout Taken By', options: [], players: true, playersTeam: 'own',
     appliesTo: /^(?!.*(\bTOS?\b|TURNOVER|SOURCE|ASSIST)).*(\bKO\b|KICKOUT)/ },
   // players:true + playersTeam:'own' + sub — a SUBSTITUTION's two players, both of the row's team: the player
   // going OFF, then the player coming ON (the Sportscode template's order). SUB rows only: a code ending in

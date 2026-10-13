@@ -528,9 +528,10 @@
     { name:'Shot Attempts', re:/SHOT (OPEN|DEAD)/ }, { name:'Deadball Shot Type', re:/SHOT DEAD ?BALL/ },
     { name:'Shooting Leg', re:/SHOT (OPEN|DEAD)/ }, { name:'Shot Side', re:/SHOT (OPEN|DEAD)/ },
     { name:'Shot Pressure', re:/SHOT (OPEN|DEAD)/ }, { name:'Assist', re:/SHOT (OPEN|DEAD)/ },
-    { name:'Kickout Locations', re:/\bKO\b|KICKOUT/ }, { name:'Kickout Won By', re:/\bKO\b|KICKOUT/ }, { name:'Kickout Taken By', re:/\bKO\b|KICKOUT/ } ];
+    { name:'Kickout Locations', re:/\bKO\b|KICKOUT/ }, { name:'Kickout Won By', re:/\bKO\b|KICKOUT/ }, { name:'Kickout Taken By', re:/\bKO\b|KICKOUT/ },
+    { name:'Kickout Target', re:/\bKO\b|KICKOUT/ } ];
   const CARRY_WORD = { 'shot attempts':'attempt', 'deadball shot type':'dead-ball type', 'shooting leg':'leg', 'shot side':'side', 'shot pressure':'pressure',
-    'assist':'assist', 'kickout locations':'length', 'kickout won by':'won by', 'kickout taken by':'taken by' };
+    'assist':'assist', 'kickout locations':'length', 'kickout won by':'won by', 'kickout taken by':'taken by', 'kickout target':'target' };
   function carryGroups(code){
     const c = up(code), defs = root && root.COHESION_LABEL_GROUPS;
     const src = (Array.isArray(defs) && defs.length) ? defs.map(g => ({ name:g.name, re:g.appliesTo })) : CARRY_GROUPS;
