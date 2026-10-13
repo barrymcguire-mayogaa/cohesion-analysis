@@ -764,3 +764,37 @@ function cohSubMarks(events, meta, side){
   return marks;
 }
 if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsSubRow, cohSubSide, cohSubSheet, cohSubInOut, cohSubText, cohSubState, cohSubWarnings, cohSubUsesDetail, cohSubDetailText, cohSubMinute, cohSubMarks, COH_SUB_OUT, COH_SUB_IN});
+
+/* ── Turnover and foul rows: whose player did what ─────────────
+ * No extra label groups: a player's ROLE on these rows is read from his TEAM (the team of his "<Team> Player
+ * Labels" group — cohEventPlayers).
+ *   · a "<TEAM> TOs" / TURNOVER row belongs to the team that LOST the ball: its own players LOST it, a player of
+ *     the other team WON it (the Sportscode files: "a KERRY TOs row carries the Mayo player who won the ball").
+ *     A "… TURNOVER WON" / "… TOs WON" row belongs to the team that won it, so the two are the other way round.
+ *   · a "<TEAM> FOUL" row belongs to the team that committed the foul: its own player is the one who fouled.
+ * cohIsToRow(e) / cohIsFoulRow(e)   the rows these roles apply to (not a kickout row, not a SOURCE / ASSIST row)
+ * cohToTeams(e, meta)               -> {loser, winner} upper case ('' when the row's team is not one of the two)
+ * cohToRoles(e, meta)               -> {loser, winner, lost:[{name, team, group}], won:[…], other:[…]}
+ * cohToRolesTxt(e, meta)            -> "Lost by X · Won by Y" (one alone when only one is known; '' when none)
+ * cohFoulers(e, meta)               -> [{name, team, group}] the row team's players on a foul row
+ */
+const COH_TO_ROW_RE=/\bTOS?\b|TURNOVER/i, COH_TO_WON_ROW_RE=/(TURNOVERS?|\bTOS?)\s+WON\b/i;
+function cohIsToRow(e){ const c=String((e&&e.code)||''); return COH_TO_ROW_RE.test(c)&&!/SOURCE|ASSIST|\bKO\b|KICKOUT/i.test(c); }
+function cohIsFoulRow(e){ const c=String((e&&e.code)||''); return /\bFOULS?\b/i.test(c)&&!/SOURCE|ASSIST/i.test(c)&&!COH_TO_ROW_RE.test(c); }
+function cohToTeams(e, meta){
+  const T=cohUp(e&&e.team), O=cohUp(cohOppTeam(T, meta));
+  return COH_TO_WON_ROW_RE.test(String((e&&e.code)||''))?{loser:O, winner:T}:{loser:T, winner:O};
+}
+function cohToRoles(e, meta){
+  const t=cohToTeams(e, meta), r={loser:t.loser, winner:t.winner, lost:[], won:[], other:[]};
+  cohEventPlayers(e, meta).forEach(p=>{ const pt=cohUp(p.team); (pt&&pt===t.loser?r.lost:pt&&pt===t.winner?r.won:r.other).push(p); });
+  return r;
+}
+function cohToRolesTxt(e, meta){
+  const r=cohToRoles(e, meta), n=l=>l.map(p=>p.name).join(', '), out=[];
+  if(r.lost.length) out.push('Lost by '+n(r.lost));
+  if(r.won.length) out.push('Won by '+n(r.won));
+  return out.join(' · ');
+}
+function cohFoulers(e, meta){ const T=cohUp(e&&e.team); return cohEventPlayers(e, meta).filter(p=>cohUp(p.team)===T); }
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers});

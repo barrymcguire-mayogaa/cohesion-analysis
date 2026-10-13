@@ -144,6 +144,14 @@ function cohXmlBuild(events, opts){
     if(e.team && !labels['Team Name'] && !cohXmlTeamImplied(e)) labels['Team Name']=e.team;
     if(e.player && !e.playerRow){ const pg=Object.keys(labels).find(k=>/player labels$/i.test(k)); if(!pg) labels[playerGroup(e.team)]=e.player; }
     Object.entries(labels).forEach(([g,v])=>{ if(v==null||v==='')return; out.push([g, cohXmlValues(e,g,v).slice()]); });
+    // The event's own player leads: his group is written ahead of any other player group. A turnover can carry a
+    // player of EACH team (the one who lost the ball, the one who won it), and a re-import takes the event's player
+    // from the FIRST player group of the instance — so the same player comes back whatever order the labels are held in.
+    if(e.player && !e.playerRow){
+      const isP=x=>H.cohIsPlayerGroup(x[0]), has=x=>isP(x)&&x[1].indexOf(e.player)>=0, pt=String(e.playerTeam||'').toUpperCase();
+      const first=out.findIndex(isP); let mine=pt?out.findIndex(x=>has(x)&&H.cohPlayerGroupTeam(x[0])===pt):-1; if(mine<0) mine=out.findIndex(has);
+      if(first>=0 && mine>first) out.splice(first, 0, out.splice(mine, 1)[0]);
+    }
     return out;
   };
   const setFirst=(list, g, name)=>{ let r=list.find(x=>x[0]===g); if(!r){ r=[g, []]; list.push(r); } const i=r[1].findIndex(x=>nk(x)===nk(name)); if(i===0) return; if(i>0) r[1].splice(i,1); r[1].unshift(name); };

@@ -145,6 +145,13 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .acdrop div:hover .acno,.acdrop div.on .acno{color:#fff;opacity:.85;}
 .acdrop .actag.blk{float:none;display:block;margin:0 0 3px;padding-top:0;overflow:hidden;text-overflow:ellipsis;}
 /* Assist (players:true group) type-to-search box — Edit panel, Locate, Code mode */
+.cps{position:relative;flex:1;min-width:170px;display:flex;}
+.cps-in{flex:1;min-width:0;margin:0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 30px 9px 10px;color:var(--t1);font:600 13px 'Barlow',sans-serif;cursor:pointer;}
+.cps.set .cps-in{background:linear-gradient(var(--tc),var(--tc)),var(--card);padding-right:74px;}
+.cps-in:focus{outline:none;border-color:var(--accent);cursor:text;}
+.cps-no,.cps-car{position:absolute;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--t3);}
+.cps-no{right:28px;font:600 13px 'Barlow',sans-serif;opacity:.8;font-variant-numeric:tabular-nums;}
+.cps-car{right:10px;font-size:11px;}
 .crasst{display:flex;align-items:center;gap:6px;flex:1;min-width:150px;flex-wrap:wrap;}
 .crasst input{flex:1;min-width:120px;margin:0;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 9px;color:var(--t1);font:600 12px 'Barlow',sans-serif;}
 .crasst.need input{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange);}
@@ -175,6 +182,7 @@ canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 .colorrow .teambtn:hover{border-color:var(--accent);color:var(--accent);}
 .epanel input:focus{border-color:var(--accent);}
 .lblrow{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.ep-role{color:var(--accent) !important;}
 .lblrow .g{min-width:118px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;}
 .lblrow input{flex:1;margin:0;}
 .lblrow.need select{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange);}
@@ -2696,13 +2704,42 @@ function crPanelPlayersHtml(e){
   let h='';
   if(draft.player&&pt&&rt&&pt!==rt) h+=`<div class="ep-pteam" style="margin:-4px 0 8px;font-size:11.5px;color:var(--accent);" title="From the label group “${esc(prim?prim.g:'')}” — the row belongs to ${esc(rt)}">${esc(pt)} player on a ${esc(rt)} row</div>`;
   const others=draft.players.map((row,i)=>({row,i})).filter(o=>o.i!==draft.pIdx);
-  if(others.length) h+=`<div class="ep-lbl">Other players on this event</div>`+others.map(({row,i})=>`
+  // a turnover / foul row: each player row reads as his ROLE (from his team — crRoleOfGroup), and a role nobody has
+  // yet gets the same type-to-search box as Code mode (the Player field itself stands for the row team's role)
+  const rev=crDraftRoleEv(e), mine=crPanelRole(e), roleOf=g=>crRoleOfGroup(rev, g);
+  const miss=crRoleBoxes(rev).filter(r=>r!==mine&&!others.some(o=>roleOf(o.row.g)===r));
+  const gl=row=>{ const r=roleOf(row.g); return r?`<span class="g ep-role" title="${esc(CR_ROLE_NAME[r]+' — '+row.g)}">${esc(CR_ROLE_NAME[r])}</span>`:`<span class="g" title="${esc(row.g)}">${esc(row.g)}</span>`; };
+  if(others.length||miss.length) h+=`<div class="ep-lbl">Other players on this event</div>`;
+  h+=miss.map(r=>`<div class="lblrow"><span class="g ep-role" title="${esc(CR_ROLE_NAME[r]+' — '+crRoleTeam(rev, r)+' player (optional)')}">${esc(CR_ROLE_NAME[r])}</span>${crAssistBoxHtml('edit',r,e._rowId,crSideOf(crRoleTeam(rev, r)),'','',false)}</div>`).join('');
+  if(others.length) h+=others.map(({row,i})=>`
     <div class="lblrow">
-      <span class="g" title="${esc(row.g)}">${esc(row.g)}</span>
+      ${gl(row)}
       <input value="${esc(row.v)}" oninput="setPlayerIdx(${i},this.value);acShow(this,crPlayers(),acNoop)" onfocus="acShow(this,crPlayers(),acNoop)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" autocomplete="off">
       <span class="x" onclick="removePlayerIdx(${i})" title="Remove this player from the event">✕</span>
     </div>`).join('');
   return h;
+}
+// Edit: the roles of a turnover / foul row's players, from the DRAFT (the code as typed, the row's team).
+function crDraftRoleEv(e){ return {code:(draft&&draft.code)||'', team:(e&&e.team)||''}; }
+// the role the Player field stands for: the row team's ("Lost by" on a TOs row, "Fouled by" on a FOUL row) unless the
+// event's player sits in the OTHER team's group (the player who won the ball) — the group a save writes him to
+function crPanelRole(e){
+  const ev=crDraftRoleEv(e), boxes=crRoleBoxes(ev); if(!boxes.length) return '';
+  const prim=draft.pIdx>=0?draft.players[draft.pIdx]:null, rt=String(e.team||'').toUpperCase();
+  const gt=prim?cohPlayerGroupTeam(prim.g, GAME):'', T=(gt&&gt!==rt)?gt:rt;
+  return boxes.find(r=>crRoleTeam(ev, r)===T)||'';
+}
+// A role nobody has yet, typed into its box: the player goes in HIS team's group. A player of the ROW's team becomes
+// the event's player (the Player field) and the one who was there is listed below — the same rule as Code mode.
+function crDraftRoleAdd(role, v){
+  const e=EVENTS.find(x=>x._rowId===activeId); if(!e||!draft||!v) return;
+  const T=crRoleTeam(crDraftRoleEv(e), role); if(!T) return;
+  if(T===String(e.team||'').toUpperCase()){
+    if(draft.pIdx>=0){ if(draft.player) draft.players[draft.pIdx].v=draft.player; else draft.players.splice(draft.pIdx,1); }
+    else if(draft.player) draft.players.push({g:crPG(String(e.playerTeam||e.team||'')), v:draft.player});
+    draft.players.push({g:crPG(T), v}); draft.pIdx=draft.players.length-1; draft.player=v;
+  } else draft.players.push({g:crPG(T), v});
+  refreshSave(); renderPanel();
 }
 function renderPanel(){
   const e=EVENTS.find(x=>x._rowId===activeId);
@@ -2754,7 +2791,7 @@ function renderPanel(){
     <div class="ep-meta">${e.half||''} · Game clock ${e.gameTime||'—'}</div>
     <div class="ep-lbl">Event code</div>
     <input value="${esc(draft.code)}" autocomplete="off" oninput="setDraftCode(this.value);acShow(this,crCodes(),acPickCode)" onfocus="acShow(this,crCodes(),acPickCode)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)" onchange="renderPanel()">
-    <div class="ep-lbl">Player</div>
+    <div class="ep-lbl">Player${crPanelRole(e)?` <span class="ep-role" title="This row's own player — from his team">— ${esc(CR_ROLE_NAME[crPanelRole(e)])}</span>`:''}</div>
     <input value="${esc(draft.player)}" placeholder="(none)" autocomplete="off" oninput="setDraftPlayer(this.value);acShow(this,crPlayers(),acPickPlayer)" onfocus="acShow(this,crPlayers(),acPickPlayer)" onkeydown="acKey(event)" onblur="setTimeout(acHide,150)">${crPanelPlayersHtml(e)}
     <div class="ep-lbl">Colour <span style="color:var(--t3);font-weight:400;">— blank = ${crRowColours().size?'row / team default':'team default'}</span></div>
     <div class="colorrow">
@@ -2815,12 +2852,19 @@ function crTintOf(hex, a){
   if(!/^[0-9a-f]{6}$/i.test(h)) return '';
   return 'rgba('+parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16)+','+a+')';
 }
+// The TEAM SHEET decides: a player on one team's sheet is that team's, whatever rows he was tagged on (a stray tag
+// under the other team's player group no longer leaves him untinted). Only a name on NEITHER sheet is placed by the
+// game's tags, and only a name on both sheets — or, with no sheet entry, tagged for both teams — gets no tint.
+// A list that offers ONE team only (acShow opt.sides) does not ask at all: every row is that team's colour.
 function crNameSides(){
-  const m=new Map(); if(!GAME) return m;
-  ['home','away'].forEach(sd=>{ let names=[]; try{ names=crSheetNames(sd).concat(crGameNames(sd)); }catch(_){}
-    names.forEach(n=>{ const k=crNameKey(n).replace(/['‘’‛ʼ`´]/g,''); if(!k) return; const was=m.get(k); m.set(k, was&&was!==sd?'both':sd); }); });
+  const m=new Map(), sheet=new Map(); if(!GAME) return m;
+  const put=(mm, n, sd)=>{ const k=crNameKey(n).replace(/['‘’‛ʼ`´]/g,''); if(!k) return; const was=mm.get(k); mm.set(k, was&&was!==sd?'both':sd); };
+  ['home','away'].forEach(sd=>{ let sn=[], gn=[]; try{ sn=crSheetNames(sd); }catch(_){} try{ gn=crGameNames(sd); }catch(_){}
+    sn.forEach(n=>put(sheet, n, sd)); gn.forEach(n=>put(m, n, sd)); });
+  sheet.forEach((sd, k)=>m.set(k, sd));
   return m;
 }
+function crSideColour(sd){ return sd==='home'?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
 let acInput=null, acPick=null, acItems=[], acIdx=-1;
 function acNoop(){}
 function acPickCode(v){ setDraftCode(v); renderPanel(); }
@@ -2829,7 +2873,8 @@ function acHide(){ const d=document.getElementById('acDrop'); if(d) d.style.disp
 // opt (optional): tag(item) → small group label shown on the first item of
 // each group; all:true → list everything (focus/click on an unedited box);
 // max → cap (default 60); tagBlock → the group label sits on its own line
-// above the first item (long labels: "<TEAM> · team sheet").
+// above the first item (long labels: "<TEAM> · team sheet"); sides → the
+// side(s) the list offers (['home'] → every row tinted with that team's colour).
 function acShow(input, options, onPick, opt){
   opt=opt||{};
   acInput=input; acPick=onPick;
@@ -2843,8 +2888,9 @@ function acShow(input, options, onPick, opt){
   // numbered player, one with no known number reads "#.." (a late change to the programme)
   const noOf=o=>{ if(!lab) return ''; const L=String(lab(o)), tail='. '+o; return L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):''; };
   const anyNo=!!lab&&options.some(o=>o&&noOf(o)!=='');
-  const sides=lab?crNameSides():null, tintOf=o=>{ if(!sides) return ''; const sd=sides.get(crNameKey(o).replace(/['‘’‛ʼ`´]/g,'')); if(sd!=='home'&&sd!=='away') return '';
-    return crTintOf(sd==='home'?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'), .2); };
+  const one=(GAME&&Array.isArray(opt.sides)&&opt.sides.length===1&&(opt.sides[0]==='home'||opt.sides[0]==='away'))?opt.sides[0]:'';   // a one-team list: every row is that team's
+  const sides=(lab&&!one)?crNameSides():null, tintOf=o=>{ if(one) return crTintOf(crSideColour(one), .2); if(!sides) return ''; const sd=sides.get(crNameKey(o).replace(/['‘’‛ʼ`´]/g,'')); if(sd!=='home'&&sd!=='away') return '';
+    return crTintOf(crSideColour(sd), .2); };
   d.innerHTML=acItems.map((o,i)=>{ const t=opt.tag?(opt.tag(o)||''):''; const show=t&&t!==prevTag; prevTag=t;
     const no=anyNo?noOf(o):'', blk=show&&opt.tagBlock, tag=show?`<span class="actag${opt.tagBlock?' blk':''}">${esc(t)}</span>`:'';
     const num=anyNo?`<span class="acno${no===''?' unk':''}" title="${no===''?'No number on the team sheet':'Team sheet number'}">#${no===''?'..':esc(no)}</span>`:'';
@@ -3501,7 +3547,9 @@ function codeSyncWindow(){
 function codePlayerList(side){
   const teamUC=side==='home'?(GAME.homeTeam||'').toUpperCase():(GAME.awayTeam||'').toUpperCase();
   const seen=new Set(), out=[];
-  crSheetNames(side).concat(EVENTS.filter(e=>(e.team||'').toUpperCase()===teamUC && e.player).map(e=>e.player))
+  // every player tagged for this team — under HIS team (his label group), not the row's: the opposition player who won
+  // the ball on this team's TOs row is not one of this team's players
+  crSheetNames(side).concat(EVENTS.flatMap(e=>crEvPlayers(e).filter(p=>p.name&&String(p.team||'').toUpperCase()===teamUC).map(p=>p.name)))
     .forEach(n=>{ const k=crNameKey(n); if(k&&!seen.has(k)){ seen.add(k); out.push(crNameTidy(n)); } });
   out.sort();
   return window.cohTS?cohTS.sheetFirst(GAME, side, out):out;   // team-sheet players first (number order)
@@ -3669,9 +3717,11 @@ function crAssistCur(inp){
   if(d.where==='code'){
     const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
     if(g===CR_SHOOTER) return (sq&&String(sq._rowId)===String(d.row))?(sq.player||''):null;
+    if(crIsRole(g)){ if(!(sq&&String(sq._rowId)===String(d.row))) return null; const c=crRoleCur(sq, g); return c?c.name:''; }
     return (sq&&String(sq._rowId)===String(d.row))?((sq.labels||{})[g]||''):null;
   }
   if(!draft||String(activeId)!==String(d.row)) return null;
+  if(crIsRole(g)) return '';                         // Edit shows this box only for a role nobody has yet (crPanelPlayersHtml)
   const r=draft.groups.find(x=>x.g.toLowerCase()===g.toLowerCase());
   return r?r.v:'';
 }
@@ -3681,7 +3731,7 @@ function crAssistOpen(inp, all){
   const s=d.sub?crSubSuggest(d):crAssistSuggest(sides, d.shooter, d.group!=='Assist');
   const cur=d.sub?crSubShown(d.where, d.row, d.sub).v:crAssistCur(inp);   // a suggested name counts as the box's own value: the whole list opens
   acShow(inp, s.items, v=>{ inp.value=v; crAssistCommit(inp); },
-    { tag:n=>s.tags.get(n), label:n=>crTSLabel(n, sides.length===1?sides[0]:''), tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
+    { tag:n=>s.tags.get(n), label:n=>crTSLabel(n, sides.length===1?sides[0]:''), sides, tagBlock:d.group!=='Assist', all: !!all && crNameKey(inp.value)===crNameKey(cur||''), max:200 });
 }
 function crAssistAddSync(inp){
   const a=inp.parentNode&&inp.parentNode.querySelector('.crasst-add');
@@ -3704,6 +3754,7 @@ function crAssistCommit(inp){
   if(v===cur) return;
   if(v&&sides.length===1) crAssistRemember(sides[0], v);
   if(d.where==='code'&&d.group===CR_SHOOTER){ codeShotPlayer(v); return; }
+  if(crIsRole(d.group)){ if(d.where==='code') codeRowRole(d.group, v); else crDraftRoleAdd(d.group, v); return; }
   if(d.where==='code'){ codeShotAssist(v, d.group||'Assist'); if(d.sub) crKprSubCheck(EVENTS.find(x=>String(x._rowId)===String(d.row))); }   // a SUB that takes off the keeper asks
   else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
 }
@@ -4398,7 +4449,7 @@ function crKprOpenList(inp, all){
   const side=inp.dataset.side;
   crAssistLoadOther(crTeamOf(side));
   const s=crAssistSuggest([side], '', true);
-  acShow(inp, s.items, v=>{ inp.value=v; crKprCommit(inp); }, {tag:n=>s.tags.get(n), label:n=>crTSLabel(n, side), tagBlock:true, all:!!all&&crNameKey(inp.value)===crNameKey(inp.dataset.cur||''), max:200});
+  acShow(inp, s.items, v=>{ inp.value=v; crKprCommit(inp); }, {tag:n=>s.tags.get(n), label:n=>crTSLabel(n, side), sides:[side], tagBlock:true, all:!!all&&crNameKey(inp.value)===crNameKey(inp.dataset.cur||''), max:200});
 }
 // Write a box back: a keeper's name (crkp-in) or a change time (crkp-t).
 function crKprCommit(inp){
@@ -4489,17 +4540,58 @@ window.addEventListener('keydown', e=>{
   if(e.key==='Enter'&&t.tagName==='INPUT'){ e.preventDefault(); acHide(); if(t.blur) t.blur(); return; }
   if(e.key==='Escape'){ e.preventDefault(); if(open){ acHide(); return; } crKprClose(); }
 }, true);
+// PLAYER SELECT — the player who stays chosen for the NEXT tags (codeSetPlayer). The same type-to-search pick list
+// as the Shooter / Assist boxes (acShow): the name with his team-sheet number faded on the right ("#11" / "#.."),
+// every row tinted with the tagging team's colour, the always-visible scroll handle. (It was a native <select>,
+// whose option list a browser will not tint — Safari / macOS ignore option backgrounds.) Focus or a click opens the
+// whole team; typing narrows it; arrows + Enter or a click choose; Esc / clicking away closes and puts the box back.
+function crSheetNoOf(name, side){ const L=String(crTSLabel(name, side)), tail='. '+name; return L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0, L.length-tail.length):''; }
 function buildCodePlayers(){
-  const players=codePlayerList(codeMode.team);
   const tm=codeMode.team==='home'?(GAME.homeTeam||'Home'):(GAME.awayTeam||'Away');
-  document.getElementById('codePlayers').innerHTML=
-    `<button class="cbtn ${!codeMode.player?'on':''}" onclick="codeSetPlayer('')">No player</button>`+
-    `<select onchange="codeSetPlayer(this.value)" style="flex:1;min-width:170px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--t1);font:600 13px 'Barlow',sans-serif;cursor:pointer;">`+
-    `<option value=""${!codeMode.player?' selected':''}>${esc(tm)} Player Select</option>`+
-    players.map(p=>`<option value="${esc(p)}"${codeMode.player===p?' selected':''}>${esc(crTSLabel(p, codeMode.team))}</option>`).join('')+
-    `</select>`+
+  const box=document.getElementById('codePlayers'), cur=codeMode.player||'', no=cur?crSheetNoOf(cur, codeMode.team):'';
+  if(acInput&&acInput.id==='codePlayerSel') acHide();
+  box.innerHTML=
+    `<button class="cbtn ${!cur?'on':''}" onclick="codeSetPlayer('')">No player</button>`+
+    `<div class="cps${cur?' set':''}" style="--tc:${crTintOf(crSideColour(codeMode.team), .2)}"><input id="codePlayerSel" class="cps-in" value="${esc(cur)}" placeholder="${esc(tm)} Player Select" title="The player for the next tags — type or pick; empty = no player" autocomplete="off" spellcheck="false">`+
+    (no?`<span class="cps-no" title="Team sheet number">#${esc(no)}</span>`:'')+`<span class="cps-car">▾</span></div>`+
     `<button class="cbtn" onclick="codeAddPlayer()">+ Player…</button>`;
+  const inp=document.getElementById('codePlayerSel');
+  inp.addEventListener('focus',()=>{ try{ inp.select(); }catch(_){} codePlayerOpen(inp,true); });
+  inp.addEventListener('click',()=>codePlayerOpen(inp,true));
+  inp.addEventListener('input',()=>codePlayerOpen(inp,false));
+  inp.addEventListener('blur',()=>setTimeout(()=>{ if(acInput===inp) acHide(); if(inp.isConnected) codePlayerCommit(inp); },150));
 }
+function codePlayerOpen(inp, all){
+  acShow(inp, codePlayerList(codeMode.team), v=>codeSetPlayer(v),
+    { label:n=>crTSLabel(n, codeMode.team), sides:[codeMode.team], all:!!all&&crNameKey(inp.value)===crNameKey(codeMode.player||''), max:200 });
+}
+// What is typed in the box when it is left (Enter / clicking away): emptied → no player; a name on the list (or the
+// one name the text narrows it to) → that player; anything else → the box goes back ("+ Player…" adds a new name).
+function codePlayerCommit(inp){
+  const v=crNameTidy(inp.value), cur=codeMode.player||'';
+  if(crNameKey(v)===crNameKey(cur)){ inp.value=cur; return; }
+  if(!v){ codeSetPlayer(''); return; }
+  const list=codePlayerList(codeMode.team), q=v.toLowerCase().replace(/^#\s*/,'');
+  let hit=list.find(n=>crNameKey(n)===crNameKey(v));
+  if(!hit){ const m=list.filter(n=>n.toLowerCase().includes(q)||String(crTSLabel(n, codeMode.team)).toLowerCase().includes(q)); if(m.length===1) hit=m[0]; }
+  if(hit){ codeSetPlayer(hit); return; }
+  inp.value=cur;
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='“'+v+'” is not on the '+codeTeamName(codeMode.team)+' list — use + Player… to add a new name.';
+}
+function codePlayerKey(ev){
+  const inp=ev.target, dd=document.getElementById('acDrop'), open=acInput===inp&&dd&&dd.style.display!=='none';
+  if(open&&(ev.key==='ArrowDown'||ev.key==='ArrowUp'||(ev.key==='Enter'&&acIdx>=0))){ acKey(ev); return; }
+  if(ev.key==='ArrowDown'&&!open){ ev.preventDefault(); codePlayerOpen(inp,true); return; }
+  if(ev.key==='Enter'){ ev.preventDefault(); acHide(); codePlayerCommit(inp); if(inp.isConnected&&inp.blur) inp.blur(); return; }
+  if(ev.key==='Escape'){ ev.preventDefault(); acHide(); inp.value=codeMode.player||''; if(inp.blur) inp.blur(); }
+}
+// keys typed in the Player Select never reach the page hotkeys (the same capture pattern as the Assist boxes)
+window.addEventListener('keydown', e=>{
+  const t=e.target;
+  if(!(t&&t.id==='codePlayerSel')) return;
+  e.stopPropagation();
+  codePlayerKey(e);
+}, true);
 async function codeAddCode(){
   const n=(prompt('New event code (e.g. SCORE SOURCE, ATTACKS):')||'').trim().toUpperCase();
   if(!n) return;
@@ -4576,11 +4668,15 @@ function codeTag(baseCode, opts){
   // Armed detail labels, filtered to those applicable to this event's code.
   const applies=new Set((window.cohesionGroupsFor?window.cohesionGroupsFor(code):[]).map(g=>g.name));
   Object.entries(codeMode.labels||{}).forEach(([g,v])=>{ if(v && applies.has(g)) labels[g]=v; });
-  if(codeMode.player) labels[crPG(teamName)]=codeMode.player;
+  // The chosen player is one of the TAGGING team's. A turnover tagged for the OTHER team (Option + key) is that team
+  // losing the ball, so he is the player who WON it: saved under his own team's group ("Won by"), not as theirs.
+  const _pWon=!!(codeMode.player&&teamName&&_tagSide!==codeMode.team&&typeof cohIsToRow==='function'&&cohIsToRow({code}));
+  if(codeMode.player) labels[crPG(_pWon?codeTeamName(codeMode.team):teamName)]=codeMode.player;
   const tmpId='tmp-'+(++crTmpCounter);
   const row={ id:'manual-'+Date.now(), start:clipStart, end:clipEnd, half:codeMode.period, code, team:teamName,
               player:codeMode.player||'', outcome:'', subtype:'', category:catOf(code)||'Other',
               driveT:clipStart, labels, _manual:true, _rowId:tmpId, _new:true };
+  if(_pWon) row.playerTeam=codeTeamName(codeMode.team);
   crKprAutoFill(row);                                              // a kickout: Kickout Taken By = the keeper in goal now
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
@@ -4604,7 +4700,7 @@ function codeTag(baseCode, opts){
            options:[GAME.homeTeam||'Home', GAME.awayTeam||'Away'] };
   // Shots also get their per-shot detail panel (leg/side/pressure/assist),
   // fresh each time; anything else clears it.
-  codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
+  codeMode.shotQual=((window.cohesionGroupsFor&&cohesionGroupsFor(code).length)||crRoleBoxes(row).length)?{rowId:tmpId}:null;
   codeMode.pendingLink=link?{rowId:tmpId, link}:null;
   renderCodeLink();
 }
@@ -4647,7 +4743,7 @@ function crDurToggle(baseCode){
     crScoreSourceAutoScore(row);                    // SCORE SOURCE: score value from the shot inside it
     const link=crAutoLinkFor(code);                 // outcome prompt ON STOP
     codeMode.pendingLink=link?{rowId:tmpId, link}:null;
-    codeMode.shotQual=(window.cohesionGroupsFor&&cohesionGroupsFor(code).length)?{rowId:tmpId}:null;
+    codeMode.shotQual=((window.cohesionGroupsFor&&cohesionGroupsFor(code).length)||crRoleBoxes(row).length)?{rowId:tmpId}:null;
     renderCodeLink();
   }
   renderCodeRecs(); buildCodePanel();
@@ -4791,6 +4887,11 @@ function renderCodeLink(){
     html+=`<div class="clblrow"><span class="clbl-g">Assist</span>`+
       crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA,sq.player,!curA)+`</div>`;
     }
+    // a TURNOVER: who lost the ball (the row's team) and who won it (the other team); a FOUL: who fouled (the row's
+    // team). Optional — never flagged, never focused: carry on tagging to leave them blank.
+    crRoleBoxes(sq).forEach(r=>{ const c=crRoleCur(sq, r);
+      html+=`<div class="clblrow"><span class="clbl-g">${CR_ROLE_NAME[r]}</span>`+
+        crAssistBoxHtml('code',r,sq._rowId,crSideOf(crRoleTeam(sq, r)),c?c.name:'','',false)+`</div>`; });
     // any other players:true group (Kickout Won By) — same box, never
     // flagged and never focused: carry on tagging to leave it blank
     (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
@@ -4834,6 +4935,88 @@ function codeShotPlayer(value){
   crBackup(); crUpdatePending(); renderList(); renderCodeLink();
 }
 function cohNameKeySafe(n){ return (typeof crNameKey==='function')?crNameKey(n||''):String(n||'').trim().toLowerCase(); }
+// ── TURNOVER and FOUL players: "Lost by" / "Won by" / "Fouled by" ─────────────
+// The same box as Shooter, on the panel after tagging a turnover or a foul, and the same roles in Edit.
+// NO new label groups: each player is saved under HIS OWN team's "<TEAM> Player Labels" group (the game's own
+// spelling — crPG), and his role is read from his team (cohesion-labels.js cohToRoles): on a "<TEAM> TOs" row the
+// row team's player LOST the ball and the other team's player WON it — the Sportscode files' own convention ("a
+// KERRY TOs row carries the Mayo player who won the ball") — and on a "<TEAM> FOUL" row the row team's player fouled.
+// THE ROW'S player / playerTeam (crRoleTidy):
+//   · a player of the ROW's team on it → he is the row's player; playerTeam is not set (his team is the row's, read
+//     from his group — exactly what tagging with a player chosen, or the Shooter box, writes);
+//   · only a player of the OTHER team on it → he is the row's player and playerTeam = his team (exactly what the
+//     Sportscode import and the Gaelic Insights conversion store for a turnover won);
+//   · nobody → player '' and no playerTeam.
+// The row team's player group is kept AHEAD of the other team's in the labels, and the XML export writes the row
+// player's group first (cohesion-xml.js), so a re-import — whose player is that of the first player group — gives
+// the same player back whatever order the database returns the keys in.
+const CR_LOST='@lostby', CR_WON='@wonby', CR_FOULER='@fouledby';
+const CR_ROLE_NAME={'@lostby':'Lost by', '@wonby':'Won by', '@fouledby':'Fouled by'};
+function crIsRole(g){ return Object.prototype.hasOwnProperty.call(CR_ROLE_NAME, String(g||'')); }
+// the boxes a row gets: a turnover (not a kickout row, not a SOURCE row) both, a foul (TECHNICAL FOUL too) one
+function crRoleBoxes(e){
+  if(!e||!e.team||typeof cohIsToRow!=='function') return [];
+  if(cohIsToRow(e)){ const t=cohToTeams(e, GAME); return [CR_LOST, CR_WON].filter(g=>(g===CR_LOST?t.loser:t.winner)); }
+  return cohIsFoulRow(e)?[CR_FOULER]:[];
+}
+function crRoleTeam(e, role){ const t=cohToTeams(e, GAME); return role===CR_WON?t.winner:role===CR_FOULER?String((e&&e.team)||'').toUpperCase():t.loser; }
+function crRoleList(e, role){ const T=crRoleTeam(e, role); return T?crEvPlayers(e).filter(p=>String(p.team||'').toUpperCase()===T):[]; }
+// the player a role's box shows: the row's own player when he has that role, else the last one tagged with it
+function crRoleCur(e, role){ const l=crRoleList(e, role); return l.find(p=>p.name===e.player)||l[l.length-1]||null; }
+// the role a player group stands for on this row ('' when it is neither team's group)
+function crRoleOfGroup(e, group){
+  const boxes=crRoleBoxes(e); if(!boxes.length) return '';
+  const T=cohPlayerGroupTeam(group, GAME)||String(e.team||'').toUpperCase();
+  return boxes.find(r=>crRoleTeam(e, r)===T)||'';
+}
+function crRoleTidy(e){
+  const own=String(e.team||'').toUpperCase(), ps=crEvPlayers(e).filter(p=>p.group);
+  const mine=ps.filter(p=>String(p.team||'').toUpperCase()===own), theirs=ps.filter(p=>String(p.team||'').toUpperCase()!==own);
+  const has=l=>l.some(p=>p.name===e.player);
+  if(mine.length){ if(!has(mine)) e.player=mine[mine.length-1].name; delete e.playerTeam; }
+  else if(theirs.length){ if(!has(theirs)) e.player=theirs[theirs.length-1].name;
+    const t=cohPlayerGroupTeam((theirs.find(p=>p.name===e.player)||theirs[0]).group, GAME); if(t) e.playerTeam=t; else delete e.playerTeam; }
+  else { e.player=''; delete e.playerTeam; }
+  // the row team's player group ahead of the other team's
+  const keys=Object.keys(e.labels||{}), pk=keys.filter(k=>cohIsPlayerGroup(k)), isOwn=k=>(cohPlayerGroupTeam(k, GAME)||own)===own;
+  const want=pk.filter(isOwn).concat(pk.filter(k=>!isOwn(k)));
+  if(want.join('\n')!==pk.join('\n')){ const L={}; let i=0; keys.forEach(k=>{ const w=cohIsPlayerGroup(k)?want[i++]:k; L[w]=e.labels[w]; }); e.labels=L; }
+}
+// Set, change or clear ONE role's player on an event; the other role's player is not touched.
+function crRoleSet(e, role, value){
+  const T=e&&crRoleTeam(e, role); if(!T) return false;
+  e.labels=e.labels||{};
+  // a row player held only in e.player (no label): he gets his group first, so he is not lost below
+  if(e.player&&!e.playerRow&&!Object.keys(e.labels).some(k=>cohIsPlayerGroup(k)&&cohLabelHas(e, k, e.player))){
+    const g0=crPG(String(e.playerTeam||e.team||'')); cohLabelSetValues(e, g0, cohLabelValues(e, g0).concat([e.player])); }
+  const cur=crRoleCur(e, role);
+  if(cur&&cur.group) cohLabelReplace(e, cur.group, cur.name, value||'');
+  else if(value){ const g=crPG(T); cohLabelSetValues(e, g, cohLabelValues(e, g).concat([value])); }
+  crRoleTidy(e);
+  return true;
+}
+// FREE AGAINST: Code Room logs the losing team's FOUL with the turnover (crToCompanions — "the team in possession
+// fouled"), so the player who lost the ball that way IS the one who fouled: that foul row follows the turnover's
+// "Lost by". A fouler set on the foul row itself (someone else) is left alone. No other companion is given a player.
+function crToFoulSync(row, was){
+  if(!row||typeof cohIsToRow!=='function'||!cohIsToRow(row)) return;
+  const loser=cohToTeams(row, GAME).loser, c0=crRoleCur(row, CR_LOST), name=c0?c0.name:'';
+  EVENTS.forEach(c=>{
+    if(!(c._shotComp&&String(c._shotComp)===String(row._rowId)&&cohIsFoulRow(c)&&String(c.team||'').toUpperCase()===loser)) return;
+    const cur=crRoleCur(c, CR_FOULER), cn=cur?cur.name:'';
+    if(cn===name||(cn&&cn!==(was||''))) return;
+    crRoleSet(c, CR_FOULER, name); if(!c._new) c._dirty=true;
+  });
+}
+function codeRowRole(group, value){
+  const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
+  if(!sq||!crIsRole(group)) return;
+  const old=crRoleCur(sq, CR_LOST), was=old?old.name:'';
+  if(!crRoleSet(sq, group, value)) return;
+  crToFoulSync(sq, was);
+  if(!sq._new) sq._dirty=true;
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList(); renderCodeLink();
+}
 function codeShotAssist(value, group){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
   if(!sq) return;
@@ -6863,6 +7046,7 @@ function crToCompanions(row, value){
   const fl={}; const loc=cohLabelVal(row,'Turnover Locations');
   if(loc) fl['Foul Areas']=loc;
   crPushCompanion(row,'FOUL',fl);
+  crToFoulSync(row, '');                          // the player who lost the ball by fouling is the fouler
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
 }

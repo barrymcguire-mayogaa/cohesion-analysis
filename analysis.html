@@ -4351,6 +4351,16 @@ function tvTypeName(t){ const d=SS_TO_TYPES.find(x=>x[0]===t); return d?d[1]:'No
 // Every in-play turnover of a game, both teams, in time order; cached per events array. The same rows and rules as
 // ssOverviewTally (which only counts them).
 // → {tos:[{e, i, gid, evTeam, loser, winner, type, raw (third in evTeam's view), t, tl, faFoul, player, follow}], srcTagged, srcUnmatched}
+// Who, by ROLE: each player on the row under HIS team (cohesion-labels.js cohEventPlayers) — the losing team's player
+// lost the ball, the winning team's player won it ("Lost by X · Won by Y"; one alone when only one is tagged). On the
+// foul row behind a Tracker free against, the fouling team's player is the one who lost it. '' when no player on the
+// row belongs to either team (the row's plain player is shown instead). Display only — nothing is counted from it.
+function tvWhoTxt(e, meta, loser, winner){
+  if(typeof cohEventPlayers!=='function') return '';
+  const lost=[], won=[];
+  cohEventPlayers(e, meta).forEach(p=>{ const t=ssUC(p.team), n=String(p.name||'').trim(); if(!n) return; if(t===loser){ if(!lost.includes(n)) lost.push(n); } else if(t===winner){ if(!won.includes(n)) won.push(n); } });
+  return (lost.length?['Lost by '+lost.join(', ')]:[]).concat(won.length?['Won by '+won.join(', ')]:[]).join(' · ');
+}
 const TV_CACHE=new WeakMap();
 function tvGameTos(meta, events){
   if(!meta||!Array.isArray(events)) return null;
@@ -4360,7 +4370,7 @@ function tvGameTos(meta, events){
   const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
   const skip=e=>giSup(e)||(typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e));
   const giShort=ssGiShortTurnovers(events, H, A), tos=[];
-  const mk=(e, i, evTeam, loser, type, raw, t, tl, faFoul)=>({e, i, gid:meta.id, evTeam, loser, winner:loser===H?A:H, type, raw:raw||null, t, tl, faFoul, player:ssShotPlayer(e), follow:null});
+  const mk=(e, i, evTeam, loser, type, raw, t, tl, faFoul)=>({e, i, gid:meta.id, evTeam, loser, winner:loser===H?A:H, type, raw:raw||null, t, tl, faFoul, player:ssShotPlayer(e), roles:tvWhoTxt(e, meta, loser, loser===H?A:H), follow:null});
   events.forEach((e,i)=>{
     if(!e||skip(e)||!ssIsTO(e)) return;
     const team=ssSideOf(e,H)?H:ssSideOf(e,A)?A:null; if(!team) return;
@@ -4538,10 +4548,10 @@ function tvLogHTML(R, V, o){
   h+='<div class="tv-tab" role="table" aria-label="Turnover log"><div class="tv-row tv-hd" role="row">'+['GAME','TIME','THIRD','TYPE','PLAYER','WHAT FOLLOWED',''].map(x=>`<div role="columnheader">${x}</div>`).join('')+'</div>'
     +V.rows.map((k,i)=>{ const m=R.gameOf.get(k.gid), clip=cpClip(k);
       return `<div class="tv-row" role="row" data-tv="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Time', ssEsc(ttClockTxt(k.e)))
-        +c('Third', ssEsc(tvThirdTxt(k.third)))+c('Type', `<i class="tv-dot" style="background:${TV_TYPE_COL[k.type]}"></i>`+ssEsc(tvTypeName(k.type)+(k.faFoul?' (foul)':'')))+c('Player', ssEsc(k.player||'–'))+c('What followed', ssEsc(tvFollowTxt(k)))
+        +c('Third', ssEsc(tvThirdTxt(k.third)))+c('Type', `<i class="tv-dot" style="background:${TV_TYPE_COL[k.type]}"></i>`+ssEsc(tvTypeName(k.type)+(k.faFoul?' (foul)':'')))+c('Player', ssEsc(k.roles||k.player||'–'))+c('What followed', ssEsc(tvFollowTxt(k)))
         +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="tv-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
         +(clip?`<button type="button" class="tt-btn pri" data-act="tv-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; }).join('')+'</div>';
-  return h+`<div class="dnote">${ssEsc('One row per in-play turnover '+res+' by '+T+', by game (oldest first), then time. The third is from '+T+'’s point of view; the player is the one tagged on the row. What followed = the shot / score of the team that won the ball whose tagged source is that turnover ('+(res==='won'?T+'’s':'the opposition’s')+'); a game with no source tags shows n/a. A free against marked (foul) comes from a Tracker foul row, and its clip is that foul.')}</div></details>`;
+  return h+`<div class="dnote">${ssEsc('One row per in-play turnover '+res+' by '+T+', by game (oldest first), then time. The third is from '+T+'’s point of view; the player is the one tagged on the row — who lost the ball and who won it, each from his team, when tagged. What followed = the shot / score of the team that won the ball whose tagged source is that turnover ('+(res==='won'?T+'’s':'the opposition’s')+'); a game with no source tags shows n/a. A free against marked (foul) comes from a Tracker foul row, and its clip is that foul.')}</div></details>`;
 }
 function tvResSecHTML(R, V, o){
   const b=(v,l)=>`<button type="button" data-tvf="res" data-tvv="${v}" class="${V.res===v?'on':''}" aria-pressed="${V.res===v?'true':'false'}">${l}</button>`;
@@ -5085,7 +5095,7 @@ function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
   if(kind==='to'){ const T=R?R.team:s.winner;   // a turnover (or the foul behind a Tracker free against), from the selected team's side
     return {title:'Turnover '+(s.won?'won':'lost')+' by '+T, sub:m?'v '+m.opp+' · '+date:'',
-      sum:[tvTypeName(s.type)+(s.faFoul?' (foul)':''), tvThirdTxt(s.third)].concat(s.player?[s.player]:[]).concat(when).join(' · ')}; }
+      sum:[tvTypeName(s.type)+(s.faFoul?' (foul)':''), tvThirdTxt(s.third)].concat((s.roles||s.player)?[s.roles||s.player]:[]).concat(when).join(' · ')}; }
   if(kind==='ko'||kind==='pko'){ const own=!!R&&s.team===R.team, kicker=own?R.team:(m?m.opp:s.team);
     return {title:kicker+' kickout', sub:m?'v '+(own?m.opp:R.team)+' · '+date:'',
       sum:[s.len?TK_LEN_NAME[s.len]+(s.dist!=null?' '+Math.round(s.dist)+' m':''):'Length n/a', s.zone==null?'Zone n/a':s.zone==='arc'?'Inside arc':'Zone '+s.zone, tkOutcomeTxt(s, own||!R?null:R.team)].concat(when).join(' · ')}; }
