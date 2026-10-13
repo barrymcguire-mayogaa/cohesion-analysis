@@ -3548,8 +3548,8 @@ function codePlayerList(side){
   const teamUC=side==='home'?(GAME.homeTeam||'').toUpperCase():(GAME.awayTeam||'').toUpperCase();
   const seen=new Set(), out=[];
   // every player tagged for this team — under HIS team (his label group), not the row's: the opposition player who won
-  // the ball on this team's TOs row is not one of this team's players
-  crSheetNames(side).concat(EVENTS.flatMap(e=>crEvPlayers(e).filter(p=>p.name&&String(p.team||'').toUpperCase()===teamUC).map(p=>p.name)))
+  // the ball on this team's TOs row is not one of this team's players (and the team sheets decide: crNotTheirs)
+  crSheetNames(side).concat(crNotTheirs(side, EVENTS.flatMap(e=>crEvPlayers(e).filter(p=>p.name&&String(p.team||'').toUpperCase()===teamUC).map(p=>p.name))))
     .forEach(n=>{ const k=crNameKey(n); if(k&&!seen.has(k)){ seen.add(k); out.push(crNameTidy(n)); } });
   out.sort();
   return window.cohTS?cohTS.sheetFirst(GAME, side, out):out;   // team-sheet players first (number order)
@@ -3613,6 +3613,13 @@ function crSheetNames(side, meta){
   return out;
 }
 function crOnSheet(side, name){ const k=crNameKey(name); return !!k&&crSheetNames(side).some(n=>crNameKey(n)===k); }
+// The team sheets decide whose player a name is: one that is on the OTHER team's sheet and not on this team's is left
+// out of this team's tagged names, whatever row or group a stray tag put him under.
+function crNotTheirs(side, names){
+  const k=n=>crNameKey(n).replace(/['‘’‛ʼ`´]/g,''), other=side==='home'?'away':'home';
+  let mine, theirs; try{ mine=new Set(crSheetNames(side).map(k)); theirs=new Set(crSheetNames(other).map(k)); }catch(_){ return names; }
+  return theirs.size?names.filter(n=>!theirs.has(k(n))||mine.has(k(n))):names;
+}
 // Names typed into an Assist box this session, per game + side.
 let crAssistTyped={};
 function crAssistTypedList(side){ return crAssistTyped[((GAME&&GAME.id)||'')+'|'+side]||[]; }
@@ -3636,7 +3643,7 @@ function crGameNames(side){
     Object.keys(L).forEach(k=>{ if(L[k]&&(k==='Assist'||k==='Kickout Taken By'||/^player (out|in)$/i.test(k))) out.push(L[k]); });
   });
   crAssistTypedList(side).forEach(n=>out.push(n));
-  return out.map(crNameTidy).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  return crNotTheirs(side, out.map(crNameTidy).filter(Boolean)).sort((a,b)=>a.localeCompare(b));
 }
 // Ordered, de-duplicated suggestions: {items:[name], tags:Map(name → group)}.
 // side: 'home' | 'away', or a list of sides (Kickout Won By: the winning
