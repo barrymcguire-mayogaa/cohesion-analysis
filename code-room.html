@@ -3668,6 +3668,7 @@ function crAssistCur(inp){
   const d=inp.dataset||{}, g=d.group||'Assist';
   if(d.where==='code'){
     const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
+    if(g===CR_SHOOTER) return (sq&&String(sq._rowId)===String(d.row))?(sq.player||''):null;
     return (sq&&String(sq._rowId)===String(d.row))?((sq.labels||{})[g]||''):null;
   }
   if(!draft||String(activeId)!==String(d.row)) return null;
@@ -3702,6 +3703,7 @@ function crAssistCommit(inp){
   }
   if(v===cur) return;
   if(v&&sides.length===1) crAssistRemember(sides[0], v);
+  if(d.where==='code'&&d.group===CR_SHOOTER){ codeShotPlayer(v); return; }
   if(d.where==='code'){ codeShotAssist(v, d.group||'Assist'); if(d.sub) crKprSubCheck(EVENTS.find(x=>String(x._rowId)===String(d.row))); }   // a SUB that takes off the keeper asks
   else { setDefinedLabel(d.group||'Assist', v); if(d.where==='loc') crLocRender(); }
 }
@@ -4781,6 +4783,10 @@ function renderCodeLink(){
         `</div>`;
     });
     if(isShot){
+    // the SHOOTER — the row's own player — in the same type-to-search box, so a shot tagged with no player chosen
+    // beforehand can be given its shooter here instead of re-selecting it in Edit (CR_SHOOTER: not a label group)
+    html+=`<div class="clblrow"><span class="clbl-g">Shooter</span>`+
+      crAssistBoxHtml('code',CR_SHOOTER,sq._rowId,crSideOf(sq.team),sq.player||'','',!sq.player)+`</div>`;
     const curA=(sq.labels||{})['Assist']||'';
     html+=`<div class="clblrow"><span class="clbl-g">Assist</span>`+
       crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA,sq.player,!curA)+`</div>`;
@@ -4813,6 +4819,21 @@ function codeShotQual(group,value){
   }
   crBackup(); crUpdatePending(); renderCodeLink();
 }
+// The shooter of the shot just tagged (Code mode's "Shooter" box): the row's player and his "<TEAM> Player Labels"
+// value, exactly as tagging with a player already chosen writes them. An empty value takes the player off.
+const CR_SHOOTER='@shooter';
+function codeShotPlayer(value){
+  const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
+  if(!sq) return;
+  sq.labels=sq.labels||{};
+  const g=crPG(sq.team), old=sq.player||'';
+  Object.keys(sq.labels).forEach(k=>{ if(cohIsPlayerGroup(k)&&sq.labels[k]===old&&old) delete sq.labels[k]; });   // the previous shooter's label, whichever spelling of the group held it
+  if(value){ sq.labels[g]=value; sq.player=value; } else { sq.player=''; }
+  delete sq.playerTeam;                                    // his team is the row's own team again (read from his group)
+  if(value&&cohNameKeySafe(sq.labels['Assist'])===cohNameKeySafe(value)) delete sq.labels['Assist'];   // a player does not assist his own shot
+  crBackup(); crUpdatePending(); renderList(); renderCodeLink();
+}
+function cohNameKeySafe(n){ return (typeof crNameKey==='function')?crNameKey(n||''):String(n||'').trim().toLowerCase(); }
 function codeShotAssist(value, group){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
   if(!sq) return;
