@@ -207,6 +207,10 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
 .ps-src .ps-sh{color:var(--t3);}
 .ps-few b{font-size:13px;font-weight:400;color:var(--t3);} .ps-few em{flex:1 1 100%;font-style:normal;font-size:.68rem;color:var(--t3);}
 .ps-ni .pd-gn b{font-weight:400;color:var(--t2);}
+.ps-grp{border-bottom-color:transparent;padding-bottom:4px;}
+.ps-sub{padding-top:5px;padding-bottom:5px;border-bottom-color:transparent;} .ps-sub+.ps-r:not(.ps-sub){border-top:1px solid var(--border);}
+.ps-sub .pd-gn{padding-left:12px;border-left:2px solid var(--border);} .ps-sub .pd-gn b{font-size:13.5px;font-weight:500;color:var(--t2);} .ps-sub .pd-gn small{display:block;line-height:1.25;}
+.ps-sub .pd-gv b{font-size:15px;} .ps-sub.pd-g .ps-few b{font-size:12.5px;}
 .ps-tot{border-top:2px solid var(--border);border-bottom:0;} .ps-tot .pd-gn b{font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;font-size:13px;color:var(--accent);}
 .ov-prod>.dnote+.dnote{margin-top:4px;}
 @media (max-width:1100px){
@@ -231,6 +235,7 @@ body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=t
   .ov-prod{padding:12px;} .pd-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;} .pd-kpis .kpi:last-child{grid-column:1 / -1;}
   .pd-g{gap:4px 10px;} .pd-gn b{font-size:13.5px;} .pd-gv b{font-size:15px;} .pd-gv span{font-size:.68rem;}
   .ps-few b{font-size:12px;} .ps-tot .pd-gn b{font-size:12px;}
+  .ps-sub .pd-gn{padding-left:7px;} .ps-sub .pd-gn b{font-size:12.5px;} .ps-sub .pd-gn small{font-size:.66rem;} .ps-sub .pd-gv b{font-size:13.5px;} .ps-sub.pd-g .ps-few b{font-size:11.5px;}
 }
 /* ── MATCH REPORTS ── */
 #mrStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
@@ -1664,6 +1669,10 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   const PS=ssPossSources(events, T, O, skip), ps=PS&&PS[T];
   if(ps){ SS_SRC_CATS.forEach(c=>g['psN:'+c.k]=ps.by[c.k]||0);
     g.psNI=ps.ni; g.psRows=ps.n; g.psLabel=ps.label; g.psTag=ps.tag; g.psStart=ps.start; g.psBoth=ps.both; g.psAgree=ps.agree; }
+  // forced v unforced, GAME-wide (both sides: how the turnover rows were written is a property of the file) — SS_PSTO_*
+  { const po=PS&&PS[O], n=k=>(ps?ps[k]:0)+(po?po[k]:0);
+    g.psFuBoth=n('fuBoth'); g.psFuAgree=n('fuAgree'); g.psFuStart=n('fuStart');
+    g.psToOk=(g.psFuStart===0||(g.psFuBoth>=SS_PSTO_MIN_BOTH&&g.psFuAgree>=SS_PSTO_MIN_AGREE*g.psFuBoth))?1:0; }
   g.psPtsNI=g.pts-g.srcPtsTagged;                      // points whose score carries no source
   g.psOk=(g.possCount>0&&g.psRows===g.possCount
     &&g.psNI<=SS_PSRC_MAX_NI*g.possCount
@@ -1706,7 +1715,9 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
 //  decides it, so the event is used up and the two readings can be compared
 //  (psBoth / psAgree: the evidence that rule 3 can be trusted).
 //  → {H:{…}, A:{…}} per team: n (= possession rows), by {cat: count}, ni,
-//    label / tag / start (how many each rule decided), both, agree, list[]
+//    label / tag / start (how many each rule decided), both, agree, list[];
+//    fuBoth / fuAgree (possessions whose own tag AND start event both say forced or unforced; how many say the same
+//    one), fuStart (possessions whose forced / unforced comes from the start event alone) — see SS_PSTO_*
 // ═══════════════════════════════════════════════════════════════
 const SS_PSRC_TOL=2;    // seconds an event may start AFTER the possession row does
 const SS_PSRC_LAG=10;   // seconds between the event's end and the possession's start (7 real club games: the event's span contains the start for 468 of 493 matched possessions; the rest follow it by 1 – 8 s, mostly a shot attempt gathered)
@@ -1735,6 +1746,36 @@ function ssPsRowOf(cat){ const r=SS_PSRC_ROWS.find(x=>x.cats.includes(cat)); ret
 // game and withholds a game whose coding cannot carry the split (e.g. possession rows with no source rows and no
 // turnover / kickout rows around them). A withheld game is counted in the note, never shown in part.
 const SS_PSRC_MAX_NI=0.10, SS_PSRC_MIN_AGREE=0.80, SS_PSRC_MIN_BOTH=10;
+// THE TURNOVER ROW'S PARTS (shown indented under it; they sum to it exactly): the existing categories, one each.
+//  FTO  Forced turnover   — the side won the ball by pressure        (Tracker "Forced Turnover")
+//  UTO  Unforced turnover — the other side's own mistake gave it away (Tracker "Unforced Turnover" and "Handling":
+//       MD_TO_TYPES gives Handling the source U/TO, and a HANDLING turnover row is read the same way here)
+//  FREE Free won          — Tracker "Free Against" (a "<TEAM> FOUL" row tagged FREE AGAINST, or a FREE AGAINST turnover row)
+//  TO   Type not recorded — a GIU possession ("Turnover"), a turnover row with no type, and SEE BELOW
+//  (Kickout Lost → the OPPOSITION KICKOUT row and Shot Attempt → BALL RECOVERED: neither is in the Turnover row.)
+// WHEN FORCED v UNFORCED IS SHOWN FOR A GAME (g.psToOk, the same for both sides). A possession's own SCORE / SHOT
+// SOURCE tag is the source the tagger chose. A possession with no shot has only its start event, and the Tracker's
+// export writes a turnover row that has NO recorded type as FORCED when the possession that LOST the ball itself came
+// from a forced turnover and UNFORCED otherwise (gaa-score-tracker.html, "TURNOVER / FREE AGAINST": e.toType missing →
+// e.source==='F/TO'?…) — a label that says nothing about this turnover. Nothing on the row tells the two apart, so the
+// game is tested: over the possessions of BOTH sides that carry an own tag AND a turnover-row start event, each saying
+// forced or unforced, the two must say the same for at least SS_PSTO_MIN_AGREE of at least SS_PSTO_MIN_BOTH. (A game
+// in which no possession takes forced / unforced from a start event passes: nothing rests on the rows.)
+// The 7 real club games: Knockmore v Béal an Mhuirthead 6 of 14 the same (43 %; its turnover rows are 22 UNFORCED, 3
+// FORCED and no HANDLING / FREE AGAINST — the fallback's signature) → fails; the other six 14/14, 11/12, 9/9, 23/23,
+// 13/14, 10/10 (80 of 82, 98 %) → pass. At the failing game's rate, 7 of 8 agreeing by chance is about 1 in 70.
+// In a game that fails, ALL its forced and unforced ball (possessions AND points, tagged ones too) goes to "Type not
+// recorded": keeping only the tagged possessions would keep only those that ended in a shot, and a productivity
+// figure from those alone would be inflated. Free won does not depend on the turnover type and stays.
+const SS_PSTO_MIN_BOTH=8, SS_PSTO_MIN_AGREE=0.80;
+const SS_PSRC_TO_PARTS=[
+  {k:'FTO',  label:'Forced turnover',   sub:'won by pressure'},
+  {k:'UTO',  label:'Unforced turnover', sub:'the other side\'s own mistake'},
+  {k:'FREE', label:'Free won',          sub:''},
+  {k:'TO',   label:'Type not recorded', sub:'', extra:true}];
+// one tally's count for a part: prefix 'psN:' (possessions) or 'srcP:' (points)
+function ssPsToPart(t, k, prefix){ const v=c=>t[prefix+c]||0;
+  return (k==='FTO'||k==='UTO')?(t.psToOk?v(k):0):k==='TO'?v('TO')+(t.psToOk?0:v('FTO')+v('UTO')):v(k); }
 function ssIsThrowIn(e){ const c=ssUC(e&&e.code); return /THROW[\s-]*(IN|UP)|HOP BALL/.test(c)&&!/SOURCE/.test(c); }
 function ssPossSources(events, H, A, skip){
   if(!Array.isArray(events)) return null;
@@ -1771,13 +1812,16 @@ function ssPossSources(events, H, A, skip){
       for(let j=k-1;j>=0&&poss[j].s>c.en;j--){ if(poss[j].s<q.s) return; }   // another possession began after the event ended
       if(!best||gap<bg||(gap===bg&&(c.ko>best.ko||(c.ko===best.ko&&c.s>best.s)))){ best=c; bg=gap; } });
     if(best){ best.used=true; q.start=best.cat; q.ev=best.e; q.gap=bg; } });
-  const mk=()=>({n:0, by:{}, ni:0, label:0, tag:0, start:0, both:0, agree:0, mixed:0, list:[]});
+  const mk=()=>({n:0, by:{}, ni:0, label:0, tag:0, start:0, both:0, agree:0, mixed:0, fuBoth:0, fuAgree:0, fuStart:0, list:[]});
+  const isFU=c=>c==='FTO'||c==='UTO';
   const v={}; v[H]=mk(); v[A]=mk();
   poss.forEach(q=>{ const o=v[q.team], lab=ssSrcCat(ssLblCI(q.e,['PossFrom']));
     if(lab){ q.cat=lab; q.how='label'; o.label++; }
     else if(q.tag){ q.cat=q.tag; q.how='tag'; o.tag++; }
     else if(q.start){ q.cat=q.start; q.how='start'; o.start++; }
-    if((lab||q.tag)&&q.start){ o.both++; if(ssPsRowOf(lab||q.tag)===ssPsRowOf(q.start)) o.agree++; }
+    if((lab||q.tag)&&q.start){ o.both++; if(ssPsRowOf(lab||q.tag)===ssPsRowOf(q.start)) o.agree++;
+      if(isFU(lab||q.tag)&&isFU(q.start)){ o.fuBoth++; if((lab||q.tag)===q.start) o.fuAgree++; } }   // forced v unforced: own tag v the turnover row
+    if(q.how==='start'&&isFU(q.cat)) o.fuStart++;
     if(q.tagMixed) o.mixed++;
     o.n++; if(q.cat) o.by[q.cat]=(o.by[q.cat]||0)+1; else o.ni++;
     o.list.push(q); });
@@ -2581,10 +2625,11 @@ function ovProductivity(used, T){
 // and of the score (the existing 'srcP:' tallies). A game is in the split only when the team's side passes g.psOk AND
 // the opposition's side does too (or has no possession rows there): a game is shown whole or not at all. So with every
 // Productivity game in the split the TOTAL row is the block's headline figures exactly (totalIsHeadline).
-// A source with fewer than SS_PSRC_FEW possessions keeps its counts, but its "per 10 possessions" figure would be an
-// extrapolation beyond the sample: it is flagged few (drawn small and grey, no bar, left out of the bar scale).
-// data:false → no table at all.
-const SS_PSRC_FEW=10;
+// A source with fewer than SS_PSRC_FEW possessions keeps its counts, but one score swings its "per 10 possessions"
+// figure too far (1 point from 4 possessions = 2.50, a goal = 7.50): it is flagged few (drawn small and grey, no bar,
+// left out of the bar scale). The Turnover row carries its parts (SS_PSRC_TO_PARTS), under the same floor.
+// data:false → no table (withheld>0 with it: every game's split is withheld — a one-line message instead).
+const SS_PSRC_FEW=5;
 function ovProdSource(used){
   const prod=(used||[]).filter(r=>r.tT&&r.tO&&r.tT.possCount>0);
   const inS=prod.filter(r=>r.tT.psOk&&(r.tO.possCount===0||r.tO.psOk)), oppS=inS.filter(r=>r.tO.possCount>0);
@@ -2595,14 +2640,27 @@ function ovProdSource(used){
     const all=sum(list, side, t=>t.possCount);
     return {poss, pts, v:ovProdVal(pts, poss), share:all>0?poss/all*100:null, few:poss>0&&poss<SS_PSRC_FEW}; };
   const tot=(list, side)=>{ if(!list.length) return null; const pts=sum(list, side, t=>t.pts), poss=sum(list, side, t=>t.possCount); return {pts, poss, v:ovProdVal(pts, poss)}; };
+  const mkc=(list, side, poss, pts)=>{ const all=sum(list, side, t=>t.possCount); return {poss, pts, v:ovProdVal(pts, poss), share:all>0?poss/all*100:null, few:poss>0&&poss<SS_PSRC_FEW}; };
+  const pcell=(list, side, k)=>list.length?mkc(list, side, sum(list, side, t=>ssPsToPart(t, k, 'psN:')), sum(list, side, t=>ssPsToPart(t, k, 'srcP:'))):null;
+  const some=r=>[r.team, r.opposition].some(c=>c&&(c.poss>0||c.pts>0));
   const rows=SS_PSRC_ROWS.map(row=>({k:row.k, label:row.label, extra:!!row.extra, team:cell(inS,'tT',row), opposition:cell(oppS,'tO',row)}))
-    .filter(r=>!r.extra||[r.team, r.opposition].some(c=>c&&(c.poss>0||c.pts>0)));
+    .filter(r=>!r.extra||some(r));
+  // the Turnover row's parts: Type not recorded only when it holds something; the three typed parts unless none holds anything
+  const turn=rows.find(r=>r.k==='TURN');
+  if(turn){ const ps=SS_PSRC_TO_PARTS.map(p=>({k:p.k, label:p.label, sub:p.sub, extra:!!p.extra, team:pcell(inS,'tT',p.k), opposition:pcell(oppS,'tO',p.k)}));
+    const typed=ps.some(p=>!p.extra&&some(p));
+    turn.parts=ps.filter(p=>p.extra?some(p):typed); }
+  const partSums=!turn||['team','opposition'].every(side=>{ const t=turn[side]; return !t||(turn.parts.reduce((a,p)=>a+p[side].poss,0)===t.poss&&turn.parts.reduce((a,p)=>a+p[side].pts,0)===t.pts); });
+  // forced v unforced: which games carry it (game-wide evidence, read once per game from the team's tally)
+  const hasFU=r=>['tT','tO'].some(s=>['psN:FTO','psN:UTO','srcP:FTO','srcP:UTO'].some(k=>r[s][k]>0));
+  const fuY=inS.filter(r=>hasFU(r)&&r.tT.psToOk), fuN=inS.filter(r=>hasFU(r)&&!r.tT.psToOk), ev=l=>({both:sum(l,'tT',t=>t.psFuBoth), agree:sum(l,'tT',t=>t.psFuAgree)});
+  const to={typed:fuY.length, held:fuN.length, none:inS.length-fuY.length-fuN.length, evTyped:ev(fuY), evHeld:ev(fuN)};
   const total={team:tot(inS,'tT'), opposition:tot(oppS,'tO')};
   const how=k=>sum(inS,'tT',t=>t[k])+sum(oppS,'tO',t=>t[k]);
-  let hi=0; rows.forEach(r=>[r.team, r.opposition].forEach(c=>{ if(c&&c.v!=null&&!c.few) hi=Math.max(hi, c.v); }));
+  let hi=0; rows.concat(turn?turn.parts:[]).forEach(r=>[r.team, r.opposition].forEach(c=>{ if(c&&c.v!=null&&!c.few) hi=Math.max(hi, c.v); }));
   const chk=side=>{ const t=total[side]; return !t||(rows.reduce((a,r)=>a+r[side].poss,0)===t.poss&&rows.reduce((a,r)=>a+r[side].pts,0)===t.pts); };
   return {data:inS.length>0, games:inS.length, prodGames:prod.length, withheld:prod.length-inS.length, oppGames:oppS.length,
-    ids:inS.map(r=>r.g&&r.g.id), rows, total, hi, sums:chk('team')&&chk('opposition'),
+    ids:inS.map(r=>r.g&&r.g.id), rows, total, hi, sums:chk('team')&&chk('opposition'), partSums, to,
     possGiu:sum(inS,'tT',t=>t.srcPossGames||0), how:{label:how('psLabel'), tag:how('psTag'), start:how('psStart'), ni:how('psNI')}};
 }
 // Everything the Overview shows for team T. `games` = the filtered, ticked
@@ -2715,7 +2773,9 @@ function ovProdTxt(v){ return v==null?'n/a':v.toFixed(2); }
 function ovProdWork(s){ return s.pts+' point'+(s.pts===1?'':'s')+' from '+s.poss+' possession'+(s.poss===1?'':'s'); }
 // The split table under the game list. '' when no selected game supports it (P.src.data false).
 function ovProdSrcHTML(P, T){
-  const S=P&&P.src; if(!S||!S.data) return '';
+  const S=P&&P.src; if(!S) return '';
+  // every game that has possession rows is withheld: say so (no possession rows at all → P.data is false and nothing is drawn)
+  if(!S.data) return S.withheld>0?`<h3 class="ps-h">BY WHERE THE BALL CAME FROM</h3><div class="dnote ps-note ps-na">Source split not available for ${S.prodGames===1?'this game':'these games'} — too many possessions could not be traced to how they started.</div>`:'';
   const pl=(n,w)=>n+' '+w+(n===1?'':'s'), part=S.games<P.games;
   const cellv=(c, cls)=>{ if(!c) return `<div class="pd-gv${cls}" role="cell"><b class="na">n/a</b><span>no possession rows</span></div>`;
     const cnt=`<span>${c.pts} ${c.pts===1?'pt':'pts'} · ${c.poss} poss</span><span class="ps-sh">${c.share==null?'–':Math.round(c.share)+'%'} of poss</span>`;
@@ -2724,7 +2784,8 @@ function ovProdSrcHTML(P, T){
     return `<div class="pd-gv${cls}" role="cell"><b>${ovProdTxt(c.v)}</b>${cnt}<div class="tt-bar"><i style="width:${S.hi>0?Math.max(0,Math.min(100,c.v/S.hi*100)).toFixed(1):0}%"></i></div></div>`; };
   const tot=(t, cls)=>`<div class="pd-gv${cls}" role="cell">`+(t?`<b>${ovProdTxt(t.v)}</b><span>${t.pts} pts · ${t.poss} poss</span>`:'<b class="na">n/a</b><span>no possession rows</span>')+'</div>';
   let h=`<h3 class="ps-h">BY WHERE THE BALL CAME FROM</h3><div class="pd-games ps-src" role="table" aria-label="Productivity by where the ball came from"><div class="ps-r pd-g pd-hd" role="row"><div role="columnheader">SOURCE</div><div role="columnheader">${ssEsc(T)}</div><div role="columnheader">OPPOSITION</div></div>`
-    +S.rows.map(r=>`<div class="ps-r pd-g${r.k==='NI'?' ps-ni':''}" role="row" data-src="${r.k}"><div class="pd-gn" role="cell"><b>${ssEsc(r.label)}</b></div>${cellv(r.team,'')}${cellv(r.opposition,' opp')}</div>`).join('')
+    +S.rows.map(r=>`<div class="ps-r pd-g${r.k==='NI'?' ps-ni':''}${r.parts&&r.parts.length?' ps-grp':''}" role="row" data-src="${r.k}"><div class="pd-gn" role="cell"><b>${ssEsc(r.label)}</b></div>${cellv(r.team,'')}${cellv(r.opposition,' opp')}</div>`
+      +(r.parts||[]).map(p=>`<div class="ps-r pd-g ps-sub" role="row" data-src="${r.k}:${p.k}"><div class="pd-gn" role="cell"><b>${ssEsc(p.label)}</b>${p.sub?`<small>${ssEsc(p.sub)}</small>`:''}</div>${cellv(p.team,'')}${cellv(p.opposition,' opp')}</div>`).join('')).join('')
     +`<div class="ps-r pd-g ps-tot" role="row" data-src="TOTAL"><div class="pd-gn" role="cell"><b>${part?'Total of these games':'All sources'}</b></div>${tot(S.total.team,'')}${tot(S.total.opposition,' opp')}</div></div>`;
   const hw=S.how, nAll=hw.label+hw.tag+hw.start+hw.ni;
   const note='Source split: '+ovFromNote(S.games, P.n)
@@ -2735,9 +2796,16 @@ function ovProdSrcHTML(P, T){
   const how='How a possession gets its source: the source tagged on its own shots'+(hw.label?' or on the possession row itself (GIU)':'')+'; one with no shot takes the event that started it (a kickout won, a turnover, free or shot attempt won from the other side, or a throw-in); with neither it is "not identified", never shared out.'
     +' Here: '+(hw.label?hw.label+' by the row\'s own label, ':'')+hw.tag+' by their own tag, '+hw.start+' by the start event, '+hw.ni+' not identified, of '+pl(nAll,'possession')+' (both sides).'
     +' Points go to the source tagged on each score'+(S.possGiu?' (GIU: the source of the possession the shot falls in)':'')+'; a score with no source is in "Not identified".'
-    +' Turnover = forced, unforced and free-won ball; Ball recovered = a shot attempt gathered by the other side.'
-    +' A figure from fewer than '+SS_PSRC_FEW+' possessions is shown small and grey: too few to read as a rate, and is left off the bars. Bars share one scale.';
-  return h+`<div class="dnote ps-note">${ssEsc(note)}.</div><div class="dnote ps-how">${ssEsc(how)}</div>`;
+    +' Ball recovered = a shot attempt gathered by the other side.';
+  const F=SS_PSRC_FEW, f2=v=>ovProdTxt(ovProdVal(v, F-1));
+  const read='Productivity is points per 10 possessions. A row with fewer than '+F+' possessions is shown in grey without a bar, because one score would swing it too far: one point from '+(F-1)+' possessions already reads '+f2(1)+', a goal reads '+f2(3)+'.'
+    +' Rows with '+F+' to 9 possessions are shown, but read them with their counts — the points and possessions sit beside every figure. Bars share one scale.';
+  const tp=S.to, evt=e=>e.agree+' of '+e.both;
+  const turn=!S.rows.some(r=>r.parts&&r.parts.length)?'':'Turnover is every turnover; the indented rows are its parts and add up to it. Each column is the ball that side won, so the OPPOSITION column\'s Unforced row is ball '+T+'\'s own mistakes gave away.'
+    +' Forced and unforced are only separated in a game where the turnover rows have been checked against the source the tagger chose on the shots and the two agree; all other turnover ball is under "Type not recorded".'
+    +' Here: '+(tp.typed+tp.held?'separated in '+tp.typed+' of '+pl(tp.typed+tp.held,'game')+(tp.typed&&tp.evTyped.both?' (the two agree for '+evt(tp.evTyped)+' possessions that have both)':'')+(tp.held?'; not in '+tp.held+' (there they agree for '+evt(tp.evHeld)+'; at least '+SS_PSTO_MIN_BOTH+' to compare and '+Math.round(SS_PSTO_MIN_AGREE*100)+'% the same are needed)':''):'')
+    +(tp.none?(tp.typed+tp.held?'; ':'')+pl(tp.none,'game')+' with no turnover type recorded':'')+'.';
+  return h+`<div class="dnote ps-read">${ssEsc(read)}</div>`+(turn?`<div class="dnote ps-turn">${ssEsc(turn)}</div>`:'')+`<div class="dnote ps-note">${ssEsc(note)}.</div><div class="dnote ps-how">${ssEsc(how)}</div>`;
 }
 function ovProdHTML(P, T){
   if(!P||!P.data) return '';
