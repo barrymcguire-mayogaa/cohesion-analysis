@@ -5168,16 +5168,19 @@ function cohNameKeySafe(n){ return (typeof crNameKey==='function')?crNameKey(n||
 // The row team's player group is kept AHEAD of the other team's in the labels, and the XML export writes the row
 // player's group first (cohesion-xml.js), so a re-import — whose player is that of the first player group — gives
 // the same player back whatever order the database returns the keys in.
-const CR_LOST='@lostby', CR_WON='@wonby', CR_FOULER='@fouledby';
-const CR_ROLE_NAME={'@lostby':'Lost by', '@wonby':'Won by', '@fouledby':'Fouled by'};
+const CR_LOST='@lostby', CR_WON='@wonby', CR_FOULER='@fouledby', CR_CARDED='@carded';
+const CR_ROLE_NAME={'@lostby':'Lost by', '@wonby':'Won by', '@fouledby':'Fouled by', '@carded':'Booked'};
+// a "<TEAM> CARD" row: the row team's player was carded (saved under his own "<TEAM> Player Labels", as the Tracker writes it)
+function crIsCardRow(e){ const c=String((e&&e.code)||''); return /\bCARDS?\b/i.test(c)&&!/SOURCE|ASSIST/i.test(c); }
 function crIsRole(g){ return Object.prototype.hasOwnProperty.call(CR_ROLE_NAME, String(g||'')); }
-// the boxes a row gets: a turnover (not a kickout row, not a SOURCE row) both, a foul (TECHNICAL FOUL too) one
+// the boxes a row gets: a turnover (not a kickout row, not a SOURCE row) both, a foul (TECHNICAL FOUL too) one, a card one
 function crRoleBoxes(e){
   if(!e||!e.team||typeof cohIsToRow!=='function') return [];
   if(cohIsToRow(e)){ const t=cohToTeams(e, GAME); return [CR_LOST, CR_WON].filter(g=>(g===CR_LOST?t.loser:t.winner)); }
-  return cohIsFoulRow(e)?[CR_FOULER]:[];
+  if(cohIsFoulRow(e)) return [CR_FOULER];
+  return crIsCardRow(e)?[CR_CARDED]:[];
 }
-function crRoleTeam(e, role){ const t=cohToTeams(e, GAME); return role===CR_WON?t.winner:role===CR_FOULER?String((e&&e.team)||'').toUpperCase():t.loser; }
+function crRoleTeam(e, role){ const t=cohToTeams(e, GAME); return role===CR_WON?t.winner:(role===CR_FOULER||role===CR_CARDED)?String((e&&e.team)||'').toUpperCase():t.loser; }
 function crRoleList(e, role){ const T=crRoleTeam(e, role); return T?crEvPlayers(e).filter(p=>String(p.team||'').toUpperCase()===T):[]; }
 // the player a role's box shows: the row's own player when he has that role, else the last one tagged with it
 function crRoleCur(e, role){ const l=crRoleList(e, role); return l.find(p=>p.name===e.player)||l[l.length-1]||null; }
