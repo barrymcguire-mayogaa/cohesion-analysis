@@ -666,7 +666,7 @@ async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowSel=[]; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
   try{
@@ -739,7 +739,7 @@ async function startLocalSession(){
          localUrl:URL.createObjectURL(file) };
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
-  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
+  crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowSel=[]; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
@@ -1326,6 +1326,7 @@ function renderList(){
 // track space to seek the video. Editing on the timeline arrives in Phase 2.
 let crView='list', crTLZ=1, crTLO=0, crTLInit=false, crLastDrawT=-1, crSeekLast=0, crSyncOn=false;
 let crRowOrder=[], crExtraRows=[], crActiveRow=null, crRowsLoaded=false, crSel=[], crBox=null;
+let crRowSel=[];   // timeline rows selected together (Shift / Cmd-click a row name) — dragged as one block
 let CR_LW=(()=>{ try{ const v=+localStorage.getItem('cr_lw'); return (v>=60&&v<=420)?v:150; }catch(_){ return 150; } })();
 const CR_ROWH=26, CR_RULER=22;
 function crDur(){ let d=(YTP&&YTP.getDuration&&YTP.getDuration())||0; if(!d){ d=Math.max(300,...EVENTS.map(e=>e.driveT||0))+60; } return Math.max(60,d); }
@@ -2162,14 +2163,16 @@ function crInitTL(){
     if(y<CR_RULER){ crDown={x}; return; }                       // ruler → seek on release
     if(x<CR_LW){                                                 // label gutter → drag to reorder, click to select
       const rows=crRows(crFiltered()), ri=Math.floor((y-CR_RULER)/CR_ROWH);
-      if(ri>=0&&ri<rows.length){ crRowDrag={from:ri,to:ri,moved:false}; document.body.style.userSelect='none'; e.preventDefault(); }
-      else { crActiveRow=null; crDrawTL(); }
+      if(ri>=0&&ri<rows.length){
+        if(e.shiftKey||e.metaKey||e.ctrlKey){ crRowSelClick(rows, rows[ri], e.shiftKey?'range':'toggle'); e.preventDefault(); return; }
+        crRowDrag={from:ri,to:ri,moved:false,cy:e.clientY}; document.body.style.userSelect='none'; e.preventDefault(); crEdgeStart(); }
+      else { crActiveRow=null; crRowSel=[]; crDrawTL(); }
       return;
     }
     const hit=crHitAt(x,y);
     if(hit && e.shiftKey){ crToggleSel(hit.ev._rowId); return; }                // shift-click = add/remove from selection
     if(hit && crSyncOn){ crSel=[]; pick(hit.ev._rowId); crDrawTL(); return; }   // Sync Mode: click a bar = set reference (clears any group)
-    if(hit){ crSel=[]; let ev=hit.ev; let dup=false;
+    if(hit){ crSel=[]; crRowSel=[]; let ev=hit.ev; let dup=false;
       // Option/Alt-drag = duplicate: a copy is created and dragged, the
       // original stays put. Drop it on another row to give it that code.
       if(e.altKey && hit.mode==='move'){
@@ -2219,13 +2222,10 @@ function crInitTL(){
       CR_LW=Math.max(60,Math.min(420,e.clientX-r.left));
       crDrawTL(); return;
     }
-    if(crRowDrag){ const rr=c.getBoundingClientRect(), rows=crRows(crFiltered());
-      const ri=Math.max(0,Math.min(rows.length-1,Math.floor(((e.clientY-rr.top)-CR_RULER)/CR_ROWH)));
-      if(ri!==crRowDrag.to){ crRowDrag.to=ri; crRowDrag.moved=true; crDrawTL(); }
-      else if(ri!==crRowDrag.from) crRowDrag.moved=true;
-      return; }
+    if(crRowDrag){ crRowDrag.cy=e.clientY; crRowDragAt(e.clientY); crEdgeStart(); return; }
     if(crBox){ const rr=c.getBoundingClientRect(); crBox.x1=e.clientX-rr.left; crBox.y1=e.clientY-rr.top; if(Math.abs(crBox.x1-crBox.x0)>3||Math.abs(crBox.y1-crBox.y0)>3) crBox.moved=true; crDrawTL(); return; }
     if(!crDrag) return;
+    crDrag.cy=e.clientY; if(crDrag.mode==='move') crEdgeStart();   // near the box's top / bottom edge the rows scroll
     const g=crGeom(), x=relX(e), dt=((x-crDrag.startX)/g.plotW)*g.vD;
     if(Math.abs(x-crDrag.startX)>6) crDrag.moved=true;   // jittery trackpad clicks still SELECT
     crApplyDrag(crDrag, dt);
@@ -2253,8 +2253,8 @@ function crInitTL(){
     }
     if(crRowDrag){ const d=crRowDrag; crRowDrag=null; document.body.style.userSelect='';
       const rows=crRows(crFiltered());
-      if(d.moved && d.to!==d.from){ const arr=rows.slice(); const [mv]=arr.splice(d.from,1); arr.splice(d.to,0,mv); crRowOrder=arr; crRowsSave(); }
-      else if(rows[d.from]){ crActiveRow=rows[d.from]; crSelectRow(rows[d.from]); return; }
+      if(d.moved && d.to!==d.from){ const nw=crRowsMoved(rows, d); if(nw){ crRowOrder=nw.order; crRowSel=nw.block.length>1?nw.block:[]; crActiveRow=rows[d.from]; crRowsSave(); } }
+      else if(rows[d.from]){ crActiveRow=rows[d.from]; crRowSel=[]; crSelectRow(rows[d.from]); return; }
       crDrawTL(); return; }
     if(crDrag){ crCommitDrag(crDrag); crDrag=null; document.body.style.userSelect=''; return; }
     if(crBox){ const box=crBox; crBox=null; document.body.style.userSelect='';
@@ -2262,7 +2262,7 @@ function crInitTL(){
       else {
         const now=Date.now();   // double-tap empty track = create event (touch dblclick)
         if(e.pointerType!=='mouse'&&crLastTap&&now-crLastTap.t<350&&Math.abs(box.x0-crLastTap.x)<25&&Math.abs(box.y0-crLastTap.y)<25){ crLastTap=null; crDblAt(box.x0,box.y0); }
-        else { crLastTap={t:now,x:box.x0,y:box.y0}; crDeselect(); const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
+        else { crLastTap={t:now,x:box.x0,y:box.y0}; crRowSel=[]; crDeselect(); const g=crGeom(); vSeekDrive(g.tOf(box.x0)); }
       }
       crDrawTL(); return;
     }
@@ -2334,7 +2334,7 @@ function crDrawTL(){
   const plotW=cssW-CR_LW, dur=crDur(), vD=dur/crTLZ, vE=crTLO+vD, xF=t=>CR_LW+((t-crTLO)/vD)*plotW;
   ctx.fillStyle=dark?'#15151c':'#f4f3f1'; ctx.fillRect(0,0,cssW,cssH);
   rows.forEach((code,i)=>{
-    const y=CR_RULER+i*CR_ROWH, isActive=code===crActiveRow;
+    const y=CR_RULER+i*CR_ROWH, isActive=code===crActiveRow||crRowSel.includes(code);
     if(i%2){ ctx.fillStyle=dark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)'; ctx.fillRect(CR_LW,y,plotW,CR_ROWH); }
     if(isActive){ ctx.fillStyle=dark?'rgba(79,195,247,0.10)':'rgba(3,105,161,0.08)'; ctx.fillRect(CR_LW,y,plotW,CR_ROWH); }
     ctx.fillStyle=isActive?(dark?'#143240':'#dbeafe'):(dark?'#101018':'#ecebe9'); ctx.fillRect(0,y,CR_LW,CR_ROWH);
@@ -2383,9 +2383,12 @@ function crDrawTL(){
     ctx.globalAlpha=1;
   });
   if(crRowDrag&&crRowDrag.moved){
-    const iy=CR_RULER+crRowDrag.to*CR_ROWH;
-    ctx.fillStyle='rgba(79,195,247,0.14)'; ctx.fillRect(0,CR_RULER+crRowDrag.from*CR_ROWH,cssW,CR_ROWH);
+    const blk=crRowBlock(rows, rows[crRowDrag.from]), dn=crRowDrag.to>crRowDrag.from;
+    ctx.fillStyle='rgba(79,195,247,0.14)'; blk.forEach(cd=>{ const k=rows.indexOf(cd); if(k>=0) ctx.fillRect(0,CR_RULER+k*CR_ROWH,cssW,CR_ROWH); });
+    const iy=CR_RULER+(crRowDrag.to+(dn?1:0))*CR_ROWH;   // the block lands below the row (dragging down) or above it (dragging up)
     ctx.fillStyle='#4fc3f7'; ctx.fillRect(0,iy-1,cssW,2);
+    if(blk.length>1){ ctx.font="700 11px 'Barlow Condensed',sans-serif"; const t=blk.length+' rows'; const w=ctx.measureText(t).width+12;
+      ctx.fillStyle='#4fc3f7'; ctx.fillRect(4,iy-9,w,16); ctx.fillStyle='#0b1220'; ctx.fillText(t,10,iy+3); }
   }
   // ruler
   ctx.fillStyle=dark?'#1a1a24':'#e8e7e4'; ctx.fillRect(CR_LW,0,plotW,CR_RULER);
@@ -2532,6 +2535,55 @@ function crSelectBox(box){
   crSel=sel.map(e=>e._rowId);
   crAfterSelect();
 }
+// ── Several timeline rows at once ──────────────────────────────────────
+// Click a row name = that row (as before). Shift+click = every row from the selected one to this one; Cmd/Ctrl+click
+// adds or removes one row. Their events are selected together (bulk edit), and dragging any of them moves the whole
+// block — kept in its own order — to where it is dropped. Rows not in the block keep their order.
+function crRowBlock(rows, code){ return (crRowSel.length>1&&crRowSel.includes(code))?rows.filter(r=>crRowSel.includes(r)):[code]; }
+function crRowSelClick(rows, code, how){
+  let sel=(crRowSel.length?crRowSel:(crActiveRow!=null&&rows.includes(crActiveRow)?[crActiveRow]:[])).filter(r=>rows.includes(r));
+  if(how==='range'&&crActiveRow!=null&&rows.includes(crActiveRow)){ const a=rows.indexOf(crActiveRow), b=rows.indexOf(code); sel=rows.slice(Math.min(a,b), Math.max(a,b)+1); }
+  else if(how==='range') sel=[code];
+  else sel=sel.includes(code)?sel.filter(r=>r!==code):sel.concat([code]);
+  crRowSel=rows.filter(r=>sel.includes(r));
+  if(how!=='range') crActiveRow=crRowSel.includes(code)?code:(crRowSel[crRowSel.length-1]??null);
+  const on=new Set(crRowSel); crSel=crFiltered().filter(e=>on.has(e.code||'—')).map(e=>e._rowId); crAfterSelect(); crDrawTL();
+}
+// the new row order after dropping the dragged block onto row d.to (null = no change)
+function crRowsMoved(rows, d){
+  const blk=crRowBlock(rows, rows[d.from]), anchor=rows[d.to]; if(!anchor||blk.includes(anchor)) return null;
+  const rest=rows.filter(r=>!blk.includes(r)), at=rest.indexOf(anchor)+(d.to>d.from?1:0);
+  const order=rest.slice(0,at).concat(blk, rest.slice(at));
+  return order.join('\u0001')===rows.join('\u0001')?null:{order, block:blk};
+}
+// the row under the pointer while a row is dragged
+function crRowDragAt(clientY){
+  const c=document.getElementById('crTL'); if(!c||!crRowDrag) return;
+  const rr=c.getBoundingClientRect(), rows=crRows(crFiltered());
+  const ri=Math.max(0,Math.min(rows.length-1,Math.floor(((clientY-rr.top)-CR_RULER)/CR_ROWH)));
+  if(ri!==crRowDrag.to){ crRowDrag.to=ri; crRowDrag.moved=true; crDrawTL(); }
+  else if(ri!==crRowDrag.from) crRowDrag.moved=true;
+}
+// Dragging a row (or an event up / down to another row) near the top or bottom of the timeline box scrolls the
+// rows — faster the closer to the edge — so a row can go from the bottom of a long list to the top in one drag.
+let crEdgeRaf=0;
+function crEdgeStart(){ if(!crEdgeRaf) crEdgeRaf=requestAnimationFrame(crEdgeTick); }
+function crEdgeTick(){
+  crEdgeRaf=0;
+  const d=crRowDrag||(crDrag&&crDrag.mode==='move'?crDrag:null), sc=document.getElementById('tlscroll'), c=document.getElementById('crTL');
+  if(!d||d.cy==null||!sc||!c) return;
+  const r=sc.getBoundingClientRect(), Z=36, top=r.top+CR_RULER, bot=r.bottom;
+  let v=0;
+  if(d.cy<top+Z) v=-Math.ceil(16*Math.min(1,(top+Z-d.cy)/Z));
+  else if(d.cy>bot-Z) v=Math.ceil(16*Math.min(1,(d.cy-(bot-Z))/Z));
+  const was=sc.scrollTop; if(v) sc.scrollTop=Math.max(0, Math.min(sc.scrollHeight-sc.clientHeight, was+v));
+  if(sc.scrollTop!==was){
+    if(crRowDrag) crRowDragAt(d.cy);
+    else { const rows=crRows(crFiltered()), ri=Math.floor((d.cy-c.getBoundingClientRect().top-CR_RULER)/CR_ROWH);
+      crDrag.targetRow=Math.max(0,Math.min(rows.length-1,ri)); if(ri!==crDrag.origRow) crDrag.moved=true; crDrawTL(); }
+  }
+  if(v) crEdgeRaf=requestAnimationFrame(crEdgeTick);
+}
 function crSelectRow(code){ crSel=crFiltered().filter(e=>(e.code||'—')===code).map(e=>e._rowId); crAfterSelect(); }
 function crSelectAll(){ crSel=crFiltered().map(e=>e._rowId); crAfterSelect(); }
 // Select every visible event belonging to one team (then bulk-edit — e.g.
@@ -2548,7 +2600,7 @@ function crSelTeamLabels(){
   if(a&&GAME.awayTeam) a.textContent='Sel '+GAME.awayTeam;
 }
 function crToggleSel(id){ id=String(id); const i=crSel.findIndex(x=>String(x)===id); if(i>=0) crSel.splice(i,1); else crSel.push(id); crAfterSelect(); }
-function crClearSel(){ crSel=[]; if(codeMode.on) crRestoreCodePanel(); else renderPanel(); renderList(); }
+function crClearSel(){ crSel=[]; crRowSel=[]; if(codeMode.on) crRestoreCodePanel(); else renderPanel(); renderList(); }
 // Decide what to show after a selection changes.
 function crAfterSelect(){
   if(crSyncOn){                                    // Sync Mode: earliest = reference
