@@ -496,6 +496,11 @@ select option{background:var(--card);}
       <input type="date" id="eDate">
     </div>
     <div class="edit-field">
+      <label>Main video (YouTube link)</label>
+      <input type="text" id="eMainVideo" placeholder="https://youtu.be/… or the 11-character video ID" autocomplete="off" spellcheck="false">
+      <div id="eMainVideoNote" style="font-size:12px;color:var(--t3);margin-top:5px;line-height:1.45;"></div>
+    </div>
+    <div class="edit-field">
       <label>Team Sheets</label>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <button type="button" class="mbtn mbtn-cancel" onclick="libTeamSheetEdit()">👕 Edit team sheets…</button>
@@ -1081,6 +1086,7 @@ function startEdit(id, e){
   document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  libMainVideoFill(g);
   // Show/hide division field based on competition
   toggleEditDivisionField();
   // Populate alternate angles (index 1+)
@@ -1105,6 +1111,18 @@ function libTeamSheetEdit(){
     loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam),
     onSaved:merged=>{ g.rosters=merged.rosters; libTeamSheetNote(); showToast('Team sheets saved.'); } });
 }
+// ── Main video link ──────────────────────────────────────────
+// For a game uploaded without its video yet ("Add later" in the COHESION Code Room desktop app), or a wrong
+// link. Only the link changes: the half start times are shown, not edited here — changing them would not
+// move the coded events (they are stored on the video's clock), so they stay as uploaded.
+function libYtIdOf(v){ v=String(v||'').trim(); if(!v) return ''; const m=v.match(/(?:youtu\.be\/|[?&]v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/); if(m) return m[1]; return /^[A-Za-z0-9_-]{11}$/.test(v)?v:null; }
+function libMainVideoFill(g){
+  const id=(g.angles&&g.angles[0]&&g.angles[0].youtubeId)||g.youtubeId||'';
+  document.getElementById('eMainVideo').value=id?'https://youtu.be/'+id:'';
+  const A=(g.angles&&g.angles[0])||g, t=k=>(A[k]!=null&&A[k]!=='')?fmtTimeVal(+A[k]):'';
+  const parts=[['1H','half1Start'],['2H','half2Start'],['ET1','et1Start'],['ET2','et2Start']].map(([l,k])=>t(k)?l+' '+t(k):'').filter(Boolean);
+  document.getElementById('eMainVideoNote').textContent=(id?'':'No video yet — paste the YouTube link. ')+(parts.length?'Start times on the video: '+parts.join(' · ')+' (as uploaded; the coded events stay where they are).':'');
+}
 function closeEditModal(){
   document.getElementById('editModal').classList.remove('show');
   pendingEditId = null;
@@ -1120,7 +1138,14 @@ async function confirmEdit(){
   const homeTeam = document.getElementById('eHomeTeam').value.trim();
   const awayTeam = document.getElementById('eAwayTeam').value.trim();
   if(!homeTeam||!awayTeam){ alert('Please enter both team names.'); return; }
+  const ytRaw=document.getElementById('eMainVideo').value, ytId=libYtIdOf(ytRaw), ytWas=(g.angles&&g.angles[0]&&g.angles[0].youtubeId)||g.youtubeId||'';
+  if(ytId===null){ alert('That doesn\'t look like a YouTube link — paste the video\'s address (youtube.com/watch?v=… or youtu.be/…) or its 11-character ID.'); return; }
+  if(!ytId&&ytWas&&!confirm('Remove this game\'s video link? The game will show no video until a link is added again.')) return;
   const oldHome=(g.homeTeam||''), oldAway=(g.awayTeam||'');
+  if(ytId!==ytWas){
+    g.youtubeId=ytId; g.thumbnail=ytId?'https://img.youtube.com/vi/'+ytId+'/hqdefault.jpg':'';
+    if(g.angles&&g.angles[0]) g.angles[0]=Object.assign({}, g.angles[0], {youtubeId:ytId});
+  }
   g.homeTeam    = homeTeam;
   g.awayTeam    = awayTeam;
   g.homeColor   = document.getElementById('eHomeColor').value;
