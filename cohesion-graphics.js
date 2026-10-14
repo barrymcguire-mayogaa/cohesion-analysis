@@ -246,10 +246,13 @@ function statNav(side, group, value){
 function statSection(title, summary, rowsHtml){
   return `<div class="stt-sec"><div class="stt-hd">${title}</div>${summary?`<div class="stt-sum">${summary}</div>`:''}${rowsHtml||'<div class="stt-none">No data in this game.</div>'}</div>`;
 }
+// ON-SCREEN HTML only (Stats panel): a team colour in the shade that reads on the page's theme (cohesion-ink.js).
+// The canvas / jsPDF renderers below never use this — they keep their own legibility rules.
+function _scrInk(c){ return (typeof window!=='undefined'&&window.cohTeamInk)?window.cohTeamInk(c):c; }
 function statRows(tal, group){
   const keys=[...new Set([...Object.keys(tal.h),...Object.keys(tal.a)])].sort((x,y)=>((tal.h[y]||0)+(tal.a[y]||0))-((tal.h[x]||0)+(tal.a[x]||0)));
   if(!keys.length) return '';
-  const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
+  const hC=_scrInk(GAME.homeColor||'#2563eb'), aC=_scrInk(GAME.awayColor||'#22c55e');   // on-screen panel: the readable shade
   const q=s=>esc(s).replace(/'/g,'&#39;');
   return keys.map(k=>{
     const h=tal.h[k]||0, a=tal.a[k]||0, m=Math.max(h,a,1);
@@ -2330,7 +2333,7 @@ function dashXpSectionHtml(){
   if(!S) return statSection(title,'','<div class="stt-none">The xP model did not load.</div>');
   const {h,a}=S;
   if(!h.shots&&!a.shots) return statSection(title,'','');
-  const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
+  const hC=_scrInk(GAME.homeColor||'#2563eb'), aC=_scrInk(GAME.awayColor||'#22c55e');   // on-screen panel: the readable shade
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
   const line=(t,nm,col)=>{
     if(!t.n) return `<div class="stt-xpl"><b style="color:${col}">${esc(nm)}</b> ${t.score} (${t.ptsAll}) · no located shots, no xP</div>`;

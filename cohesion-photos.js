@@ -221,7 +221,7 @@
     opts = opts || {};
     var p = entry(team, name);
     if (!p) schedule(team);
-    var style = (opts.size ? '--pbs:' + (+opts.size || 38) + 'px;' : '') + (opts.color ? '--bc:' + esc(opts.color) + ';' : '');
+    var style = (opts.size ? '--pbs:' + (+opts.size || 38) + 'px;' : '') + (opts.color ? '--bc:' + esc(window.cohTeamInk ? window.cohTeamInk(opts.color, { bg: '#10111a' }) : opts.color) + ';' : '');
     return '<span class="coh-pb' + (opts.cls ? ' ' + esc(opts.cls) : '') + '" data-coh-pt="' + esc(team) + '" data-coh-pn="' + esc(name) + '"'
       + (style ? ' style="' + style + '"' : '') + (opts.decorative === false ? '' : ' aria-hidden="true"') + '>'
       + '<span class="coh-pb-i">' + esc(cohPlayerInitials(name)) + '</span>' + (p ? imgHTML(p, name) : '') + '</span>';

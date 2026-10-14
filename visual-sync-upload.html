@@ -445,6 +445,7 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
 
 </div>
 
+<script src="cohesion-ink.js"></script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -476,6 +477,8 @@ const visualSyncState = {
 
 // ============ THEME ============
 
+// light/dark switch: redraw the timeline so its team-coloured markers take that theme's shade
+if (window.cohOnThemeChange) cohOnThemeChange(() => { try { if (visualSyncState && visualSyncState.selectedGame) renderTimeline(); } catch (_) {} });
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
   const newTheme = current === 'dark' ? 'light' : 'dark';
@@ -1504,11 +1507,13 @@ function getEventColor(evt) {
     return 'var(--orange)';
   }
   const game = visualSyncState.selectedGame;
+  // on screen: the shade of the team colour that reads on this theme (cohesion-ink.js); the game keeps its colour
+  const ink = c => (window.cohTeamInk ? window.cohTeamInk(c) : c);
   if (evt.team === game.homeTeam && game.homeColor) {
-    return game.homeColor;
+    return ink(game.homeColor);
   }
   if (evt.team === game.awayTeam && game.awayColor) {
-    return game.awayColor;
+    return ink(game.awayColor);
   }
   return 'var(--t2)';
 }

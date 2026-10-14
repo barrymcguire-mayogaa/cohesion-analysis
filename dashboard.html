@@ -219,6 +219,7 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="cohesion-ink.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-gi.js"></script>
@@ -354,7 +355,7 @@ function makeYTP(){
 // ── Scoreboard overlay: abbr + score + half clock over the video ──
 let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }catch(_){ }
 function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
-function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
+function sbInk(hex){ if(window.cohInkOn) return cohInkOn(hex); try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
 // Which period an event's half label means: 'h1' | 'h2' | 'e1' | 'e2'.
 function sbPeriodOf(half){
   const h=String(half||'');
@@ -585,8 +586,8 @@ function buildHTML(H,A){
         </div>
         <div class="tl-sp"></div>
         <div class="tl-leg">
-          <div class="tl-li"><div class="tl-ld" style="background:${GAME.homeColor||'#2563eb'}"></div><span>${H}</span></div>
-          <div class="tl-li"><div class="tl-ld" style="background:${GAME.awayColor||'#22c55e'}"></div><span>${A}</span></div>
+          <div class="tl-li"><div class="tl-ld" style="background:${dashInk(GAME.homeColor||'#2563eb')}"></div><span>${H}</span></div>
+          <div class="tl-li"><div class="tl-ld" style="background:${dashInk(GAME.awayColor||'#22c55e')}"></div><span>${A}</span></div>
         </div>
         <div class="tl-zbtns"><div class="tl-zb" onclick="zTL(-1)">−</div><div class="tl-zb" onclick="zTL(1)">+</div></div>
       </div>
@@ -770,6 +771,9 @@ function applyF(){
   document.getElementById('CA').textContent=filtered.filter(e=>e.team.toUpperCase()===(GAME.awayTeam||'').toUpperCase()).length;
   renderP();drawTL();
 }
+function dashInk(c){ return window.cohTeamInk?cohTeamInk(c):c; }   // on-screen shade of a team colour that reads on this theme (cohesion-ink.js); display only
+if(window.cohOnThemeChange) cohOnThemeChange(()=>{ if(!GAME||!GAME.homeTeam) return; try{ renderP(); sbTick();
+  document.querySelectorAll('.tl-leg .tl-ld').forEach((d,i)=>{ d.style.background=dashInk(i?(GAME.awayColor||'#22c55e'):(GAME.homeColor||'#2563eb')); }); drawTL(); }catch(_){ } });
 function renderP(){if(viewMode==='events')renderEV();else if(viewMode==='stats')renderSV();else if(viewMode==='teams')renderTS();else renderLV();}
 
 // ── STATS TAB · MAPS · STATS IMAGE · MATCH REPORT PDF · INFOGRAPHIC · xP ──
@@ -783,7 +787,7 @@ cohesionGraphics.GLOBALS.forEach(k=>{ window[k]=DASH_GFX[k]; });
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
-  const hC=GAME.homeColor||'#2563eb', aC=GAME.awayColor||'#22c55e';
+  const hC=dashInk(GAME.homeColor||'#2563eb'), aC=dashInk(GAME.awayColor||'#22c55e');
   let h=`<div class="stt-teams"><span style="color:${hC}">● ${H}</span><span style="color:${aC}">${A} ●</span></div>`;
   h+=`<div style="display:flex;gap:6px;margin:2px 0 8px;">
     <button class="tl-pb" style="flex:2;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>
@@ -859,7 +863,7 @@ function renderEV(){
   ord.forEach((code,i)=>{
     const evs=grps[code],isO=EG.has(i);
     const tm=evs[0]?.team||'';
-    const dc=tm===GAME.homeTeam?(GAME.homeColor||'#2563eb'):tm===GAME.awayTeam?(GAME.awayColor||'#22c55e'):'var(--t3)';
+    const dc=tm===GAME.homeTeam?dashInk(GAME.homeColor||'#2563eb'):tm===GAME.awayTeam?dashInk(GAME.awayColor||'#22c55e'):'var(--t3)';
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
       const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
@@ -1374,7 +1378,7 @@ function drawTL(){
   ctx.fillStyle=dark?'rgba(79,195,247,0.07)':'rgba(3,105,161,0.07)';
   ctx.fillRect(h2x,hY,Math.max(0,W-h2x),RH);ctx.fillRect(h2x,aY,Math.max(0,W-h2x),RH);
   // Events
-  const hC=GAME.homeColor||'#2563eb',aC=GAME.awayColor||'#22c55e';
+  const hC=dashInk(GAME.homeColor||'#2563eb'),aC=dashInk(GAME.awayColor||'#22c55e');
   filtered.forEach(ev=>{
     const x=xF(ev.driveT),w=Math.max(3,((ev.end-ev.start)/vD)*W);
     if(x+w<LW||x>W)return;
