@@ -425,7 +425,7 @@
     return '<div class="crsb-i">'+bits.join('<br>')+'</div>';
   }
   function teamHtml(side, E){
-    const G=GAMEv(), T=teamOf(side)||side, col=(side==='home'?G.homeColor:G.awayColor)||'var(--border)';
+    const G=GAMEv(), T=teamOf(side)||side, col0=(side==='home'?G.homeColor:G.awayColor), col=col0?(typeof cohTeamInk==='function'?cohTeamInk(col0):col0):'var(--border)';   // readable on the theme (cohesion-ink.js)
     const L=S.list[side], done=L.filter(x=>{ const it=E.info.get(x.id); return it&&it.done; }).length;
     const curId=S.check?ids(E)[S.check.i]:null;
     const box=(x,f,ph)=>'<input data-f="'+f+'" data-id="'+x.id+'" data-side="'+side+'" class="'+(f==='min'?'min':'nm')+(f==='min'&&x.min&&!(E.info.get(x.id)||{}).p.ok?' bad':'')+'" value="'+esc(x[f])+'" placeholder="'+ph+'" autocomplete="off" spellcheck="false">';
