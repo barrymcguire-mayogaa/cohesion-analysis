@@ -5202,9 +5202,11 @@ function crPanelShowEvents(){
 function codeShotQual(group,value){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
   if(!sq) return;
+  const prev=crClone(sq);
   sq.labels=sq.labels||{};
   if(sq.labels[group]===value) delete sq.labels[group]; else sq.labels[group]=value;
   if(group==='Kickout Locations') crSyncKoTOLoc(sq);
+  if(/source/i.test(group)) crSrcStepCode(sq, prev);   // a source value on a shot or a source row: the other side follows
   if(group==='Deadball Shot Type'&&CR_LOC_RE.test(sq.code||'')){   // '45 set (or unset) after the location was clicked: on / off the 45 m line
     const ny=cr45Resnap(sq._rowId, sq.labels, sq.x, sq.y);
     if(ny!=null) crApplyLocToRow(sq, 'shot', sq.x, ny);
@@ -5328,6 +5330,7 @@ function codeApplyOutcome(value){
   const pl=codeMode.pendingLink; if(!pl) return;
   const row=EVENTS.find(e=>e._rowId===pl.rowId);
   if(row){
+    const prev=crClone(row);
     row.labels=row.labels||{};
     row.labels[pl.link.group]=value;   // exact DB group name → flows through parser + filters
     if(!pl.link.noOutcome) row.outcome=value;   // denormalised convenience field
@@ -5336,6 +5339,7 @@ function codeApplyOutcome(value){
     crToCompanions(row, value);
     crScoreSourceSweep(row);                    // scoring shot fills covering SCORE SOURCEs
     crScoreSourceAutoScore(row);                // SCORE SOURCE answered after its shot
+    crSrcStepCode(row, prev);                   // the shot's source label ↔ its source row
     crBackup(); crUpdatePending(); renderList();
     const f=document.getElementById('codeFlash');
     if(f) f.textContent='✓ '+(row.code||'')+' → '+value+'  — paused; press Space to resume';
@@ -6678,15 +6682,18 @@ function crKoDupGo(){
 // shots to review (click → the video jumps there; a source button writes that shot's row, one Undo each; Skip hides it
 // for this session) and the shots whose existing row disagrees with their possession (listed only — never changed).
 // New rows are ordinary queued rows (_new): saved with "Close session & save all", or written to the XML of a local session.
+// Each shot with a source row also gets the row's value as a label on the shot (Score / Shot Source Outcomes — new rows and
+// the game's own rows alike, the rows never changed); crSrcStep keeps the two in step afterwards. Shots edited that way are
+// ordinary queued edits (_dirty).
 let crAS={open:false, cur:null, skip:new Set()};
 const CR_AS_SHORT={'OWN KO':'Own KO','OPP KO':'Opp KO','FTO':'Forced TO','UTO':'Unforced TO','BR':'Ball recovered','TI':'Throw-in','FREE':'Free won'};
 function crASPlan(){ if(!GAME||typeof cohAutoSourcePlan!=='function') return null; try{ return cohAutoSourcePlan(EVENTS, GAME); }catch(e){ console.warn('auto-tag sources', e); return null; } }
 function crASBtnSync(P){
   const b=document.getElementById('autoSrcBtn'); if(!b) return;
   if(P===undefined) P=GAME?crASPlan():null;
-  const n=P?P.counts.clear+P.counts.review:0, d=P?P.counts.disagree:0;
-  b.style.display=(n||d||crAS.open)?'':'none';
-  b.textContent=n?'⇢ Auto-tag sources ('+n+')':d?'⇢ Sources: '+d+' to check':'⇢ Sources ✓';
+  const n=P?P.counts.clear+P.counts.review:0, d=P?P.counts.disagree:0, f=P?P.counts.fill:0;
+  b.style.display=(n||d||f||crAS.open)?'':'none';
+  b.textContent=n?'⇢ Auto-tag sources ('+n+')':f?'⇢ Sources: '+f+' shot label'+(f===1?'':'s')+' to fill':d?'⇢ Sources: '+d+' to check':'⇢ Sources ✓';
   if(crAS.open) crASRender(P);
 }
 function crASToggle(){ if(crAS.open) crASClose(); else crASOpen(); }
@@ -6716,10 +6723,12 @@ function crASRender(P){
     +'<span class="cras-k'+(C.clear?' clear':' done')+'">CLEAR '+C.clear+'</span>'+(C.clear?esc(bySrc):'nothing to tag automatically')+'<br>'
     +'<span class="cras-k'+(C.review?' review':' done')+'">REVIEW '+C.review+'</span>'+(C.review?'<span style="display:inline-block;vertical-align:top;">'+byWhy+'</span>':'none')+'<br>'
     +'<span class="cras-k'+(C.disagree?' dis':' done')+'">DISAGREE '+C.disagree+'</span>'+(C.disagree?'existing row ≠ its possession — listed below, not changed':'none')+'<br>'
-    +'<span class="cras-k done">TAGGED '+C.tagged+'</span>'+(C.tagged?'already have a source'+(C.folded?' ('+C.folded+' in a Tracker row covering a run of misses)':'')+(C.labelled?' ('+C.labelled+' as a label on the shot)':'')+' — never changed':'none')
+    +'<span class="cras-k done">TAGGED '+C.tagged+'</span>'+(C.tagged?'already have a source'+(C.folded?' ('+C.folded+' in a Tracker row covering a run of misses)':'')+(C.labelled?' ('+C.labelled+' as a Gaelic Insights label on the shot)':'')+' — never changed'+(C.fill?'; '+pl(C.fill,'shot')+' still without the row&rsquo;s source as a label on the shot':''):'none')
     +(P.possFromMode?'<br><b>Nothing to add:</b> Analysis reads this game&rsquo;s shot sources from its possessions&rsquo; PossFrom labels (a GIU game) — '+pl(C.possFrom,'shot')+' already have one that way, and one source row would switch it to reading rows only.':'')+'</div>';
   if(C.clear) h+='<div class="crfr-row crfr-btns"><button class="cbtn" id="asTagBtn" onclick="crASTagClear()" style="border-color:var(--green);background:var(--green);color:#fff;">Tag '+pl(C.clear,'clear shot')+'…</button>'
-    +'<span class="crfr-count">'+scores+' SCORE SOURCE + '+(C.clear-scores)+' SHOT SOURCE rows</span></div>';
+    +'<span class="crfr-count">'+scores+' SCORE SOURCE + '+(C.clear-scores)+' SHOT SOURCE rows'+(C.fill?' · '+pl(C.fill,'shot label')+' filled':'')+'</span></div>';
+  else if(C.fill) h+='<div class="crfr-row crfr-btns"><button class="cbtn" id="asTagBtn" onclick="crASTagClear()" style="border-color:var(--green);background:var(--green);color:#fff;">Fill '+pl(C.fill,'shot source label')+'…</button>'
+    +'<span class="crfr-count">from the shots&rsquo; existing source rows (the rows are not changed)</span></div>';
   h+='<div class="crfr-lbl">To review ('+rev.length+(skipped?' · '+skipped+' skipped':'')+')</div>'+(rev.length?'<div class="crlc-note">Click a shot to see it on the video, then pick its source. The outlined button is what its possession&rsquo;s start event says.</div>':'')+'<div class="cras-list" data-k="review">'
     +rev.map(it=>{ const id=String(it.shot._rowId), on=crAS.cur===id, sug=it.derived&&it.derived.cat&&T[it.derived.cat]?it.derived.cat:null;
       const ev=it.poss&&it.poss.ev?it.poss.ev:null;
@@ -6739,37 +6748,44 @@ function crASRender(P){
 }
 // a review / disagreement entry: select its shot and hold the video there
 function crASShow(id){ crAS.cur=String(id); crFRShow(id); crASRender(); const el=document.querySelector('#crAS .cras-it.on'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'nearest'}); }
-// Queue new source rows: ONE undo step. Returns the new row ids.
-function crASWrite(rows){
-  const ids=[];
+// Queue new source rows and the shots' own source labels (cohesion-sources.js cohShotSrcFill — the label of every shot
+// of a new row; fillAll: of every shot with a row, the game's own rows too, which are never changed): ONE undo step.
+// Returns {ids, filled} (the new row ids, the number of shots whose label was written).
+function crASWrite(rows, fillAll){
+  const ids=[], made=[];
   rows.forEach((r,k)=>{ const tmpId='tmp-'+(++crTmpCounter), labels=Object.assign({}, r.labels);
-    EVENTS.push({ id:'autosrc-'+Date.now()+'-'+k, start:r.start, end:r.end, half:r.half, code:r.code, team:r.team, player:'',
+    const ev={ id:'autosrc-'+Date.now()+'-'+k, start:r.start, end:r.end, half:r.half, code:r.code, team:r.team, player:'',
       outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS), category:catOf(r.code)||'Other', driveT:r.driveT, labels,
-      ...(r.gameTime?{gameTime:r.gameTime}:{}), _manual:true, _rowId:tmpId, _new:true });
-    ids.push(tmpId); });
-  if(!ids.length) return ids;
-  undoStack.push({type:'addmany', rowIds:ids});
+      ...(r.gameTime?{gameTime:r.gameTime}:{}), _manual:true, _rowId:tmpId, _new:true };
+    EVENTS.push(ev); made.push(ev); ids.push(tmpId); });
+  const snaps=[];
+  if(typeof cohShotSrcFill==='function') cohShotSrcFill(EVENTS, GAME).forEach(f=>{ if(!fillAll&&made.indexOf(f.row)<0) return;
+    snaps.push({id:f.shot._rowId, data:crClone(f.shot)}); cohShotSrcApply(f); if(!f.shot._new) f.shot._dirty=true; });
+  if(!ids.length&&!snaps.length) return {ids, filled:0};
+  undoStack.push(snaps.length?{type:'merge', rowIds:ids, snaps, dels:[]}:{type:'addmany', rowIds:ids});
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending(); renderList();
-  return ids;
+  return {ids, filled:snaps.length};
 }
 const crASWhen=()=>(GAME&&GAME._local)?'kept with this local session and written to the XML when you export':'saved when you close the session';
 async function crASTagClear(){
-  const P=crASPlan(); if(!P||!P.add.length) return;
-  const C=P.counts, T=COH_SRC_TEXT, sc=P.add.filter(r=>/SCORE SOURCE/i.test(r.code)).length;
-  const ok=await cohesionModal({ title:'Tag '+C.clear+' shot source'+(C.clear===1?'':'s'),
-    message:'Add <b>'+sc+' SCORE SOURCE</b> and <b>'+(C.clear-sc)+' SHOT SOURCE</b> row'+(C.clear-sc===1?'':'s')+', each from the shooting team&rsquo;s possession: '
+  const P=crASPlan(); if(!P||(!P.add.length&&!P.counts.fill)) return;
+  const C=P.counts, T=COH_SRC_TEXT, sc=P.add.filter(r=>/SCORE SOURCE/i.test(r.code)).length, pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  const ok=await cohesionModal({ title:C.clear?'Tag '+C.clear+' shot source'+(C.clear===1?'':'s'):'Fill '+pl(C.fill,'shot source label'),
+    message:(C.clear?'Add <b>'+sc+' SCORE SOURCE</b> and <b>'+(C.clear-sc)+' SHOT SOURCE</b> row'+(C.clear-sc===1?'':'s')+', each from the shooting team&rsquo;s possession: '
       +Object.keys(T).filter(k=>C.bySource[k]).map(k=>T[k]+' '+C.bySource[k]).join(' · ')+'.<br><br>'
-      +'Each row starts where the possession starts and ends where the shot ends. '
+      +'Each row starts where the possession starts and ends where the shot ends; each shot also gets its source as a label. ':'')
+      +(C.fill?'<b>'+pl(C.fill,'shot')+'</b> that already '+(C.fill===1?'has':'have')+' a source row '+(C.fill===1?'gets':'get')+' its value as a label on the shot (the row is not changed). ':'')
       +(C.review?C.review+' shot'+(C.review===1?' stays':'s stay')+' in the review list. ':'')
       +(C.tagged?C.tagged+' shot'+(C.tagged===1?' that already has':'s that already have')+' a source row '+(C.tagged===1?'is':'are')+' not touched. ':'')
-      +'Nothing is saved until you close the session &mdash; Undo removes them all in one step.',
-    buttons:[{label:'Cancel',value:false},{label:'Tag '+C.clear,value:true,primary:true}] });
+      +'Nothing is saved until you close the session &mdash; Undo '+(C.clear?'removes them all':'takes it back')+' in one step.',
+    buttons:[{label:'Cancel',value:false},{label:C.clear?'Tag '+C.clear:'Fill '+C.fill,value:true,primary:true}] });
   if(!ok) return;
-  const again=crASPlan(); if(!again||!again.add.length) return;     // read again: nothing changed under the dialog
-  const ids=crASWrite(again.add);
-  crAS.status='Queued ✓ '+ids.length+' source row'+(ids.length===1?'':'s')+' — '+crASWhen()+'; Undo removes them';
-  crMgStatus('Auto-tag sources ✓ '+ids.length+' source row'+(ids.length===1?'':'s')+' queued — '+crASWhen()+'; Undo removes them');
+  const again=crASPlan(); if(!again||(!again.add.length&&!again.counts.fill)) return;     // read again: nothing changed under the dialog
+  const w=crASWrite(again.add, true), ids=w.ids;
+  const what=(ids.length?ids.length+' source row'+(ids.length===1?'':'s'):'')+(w.filled?(ids.length?' + ':'')+pl(w.filled,'shot source label'):'');
+  crAS.status='Queued ✓ '+what+' — '+crASWhen()+'; Undo '+(ids.length?'removes them':'takes it back');
+  crMgStatus('Auto-tag sources ✓ '+what+' queued — '+crASWhen()+'; Undo '+(ids.length?'removes them':'takes it back'));
   crASRender();
 }
 // a source chosen for one shot under review
@@ -7324,6 +7340,8 @@ function saveEvent(){
   if(!e._new) e._dirty=true;
   crKprFollow(e, undoStack[undoStack.length-1].snapshot);   // a kickout moved in time: its taker follows the keepers
   crSyncKoTOLoc(e); crSyncKoBreaks(e); crScoreSourceSweep(e); crScoreSourceAutoScore(e);
+  { const u=undoStack[undoStack.length-1], extra=crSrcStep(e, u.snapshot);   // the shot's source label ↔ its source row: one Undo
+    if(extra.length) undoStack[undoStack.length-1]={type:'bulkedit', snaps:[{id:e._rowId, data:u.snapshot}].concat(extra)}; }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists(); crBackup(); crUpdatePending();
   draft=null; pick(e._rowId);
@@ -7490,6 +7508,81 @@ function crScoreSourceSweep(shot){
   const t=(shot.driveT??shot.start??0);
   EVENTS.forEach(ss=>{ if(ss.team&&ss.team===shot.team&&/SCORE SOURCE/i.test(ss.code||'')&&t>=(ss.start??0)-2&&t<=(ss.end??0)+3) crScoreSourceAutoScore(ss); });
 }
+// ── The shot's own source label, in step with its source row ─────────────────
+// A shot carries its source as a label too ('Score Source Outcomes' when it scored, 'Shot Source Outcomes' when it did
+// not — cohesion-sources.js cohShotSrcPairs / cohShotSrcWant: the pairing Auto-tag uses). crSrcStep(e, prev) runs after
+// `e` was edited (prev = its data before the edit) and brings the other side in step:
+//   · a shot whose source label changed → its row takes the new value (and every other shot that row covers);
+//   · a shot whose outcome went scored ↔ missed → its label moves to the other group; a row Auto-tag wrote for that
+//     shot alone ('autosrc-' id) follows: SCORE SOURCE ↔ SHOT SOURCE, its score value added / dropped. A row of the
+//     game's own (Tracker / Sportscode) is left as it is;
+//   · a source row whose value changed (or was just answered) → its shots' labels;
+//   · a shot with a row: its label is always the row's (a label cleared on the shot comes back from the row — to take a
+//     source away, delete the row: crSrcOnDelete clears its shots' labels).
+// A shot with no row keeps its label as it is (Auto-tag writes its row from it). Gaelic Insights shots are not touched.
+// Returns snapshots {id, data} of the OTHER rows it changed, taken before the change, for the caller's one Undo.
+function crSrcStep(e, prev){
+  const snaps=[];
+  if(!e||!GAME||typeof cohShotSrcPairs!=='function') return snaps;
+  const isRow=/(SCORE|SHOT) SOURCE\s*$/i.test(e.code||''), isShot=cohIsShotRow(e);
+  if(!isRow&&!isShot) return snaps;
+  const touch=x=>{ if(x===e) return; if(!snaps.some(s=>String(s.id)===String(x._rowId))) snaps.push({id:x._rowId, data:crClone(x)}); if(!x._new) x._dirty=true; };
+  const P=cohShotSrcPairs(EVENTS, GAME);
+  let row=null;
+  if(isShot){
+    if(cohSrcLabelIsOwn(e)) return snaps;
+    row=P.rowOf.get(e)||null;
+    const now=cohShotSrcValue(e), was=prev?cohShotSrcValue(prev):'';
+    if(!row){   // no row: the label only changes group with the outcome
+      const keys=cohShotSrcKeys(e), g=cohShotSrcGroup(e, EVENTS);
+      if(now&&(keys.length!==1||keys[0]!==g)) cohShotSrcApply({shot:e, group:g, value:now, keys});
+      return snaps;
+    }
+    if(now&&now!==was&&now!==cohSrcRowValue(row)){ touch(row); crSrcRowSet(row, now); }
+    crSrcRowKind(row, e, P, touch);
+  } else row=e;
+  (P.shotsOf.get(row)||[]).forEach(x=>{ const f=cohShotSrcWant(x, row, EVENTS); if(!f) return; touch(x); cohShotSrcApply(f); if(x===e&&!e._new) e._dirty=true; });
+  return snaps;
+}
+// a source row's value (its own group, the outcome field with it)
+function crSrcRowSet(row, value){
+  row.labels=row.labels||{};
+  const k=Object.keys(row.labels).find(k=>/^(score source outcomes|shot source outcomes|source)$/i.test(String(k).trim()))||crGN(/SCORE SOURCE/i.test(row.code||'')?'Score Source Outcomes':'Shot Source Outcomes');
+  const old=row.labels[k]; row.labels[k]=value; if(row.labelsAll) delete row.labelsAll[k];
+  if(!row.outcome||row.outcome===old) row.outcome=value;
+}
+// An Auto-tag row of ONE shot follows that shot scored ↔ missed (code, groups, score value)
+function crSrcRowKind(row, shot, P, touch){
+  if(!/^autosrc-/.test(String(row.id||''))) return;
+  const own=P.shotsOf.get(row)||[]; if(own.length!==1||own[0]!==shot) return;
+  const sc=cohShotScored(shot)===true, isSc=/SCORE SOURCE\s*$/i.test(row.code||''); if(sc===isSc) return;
+  touch(row);
+  const base=sc?'SCORE SOURCE':'SHOT SOURCE', want=String(row.code||'').replace(/(SCORE|SHOT) SOURCE\s*$/i, base);
+  const hit=EVENTS.find(x=>x!==row&&String(x.code||'').toUpperCase()===want.toUpperCase());
+  row.code=hit?hit.code:want; row.category=catOf(row.code)||row.category||'Other';
+  const v=cohSrcRowValue(row), L=row.labels=row.labels||{};
+  Object.keys(L).forEach(k=>{ if(/^(score source outcomes|shot source outcomes|score source score outcomes)$/i.test(String(k).trim())) delete L[k]; });
+  if(row.labelsAll){ Object.keys(row.labelsAll).forEach(k=>{ if(/source/i.test(k)) delete row.labelsAll[k]; }); if(!Object.keys(row.labelsAll).length) delete row.labelsAll; }
+  L[crGN(sc?'Score Source Outcomes':'Shot Source Outcomes')]=v;
+  if(sc){ const o=String((shot.labels||{})['Shot Outcomes']||shot.outcome||'').toUpperCase(); if(CR_SCORE_VALS.has(o)) L[crGN('Score Source Score Outcomes')]=o; }
+}
+// Deleting a source row: its shots' labels that carry its value go with it. → snapshots of the shots changed
+function crSrcOnDelete(row){
+  const snaps=[];
+  if(!row||!GAME||typeof cohShotSrcPairs!=='function'||!/(SCORE|SHOT) SOURCE\s*$/i.test(row.code||'')) return snaps;
+  const P=cohShotSrcPairs(EVENTS, GAME), v=cohSrcRowValue(row);
+  (P.shotsOf.get(row)||[]).forEach(x=>{ if(cohSrcLabelIsOwn(x)) return; const ks=cohShotSrcKeys(x).filter(k=>String(x.labels[k]).trim()===v); if(!ks.length) return;
+    snaps.push({id:x._rowId, data:crClone(x)}); ks.forEach(k=>{ delete x.labels[k]; if(x.labelsAll) delete x.labelsAll[k]; }); if(!x._new) x._dirty=true; });
+  return snaps;
+}
+// Code mode changed `row` (prev = before): the in-step change joins the row's own Undo step — the step that added it
+// (Undo then takes the row out and puts the other rows back), else one step of its own.
+function crSrcStepCode(row, prev){
+  const extra=crSrcStep(row, prev); if(!extra.length) return;
+  const i=undoStack.map(o=>o.type==='add'&&String(o.rowId)===String(row._rowId)).lastIndexOf(true);
+  if(i>=0) undoStack[i]={type:'merge', rowIds:[row._rowId], snaps:extra, dels:[]};
+  else undoStack.push({type:'bulkedit', snaps:[{id:row._rowId, data:prev}].concat(extra)});
+}
 function crShotCompanion(row, value){
   if(!row||!row.team) return;
   if(!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(row.code||'')) return;
@@ -7503,7 +7596,10 @@ function deleteEvent(){
   const e=EVENTS.find(x=>String(x._rowId)===String(activeId)); if(!e)return;
   if(!confirm(`Delete this event?\n\n${e.code||''} at ${fmt(e.driveT||0)}${e.player?' · '+e.player:''}\n\nYou can Undo this before closing the session.`)) return;
   const comps=EVENTS.filter(x=>x._shotComp&&String(x._shotComp)===String(e._rowId));
-  if(comps.length){
+  const srcSnaps=crSrcOnDelete(e);                // a source row: its shots' source labels go with it (one Undo)
+  if(srcSnaps.length){
+    undoStack.push({type:'merge', rowIds:[], snaps:srcSnaps, dels:[e,...comps].map(x=>({data:crClone(x), wasNew:!!x._new}))});
+  } else if(comps.length){
     undoStack.push({type:'bulkdelete', snaps:[e,...comps].map(x=>({data:crClone(x), wasNew:!!x._new}))});
   } else {
     undoStack.push({type:'delete', snapshot: crClone(e), wasNew: !!e._new});

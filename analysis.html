@@ -1093,6 +1093,11 @@ function ssGameTally(meta, events, T){
   // does this team have a "KICKOUT LOST" turnover row in this game? Then its
   // "KO LOST LONG/MEDIUM/SHORT" rows are copies of the same lost kickouts.
   const toKoRowT=events.some(e=>ssIsTO(e)&&ssSideOf(e,T)&&!giSup(e)&&!giComp(e)&&ssToKind(e)==='ko');
+  // a game coded with SCORE / SHOT SOURCE rows: the ROW is the source; a COHESION shot's own source label (Code Room
+  // writes the row's value on its shot too — cohesion-sources.js cohShotSrcPairs) is not counted besides it. A Gaelic
+  // Insights shot (converted / merged) keeps counting its own label as before.
+  const srcRowGame=events.some(e=>!giSup(e)&&!giComp(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
+  const srcOwnLabel=e=>!(srcRowGame&&/SHOT (OPEN|DEAD)/.test(ssUC(e.code))&&!/SOURCE|ASSIST/.test(ssUC(e.code))&&!ssGiDerived(e)&&!ssMerged(e));
   events.forEach(e=>{
     const mineT=ssSideOf(e,T), mineO=ssSideOf(e,O);
     if(!mineT&&!mineO) return;
@@ -1136,7 +1141,7 @@ function ssGameTally(meta, events, T){
     // (a converted GI shot carries its source as 'Shot Source Outcomes')
     // group names read case-insensitively like everywhere else; short source
     // values ("OWN KO", "OPP KO") count as kickout sources too
-    const src=ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?ssLbl(e,['Shot Source Outcomes']):null);
+    const src=!srcOwnLabel(e)?null:ssLbl(e,SS_SRC_GROUPS)||(/SHOT (OPEN|DEAD)/.test(ssUC(e.code))?ssLbl(e,['Shot Source Outcomes']):null);
     if(src){
       const S=ssUC(src);
       const val=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');

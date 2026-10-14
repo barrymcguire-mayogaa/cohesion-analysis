@@ -252,7 +252,10 @@ function ssPsToOk(PS, T, O){
 //     and the event that won the ball, if any, names the same Productivity row — ssPsRowOf).
 //  Everything else goes to the REVIEW list with its reason.
 //
-//  Also already tagged: a shot carrying its own source label (a converted Gaelic Insights shot). And in a game whose
+//  Also already tagged: a Gaelic Insights shot carrying its own source label and no row (cohSrcLabelIsOwn). A COHESION
+//  shot carrying a source label but no row (its row never written, or gone) gets its row FROM that label when the value
+//  is one of the seven (how:'shotLabel'), else it is reviewed. Every tagged shot whose own label is not its row's value
+//  is listed in `fill` (the label Auto-tag writes on the shot; the row is never changed). And in a game whose
 //  shot sources Analysis reads from the possessions' PossFrom labels (GIU: no source row or label anywhere) nothing is
 //  added at all — one row would switch Analysis to reading rows only (counts.possFrom, status 'possfrom').
 //
@@ -264,7 +267,7 @@ function ssPsToOk(PS, T, O){
 //  (as the Tracker writes them); driveT = the possession row's driveT (its video second); gameTime = the possession's.
 //  Label groups and values in the game's own spelling (cohGroupResolve / cohValueOptions) when the game has them.
 //
-//  cohAutoSourcePlan(events, meta) → {items:[…one per shot…], add:[rows to write], review, disagree, covered, counts}
+//  cohAutoSourcePlan(events, meta) → {items:[…one per shot…], add:[rows to write], fill:[shot labels to write], review, disagree, covered, counts}
 // ═══════════════════════════════════════════════════════════════
 const COH_SRC_TEXT={'OWN KO':'OWN KICKOUT','OPP KO':'OPP KICKOUT','FTO':'FORCED TURNOVER','UTO':'UNFORCED TURNOVER','BR':'BALL RECOVERED','TI':'THROW-IN','FREE':'FREE WON'};
 const COH_SRC_VALUES=['OWN KICKOUT','OPP KICKOUT','FORCED TURNOVER','UNFORCED TURNOVER','BALL RECOVERED','THROW-IN','FREE WON'];
@@ -299,34 +302,14 @@ function cohAsScoreText(shot){
   const lab=cohAsDep('cohLabelVal'), o=ssUC((lab?lab(shot,'Shot Outcomes'):ssL(shot,'Shot Outcomes'))||shot.outcome);
   return o==='GOAL'?'GOAL':o==='2 POINT'?'2 POINT':(o==='1 POINT'||o==='POINT')?'1 POINT':'';
 }
-function cohAutoSourcePlan(events, meta, opts){
-  opts=opts||{};
-  const isShot=cohAsDep('cohIsShotRow'), scored=cohAsDep('cohShotScored'), align=cohAsDep('cohAlign');
-  const supFn=cohAsDep('cohGiSupersededFn'), comp=cohAsDep('cohGiIsCompanion'), resolve=cohAsDep('cohGroupResolve'), valOpts=cohAsDep('cohValueOptions');
-  const H=ssUC(meta&&meta.homeTeam), A=ssUC(meta&&meta.awayTeam), list=(events||[]).filter(Boolean);
-  const sup=supFn?supFn(list):()=>false, skip=e=>sup(e)||(!!comp&&comp(e));
-  const out={items:[], add:[], review:[], disagree:[], covered:[], counts:{shots:0, tagged:0, folded:0, labelled:0, possFrom:0, clear:0, review:0, disagree:0, bySource:{}, byReason:{}}, psToOk:1, possFromMode:false};
-  if(!H||!A||!isShot) return out;
-  const teamOf=e=>ssSideOf(e,H)?H:ssSideOf(e,A)?A:'';
+// The pairing of source rows with their shots (cohAutoSourcePlan, "ALREADY TAGGED" above): per team the rows and shots
+// in time order (cohAlign), then a run of misses folded under one Tracker SHOT SOURCE row.
+//   → {rowOf:Map(shot → its own row), folded:Map(shot → the row covering it)}
+function cohSrcPairing(shots, rows, teamOf, teams, pickPoss){
+  const scored=cohAsDep('cohShotScored'), align=cohAsDep('cohAlign');
   const T0=e=>ssEvT(e), T1=e=>e.end!=null?Math.max(T0(e),+e.end):T0(e);
-  // the rule, on a fresh array (ssPossSources caches per array; Code Room edits its rows in place)
-  const PS=ssPossSources(list.slice(), H, A, skip), F=ssPsToOk(PS, H, A); out.psToOk=F.ok; out.fu=F;
-  const shots=list.filter(e=>!skip(e)&&isShot(e)&&teamOf(e)), rows=list.filter(e=>!skip(e)&&teamOf(e)&&/(SCORE|SHOT) SOURCE\s*$/.test(ssUC(e.code)));
-  // A game Analysis reads its shot sources from the POSSESSIONS' PossFrom labels (a GIU game: no source row and no
-  // source label anywhere — ssPossSrc): one added row would switch Analysis to reading rows only, and every shot not
-  // tagged would lose the source it has now. Nothing is added there.
-  const live=list.filter(e=>!skip(e));
-  out.possFromMode=!live.some(e=>/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))||!!ssLblCI(e, COH_AS_SRC_LABELS))
-    &&live.some(e=>/\s(POSS|TEAM POSSESSION)$/.test(ssUC(e.code))&&!!ssLblCI(e,['PossFrom']));
-  // ── the possession of each shot ──
-  const possOf=T=>((PS&&PS[T]&&PS[T].list)||[]);
-  const pickPoss=x=>{ const T=teamOf(x), s=T0(x), en=T1(x), L=possOf(T);
-    let c=L.filter(q=>q.s-COH_AS_POSS_TOL<=s&&s<=q.en+COH_AS_POSS_TOL);
-    if(!c.length) c=L.filter(q=>q.s>=s&&q.s<=en&&en<=q.en+COH_AS_POSS_TOL);
-    return c.sort((a,b)=>b.s-a.s)[0]||null; };
-  // ── already tagged: rows ↔ shots ──
   const rowOf=new Map(), folded=new Map();
-  [H,A].forEach(T=>{
+  teams.forEach(T=>{
     const sh=shots.filter(e=>teamOf(e)===T).sort((a,b)=>T1(a)-T1(b)||T0(a)-T0(b)), rw=rows.filter(e=>teamOf(e)===T).sort((a,b)=>T1(a)-T1(b)||T0(a)-T0(b));
     const inRow=(r,x)=>T0(x)>=T0(r)-COH_AS_ROW_LEAD&&T0(x)<=T1(r)+COH_AS_ROW_LAG;                       // the shot starts inside the row
     const meets=(r,x)=>inRow(r,x)||(T1(x)>=T0(r)&&T1(x)<=T1(r)+COH_AS_ROW_LAG);                            // …or ends inside it (a shot within seconds of winning the ball: its row starts after the shot row does)
@@ -338,6 +321,44 @@ function cohAutoSourcePlan(events, meta, opts){
       const r=rw.find(r=>{ if(!/SHOT SOURCE/.test(ssUC(r.code))||!inRow(r,x)) return false; const y=shotOf.get(r); return !y||(scored(y)!==true&&T1(y)>=T1(x)&&!!q&&pickPoss(y)===q); });
       if(r) folded.set(x, r); });
   });
+  return {rowOf, folded};
+}
+// The game as Auto-tag and the shot-label sync read it: the teams, the skip rule, the possessions (ssPossSources),
+// the shots, the source rows and their pairing.
+function cohAsGame(events, meta){
+  const isShot=cohAsDep('cohIsShotRow'), supFn=cohAsDep('cohGiSupersededFn'), comp=cohAsDep('cohGiIsCompanion');
+  const H=ssUC(meta&&meta.homeTeam), A=ssUC(meta&&meta.awayTeam), list=(events||[]).filter(Boolean);
+  if(!H||!A||!isShot) return null;
+  const sup=supFn?supFn(list):()=>false, skip=e=>sup(e)||(!!comp&&comp(e));
+  const teamOf=e=>ssSideOf(e,H)?H:ssSideOf(e,A)?A:'';
+  const T0=e=>ssEvT(e), T1=e=>e.end!=null?Math.max(T0(e),+e.end):T0(e);
+  // the rule, on a fresh array (ssPossSources caches per array; Code Room edits its rows in place)
+  const PS=ssPossSources(list.slice(), H, A, skip);
+  const shots=list.filter(e=>!skip(e)&&isShot(e)&&teamOf(e)), rows=list.filter(e=>!skip(e)&&teamOf(e)&&/(SCORE|SHOT) SOURCE\s*$/.test(ssUC(e.code)));
+  // ── the possession of each shot ──
+  const possOf=T=>((PS&&PS[T]&&PS[T].list)||[]);
+  const pickPoss=x=>{ const T=teamOf(x), s=T0(x), en=T1(x), L=possOf(T);
+    let c=L.filter(q=>q.s-COH_AS_POSS_TOL<=s&&s<=q.en+COH_AS_POSS_TOL);
+    if(!c.length) c=L.filter(q=>q.s>=s&&q.s<=en&&en<=q.en+COH_AS_POSS_TOL);
+    return c.sort((a,b)=>b.s-a.s)[0]||null; };
+  // ── already tagged: rows ↔ shots (the one pairing the shot's own source label follows too) ──
+  const {rowOf, folded}=cohSrcPairing(shots, rows, teamOf, [H,A], pickPoss);
+  return {H, A, list, skip, teamOf, T0, T1, PS, shots, rows, possOf, pickPoss, rowOf, folded};
+}
+function cohAutoSourcePlan(events, meta, opts){
+  opts=opts||{};
+  const isShot=cohAsDep('cohIsShotRow'), scored=cohAsDep('cohShotScored');
+  const resolve=cohAsDep('cohGroupResolve'), valOpts=cohAsDep('cohValueOptions');
+  const out={items:[], add:[], review:[], disagree:[], covered:[], fill:[], counts:{shots:0, tagged:0, folded:0, labelled:0, possFrom:0, clear:0, review:0, disagree:0, fill:0, bySource:{}, byReason:{}}, psToOk:1, possFromMode:false};
+  const Gm=cohAsGame(events, meta); if(!Gm) return out;
+  const {H, A, list, skip, teamOf, T0, T1, PS, shots, possOf, pickPoss, rowOf, folded}=Gm;
+  const F=ssPsToOk(PS, H, A); out.psToOk=F.ok; out.fu=F;
+  // A game Analysis reads its shot sources from the POSSESSIONS' PossFrom labels (a GIU game: no source row and no
+  // source label anywhere — ssPossSrc): one added row would switch Analysis to reading rows only, and every shot not
+  // tagged would lose the source it has now. Nothing is added there.
+  const live=list.filter(e=>!skip(e));
+  out.possFromMode=!live.some(e=>/(SCORE|SHOT) SOURCE/.test(ssUC(e.code))||!!ssLblCI(e, COH_AS_SRC_LABELS))
+    &&live.some(e=>/\s(POSS|TEAM POSSESSION)$/.test(ssUC(e.code))&&!!ssLblCI(e,['PossFrom']));
   const oppPossAt=x=>{ const T=teamOf(x), O=T===H?A:H, s=T0(x); return possOf(O).find(q=>q.s<=s&&s<=q.en)||null; };
   const clearCat=c=>!!COH_SRC_TEXT[c];
   // a possession's source, judged: {cat, how, ok, reason}
@@ -378,16 +399,24 @@ function cohAutoSourcePlan(events, meta, opts){
   shots.forEach(x=>{
     const T=teamOf(x), q=pickPoss(x), it={shot:x, team:T, scored:scored(x)===true, poss:q};
     out.counts.shots++;
-    // a shot that carries its own source label (a converted Gaelic Insights shot): already tagged, Analysis reads it there
-    const own=ssLblCI(x, COH_AS_SRC_LABELS);
-    if(own){ it.status='tagged'; it.labelled=true; it.existing=ssSrcCat(own); out.counts.tagged++; out.counts.labelled=(out.counts.labelled||0)+1; out.covered.push(it); out.items.push(it); return; }
+    // a shot whose source is a label of its own and that has no source row: a Gaelic Insights shot (converted or
+    // merged) — already tagged, Analysis reads it there
+    const own=ssLblCI(x, COH_AS_SRC_LABELS), have=rowOf.get(x)||folded.get(x);
+    if(own&&!have&&cohSrcLabelIsOwn(x)){ it.status='tagged'; it.labelled=true; it.existing=ssSrcCat(own); out.counts.tagged++; out.counts.labelled=(out.counts.labelled||0)+1; out.covered.push(it); out.items.push(it); return; }
     if(out.possFromMode){ it.status='possfrom'; out.counts.possFrom=(out.counts.possFrom||0)+1; out.items.push(it); return; }
-    const have=rowOf.get(x)||folded.get(x);
     if(have){ it.status='tagged'; it.row=have; it.folded=!rowOf.has(x); out.counts.tagged++; if(it.folded) out.counts.folded++;
       it.existing=ssSrcCat(ssLblCI(have,['Score Source Outcomes','Shot Source Outcomes','Source']));
+      // the shot's own source label, filled from the row (the row is never changed)
+      const f=cohShotSrcWant(x, have, list); if(f){ it.fill=f; out.fill.push(f); out.counts.fill++; }
       if(q){ const j=judgeUntagged(q); it.derived=j;
         if(j.ok&&it.existing&&j.cat!==it.existing){ it.status='disagree'; out.disagree.push(it); out.counts.disagree++; } }
       out.covered.push(it); out.items.push(it); return; }
+    // a COHESION shot carrying its source label with no row (the row was never written, or is gone): its row is
+    // written from the label — the source the user chose — when that is one of the seven; else it is reviewed
+    if(own){ const cat=ssSrcCat(own); it.derived={cat, how:'shotLabel', ok:clearCat(cat)};
+      if(clearCat(cat)){ it.status='clear'; it.cat=cat; it.add=rowFor(x, cat, q); out.add.push(it.add); out.counts.clear++; out.counts.bySource[cat]=(out.counts.bySource[cat]||0)+1; }
+      else { const why=cat==='TO'?'toUntyped':'other'; it.status='review'; it.reason=why; it.text=COH_AS_REASONS_SHORT[why]; out.review.push(it); out.counts.review++; out.counts.byReason[why]=(out.counts.byReason[why]||0)+1; }
+      out.items.push(it); return; }
     if(!q){ const op=oppPossAt(x); it.status='review'; it.reason='noPoss'; it.text=COH_AS_REASONS_SHORT.noPoss.replace('{T}', T)+(op?' (it falls in a '+op.team+' possession)':'');
       out.review.push(it); out.counts.review++; out.counts.byReason.noPoss=(out.counts.byReason.noPoss||0)+1; out.items.push(it); return; }
     const j=judge(q); it.derived=j;
@@ -399,7 +428,54 @@ function cohAutoSourcePlan(events, meta, opts){
   return out;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  THE SHOT'S OWN SOURCE LABEL — the source of a shot is ALSO a label on the shot row itself, in the group of its
+//  source row: a scored shot 'Score Source Outcomes', a missed one 'Shot Source Outcomes' (the game's own spelling of
+//  the group when it has one — cohGroupResolve), the row's value exactly. It follows the row: the pairing is the one
+//  Auto-tag uses (cohSrcPairing — a shot's own row, or the Tracker row covering a run of misses), and Code Room keeps
+//  the two in step (code-room.html crSrcStep). The ROW stays what Analysis and the dashboard count: in a game with
+//  source rows a COHESION shot's own label is never counted besides it (analysis.html ssGameTally, dashboard.html).
+//  A Gaelic Insights shot (GI Source ID / Merge Source ID, or a plain 'Source' label) keeps the label it came with.
+//    cohShotSrcPairs(events, meta) → {rowOf:Map(shot → row), shotsOf:Map(row → [shots]), list}
+//    cohShotSrcWant(shot, row, list) → {shot, row, group, value, keys} when the shot's label is not the row's, else null
+//    cohShotSrcFill(events, meta) → every such fill of the game
+//    cohShotSrcApply(fill)        → writes one fill onto its shot (the shot's other source groups removed)
+// ═══════════════════════════════════════════════════════════════
+const COH_SRC_ROW_GROUPS=['Score Source Outcomes','Shot Source Outcomes','Source'];
+const COH_SHOT_SRC_KEY=/^(score|shot) source outcomes$/i;
+function cohSrcRowValue(row){ return ssLblCI(row, COH_SRC_ROW_GROUPS); }
+function cohSrcLabelIsOwn(x){ return !!(ssLblCI(x,['GI Source ID'])||ssLblCI(x,['Merge Source ID']))||(!ssLblCI(x,['Score Source Outcomes','Shot Source Outcomes'])&&!!ssLblCI(x,['Source'])); }
+function cohShotSrcKeys(x){ return Object.keys((x&&x.labels)||{}).filter(k=>COH_SHOT_SRC_KEY.test(String(k).trim())); }
+function cohShotSrcValue(x){ return ssLblCI(x, ['Score Source Outcomes','Shot Source Outcomes']); }
+function cohShotSrcGroup(x, list){ const scored=cohAsDep('cohShotScored'), resolve=cohAsDep('cohGroupResolve'), n=(scored&&scored(x)===true)?'Score Source Outcomes':'Shot Source Outcomes'; return resolve?resolve(list||[], n):n; }
+function cohShotSrcWant(x, row, list){
+  if(!x||!row||cohSrcLabelIsOwn(x)) return null;
+  const value=cohSrcRowValue(row); if(!value) return null;
+  const group=cohShotSrcGroup(x, list), keys=cohShotSrcKeys(x);
+  if(keys.length===1&&keys[0]===group&&String(x.labels[group]).trim()===value) return null;
+  return {shot:x, row, group, value, keys};
+}
+function cohShotSrcPairs(events, meta){
+  const Gm=cohAsGame(events, meta), rowOf=new Map(), shotsOf=new Map();
+  if(!Gm) return {rowOf, shotsOf, list:(events||[]).filter(Boolean)};
+  const add=(x,r)=>{ rowOf.set(x,r); if(!shotsOf.has(r)) shotsOf.set(r,[]); shotsOf.get(r).push(x); };
+  Gm.rowOf.forEach((r,x)=>add(x,r)); Gm.folded.forEach((r,x)=>add(x,r));
+  return {rowOf, shotsOf, list:Gm.list};
+}
+function cohShotSrcFill(events, meta){
+  const P=cohShotSrcPairs(events, meta), out=[];
+  P.rowOf.forEach((r,x)=>{ const f=cohShotSrcWant(x, r, P.list); if(f) out.push(f); });
+  return out;
+}
+function cohShotSrcApply(f){
+  const x=f.shot; x.labels=x.labels||{};
+  f.keys.forEach(k=>{ delete x.labels[k]; if(x.labelsAll) delete x.labelsAll[k]; });
+  if(x.labelsAll&&!Object.keys(x.labelsAll).length) delete x.labelsAll;
+  x.labels[f.group]=f.value;
+}
+
 if(typeof module!=='undefined'&&module.exports) module.exports={ssUC, ssLbl, ssL, ssLblCI, ssSideOf, ssEvT, ssIsKO, ssIsTO, ssIsPoss, ssKoWon, ssKoKickerWon, ssSrcCat,
   ssToWinnerCoded, ssToKind, ssToType, ssIsFoul, ssIsThrowIn, ssPsRowOf, ssPossSources, ssPsToOk, SS_KO_GROUPS, SS_TO_OUT_GROUPS, SS_FOUL_AREA_GROUPS,
   SS_SRC_TO_KEYS, SS_PSRC_ROWS, SS_PSRC_TOL, SS_PSRC_LAG, SS_PSTO_MIN_BOTH, SS_PSTO_MIN_AGREE,
-  COH_SRC_TEXT, COH_SRC_VALUES, COH_AS_POSS_TOL, COH_AS_ROW_LEAD, COH_AS_ROW_LAG, COH_AS_REASONS, COH_AS_REASONS_SHORT, cohAutoSourcePlan};
+  COH_SRC_TEXT, COH_SRC_VALUES, COH_AS_POSS_TOL, COH_AS_ROW_LEAD, COH_AS_ROW_LAG, COH_AS_REASONS, COH_AS_REASONS_SHORT, cohAutoSourcePlan,
+  cohAsGame, cohSrcPairing, cohSrcRowValue, cohSrcLabelIsOwn, cohShotSrcKeys, cohShotSrcValue, cohShotSrcGroup, cohShotSrcWant, cohShotSrcPairs, cohShotSrcFill, cohShotSrcApply};

@@ -48,7 +48,12 @@ function cohXmlTeamImplied(e){
 // outcome the group stays bare). <Team> is spelt as the game spells it
 // (opts.meta home / away team as entered). cohXmlPlainGroup turns them back
 // (the import does the same: cohesion-labels.js cohScPlainGroup).
-// An 'Assist' is NOT a label in the export: it is written as a row (below).
+// An assist is the 'Assist' label (and 'Assist Type') on the SHOT OPEN PLAY / SHOT DEADBALL row, and that is how it is
+// exported: no "<TEAM> SCORE ASSIST" / "<TEAM> SHOT ASSIST" row is created for it. Assist rows a game already has (its
+// own events, from a Sportscode / Gaelic Insights file) are written as they are; one linked to a shot whose Assist label
+// names someone else is re-pointed to the label's player (rowAssist), so the two never disagree. Readers count an assist
+// ONCE: cohesion-labels.js cohAssistIndex links a row to its shot and cohShotAssist takes the shot's own label first
+// (Analysis); the dashboard skips a SCORE ASSIST row whose shot carries the label.
 const COH_XML_TEAM_GROUPS=['Kickout Won By','Kickout Taken By','Kickout Target'];
 // A substitution's players are exported the same way: "<Team> Player Out" / "<Team> Player In" (the row's team).
 const COH_XML_SUB_GROUPS=['Player Out','Player In'];
@@ -135,7 +140,7 @@ function cohXmlBuild(events, opts){
   evs.forEach(e=>{ const h=e.half; if(!h||!pMap[h])return; const s=tOf(e), en=endOf(e,s); if(!spans[h]) spans[h]={min:s,max:en}; else { spans[h].min=Math.min(spans[h].min,s); spans[h].max=Math.max(spans[h].max,en); } });
   const periods=[];
   ['1st Half','2nd Half','ET 1st Half','ET 2nd Half'].forEach(h=>{ if(filePer[h]) periods.push({code:h, start:+filePer[h].start, end:+filePer[h].end, file:true}); else if(spans[h]) periods.push({code:h, start:spans[h].min, end:spans[h].max}); });
-  // Group names follow the game's own template; assists are written as rows.
+  // Group names follow the game's own template; an assist stays the shot's label (existing assist rows are kept).
   const gidx=H.cohGroupIndex(events), aidx=H.cohAssistIndex(events||[], meta||{}), nk=H.cohNameKey;
   const playerGroup=team=>H.cohPlayerGroupFor(gidx, team, meta||{});
   const rowAssist=new Map();   // an existing assist row whose shot's Assist label names someone else: the label is what is written
@@ -161,19 +166,15 @@ function cohXmlBuild(events, opts){
     list.forEach(([g, vals])=>vals.forEach(x=>lines.push('    <label>','      <group>'+_xesc(g)+'</group>','      <text>'+_xesc(x)+'</text>','    </label>')));
     lines.push('  </instance>'); codes.push(code||'');
   };
-  // which shots need an assist row written, and which existing rows are re-pointed
-  const newAssist=new Map();
+  // existing assist rows whose shot's Assist label names someone else are re-pointed to the label's player
   evs.forEach(e=>{ if(!e||!H.cohIsShotRow(e)) return; const ak=H.cohLabelKeyEq(e.labels, 'Assist'); const a=ak!=null?String(e.labels[ak]||'').trim():''; if(!a) return;
-    const l=aidx.byShot.get(e);
-    if(l){ if(nk(l.name)!==nk(a)) rowAssist.set(l.row, {name:a, team:e.team}); }
-    else newAssist.set(e, a); });
+    const l=aidx.byShot.get(e); if(l&&nk(l.name)!==nk(a)) rowAssist.set(l.row, {name:a, team:e.team}); });
   // synthesised markers lead the file as before; the file's own period rows sit where they were, in time order
   const inTime=periods.filter(p=>p.file).sort((a,b)=>a.start-b.start);
   periods.filter(p=>!p.file).forEach(p=>write(p.code, p.start, p.end, []));
   evs.forEach(e=>{
     const s=tOf(e), en=endOf(e,s); let list=groupsOf(e);
     while(inTime.length&&inTime[0].start<=s){ const p=inTime.shift(); write(p.code, p.start, p.end, []); }
-    if(H.cohIsShotRow(e)){ const ak=H.cohLabelKeyEq(e.labels, 'Assist'); if(ak!=null) list=list.filter(x=>x[0]!==ak&&x[0]!=='Assist Type'); }
     if(rowAssist.has(e)){ const o=rowAssist.get(e), pg=playerGroup(o.team); list=list.filter(x=>!(H.cohIsPlayerGroup(x[0])&&H.cohPlayerGroupTeam(x[0])===String(o.team||'').toUpperCase())); list.push([pg, [o.name]]); }
     if(e.team&&H.cohIsKoRow(e)){
       // the template's order: the kicker first, then the player who won it, each in HIS team's player group —
@@ -201,13 +202,6 @@ function cohXmlBuild(events, opts){
       }
     }
     write(e.code, s, en, list);
-    if(newAssist.has(e)){
-      const scored=H.cohShotScored(e)===true, pre=String(e.code||'').replace(/\s*SHOT\s+(OPEN|DEAD).*$/i,''), code=(pre?pre+' ':'')+(scored?'SCORE':'SHOT')+' ASSIST', al=[];
-      if(e.team&&!String(code).includes(String(e.team).toUpperCase())) al.push(['Team Name', [e.team]]);
-      const tk=H.cohLabelKeyEq(e.labels, 'Assist Type'); if(tk!=null&&e.labels[tk]) al.push([H.cohGroupResolve(gidx, scored?'Score Assist Outcomes':'Shot Assist Outcomes'), [e.labels[tk]]]);
-      al.push([playerGroup(e.team), [newAssist.get(e)]]);
-      write(code, s, en, al);
-    }
   });
   inTime.forEach(p=>write(p.code, p.start, p.end, []));
   lines.push('</ALL_INSTANCES>');
