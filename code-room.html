@@ -102,6 +102,29 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 canvas#crTL{display:block;cursor:crosshair;touch-action:none;}
 #tlsb{touch-action:none;}
 .crdh{touch-action:none;}
+/* FIT TO SCREEN (body.crfit — set by crFitUpdate while a game is open on a window at least 901 × 700): the page never
+   scrolls. Video + transport stay put on the left, the List / Timeline / Matrix box takes the rest of the left column
+   and scrolls inside itself, and the right panel scrolls on its own. Smaller windows keep the scrolling page. */
+body.crfit{height:100vh;min-height:0;overflow:hidden;}
+body.crfit .page{height:calc(100vh - 54px);display:flex;flex-direction:column;padding:10px 20px 12px;}
+body.crfit .page>.title,body.crfit .page>.sub{display:none;}
+body.crfit #editor{flex:1;min-height:0;display:flex;flex-direction:column;}
+body.crfit #editor>.grid{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch;}
+body.crfit #editor>.grid>div:first-child{display:flex;flex-direction:column;min-height:0;min-width:0;}
+body.crfit .vwrap,body.crfit .crdh{flex:none;}
+body.crfit .list,body.crfit .list.tlon{flex:1;min-height:0;max-height:none;}
+body.crfit .crmx{flex:1;min-height:0;}
+body.crfit .editcol{position:static;height:100%;max-height:none;min-height:0;overflow-y:auto;}
+/* label rows on the card after a tag: one row highlighted, number keys pick in it (crQualKbKey) */
+.clblrow.kbrow{padding:3px 6px;margin-left:-6px;margin-right:-6px;border-radius:8px;}
+.clblrow .kbn{display:none;}
+.codelink .kbhint{display:none;font:600 10.5px 'Barlow',sans-serif;color:var(--t3);margin:0 0 6px;}
+.codelink.kbon .kbhint{display:block;}
+.codelink.kbon .clblrow.kbsel{background:var(--accent-bg);box-shadow:0 0 0 2px var(--accent);}
+.codelink.kbon .clblrow.kbsel .clbl-g{color:var(--accent);}
+.codelink.kbon .clblrow.kbsel .clbl-g::before{content:'▸ ';}
+.codelink.kbon .clblrow.kbsel .kbn{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;margin-left:6px;padding:0 3px;border-radius:4px;background:var(--accent);color:#fff;opacity:1;font:800 10px 'Barlow Condensed',sans-serif;vertical-align:1px;}
+.codelink.kbon .clblrow.kbsel .cbtn.on .kbn{background:#fff;color:var(--accent);}
 .tlsb{flex:none;height:12px;margin:5px 8px 2px;background:var(--card);border:1px solid var(--border);border-radius:6px;position:relative;}
 .tlsb-thumb{position:absolute;top:1px;bottom:1px;min-width:20px;background:var(--t3);border-radius:5px;cursor:grab;}
 .tlsb-thumb:hover{background:var(--accent);}
@@ -710,20 +733,52 @@ async function startLocalSession(){
 // Resize the video by HEIGHT (like the dashboard): S/M/L/Xl presets plus a
 // drag handle below the player. Choice is remembered across sessions.
 const CR_HS=[340,480,620,760];
-function crVidMaxH(){ return Math.max(220, window.innerHeight-140); }
+// Fit to screen: the page is the window's height and never scrolls (CSS body.crfit) while a game is open on a window
+// at least 901 wide and 700 tall; below that the page scrolls as before.
+const CR_LIST_MIN=190;   // fit mode: the least height the List / Timeline box keeps under the video
+function crFitUpdate(){
+  const ed=document.getElementById('editor');
+  const on=!!(ed&&ed.style.display!=='none'&&window.innerWidth>900&&window.innerHeight>=700);
+  document.body.classList.toggle('crfit', on);
+  return on;
+}
+function crVidMaxH(){
+  if(document.body.classList.contains('crfit')){
+    // the left column's height less the transport bar, the drag handle and the List / Timeline box's minimum
+    const w=document.getElementById('vwrap'), col=w&&w.parentElement, dh=document.getElementById('crdh'), vb=w&&w.querySelector('.vbar');
+    if(col&&col.clientHeight){
+      const bar=(vb?vb.offsetHeight:46)+2, dhH=dh?dh.offsetHeight+6:17;
+      return Math.max(180, col.clientHeight-bar-dhH-14-CR_LIST_MIN);
+    }
+  }
+  return Math.max(220, window.innerHeight-140);
+}
 function crSetH(px, skipSave){
   const vid=document.getElementById('vid'); if(!vid) return;
-  px=Math.max(180, Math.min(crVidMaxH(), Math.round(px)));
+  const want=Math.max(180, Math.round(px));       // the size asked for (kept); the window may only fit less
+  px=Math.min(crVidMaxH(), want);
   vid.style.height=px+'px';
-  if(!skipSave){ try{ localStorage.setItem('cr_vidH', px); }catch(_){} }
+  if(!skipSave){ try{ localStorage.setItem('cr_vidH', want); }catch(_){} }
   // only the SIZE buttons (data-crh = their height): the camera-angle buttons share the .crsz look and keep their own highlight
-  document.querySelectorAll('.crsz[data-crh]').forEach(b=>b.classList.toggle('on', +b.dataset.crh===px));
+  document.querySelectorAll('.crsz[data-crh]').forEach(b=>b.classList.toggle('on', +b.dataset.crh===want));
 }
 function initVH(){
   const vid=document.getElementById('vid'), h=document.getElementById('crdh');
   if(!vid) return;
+  crFitUpdate();
   let saved=0; try{ saved=+localStorage.getItem('cr_vidH')||0; }catch(_){}
   crSetH(saved>=180 ? saved : 480, true);
+  // the window (or, in fit mode, the left column — the toolbar wrapping, the sync bar) changes size: re-fit the video
+  if(!window._crFitRs){ window._crFitRs=true;
+    let rq=0;
+    const again=()=>{ if(!GAME) return; crFitUpdate();
+      let s=0; try{ s=+localStorage.getItem('cr_vidH')||0; }catch(_){}
+      crSetH(s>=180?s:480, true); };
+    const soon=()=>{ cancelAnimationFrame(rq); rq=requestAnimationFrame(again); };
+    window.addEventListener('resize', soon);
+    const col=document.getElementById('vwrap').parentElement;   // fixed by the window in fit mode, so this never loops
+    if(window.ResizeObserver&&col) new ResizeObserver(()=>{ if(document.body.classList.contains('crfit')) soon(); }).observe(col);
+  }
   if(h && !h._init){ h._init=true;
     let drag=false, sy=0, sh=0;
     h.addEventListener('pointerdown',e=>{ drag=true; sy=e.clientY; sh=vid.offsetHeight; h.classList.add('act'); vid.style.pointerEvents='none'; document.body.style.userSelect='none'; e.preventDefault(); });
@@ -1188,7 +1243,7 @@ function crYtError(e){
 function startClock(){ const tick=()=>{ if(YTP&&YTP.getCurrentTime){ const t=vNow(); document.getElementById('vtime').textContent=fmt(t); const b=document.getElementById('playBtn'); if(b) b.textContent=(YTP.getPlayerState&&YTP.getPlayerState()===1)?'Pause':'Play'; if(crView==='tl'&&Math.abs(t-crLastDrawT)>0.05){ crLastDrawT=t; crDrawTL(); } if(codeMode.on&&Object.keys(crRec).length) crTickRecs(); } rafId=requestAnimationFrame(tick); }; if(rafId)cancelAnimationFrame(rafId); rafId=requestAnimationFrame(tick); }
 window.addEventListener('resize',()=>{ if(crView==='tl') crDrawTL(); });
 function vseek(d){ if(!YTP||!YTP.seekTo)return; const t=Math.max(0,(YTP.getCurrentTime?YTP.getCurrentTime():0)+d); YTP.seekTo(t,true); }
-function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else YTP.playVideo(); }
+function vtoggle(){ if(!YTP)return; const s=YTP.getPlayerState?YTP.getPlayerState():-1; if(s===1)YTP.pauseVideo(); else { crQualKbDone(); YTP.playVideo(); } }
 let crRate=1;
 const CR_RATES=[0.25,0.5,1,1.5,2];
 function vrate(r){
@@ -4927,11 +4982,12 @@ function renderCodeLink(){
     // per-event detail labels (only the groups that apply to this code) —
     // fresh for every tag, applied straight to the row
     const isShot=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(sq.code||'');
-    (window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).forEach(g=>{
-      if(g.players) return;                       // Assist → its own dropdown below
+    const kbG=crQualKbGroups(sq);
+    if(kbG.length) html+=`<div class="kbhint">Keys: <b>1–9</b> pick in the highlighted row · <b>↑ ↓</b> or <b>Tab</b> change row · <b>Enter</b> or <b>Space</b> done</div>`;
+    kbG.forEach(g=>{                              // Assist and the other player groups → their own boxes below
       const cur=(sq.labels||{})[g.name]||'';
-      html+=`<div class="clblrow"><span class="clbl-g">${esc(g.name)}</span>`+
-        g.options.map(o=>`<button class="cbtn mini ${cur===o?'on':''}" onclick="codeShotQual('${_cq(g.name)}','${_cq(o)}')">${esc(o)}</button>`).join('')+
+      html+=`<div class="clblrow kbrow"><span class="clbl-g">${esc(g.name)}</span>`+
+        g.options.map((o,j)=>`<button class="cbtn mini ${cur===o?'on':''}" onclick="codeShotQual('${_cq(g.name)}','${_cq(o)}')">${esc(o)}${j<9?`<span class="kbn">${j+1}</span>`:''}</button>`).join('')+
         `</div>`;
     });
     if(isShot){
@@ -4960,6 +5016,69 @@ function renderCodeLink(){
   box.style.display='';
   box.innerHTML=html;
   crAssistWire(box);
+  crQualKbPaint();
+  // a new card (a new tag, or its outcome answered): bring it to the top of the right panel, beside the video
+  const ck=(sq?sq._rowId:'')+'|'+(pl?pl.rowId+'L':'');
+  if(ck!==crCardShown){ crCardShown=ck; crPanelShowCard(); }
+}
+// ── The card after a tag, by keyboard ─────────────────────────
+// The card's button rows (Shot Attempts, Shooting Leg, Shot Side, Shot Pressure; Kickout Locations; Turnover
+// Locations; Foul Areas / Foul Outcomes …: every non-player label group of the code just tagged) — one row is
+// highlighted, 1–9 pick that option in it (sets it, never toggles it off) and move to the next row; ↑ ↓ / Tab /
+// Shift+Tab change row; Enter or Esc finishes; Space finishes AND resumes the video as always. Live only while the
+// card is open, its outcome prompt (if any) answered, the card not finished and the video paused — otherwise the
+// number keys tag as before. A letter hotkey or Option+digit still tags the next event (which replaces the card).
+// Never while typing in a box (Shooter / Assist / the pick lists): those keys are the box's own.
+let crCardShown='';
+function crQualKbGroups(sq){ return (sq&&window.cohesionGroupsFor?cohesionGroupsFor(sq.code||''):[]).filter(g=>!g.players&&g.options&&g.options.length); }
+function crQualKbRow(){ const q=codeMode.shotQual; return q&&EVENTS.find(e=>String(e._rowId)===String(q.rowId)); }
+function crQualKbOn(){
+  const q=codeMode.shotQual;
+  if(!codeMode.on||!q||q.kbDone||codeMode.pendingLink) return false;
+  if(YTP&&YTP.getPlayerState&&YTP.getPlayerState()===1){ crQualKbDone(); return false; }   // playing again: the card is finished
+  return crQualKbGroups(crQualKbRow()).length>0;
+}
+function crQualKbPaint(){
+  const box=document.getElementById('codeLink'); if(!box) return;
+  const on=crQualKbOn(), rows=[...box.querySelectorAll('.clblrow.kbrow')];
+  const i=Math.max(0,Math.min(rows.length-1,(codeMode.shotQual&&codeMode.shotQual.kb)||0));
+  box.classList.toggle('kbon', on);
+  rows.forEach((r,j)=>r.classList.toggle('kbsel', on&&j===i));
+  if(on&&rows[i]&&rows[i].scrollIntoView&&document.body.classList.contains('crfit')) rows[i].scrollIntoView({block:'nearest'});
+}
+function crQualKbDone(){
+  const q=codeMode.shotQual; if(!q||q.kbDone) return;
+  q.kbDone=true; crQualKbPaint();
+}
+// true = the key was the card's (the caller stops there)
+function crQualKbKey(e){
+  if(e.ctrlKey||e.metaKey||!crQualKbOn()) return false;
+  const q=codeMode.shotQual, row=crQualKbRow(), gs=crQualKbGroups(row);
+  const i=Math.max(0,Math.min(gs.length-1,q.kb||0)), k=e.key;
+  if(e.code==='Space'){ crQualKbDone(); return false; }            // finished — and Space still plays the video
+  if(k==='Enter'||k==='Escape'){ e.preventDefault(); crQualKbDone(); return true; }
+  if(!e.altKey&&(k==='ArrowDown'||k==='ArrowUp'||k==='Tab')){
+    e.preventDefault();
+    q.kb=Math.max(0,Math.min(gs.length-1,i+((k==='ArrowUp'||(k==='Tab'&&e.shiftKey))?-1:1)));
+    crQualKbPaint(); return true;
+  }
+  if(!e.altKey&&k>='1'&&k<='9'&&k.length===1){
+    e.preventDefault();
+    const g=gs[i], v=g&&g.options[+k-1];
+    if(!v) return true;                                             // no such option in this row: nothing (no tag)
+    q.kb=Math.min(gs.length-1,i+1);
+    if(((row.labels||{})[g.name]||'')!==v) codeShotQual(g.name, v); else crQualKbPaint();
+    return true;
+  }
+  return false;
+}
+// Scroll the right panel (fit-to-screen mode: it scrolls on its own) so the status line and the card just shown sit at its top
+function crPanelShowCard(){
+  const col=document.querySelector('.editcol'), f=document.getElementById('codeFlash'), box=document.getElementById('codeLink');
+  if(!col||!f||!document.body.classList.contains('crfit')) return;
+  if(!box||box.style.display==='none') return;
+  if(col.scrollHeight<=col.clientHeight+1) return;
+  col.scrollTop=Math.max(0, f.getBoundingClientRect().top-col.getBoundingClientRect().top+col.scrollTop-8);
 }
 function codeShotQual(group,value){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));
@@ -5173,6 +5292,7 @@ document.addEventListener('keydown', e=>{
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
   // ] or Cmd/Ctrl+] = switch tagging team (works mid-prompt too)
   if(e.key===']'){ e.preventDefault(); e.stopPropagation(); codeSwitchTeam(); return; }
+  if(crQualKbKey(e)) return;                       // the card after a tag: 1–9 / ↑ ↓ / Tab / Enter (crQualKbKey)
   if(e.code==='Space'){ e.preventDefault(); vtoggle(); return; }
   if(e.key==='r'||e.key==='R'){ e.preventDefault(); crReplayLast(); return; }   // works mid-prompt: watch it again before answering
   // While an outcome prompt is up, 1–N pick the outcome and Esc skips it;
