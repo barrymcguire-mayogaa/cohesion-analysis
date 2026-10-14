@@ -269,6 +269,12 @@ function cohRowRgb16(row){
 function cohRowColours(meta){ const m=new Map(); ((meta&&Array.isArray(meta.rows))?meta.rows:[]).forEach(r=>{ if(r&&r.code&&r.colour&&!m.has(r.code)) m.set(r.code, r.colour); }); return m; }
 // Merge-only-your-field: a fresh copy of the game's meta with rows set (nothing else touched)
 function cohRowsMergeMeta(meta, rows){ const m=Object.assign({}, meta||{}); if(Array.isArray(rows)&&rows.length) m.rows=rows.map(r=>Object.assign({}, r)); else delete m.rows; return m; }
+// The "1H 12:34" clock string — the same as the single-game upload's getGameTime (admin.html); used by Batch Upload.
+function cohScGameTime(half, start, refs){
+  const refStart=refs[half]||0, mins=(start-refStart)/60, m=Math.floor(mins), s=Math.round((mins-m)*60);
+  const prefix=half==='1st Half'?'1H':half==='2nd Half'?'2H':half==='ET 1st Half'?'ET1':'ET2';
+  return prefix+' '+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
 function cohScCategory(code){
   if(/SHOT|1 POINT|2 POINT|WIDE|GOAL|SAVE|BLOCKED|SHORT|WOODWORK/.test(code)) return 'Shots & Scores';
   if(/KO/.test(code) && !/SCORE|ATTACK/.test(code)) return 'Kickouts';
@@ -844,4 +850,4 @@ function cohToRolesTxt(e, meta){
   return out.join(' · ');
 }
 function cohFoulers(e, meta){ const T=cohUp(e&&e.team); return cohEventPlayers(e, meta).filter(p=>cohUp(p.team)===T); }
-if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor, cohCarryApply});
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor, cohCarryApply, cohScGameTime});
