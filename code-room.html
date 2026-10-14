@@ -365,6 +365,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-xml.js"></script>
 <script src="cohesion-photos.js"></script>
 <script src="cohesion-teamsheet.js"></script>
+<script src="cohesion-subs.js"></script>
 </head>
 <body>
 <header>
@@ -426,6 +427,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
       <button onclick="crPlayersPopup()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Rename a player across every event in this game">👥 Players</button>
       <button onclick="crTeamSheetEdit()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="This game's team sheets — each team's 1–15 and subs, with jersey numbers">👕 Team sheets</button>
       <button id="crKprBtn" onclick="crKprToggle()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Goalkeepers — who takes each team's kickouts in this game (fills Kickout Taken By)">🧤 Goalkeepers</button>
+      <button id="crSubsBtn" onclick="crSubsToggle()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Subs — type each team's substitutions from the match report (minute, off, on), check each against the video, and they become SUB rows (cohesion-subs.js)">🔁 Subs</button>
       <button onclick="crExportXmlManual()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
       <button id="crSaveBtn" onclick="saveAllAndClose()" style="border-radius:8px;padding:9px 16px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);">← Back to Library</button>
     </div>
@@ -7357,6 +7359,7 @@ function undo(){
   refreshDatalists(); crBackup(); crUpdatePending();
   renderList();
   if(activeId) pick(activeId); else renderPanel();
+  if(typeof crSubsRefresh==='function') crSubsRefresh();   // the Subs panel reads its state from the rows
 }
 
 // The identity widget can auto-open (dim backdrop) on load; we never use
