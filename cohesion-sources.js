@@ -159,7 +159,8 @@ function ssPossSources(events, H, A, skip){
   const poss=[], srcRows=[], cands=[];
   events.forEach((e,i)=>{ if(!e||skip(e)) return;
     const team=teamOf(e), c=ssUC(e.code), [s,en]=span(e);
-    if(ssIsThrowIn(e)){ const w=ssUC(e.team); if(w===H||w===A) cands.push({e,i,s,en,win:w,cat:'TI',ko:0,used:false}); return; }
+    if(ssIsThrowIn(e)){ const w=ssUC(e.team)||ssUC(ssLblCI(e,['Won By']));   // Code Room's team-neutral throw-in names its winner in a "Won By" label
+      if(w===H||w===A) cands.push({e,i,s,en,win:w,cat:'TI',ko:0,used:false}); return; }
     if(!team) return;
     if(ssIsPoss(e)){ poss.push({e,i,team,s,en,cat:null,how:null,tag:null,start:null,ev:null}); return; }
     if(/(SCORE|SHOT) SOURCE/.test(c)){ const cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source'])); if(cat) srcRows.push({e,i,team,s,en,cat}); return; }
