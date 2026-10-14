@@ -323,6 +323,24 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .craa-btn.dis:hover{border-color:var(--border);color:var(--t1);}
 .crlc{right:392px;width:380px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
 @media (max-width:1100px){.crlc{right:16px;}}
+/* Auto-tag sources panel (docked like Label check, so the video stays in view) */
+.cras{width:430px;max-height:calc(100vh - 90px);overflow:auto;z-index:9990;}
+.cras-sum{font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:6px;}
+.cras-sum b{color:var(--t1);}
+.cras-k{display:inline-block;min-width:76px;font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;}
+.cras-k.clear{color:var(--green);} .cras-k.review{color:#f59e0b;} .cras-k.dis{color:var(--red);} .cras-k.done{color:var(--t3);}
+.cras-list{max-height:min(46vh,420px);overflow:auto;border:1px solid var(--border);border-radius:7px;margin-bottom:8px;}
+.cras-list:empty{display:none;}
+.cras-it{padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--t1);}
+.cras-it:last-child{border-bottom:none;}
+.cras-it:hover{background:var(--card);}
+.cras-it.on{background:var(--card);box-shadow:inset 3px 0 0 var(--accent);}
+.cras-it .t{font-variant-numeric:tabular-nums;color:var(--t3);margin-right:6px;}
+.cras-why{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.cras-pick{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.cras-pick .cbtn{padding:4px 7px;font-size:11px;}
+.cras-pick .cbtn.sug{border-color:var(--accent);color:var(--accent);}
+.cras-pick .cbtn.skip{color:var(--t3);}
 .crlc-sec{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;}
 .crlc-count{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t1);flex:1;min-width:0;}
 .crlc-count.bad{color:var(--red);} .crlc-count.good{color:var(--green);}
@@ -356,6 +374,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-sources.js"></script>
 <script src="cohesion-merge.js"></script>
 <script src="cohesion-periods.js"></script>
 <script src="cohesion-xp.js"></script>
@@ -479,6 +498,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="ptagBtn" style="display:none;" onclick="crPTagOpen()" title="Player numbers → names — this game has events that name a player only by jersey number (P13, as a GIU file does) and the team sheet now has a player at that number. Preview, tick, replace; a number with no player on the sheet stays">#</div>
             <div class="tlrb" id="etFixBtn" style="display:none;" onclick="crEtFixOpen()" title="Mark extra time — this game went to extra time but every event after half-time is saved as 2nd Half (a Tracker game uploaded before 12 Oct 2026). Preview the period starts and the events that move to ET 1st Half / ET 2nd Half with their new ET clock, then apply: the saved game is corrected without uploading again. Only the period and the game clock change; queued, one Undo; nothing is saved until you close the session">⏱</div>
             <div class="tlrb" id="koDupBtn" style="display:none;" onclick="crKoDupOpen()" title="Duplicate kickouts — this game has two kickouts by the same team in the same half within 20 seconds of each other: most likely the same kickout twice (until 11 Oct 2026 “Merge XML” could bring a kickout in a second time). Preview each pair with what would be kept, copied and removed; a row brought in by a merge is proposed, two of the game’s own rows are left for you to check on the video. Queued, one Undo; nothing is saved until you close the session">⚠</div>
+            <div class="tlrb" id="autoSrcBtn" style="display:none;" onclick="crASToggle()" title="Auto-tag sources — every shot with no SCORE SOURCE / SHOT SOURCE row gets one from the shooting team&rsquo;s TEAM POSSESSION that contains it (where that possession came from, by the same rule as Analysis &rsaquo; Productivity by source). Clear ones are tagged in one go after a summary; the rest are listed for you to pick on the video. Rows already there are never changed. Queued, one Undo; nothing is saved until you close the session">⇢ Auto-tag sources</div>
             <div class="tlrb" id="mergeBtn" onclick="crMergeOpen()" title="Merge another XML — bring in a second file of this match (another analyst’s coding): its clock is lined up with the game’s, events in both keep the game’s version and gain what it lacks, events only in the file are added as COHESION rows. Preview first; one Undo; nothing saved until you close the session">⧉ Merge XML</div>
             <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
@@ -1279,7 +1299,7 @@ function renderList(){
     if(!crLCPass(e)) return false;              // Label check: "Show only missing"
     return true;
   });
-  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync(); crPTagBtnSync(); crKoDupBtnSync(); crEtFixBtnSync();
+  crGiBtnSync(); crLocBtnSync(); crKoFixBtnSync(); crPTagBtnSync(); crKoDupBtnSync(); crEtFixBtnSync(); crASBtnSync();
   const fb=document.getElementById('flagBtn');
   if(fb){ const nf=EVENTS.filter(crIsFlagged).length;
     fb.style.display=(nf||crFlagOnly)?'':'none'; fb.textContent='⚑ '+nf;
@@ -1546,9 +1566,13 @@ function crSeqOf(e){
 }
 // Possible duplicate: another event of the SAME code within 2 seconds (a
 // double-tap on the tracker). Multiple shots after a block/save are further
-// apart than that.
+// apart than that. A SCORE / SHOT SOURCE row starts where its POSSESSION starts, so two shots of one possession give
+// two rows with the same start (the Tracker writes them so, and so does Auto-tag sources): those are duplicates only
+// when they also end within 2 s of each other (they end at their own shot).
 function crIsDup(e){
-  return !!(e&&e.code)&&EVENTS.some(x=>x!==e&&x.code===e.code&&Math.abs((x.driveT||0)-(e.driveT||0))<=2);
+  if(!(e&&e.code)) return false;
+  const src=/(SCORE|SHOT) SOURCE\s*$/i.test(e.code);
+  return EVENTS.some(x=>x!==e&&x.code===e.code&&Math.abs((x.driveT||0)-(e.driveT||0))<=2&&(!src||Math.abs((+x.end||0)-(+e.end||0))<=2));
 }
 // What's under the cursor: an event bar (with move / resizeL / resizeR mode) or null.
 // Overlapping bars: every event under the point is returned in `stack` (the
@@ -6592,6 +6616,125 @@ function crKoDupGo(){
   if(!crKoDup) return; const choice={}; Object.keys(crKoDup.on).forEach(k=>{ if(crKoDup.on[k]&&crKoDup.pick[k]) choice[k]=crKoDup.pick[k]; });
   crKoDupClose(); const ops=crKoDupApply(choice); if(!ops) return;
   crMgStatus('Duplicate kickouts ✓ '+ops.summary+' — saved when you close the session; Undo puts them back');
+}
+
+// ── Auto-tag sources ───────────────────────────────────────────
+// Every shot with no "<TEAM> SCORE SOURCE" / "SHOT SOURCE" row gets one from the shooting team's TEAM POSSESSION that
+// contains it: where that possession came from, by the rule Analysis › Productivity by source uses (cohesion-sources.js
+// ssPossSources; the whole rule and what counts as clear is written at cohAutoSourcePlan). The panel is docked, not
+// modal, so the video stays in view: a summary, "Tag N clear shots" (a confirm, then ONE queued change, one Undo), the
+// shots to review (click → the video jumps there; a source button writes that shot's row, one Undo each; Skip hides it
+// for this session) and the shots whose existing row disagrees with their possession (listed only — never changed).
+// New rows are ordinary queued rows (_new): saved with "Close session & save all", or written to the XML of a local session.
+let crAS={open:false, cur:null, skip:new Set()};
+const CR_AS_SHORT={'OWN KO':'Own KO','OPP KO':'Opp KO','FTO':'Forced TO','UTO':'Unforced TO','BR':'Ball recovered','TI':'Throw-in','FREE':'Free won'};
+function crASPlan(){ if(!GAME||typeof cohAutoSourcePlan!=='function') return null; try{ return cohAutoSourcePlan(EVENTS, GAME); }catch(e){ console.warn('auto-tag sources', e); return null; } }
+function crASBtnSync(P){
+  const b=document.getElementById('autoSrcBtn'); if(!b) return;
+  if(P===undefined) P=GAME?crASPlan():null;
+  const n=P?P.counts.clear+P.counts.review:0, d=P?P.counts.disagree:0;
+  b.style.display=(n||d||crAS.open)?'':'none';
+  b.textContent=n?'⇢ Auto-tag sources ('+n+')':d?'⇢ Sources: '+d+' to check':'⇢ Sources ✓';
+  if(crAS.open) crASRender(P);
+}
+function crASToggle(){ if(crAS.open) crASClose(); else crASOpen(); }
+function crASOpen(){
+  if(!GAME) return;
+  let p=document.getElementById('crAS');
+  if(!p){ p=document.createElement('div'); p.id='crAS'; p.className='crfr cras'; p.setAttribute('role','dialog'); p.setAttribute('aria-label','Auto-tag sources'); document.body.appendChild(p); }
+  p.style.display=''; crAS.open=true; crASBtnSync();
+}
+function crASClose(){ const p=document.getElementById('crAS'); if(p) p.style.display='none'; crAS.open=false; crAS.cur=null; crASBtnSync(); }
+const crASShotLine=x=>{ const o=String((x.labels||{})['Shot Outcomes']||x.outcome||'').trim(); return '<b>'+esc(x.code||'')+'</b>'+(o?' · '+esc(o):' · <span style="color:var(--t3);">no outcome</span>'); };
+const crASAt=x=>fmt(x.driveT??x.start??0)+(x.gameTime?' <span style="color:var(--t3);">'+esc(x.gameTime)+'</span>':'');
+function crASEvWords(ev){ if(!ev) return ''; const L=ev.labels||{}, o=L['Kickout Outcomes']||L['Turnover Outcomes']||L['Foul Areas']||ev.outcome||''; return (ev.code||'')+(o?' · '+o:'')+' at '+fmt(ev.driveT??ev.start??0); }
+function crASRender(P){
+  const p=document.getElementById('crAS'); if(!p||!crAS.open) return;
+  if(P===undefined) P=crASPlan();
+  const sc=p.querySelector('.cras-list[data-k="review"]'), top=sc?sc.scrollTop:0;
+  if(!P){ p.innerHTML='<div class="crfr-h"><span>AUTO-TAG SOURCES</span><span class="crfr-sub"></span><span class="crfr-x" onclick="crASClose()" title="Close">✕</span></div><div class="cras-sum">Open a game with home and away teams first.</div>'; return; }
+  const C=P.counts, pl=(n,w)=>n+' '+w+(n===1?'':'s'), T=COH_SRC_TEXT;
+  const rev=P.review.filter(it=>!crAS.skip.has(String(it.shot._rowId))), skipped=P.review.length-rev.length;
+  if(crAS.cur&&!rev.some(it=>String(it.shot._rowId)===crAS.cur)) crAS.cur=null;
+  const bySrc=Object.keys(T).filter(k=>C.bySource[k]).map(k=>T[k]+' '+C.bySource[k]).join(' · ');
+  const byWhy=Object.keys(C.byReason).map(k=>C.byReason[k]+' '+esc(COH_AS_REASONS[k].replace('{T}','its team'))).join('<br>');
+  const scores=P.add.filter(r=>/SCORE SOURCE/i.test(r.code)).length;
+  let h='<div class="crfr-h"><span>AUTO-TAG SOURCES</span><span class="crfr-sub">'+esc(GAME.title||((GAME.homeTeam||'')+' v '+(GAME.awayTeam||'')))+'</span><span class="crfr-x" onclick="crASClose()" title="Close">✕</span></div>'
+    +'<div class="cras-sum" id="asSum"><b>'+pl(C.shots,'shot')+'</b> · the source of each = where its team&rsquo;s possession came from (the event that won the ball within '+SS_PSRC_LAG+' s, as in Analysis).<br>'
+    +'<span class="cras-k'+(C.clear?' clear':' done')+'">CLEAR '+C.clear+'</span>'+(C.clear?esc(bySrc):'nothing to tag automatically')+'<br>'
+    +'<span class="cras-k'+(C.review?' review':' done')+'">REVIEW '+C.review+'</span>'+(C.review?'<span style="display:inline-block;vertical-align:top;">'+byWhy+'</span>':'none')+'<br>'
+    +'<span class="cras-k'+(C.disagree?' dis':' done')+'">DISAGREE '+C.disagree+'</span>'+(C.disagree?'existing row ≠ its possession — listed below, not changed':'none')+'<br>'
+    +'<span class="cras-k done">TAGGED '+C.tagged+'</span>'+(C.tagged?'already have a source'+(C.folded?' ('+C.folded+' in a Tracker row covering a run of misses)':'')+(C.labelled?' ('+C.labelled+' as a label on the shot)':'')+' — never changed':'none')
+    +(P.possFromMode?'<br><b>Nothing to add:</b> Analysis reads this game&rsquo;s shot sources from its possessions&rsquo; PossFrom labels (a GIU game) — '+pl(C.possFrom,'shot')+' already have one that way, and one source row would switch it to reading rows only.':'')+'</div>';
+  if(C.clear) h+='<div class="crfr-row crfr-btns"><button class="cbtn" id="asTagBtn" onclick="crASTagClear()" style="border-color:var(--green);background:var(--green);color:#fff;">Tag '+pl(C.clear,'clear shot')+'…</button>'
+    +'<span class="crfr-count">'+scores+' SCORE SOURCE + '+(C.clear-scores)+' SHOT SOURCE rows</span></div>';
+  h+='<div class="crfr-lbl">To review ('+rev.length+(skipped?' · '+skipped+' skipped':'')+')</div>'+(rev.length?'<div class="crlc-note">Click a shot to see it on the video, then pick its source. The outlined button is what its possession&rsquo;s start event says.</div>':'')+'<div class="cras-list" data-k="review">'
+    +rev.map(it=>{ const id=String(it.shot._rowId), on=crAS.cur===id, sug=it.derived&&it.derived.cat&&T[it.derived.cat]?it.derived.cat:null;
+      const ev=it.poss&&it.poss.ev?it.poss.ev:null;
+      let s='<div class="cras-it'+(on?' on':'')+'" data-as="'+esc(id)+'" onclick="crASShow(this.getAttribute(\'data-as\'))"><span class="t">'+crASAt(it.shot)+'</span>'+crASShotLine(it.shot)
+        +'<div class="cras-why">'+esc(it.text||'')+(it.poss?' · possession '+fmt(it.poss.e.driveT??it.poss.s)+'–'+fmt((it.poss.e.driveT??it.poss.s)+(it.poss.en-it.poss.s)):'')+(ev?' · '+esc(crASEvWords(ev)):'')+'</div>';
+      if(on) s+='<div class="cras-pick" onclick="event.stopPropagation()">'+Object.keys(T).map(k=>'<button class="cbtn'+(k===sug?' sug':'')+'" data-as-pick="'+k+'" title="'+esc(T[k])+(k===sug?' — what the possession&rsquo;s start event says':'')+'" onclick="crASPick(\''+esc(id)+'\',\''+k+'\')">'+esc(CR_AS_SHORT[k])+'</button>').join('')
+        +'<button class="cbtn skip" data-as-pick="skip" onclick="crASSkip(\''+esc(id)+'\')" title="Leave this shot without a source for now">Skip</button></div>';
+      return s+'</div>'; }).join('')+'</div>';
+  if(skipped) h+='<div class="crlc-note"><a onclick="crAS.skip.clear();crASRender()">Show the '+pl(skipped,'skipped shot')+' again</a></div>';
+  h+='<div class="crfr-lbl">Disagreements — not changed ('+P.disagree.length+')</div><div class="cras-list" data-k="dis">'
+    +P.disagree.map(it=>{ const id=String(it.shot._rowId), ev=it.poss&&it.poss.ev;
+      return '<div class="cras-it" data-as-dis="'+esc(id)+'" onclick="crASShow(this.getAttribute(\'data-as-dis\'))"><span class="t">'+crASAt(it.shot)+'</span>'+crASShotLine(it.shot)
+        +'<div class="cras-why">row says <b>'+esc(T[it.existing]||it.existing||'')+'</b> · possession says <b>'+esc(T[it.derived.cat]||it.derived.cat)+'</b>'+(it.derived.how==='start'&&ev?' ('+esc(crASEvWords(ev))+')':it.derived.how==='label'?' (its PossFrom label)':'')+'</div></div>'; }).join('')+'</div>'
+    +'<div class="crfr-status" id="asStatus">'+esc(crAS.status||'')+'</div>';
+  p.innerHTML=h;
+  const s2=p.querySelector('.cras-list[data-k="review"]'); if(s2) s2.scrollTop=top;
+}
+// a review / disagreement entry: select its shot and hold the video there
+function crASShow(id){ crAS.cur=String(id); crFRShow(id); crASRender(); const el=document.querySelector('#crAS .cras-it.on'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'nearest'}); }
+// Queue new source rows: ONE undo step. Returns the new row ids.
+function crASWrite(rows){
+  const ids=[];
+  rows.forEach((r,k)=>{ const tmpId='tmp-'+(++crTmpCounter), labels=Object.assign({}, r.labels);
+    EVENTS.push({ id:'autosrc-'+Date.now()+'-'+k, start:r.start, end:r.end, half:r.half, code:r.code, team:r.team, player:'',
+      outcome:firstOf(labels,OUT_KEYS), subtype:firstOf(labels,SUB_KEYS), category:catOf(r.code)||'Other', driveT:r.driveT, labels,
+      ...(r.gameTime?{gameTime:r.gameTime}:{}), _manual:true, _rowId:tmpId, _new:true });
+    ids.push(tmpId); });
+  if(!ids.length) return ids;
+  undoStack.push({type:'addmany', rowIds:ids});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  return ids;
+}
+const crASWhen=()=>(GAME&&GAME._local)?'kept with this local session and written to the XML when you export':'saved when you close the session';
+async function crASTagClear(){
+  const P=crASPlan(); if(!P||!P.add.length) return;
+  const C=P.counts, T=COH_SRC_TEXT, sc=P.add.filter(r=>/SCORE SOURCE/i.test(r.code)).length;
+  const ok=await cohesionModal({ title:'Tag '+C.clear+' shot source'+(C.clear===1?'':'s'),
+    message:'Add <b>'+sc+' SCORE SOURCE</b> and <b>'+(C.clear-sc)+' SHOT SOURCE</b> row'+(C.clear-sc===1?'':'s')+', each from the shooting team&rsquo;s possession: '
+      +Object.keys(T).filter(k=>C.bySource[k]).map(k=>T[k]+' '+C.bySource[k]).join(' · ')+'.<br><br>'
+      +'Each row starts where the possession starts and ends where the shot ends. '
+      +(C.review?C.review+' shot'+(C.review===1?' stays':'s stay')+' in the review list. ':'')
+      +(C.tagged?C.tagged+' shot'+(C.tagged===1?' that already has':'s that already have')+' a source row '+(C.tagged===1?'is':'are')+' not touched. ':'')
+      +'Nothing is saved until you close the session &mdash; Undo removes them all in one step.',
+    buttons:[{label:'Cancel',value:false},{label:'Tag '+C.clear,value:true,primary:true}] });
+  if(!ok) return;
+  const again=crASPlan(); if(!again||!again.add.length) return;     // read again: nothing changed under the dialog
+  const ids=crASWrite(again.add);
+  crAS.status='Queued ✓ '+ids.length+' source row'+(ids.length===1?'':'s')+' — '+crASWhen()+'; Undo removes them';
+  crMgStatus('Auto-tag sources ✓ '+ids.length+' source row'+(ids.length===1?'':'s')+' queued — '+crASWhen()+'; Undo removes them');
+  crASRender();
+}
+// a source chosen for one shot under review
+function crASPick(id, cat){
+  const P=crASPlan(); if(!P) return;
+  const it=P.review.find(x=>String(x.shot._rowId)===String(id)); if(!it||!COH_SRC_TEXT[cat]) return;
+  crASWrite([P.rowFor(it.shot, cat, it.poss)]);
+  crAS.status='Queued ✓ '+COH_SRC_TEXT[cat]+' for the shot at '+fmt(it.shot.driveT??it.shot.start??0)+' — Undo removes it';
+  crASNext(id, P);
+}
+function crASSkip(id){ crAS.skip.add(String(id)); crAS.status=''; crASNext(id, crASPlan()); }
+// on to the next shot under review (by time), shown on the video
+function crASNext(id, P0){
+  const P=crASPlan(); const left=P?P.review.filter(it=>!crAS.skip.has(String(it.shot._rowId))):[];
+  const order=(P0?P0.review:[]).map(it=>String(it.shot._rowId)), at=order.indexOf(String(id));
+  const nx=order.slice(at+1).find(r=>left.some(it=>String(it.shot._rowId)===r))||(left[0]&&String(left[0].shot._rowId));
+  if(nx) crASShow(nx); else { crAS.cur=null; crASRender(); }
 }
 
 // ── Mark extra time ────────────────────────────────────────────

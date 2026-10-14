@@ -979,6 +979,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-photos.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="cohesion-gi.js"></script>
+<script src="cohesion-sources.js"></script>
 <script src="cohesion-periods.js"></script>
 <script src="cohesion-graphics.js"></script>
 <script src="cohesion-xml.js"></script>
@@ -993,25 +994,7 @@ if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionSto
 //  GAA Score Tracker exports).
 // ═══════════════════════════════════════════════════════════════
 const SS_SHOT_GROUPS=['Shot Outcomes','ShotOutcome','Outcome'];
-const SS_KO_GROUPS=['Kickout Outcomes','KickoutOutcome','PO_Result'];
 const SS_SRC_GROUPS=['Score Source Outcomes','Source'];
-// Label lookup: group names are matched trimmed and case-insensitively (real files carry "shot outcomes",
-// "Shot Outcomes " …); the first group of `groups` with a value wins, an exact-name hit first.
-function ssLbl(e,groups){
-  const L=(e&&e.labels)||{}; let ks=null;
-  for(const g of groups){
-    if(L[g]) return L[g];
-    const w=ssUC(g); ks=ks||Object.keys(L);
-    for(const k of ks){ if(L[k]&&k!==g&&ssUC(k)===w) return L[k]; }
-  }
-  return null;
-}
-function ssL(e,name){ return ssLbl(e,[name]); }
-function ssUC(s){ return String(s||'').toUpperCase().trim(); }
-function ssSideOf(e, T){
-  const t=ssUC(e.team); if(t) return t===T;
-  return ssUC(e.code).startsWith(T+' ');
-}
 // A SHOT is the primary shot event only: "<TEAM> SHOT OPEN PLAY / DEADBALL"
 // (Tracker, Code Room, converted GI) or a bare "<Team> Shot" (Gaelic
 // Insights / older Sportscode). Bare outcome companions ("MAYO 1 POINT",
@@ -1033,9 +1016,6 @@ function ssIsShot(e,mode){
   const c=ssUC(e.code); if(SS_SHOT_NOT.test(c)) return false;
   return /SHOT/.test(c)||e.category==='Shots & Scores';
 }
-function ssIsKO(e){ const c=ssUC(e.code); return /KICKOUT|\bKO\b|\bKOS\b/.test(c)&&!/SOURCE|LOST|WON/.test(c)||e.category==='Kickouts'; }
-function ssIsTO(e){ const c=ssUC(e.code); return /\bTOS?\b|TURNOVER/.test(c)&&!/SOURCE/.test(c); }
-function ssIsPoss(e){ return /TEAM POSSESSION/.test(ssUC(e.code)); }
 function ssScoreVal(txt){
   const K=ssUC(txt);
   if(!K) return 0;
@@ -1054,18 +1034,6 @@ function ssAttType(txt){
   if(/\b2\s*-?\s*(POINT|PT|PTS)\b|TWO[\s-]*POINT|\b2PT/.test(K)) return '2';
   if(/\b1\s*-?\s*(POINT|PT|PTS)\b|ONE[\s-]*POINT|\b1PT|\bPOINT/.test(K)) return '1';
   return null;
-}
-function ssKoWon(v){ const K=ssUC(v); return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); }
-// Did the KICKING team win its own kickout? GIU names the WINNER in the
-// outcome ("Kerry Clean", "Donegal Break", "Kerry SL", "Donegal Free" on a
-// "Kerry Kickout"), so an outcome that starts with a team's name is decided
-// by that name; every other vocabulary (Tracker / Code Room "KO WON CLEAN",
-// "KO BREAK LOST" …; Gaelic Insights "KT Won …" / "RT Won …") goes to ssKoWon.
-function ssKoKickerWon(out, kicker, other){
-  const K=ssUC(out);
-  if(other&&(K===other||K.startsWith(other+' '))) return false;
-  if(kicker&&(K===kicker||K.startsWith(kicker+' '))) return true;
-  return ssKoWon(out);
 }
 
 // ── Expected points (xP): every shot of a game scored once (cohesion-xp.js),
@@ -1243,15 +1211,6 @@ function ssGameTally(meta, events, T){
 //  the same tally object (all numeric, so ssAggregate sums them). Nothing
 //  here changes a field the Compare metrics read.
 // ═══════════════════════════════════════════════════════════════
-// case-insensitive label lookup (real files carry 'Turnover Locations',
-// 'Turnover Location', 'TURNOVER LOCATIONS', 'turnover outcomes' …)
-function ssLblCI(e, names){
-  const L=e.labels||{};
-  for(const n of names){ if(L[n]!=null&&String(L[n]).trim()) return String(L[n]).trim(); }
-  const want=names.map(ssUC);
-  for(const k of Object.keys(L)){ if(want.includes(ssUC(k))&&String(L[k]||'').trim()) return String(L[k]).trim(); }
-  return '';
-}
 // ── SOURCES ── the doughnut categories, in display order with fixed colours.
 // Keys are COHESION's own vocabulary (cohesion-config.js COHESION_EVENT_LINKS:
 // 'Score Source Outcomes' / 'Shot Source Outcomes'); TURNOVER is the plain,
@@ -1266,24 +1225,6 @@ const SS_SRC_CATS=[
   {k:'TI',      label:'THROW-IN',       col:'#f7ec80'},
   {k:'TO',      label:'TURNOVER',       col:'#5fb8c9', extra:true},   // shown only when present
   {k:'OTHER',   label:'OTHER',          col:'#7b7b88', extra:true}];
-// Sources that count as "after an in-play turnover": FORCED / UNFORCED
-// TURNOVER, the plain TURNOVER of a GI game, and FREE WON — in the Tracker a
-// Free Against is an in-play turnover and sets the next possession's source to
-// FREE WON. (Kickout Lost → OPP KICKOUT and Shot Attempt → BALL RECOVERED are
-// not in-play turnovers, so those sources are not counted.)
-const SS_SRC_TO_KEYS=['FTO','UTO','TO','FREE'];
-function ssSrcCat(txt){
-  const S=ssUC(txt); if(!S) return null;
-  if(/\bOWN\s+(KICK\s*OUT|KO)S?\b/.test(S)) return 'OWN KO';
-  if(/\bOPP(OSITION)?\s+(KICK\s*OUT|KO)S?\b/.test(S)) return 'OPP KO';
-  if(/UNFORCED|\bU\/TO\b|OPPOSITION ERROR/.test(S)) return 'UTO';
-  if(/FORCED|\bF\/TO\b/.test(S)) return 'FTO';
-  if(/FREE/.test(S)) return 'FREE';
-  if(/BALL RECOVERED|\bRECOVER/.test(S)) return 'BR';
-  if(/THROW[\s-]*(IN|UP)/.test(S)) return 'TI';
-  if(/TURNOVER|\bTOS?\b/.test(S)) return 'TO';
-  return 'OTHER';
-}
 // ── TURNOVERS ── who won it, and where.
 //
 // RULE (worked out from the Tracker's export code and real XMLs):
@@ -1360,9 +1301,7 @@ function ssSrcCat(txt){
 // short-shot inference). GIU turnovers carry no type → n/a for those games.
 // (Compare's Turnover Rate % keeps its own definition: every turnover row,
 //  plus the Tracker free-against fouls above, once each.)
-const SS_TO_OUT_GROUPS=['Turnover Outcomes','Turnover Outcome','TurnoverOutcome'];
 const SS_TO_LOC_GROUPS=['Turnover Locations','Turnover Location','turnover_zone','TurnoverZone','PitchArea'];
-function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.code)); }
 // ── Gaelic Insights short-shot inference ──
 // A GI "<Team> Shot" whose Outcome is "Short", when the NEXT event of the game
 // (by start time, any team, any code) is the OPPOSITION's "Turnover Won" LESS
@@ -1372,7 +1311,6 @@ function ssToWinnerCoded(e){ return /(TURNOVERS?|\bTOS?)\s+WON\b/.test(ssUC(e.co
 // in-play. Derived events of a converted GI game (the 'GI Source ID' copies)
 // are ignored so converted and unconverted games read the same.
 const SS_GI_SHORT_WINDOW=10;   // seconds, shot start → turnover start; must be LESS than this
-function ssEvT(e){ return e.start!=null?+e.start:(+e.driveT||0); }
 function ssGiDerived(e){ return !!String(ssL(e,'GI Source ID')||'').trim(); }
 // a row brought in by Code Room's "Merge another XML" (cohesion-merge.js): an event of its own, counted like any Code Room
 // row — but it is not one of the Gaelic Insights file's rows, so the "next event" of the short-shot inference steps over it
@@ -1400,12 +1338,6 @@ function ssGiShortTurnovers(events, T, O){
   }
   return out;
 }
-function ssToKind(e){
-  const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome);
-  if(/KICK\s*OUT LOST|\bKO LOST\b/.test(K)) return /^KO LOST\b/.test(K)?'koLen':'ko';
-  if(/SHOT ATTEMPT/.test(K)) return 'shot';
-  return 'play';
-}
 // third in the EVENT TEAM's view: 'DEF' | 'MID' | 'ATT' | null (a GI "Turnover Won" with no zone label: 'ATT' — rule 3a)
 const SS_GI_TO_WON_RE=/^\s*\S.*\s+turnovers?\s+won\s*$/i;
 function ssToThird(e){
@@ -1423,7 +1355,6 @@ function ssThirdTxt(txt){
 }
 function ssFlipThird(t){ return t==='DEF'?'ATT':t==='ATT'?'DEF':t; }
 const SS_TO_TYPES=[['F','Forced'],['U','Unforced'],['H','Handling'],['FA','Free against'],['X','Not typed']];
-function ssToType(e){ const K=ssUC(ssLblCI(e,SS_TO_OUT_GROUPS)||e.outcome); return /UNFORCED/.test(K)?'U':/FORCED/.test(K)?'F':/HANDLING/.test(K)?'H':/FREE AGAINST/.test(K)?'FA':'X'; }
 // ── GIU: a shot's SOURCE derived from the possession it falls in ──
 // A GIU file has no source tag on its shots, but every "<Team> Poss" row carries a PossFrom label
 // (Own Kickout / Opp Kickout / Turnover / Throw Up), which ssSrcCat reads like any source value.
@@ -1671,9 +1602,7 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
   if(ps){ SS_SRC_CATS.forEach(c=>g['psN:'+c.k]=ps.by[c.k]||0);
     g.psNI=ps.ni; g.psRows=ps.n; g.psLabel=ps.label; g.psTag=ps.tag; g.psStart=ps.start; g.psBoth=ps.both; g.psAgree=ps.agree; }
   // forced v unforced, GAME-wide (both sides: how the turnover rows were written is a property of the file) — SS_PSTO_*
-  { const po=PS&&PS[O], n=k=>(ps?ps[k]:0)+(po?po[k]:0);
-    g.psFuBoth=n('fuBoth'); g.psFuAgree=n('fuAgree'); g.psFuStart=n('fuStart');
-    g.psToOk=(g.psFuStart===0||(g.psFuBoth>=SS_PSTO_MIN_BOTH&&g.psFuAgree>=SS_PSTO_MIN_AGREE*g.psFuBoth))?1:0; }
+  { const F=ssPsToOk(PS, T, O); g.psFuBoth=F.fuBoth; g.psFuAgree=F.fuAgree; g.psFuStart=F.fuStart; g.psToOk=F.ok; }
   g.psPtsNI=g.pts-g.srcPtsTagged;                      // points whose score carries no source
   g.psOk=(g.possCount>0&&g.psRows===g.possCount
     &&g.psNI<=SS_PSRC_MAX_NI*g.possCount
@@ -1681,61 +1610,6 @@ function ssOverviewTally(meta, events, T, O, g, skip, shotMode){
     &&!(g.psBoth>=SS_PSRC_MIN_BOTH&&g.psAgree<SS_PSRC_MIN_AGREE*g.psBoth))?1:0;
   return g;
 }
-// ═══════════════════════════════════════════════════════════════
-//  POSSESSIONS BY SOURCE — where each possession came from (Overview ›
-//  Productivity › "BY WHERE THE BALL CAME FROM"). A "<TEAM> TEAM POSSESSION"
-//  row carries no source in a Tracker / Code Room game, so it is DERIVED, in
-//  this order, and a possession nothing identifies stays "not identified"
-//  (never spread over the others):
-//   1. LABEL — the row's own 'PossFrom' (a GIU possession, converted or
-//      merged: Own Kickout / Opp Kickout / Turnover / Throw Up).
-//   2. TAG — the possession's own "<TEAM> SCORE SOURCE" / "SHOT SOURCE" row.
-//      The Tracker writes both the possession row and the source rows of its
-//      shots from the same possStartSec, and a possession row is one run of
-//      entries with the SAME team and source, so every source row that
-//      overlaps a possession of its team says that possession's source. Each
-//      source row goes to the one possession of its team whose span it matches
-//      best (shared time ÷ time covered together).
-//      (This is also the tag the POINTS are attributed by, so a score and the
-//      possession it came from always land in the same category.)
-//   3. START EVENT — a possession with no shot has no source row; it takes
-//      the event that handed its team the ball: the team's own kickout that it
-//      won (OWN KO), the opposition's kickout it won or the opposition's
-//      "KICKOUT LOST" / "KO LOST <length>" turnover row (OPP KO), an opposition
-//      in-play turnover row (FORCED → FORCED TO; UNFORCED / HANDLING →
-//      UNFORCED TO; FREE AGAINST → FREE WON; untyped → TURNOVER), an opposition
-//      "<TEAM> FOUL" row tagged FREE AGAINST (FREE WON), an opposition SHOT
-//      ATTEMPT turnover (BALL RECOVERED), or a THROW-IN / throw-up / hop ball
-//      row naming the team (THROW-IN) — the mapping the Tracker itself uses
-//      for the next possession's source (MD_TO_TYPES). The event must start no
-//      later than SS_PSRC_TOL s after the possession starts and end no more
-//      than SS_PSRC_LAG s before it, with no other possession row starting in
-//      between; each event starts at most ONE possession; the nearest wins (a
-//      kickout before any other event at the same distance).
-//  Every possession is matched to a start event (rule 3) even when rule 1 or 2
-//  decides it, so the event is used up and the two readings can be compared
-//  (psBoth / psAgree: the evidence that rule 3 can be trusted).
-//  → {H:{…}, A:{…}} per team: n (= possession rows), by {cat: count}, ni,
-//    label / tag / start (how many each rule decided), both, agree, list[];
-//    fuBoth / fuAgree (possessions whose own tag AND start event both say forced or unforced; how many say the same
-//    one), fuStart (possessions whose forced / unforced comes from the start event alone) — see SS_PSTO_*
-// ═══════════════════════════════════════════════════════════════
-const SS_PSRC_TOL=2;    // seconds an event may start AFTER the possession row does
-const SS_PSRC_LAG=10;   // seconds between the event's end and the possession's start (7 real club games: the event's span contains the start for 468 of 493 matched possessions; the rest follow it by 1 – 8 s, mostly a shot attempt gathered)
-const SS_PSRC_CACHE=new WeakMap();
-// The table's rows, in display order, each a set of the existing source categories (SS_SRC_CATS — no second vocabulary):
-// TURNOVER is the page's "after an in-play turnover" set (SS_SRC_TO_KEYS: FORCED TO, UNFORCED TO, the plain TURNOVER of a
-// GIU / GI game and FREE WON); BALL RECOVERED (a shot attempt gathered by the other side) and THROW-IN stay their own
-// categories, as on the doughnuts. Rows marked extra are shown only when they hold a possession or a point.
-const SS_PSRC_ROWS=[
-  {k:'OWN KO', label:'Own kickout',        cats:['OWN KO']},
-  {k:'OPP KO', label:'Opposition kickout', cats:['OPP KO']},
-  {k:'TURN',   label:'Turnover',           cats:SS_SRC_TO_KEYS},
-  {k:'BR',     label:'Ball recovered',     cats:['BR'],    extra:true},
-  {k:'TI',     label:'Throw-in',           cats:['TI'],    extra:true},
-  {k:'OTHER',  label:'Other',              cats:['OTHER'], extra:true},
-  {k:'NI',     label:'Not identified',     cats:[],        extra:true}];
-function ssPsRowOf(cat){ const r=SS_PSRC_ROWS.find(x=>x.cats.includes(cat)); return r?r.k:'NI'; }
 // WHEN A GAME'S SPLIT IS SHOWN (per team, per game — g.psOk). All of:
 //  · every possession row was read (Σ sources + not identified = possCount);
 //  · at most SS_PSRC_MAX_NI of the team's possessions are "not identified";
@@ -1754,21 +1628,6 @@ const SS_PSRC_MAX_NI=0.10, SS_PSRC_MIN_AGREE=0.80, SS_PSRC_MIN_BOTH=10;
 //  FREE Free won          — Tracker "Free Against" (a "<TEAM> FOUL" row tagged FREE AGAINST, or a FREE AGAINST turnover row)
 //  TO   Type not recorded — a GIU possession ("Turnover"), a turnover row with no type, and SEE BELOW
 //  (Kickout Lost → the OPPOSITION KICKOUT row and Shot Attempt → BALL RECOVERED: neither is in the Turnover row.)
-// WHEN FORCED v UNFORCED IS SHOWN FOR A GAME (g.psToOk, the same for both sides). A possession's own SCORE / SHOT
-// SOURCE tag is the source the tagger chose. A possession with no shot has only its start event, and the Tracker's
-// export writes a turnover row that has NO recorded type as FORCED when the possession that LOST the ball itself came
-// from a forced turnover and UNFORCED otherwise (gaa-score-tracker.html, "TURNOVER / FREE AGAINST": e.toType missing →
-// e.source==='F/TO'?…) — a label that says nothing about this turnover. Nothing on the row tells the two apart, so the
-// game is tested: over the possessions of BOTH sides that carry an own tag AND a turnover-row start event, each saying
-// forced or unforced, the two must say the same for at least SS_PSTO_MIN_AGREE of at least SS_PSTO_MIN_BOTH. (A game
-// in which no possession takes forced / unforced from a start event passes: nothing rests on the rows.)
-// The 7 real club games: Knockmore v Béal an Mhuirthead 6 of 14 the same (43 %; its turnover rows are 22 UNFORCED, 3
-// FORCED and no HANDLING / FREE AGAINST — the fallback's signature) → fails; the other six 14/14, 11/12, 9/9, 23/23,
-// 13/14, 10/10 (80 of 82, 98 %) → pass. At the failing game's rate, 7 of 8 agreeing by chance is about 1 in 70.
-// In a game that fails, ALL its forced and unforced ball (possessions AND points, tagged ones too) goes to "Type not
-// recorded": keeping only the tagged possessions would keep only those that ended in a shot, and a productivity
-// figure from those alone would be inflated. Free won does not depend on the turnover type and stays.
-const SS_PSTO_MIN_BOTH=8, SS_PSTO_MIN_AGREE=0.80;
 const SS_PSRC_TO_PARTS=[
   {k:'FTO',  label:'Forced turnover',   sub:'won by pressure'},
   {k:'UTO',  label:'Unforced turnover', sub:'the other side\'s own mistake'},
@@ -1777,58 +1636,6 @@ const SS_PSRC_TO_PARTS=[
 // one tally's count for a part: prefix 'psN:' (possessions) or 'srcP:' (points)
 function ssPsToPart(t, k, prefix){ const v=c=>t[prefix+c]||0;
   return (k==='FTO'||k==='UTO')?(t.psToOk?v(k):0):k==='TO'?v('TO')+(t.psToOk?0:v('FTO')+v('UTO')):v(k); }
-function ssIsThrowIn(e){ const c=ssUC(e&&e.code); return /THROW[\s-]*(IN|UP)|HOP BALL/.test(c)&&!/SOURCE/.test(c); }
-function ssPossSources(events, H, A, skip){
-  if(!Array.isArray(events)) return null;
-  const hit=SS_PSRC_CACHE.get(events); if(hit&&hit.n===events.length&&hit.v[H]&&hit.v[A]) return hit.v;
-  const teamOf=e=>ssSideOf(e,H)?H:ssSideOf(e,A)?A:'', other=t=>t===H?A:H;
-  const span=e=>{ const s=ssEvT(e); return [s, e.end!=null?Math.max(s,+e.end):s]; };
-  const poss=[], srcRows=[], cands=[];
-  events.forEach((e,i)=>{ if(!e||skip(e)) return;
-    const team=teamOf(e), c=ssUC(e.code), [s,en]=span(e);
-    if(ssIsThrowIn(e)){ const w=ssUC(e.team); if(w===H||w===A) cands.push({e,i,s,en,win:w,cat:'TI',ko:0,used:false}); return; }
-    if(!team) return;
-    if(ssIsPoss(e)){ poss.push({e,i,team,s,en,cat:null,how:null,tag:null,start:null,ev:null}); return; }
-    if(/(SCORE|SHOT) SOURCE/.test(c)){ const cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source'])); if(cat) srcRows.push({e,i,team,s,en,cat}); return; }
-    if(ssIsKO(e)){ const out=ssLbl(e,SS_KO_GROUPS); if(!out) return;
-      const won=ssKoKickerWon(out, team, other(team));
-      cands.push({e,i,s,en,win:won?team:other(team),cat:won?'OWN KO':'OPP KO',ko:1,used:false}); return; }
-    if(ssIsTO(e)){ const win=ssToWinnerCoded(e)?team:other(team), kind=ssToKind(e), ty=ssToType(e);
-      cands.push({e,i,s,en,win,cat:(kind==='ko'||kind==='koLen')?'OPP KO':kind==='shot'?'BR':ty==='F'?'FTO':(ty==='U'||ty==='H')?'UTO':ty==='FA'?'FREE':'TO',ko:(kind==='ko'||kind==='koLen')?1:0,used:false}); return; }
-    if(ssIsFoul(e)&&/FREE AGAINST/.test(ssUC(ssLblCI(e,SS_FOUL_AREA_GROUPS)))) cands.push({e,i,s,en,win:other(team),cat:'FREE',ko:0,used:false});
-  });
-  poss.sort((a,b)=>a.s-b.s||a.i-b.i);
-  // rule 2: each source row → the possession of its team whose span it matches best: shared time ÷ the time the two cover
-  // together (1 = the same span; touching counts as 0), then the nearer start, then the earlier row. (Plain "most shared
-  // time" would hand every source row to a possession row that was left running over several others.)
-  srcRows.sort((a,b)=>a.s-b.s||a.i-b.i).forEach(r=>{ let best=null, bo=-1, bd=0;
-    poss.forEach(q=>{ if(q.team!==r.team) return; const o=Math.min(q.en,r.en)-Math.max(q.s,r.s); if(o<0) return;
-      const u=Math.max(q.en,r.en)-Math.min(q.s,r.s), sc=u>0?o/u:1, d=Math.abs(q.s-r.s);
-      if(!best||sc>bo||(sc===bo&&d<bd)){ bo=sc; bd=d; best=q; } });
-    if(best){ if(!best.tag) best.tag=r.cat; else if(best.tag!==r.cat) best.tagMixed=true; } });
-  // rule 3: the start event (one event → one possession, in time order)
-  poss.forEach((q,k)=>{ let best=null, bg=0;
-    cands.forEach(c=>{ if(c.used||c.win!==q.team||c.s>q.s+SS_PSRC_TOL) return;
-      const gap=Math.max(0, q.s-c.en); if(gap>SS_PSRC_LAG) return;
-      for(let j=k-1;j>=0&&poss[j].s>c.en;j--){ if(poss[j].s<q.s) return; }   // another possession began after the event ended
-      if(!best||gap<bg||(gap===bg&&(c.ko>best.ko||(c.ko===best.ko&&c.s>best.s)))){ best=c; bg=gap; } });
-    if(best){ best.used=true; q.start=best.cat; q.ev=best.e; q.gap=bg; } });
-  const mk=()=>({n:0, by:{}, ni:0, label:0, tag:0, start:0, both:0, agree:0, mixed:0, fuBoth:0, fuAgree:0, fuStart:0, list:[]});
-  const isFU=c=>c==='FTO'||c==='UTO';
-  const v={}; v[H]=mk(); v[A]=mk();
-  poss.forEach(q=>{ const o=v[q.team], lab=ssSrcCat(ssLblCI(q.e,['PossFrom']));
-    if(lab){ q.cat=lab; q.how='label'; o.label++; }
-    else if(q.tag){ q.cat=q.tag; q.how='tag'; o.tag++; }
-    else if(q.start){ q.cat=q.start; q.how='start'; o.start++; }
-    if((lab||q.tag)&&q.start){ o.both++; if(ssPsRowOf(lab||q.tag)===ssPsRowOf(q.start)) o.agree++;
-      if(isFU(lab||q.tag)&&isFU(q.start)){ o.fuBoth++; if((lab||q.tag)===q.start) o.fuAgree++; } }   // forced v unforced: own tag v the turnover row
-    if(q.how==='start'&&isFU(q.cat)) o.fuStart++;
-    if(q.tagMixed) o.mixed++;
-    o.n++; if(q.cat) o.by[q.cat]=(o.by[q.cat]||0)+1; else o.ni++;
-    o.list.push(q); });
-  SS_PSRC_CACHE.set(events, {n:events.length, v});
-  return v;
-}
 // ═══════════════════════════════════════════════════════════════
 //  DEFENDING TALLIES — fouls, cards, tackles and shot pressure, added to the
 //  same per-game tally (all numeric, so ssAggregate sums them).
@@ -1877,12 +1684,10 @@ function ssPossSources(events, H, A, skip){
 //   GIU and GI shots have none (n/a).
 //  A game "tracks" fouls / tackles when either side has at least one such row.
 // ═══════════════════════════════════════════════════════════════
-const SS_FOUL_AREA_GROUPS=['Foul Areas','Foul Area','PitchArea'];
 const SS_FA_PAIR_WINDOW=8;   // seconds, FREE AGAINST row → its third-tagged twin
 const SS_FA_TO_WINDOW=8;     // seconds either way, FREE AGAINST foul (or its twin) ↔ a "TOs / FREE AGAINST" row of the same team
 const SS_PRESS=[['L','Low'],['M','Medium'],['H','High'],['N','Not tagged']];
 const SS_PRESS_FIELDS=['Sh','Sc','Pt','A1','S1','A2','S2','AG','SG','AU','SU'];
-function ssIsFoul(e){ return /(^|\s)FOULS?$/.test(ssUC(e&&e.code)); }
 function ssIsCard(e){ return /(^|\s)CARDS?$/.test(ssUC(e&&e.code)); }
 function ssIsTackle(e){ return /(^|\s)TACKLES?$/.test(ssUC(e&&e.code)); }
 function ssPressLevel(e){ const K=ssUC(ssLblCI(e,['Shot Pressure'])); return /^HIGH/.test(K)?'H':/^MED/.test(K)?'M':/^LOW/.test(K)?'L':'N'; }
