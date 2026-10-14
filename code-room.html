@@ -3563,10 +3563,29 @@ function ctpAdd(){
   buildCodePanel();
   const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ '+n+' tracker event'+(n===1?'':'s')+' added — Save as… to keep them in a template';
 }
+// Code mode: tagging a THROW-IN moves the period on — the 2nd throw-in starts the 2nd half, the 3rd ET 1st Half,
+// the 4th ET 2nd Half. A referee's throw-up during a period is tagged with the same button, so a throw-in only
+// starts the next period when it comes at least a full period after the current one began (its first tagged
+// event, normally its throw-in): 35 min (county) / 30 min (club) for a half, 10 min for an extra-time half.
+// The first throw-in of a period (nothing tagged in it yet) leaves the period as it is. The buttons still override.
+const CR_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
+function crTiNextPeriod(code, t){
+  if(!/THROW.?IN$/i.test(String(code||''))) return null;
+  const i=CR_PERIODS.indexOf(codeMode.period); if(i<0||i>=CR_PERIODS.length-1) return null;
+  const key=sbPeriodOf(codeMode.period), tOf=e=>(e.driveT??e.start)??0;
+  const inCur=EVENTS.filter(e=>e&&sbPeriodOf(e.half)===key); if(!inCur.length) return null;
+  const start=Math.min(...inCur.map(tOf));   // the period's first tagged event (normally its throw-in)
+  const lvl=(typeof cohGameLevel==='function')?cohGameLevel(GAME):'club';
+  const len=(i<2?((typeof COH_HALF_MIN!=='undefined'&&COH_HALF_MIN[lvl])||30):((typeof COH_ET_MIN!=='undefined'&&COH_ET_MIN)||10))*60;   // cohesion-periods.js
+  return t>=start+len?CR_PERIODS[i+1]:null;
+}
+function crPeriodBtns(){
+  const el=document.getElementById('codePeriods'); if(!el) return;
+  el.innerHTML=CR_PERIODS.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${_cq(p)}')">${esc(p)}</button>`).join('');
+}
 function buildCodePanel(){
   const home=GAME.homeTeam||'Home', away=GAME.awayTeam||'Away';
-  const periods=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
-  document.getElementById('codePeriods').innerHTML=periods.map(p=>`<button class="cbtn ${codeMode.period===p?'on':''}" onclick="codeSetPeriod('${_cq(p)}')">${esc(p)}</button>`).join('');
+  crPeriodBtns();
   document.getElementById('codeTeams').innerHTML=
     `<button class="cbtn ${codeMode.team==='home'?'on':''}" onclick="codeSetTeam('home')">${esc(home)}</button>`+
     `<button class="cbtn ${codeMode.team==='away'?'on':''}" onclick="codeSetTeam('away')">${esc(away)}</button>`+
@@ -4788,6 +4807,8 @@ function codeTag(baseCode, opts){
   const _ov=codeClipPref[baseCode]||{};
   const lead=(_ov.lead!=null?_ov.lead:codeMode.lead)||0, lag=(_ov.lag!=null?_ov.lag:codeMode.lag)||0;
   const clipStart=Math.max(0, now-lead), clipEnd=now+lag;
+  const _tiNext=crTiNextPeriod(code, clipStart);   // a throw-in a full period on starts the next period (2nd half, ET1, ET2)
+  if(_tiNext){ codeMode.period=_tiNext; crPeriodBtns(); }
   const labels={};
   // Armed detail labels, filtered to those applicable to this event's code.
   const applies=new Set((window.cohesionGroupsFor?window.cohesionGroupsFor(code):[]).map(g=>g.name));
@@ -4814,7 +4835,7 @@ function codeTag(baseCode, opts){
   if(f){
     const det=Object.entries(labels).filter(([k])=>!/player labels$/i.test(k)).map(([,v])=>v);
     const win=(lead+lag>0)?'  ·  clip '+fmt(clipStart)+'–'+fmt(clipEnd):'';
-    f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+'  — paused; press Space to resume';
+    f.textContent='✓ '+code+(codeMode.player?' · '+codeMode.player:'')+(det.length?' · '+det.join(', '):'')+' @ '+fmt(now)+win+(_tiNext?'  · Period → '+_tiNext+' (wrong? click the right period)':'')+'  — paused; press Space to resume';
   }
   // Event link: if this code has a follow-up outcome, prompt for it now.
   let link=crAutoLinkFor(code);
