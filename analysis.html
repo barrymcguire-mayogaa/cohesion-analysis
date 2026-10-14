@@ -972,6 +972,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="crests/index.js"></script>
+<script src="cohesion-ink.js"></script>
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-crests.js"></script>
@@ -2324,9 +2325,12 @@ function ssTeamColor(T){
   }
   return null;
 }
-function ssDisplayColors(TA, TB){
+// png:true → the colours as the PNG export has always drawn them (no on-screen ink step)
+function ssDisplayColors(TA, TB, png){
   const fallbackA='#2dd4bf', fallbackB='#f5a623';
-  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); return L<0.28?ssLighten(c2.rgb,0.45):c2.hex; };   // navy/black lift to readable
+  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); const c=L<0.28?ssLighten(c2.rgb,0.45):c2.hex;   // navy/black lift to readable
+    // on screen: and at least 3:1 (WCAG) against this dark page — the shared team-ink rule (cohesion-ink.js); display only
+    return (!png&&window.cohTeamInk)?cohTeamInk(c, {theme:'dark', bg:'#14141c'}):c; };
   let a=legible(ssTeamColor(TA))||fallbackA;
   let b=(TB&&TB!=='__baseline__')?(legible(ssTeamColor(TB))||fallbackB):fallbackB;
   const ra=ssHexRgb(a), rb=ssHexRgb(b);
@@ -2482,7 +2486,7 @@ function render(nameA, ra, nameB, rb, games, opt){
     .map(([s,rows])=>`<div class="sec"><h3>${s}</h3>${rows.join('')}</div>`).join('');
   SS_LAST={ mode:opt.mode==='sets'?'sets':'teams', nameA, nameB, team:opt.team||null, baseline:!!rb.baseline,
     gcount:ssEl('gcA').textContent,
-    cols, pcols:ssPrintColors(keyA, keyB),
+    cols:ssDisplayColors(keyA, keyB, true), screenCols:cols, pcols:ssPrintColors(keyA, keyB),   // cols = what the PNG export draws (unchanged); screenCols = the page's
     games:(games||[]).map(ssSnapGame),
     filters:ssFilterSnap(),
     sets:opt.mode==='sets'?(opt.sets||[]).map(s=>({label:s.label, types:s.types.map(ssTypeLabel), games:s.games.map(ssSnapGame)})):null,
@@ -2507,7 +2511,7 @@ function ssRenderPlayers(){
   const snap=ssPlayerSnap();
   if(SS_LAST) SS_LAST.players={groups:snap, sort:SS_PSORT, caveat:SS_PCAVEAT};
   if(!snap.length){ el.innerHTML=''; return; }
-  const cols=SS_LAST?SS_LAST.cols:{a:'#2dd4bf',b:'#f5a623'};
+  const cols=SS_LAST?(SS_LAST.screenCols||SS_LAST.cols):{a:'#2dd4bf',b:'#f5a623'};
   const arrow=k=>SS_PSORT.key===k?(SS_PSORT.dir==='desc'?' ▾':' ▴'):'';
   el.innerHTML='<div class="ptab"><h3>PLAYER EXPECTED POINTS</h3>'
     +snap.map((gp,i)=>`<div class="pt-team" style="color:${i?cols.b:cols.a}">${ssEsc(gp.label)}</div>`
@@ -5980,13 +5984,14 @@ function mrListHTML(vis, o){
     +(left>0?`<button type="button" class="mr-more" data-act="more">Show more (${Math.min(MR_PAGE,left)} of ${left})</button>`:'')+'</div>';
   return h;
 }
+function mrInk(c){ return window.cohTeamInk?cohTeamInk(c, {theme:'dark', bg:'#14141c'}):c; }   // on-screen chip: readable on this dark page (cohesion-ink.js)
 function mrHex(c, fb){ return /^#[0-9a-f]{6}$/i.test(String(c||'').trim())?String(c).trim():fb; }
 // deco = {hexH, hexA, crestH, crestA} (colours / crest URLs; all optional)
 function mrCardHTML(c, deco){
   if(!c) return '<div class="mr-cload">Loading this game…</div>';
   deco=deco||{};
   const side=k=>{ const t=c[k], home=k==='home', cls=home?'h':'a', crest=home?deco.crestH:deco.crestA;
-    return `<div class="mr-tm ${cls}${c.mine===k?' me':''}"><i class="mr-chip" style="background:${mrHex(home?deco.hexH:deco.hexA, home?'#2563eb':'#22c55e')}"></i>`
+    return `<div class="mr-tm ${cls}${c.mine===k?' me':''}"><i class="mr-chip" style="background:${mrInk(mrHex(home?deco.hexH:deco.hexA, home?'#2563eb':'#22c55e'))}"></i>`
       +(crest?`<img class="mr-crest" src="${ssEsc(crest)}" alt="">`:'')+`<span>${ssEsc(t.name)}</span></div>`
       +`<div class="mr-sc ${cls}${t.score?'':' na'}">${t.score?ssEsc(ovScoreTxt(t.score)):'n/a'}</div>`; };
   const meta=[[c.competition, c.round].filter(Boolean).join(' · '), ovFmtDate(c.date)].filter(Boolean).join(' · ');

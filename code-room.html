@@ -352,6 +352,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cohesion-ink.js"></script>
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
@@ -835,7 +836,7 @@ function videoTimeToDrive(vt,idx){
 // bug; falls back to shot outcomes for games without bare score events.
 let sbOn=true; try{ sbOn=(localStorage.getItem('coh_scoreboard')??'1')==='1'; }catch(_){ }
 function sbAbbr(n){ const w=String(n||'').trim().split(/\s+/); return (w.length>1?w.map(x=>x[0]).join(''):String(w[0]||'?').slice(0,3)).slice(0,3).toUpperCase(); }
-function sbInk(hex){ try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
+function sbInk(hex){ if(window.cohInkOn) return cohInkOn(hex); try{ const n=parseInt(String(hex).replace('#',''),16); const l=0.2126*((n>>16)&255)+0.7152*((n>>8)&255)+0.0722*(n&255); return l>150?'#111':'#fff'; }catch(_){ return '#fff'; } }
 // Which period an event's half label means: 'h1' | 'h2' | 'e1' | 'e2'.
 function sbPeriodOf(half){
   const h=String(half||'');
@@ -2346,7 +2347,7 @@ function crDrawTL(){
     const lcDim=!sel&&crLCDim(e);   // Label check "Show only missing": passing events fade back
     ctx.globalAlpha=sel?1:(lcDim?0.16:0.85);
     if(sel){ ctx.save(); ctx.shadowColor='#4fc3f7'; ctx.shadowBlur=9; }
-    ctx.fillStyle=col; ctx.fillRect(bx,y+3,bw,CR_ROWH-6);
+    ctx.fillStyle=window.cohTeamInk?cohTeamInk(col):col; ctx.fillRect(bx,y+3,bw,CR_ROWH-6);   // readable shade on this theme (cohesion-ink.js); the saved colour is untouched
     if(sel){ ctx.restore(); ctx.lineWidth=1.5; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.75,y+3.75,Math.max(1,bw-1.5),CR_ROWH-7.5); }
     else if(groupSet&&groupSet.has(String(e._rowId))){ ctx.lineWidth=1; ctx.strokeStyle='#4fc3f7'; ctx.strokeRect(bx+0.5,y+3.5,Math.max(1,bw-1),CR_ROWH-7); }
     // edge handles (only when wide enough to grab)
@@ -2921,6 +2922,7 @@ function crPlayers(){
 // Player pick lists are tinted with a light wash of each player's TEAM colour, so the two teams read apart at a glance.
 // A name on both teams' lists (or on neither) gets no tint.
 function crTintOf(hex, a){
+  if(window.cohTeamTint) return cohTeamTint(hex, a);   // a wash of the shade that reads on this theme (cohesion-ink.js)
   let h=String(hex||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(h)) h=h.replace(/./g,c=>c+c);
   if(!/^[0-9a-f]{6}$/i.test(h)) return '';
   return 'rgba('+parseInt(h.slice(0,2),16)+','+parseInt(h.slice(2,4),16)+','+parseInt(h.slice(4,6),16)+','+a+')';
@@ -2937,6 +2939,9 @@ function crNameSides(){
   sheet.forEach((sd, k)=>m.set(k, sd));
   return m;
 }
+// light/dark switch: redraw what carries a team colour (timeline, scoreboard, Player Select wash; an open pick list closes)
+if(window.cohOnThemeChange) cohOnThemeChange(()=>{ if(!GAME) return; try{ acHide(); crDrawTL(); sbTick();
+  const c=document.querySelector('#codePlayers .cps'); if(c) c.style.setProperty('--tc', crTintOf(crSideColour(codeMode.team), .2)); }catch(_){ } });
 function crSideColour(sd){ return sd==='home'?(GAME.homeColor||'#4fc3f7'):(GAME.awayColor||'#22c55e'); }
 let acInput=null, acPick=null, acItems=[], acIdx=-1;
 function acNoop(){}

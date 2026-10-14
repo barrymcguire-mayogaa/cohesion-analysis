@@ -463,7 +463,7 @@
     function draw(side){
       const c=col(side), colr=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e');
       const keep=c.querySelector('textarea'), txt=keep?keep.value:'', rd=c.querySelector('.cohts-rd');
-      c.innerHTML=`<div class="cohts-team"><i style="background:${esc(colr)}"></i><span>${esc(teamName(side))}</span><small></small></div>
+      c.innerHTML=`<div class="cohts-team"><i style="background:${esc(T._ink(colr))}"></i><span>${esc(teamName(side))}</span><small></small></div>
         <div class="cohts-paste"><div class="cohts-lbl">Paste a list</div>
           <textarea placeholder="1 Colm Reape&#10;2. Name&#10;Name (3)&#10;Subs&#10;16 Name"></textarea>
           <div class="cohts-pv">${prevHtml(side)}</div>
@@ -594,6 +594,8 @@
 
   // Both teams side by side: starters in number order, then subs.
   // o = {canEdit, editCall:'jsCall()', title}
+  // on-screen shade of a team colour that reads on the page's theme (cohesion-ink.js); display only — the game keeps its colour
+  T._ink=function(c){ return window.cohTeamInk?window.cohTeamInk(c):c; };
   T.panelHtml=function(game, o){
     o=o||{}; T._css(); game=game||{};
     const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
@@ -609,7 +611,7 @@
       const mark=r=>{ const l=marks&&marks.get(T.nameKey(r.name)); return l?l.map(x=>` <small class="cohts-sm ${x.type}">${esc(x.text)}</small>`).join(''):''; };
       const line=r=>`<div class="cohts-pl${badge?' ph':''}"><b>${esc(r.no)}</b>${badge?badge(nm, r.name, {size:24, color:colr}):''}<span>${esc(r.name)}${mark(r)}</span></div>`;
       const any=g.start.length+g.sub.length+g.other.length;
-      return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(colr)}"></i><span>${esc(nm)}</span></div>`+
+      return `<div class="cohts-pcol"><div class="cohts-pteam"><i style="background:${esc(T._ink(colr))}"></i><span>${esc(nm)}</span></div>`+
         (any?(g.start.map(line).join('')+
           (g.sub.length?'<div class="cohts-pgrp">Subs</div>'+g.sub.map(line).join(''):'')+
           (g.other.length?'<div class="cohts-pgrp">Also listed</div>'+g.other.map(line).join(''):''))
@@ -640,7 +642,7 @@
           const items=(sec.items||[]).filter(it=>!q||T.nameKey(it.label).includes(q)||T.nameKey(it.value).includes(q));
           if(!items.length) return;
           // a light wash of the section's team colour (sec.color), so the two teams' players read apart
-          let tint=''; { let hx=String(sec.color||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(hx)) hx=hx.replace(/./g,c=>c+c);
+          let tint=window.cohTeamTint?window.cohTeamTint(sec.color, .2):''; if(!window.cohTeamTint){ let hx=String(sec.color||'').trim().replace(/^#/,''); if(/^[0-9a-f]{3}$/i.test(hx)) hx=hx.replace(/./g,c=>c+c);
             if(/^[0-9a-f]{6}$/i.test(hx)) tint='rgba('+parseInt(hx.slice(0,2),16)+','+parseInt(hx.slice(2,4),16)+','+parseInt(hx.slice(4,6),16)+',.2)'; }
           if(sec.label) h+=`<div class="cohts-pgh">${esc(sec.label)}</div>`;
           items.forEach(it=>{ const L=String(it.label), tail='. '+it.value, no=L.length>tail.length&&L.slice(-tail.length)===tail?L.slice(0,L.length-tail.length):'';
