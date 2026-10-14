@@ -1131,6 +1131,10 @@ function parseBatchGame(game) {
   const isGiu = instances.some(inst =>
     /^P[12] START$/.test((inst.querySelector('code')?.textContent || '').trim())
   );
+  // Sportscode format with period rows ("1st Half" / "2nd Half") — a COHESION Code Room export among them
+  const isSportscode = instances.some(inst =>
+    /^(?:ET\s)?[12](?:st|nd)\sHalf$/.test((inst.querySelector('code')?.textContent || '').trim())
+  );
 
   let result;
 
@@ -1152,6 +1156,8 @@ function parseBatchGame(game) {
       et1Video,
       et2Video
     });
+  } else if (isSportscode) {
+    result = parseSportscodeXml({ doc, game, half1Video, half2Video, et1Video, et2Video });
   } else {
     return {
       ...game,
@@ -1173,6 +1179,35 @@ function parseBatchGame(game) {
   game.errors = [];
 
   return game;
+}
+
+// ═════════════════════════════════════════════════
+// SPORTSCODE PARSER (incl. COHESION Code Room exports)
+// The same shared import as the single-game upload (cohesion-labels.js cohScImport): every label value,
+// player rows, period rows. The file's row order + colours and its period rows go on the game
+// (buildBatchGameMeta). A Code Room export's team sheet helps match player rows, as on a single upload.
+// ═════════════════════════════════════════════════
+function parseSportscodeXml({ doc, game, half1Video, half2Video, et1Video, et2Video }) {
+  const carry = cohXmlCarryRead(game.xmlText);
+  const c = carry ? cohXmlCarryFor(carry, game.homeTeam, game.awayTeam) : null;
+  const sc = cohScImport(cohScFromDom(doc), {
+    homeTeam: game.homeTeam,
+    awayTeam: game.awayTeam,
+    videoStarts: { '1st Half': half1Video, '2nd Half': half2Video, 'ET 1st Half': et1Video, 'ET 2nd Half': et2Video },
+    gameTime: cohScGameTime,
+    rosters: c ? c.rosters : null
+  });
+  if (sc.error) return { status: 'error', reason: sc.error };
+  if (sc.stats.etNoVideoStart && sc.stats.etNoVideoStart.length) {
+    return { status: 'error', reason: 'This file has extra time (' + sc.stats.etNoVideoStart.join(' and ') + '): add et1_start and et2_start (where each extra-time period starts on the video) to this game’s row in the sheet.' };
+  }
+  game.scRows = cohScRowsFromDom(doc);
+  game.scPeriods = sc.periods || null;
+  return {
+    status: 'ok',
+    events: sc.events,
+    diagnostics: { format: carry ? 'cohesion-code-room' : 'sportscode', eventCount: sc.events.length, labelValues: sc.stats.labelValues, playerRows: sc.stats.playerRows }
+  };
 }
 
 async function validateAndParseAll() {
@@ -1213,8 +1248,8 @@ function buildBatchGameMeta(game) {
     youtubeId,
     half1Start,
     half2Start,
-    et1Start: null,
-    et2Start: null
+    et1Start: parseTime(game.et1StartText),   // from the sheet's et1_start / et2_start (null when not given)
+    et2Start: parseTime(game.et2StartText)
   }];
 
   for (const angle of game.angles || []) {
@@ -1247,8 +1282,12 @@ function buildBatchGameMeta(game) {
     thumbnail: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
     half1Start,
     half2Start,
+    ...(parseTime(game.et1StartText) != null ? { et1Start: parseTime(game.et1StartText) } : {}),
+    ...(parseTime(game.et2StartText) != null ? { et2Start: parseTime(game.et2StartText) } : {}),
     angles,
     eventCount: game.parsedEvents.length,
+    ...(game.scRows && game.scRows.length ? { rows: game.scRows } : {}),
+    ...(game.scPeriods && game.scPeriods.length ? { scPeriods: game.scPeriods } : {}),
     parser: 'batch-upload'
   };
 }
