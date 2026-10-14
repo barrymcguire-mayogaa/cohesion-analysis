@@ -5055,7 +5055,7 @@ function crQualKbPaint(){
 }
 function crQualKbDone(){
   const q=codeMode.shotQual; if(!q||q.kbDone) return;
-  q.kbDone=true; crQualKbPaint();
+  q.kbDone=true; crQualKbPaint(); crPanelShowEvents();
 }
 // true = the key was the card's (the caller stops there)
 function crQualKbKey(e){
@@ -5086,6 +5086,15 @@ function crPanelShowCard(){
   if(!box||box.style.display==='none') return;
   if(col.scrollHeight<=col.clientHeight+1) return;
   col.scrollTop=Math.max(0, f.getBoundingClientRect().top-col.getBoundingClientRect().top+col.scrollTop-8);
+}
+// The card is finished (Enter / Esc / Space / Play): back up to the event buttons for the next tag.
+// Fit-to-screen only — the panel is its own scroll box there.
+function crPanelShowEvents(){
+  const col=document.querySelector('.editcol'), ev=document.getElementById('codeEvents');
+  if(!col||!ev||!document.body.classList.contains('crfit')) return;
+  let head=ev.previousElementSibling; while(head&&!head.classList.contains('ep-lbl')) head=head.previousElementSibling;   // the EVENT heading above the buttons
+  if(!head||!head.offsetParent) head=ev;
+  col.scrollTop=Math.max(0, head.getBoundingClientRect().top-col.getBoundingClientRect().top+col.scrollTop-8);
 }
 function codeShotQual(group,value){
   const sq=codeMode.shotQual&&EVENTS.find(e=>String(e._rowId)===String(codeMode.shotQual.rowId));

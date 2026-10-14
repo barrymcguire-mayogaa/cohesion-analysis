@@ -862,8 +862,8 @@ function renderEV(){
   let h='';
   ord.forEach((code,i)=>{
     const evs=grps[code],isO=EG.has(i);
-    const tm=evs[0]?.team||'';
-    const dc=tm===GAME.homeTeam?dashInk(GAME.homeColor||'#2563eb'):tm===GAME.awayTeam?dashInk(GAME.awayColor||'#22c55e'):'var(--t3)';
+    const tm=String(evs[0]?.team||'').trim().toUpperCase();   // rows may say KERRY where the game says Kerry
+    const dc=tm&&tm===String(GAME.homeTeam||'').trim().toUpperCase()?dashInk(GAME.homeColor||'#2563eb'):tm&&tm===String(GAME.awayTeam||'').trim().toUpperCase()?dashInk(GAME.awayColor||'#22c55e'):'var(--t3)';
     h+=`<div class="ev-group"><div class="ev-hdr" onclick="togEG(${i})"><span class="ev-arr${isO?' o':''}">▶</span><div class="ev-dot" style="background:${dc}"></div><span class="ev-name">${tc(code)}</span><span class="ev-cnt">${evs.length}</span></div>`;
     if(isO){
       const seqOf=ev=>{ let n=0; for(const x of ALL){ if(x.code===ev.code){ n++; if(x===ev) return n; } } return n; };
