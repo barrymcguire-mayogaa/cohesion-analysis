@@ -828,7 +828,11 @@ function renderSV(){
   h+=statSection('Turnovers', `${codeCount(toRe,'h')} ${toWord} &nbsp;|&nbsp; ${codeCount(toRe,'a')} ${toWord}`, statRows(tos, tos.group||'Turnover Outcomes'));
 
   // 'Shot Source Outcomes' = a converted GI shot's source (SHOT SOURCE rows stay out)
-  const src=tallyOutcome(e=>(isShot(e)&&!/SHOT SOURCE/i.test(e.code||''))||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source','Shot Source Outcomes']);
+  // In a game with SCORE / SHOT SOURCE rows the ROW is the source: a COHESION shot's own source label (Code Room writes
+  // the row's value on its shot too) is not counted besides it; a Gaelic Insights shot keeps its own label as before.
+  const srcRows=ALL.some(e=>!giSup(e)&&/(SCORE|SHOT) SOURCE/i.test(e.code||''));
+  const giShot=e=>!!(cohLabelVal(e,'GI Source ID')||cohLabelVal(e,'Merge Source ID'));
+  const src=tallyOutcome(e=>(isShot(e)&&!/SHOT SOURCE/i.test(e.code||'')&&!(srcRows&&/SHOT (OPEN|DEAD)/i.test(e.code||'')&&!/SOURCE/i.test(e.code||'')&&!giShot(e)))||/SCORE SOURCE/i.test(e.code||''), ['Score Source Outcomes','Source','Shot Source Outcomes']);
   h+=statSection('Score Source', '', statRows(src, src.group||'Score Source Outcomes'));
 
   // Score assists: dedicated codes/groups, or the GI 'Assist' label whose
