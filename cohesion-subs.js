@@ -31,8 +31,10 @@
  *   cohSubsResolve(text, sheet, known) → {name, no, err}   a typed player: a name, "#18" / "18" (named through the
  *       team sheet), "18 Name"; a known spelling is adopted
  *   cohSubsMatch(report, existing) → {pairs:[{rep, row, how, dt}], repOnly:[id], rowOnly:[rowId]}
- *       report [{id, side, t|null, out:{name,no}|null, in}], existing [{rowId, side, t, out, in}] — per side:
- *         1 'players' both players the same (a name, or the number when a side has only numbers) — nearest in time first
+ *       report [{id, side, t|null, out:{name,no}|null, in, blood?}], existing [{rowId, side, t, out, in, blood?}] — per side:
+ *         1 'players' both players the same (a name, or the number when a side has only numbers) — nearest in time first;
+ *                     a row of the same kind (blood sub / normal sub) before one of the other kind — a blood / normal
+ *                     mismatch still pairs, and the panel shows it so the analyst can choose
  *         2 'one'     one of the two players the same, within 5 minutes
  *         3 'time'    anything left within 90 seconds (an existing row with other / unknown players)
  */
@@ -153,6 +155,7 @@
       c.sort((a,b)=>(a.dt==null?1e9:a.dt)-(b.dt==null?1e9:b.dt));
       c.forEach(({r,x,dt})=>{ if(usedR.has(r.id)||usedX.has(x.rowId)) return; usedR.add(r.id); usedX.add(x.rowId); pairs.push({rep:r.id, row:x.rowId, how, dt}); });
     };
+    pass('players', (r,x)=>same(r.out,x.out)&&same(r.in,x.in)&&!!r.blood===!!x.blood, null);   // same players, same kind first
     pass('players', (r,x)=>same(r.out,x.out)&&same(r.in,x.in), null);
     pass('one', (r,x)=>same(r.out,x.out)||same(r.in,x.in), 300);
     pass('time', ()=>true, 90);
@@ -170,6 +173,10 @@
    * (localStorage 'coh_cr_subs_<game id>') until "Clear list" — so it survives a reload, also in a local session.
    * Nothing is written to the game until a sub is confirmed (Check) or the list applied; those changes are then queued
    * like any other edit (pending until "Close session & save all"; one Undo each).
+   * BLOOD: each typed sub has a "Blood" tick (the Tracker's blood sub): its row is written as "<TEAM> BLOOD SUB"
+   * (cohesion-labels.js cohSubBloodCode) and not counted in the team's subs (the header's count). A typed sub paired
+   * with a row of the other kind shows the mismatch with a "make it …" tick (fixBlood) — the row is left as it is
+   * until that is ticked.
    */
   if(typeof document==='undefined') return;
   const g=n=>root[n]!==undefined?root[n]:(function(){ try{ return (0,eval)(n); }catch(_){ return undefined; } })();   // a page `let` (EVENTS …) is not on window
@@ -182,7 +189,7 @@
   function load(){
     const G=GAMEv(); if(!G) return; if(S.gid===G.id) return;
     S.gid=G.id; S.list={home:[], away:[]}; S.check=null; S.status=''; S.seq=0;
-    try{ const raw=localStorage.getItem(storeKey()); if(raw){ const o=JSON.parse(raw); ['home','away'].forEach(sd=>{ if(Array.isArray(o[sd])) S.list[sd]=o[sd].filter(x=>x&&typeof x==='object').map(x=>({id:String(x.id||''), min:String(x.min||''), out:String(x.out||''), in:String(x.in||''), t:num(x.t), useTime:!!x.useTime, fixPlayers:!!x.fixPlayers})); }); } }catch(_){}
+    try{ const raw=localStorage.getItem(storeKey()); if(raw){ const o=JSON.parse(raw); ['home','away'].forEach(sd=>{ if(Array.isArray(o[sd])) S.list[sd]=o[sd].filter(x=>x&&typeof x==='object').map(x=>({id:String(x.id||''), min:String(x.min||''), out:String(x.out||''), in:String(x.in||''), t:num(x.t), useTime:!!x.useTime, fixPlayers:!!x.fixPlayers, blood:!!x.blood, fixBlood:!!x.fixBlood})); }); } }catch(_){}
     ['home','away'].forEach(sd=>S.list[sd].forEach(x=>{ x.id='s'+(++S.seq); }));
   }
   function persist(){
@@ -205,26 +212,27 @@
       S.list[side].forEach(x=>{ const p=cohSubsParseMinute(x.min, lv), v=p.ok?cohSubsToVideo(p, st):{ok:false, error:p.error};
         const o=cohSubsResolve(x.out, sh, kn), i=cohSubsResolve(x.in, sh, kn), t=x.t!=null?x.t:(v.ok?v.t:null);
         const it={x, side, p, v, out:o, in:i, t, blank:!x.min&&!x.out&&!x.in};
-        info.set(x.id, it); if(!it.blank) rep.push({id:x.id, side, t, out:(o.name||o.no)?o:null, in:(i.name||i.no)?i:null}); }); });
+        info.set(x.id, it); if(!it.blank) rep.push({id:x.id, side, t, out:(o.name||o.no)?o:null, in:(i.name||i.no)?i:null, blood:!!x.blood}); }); });
     const rows=EV().filter(e=>e&&typeof root.cohIsSubRow==='function'&&root.cohIsSubRow(e)).map(e=>{ const io=g('crSubIO')(e), side=g('crSideOf')(e.team);
-      return {rowId:e._rowId, side, t:+((e.driveT!=null?e.driveT:e.start)||0), out:io.out, in:io.in, e}; })
+      return {rowId:e._rowId, side, t:+((e.driveT!=null?e.driveT:e.start)||0), out:io.out, in:io.in, blood:isBlood(e), e}; })
       .filter(r=>teamOf(r.side)===String(r.e.team||'').toUpperCase());
     const M=cohSubsMatch(rep, rows), byRow=new Map(rows.map(r=>[String(r.rowId), r]));
     M.pairs.forEach(p=>{ const it=info.get(p.rep); it.row=byRow.get(String(p.row)); it.how=p.how; });
     info.forEach(it=>{
       it.complete=!!(it.out.name&&it.in.name);
       if(it.row){ it.sameT=it.t!=null&&Math.abs(it.row.t-it.t)<0.5; it.sameP=cohSubsSamePlayer(it.out, it.row.out)&&cohSubsSamePlayer(it.in, it.row.in);
-        it.done=it.sameT&&it.sameP; }
+        it.sameB=!!it.row.blood===!!it.x.blood; it.done=it.sameT&&it.sameP&&it.sameB; }
       else it.done=false;
     });
     return {st, info, rowOnly:M.rowOnly.map(id=>byRow.get(String(id))), rows};
   }
+  const isBlood=e=>typeof root.cohIsBloodSubRow==='function'&&root.cohIsBloodSubRow(e);
   function findSub(id){ for(const sd of ['home','away']){ const x=S.list[sd].find(y=>y.id===id); if(x) return {x, side:sd}; } return null; }
 
   // ── writing the SUB rows ──
   function labelKey(e, canon){ const L=e.labels||{}; return Object.keys(L).find(k=>k.toLowerCase()===canon.toLowerCase())||g('crSubG')(canon==='Player Out'?'out':'in'); }
   function newRow(it, t, st){
-    const G=GAMEv(), side=it.side, TEAM=g('codeTeamName')(side), code=TEAM+' '+g('crCodeAlias')('SUB');
+    const G=GAMEv(), side=it.side, TEAM=g('codeTeamName')(side), code0=TEAM+' '+g('crCodeAlias')('SUB'), code=it.x.blood&&typeof root.cohSubBloodCode==='function'?root.cohSubBloodCode(code0, true, EV()):code0;
     const ht=!!(it.v&&it.v.ht), half=ht?'2nd Half':PERIOD_HALF[cohSubsPeriodAt(t, st)];   // a half-time sub belongs to the 2nd half
     const tmp='tmp-'+((0,eval)('++crTmpCounter'));
     const row={id:'manual-'+Date.now()+'-'+tmp, start:t, end:t+5, half, code, team:TEAM, player:'', outcome:'', subtype:'', category:(g('catOf')(code)||'Other'),
@@ -235,15 +243,17 @@
     const cp=g('codeColorPref'); if(cp&&cp['SUB']) row.color=cp['SUB'];
     EV().push(row); return row;
   }
-  function fixRow(e, it, t, useTime, fixPlayers){
+  function fixRow(e, it, t, useTime, fixPlayers, fixBlood){
     if(useTime&&t!=null) e.driveT=t;
+    if(fixBlood&&typeof root.cohSubBloodCode==='function'){ const on=!!it.x.blood; e.code=root.cohSubBloodCode(e.code, on, EV());
+      if(!on&&root.cohSubReturned(e)) root.cohSubDetailSet(e, {returned:''}); }   // a normal sub has no RETURNED
     if(fixPlayers&&it.complete){
       const before={o:root.cohLabelVal(e,'Player Out'), i:root.cohLabelVal(e,'Player In')};
       e.labels=Object.assign({}, e.labels||{});
       e.labels[labelKey(e,'Player Out')]=it.out.name; e.labels[labelKey(e,'Player In')]=it.in.name;
       if(e.labelsAll){ ['Player Out','Player In'].forEach(c=>{ const k=Object.keys(e.labelsAll).find(x=>x.toLowerCase()===c.toLowerCase()); if(k) delete e.labelsAll[k]; }); }
       if(before.o!==it.out.name||before.i!==it.in.name){ const sd=root.cohSubDetailText(e, GAMEv(), EV(), it.out.name, it.in.name);
-        if(sd){ const k=Object.keys(e.labels).find(x=>x.toLowerCase()==='sub detail')||'Sub Detail'; e.labels[k]=sd; } }
+        if(sd) root.cohSubDetailSet(e, {pair:sd}); }   // (a blood sub's RETURNED value stays)
     }
     if(!e._new) e._dirty=true;
   }
@@ -252,9 +262,9 @@
     const E=evaluate(), st=E.st, added=[], snaps=[], touched=[], skipped=[];
     items.forEach(a=>{ const it=E.info.get(a.id); if(!it||it.blank) return;
       const t=a.t!=null?a.t:it.t;
-      if(it.row){ const useT=!!a.useTime&&t!=null&&!it.sameT, fixP=!!a.fixPlayers&&it.complete&&!it.sameP;
-        if(!useT&&!fixP) return;
-        snaps.push({id:it.row.e._rowId, data:g('crClone')(it.row.e)}); fixRow(it.row.e, it, t, useT, fixP); touched.push(it.row.e); return; }   // (asked once per row, as on an Edit-panel save)
+      if(it.row){ const useT=!!a.useTime&&t!=null&&!it.sameT, fixP=!!a.fixPlayers&&it.complete&&!it.sameP, fixB=!!a.fixBlood&&!it.sameB;
+        if(!useT&&!fixP&&!fixB) return;
+        snaps.push({id:it.row.e._rowId, data:g('crClone')(it.row.e)}); fixRow(it.row.e, it, t, useT, fixP, fixB); touched.push(it.row.e); return; }   // (asked once per row, as on an Edit-panel save)
       if(!it.complete){ skipped.push((it.x.min||'?')+': '+(it.out.err||it.in.err||'both players are needed')); return; }
       if(t==null){ skipped.push((it.x.min||'?')+': '+(it.v.error||'no time')); return; }
       const r=newRow(it, Math.round(t), st); added.push(r._rowId); touched.push(r); });
@@ -277,11 +287,11 @@
 .crsb-th{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
 .crsb-th b{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .crsb-th span{font-size:11px;color:var(--t3);white-space:nowrap;}
-.crsb-hd{display:grid;grid-template-columns:62px 1fr 14px 1fr 18px;gap:4px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.8px;color:var(--t3);text-transform:uppercase;margin:2px 0 3px;}
+.crsb-hd{display:grid;grid-template-columns:62px 1fr 14px 1fr 40px 18px;gap:4px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.8px;color:var(--t3);text-transform:uppercase;margin:2px 0 3px;}
 .crsb-sub{border:1px solid var(--border);border-radius:8px;padding:5px 6px 4px;margin-bottom:6px;background:var(--card);}
 .crsb-sub.done{border-color:var(--green);}
 .crsb-sub.cur{box-shadow:0 0 0 2px var(--accent);}
-.crsb-r{display:grid;grid-template-columns:62px 1fr 14px 1fr 18px;gap:4px;align-items:center;}
+.crsb-r{display:grid;grid-template-columns:62px 1fr 14px 1fr 40px 18px;gap:4px;align-items:center;}
 .crsb-r input{min-width:0;width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:6px 7px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
 .crsb-r input:focus{border-color:var(--accent);}
 .crsb-r input.min{font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:6px 3px;}
@@ -298,6 +308,10 @@
 .crsb-tag.ok{border-color:var(--green);color:var(--green);}
 .crsb-tag.warn{border-color:var(--orange);color:var(--orange);}
 .crsb-tag.err{border-color:var(--red);color:var(--red);}
+.crsb-tag.blood{border-color:var(--red);color:var(--red);border-style:dashed;}
+.crsb-bl{display:flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;user-select:none;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t3);text-transform:uppercase;}
+.crsb-bl input{accent-color:var(--red);margin:0;padding:0;width:13px;height:13px;flex:none;}
+.crsb-bl.on{color:var(--red);}
 .crsb-err{color:var(--red);}
 .crsb-ex{margin-top:3px;padding:4px 6px;border-left:3px solid var(--orange);background:var(--panel);border-radius:0 6px 6px 0;}
 .crsb-ex.same{border-left-color:var(--green);}
@@ -348,7 +362,7 @@
     f.x[k]=v; if(k==='min') f.x.t=null;   // a new minute: the time is worked out again (a confirmed time is dropped)
     persist(); render();
   }
-  function addSub(side){ const x={id:'s'+(++S.seq), min:'', out:'', in:'', t:null, useTime:false, fixPlayers:false}; S.list[side].push(x); S.focus={id:x.id, f:'min'}; persist(); render(); }
+  function addSub(side){ const x={id:'s'+(++S.seq), min:'', out:'', in:'', t:null, useTime:false, fixPlayers:false, blood:false, fixBlood:false}; S.list[side].push(x); S.focus={id:x.id, f:'min'}; persist(); render(); }
   function rmSub(id){ ['home','away'].forEach(sd=>{ S.list[sd]=S.list[sd].filter(x=>x.id!==id); }); persist(); render(); }
   function seek(t){ if(t==null) return; try{ g('vSeekDrive')(t); }catch(_){} live(); }
   // the subs to step through: every non-blank one, both teams, in time order (no time: at the end, in list order)
@@ -363,13 +377,13 @@
     if(!S.check) return; const E=evaluate(), L=ids(E), id=L[S.check.i], it=E.info.get(id); if(!it) return;
     let t; if(keep&&it.row) t=it.row.t; else { t=Math.round(g('vNow')()); }
     it.x.t=t; persist();
-    const r=await apply([{id, t, useTime:!keep, fixPlayers:it.x.fixPlayers}], 'check');
+    const r=await apply([{id, t, useTime:!keep, fixPlayers:it.x.fixPlayers, fixBlood:it.x.fixBlood}], 'check');
     S.status=(r.skipped&&r.skipped.length)?r.skipped.join(' · '):(keep?'Kept the existing time':'Set to '+fmtT(t))+(r.n?' — queued (Undo undoes it)':'');
     if(!S.check) return; const L2=ids(evaluate()), at=L2.indexOf(id);
     if(at>=0&&at<L2.length-1) checkGo(at+1); else { if(at>=0) S.check.i=at; S.status+=' · that was the last one'; render(); }
   }
   async function applyAll(){
-    const E=evaluate(); const items=[]; E.info.forEach(it=>{ if(!it.blank&&!it.done) items.push({id:it.x.id, t:it.t, useTime:it.x.useTime, fixPlayers:it.x.fixPlayers}); });
+    const E=evaluate(); const items=[]; E.info.forEach(it=>{ if(!it.blank&&!it.done) items.push({id:it.x.id, t:it.t, useTime:it.x.useTime, fixPlayers:it.x.fixPlayers, fixBlood:it.x.fixBlood}); });
     const r=await apply(items, 'apply');
     S.status=r.n?('Queued: '+(r.added?r.added+' new SUB row'+(r.added===1?'':'s'):'')+(r.added&&r.changed?', ':'')+(r.changed?r.changed+' changed':'')+' — one Undo undoes them all.'):'Nothing to apply.';
     if(r.skipped&&r.skipped.length) S.status+=' Not applied: '+r.skipped.join(' · ');
@@ -400,6 +414,11 @@
     else if(act==='vf') { try{ g('vframe')(+t.dataset.d); }catch(_){} live(); }
     else if(act==='vp') { try{ g('vtoggle')(); }catch(_){} }
   }
+  // a typed sub and its row are not the same kind: say which, and offer to make the row match the list
+  function bloodMis(it){ const x=it.x;
+    return '<br><span class="crsb-tag blood">'+(it.row.blood?'row is a BLOOD SUB':'row is a normal SUB')+'</span>'+(x.blood?'the list says blood sub':'the list says normal sub')+' · '
+      +'<label class="crsb-ck"><input type="checkbox" data-ck="fixBlood" data-id="'+x.id+'"'+(x.fixBlood?' checked':'')+'>make it a '+(x.blood?'BLOOD SUB':'normal SUB')+'</label>'; }
+  function rowTxt(r){ return (g('cohSubText')(r)||'no players on the row')+(r.blood?' · blood sub':''); }
   function pl(p){ return p&&(p.name||p.no)?((p.no?'#'+p.no+' ':'')+(p.name||'')).trim():'?'; }
   function clockOf(t, st){ const c=cohSubsClockAt(t, st); return c?' ('+c+')':''; }
   function infoHtml(it, st){
@@ -413,30 +432,32 @@
     else if(it.v.ok) when=esc(it.p.label)+' → <span class="mono">'+esc(it.v.clock)+'</span> · <span class="go" data-act="seek" data-t="'+it.v.t+'" title="Go to this moment in the video">▶ '+fmtT(it.v.t)+'</span>'+(it.v.note?' · '+esc(it.v.note):'');
     if(when) bits.push(when);
     if(it.row){ const r=it.row, rt='<span class="go" data-act="seek" data-t="'+r.t+'">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, st));
-      if(it.done) bits.push('<span class="crsb-tag ok">✓ in the game</span>SUB row at '+rt);
+      if(it.done) bits.push('<span class="crsb-tag ok">✓ in the game</span>'+(r.blood?'BLOOD SUB':'SUB')+' row at '+rt);
       else { const how={players:'same players', one:'one player the same', time:'near in time'}[it.how]||'';
-        bits.push('<div class="crsb-ex'+(it.sameP?' same':'')+'"><span class="crsb-tag warn">existing</span>'+esc(how)+' · '+rt+'<br>'+esc(g('cohSubText')(r)||'no players on the row')
+        bits.push('<div class="crsb-ex'+(it.sameP?' same':'')+'"><span class="crsb-tag warn">existing</span>'+esc(how)+' · '+rt+'<br>'+esc(rowTxt(r))
           +'<br>'+(it.sameT?'<span class="crsb-ck">✓ same time</span>':'<label class="crsb-ck"><input type="checkbox" data-ck="useTime" data-id="'+x.id+'"'+(x.useTime?' checked':'')+'>use the new time</label>')
           +(it.sameP?'<span class="crsb-ck">✓ same players</span>':it.complete?'<label class="crsb-ck"><input type="checkbox" data-ck="fixPlayers" data-id="'+x.id+'"'+(x.fixPlayers?' checked':'')+'>fix the players</label>':'')
-          +(!x.useTime&&!(x.fixPlayers&&!it.sameP)?'<span style="color:var(--t3)">keeping the row as it is</span>':'')+'</div>'); } }
-    else if(!err.length&&it.complete) bits.push('<span class="crsb-tag new" title="Not in the game yet — a SUB row is added when you set its time (Check) or Apply all">new row</span>'+esc('OUT '+pl(it.out)+' → IN '+pl(it.in)));
+          +(it.sameB?'':bloodMis(it))
+          +(!x.useTime&&!(x.fixPlayers&&!it.sameP)&&!(x.fixBlood&&!it.sameB)?'<span style="color:var(--t3)">keeping the row as it is</span>':'')+'</div>'); } }
+    else if(!err.length&&it.complete) bits.push('<span class="crsb-tag new" title="Not in the game yet — a '+(x.blood?'BLOOD SUB':'SUB')+' row is added when you set its time (Check) or Apply all">new row</span>'+(x.blood?'<span class="crsb-tag blood">blood</span>':'')+esc('OUT '+pl(it.out)+' → IN '+pl(it.in)));
     else if(!err.length&&!it.complete) bits.push('<span class="crsb-tag">players</span>type both players');
     if(err.length) bits.push('<span class="crsb-err">⚠ '+err.map(esc).join(' · ')+'</span>');
     return '<div class="crsb-i">'+bits.join('<br>')+'</div>';
   }
   function teamHtml(side, E){
     const G=GAMEv(), T=teamOf(side)||side, col0=(side==='home'?G.homeColor:G.awayColor), col=col0?(typeof cohTeamInk==='function'?cohTeamInk(col0):col0):'var(--border)';   // readable on the theme (cohesion-ink.js)
-    const L=S.list[side], done=L.filter(x=>{ const it=E.info.get(x.id); return it&&it.done; }).length;
+    const L=S.list[side], done=L.filter(x=>{ const it=E.info.get(x.id); return it&&it.done; }).length, nb=L.filter(x=>x.blood).length;
     const curId=S.check?ids(E)[S.check.i]:null;
     const box=(x,f,ph)=>'<input data-f="'+f+'" data-id="'+x.id+'" data-side="'+side+'" class="'+(f==='min'?'min':'nm')+(f==='min'&&x.min&&!(E.info.get(x.id)||{}).p.ok?' bad':'')+'" value="'+esc(x[f])+'" placeholder="'+ph+'" autocomplete="off" spellcheck="false">';
     const orph=E.rowOnly.filter(r=>r.side===side);
-    return '<div class="crsb-team" style="--tc:'+esc(col)+'"><div class="crsb-th"><b>'+esc(T)+'</b><span>'+L.length+' sub'+(L.length===1?'':'s')+(done?' · '+done+' ✓':'')+'</span></div>'
-      +(L.length?'<div class="crsb-hd"><span>Minute</span><span>Player off</span><span></span><span>Player on</span><span></span></div>':'')
+    return '<div class="crsb-team" style="--tc:'+esc(col)+'"><div class="crsb-th"><b>'+esc(T)+'</b><span title="Blood subs are not counted in the team’s subs (as the Tracker)">'+(L.length-nb)+' sub'+(L.length-nb===1?'':'s')+(nb?' + '+nb+' blood':'')+(done?' · '+done+' ✓':'')+'</span></div>'
+      +(L.length?'<div class="crsb-hd"><span>Minute</span><span>Player off</span><span></span><span>Player on</span><span style="text-align:center">Blood</span><span></span></div>':'')
       +L.map(x=>{ const it=E.info.get(x.id);
         return '<div class="crsb-sub'+(it&&it.done?' done':'')+(curId===x.id?' cur':'')+'"><div class="crsb-r">'+box(x,'min',"52'")+box(x,'out','Off…')+'<span class="crsb-ar">→</span>'+box(x,'in','On…')
+          +'<label class="crsb-bl'+(x.blood?' on':'')+'" title="A blood sub (temporary): written as BLOOD SUB, not counted in the team’s subs"><input type="checkbox" data-ck="blood" data-id="'+x.id+'"'+(x.blood?' checked':'')+'>🩸</label>'
           +'<span class="crsb-x" data-act="rm" data-id="'+x.id+'" title="Remove from the list">✕</span></div>'+(it?infoHtml(it, E.st):'')+'</div>'; }).join('')
       +'<button class="cbtn mini crsb-add" data-act="add" data-side="'+side+'">+ Add '+esc(T)+' sub</button>'
-      +(orph.length?'<div class="crsb-orph"><b>SUB rows in the game not in this list</b>'+orph.map(r=>'<div><span class="crsb-tag warn">not in report</span><span class="go" style="cursor:pointer;color:var(--accent);font-weight:700" data-act="seek" data-t="'+r.t+'">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, E.st))+' · '+esc(g('cohSubText')(r)||'no players on the row')+'</div>').join('')+'</div>':'')
+      +(orph.length?'<div class="crsb-orph"><b>SUB rows in the game not in this list</b>'+orph.map(r=>'<div><span class="crsb-tag warn">not in report</span><span class="go" style="cursor:pointer;color:var(--accent);font-weight:700" data-act="seek" data-t="'+r.t+'">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, E.st))+' · '+esc(rowTxt(r))+'</div>').join('')+'</div>':'')
       +'</div>';
   }
   function startsHtml(st){
@@ -452,12 +473,12 @@
       :it.v.ok?esc(it.p.label)+' → <span class="crsb-big">'+esc(it.v.clock)+'</span> · video <span class="go" data-act="seek" data-t="'+it.v.t+'" style="cursor:pointer;color:var(--accent);font-weight:700">▶ '+fmtT(it.v.t)+'</span>'+(it.v.note?'<br>'+esc(it.v.note):'')
       :'<span class="crsb-err">⚠ '+esc(it.p.ok?it.v.error:it.p.error)+' — find it in the video and set it</span>';
     let ex='';
-    if(it.row){ const r=it.row; ex='<div class="crsb-i"><div class="crsb-ex'+(it.done?' same':'')+'"><span class="crsb-tag '+(it.done?'ok':'warn')+'">'+(it.done?'✓ in the game':'existing SUB row')+'</span><span class="go" data-act="seek" data-t="'+r.t+'" style="cursor:pointer;color:var(--accent);font-weight:700">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, st))+'<br>'+esc(g('cohSubText')(r)||'no players on the row')
-      +(!it.sameP&&it.complete?'<br><label class="crsb-ck"><input type="checkbox" data-ck="fixPlayers" data-id="'+x.id+'"'+(x.fixPlayers?' checked':'')+'>also fix the players to the report’s</label>':'')+'</div></div>'; }
+    if(it.row){ const r=it.row; ex='<div class="crsb-i"><div class="crsb-ex'+(it.done?' same':'')+'"><span class="crsb-tag '+(it.done?'ok':'warn')+'">'+(it.done?'✓ in the game':'existing '+(r.blood?'BLOOD SUB':'SUB')+' row')+'</span><span class="go" data-act="seek" data-t="'+r.t+'" style="cursor:pointer;color:var(--accent);font-weight:700">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, st))+'<br>'+esc(rowTxt(r))
+      +(!it.sameP&&it.complete?'<br><label class="crsb-ck"><input type="checkbox" data-ck="fixPlayers" data-id="'+x.id+'"'+(x.fixPlayers?' checked':'')+'>also fix the players to the report’s</label>':'')+(it.sameB?'':bloodMis(it))+'</div></div>'; }
     else if(it.complete) ex='<div class="crsb-i"><span class="crsb-tag new">new</span>no SUB row in the game yet — one is added when you set the time</div>';
     const can=it.complete||!!it.row;
     return '<div class="crsb-card"><div class="crsb-th"><b style="color:var(--t1)">'+esc(T)+'</b><span>sub '+(S.check.i+1)+' of '+L.length+'</span></div>'
-      +'<div class="who"><span class="o">▼ '+esc(pl(it.out))+'</span> &nbsp;→&nbsp; <span class="n">▲ '+esc(pl(it.in))+'</span></div>'
+      +'<div class="who"><span class="o">▼ '+esc(pl(it.out))+'</span> &nbsp;→&nbsp; <span class="n">▲ '+esc(pl(it.in))+'</span>'+(x.blood?' <span class="crsb-tag blood">blood sub</span>':'')+'</div>'
       +'<div class="crsb-i" style="margin-top:0">'+target+'</div>'+ex
       +((it.out.err||it.in.err)?'<div class="crsb-i crsb-err">⚠ '+esc([it.out.err,it.in.err].filter(Boolean).join(' · '))+'</div>':'')
       +'<div class="crsb-now" id="crSubsNow"></div>'
@@ -476,7 +497,7 @@
     if(keep){ const f=findSub(keep.id), v=String(ae.value||''); if(f&&f.x[keep.f].replace(/\s+/g,' ').trim()!==v.replace(/\s+/g,' ').trim()){ f.x[keep.f]=v; if(keep.f==='min') f.x.t=null; } }
     const E=evaluate();
     p.classList.toggle('chk', !!S.check);
-    const nTodo=[...E.info.values()].filter(it=>!it.blank&&!it.done&&(it.row?((it.x.useTime&&it.t!=null&&!it.sameT)||(it.x.fixPlayers&&it.complete&&!it.sameP)):(it.complete&&it.t!=null))).length, nAll=[...E.info.values()].filter(it=>!it.blank).length;
+    const nTodo=[...E.info.values()].filter(it=>!it.blank&&!it.done&&(it.row?((it.x.useTime&&it.t!=null&&!it.sameT)||(it.x.fixPlayers&&it.complete&&!it.sameP)||(it.x.fixBlood&&!it.sameB)):(it.complete&&it.t!=null))).length, nAll=[...E.info.values()].filter(it=>!it.blank).length;
     const head='<div class="crfr-h"><span>SUBS</span><span class="crfr-sub">'+(S.check?'check each sub against the video':'from the match report · '+esc(G.homeTeam||'')+' v '+esc(G.awayTeam||''))+'</span><span class="crfr-x" data-act="close" title="Close (Esc)">✕</span></div>';
     if(S.check){ p.innerHTML=head+checkHtml(E)+'<div class="crfr-status" id="crSubsStatus">'+esc(S.status||'')+'</div>'; live(); return; }
     const H=HALF()[lv];

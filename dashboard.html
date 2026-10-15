@@ -908,7 +908,7 @@ function renderLV(){
     const gO=LG.has(gn);
     h+=`<div class="lbl-group"><div class="lbl-hdr" onclick="togLG('${ea(gn)}')"><span class="lbl-arr${gO?' o':''}">▶</span><span class="lbl-gname">${gn}</span><span class="lbl-gcnt">${tot}</span></div>`;
     if(gO){
-      h+=`<div class="lbl-vals">${Object.entries(vals).sort((a,b)=>b[1].n-a[1].n).map(([val,evs])=>{const k=gn+'::'+val;const vO=LV.has(k);const isA=activeLF?.g===gn&&activeLF?.v===val;return`<div class="lbl-val${isA?' on':''}" onclick="hlv('${ea(gn)}','${ea(val)}')"><span class="lbl-varr${vO?' o':''}">▶</span><span class="lbl-vname">${(gn==='Sub Detail'&&dashSubVal(evs))||tc(val)}</span><span class="lbl-vcnt">${evs.n}</span></div>${vO?`<div class="lbl-einsts">${evs.map(ev=>`<div class="lbl-einst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${[dashPlayersTxt(ev),tc(ev.code)].filter(Boolean)[0]||''}</div></div>`).join('')}</div>`:''}`}).join('')}</div>`;
+      h+=`<div class="lbl-vals">${Object.entries(vals).sort((a,b)=>b[1].n-a[1].n).map(([val,evs])=>{const k=gn+'::'+val;const vO=LV.has(k);const isA=activeLF?.g===gn&&activeLF?.v===val;return`<div class="lbl-val${isA?' on':''}" onclick="hlv('${ea(gn)}','${ea(val)}')"><span class="lbl-varr${vO?' o':''}">▶</span><span class="lbl-vname">${(gn==='Sub Detail'&&!/^\s*RETURNED\b/i.test(val)&&dashSubVal(evs))||tc(val)}</span><span class="lbl-vcnt">${evs.n}</span></div>${vO?`<div class="lbl-einsts">${evs.map(ev=>`<div class="lbl-einst${ev.id===activeId?' on':''}" onclick="pickI('${ev.id}')"><div><div class="inst-t">${ev.gameTime}</div><div class="inst-vs">${fmt(ev.driveT)}</div></div><div style="font-size:10px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${[dashPlayersTxt(ev),tc(ev.code)].filter(Boolean)[0]||''}</div></div>`).join('')}</div>`:''}`}).join('')}</div>`;
     }
     h+='</div>';
   });
@@ -1250,12 +1250,13 @@ function dashCustomTagChange(sel){
 }
 function saveCustomTag(rowId,group,value){
   const ev=ALL.find(e=>e._rowId===rowId); if(!ev){alert('Event reference missing.');return;}
-  const labels={...(ev.labels||{})};
+  let labels={...(ev.labels||{})};
   const isSub=typeof cohIsSubRow==='function'&&cohIsSubRow(ev)&&/^player (out|in)$/i.test(group);
   if(isSub) group=Object.keys(labels).find(k=>k.toLowerCase()===group.toLowerCase())||cohGroupResolve(ALL, group);   // the row's / the game's own spelling ("Player out"): never a twin group
   if(value==='') delete labels[group]; else labels[group]=value;
   if(isSub){   // a Tracker-style game: Sub Detail follows the saved pair
-    const t=cohSubDetailText(ev, GAME, ALL, cohLabelVal({labels},'Player Out'), cohLabelVal({labels},'Player In')); if(t) labels[Object.keys(labels).find(k=>k.toLowerCase()==='sub detail')||'Sub Detail']=t; }
+    const t=cohSubDetailText(ev, GAME, ALL, cohLabelVal({labels},'Player Out'), cohLabelVal({labels},'Player In'));
+    if(t){ const x={labels, labelsAll:ev.labelsAll}; cohSubDetailSet(x, {pair:t}); labels=x.labels; if(x.labelsAll) ev.labelsAll=x.labelsAll; else delete ev.labelsAll; } }   // (a blood sub's "RETURNED 10:47" value stays)
   ev.labels=labels;
   queueEventEdit(ev);
 }

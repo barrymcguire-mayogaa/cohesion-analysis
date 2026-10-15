@@ -706,19 +706,21 @@ if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {c
  *         'label'    the explicit 'Player Out' / 'Player In' labels;
  *         'players'  exactly two players of the row's OWN team in its "<Team> Player Labels" group — the Sportscode
  *                    template's order: the FIRST is going OFF, the SECOND is coming ON (a single name is not guessed);
- *         'detail'   the Tracker's 'Sub Detail' label "#18 ON for #13" (IN first, then OUT), each number named
+ *         'detail'   the Tracker's 'Sub Detail' label "#18 ON for #13" (IN first, then OUT; whichever of its values that is), each number named
  *                    through THAT team's sheet for the game (name '' when the sheet does not carry the number).
  *       no = the player's number on the sheet ('' unknown); source = where OUT came from (else IN).
  *   cohSubText(io)                       "OUT #13 Name → IN #18 Name" ('' when nothing is known)
- *   cohSubState(events, meta, team, e)   who is on the pitch / on the bench just BEFORE sub row e (e omitted: at
+ *   cohSubState(events, meta, team, e, opts)   who is on the pitch / on the bench just BEFORE sub row e (e omitted: at
  *                                        the end): the sheet's starters, adjusted by the team's earlier subs in
  *                                        video order -> {known, on:[names], bench:[names], off:[names]}
  *                                        (bench = sheet subs not yet on + players taken off, who may come back)
+ *                                        a returned BLOOD SUB is undone at its return time (see BLOOD SUBS below)
  *   cohSubWarnings(out, in, state)       -> [text] (never blocks): same player · OUT not on the pitch · IN already on
  *   cohSubDetailText(e, meta, events, out, in)  the 'Sub Detail' to keep in step ("#in ON for #out") — only in a
  *                                        game that already uses 'Sub Detail' and when both players have a number
  *   cohSubMarks(events, meta, side)      Map(nameKey -> [{type:'off'|'on', min, text}]) for the Teams panel:
  *                                        only players the helper names AND the sheet lists
+ *                                        (a blood sub: "blood off 6'" / "blood on 6'", then "back 11'" / "off 11'")
  */
 const COH_SUB_ROW_RE=/(^|\s)(SUBS?|SUBSTITUTIONS?)\s*$/i;   // SUB · SUBS · SUBSTITUTION · BLOOD SUB
 const COH_SUB_OUT='Player Out', COH_SUB_IN='Player In';
@@ -758,7 +760,7 @@ function cohSubInOut(e, meta){
     if(own.length===2){ set('out', own[0], '', 'players'); set('in', own[1], '', 'players'); }
   }
   if(!res.out||!res.in){
-    const m=/#?\s*(\d{1,3})\s*ON\s+for\s*#?\s*(\d{1,3})(?!\d)/i.exec(cohLabelVal(e,'Sub Detail')||'');
+    const m=COH_SUB_PAIR_RE.exec(cohSubDetailPair(e));   // whichever Sub Detail value is the pair (a blood sub also has "RETURNED 10:47")
     if(m){ const i=String(+m[1]), o=String(+m[2]); set('out', nameOf(o), o, 'detail'); set('in', nameOf(i), i, 'detail'); }
   }
   res.source=res.src.out||res.src.in||'';
@@ -770,7 +772,7 @@ function cohSubText(io){
   return 'OUT '+part(io.out)+' → IN '+part(io.in);
 }
 function cohSubTime(e){ return +(e&&(e.driveT!=null?e.driveT:e.start))||0; }
-function cohSubState(events, meta, team, e){
+function cohSubState(events, meta, team, e, opts){
   const side=cohSubSide(team, meta), rows=side?cohSubSheet(meta, side):[], T=cohUp(team), nk=cohNameKey;
   const on=new Map(), bench=new Map(), off=new Map(), other=new Map();
   rows.forEach(r=>{ const k=nk(r.name); if(!k||on.has(k)||bench.has(k)||other.has(k)) return; (r.role==='start'?on:r.role==='sub'?bench:other).set(k, r.name); });
@@ -778,9 +780,18 @@ function cohSubState(events, meta, team, e){
   const subs=(events||[]).map((x,i)=>({x,i})).filter(o=>o.x&&cohIsSubRow(o.x)&&cohUp(o.x.team)===T).sort((a,b)=>cohSubTime(a.x)-cohSubTime(b.x)||a.i-b.i).map(o=>o.x);
   const at=e?subs.indexOf(e):-1, upto=!e?subs.length:at>=0?at:subs.filter(s=>cohSubTime(s)<=cohSubTime(e)).length;
   const sheetName=n=>{ const k=nk(n), r=rows.find(x=>nk(x.name)===k); return r?r.name:n; };
-  subs.slice(0, upto).forEach(s=>{ const io=cohSubInOut(s, meta);
-    if(io.out&&io.out.name){ const k=nk(io.out.name); on.delete(k); bench.delete(k); other.delete(k); off.set(k, sheetName(io.out.name)); }
-    if(io.in&&io.in.name){ const k=nk(io.in.name); bench.delete(k); off.delete(k); other.delete(k); on.set(k, sheetName(io.in.name)); } });
+  // the subs before e, in video order — and a returned BLOOD SUB's return, at its own time (the player who went off
+  // is back on, the blood replacement back on the bench), when that is before e as well
+  const tEnd=e?cohSubTime(e):Infinity, moves=[];
+  subs.slice(0, upto).forEach((s, k)=>{ moves.push({t:cohSubTime(s), k, s, ret:false});
+    const rt=cohSubReturnT(s, events, opts&&opts.clockBase); if(rt!=null&&rt<=tEnd) moves.push({t:rt, k, s, ret:true}); });
+  moves.sort((a,b)=>a.t-b.t||a.k-b.k||(a.ret?1:0)-(b.ret?1:0));
+  const goOff=p=>{ if(!(p&&p.name)) return; const k=nk(p.name); on.delete(k); bench.delete(k); other.delete(k); off.set(k, sheetName(p.name)); };
+  const goOn=p=>{ if(!(p&&p.name)) return; const k=nk(p.name); bench.delete(k); off.delete(k); other.delete(k); on.set(k, sheetName(p.name)); };
+  moves.forEach(m=>{ const io=cohSubInOut(m.s, meta);
+    if(!m.ret){ goOff(io.out); goOn(io.in); return; }
+    if(io.in&&io.in.name){ const k=nk(io.in.name); if(on.has(k)){ on.delete(k); off.delete(k); other.delete(k); bench.set(k, sheetName(io.in.name)); } }   // the blood replacement: back on the bench (he was never "taken off")
+    goOn(io.out); });
   return {known, on:[...on.values()], bench:[...bench.values()].concat([...off.values()]), off:[...off.values()]};
 }
 function cohSubWarnings(out, inn, state){
@@ -810,13 +821,99 @@ function cohSubMarks(events, meta, side){
   const marks=new Map(), team=side==='home'?(meta&&meta.homeTeam):(meta&&meta.awayTeam), rows=cohSubSheet(meta, side), nk=cohNameKey, T=cohUp(team);
   if(!rows.length||!T) return marks;
   const onSheet=n=>!!n&&rows.some(r=>nk(r.name)===nk(n));
+  const add=(p, m)=>{ if(!p||!onSheet(p.name)) return; const k=nk(p.name); if(!marks.has(k)) marks.set(k, []); marks.get(k).push(m); };
+  const txt=(w, min)=>w+(min!==''?' '+min+"'":'');
   (events||[]).filter(x=>x&&cohIsSubRow(x)&&cohUp(x.team)===T).sort((a,b)=>cohSubTime(a)-cohSubTime(b)).forEach(s=>{
-    const io=cohSubInOut(s, meta), min=cohSubMinute(s, meta);
-    [['off', io.out], ['on', io.in]].forEach(([type, p])=>{ if(!p||!onSheet(p.name)) return; const k=nk(p.name);
-      if(!marks.has(k)) marks.set(k, []); marks.get(k).push({type, min, text:type+(min!==''?' '+min+"'":'')}); }); });
+    const io=cohSubInOut(s, meta), min=cohSubMinute(s, meta), blood=cohIsBloodSubRow(s);
+    // a blood sub: "blood off 6'" / "blood on 6'", and once RETURNED "back 11'" / "off 11'"
+    [['off', io.out], ['on', io.in]].forEach(([type, p])=>add(p, blood?{type, min, blood:true, text:txt('blood '+type, min)}:{type, min, text:txt(type, min)}));
+    const r=blood?cohSubReturned(s):null;
+    if(r){ const rm=cohSubReturnMinute(s, meta); add(io.out, {type:'on', min:rm, blood:true, back:true, text:txt('back', rm)}); add(io.in, {type:'off', min:rm, blood:true, back:true, text:txt('off', rm)}); } });
   return marks;
 }
-if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsSubRow, cohSubSide, cohSubSheet, cohSubInOut, cohSubText, cohSubState, cohSubWarnings, cohSubUsesDetail, cohSubDetailText, cohSubMinute, cohSubMarks, COH_SUB_OUT, COH_SUB_IN});
+/* ── BLOOD SUBS ──────────────────────────────────────────────────
+ * The Tracker logs a blood sub as "<TEAM> BLOOD SUB" (a normal sub is "<TEAM> SUB") with Sub Detail "#18 ON for #13";
+ * when the player comes back it adds a second Sub Detail value "RETURNED 10:47" (the game clock of the half, mm:ss —
+ * COHESION writes "RETURNED 2H 03:10" when the return falls in a later period than the sub). A blood sub is not
+ * counted as one of the team's subs, and once RETURNED is set the player who went off is back on (the replacement
+ * back on the bench) from the return time.
+ *   cohIsBloodSubRow(e)                 a SUB row whose code is "… BLOOD SUB"
+ *   cohSubBloodCode(code, on, events)   the code with the blood flag set / cleared: "<TEAM> SUB" ⇄ "<TEAM> BLOOD SUB"
+ *                                       (the team as the code spells it; the spelling the game already uses for that
+ *                                       team's rows of that kind wins)
+ *   cohSubDetailPair(e)                 the Sub Detail value "#18 ON for #13" ('' none) — whichever value it is
+ *   cohSubReturned(e)                   {text, period:'1H'|'2H'|'ET1'|'ET2'|'', secs|null, clock} from "RETURNED …", or null
+ *   cohSubReturnedText(clock)           "RETURNED 10:47"
+ *   cohSubDetailWith(e, {pair?, returned?})  the Sub Detail values with the pair / the RETURNED value replaced ('' or
+ *                                       null removes it; a key left out keeps the stored one); other values kept
+ *   cohSubDetailSet(e, o)               writes that list back (labels / labelsAll in step)
+ *   cohSubReturnT(e, events, clockBase) a returned blood sub's return, in video time (driveT) — the half's clock 00:00
+ *                                       from the row's own game clock (else clockBase(period) — the page's own period
+ *                                       starts, Code Room's scoreboard — else the median of the game's rows in that
+ *                                       period) + the RETURNED clock; never before the sub; the sub's own time when the
+ *                                       clock cannot be placed. null when not a blood sub or not returned. (A row with
+ *                                       no game clock: its period from e.half.)
+ *   cohSubReturnMinute(e, meta)         the game minute of the return ('' unknown), as cohSubMinute
+ *   cohSubCount(events, team)           the team's subs, blood subs left out (the Tracker's count)
+ */
+const COH_BLOOD_SUB_RE=/(^|\s)BLOOD\s+(SUBS?|SUBSTITUTIONS?)\s*$/i;
+const COH_SUB_TAIL_RE=/\s*(?:\bBLOOD\s+)?\b(?:SUBS?|SUBSTITUTIONS?)\s*$/i;
+const COH_SUB_PAIR_RE=/#?\s*(\d{1,3})\s*ON\s+for\s*#?\s*(\d{1,3})(?!\d)/i;
+const COH_SUB_RETURNED_RE=/^\s*RETURNED\b\s*(?:(1H|2H|ET\s*1|ET\s*2)\s+)?(?:(\d{1,3}):(\d{2}))?/i;
+function cohIsBloodSubRow(e){ return cohIsSubRow(e)&&COH_BLOOD_SUB_RE.test(String((e&&e.code)||'')); }
+function cohSubBloodCode(code, on, events){
+  const c=String(code==null?'':code).replace(/\s+/g,' ').trim();
+  if(!cohIsSubRow({code:c})||COH_BLOOD_SUB_RE.test(c)===!!on) return c;
+  const pre=c.replace(COH_SUB_TAIL_RE,'').trim(), P=cohUp(pre), n=new Map();
+  (events||[]).forEach(x=>{ const xc=String((x&&x.code)||'').replace(/\s+/g,' ').trim();
+    if(cohIsSubRow({code:xc})&&COH_BLOOD_SUB_RE.test(xc)===!!on&&cohUp(xc.replace(COH_SUB_TAIL_RE,'').trim())===P) n.set(xc, (n.get(xc)||0)+1); });
+  let best='', bn=0; n.forEach((v, k)=>{ if(v>bn){ best=k; bn=v; } });
+  return best||((pre?pre+' ':'')+(on?'BLOOD SUB':'SUB'));
+}
+const cohSubIsPairVal=v=>COH_SUB_PAIR_RE.test(String(v||''))&&!COH_SUB_RETURNED_RE.test(String(v||''));
+const cohSubIsRetVal=v=>COH_SUB_RETURNED_RE.test(String(v||''));
+function cohSubDetailPair(e){ return cohLabelGet(e, 'Sub Detail').find(cohSubIsPairVal)||''; }
+function cohSubReturned(e){
+  const v=cohLabelGet(e, 'Sub Detail').find(cohSubIsRetVal); if(v==null) return null;
+  const m=COH_SUB_RETURNED_RE.exec(v), period=m[1]?m[1].toUpperCase().replace(/\s+/g,''):'', secs=m[2]!=null?(+m[2])*60+(+m[3]):null;
+  return {text:v, period, secs, clock:secs==null?'':(period?period+' ':'')+String(+m[2]).padStart(2,'0')+':'+m[3]};
+}
+function cohSubReturnedText(clock){ return 'RETURNED '+String(clock==null?'':clock).trim(); }
+function cohSubDetailWith(e, o){
+  o=o||{}; const vals=cohLabelGet(e, 'Sub Detail'), out=[]; let p=false, r=false;
+  vals.forEach(v=>{
+    if(cohSubIsRetVal(v)){ if(r&&'returned' in o) return; r=true; if('returned' in o){ if(o.returned) out.push(o.returned); } else out.push(v); return; }
+    if(cohSubIsPairVal(v)&&!p){ p=true; if('pair' in o){ if(o.pair) out.push(o.pair); } else out.push(v); return; }
+    out.push(v); });
+  if(!p&&o.pair){ const i=out.findIndex(v=>!cohSubIsRetVal(v)); if(i>=0) out[i]=o.pair; else out.unshift(o.pair); }   // a typed value that is not a pair: replaced (as before)
+  if(!r&&o.returned) out.push(o.returned);
+  return out;
+}
+function cohSubDetailSet(e, o){ const k=cohLabelKeyEq(e&&e.labels, 'Sub Detail'); return cohLabelSetValues(e, k==null?'Sub Detail':k, cohSubDetailWith(e, o)); }
+function cohSubClockOf(gt){ const m=/^(1H|2H|ET1|ET2)\s+(\d+):(\d{2})/.exec(String(gt||'').trim()); return m?{period:m[1], secs:(+m[2])*60+(+m[3])}:null; }
+// "1st Half" / "2nd Half" / "ET 1st Half" / "ET 2nd Half" -> '1H' | '2H' | 'ET1' | 'ET2' ('' unknown)
+function cohSubHalfTag(h){ const s=String(h||''); return /ET|extra/i.test(s)?(/2nd|2/.test(s)?'ET2':'ET1'):/2nd|2H/i.test(s)?'2H':/1st|1H/i.test(s)?'1H':''; }
+function cohSubReturnT(e, events, clockBase){
+  if(!cohIsBloodSubRow(e)) return null;
+  const r=cohSubReturned(e); if(!r) return null;
+  const t0=cohSubTime(e), own=cohSubClockOf(e.gameTime), P=r.period||(own&&own.period)||cohSubHalfTag(e.half);
+  if(r.secs==null||!P) return t0;
+  let base=null;
+  if(own&&own.period===P) base=t0-own.secs;
+  else if(typeof clockBase==='function'&&clockBase(P)!=null&&isFinite(+clockBase(P))) base=+clockBase(P);   // the page's own period starts (Code Room: the scoreboard)
+  else { const d=(events||[]).map(x=>{ const c=cohSubClockOf(x&&x.gameTime); return c&&c.period===P?cohSubTime(x)-c.secs:null; }).filter(v=>v!=null).sort((a,b)=>a-b);
+    if(d.length) base=d[Math.floor(d.length/2)]; }
+  return base==null?t0:Math.max(t0, base+r.secs);
+}
+function cohSubReturnMinute(e, meta){
+  const r=cohSubReturned(e); if(!r||r.secs==null) return '';
+  const own=cohSubClockOf(e&&e.gameTime), P=r.period||(own&&own.period)||cohSubHalfTag(e&&e.half); if(P!=='1H'&&P!=='2H') return '';
+  const half=(typeof COH_HALF_MIN!=='undefined'&&typeof cohGameLevel==='function')?COH_HALF_MIN[cohGameLevel(meta)]:35;
+  return (P==='2H'?half:0)+Math.floor(r.secs/60)+1;
+}
+function cohSubCount(events, team){ const T=cohUp(team); return (events||[]).filter(x=>x&&cohIsSubRow(x)&&!cohIsBloodSubRow(x)&&(!T||cohUp(x.team)===T)).length; }
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsSubRow, cohSubSide, cohSubSheet, cohSubInOut, cohSubText, cohSubState, cohSubWarnings, cohSubUsesDetail, cohSubDetailText, cohSubMinute, cohSubMarks, COH_SUB_OUT, COH_SUB_IN,
+  cohIsBloodSubRow, cohSubBloodCode, cohSubDetailPair, cohSubReturned, cohSubReturnedText, cohSubDetailWith, cohSubDetailSet, cohSubReturnT, cohSubReturnMinute, cohSubCount, COH_SUB_PAIR_RE});
 
 /* ── Turnover and foul rows: whose player did what ─────────────
  * No extra label groups: a player's ROLE on these rows is read from his TEAM (the team of his "<Team> Player

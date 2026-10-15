@@ -1629,7 +1629,10 @@ async function dashExportPDF(){
   const subEv=ALL.filter(e=>/\bSUB\b/i.test(e.code||'')&&((e.labels||{})['Sub Detail']||subTxt(e)));
   if(subEv.length){
     secHead('Substitutions');
-    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,subTxt(e)||(e.labels||{})['Sub Detail']||'']);
+    // a blood sub (cohesion-labels.js cohIsBloodSubRow): marked, with its return; the raw Sub Detail shows the pair, not "RETURNED …"
+    const rawSd=e=>{ if(typeof cohSubDetailPair!=='function') return (e.labels||{})['Sub Detail']||''; const v=cohSubDetailPair(e)||(e.labels||{})['Sub Detail']||''; return /^\s*RETURNED\b/i.test(v)?'':v; };
+    const blood=e=>{ if(typeof cohIsBloodSubRow!=='function'||!cohIsBloodSubRow(e)) return ''; const r=cohSubReturned(e); return '(blood sub'+(r?', returned '+(r.clock||r.text):'')+')'; };
+    const rows=subEv.map(e=>[e.gameTime||'',statSide(e)==='h'?Hn:An,[subTxt(e)||rawSd(e), blood(e)].filter(Boolean).join(' ')]);
     doc.autoTable({ startY:y, margin:{left:ML,right:MR},
       head:[['Time','Team','Substitution']], body:rows,
       styles:{fontSize:7.5,cellPadding:1.3},
