@@ -354,6 +354,51 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .cras-pick .cbtn{padding:4px 7px;font-size:11px;}
 .cras-pick .cbtn.sug{border-color:var(--accent);color:var(--accent);}
 .cras-pick .cbtn.skip{color:var(--t3);}
+/* …its step-through ("▶ Check one by one"): one compact card per shot, like the Subs panel's Check card */
+.cras.chk{width:400px;}
+.cras-go{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px;}
+.cras-go .cras-start{background:var(--accent);border-color:var(--accent);color:#fff;padding:8px 14px;font-weight:800;}
+.cras-go .cras-start:hover{filter:brightness(1.08);color:#fff;}
+.cras-go .n{font-size:11px;color:var(--t3);}
+.cras-lt{margin-left:auto;cursor:pointer;color:var(--accent);font:700 11px 'Barlow',sans-serif;user-select:none;white-space:nowrap;}
+.cras-lt:hover{text-decoration:underline;}
+.cras-lists{display:none;} .cras-lists.on{display:block;}
+.cras-prog{height:3px;border-radius:2px;background:var(--border);margin:0 0 8px;overflow:hidden;}
+.cras-prog>div{height:100%;background:var(--accent);}
+.cras-card{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--card);margin-bottom:8px;}
+.cras-th{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
+.cras-th b{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1);}
+.cras-th .kind{font:800 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;padding:1px 6px;border-radius:4px;white-space:nowrap;}
+.cras-th .kind.review{color:#f59e0b;border:1px solid #f59e0b;} .cras-th .kind.dis{color:var(--red);border:1px solid var(--red);}
+.cras-th .n{font:700 12px 'DM Mono',monospace;color:var(--t1);white-space:nowrap;}
+.cras-shot{font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.3px;margin:2px 0 4px;color:var(--t1);}
+.cras-shot .o{color:var(--t2);} .cras-shot .clk{font:700 12px 'DM Mono',monospace;color:var(--t2);margin-left:6px;}
+.cras-reason{font-size:12px;color:#f59e0b;line-height:1.4;margin-bottom:4px;}
+.cras-reason.dis{color:var(--red);}
+.cras-f{display:flex;gap:8px;font-size:11.5px;color:var(--t2);line-height:1.45;margin-top:3px;}
+.cras-f>.l{flex:none;width:66px;font:800 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3);padding-top:2px;}
+.cras-f>.v{flex:1;min-width:0;}
+.cras-f .mono{font-family:'DM Mono',monospace;font-size:11px;color:var(--t1);}
+.cras-f .tk{color:var(--accent);font-weight:700;}
+.cras-src{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0 4px;}
+.cras-src .cbtn{display:flex;align-items:center;gap:6px;padding:6px 7px;font-size:11px;text-align:left;}
+.cras-src .cbtn .k{flex:none;width:16px;height:16px;border-radius:4px;background:var(--border);color:var(--t1);font:700 10px/16px 'DM Mono',monospace;text-align:center;}
+.cras-src .cbtn.sug{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);}
+.cras-src .cbtn.cur{background:var(--green);border-color:var(--green);color:#fff;}
+.cras-src .cbtn.cur .k{background:rgba(255,255,255,.25);color:#fff;}
+.cras-src .cbtn .why{margin-left:auto;font-size:9.5px;color:var(--accent);font-weight:700;}
+.cras-src .cbtn.cur .why{color:#fff;}
+.cras-now{font:700 12px 'DM Mono',monospace;color:var(--accent);margin:6px 0 4px;}
+.cras-nudge{display:flex;gap:4px;margin:0 0 6px;}
+.cras-nudge .cbtn{flex:1;padding:5px 0;font-size:11px;}
+.cras-nav{display:flex;flex-wrap:wrap;gap:6px;}
+.cras-nav .cbtn{padding:6px 10px;font-size:11px;}
+.cras-nav .pri{background:var(--green);border-color:var(--green);color:#fff;}
+.cras-keys{font-size:10.5px;color:var(--t3);margin-top:6px;line-height:1.5;}
+.cras-keys kbd{font:700 10px 'DM Mono',monospace;border:1px solid var(--border);border-radius:3px;padding:0 4px;color:var(--t2);}
+.cras-sumcard{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--card);margin-bottom:8px;font-size:12px;color:var(--t2);line-height:1.6;}
+.cras-sumcard h4{margin:0 0 6px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t1);}
+.cras-sumcard .big{font:700 13px 'DM Mono',monospace;color:var(--t1);}
 .crlc-sec{border-top:1px solid var(--border);margin-top:8px;padding-top:8px;}
 .crlc-count{font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.3px;color:var(--t1);flex:1;min-width:0;}
 .crlc-count.bad{color:var(--red);} .crlc-count.good{color:var(--green);}
@@ -6811,12 +6856,18 @@ function crKoDupGo(){
 // ssPossSources; the whole rule and what counts as clear is written at cohAutoSourcePlan). The panel is docked, not
 // modal, so the video stays in view: a summary, "Tag N clear shots" (a confirm, then ONE queued change, one Undo), the
 // shots to review (click → the video jumps there; a source button writes that shot's row, one Undo each; Skip hides it
-// for this session) and the shots whose existing row disagrees with their possession (listed only — never changed).
+// for this session) and the shots whose existing row disagrees with their possession (changed only when you pick another
+// source for one in the step-through below).
 // New rows are ordinary queued rows (_new): saved with "Close session & save all", or written to the XML of a local session.
 // Each shot with a source row also gets the row's value as a label on the shot (Score / Shot Source Outcomes — new rows and
 // the game's own rows alike, the rows never changed); crSrcStep keeps the two in step afterwards. Shots edited that way are
 // ordinary queued edits (_dirty).
-let crAS={open:false, cur:null, skip:new Set()};
+// "▶ Check one by one" (crASStep…) is the main way through the shots to review and then the disagreements: one compact
+// card per shot (like the Subs panel's Check card) while the video plays that possession (3 s before its start → the end
+// of the shot, then pauses). 1–7 pick (the review pick exactly; on a disagreement / a shot that has a row: that row's
+// value changes — crASChangeRow, crSrcStep keeps the labels in step), one Undo each; → / S skip, ← previous, R replay,
+// K keep (disagreements), Esc stop. The list (review + disagreements) stays behind "List".
+let crAS={open:false, cur:null, skip:new Set(), showList:false, step:null, tick:null, clip:null};
 const CR_AS_SHORT={'OWN KO':'Own KO','OPP KO':'Opp KO','FTO':'Forced TO','UTO':'Unforced TO','BR':'Ball recovered','TI':'Throw-in','FREE':'Free won'};
 function crASPlan(){ if(!GAME||typeof cohAutoSourcePlan!=='function') return null; try{ return cohAutoSourcePlan(EVENTS, GAME); }catch(e){ console.warn('auto-tag sources', e); return null; } }
 function crASBtnSync(P){
@@ -6834,13 +6885,16 @@ function crASOpen(){
   if(!p){ p=document.createElement('div'); p.id='crAS'; p.className='crfr cras'; p.setAttribute('role','dialog'); p.setAttribute('aria-label','Auto-tag sources'); document.body.appendChild(p); }
   p.style.display=''; crAS.open=true; crASBtnSync();
 }
-function crASClose(){ const p=document.getElementById('crAS'); if(p) p.style.display='none'; crAS.open=false; crAS.cur=null; crASBtnSync(); }
+function crASClose(){ const p=document.getElementById('crAS'); if(p){ p.style.display='none'; p.classList.remove('chk'); } crASStopTick(); crAS.step=null; crAS.open=false; crAS.cur=null; crASBtnSync(); }
 const crASShotLine=x=>{ const o=String((x.labels||{})['Shot Outcomes']||x.outcome||'').trim(); return '<b>'+esc(x.code||'')+'</b>'+(o?' · '+esc(o):' · <span style="color:var(--t3);">no outcome</span>'); };
 const crASAt=x=>fmt(x.driveT??x.start??0)+(x.gameTime?' <span style="color:var(--t3);">'+esc(x.gameTime)+'</span>':'');
 function crASEvWords(ev){ if(!ev) return ''; const L=ev.labels||{}, o=L['Kickout Outcomes']||L['Turnover Outcomes']||L['Foul Areas']||ev.outcome||''; return (ev.code||'')+(o?' · '+o:'')+' at '+fmt(ev.driveT??ev.start??0); }
 function crASRender(P){
   const p=document.getElementById('crAS'); if(!p||!crAS.open) return;
   if(P===undefined) P=crASPlan();
+  crAS.st=null;                                   // the game clock's period starts: read again on each redraw
+  p.classList.toggle('chk', !!(crAS.step&&P));
+  if(crAS.step&&P){ p.innerHTML=crAS.step.sum?crASSumHtml(P):crASStepHtml(P); crASNowSync(); return; }
   const sc=p.querySelector('.cras-list[data-k="review"]'), top=sc?sc.scrollTop:0;
   if(!P){ p.innerHTML='<div class="crfr-h"><span>AUTO-TAG SOURCES</span><span class="crfr-sub"></span><span class="crfr-x" onclick="crASClose()" title="Close">✕</span></div><div class="cras-sum">Open a game with home and away teams first.</div>'; return; }
   const C=P.counts, pl=(n,w)=>n+' '+w+(n===1?'':'s'), T=COH_SRC_TEXT;
@@ -6853,13 +6907,18 @@ function crASRender(P){
     +'<div class="cras-sum" id="asSum"><b>'+pl(C.shots,'shot')+'</b> · the source of each = where its team&rsquo;s possession came from (the event that won the ball within '+SS_PSRC_LAG+' s, as in Analysis).<br>'
     +'<span class="cras-k'+(C.clear?' clear':' done')+'">CLEAR '+C.clear+'</span>'+(C.clear?esc(bySrc):'nothing to tag automatically')+'<br>'
     +'<span class="cras-k'+(C.review?' review':' done')+'">REVIEW '+C.review+'</span>'+(C.review?'<span style="display:inline-block;vertical-align:top;">'+byWhy+'</span>':'none')+'<br>'
-    +'<span class="cras-k'+(C.disagree?' dis':' done')+'">DISAGREE '+C.disagree+'</span>'+(C.disagree?'existing row ≠ its possession — listed below, not changed':'none')+'<br>'
+    +'<span class="cras-k'+(C.disagree?' dis':' done')+'">DISAGREE '+C.disagree+'</span>'+(C.disagree?'existing row ≠ its possession — left as they are unless you change one (▶ Check one by one)':'none')+'<br>'
     +'<span class="cras-k done">TAGGED '+C.tagged+'</span>'+(C.tagged?'already have a source'+(C.folded?' ('+C.folded+' in a Tracker row covering a run of misses)':'')+(C.labelled?' ('+C.labelled+' as a Gaelic Insights label on the shot)':'')+' — never changed'+(C.fill?'; '+pl(C.fill,'shot')+' still without the row&rsquo;s source as a label on the shot':''):'none')
     +(P.possFromMode?'<br><b>Nothing to add:</b> Analysis reads this game&rsquo;s shot sources from its possessions&rsquo; PossFrom labels (a GIU game) — '+pl(C.possFrom,'shot')+' already have one that way, and one source row would switch it to reading rows only.':'')+'</div>';
   if(C.clear) h+='<div class="crfr-row crfr-btns"><button class="cbtn" id="asTagBtn" onclick="crASTagClear()" style="border-color:var(--green);background:var(--green);color:#fff;">Tag '+pl(C.clear,'clear shot')+'…</button>'
     +'<span class="crfr-count">'+scores+' SCORE SOURCE + '+(C.clear-scores)+' SHOT SOURCE rows'+(C.fill?' · '+pl(C.fill,'shot label')+' filled':'')+'</span></div>';
   else if(C.fill) h+='<div class="crfr-row crfr-btns"><button class="cbtn" id="asTagBtn" onclick="crASTagClear()" style="border-color:var(--green);background:var(--green);color:#fff;">Fill '+pl(C.fill,'shot source label')+'…</button>'
     +'<span class="crfr-count">from the shots&rsquo; existing source rows (the rows are not changed)</span></div>';
+  const nChk=P.review.length+P.disagree.length;
+  if(nChk) h+='<div class="cras-go"><button class="cbtn cras-start" id="asStepBtn" onclick="crASStepStart()" title="Step through each shot: the video plays its possession, you pick the source with 1–7">▶ Check one by one</button>'
+    +'<span class="n">'+[P.review.length?P.review.length+' to review':'', P.disagree.length?pl(P.disagree.length,'disagreement'):''].filter(Boolean).join(' · ')+'</span>'
+    +'<a class="cras-lt" id="asListBtn" onclick="crAS.showList=!crAS.showList;crASRender()">'+(crAS.showList?'Hide the list ▴':'List ▾')+'</a></div>';
+  h+='<div class="cras-lists'+(crAS.showList||!nChk?' on':'')+'">';
   h+='<div class="crfr-lbl">To review ('+rev.length+(skipped?' · '+skipped+' skipped':'')+')</div>'+(rev.length?'<div class="crlc-note">Click a shot to see it on the video, then pick its source. The outlined button is what its possession&rsquo;s start event says.</div>':'')+'<div class="cras-list" data-k="review">'
     +rev.map(it=>{ const id=String(it.shot._rowId), on=crAS.cur===id, sug=it.derived&&it.derived.cat&&T[it.derived.cat]?it.derived.cat:null;
       const ev=it.poss&&it.poss.ev?it.poss.ev:null;
@@ -6869,11 +6928,11 @@ function crASRender(P){
         +'<button class="cbtn skip" data-as-pick="skip" onclick="crASSkip(\''+esc(id)+'\')" title="Leave this shot without a source for now">Skip</button></div>';
       return s+'</div>'; }).join('')+'</div>';
   if(skipped) h+='<div class="crlc-note"><a onclick="crAS.skip.clear();crASRender()">Show the '+pl(skipped,'skipped shot')+' again</a></div>';
-  h+='<div class="crfr-lbl">Disagreements — not changed ('+P.disagree.length+')</div><div class="cras-list" data-k="dis">'
+  h+='<div class="crfr-lbl">Disagreements — left as they are ('+P.disagree.length+')</div><div class="cras-list" data-k="dis">'
     +P.disagree.map(it=>{ const id=String(it.shot._rowId), ev=it.poss&&it.poss.ev;
       return '<div class="cras-it" data-as-dis="'+esc(id)+'" onclick="crASShow(this.getAttribute(\'data-as-dis\'))"><span class="t">'+crASAt(it.shot)+'</span>'+crASShotLine(it.shot)
         +'<div class="cras-why">row says <b>'+esc(T[it.existing]||it.existing||'')+'</b> · possession says <b>'+esc(T[it.derived.cat]||it.derived.cat)+'</b>'+(it.derived.how==='start'&&ev?' ('+esc(crASEvWords(ev))+')':it.derived.how==='label'?' (its PossFrom label)':'')+'</div></div>'; }).join('')+'</div>'
-    +'<div class="crfr-status" id="asStatus">'+esc(crAS.status||'')+'</div>';
+    +'</div><div class="crfr-status" id="asStatus">'+esc(crAS.status||'')+'</div>';
   p.innerHTML=h;
   const s2=p.querySelector('.cras-list[data-k="review"]'); if(s2) s2.scrollTop=top;
 }
@@ -6935,6 +6994,204 @@ function crASNext(id, P0){
   const nx=order.slice(at+1).find(r=>left.some(it=>String(it.shot._rowId)===r))||(left[0]&&String(left[0].shot._rowId));
   if(nx) crASShow(nx); else { crAS.cur=null; crASRender(); }
 }
+
+// ── Auto-tag sources › "▶ Check one by one" ───────────────────
+// crAS.step = {list:[{id, kind:'review'|'dis'}], i, log:{id → {act, cat}}, sum}: the order is fixed when it starts (the
+// shots to review, then the disagreements); each card reads its shot afresh from the plan, so Undo / a pick shows at once.
+const CR_AS_KEYS=['OWN KO','OPP KO','FTO','UTO','BR','TI','FREE'];        // 1–7, in COH_SRC_TEXT's order
+function crASStepStart(){
+  const P=crASPlan(); if(!P) return;
+  const list=P.review.map(it=>({id:String(it.shot._rowId), kind:'review'})).concat(P.disagree.map(it=>({id:String(it.shot._rowId), kind:'dis'})));
+  if(!list.length){ crAS.status='Nothing to check.'; crASRender(P); return; }
+  crAS.status=''; crAS.cur=null; crAS.step={list, i:0, log:{}, sum:false};
+  crASStepGo(0);
+}
+// the shot entry on card i: {ent, it (the plan's item, or null when the shot is gone), P}
+function crASStepAt(P){
+  const S=crAS.step; if(!S) return null; const ent=S.list[S.i]; if(!ent) return null;
+  const it=P?P.items.find(x=>String(x.shot._rowId)===ent.id)||null:null;
+  return {ent, it, P};
+}
+function crASStepGo(i, noPlay){
+  const S=crAS.step; if(!S) return;
+  S.i=Math.max(0, Math.min(S.list.length-1, i)); S.sum=false;
+  const P=crASPlan(), c=crASStepAt(P);
+  if(c&&c.it){ crFRShow(c.ent.id); if(!noPlay) crASPlayClip(c.it); }
+  crASRender(P);
+}
+// the video for a card: 3 s before its possession starts → the end of the shot (no possession: 10 s before the shot row)
+function crASClipOf(it){
+  const x=it.shot, s0=x.driveT??x.start??0, end=s0+Math.max(0, (+x.end||0)-(+x.start||0));
+  const from=it.poss?(it.poss.e.driveT??it.poss.s)-3:s0-10;
+  return {from:Math.max(0, from), to:Math.max(end, from+1), poss:!!it.poss};
+}
+function crASPlayClip(it){
+  crASStopTick(); if(!YTP||!YTP.seekTo) return;
+  const c=crASClipOf(it); crAS.clip={from:c.from, to:c.to, armed:false};
+  vSeekDrive(c.from); if(YTP.playVideo) YTP.playVideo();
+  crAS.tick=setInterval(crASTick, 100);
+}
+function crASReplay(){ const c=crASStepAt(crASPlan()); if(c&&c.it) crASPlayClip(c.it); crASNowSync(); }
+// every 100 ms while a clip runs: pause at the end of the shot. Armed once the seek has landed before the end (a seek can
+// take a moment to show in the player's time); a jump past the end (the user moved the video) just stops watching.
+function crASTick(){
+  const C=crAS.clip; if(!C||!YTP||!crAS.step){ crASStopTick(); return; }
+  const t=vNow();
+  if(!C.armed){ if(t<C.to-0.5) C.armed=true; crASNowSync(); return; }
+  if(t>=C.to){ if(t<=C.to+2&&YTP.pauseVideo) YTP.pauseVideo(); crASStopTick(); }
+  crASNowSync();
+}
+function crASStopTick(){ if(crAS.tick){ clearInterval(crAS.tick); crAS.tick=null; } crAS.clip=null; }
+function crASNowSync(){
+  const el=document.getElementById('asNow'); if(!el) return;
+  const t=vNow(), c=crASClock(t), C=crAS.clip;
+  el.textContent='Video '+fmt(t)+(c?'  ·  '+c:'')+(C?'  ·  playing to '+fmt(C.to):'');
+}
+// the game clock at a drive time ('' when the period's start is not known) — the Subs panel's reading of the starts
+function crASClock(t){
+  try{ if(typeof cohSubsStarts!=='function'||typeof cohSubsClockAt!=='function') return '';
+    if(!crAS.st) crAS.st=cohSubsStarts({events:EVENTS, setup:(crAngles()[0])||{}, halves:sbHalves(), et:sbET(), meta:GAME||{}});
+    return cohSubsClockAt(t, crAS.st)||''; }catch(_){ return ''; }
+}
+const crASClk=(e)=>{ const t=e.driveT??e.start??0; return e.gameTime||crASClock(t)||fmt(t); };
+function crASEvLine(ev){
+  const L=ev.labels||{}, o=L['Kickout Outcomes']||L['Turnover Outcomes']||L['Turnover Types']||L['Foul Areas']||ev.outcome||'';
+  return esc(String(ev.code||''))+(o?' · '+esc(String(o)):'');
+}
+// one card: the shot, why it is here, its possession, what won the ball, and the 7 sources
+function crASStepHtml(P){
+  const S=crAS.step, c=crASStepAt(P), T=COH_SRC_TEXT, ent=c.ent, it=c.it, n=S.list.filter(e=>e.kind===ent.kind).length, k=S.list.slice(0,S.i+1).filter(e=>e.kind===ent.kind).length;
+  const head='<div class="crfr-h"><span>SOURCE CHECK</span><span class="crfr-sub">'+esc(GAME.title||((GAME.homeTeam||'')+' v '+(GAME.awayTeam||'')))+'</span><span class="crfr-x" onclick="crASStepStop()" title="Stop (Esc)">✕</span></div>'
+    +'<div class="cras-prog"><div style="width:'+Math.round(100*(S.i+1)/S.list.length)+'%"></div></div>';
+  const nav=(extra)=>'<div class="cras-nav"><button class="cbtn" data-as-step="prev" onclick="crASStepPrev()"'+(S.i?'':' disabled')+' title="Previous (←)">‹ Previous</button>'
+    +'<button class="cbtn" data-as-step="skip" onclick="crASStepSkip()" title="Leave it as it is for now (→ or S)">Skip ›</button>'+(extra||'')
+    +'<button class="cbtn" data-as-step="replay" onclick="crASReplay()" title="Play the possession again (R)">↻ Replay</button>'
+    +'<button class="cbtn" data-as-step="undo" onclick="undo()"'+(undoStack.length?'':' disabled')+' title="Undo the last change">↶ Undo</button>'
+    +'<button class="cbtn" data-as-step="list" onclick="crASStepList()" style="margin-left:auto" title="Back to the summary and the list">List</button></div>';
+  if(!it) return head+'<div class="cras-card"><div class="cras-th"><b>Shot no longer in the game</b><span class="n">'+k+' of '+n+'</span></div>'+nav()+'</div>';
+  const x=it.shot, team=String(it.team||x.team||''), code=String(x.code||'').replace(new RegExp('^'+team.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s+','i'),'');
+  const out=String((x.labels||{})['Shot Outcomes']||x.outcome||'').trim(), sT=x.driveT??x.start??0, dur=Math.max(0,(+x.end||0)-(+x.start||0));
+  const hasRow=!!it.row, cur=hasRow?it.existing:null, sug=it.derived&&it.derived.cat&&T[it.derived.cat]?it.derived.cat:null;
+  const L=c.ent.kind==='dis';
+  let h=head+'<div class="cras-card" data-as-card="'+esc(ent.id)+'"><div class="cras-th"><b>'+esc(team)+'</b><span class="kind '+(L?'dis':'review')+'">'+(L?'DISAGREEMENT':'TO REVIEW')+'</span><span class="n" id="asStepN">'+k+' of '+n+'</span></div>'
+    +'<div class="cras-shot">'+esc(code)+(out?' <span class="o">· '+esc(out)+'</span>':' <span class="o">· no outcome</span>')+'<span class="clk">'+esc(crASClk(x))+'</span></div>';
+  // why it is here
+  if(L) h+='<div class="cras-reason dis">The row says <b>'+esc(T[it.existing]||it.existing||'?')+'</b>, its possession says <b>'+esc(it.derived&&T[it.derived.cat]||'?')+'</b>'+(it.derived&&it.derived.how==='label'?' (its PossFrom label)':'')+'.</div>';
+  else if(hasRow) h+='<div class="cras-reason" style="color:var(--green)">✓ Tagged '+esc(T[cur]||cur||'')+(S.log[ent.id]?' (this check)':'')+' — pick another to change it.</div>';
+  else h+='<div class="cras-reason">'+esc(String(it.text||COH_AS_REASONS_SHORT[it.reason]||'').replace('{T}', team))+'</div>';
+  // the possession
+  const q=it.poss;
+  if(q){ const qs=q.e.driveT??q.s, qd=Math.max(0, q.en-q.s);
+    h+='<div class="cras-f"><span class="l">POSSESSION</span><span class="v"><span class="mono">'+esc(crASClk(q.e))+' → '+esc(crASClock(qs+qd)||fmt(qs+qd))+'</span> · '+Math.round(qd)+' s · video '+fmt(qs)+'–'+fmt(qs+qd)+'</span></div>';
+    const near=(q.near||[]).slice().sort((a,b)=>a.gap-b.gap||b.ko-a.ko);
+    h+='<div class="cras-f"><span class="l">WON BY</span><span class="v">'+(near.length?near.slice(0,4).map(nb=>'<div><span class="mono">'+esc(crASClk(nb.e))+'</span> '+crASEvLine(nb.e)
+        +' <span style="color:var(--t3)">'+(nb.gap?nb.gap.toFixed(nb.gap<10?1:0).replace(/\.0$/,'')+' s before':'at the start')+' → '+esc(T[nb.cat]||(nb.cat==='TO'?'turnover (type not marked)':nb.cat))+'</span>'
+        +(q.ev&&nb.e===q.ev?' <span class="tk">← taken</span>':'')+'</div>').join('')+(near.length>4?'<div style="color:var(--t3)">+'+(near.length-4)+' more</div>':'')
+      :'<span style="color:var(--t3)">nothing won the ball within '+SS_PSRC_LAG+' s of the start</span>')+'</span></div>'; }
+  else h+='<div class="cras-f"><span class="l">POSSESSION</span><span class="v" style="color:var(--t3)">none of '+esc(team)+' around this shot — the video plays from 10 s before it</span></div>';
+  h+='<div class="cras-f"><span class="l">SHOT</span><span class="v">video '+fmt(sT)+'–'+fmt(sT+dur)+(L&&it.row?' · its row: '+esc(String(it.row.code||''))+(it.folded?' (covers a run of misses — they all follow)':''):'')+'</span></div>';
+  // the 7 sources
+  h+='<div class="cras-src">'+CR_AS_KEYS.map((key,j)=>'<button class="cbtn'+(key===sug?' sug':'')+(key===cur?' cur':'')+'" data-as-src="'+key+'" onclick="crASStepPick(\''+key+'\')" title="'+esc(T[key])+' ('+(j+1)+')'+(key===sug?' — what the possession says':'')+(key===cur?' — what the row says now':'')+'">'
+    +'<span class="k">'+(j+1)+'</span>'+esc(T[key])+(key===cur?'<span class="why">NOW</span>':key===sug?'<span class="why">POSS.</span>':'')+'</button>').join('')+'</div>';
+  h+='<div class="cras-now" id="asNow"></div>'
+    +'<div class="cras-nudge"><button class="cbtn" onclick="vseek(-5);crASNowSync()">« 5s</button><button class="cbtn" onclick="vseek(-1);crASNowSync()">‹ 1s</button><button class="cbtn" onclick="vframe(-1);crASNowSync()">‹ fr</button><button class="cbtn" onclick="vtoggle()">▶ ❚❚</button><button class="cbtn" onclick="vframe(1);crASNowSync()">fr ›</button><button class="cbtn" onclick="vseek(1);crASNowSync()">1s ›</button><button class="cbtn" onclick="vseek(5);crASNowSync()">5s »</button></div>'
+    +nav(L?'<button class="cbtn pri" data-as-step="keep" onclick="crASStepKeep()" title="Leave the row as it is (K)">Keep (K)</button>':'')
+    +'<div class="cras-keys"><kbd>1</kbd>–<kbd>7</kbd> pick'+(L?' (changes the row)':'')+' · <kbd>→</kbd>/<kbd>S</kbd> skip · <kbd>←</kbd> previous · <kbd>R</kbd> replay'+(L?' · <kbd>K</kbd> keep':'')+' · <kbd>Space</kbd> play/pause · <kbd>Esc</kbd> stop</div></div>'
+    +'<div class="crfr-status" id="asStatus">'+esc(crAS.status||'')+'</div>';
+  return h;
+}
+// a source chosen on the card: a shot without a row gets its row (the review pick exactly); a shot with one has that
+// row's value changed (a disagreement, or a shot picked earlier in this check). Then on to the next card.
+function crASStepPick(cat){
+  const P=crASPlan(), c=crASStepAt(P); if(!c||!c.it||!COH_SRC_TEXT[cat]) return;
+  const it=c.it, at=fmt(it.shot.driveT??it.shot.start??0), S=crAS.step;
+  if(it.row){
+    if(cat===it.existing){ S.log[c.ent.id]={act:c.ent.kind==='dis'?'keep':'pick', cat}; crAS.status='Left as '+COH_SRC_TEXT[cat]+' (the shot at '+at+')'; }
+    else { const n=crASChangeRow(it.shot, cat); if(!n) return;
+      if(!S.log[c.ent.id]||S.log[c.ent.id].act!=='change') S.log[c.ent.id]={act:c.ent.kind==='dis'?'change':'pick', cat, orig:it.existing};
+      else S.log[c.ent.id].cat=cat;
+      crAS.status='Queued ✓ row changed to '+COH_SRC_TEXT[cat]+' for the shot at '+at+(n>1?' (and the '+(n-1)+' other shot'+(n===2?'':'s')+' it covers)':'')+' — Undo puts it back'; }
+  } else {
+    crASWrite([P.rowFor(it.shot, cat, it.poss)]);
+    S.log[c.ent.id]={act:'pick', cat};
+    crAS.status='Queued ✓ '+COH_SRC_TEXT[cat]+' for the shot at '+at+' — Undo removes it';
+  }
+  crASStepNext();
+}
+function crASStepSkip(){ const S=crAS.step; if(!S) return; const id=S.list[S.i]&&S.list[S.i].id; if(id&&!S.log[id]) S.log[id]={act:'skip'}; crAS.status=''; crASStepNext(); }
+function crASStepKeep(){ const S=crAS.step; if(!S) return; const e=S.list[S.i]; if(!e||e.kind!=='dis') return; S.log[e.id]={act:'keep'}; crAS.status='Kept — the row is left as it is'; crASStepNext(); }
+function crASStepPrev(){ const S=crAS.step; if(!S||!S.i) return; crAS.status=''; crASStepGo(S.i-1); }
+function crASStepNext(){ const S=crAS.step; if(!S) return; if(S.i<S.list.length-1) crASStepGo(S.i+1); else crASStepEnd(true); }
+// the end (done, or Esc / ✕ mid-way): the summary card; the video is paused
+function crASStepEnd(done){ const S=crAS.step; if(!S) return; crASStopTick(); if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); S.sum=true; S.done=!!done; crASRender(); }
+function crASStepStop(){ crASStepEnd(false); }
+function crASStepList(){ crASStopTick(); crAS.step=null; crAS.showList=true; crASRender(); }
+function crASStepClose(){ crASStopTick(); crAS.step=null; crASRender(); }
+// what the check did — each decision read against the rows as they are now (a pick / change taken back with Undo is not
+// counted: a picked shot has a row now; a changed row's value is no longer what it was)
+function crASStepCounts(P){
+  const S=crAS.step, r={picked:0, skipped:0, kept:0, changed:0, undone:0, notReached:0, nReview:0, nDis:0};
+  S.list.forEach(ent=>{ if(ent.kind==='review') r.nReview++; else r.nDis++;
+    const L=S.log[ent.id]; if(!L){ r.notReached++; return; }
+    if(L.act==='skip'){ r.skipped++; return; } if(L.act==='keep'){ r.kept++; return; }
+    const it=P.items.find(x=>String(x.shot._rowId)===ent.id);
+    if(!it||!it.row||(L.act==='change'&&it.existing===L.orig)){ r.undone++; return; }
+    if(L.act==='change') r.changed++; else r.picked++; });
+  return r;
+}
+function crASSumHtml(P){
+  const S=crAS.step, r=crASStepCounts(P), C=P.counts, pl=(n,w)=>n+' '+w+(n===1?'':'s');
+  const left=C.review+C.disagree;
+  return '<div class="crfr-h"><span>SOURCE CHECK</span><span class="crfr-sub">'+esc(GAME.title||((GAME.homeTeam||'')+' v '+(GAME.awayTeam||'')))+'</span><span class="crfr-x" onclick="crASStepClose()" title="Back to the panel (Esc)">✕</span></div>'
+    +'<div class="cras-sumcard" id="asStepSum"><h4>'+(S.done?(r.notReached?'End of the list':'All checked'):'Stopped at '+(S.i+1)+' of '+S.list.length)+'</h4>'
+    +(r.nReview?'<div><b>To review</b> · <span class="big" data-sum="picked">'+r.picked+'</span> picked · <span class="big" data-sum="skipped">'+r.skipped+'</span> skipped</div>':'')
+    +(r.nDis?'<div><b>Disagreements</b> · <span class="big" data-sum="kept">'+r.kept+'</span> kept · <span class="big" data-sum="changed">'+r.changed+'</span> changed</div>':'')
+    +(r.notReached?'<div style="color:var(--t3)">'+pl(r.notReached,'shot')+' not reached</div>':'')
+    +(r.undone?'<div style="color:var(--t3)">'+r.undone+' taken back with Undo</div>':'')
+    +'<div style="margin-top:6px">Now: <b>'+pl(C.review,'shot')+'</b> to review'+(C.disagree?' · <b>'+pl(C.disagree,'disagreement')+'</b>':'')+(C.clear?' · '+C.clear+' clear to tag':'')+'.</div>'
+    +((r.picked||r.changed)?'<div style="color:var(--t3)">Queued — '+crASWhen()+'. Undo takes back one change at a time.</div>':'')+'</div>'
+    +'<div class="cras-nav"><button class="cbtn pri" data-as-step="back" onclick="crASStepClose()" title="Back to the panel (Enter / Esc)">Back to the panel</button>'
+    +(left?'<button class="cbtn" data-as-step="again" onclick="crASStepStart()">▶ Check the '+left+' left</button>':'')+'</div>'
+    +'<div class="crfr-status" id="asStatus">'+esc(crAS.status||'')+'</div>';
+}
+// A shot's existing source row changed to `cat` (a disagreement the user chose to change): the row's value, then its
+// shots' labels in step (crSrcStep). ONE Undo. → the number of shots the row covers (0 when nothing changed)
+function crASChangeRow(shot, cat){
+  if(typeof cohShotSrcPairs!=='function') return 0;
+  const Pp=cohShotSrcPairs(EVENTS, GAME), row=Pp.rowOf.get(shot); if(!row) return 0;
+  const k=Object.keys(row.labels||{}).find(k=>/^(score source outcomes|shot source outcomes|source)$/i.test(String(k).trim()))||crGN(/SCORE SOURCE/i.test(row.code||'')?'Score Source Outcomes':'Shot Source Outcomes');
+  const txt=COH_SRC_TEXT[cat], vo=typeof cohValueOptions==='function'?cohValueOptions(EVENTS, k, [txt]):[txt], value=(vo&&vo[0])||txt;
+  if(cohSrcRowValue(row)===value) return 0;
+  const prev=crClone(row);
+  crSrcRowSet(row, value); if(!row._new) row._dirty=true;
+  const extra=crSrcStep(row, prev);
+  undoStack.push({type:'bulkedit', snaps:[{id:row._rowId, data:prev}].concat(extra)});
+  EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  return (Pp.shotsOf.get(row)||[shot]).length;
+}
+// Keys while the card is open (window CAPTURE, like the other docked panels): they never reach the Code-mode hot-keys
+// or the shot card's (crQualKbKey). Not while typing in a box; Cmd / Ctrl / Alt combos, Shift+← → (1 s nudge) and the
+// video keys , . - = pass through. Space = play / pause.
+window.addEventListener('keydown', e=>{
+  if(!crAS.open||!crAS.step) return;
+  const t=e.target, tag=(t&&t.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const S=crAS.step, k=e.key, take=()=>{ e.preventDefault(); e.stopPropagation(); };
+  if(S.sum){ if(k==='Escape'||k==='Enter'){ take(); crASStepClose(); } return; }
+  if(e.shiftKey&&(k==='ArrowLeft'||k==='ArrowRight')) return;
+  if([',','.','-','=','+'].includes(k)) return;
+  const d=/^Digit[1-7]$/.test(e.code||'')?+e.code.slice(5):(k>='1'&&k<='7'&&k.length===1)?+k:0;
+  if(d){ take(); if(!e.repeat) crASStepPick(CR_AS_KEYS[d-1]); return; }
+  if(k==='ArrowRight'||k==='s'||k==='S'){ take(); if(!e.repeat) crASStepSkip(); return; }
+  if(k==='ArrowLeft'){ take(); if(!e.repeat) crASStepPrev(); return; }
+  if(k==='r'||k==='R'){ take(); crASReplay(); return; }
+  if(k==='k'||k==='K'){ take(); if(!e.repeat) crASStepKeep(); return; }
+  if(k==='Escape'){ take(); crASStepStop(); return; }
+  if(e.code==='Space'||k===' '){ take(); vtoggle(); return; }
+  e.stopPropagation();                             // any other key: not a Code-mode tag while the card is open
+}, true);
 
 // ── Mark extra time ────────────────────────────────────────────
 // Until 12 Oct 2026 the upload did not read the Tracker's "Extra Time 1" / "Extra Time 2" period rows: a game that went
