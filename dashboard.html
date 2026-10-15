@@ -848,6 +848,12 @@ function renderSV(){
   const topP=list=>{const m={};list.forEach(e=>{const n=assistName(e);if(n&&n!=='—')m[n]=(m[n]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};
   h+=statSection('Score Assists', `${asH.length} &nbsp;|&nbsp; ${asA.length}`, pRows(topP(asH),topP(asA)));
+  // Shot Assists: the assist on EVERY shot, scored or missed — one per shot (its Assist label, else its linked
+  // SHOT / SCORE ASSIST row: cohShotAssist), so a label and its row are never counted twice
+  const shAs=ALL.filter(e=>statPred(e)&&!giSup(e)&&cohIsShotRow(e)).map(e=>({e, a:cohShotAssist(e, asIdx)})).filter(x=>x.a&&x.a.name);
+  const shH=shAs.filter(x=>statSide(x.e)==='h'), shA=shAs.filter(x=>statSide(x.e)==='a');
+  const topS=list=>{ const m={}; list.forEach(x=>{ m[x.a.name]=(m[x.a.name]||0)+1; }); return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5); };
+  if(shAs.length) h+=statSection('Shot Assists', `${shH.length} &nbsp;|&nbsp; ${shA.length}`, pRows(topS(shH),topS(shA)));
 
   const nShots=locEvents('shot').length, nKos=locEvents('ko').length;
   if(nShots||nKos){
