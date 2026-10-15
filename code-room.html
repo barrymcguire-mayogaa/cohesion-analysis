@@ -191,6 +191,7 @@ body.crfit .editcol{position:static;height:100%;max-height:none;min-height:0;ove
 .crsub-tag.sug{color:var(--orange);border-color:var(--orange);border-style:dashed;}
 .crsub-tag.ok{color:var(--green);border-color:var(--green);}
 .crsub .crasst.sug input{border-style:dashed;border-color:var(--orange);font-style:italic;}
+.crasst.sug input[data-rowv]{border-style:dashed;font-style:italic;}   /* the assist from the game's own assist row (crAssistFromRow) */
 .crsub-note{margin-top:8px;font-size:11.5px;line-height:1.4;color:var(--t2);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .crsub-note button{flex:none;background:none;border:1px solid var(--orange);color:var(--orange);border-radius:6px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;}
 .crsub-warn{margin-top:6px;font-size:11.5px;line-height:1.35;color:var(--orange);}
@@ -2919,8 +2920,9 @@ function renderPanel(){
     const val=curMap[d.name.toLowerCase()]||'';
     if(d.sub&&subDraft) return '';                  // Player Out / Player In: their own sections (crSubPanelHtml)
     if(d.players){                                  // Assist: type-to-search box (crAssistBoxHtml)
-      const need=shotDraft&&!val;
-      return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val,crAssistSelf(d,draft.player),need)}</div>`;
+      const rowv=(!val&&shotDraft&&d.name==='Assist')?crAssistFromRow(e._rowId):'';
+      const need=shotDraft&&!val&&!rowv;
+      return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span>${crAssistBoxHtml('edit',d.name,e._rowId,crSideOf(e.team),val||rowv,crAssistSelf(d,draft.player),need,undefined,!!rowv,rowv)}</div>`;
     }
     const choices=crGroupOpts(d,{code:draft.code,team:e.team,player:draft.player});
     if(val&&!choices.includes(val)) choices.unshift(val);
@@ -3907,10 +3909,17 @@ function crKoWinnerTeam(e){
 }
 // Markup for one box. Values go in data-* attributes (esc'd); behaviour is
 // attached by crAssistWire after the container's innerHTML is set.
-function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need, sub, sug){
+// A shot from an older export (or a Sportscode / Gaelic Insights file) whose assist is only on its own SHOT / SCORE
+// ASSIST row: the box shows that row's player, styled as a suggestion. Leaving it as it is writes nothing (the row
+// already counts); typing another name writes the shot's Assist label, which then wins (cohShotAssist).
+function crAssistFromRow(rowId){
+  const e=EVENTS.find(x=>String(x._rowId)===String(rowId)); if(!e||cohLabelVal(e,'Assist')||typeof cohShotAssist!=='function') return '';
+  const a=cohShotAssist(e, cohAssistIndexCached(EVENTS, GAME)); return (a&&a.source==='row'&&a.name)?a.name:'';
+}
+function crAssistBoxHtml(where, group, rowId, side, cur, shooter, need, sub, sug, rowv){
   const sides=crAssistSides({where, group, row:rowId, side});
   const show=cur&&sides.length===1&&!crOnSheet(sides[0],cur);
-  return `<div class="crasst${need?' need':''}${sug?' sug':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}"${sub?` data-sub="${esc(sub)}"`:''} value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
+  return `<div class="crasst${need?' need':''}${sug?' sug':''}"><input class="crasst-in" data-where="${esc(where)}" data-group="${esc(group)}" data-row="${esc(String(rowId))}" data-side="${esc(side)}" data-shooter="${esc(shooter||'')}"${sub?` data-sub="${esc(sub)}"`:''}${rowv?` data-rowv="${esc(rowv)}" title="From the game's own assist row — type another name to change it"`:''} value="${esc(cur||'')}" placeholder="Type or pick a player…" autocomplete="off" spellcheck="false">`+
     `<span class="crasst-x" title="${group==='Assist'?'Clear (no assist)':'Clear'}">✕</span>`+
     `<span class="crasst-add" title="Add this name to the game's team sheet (saved with the session)"${show?'':' style="display:none"'}>+ add to team sheet</span></div>`;
 }
@@ -3971,6 +3980,7 @@ function crAssistCommit(inp){
     if(!v){ (draft.subSkip=draft.subSkip||{})[d.sub]=true; if(sh.sug||cur===''){ renderPanel(); return; } }   // emptied: no suggestion comes back in this edit
   }
   if(v===cur) return;
+  if(d.rowv&&!cur&&crNameKey(v)===crNameKey(d.rowv)) return;   // still the assist row's player: nothing to write
   if(v&&sides.length===1) crAssistRemember(sides[0], v);
   if(d.where==='code'&&d.group===CR_SHOOTER){ codeShotPlayer(v); return; }
   if(crIsRole(d.group)){ if(d.where==='code') codeRowRole(d.group, v); else crDraftRoleAdd(d.group, v); return; }
@@ -5105,9 +5115,9 @@ function renderCodeLink(){
     // beforehand can be given its shooter here instead of re-selecting it in Edit (CR_SHOOTER: not a label group)
     html+=`<div class="clblrow"><span class="clbl-g">Shooter</span>`+
       crAssistBoxHtml('code',CR_SHOOTER,sq._rowId,crSideOf(sq.team),sq.player||'','',!sq.player)+`</div>`;
-    const curA=(sq.labels||{})['Assist']||'';
+    const curA=(sq.labels||{})['Assist']||'', rowA=curA?'':crAssistFromRow(sq._rowId);
     html+=`<div class="clblrow"><span class="clbl-g">Assist</span>`+
-      crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA,sq.player,!curA)+`</div>`;
+      crAssistBoxHtml('code','Assist',sq._rowId,crSideOf(sq.team),curA||rowA,sq.player,!curA&&!rowA,undefined,!!rowA,rowA)+`</div>`;
     }
     // a TURNOVER: who lost the ball (the row's team) and who won it (the other team); a FOUL: who fouled (the row's
     // team). Optional — never flagged, never focused: carry on tagging to leave them blank.

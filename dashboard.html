@@ -841,7 +841,9 @@ function renderSV(){
   // a SCORE ASSIST row and an 'Assist' label on the shot it belongs to are ONE assist (cohesion-labels.js
   // links the row to its shot): the shot's label is the one counted
   const asIdx=cohAssistIndexCached(ALL, GAME), asDup=e=>{ const sh=asIdx.byRow.get(e); return !!(sh&&cohLabelVal(sh,'Assist')&&/SCORE ASSIST/i.test(e.code||'')); };
-  const assists=ALL.filter(e=>statPred(e)&&!giSup(e)&&assistName(e)&&!asDup(e));
+  // an Assist label on a shot that did not score is not a score assist (it is still the shot's assist elsewhere)
+  const asMissed=e=>typeof cohIsShotRow==='function'&&cohIsShotRow(e)&&!!cohLabelVal(e,'Assist')&&cohShotScored(e)!==true;
+  const assists=ALL.filter(e=>statPred(e)&&!giSup(e)&&assistName(e)&&!asDup(e)&&!asMissed(e));
   const asH=assists.filter(e=>statSide(e)==='h'), asA=assists.filter(e=>statSide(e)==='a');
   const topP=list=>{const m={};list.forEach(e=>{const n=assistName(e);if(n&&n!=='—')m[n]=(m[n]||0)+1;});return Object.entries(m).sort((x,y)=>y[1]-x[1]).slice(0,5);};
   const pRows=(l,r)=>{const n=Math.max(l.length,r.length); let out=''; for(let i=0;i<n;i++){ out+=`<div class="stt-prow"><span>${l[i]?esc(l[i][0])+' ('+l[i][1]+')':''}</span><span>${r[i]?esc(r[i][0])+' ('+r[i][1]+')':''}</span></div>`; } return out;};
