@@ -388,6 +388,7 @@
  *   loadKnown(side)→Promise<[names]>   optional, merged in when it arrives
  *   persist:false,              no database write (a local-video session — the caller keeps it)
  *   onSaved(mergedMeta, sheets) called after a successful save
+ *   onReport()                  optional: shows "📋 Match report…" (Code Room — cohesion-report.js); the editor closes first
  *   io:{read,write}             optional replacements for cohesionRead / cohesionAuthFetch
  * }) → {el, close}
  */
@@ -421,7 +422,7 @@
     const card=document.createElement('div'); card.className='cohts-card'+(badge?' cohts-ph':''); ov.appendChild(card);
     card.innerHTML=`<div class="cohts-h">Team sheets — ${esc(game.title||(teamName('home')+' v '+teamName('away')))}</div>
       <div class="cohts-sub">Number, name and starter / sub for each team in this game. Type a name to search that team's known players, or paste a list and check the preview. Rows without a name are not saved. ${persist?'Saved to this game only.':'This is a local session — the sheet is kept in this browser with your events.'}</div>
-      <div class="cohts-bar cohts-rdbar"><label class="cohts-btn cohts-file">📷 Read both teams from one photo / PDF<input type="file" accept="image/*,application/pdf" data-read="both" aria-label="Read both teams from one photo or PDF"></label><span class="cohts-soon">Read on this device — the file is not uploaded. The reader itself is downloaded from a public CDN (jsDelivr) the first time it is used, then kept by the browser.</span></div>
+      <div class="cohts-bar cohts-rdbar"><label class="cohts-btn cohts-file">📷 Read both teams from one photo / PDF<input type="file" accept="image/*,application/pdf" data-read="both" aria-label="Read both teams from one photo or PDF"></label><span class="cohts-soon">Read on this device — the file is not uploaded. The reader itself is downloaded from a public CDN (jsDelivr) the first time it is used, then kept by the browser.</span>${typeof opts.onReport==='function'?'<button class="cohts-btn" data-act="report" title="Paste a newspaper match report (or read a screenshot): both teams\u2019 starters and subs, after a preview">📋 Match report…</button>':''}</div>
       <div class="cohts-rd" data-rd="both"></div>
       <div class="cohts-cols">${SIDES.map(s=>`<div class="cohts-col" data-side="${s}"></div>`).join('')}</div>
       <div class="cohts-foot"><div class="cohts-status" id="cohtsStatus"></div>
@@ -564,6 +565,7 @@
         draw(side);
       }
       else if(act==='pclear'){ S[side].prev=null; const ta=col(side).querySelector('textarea'); if(ta) ta.value=''; col(side).querySelector('.cohts-pv').innerHTML=''; }
+      else if(act==='report'){ if((dirty('home')||dirty('away'))&&!window.confirm('Leave the team sheets without saving your changes, and open the match report?')) return; close(); opts.onReport(); }
       else if(act==='cancel'){ if((dirty('home')||dirty('away'))&&!window.confirm('Discard the changes to the team sheets?')) return; close(); }
       else if(act==='save') save(b);
     });

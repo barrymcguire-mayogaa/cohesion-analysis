@@ -443,6 +443,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-photos.js"></script>
 <script src="cohesion-teamsheet.js"></script>
 <script src="cohesion-subs.js"></script>
+<script src="cohesion-report.js"></script>
 </head>
 <body>
 <header>
@@ -4282,14 +4283,36 @@ function crTeamSheetEdit(){
   cohTS.openEditor({ game:GAME, persist:!GAME._local,
     known:{home:knownOf('home'), away:knownOf('away')},
     loadKnown:side=>{ const T=crTeamOf(side); return Promise.resolve(crAssistLoadOther(T)).then(()=>crAssistOtherNames(T)); },
-    onSaved:(merged, sheets)=>{
-      if(!GAME.rosters||typeof GAME.rosters!=='object'||Array.isArray(GAME.rosters)) GAME.rosters={};
-      const q=crRosterQueue();
-      Object.keys(sheets).forEach(side=>{ GAME.rosters[side]=(merged.rosters||{})[side]||[]; q[side]=[]; });
-      crBackup(); crUpdatePending(); renderList();
-      if(codeMode&&codeMode.on&&document.getElementById('codePlayers')) buildCodePlayers();
-      if(crPTagList().some(f=>f.n)) crPTagOpen();   // events still naming a player by a number this sheet now names
-    } });
+    onSaved:crTSSaved,
+    onReport:typeof cohReportOpen==='function'?crReportOpen:null });
+}
+// a team sheet save (the editor's, or the match report's): the game's sheets in memory, the side's queued names dropped
+function crTSSaved(merged, sheets){
+  if(!GAME.rosters||typeof GAME.rosters!=='object'||Array.isArray(GAME.rosters)) GAME.rosters={};
+  const q=crRosterQueue();
+  Object.keys(sheets).forEach(side=>{ GAME.rosters[side]=(merged.rosters||{})[side]||[]; q[side]=[]; });
+  crBackup(); crUpdatePending(); renderList();
+  if(codeMode&&codeMode.on&&document.getElementById('codePlayers')) buildCodePlayers();
+  if(crPTagList().some(f=>f.n)) crPTagOpen();   // events still naming a player by a number this sheet now names
+}
+// ── 📋 Match report (cohesion-report.js) ──────────────────────
+// A newspaper report's team lists → a preview → Apply: both team sheets through the editor's own save (stored game:
+// re-read meta + updateMeta at once; local session: memory + the browser backup, crLocalExtras) and the subs into the
+// Subs panel's typed list (cohesion-subs.js), which opens for Check / Apply all. Numbers come only from the existing
+// sheet (never from the report's order).
+function crReportOpen(){
+  if(!GAME){ alert('Open a game first.'); return; }
+  if(typeof cohReportOpen!=='function') return;
+  const knownOf=side=>{ try{ return crGameNames(side).concat(crAssistOtherNames(crTeamOf(side))); }catch(_){ return []; } };
+  try{ ['home','away'].forEach(sd=>Promise.resolve(crAssistLoadOther(crTeamOf(sd))).catch(()=>{})); }catch(_){}   // other games' names arrive while the report is open
+  return cohReportOpen({ game:GAME, level:(typeof cohGameLevel==='function'?cohGameLevel(GAME):'county'),
+    known:knownOf,
+    starts:()=>crSubsStartsNow(), fmt, seek:t=>{ try{ vSeekDrive(t); }catch(_){} },
+    reader:()=>cohTS._reader(),
+    save:async sheets=>{ if(!Object.keys(sheets).length) return;
+      const merged=GAME._local?cohTS.mergeMeta(GAME, sheets):await cohTS.save(GAME.id, sheets);
+      crTSSaved(merged, sheets); },
+    subs:(subs, o)=>crSubsFill(subs, o) });
 }
 // ── "+ add to team sheet" ────────────────────────────────────
 // Adds a name to GAME.rosters[side] (the game's team sheet, which Code

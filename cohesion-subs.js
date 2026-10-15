@@ -189,7 +189,7 @@
   function load(){
     const G=GAMEv(); if(!G) return; if(S.gid===G.id) return;
     S.gid=G.id; S.list={home:[], away:[]}; S.check=null; S.status=''; S.seq=0;
-    try{ const raw=localStorage.getItem(storeKey()); if(raw){ const o=JSON.parse(raw); ['home','away'].forEach(sd=>{ if(Array.isArray(o[sd])) S.list[sd]=o[sd].filter(x=>x&&typeof x==='object').map(x=>({id:String(x.id||''), min:String(x.min||''), out:String(x.out||''), in:String(x.in||''), t:num(x.t), useTime:!!x.useTime, fixPlayers:!!x.fixPlayers, blood:!!x.blood, fixBlood:!!x.fixBlood})); }); } }catch(_){}
+    try{ const raw=localStorage.getItem(storeKey()); if(raw){ const o=JSON.parse(raw); ['home','away'].forEach(sd=>{ if(Array.isArray(o[sd])) S.list[sd]=o[sd].filter(x=>x&&typeof x==='object').map(x=>({id:String(x.id||''), min:String(x.min||''), out:String(x.out||''), in:String(x.in||''), t:num(x.t), useTime:!!x.useTime, fixPlayers:!!x.fixPlayers, blood:!!x.blood, fixBlood:!!x.fixBlood, ret:String(x.ret||'')})); }); } }catch(_){}
     ['home','away'].forEach(sd=>S.list[sd].forEach(x=>{ x.id='s'+(++S.seq); }));
   }
   function persist(){
@@ -230,6 +230,14 @@
   function findSub(id){ for(const sd of ['home','away']){ const x=S.list[sd].find(y=>y.id===id); if(x) return {x, side:sd}; } return null; }
 
   // ── writing the SUB rows ──
+  // a blood sub's return minute (typed, or from a match report: "60-64 blood" → 64) → "RETURNED 28:00" — the clock of
+  // the return's period (named when it is not the sub's own period, as the Edit panel's "Returned now"); '' none / not a minute
+  function retText(it, t, st){
+    const x=it.x; if(!x.blood||!x.ret) return '';
+    const rp=cohSubsParseMinute(x.ret, level()); if(!rp.ok||rp.ht) return '';
+    const own=(it.v&&it.v.ht)?'2H':cohSubsPeriodAt(t, st), c=cohSubsClock(rp.period, rp.secs).split(' ')[1];
+    return typeof root.cohSubReturnedText==='function'?root.cohSubReturnedText((rp.period!==own?rp.period+' ':'')+c):'';
+  }
   function labelKey(e, canon){ const L=e.labels||{}; return Object.keys(L).find(k=>k.toLowerCase()===canon.toLowerCase())||g('crSubG')(canon==='Player Out'?'out':'in'); }
   function newRow(it, t, st){
     const G=GAMEv(), side=it.side, TEAM=g('codeTeamName')(side), code0=TEAM+' '+g('crCodeAlias')('SUB'), code=it.x.blood&&typeof root.cohSubBloodCode==='function'?root.cohSubBloodCode(code0, true, EV()):code0;
@@ -240,13 +248,15 @@
     const clock=ht?'2H 00:00':cohSubsClockAt(t, st); if(clock) row.gameTime=clock;
     row.labels[g('crSubG')('out')]=it.out.name; row.labels[g('crSubG')('in')]=it.in.name;
     const sd=typeof root.cohSubDetailText==='function'?root.cohSubDetailText(row, G, EV(), it.out.name, it.in.name):''; if(sd) row.labels['Sub Detail']=sd;
+    const rt=retText(it, t, st); if(rt&&typeof root.cohSubDetailSet==='function') root.cohSubDetailSet(row, {returned:rt});
     const cp=g('codeColorPref'); if(cp&&cp['SUB']) row.color=cp['SUB'];
     EV().push(row); return row;
   }
   function fixRow(e, it, t, useTime, fixPlayers, fixBlood){
     if(useTime&&t!=null) e.driveT=t;
     if(fixBlood&&typeof root.cohSubBloodCode==='function'){ const on=!!it.x.blood; e.code=root.cohSubBloodCode(e.code, on, EV());
-      if(!on&&root.cohSubReturned(e)) root.cohSubDetailSet(e, {returned:''}); }   // a normal sub has no RETURNED
+      if(!on&&root.cohSubReturned(e)) root.cohSubDetailSet(e, {returned:''});   // a normal sub has no RETURNED
+      if(on&&!root.cohSubReturned(e)){ const rt=retText(it, e.driveT!=null?e.driveT:t, starts()); if(rt) root.cohSubDetailSet(e, {returned:rt}); } }
     if(fixPlayers&&it.complete){
       const before={o:root.cohLabelVal(e,'Player Out'), i:root.cohLabelVal(e,'Player In')};
       e.labels=Object.assign({}, e.labels||{});
@@ -296,6 +306,8 @@
 .crsb-r input:focus{border-color:var(--accent);}
 .crsb-r input.min{font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:6px 3px;}
 .crsb-r input.bad{border-color:var(--red);}
+.crsb-i input.ret{width:52px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:2px 4px;color:var(--t1);font:12px 'DM Mono',monospace;text-align:center;outline:none;}
+.crsb-i input.ret.bad{border-color:var(--red);}
 .crsb-ar{color:var(--t3);text-align:center;font-size:12px;}
 .crsb-x{cursor:pointer;color:var(--t3);font-weight:700;text-align:center;user-select:none;}
 .crsb-x:hover{color:var(--red);}
@@ -340,13 +352,14 @@
     ensureCss();
     p=document.createElement('div'); p.id='crSubs'; p.className='crfr crsb'; p.setAttribute('role','dialog'); p.setAttribute('aria-label','Subs');
     p.addEventListener('mousedown', onClick);
-    p.addEventListener('focusin', ev=>{ const t=ev.target; if(!S.restoring&&t&&t.dataset&&t.dataset.f&&t.dataset.f!=='min') openList(t, true); });
-    p.addEventListener('input', ev=>{ const t=ev.target; if(t&&t.dataset&&t.dataset.f&&t.dataset.f!=='min') openList(t, false); });
+    p.addEventListener('focusin', ev=>{ const t=ev.target; if(!S.restoring&&t&&t.dataset&&t.dataset.f&&isNameF(t.dataset.f)) openList(t, true); });
+    p.addEventListener('input', ev=>{ const t=ev.target; if(t&&t.dataset&&t.dataset.f&&isNameF(t.dataset.f)) openList(t, false); });
     p.addEventListener('focusout', ev=>{ const t=ev.target; if(!(t&&t.dataset&&t.dataset.f)) return;
       setTimeout(()=>{ if(g('acInput')===t) g('acHide')(); commit(t); }, 150); });
     p.addEventListener('change', ev=>{ const t=ev.target; if(t&&t.dataset&&t.dataset.ck){ const f=findSub(t.dataset.id); if(f){ f.x[t.dataset.ck]=!!t.checked; persist(); render(); } } });
     document.body.appendChild(p); return p;
   }
+  const isNameF=f=>f==='out'||f==='in';
   function openList(inp, all){
     const side=inp.dataset.side; try{ g('crAssistLoadOther')(teamOf(side)); }catch(_){}
     const s=g('crAssistSuggest')([side], '', false);
@@ -356,13 +369,13 @@
     if(!S.open||!inp||inp.isConnected===false) return;
     const f=findSub(inp.dataset.id); if(!f) return;
     const k=inp.dataset.f; let v=String(inp.value||'').replace(/\s+/g,' ').trim();
-    if(k!=='min'&&v){ const r=cohSubsResolve(v, sheetOf(f.side), knownOf(f.side)); if(r.name&&!r.err) v=r.name; }   // "13" → the sheet's name; a known spelling
+    if(isNameF(k)&&v){ const r=cohSubsResolve(v, sheetOf(f.side), knownOf(f.side)); if(r.name&&!r.err) v=r.name; }   // "13" → the sheet's name; a known spelling
     if(inp.value!==v) inp.value=v;   // the box shows what was taken (a redraw keeps a focused box's text)
     if(f.x[k]===v) return;
     f.x[k]=v; if(k==='min') f.x.t=null;   // a new minute: the time is worked out again (a confirmed time is dropped)
     persist(); render();
   }
-  function addSub(side){ const x={id:'s'+(++S.seq), min:'', out:'', in:'', t:null, useTime:false, fixPlayers:false, blood:false, fixBlood:false}; S.list[side].push(x); S.focus={id:x.id, f:'min'}; persist(); render(); }
+  function addSub(side){ const x={id:'s'+(++S.seq), min:'', out:'', in:'', t:null, useTime:false, fixPlayers:false, blood:false, fixBlood:false, ret:''}; S.list[side].push(x); S.focus={id:x.id, f:'min'}; persist(); render(); }
   function rmSub(id){ ['home','away'].forEach(sd=>{ S.list[sd]=S.list[sd].filter(x=>x.id!==id); }); persist(); render(); }
   function seek(t){ if(t==null) return; try{ g('vSeekDrive')(t); }catch(_){} live(); }
   // the subs to step through: every non-blank one, both teams, in time order (no time: at the end, in list order)
@@ -405,6 +418,7 @@
     else if(act==='apply') applyAll();
     else if(act==='clear'){ S.list={home:[], away:[]}; S.check=null; S.status='List cleared (rows already queued stay — Undo removes them).'; persist(); render(); }
     else if(act==='list'){ S.check=null; render(); }
+    else if(act==='report'){ try{ root.crReportOpen(); }catch(_){} }
     else if(act==='prev') checkGo(S.check?S.check.i-1:0);
     else if(act==='next') checkGo(S.check?S.check.i+1:0);
     else if(act==='set') confirmNow(false);
@@ -431,6 +445,9 @@
     if(x.t!=null) when='<span class="crsb-tag ok">checked</span><span class="go" data-act="seek" data-t="'+x.t+'">▶ '+fmtT(x.t)+'</span>'+esc(clockOf(x.t, st));
     else if(it.v.ok) when=esc(it.p.label)+' → <span class="mono">'+esc(it.v.clock)+'</span> · <span class="go" data-act="seek" data-t="'+it.v.t+'" title="Go to this moment in the video">▶ '+fmtT(it.v.t)+'</span>'+(it.v.note?' · '+esc(it.v.note):'');
     if(when) bits.push(when);
+    if(x.blood){ const rp=x.ret?cohSubsParseMinute(x.ret, level()):null, rv=rp&&rp.ok&&!rp.ht?cohSubsToVideo(rp, st):null;
+      bits.push('<span class="crsb-tag blood">back on</span><input data-f="ret" data-id="'+x.id+'" data-side="'+it.side+'" class="min ret'+(x.ret&&!(rp&&rp.ok&&!rp.ht)?' bad':'')+'" value="'+esc(x.ret||'')+'" placeholder="64" autocomplete="off" spellcheck="false" title="The minute the player who went off came back (RETURNED) — optional">'
+        +(rp&&rp.ok&&!rp.ht?' → <span class="mono">'+esc(cohSubsClock(rp.period, rp.secs))+'</span>'+(rv&&rv.ok?' · <span class="go" data-act="seek" data-t="'+rv.t+'">▶ '+fmtT(rv.t)+'</span>':''):x.ret?' <span class="crsb-err">not a minute</span>':' <span style="color:var(--t3)">not returned (optional)</span>')); }
     if(it.row){ const r=it.row, rt='<span class="go" data-act="seek" data-t="'+r.t+'">▶ '+fmtT(r.t)+'</span>'+esc(clockOf(r.t, st));
       if(it.done) bits.push('<span class="crsb-tag ok">✓ in the game</span>'+(r.blood?'BLOOD SUB':'SUB')+' row at '+rt);
       else { const how={players:'same players', one:'one player the same', time:'near in time'}[it.how]||'';
@@ -494,7 +511,7 @@
     const p=build(), G=GAMEv(), lv=level();
     // a box being typed in keeps its text, focus and caret through the redraw (its value is taken into the list first)
     const ae=document.activeElement, keep=(ae&&p.contains(ae)&&ae.dataset&&ae.dataset.f)?{id:ae.dataset.id, f:ae.dataset.f, a:ae.selectionStart, b:ae.selectionEnd, list:g('acInput')===ae}:null;
-    if(keep){ const f=findSub(keep.id), v=String(ae.value||''); if(f&&f.x[keep.f].replace(/\s+/g,' ').trim()!==v.replace(/\s+/g,' ').trim()){ f.x[keep.f]=v; if(keep.f==='min') f.x.t=null; } }
+    if(keep){ const f=findSub(keep.id), v=String(ae.value||''); if(f&&String(f.x[keep.f]||'').replace(/\s+/g,' ').trim()!==v.replace(/\s+/g,' ').trim()){ f.x[keep.f]=v; if(keep.f==='min') f.x.t=null; } }
     const E=evaluate();
     p.classList.toggle('chk', !!S.check);
     const nTodo=[...E.info.values()].filter(it=>!it.blank&&!it.done&&(it.row?((it.x.useTime&&it.t!=null&&!it.sameT)||(it.x.fixPlayers&&it.complete&&!it.sameP)||(it.x.fixBlood&&!it.sameB)):(it.complete&&it.t!=null))).length, nAll=[...E.info.values()].filter(it=>!it.blank).length;
@@ -507,6 +524,7 @@
       +'<div class="crsb-cols">'+teamHtml('home', E)+teamHtml('away', E)+'</div>'
       +'<div class="crfr-row crfr-btns" style="margin-top:8px;flex-wrap:wrap"><button class="cbtn mini crfr-all" data-act="check"'+(nAll?'':' disabled')+' title="Step through the subs: the video jumps to each one; nudge to the exact moment and set it">▶ Check one by one</button>'
       +'<button class="cbtn mini" data-act="apply"'+(nTodo?'':' disabled')+' title="Add / change every sub not yet in the game, at the times shown (one Undo)">Apply all ('+nTodo+')</button>'
+      +(typeof root.crReportOpen==='function'?'<button class="cbtn mini" data-act="report" title="Paste a newspaper match report (or read a screenshot): fills both team sheets and this list, after a preview">📋 Match report…</button>':'')
       +'<button class="cbtn mini" data-act="clear"'+(nAll||S.list.home.length+S.list.away.length?'':' disabled')+'>Clear list</button>'
       +'<span class="crlc-note" style="margin:0 0 0 auto">'+(G._local?'Local session — rows go into the XML you export.':'Queued with the session — saved by “Close session &amp; save all”.')+' This list is kept in this browser.</span></div>'
       +'<div class="crfr-status" id="crSubsStatus">'+esc(S.status||'')+'</div>';
@@ -520,7 +538,7 @@
   function syncBtn(){ const b=document.getElementById('crSubsBtn'); if(!b) return; const G=GAMEv(); let n=0;
     try{ if(G&&S.gid===G.id) n=S.list.home.length+S.list.away.length; }catch(_){} b.textContent='🔁 Subs'+(n?' ('+n+')':''); }
   function crSubsOpen(){ if(!GAMEv()) return false; load(); const p=build(); p.style.display=''; S.open=true; S.status='';
-    if(!S.list.home.length&&!S.list.away.length){ S.list.home.push({id:'s'+(++S.seq), min:'', out:'', in:'', t:null}); S.list.away.push({id:'s'+(++S.seq), min:'', out:'', in:'', t:null}); }
+    if(!S.list.home.length&&!S.list.away.length){ S.list.home.push({id:'s'+(++S.seq), min:'', out:'', in:'', t:null, ret:''}); S.list.away.push({id:'s'+(++S.seq), min:'', out:'', in:'', t:null, ret:''}); }
     if(!S.timer) S.timer=setInterval(live, 400); render(); return true; }
   function crSubsClose(){ const p=document.getElementById('crSubs'), ae=document.activeElement;
     if(ae&&p&&p.contains(ae)&&ae.dataset&&ae.dataset.f){ commit(ae); if(ae.blur) ae.blur(); }
@@ -542,10 +560,23 @@
     if(e.key==='Enter'&&t.tagName==='INPUT'&&t.dataset.f){ e.preventDefault(); g('acHide')();
       const f=findSub(t.dataset.id), nx={min:'out', out:'in', in:null}[t.dataset.f];
       commit(t);
+      if(t.dataset.f==='ret'){ render(); return; }
       if(nx){ S.focus={id:t.dataset.id, f:nx}; render(); }
       else if(f){ const L=S.list[f.side], i=L.findIndex(x=>x.id===f.x.id); if(i===L.length-1) addSub(f.side); else { S.focus={id:L[i+1].id, f:'min'}; render(); } }
       return; }
     if(e.key==='Escape'){ e.preventDefault(); if(open){ g('acHide')(); return; } crSubsClose(); }
   }, true);
-  Object.assign(root, {crSubsOpen, crSubsClose, crSubsToggle, crSubsRefresh, crSubsRender:render, crSubsApply:apply, crSubsEvaluate:evaluate});
+  // a match report's subs (cohesion-report.js): {home:[{min, out, in, blood, ret}], away:[…]} → the typed list, then the
+  // panel opens. Blank rows are dropped; a sub already in the list (same minute, players, blood) is not added twice.
+  function crSubsFill(subs, o){
+    if(!GAMEv()) return 0; load(); let n=0;
+    ['home','away'].forEach(sd=>{ const L=S.list[sd].filter(x=>x.min||x.out||x.in), k=x=>[x.min, key(x.out), key(x.in), !!x.blood].join('|'), have=new Set(L.map(k));
+      ((subs&&subs[sd])||[]).forEach(r=>{ const x={id:'s'+(++S.seq), min:String(r.min||''), out:String(r.out||''), in:String(r.in||''), t:null, useTime:false, fixPlayers:false, blood:!!r.blood, fixBlood:false, ret:r.blood?String(r.ret||''):''};
+        if(have.has(k(x))) return; have.add(k(x)); L.push(x); n++; });
+      S.list[sd]=L; });
+    S.check=null; persist(); crSubsOpen();
+    S.status=(o&&o.status)||(n?n+' sub'+(n===1?'':'s')+' from the match report added to the list — ▶ Check one by one, or Apply all.':'The match report\'s subs are already in the list.');
+    render(); return n;
+  }
+  Object.assign(root, {crSubsFill, crSubsStartsNow:starts, crSubsLevel:level, crSubsOpen, crSubsClose, crSubsToggle, crSubsRefresh, crSubsRender:render, crSubsApply:apply, crSubsEvaluate:evaluate});
 })(typeof window!=='undefined'?window:globalThis);

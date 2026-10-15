@@ -1782,6 +1782,49 @@
       const x=err('unreadable', MSG.unreadable()); x.cause=e; throw x;
     } finally { job.end(); }
   };
+  // ── the plain text of a picture or a PDF (a match report): no team-list layout — the words line by line ──
+  // readText(file, {onProgress, signal}) → Promise<{text, confidence (0–100 | null), source:{name, kind, method, engine, langs}}>
+  // The same engine as read(): Tesseract.js in this browser (automatic page layout, one pass), or a PDF's own text.
+  R.TEXTPASS={tessedit_pageseg_mode:'3', thresholding_method:'0'};
+  R.readText=async function(file, o){
+    o=o||{};
+    const prog=p=>{ try{ if(o.onProgress) o.onProgress(p); }catch(_){} };
+    const job=newJob(o.signal); let ocr=null; const engines=[], confs=[];
+    const ocrText=async canvas=>{ if(!ocr) ocr=await ocrOpen(job, prog); if(engines.indexOf('ocr')<0) engines.push('ocr');
+      const ws=await ocr.pass(canvas, R.TEXTPASS), lines=new Map();
+      ws.forEach(w=>{ const t=String(w.text||'').trim(); if(!t) return; if(w.conf!=null) confs.push(+w.conf); const k=w.ln==null?w.y0:w.ln; if(!lines.has(k)) lines.set(k, []); lines.get(k).push(w); });
+      return [...lines.values()].map(l=>l.sort((a,b)=>a.x0-b.x0).map(w=>String(w.text).trim()).join(' ')).join('\n'); };
+    try{
+      if(!file||typeof file.slice!=='function') throw err('type', MSG.type('That'));
+      const kind=await sniff(file);
+      if(!kind) throw err('type', MSG.type(file.name||'That file'));
+      const parts=[];
+      if(kind==='pdf'){
+        const {doc}=await pdfOpen(file, job, prog), N=Math.min(doc.numPages, LIMIT.pick);
+        for(let n=1;n<=N;n++){ prog({stage:'pages', pct:(n-1)/N, page:n, of:N});
+          const page=await job.race(doc.getPage(n)); let txt='';
+          try{ const tc=await job.race(page.getTextContent()); txt=(tc.items||[]).map(it=>(it.str||'')+(it.hasEOL?'\n':'')).join(''); }catch(e){ if(e&&e.code==='cancel') throw e; }
+          if(txt.replace(/\s/g,'').length>=30){ if(engines.indexOf('pdf')<0) engines.push('pdf'); parts.push(txt); }
+          else { const r=await job.race(renderPage(page, LIMIT.long)), pr=prepare(r.canvas, r.canvas.width, r.canvas.height); parts.push(await ocrText(pr.work)); } }
+      } else {
+        if(file.size>LIMIT.imageMB*1048576) throw err('big', MSG.bigimage());
+        prog({stage:'load', pct:0, engine:'ocr'});
+        const src=await job.race(decode(file, kind)), sw=src.width||src.naturalWidth, sh=src.height||src.naturalHeight;
+        if(!sw||!sh) throw err('image', MSG.image());
+        const pr=prepare(src, sw, sh); if(src.close) src.close(); await tick();
+        parts.push(await ocrText(pr.work));
+      }
+      const text=parts.join('\n\n').replace(/[ \t]+\n/g,'\n').trim();
+      if(!text) throw err('empty', 'No text could be read from this picture. Try a sharper screenshot, or paste the text.');
+      prog({stage:'layout', pct:1});
+      return {text, confidence:confs.length?confs.reduce((a,b)=>a+b,0)/confs.length:null,
+        source:{name:String(file.name||''), kind:kind==='pdf'?'pdf':'image', method:engines.length>1?'mixed':engines[0]==='pdf'?'text':'ocr', engine:engines.map(e=>LIB[e].name+' '+LIB[e].ver).join(' + '), langs:ocr?ocr.langs:[]}};
+    } catch(e){
+      if(e&&e.reader) throw e;
+      try{ console.error('[report reader]', e); }catch(_){}
+      const x=err('unreadable', 'This picture could not be read. Paste the text instead.'); x.cause=e; throw x;
+    } finally { job.end(); }
+  };
   R._lab={decode, sniff, newJob, ocrOpen, greyStretch, canvasOf};   // for the measuring scripts in the tests
   // The public hook is cohTeamSheetFromFile in cohesion-teamsheet.js, which loads this file and calls read().
 })(typeof window!=='undefined'?window:globalThis);
