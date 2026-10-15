@@ -1316,7 +1316,7 @@ function buildLocalPlayer(){
 function crYtError(e){
   const w=document.getElementById('vwrap'); if(!w||document.getElementById('crYtFail')) return;
   const code=(e&&e.data)||'';
-  const why=code===101||code===150?'The video owner has disabled embedding.':code===100?'This video has been removed or is private.':'YouTube is blocking playback in this session.';
+  const why=code===101||code===150?'YouTube may be asking this internet connection to confirm it is not a bot (try another network, restart the router, or wait a few hours), or the video does not allow embedding (copyright claim / "Allow embedding" unticked).':code===100?'This video has been removed or is private.':'YouTube is blocking playback in this session.';
   const d=document.createElement('div'); d.id='crYtFail';
   d.style.cssText='position:absolute;inset:0;z-index:8;background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;';
   d.innerHTML='<div style="font:800 16px \'Barlow Condensed\',sans-serif;color:var(--t1);">⚠ Video won\'t play</div>'
