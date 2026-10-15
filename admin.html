@@ -1428,7 +1428,10 @@ async function setFile(f){
 function prefillFromCarry(carry){
   if(!carry) return;
   const R=carry.rosters||{}, K=carry.keepers||{}, n=o=>((o.home||[]).length+(o.away||[]).length);
+  const yt=/^[A-Za-z0-9_-]{11}$/.test(String(carry.youtubeId||''))?carry.youtubeId:'';
+  const sec=k=>{ const v=carry[k]; return (v!=null&&v!==''&&isFinite(+v)&&+v>=0)?+v:null; };
   const bits=[]; if(n(R)) bits.push('team sheets'); if(n(K)) bits.push('goalkeepers'); if(carry.homeColor||carry.awayColor) bits.push('colours');
+  if(yt) bits.push('YouTube link'); if(yt&&(sec('half1Start')!=null||sec('half2Start')!=null)) bits.push('half start times');
   const badge=document.getElementById('srcBadge');
   if(badge&&bits.length) badge.textContent='🎬 COHESION Code Room export — '+bits.join(', ')+' included ✓';
   if(isReparse) return;
@@ -1436,6 +1439,19 @@ function prefillFromCarry(carry){
   if(!aEl.value.trim()&&carry.homeTeam&&carry.awayTeam){ hEl.value=carry.homeTeam; aEl.value=carry.awayTeam; }   // fixture not entered yet (the home box starts with a default name)
   const c=cohXmlCarryFor(carry, hEl.value, aEl.value);
   [['home',c.homeColor],['away',c.awayColor]].forEach(([s,v])=>{ if(/^#[0-9a-fA-F]{6}$/.test(v||'')){ document.getElementById(s+'Color').value=v; document.getElementById(s+'ColorHex').value=v; } });
+  // A Code Room session coded on a YouTube link: its video and the coded period starts (the times on that video's
+  // clock). Each goes only into a box still empty — anything already typed stands.
+  if(yt){
+    const fillIn=(id,v)=>{ const el=document.getElementById(id); if(el&&!el.value.trim()&&v!=null&&v!==''){ el.value=v; return true; } return false; };
+    fillIn('youtubeUrl', 'https://www.youtube.com/watch?v='+yt);
+    [['t1','half1Start'],['t2','half2Start']].forEach(([id,k])=>{ const v=sec(k); if(v!=null) fillIn(id, secsToHHMMSSInput(v)); });
+    const e1=sec('et1Start'), e2=sec('et2Start');
+    if(e1!=null||e2!=null){
+      const a=e1!=null&&fillIn('tet1', secsToHHMMSSInput(e1)), b=e2!=null&&fillIn('tet2', secsToHHMMSSInput(e2));
+      if(a||b){ document.getElementById('etCheck').checked=true; document.getElementById('etFields').classList.add('show'); }
+    }
+    try{ gsRenderRows(); }catch(_){}
+  }
 }
 
 function prefillFromGT(d){

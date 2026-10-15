@@ -470,7 +470,11 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
     <input type="text" id="gsearch" placeholder="Search by team, date, competition…" oninput="filterGames()" autocomplete="off">
     <div class="drop" id="gdrop"></div>
     <div class="status" id="setupStatus"></div>
-    <div class="divider">or code a new game from a local video</div>
+    <div class="divider">or code a new game — from a local video or a YouTube link</div>
+    <div class="modetoggle lvsrc" id="lvSrc" style="display:inline-flex;margin-bottom:10px;">
+      <button type="button" id="lvSrcFile" class="on" onclick="lvSetSrc('file')" title="Code against a video file on this computer">🎞 Local video file</button>
+      <button type="button" id="lvSrcYt" onclick="lvSetSrc('yt')" title="Code against a YouTube video (best in Safari — see the note below)">▶ YouTube link</button>
+    </div>
     <div class="frow">
       <input type="text" id="lvHome" placeholder="Home team (e.g. MAYO)" autocomplete="off" style="flex:1;width:auto;" onchange="lvColourAuto('home')">
       <input type="text" id="lvAway" placeholder="Away team" autocomplete="off" style="flex:1;width:auto;" onchange="lvColourAuto('away')">
@@ -486,8 +490,13 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
         <input type="color" id="lvAwayCol" value="#22c55e" oninput="lvColTouched.away=true" style="width:44px;height:32px;padding:2px;border:1px solid var(--border);border-radius:7px;background:var(--card);cursor:pointer;"></label>
     </div>
     <input type="file" id="lvFile" accept="video/*" style="margin-bottom:4px;">
-    <button class="startbtn" onclick="startLocalSession()">▶ Start coding session</button>
-    <div style="margin-top:8px;font-size:11px;color:var(--t3);line-height:1.5;">The video stays on your computer — nothing is uploaded. Code the game, then <b>Export XML</b> and upload it with the video link through the normal New Game flow.</div>
+    <div id="lvYtWrap" style="display:none;">
+      <input type="text" id="lvYt" placeholder="YouTube link — youtube.com/watch?v=…, youtu.be/…, /live/…, /shorts/… or the 11-character id" autocomplete="off" spellcheck="false" oninput="lvYtCheck()" style="margin-bottom:4px;">
+      <div id="lvYtMsg" style="font-size:11px;line-height:1.5;min-height:15px;color:var(--t3);"></div>
+    </div>
+    <button class="startbtn" id="lvStartBtn" onclick="lvStart()">▶ Start coding session</button>
+    <div id="lvNoteFile" style="margin-top:8px;font-size:11px;color:var(--t3);line-height:1.5;">The video stays on your computer — nothing is uploaded. Code the game, then <b>Export XML</b> and upload it with the video link through the normal New Game flow.</div>
+    <div id="lvNoteYt" style="display:none;margin-top:8px;font-size:11px;color:var(--t3);line-height:1.5;">Events are timed on the YouTube video's own clock. Nothing is uploaded while you code: <b>Export XML</b> when you finish, then New Game fills the YouTube link and the half start times from that file. If YouTube asks you to sign in or "confirm you are not a bot": in Safari untick Settings → Privacy → <b>Prevent cross-site tracking</b>, sign in at youtube.com, then reload this page.</div>
   </div>
 
   <!-- EDITOR -->
@@ -769,11 +778,38 @@ function lvColourAuto(which){
 // picked by hand this time (the hand-picked one wins and is kept from then on).
 let lvColTouched={home:false, away:false};
 function lvLocalId(home, away){ return 'local-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_'); }
+// A YouTube-link session keeps its own backup (its events run on the YouTube video's clock, not a local file's).
+function lvYtLocalId(home, away){ return 'local-yt-'+(home+'-v-'+away).toLowerCase().replace(/[^a-z0-9-]+/g,'_'); }
+// Which video the new local session codes against: 'file' (a video on this computer — the default) or 'yt' (a YouTube link).
+let lvSrc='file';
+function lvSetSrc(m){
+  lvSrc=(m==='yt')?'yt':'file';
+  const yt=lvSrc==='yt', show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  document.getElementById('lvSrcFile').classList.toggle('on', !yt); document.getElementById('lvSrcYt').classList.toggle('on', yt);
+  show('lvFile', !yt); show('lvNoteFile', !yt); show('lvYtWrap', yt); show('lvNoteYt', yt);
+  const st=document.getElementById('setupStatus'); if(st) st.innerHTML='';
+  lvColourFromBackup();
+  if(yt) lvYtCheck();
+}
+function lvStart(){ return lvSrc==='yt'?startYtSession():startLocalSession(); }
+const LV_YT_BAD='That is not a YouTube video link. Paste the video\'s address — e.g. https://www.youtube.com/watch?v=… or https://youtu.be/… (a /live/ or /shorts/ link works too) — or its 11-character id.';
+// The link box says, as it is typed, which video it found (or that it is not a video link).
+function lvYtCheck(){
+  const v=(document.getElementById('lvYt').value||'').trim(), m=document.getElementById('lvYtMsg'); if(!m) return '';
+  const id=cohesionYtIdFromLink(v);
+  if(!v){ m.style.color='var(--t3)'; m.textContent=''; }
+  else if(id){ m.style.color='var(--green)'; m.textContent='✓ YouTube video '+id; }
+  else { m.style.color='var(--red,#ef4444)'; m.textContent=LV_YT_BAD; }
+  return id;
+}
 function lvColourFromBackup(){
   const home=(document.getElementById('lvHome').value||'').trim().toUpperCase(), away=(document.getElementById('lvAway').value||'').trim().toUpperCase();
   if(!home||!away) return;
-  let L=null; try{ L=(JSON.parse(localStorage.getItem('coh_cr_'+lvLocalId(home,away))||'null')||{}).local; }catch(_){}
+  const yt=lvSrc==='yt';
+  let L=null; try{ L=(JSON.parse(localStorage.getItem('coh_cr_'+(yt?lvYtLocalId(home,away):lvLocalId(home,away)))||'null')||{}).local; }catch(_){}
   if(!L||typeof L!=='object') return;
+  // the YouTube link it was coded against: only into an empty link box
+  if(yt){ const b=document.getElementById('lvYt'); if(b&&!b.value.trim()&&cohesionYtIdFromLink(L.youtubeId)){ b.value='https://www.youtube.com/watch?v='+L.youtubeId; lvYtCheck(); } }
   [['home','lvHomeCol',L.homeColor],['away','lvAwayCol',L.awayColor]].forEach(([w,id,c])=>{ if(!lvColTouched[w]&&/^#[0-9a-f]{6}$/i.test(String(c||''))) document.getElementById(id).value=c; });
   // competition and date: only into a box left empty — whatever is typed this time wins
   const comp=document.getElementById('lvComp'), dt=document.getElementById('lvDate');
@@ -796,6 +832,30 @@ async function startLocalSession(){
          date:document.getElementById('lvDate').value||'',
          title:home+' v '+away+' (local video)',
          localUrl:URL.createObjectURL(file) };
+  await lvOpenSession();
+}
+// A local session coded against a YouTube video: the same session as a local file (nothing stored, the events and
+// details in this browser's backup, Export XML → New Game) but the player is the YouTube player for that video,
+// one angle, and every event is on the YouTube video's own clock. GAME.youtubeId rides in the backup and the XML.
+async function startYtSession(){
+  const home=(document.getElementById('lvHome').value||'').trim().toUpperCase();
+  const away=(document.getElementById('lvAway').value||'').trim().toUpperCase();
+  const st=document.getElementById('setupStatus');
+  if(!home||!away){ st.innerHTML='<span class="err">Enter both team names.</span>'; return; }
+  lvColourFromBackup();   // may refill an empty link box from this fixture's backup
+  const raw=(document.getElementById('lvYt').value||'').trim(), vid=lvYtCheck();
+  if(!raw){ st.innerHTML='<span class="err">Paste the YouTube link for this game.</span>'; return; }
+  if(!vid){ st.innerHTML='<span class="err">'+LV_YT_BAD.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</span>'; return; }
+  GAME={ id:lvYtLocalId(home, away), _local:true, homeTeam:home, awayTeam:away,
+         homeColor:document.getElementById('lvHomeCol').value||'#4fc3f7',
+         awayColor:document.getElementById('lvAwayCol').value||'#22c55e',
+         competition:(document.getElementById('lvComp').value||'').trim(),
+         date:document.getElementById('lvDate').value||'',
+         title:home+' v '+away+' (YouTube)',
+         youtubeId:vid };
+  await lvOpenSession();
+}
+async function lvOpenSession(){
   EVENTS=[];
   crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowSel=[]; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
@@ -1298,7 +1358,7 @@ window.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ e.preventDefault(); crAAClose(); }
 }, true);
 function buildPlayer(){
-  if(GAME._local){ buildLocalPlayer(); return; }
+  if(GAME._local&&!GAME.youtubeId){ buildLocalPlayer(); return; }   // a local session on a YouTube link uses the YouTube player below
   cohesionCreatePlayer({ mount:'vid', videoId:GAME.youtubeId,
     playerVars:{rel:0,modestbranding:1,enablejsapi:1,origin:location.origin},
     onReady:function(p){ YTP=p; startClock(); },
@@ -3239,8 +3299,10 @@ function crClearBackup(){ try{ localStorage.removeItem(crBackupKey()); }catch(_)
 function crLocalExtras(){
   if(!GAME||!GAME._local) return null;
   const R=(GAME.rosters&&typeof GAME.rosters==='object'&&!Array.isArray(GAME.rosters))?GAME.rosters:{};
-  return { rosters:{home:Array.isArray(R.home)?R.home:[], away:Array.isArray(R.away)?R.away:[]}, keepers:crKprClean(GAME),
+  const L={ rosters:{home:Array.isArray(R.home)?R.home:[], away:Array.isArray(R.away)?R.away:[]}, keepers:crKprClean(GAME),
            homeColor:GAME.homeColor||'', awayColor:GAME.awayColor||'', competition:GAME.competition||'', date:GAME.date||'' };
+  if(GAME.youtubeId) L.youtubeId=GAME.youtubeId;   // a YouTube-link session: the video it is coded against (never keeps a backup alive on its own)
+  return L;
 }
 function crLocalExtrasN(L){
   if(!L||typeof L!=='object') return 0;
@@ -3278,6 +3340,8 @@ async function crRestoreBackup(){
     if(rn[0]+rn[1]) bits.push('team sheets ('+esc(GAME.homeTeam)+' '+rn[0]+', '+esc(GAME.awayTeam)+' '+rn[1]+')');
     if(kn[0]+kn[1]) bits.push('goalkeepers');
     msg='A local session for these two teams is kept in this browser: <b>'+bits.join('</b>, <b>')+'</b>. Restore it?';
+    if(GAME.youtubeId&&L&&cohesionYtIdFromLink(L.youtubeId)&&L.youtubeId!==GAME.youtubeId)
+      msg+='<br><br>It was coded against a different YouTube video (<b>'+esc(L.youtubeId)+'</b>) — Restore goes back to that video; Discard starts afresh on <b>'+esc(GAME.youtubeId)+'</b>.';
   }
   const c=await cohesionModal({title:(GAME&&GAME._local)?'Earlier local session found':'Unsaved changes found', message:msg, buttons:[{label:'Restore',value:'restore',primary:true},{label:'Discard',value:'discard',danger:true}]});
   if(c!=='restore'){ crClearBackup(); return; }
@@ -3285,6 +3349,7 @@ async function crRestoreBackup(){
     const arr=(o,s)=>(o&&Array.isArray(o[s]))?o[s]:[];
     GAME.rosters={home:arr(L.rosters,'home'), away:arr(L.rosters,'away')};
     GAME.keepers={home:arr(L.keepers,'home'), away:arr(L.keepers,'away')};
+    if(GAME.youtubeId&&cohesionYtIdFromLink(L.youtubeId)) GAME.youtubeId=L.youtubeId;   // the events are on THAT video's clock
   }
   (bk.updates||[]).forEach(u=>{ const e=EVENTS.find(x=>String(x._rowId)===String(u.id)); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,u.data); e._dirty=true; } });
   (bk.deletes||[]).forEach(id=>{ const idx=EVENTS.findIndex(x=>String(x._rowId)===String(id)); if(idx>=0){ crDeleted.push({id:EVENTS[idx]._rowId}); EVENTS.splice(idx,1); } });
@@ -3358,8 +3423,11 @@ async function saveAllAndClose(){
         const safe=(GAME.title||GAME.id||'game').replace(/[^\w]+/g,'_').replace(/^_+|_+$/g,'');
         for(;;){
           crExportXml();
+          // a YouTube-link session: New Game (new tab) reads the teams, colours, YouTube link and half starts from the file
+          const ng=GAME.youtubeId?'<br><br><a href="admin.html" target="_blank" rel="noopener" id="crOpenNewGame" style="display:inline-block;padding:8px 14px;border-radius:8px;background:var(--accent,#4fc3f7);color:#fff;font:700 12px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;text-decoration:none;">↗ Open New Game with this file\'s details</a>'
+            +'<div style="margin-top:6px;font-size:12px;">It opens in a new tab: there, choose <b>'+safe+'.xml</b> from Downloads as the match data file — the teams, colours, YouTube link and half start times fill in from it. Check them, then Process.</div>':'';
           const ok=await cohesionModal({ title:'Check your Downloads',
-            message:'The XML downloads silently — look in your <b>Downloads</b> folder for<br><b>'+safe+'.xml</b><br><br>Your coding is kept safe in this browser until you confirm the file is there.',
+            message:'The XML downloads silently — look in your <b>Downloads</b> folder for<br><b>'+safe+'.xml</b><br><br>Your coding is kept safe in this browser until you confirm the file is there.'+ng,
             buttons:[{label:'✓ File is there — close',value:'yes',primary:true},{label:'⬇ Download again',value:'again'},{label:'Cancel — stay here',value:'cancel'}] });
           if(ok==='cancel') return;
           if(ok==='yes') break;
@@ -7730,10 +7798,16 @@ window.addEventListener('keydown', e=>{
 // Time base: "video" uses the corrected video positions (driveT) — reflecting
 // timing edits; "raw" uses the original coder-clock start/end for a true
 // re-import round-trip.
+// The coded period starts on the video's clock — the scoreboard's (sbHalves / sbET): null for a period not coded.
+function crYtPeriodStarts(){
+  const H=sbHalves(), X=sbET(), r=v=>(v!=null&&isFinite(+v)&&+v>=0)?Math.round(+v*10)/10:null;
+  return { half1Start:r(H.h1), half2Start:r(H.h2), et1Start:r(X.e1), et2Start:r(X.e2) };
+}
 function crExportXml(){
   if(!EVENTS.length){ alert('No events to export.'); return; }
   const base=(document.getElementById('crXmlBase')||{}).value||'video';
-  const blob=new Blob([cohXmlBuild(EVENTS, {base, meta:GAME, rowOrder:crRows(EVENTS), colourOf:crCodeColour, carry:true})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
+  const meta=(GAME._local&&GAME.youtubeId)?Object.assign({}, GAME, crYtPeriodStarts()):GAME;   // a YouTube-link session: the half starts ride in the file for New Game
+  const blob=new Blob([cohXmlBuild(EVENTS, {base, meta, rowOrder:crRows(EVENTS), colourOf:crCodeColour, carry:true})],{type:'application/xml'});   // cohesion-xml.js (shared with Analysis › Match Reports)
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   const safe=cohXmlFileStem(GAME);

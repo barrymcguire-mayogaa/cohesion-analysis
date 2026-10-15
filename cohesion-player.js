@@ -90,6 +90,28 @@
     return adapter;
   }
 
+  // ── YouTube link → the 11-character video id ('' when it is not one) ──
+  // Accepts youtube.com/watch?v= (any other params, &t= …), youtu.be/ID (?si=, ?t=), /live/ID, /shorts/ID,
+  // /embed/ID, /v/ID, m. / music. / www. hosts, youtube-nocookie.com, with or without https://, or the bare id.
+  function ytIdFromLink(raw){
+    const s=String(raw==null?'':raw).trim(); if(!s) return '';
+    const ID=/^[A-Za-z0-9_-]{11}$/;
+    if(ID.test(s)) return s;
+    let u; try{ u=new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s)?s:'https://'+s); }catch(_){ return ''; }
+    if(!/^https?:$/i.test(u.protocol)) return '';
+    const host=u.hostname.toLowerCase().replace(/^www\./,'');
+    const parts=u.pathname.split('/').filter(Boolean);
+    let id='';
+    if(host==='youtu.be') id=parts[0]||'';
+    else if(/^((m|music)\.)?youtube\.com$/.test(host)||host==='youtube-nocookie.com'){
+      if(parts[0]==='watch') id=u.searchParams.get('v')||'';
+      else if(['live','shorts','embed','v','e'].includes(parts[0])) id=parts[1]||'';
+      else if(!parts.length) id=u.searchParams.get('v')||'';
+    }
+    return ID.test(id)?id:'';
+  }
+  window.cohesionYtIdFromLink=ytIdFromLink;
+
   window.cohesionCreatePlayer=function(opts){
     opts=opts||{};
     if(opts.provider==='file') return fileAdapter(opts);
@@ -113,3 +135,4 @@
     return undefined;   // youtube constructs asynchronously — take it in onReady
   };
 })();
+if(typeof module!=='undefined'&&module.exports&&typeof window!=='undefined') module.exports={cohesionYtIdFromLink:window.cohesionYtIdFromLink};

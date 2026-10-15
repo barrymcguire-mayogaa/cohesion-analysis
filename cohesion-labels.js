@@ -180,7 +180,13 @@ function cohXmlCarryBuild(meta){
   if(!meta) return '';
   const R=cohCarrySides(meta.rosters), K=cohCarrySides(meta.keepers), hex=c=>/^#[0-9a-f]{6}$/i.test(String(c||''))?c:'';
   const d={v:1, homeTeam:meta.homeTeam||'', awayTeam:meta.awayTeam||'', homeColor:hex(meta.homeColor), awayColor:hex(meta.awayColor), rosters:R, keepers:K};
-  if(!(R.home.length+R.away.length+K.home.length+K.away.length)&&!d.homeColor&&!d.awayColor) return '';
+  // A local Code Room session coded against a YouTube link: the video and the coded period starts on its clock,
+  // so New Game can fill the YouTube link and the half start times. (A stored game's export never carries them.)
+  if(meta._local&&/^[A-Za-z0-9_-]{11}$/.test(String(meta.youtubeId||''))){
+    d.youtubeId=meta.youtubeId;
+    ['half1Start','half2Start','et1Start','et2Start'].forEach(k=>{ const v=meta[k]; if(v!=null&&v!==''&&isFinite(+v)&&+v>=0) d[k]=+v; });
+  }
+  if(!(R.home.length+R.away.length+K.home.length+K.away.length)&&!d.homeColor&&!d.awayColor&&!d.youtubeId) return '';
   return '<!-- '+COH_CARRY_TAG+':'+cohB64Enc(JSON.stringify(d))+' -->';
 }
 function cohXmlCarryRead(xmlText){
