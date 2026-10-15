@@ -114,8 +114,32 @@
     return {start:s.filter(r=>r.role==='start'), sub:s.filter(r=>r.role==='sub'), other:s.filter(r=>!r.role)};
   }
 
+  // ── jersey number limits (warnings only) ──────────────────────
+  // The highest number a game's sheet should carry: inter-county league / championship 26; pre-season (FBD League,
+  // O'Byrne Cup, McGrath Cup, McKenna Cup) 30; challenge games, friendlies and club games 40. The game's type is read
+  // from its meta: section 'club' → club; the competition (and round) text → challenge / friendly / pre-season /
+  // club competition; teams that are not both counties (cohesion-periods.js cohGameLevel, when loaded) → club;
+  // otherwise an inter-county game — league when the competition says league / NFL, else championship.
+  function gameKind(meta){
+    meta=meta||{};
+    const comp=String(meta.competition||'').replace(/\s+/g,' ').trim(), c=(comp+' '+String(meta.round||'')).toLowerCase();
+    const K=(kind, limit, label)=>({kind, limit, label});
+    if(String(meta.section||'').toLowerCase()==='club') return K('club', 40, 'a club game');
+    if(/\bfriendl/.test(c)) return K('friendly', 40, 'a friendly');
+    if(/\bchallenge\b/.test(c)) return K('challenge', 40, 'a challenge game');
+    const pre=/\bfbd\b/.test(c)?'FBD League':/\bo[’'‘`]?\s*byrne\b/.test(c)?"O'Byrne Cup":/\bmc\s*grath\b/.test(c)?'McGrath Cup':/\bmc\s*kenna\b/.test(c)?'McKenna Cup':/\bpre[\s-]?season\b/.test(c)?'pre-season':'';
+    if(pre) return K('preseason', 30, pre==='pre-season'?'a pre-season game':'a pre-season game ('+pre+')');
+    if(/\bclub\b/.test(c)) return K('club', 40, 'a club game');
+    if(String(meta.section||'').toLowerCase()!=='county'&&typeof root.cohGameLevel==='function'&&(meta.homeTeam||meta.awayTeam)&&root.cohGameLevel(meta)==='club') return K('club', 40, 'a club game');
+    if(/\bleague\b|\bnfl\b|\bdiv(ision)?\s*\d/.test(c)) return K('league', 26, 'an inter-county league game');
+    if(/championship|\b[sjim]fc\b|all[\s-]ireland|connacht|leinster|munster|ulster|tailteann|sam maguire/.test(c)) return K('championship', 26, 'an inter-county championship game');
+    return K('county', 26, 'an inter-county game');
+  }
+  function numberLimit(meta){ return gameKind(meta).limit; }
+
   // ── validation: warnings only, nothing is blocked ─────────────
-  function validate(rows){
+  // meta (optional) = the game: adds a warning for each number above the game's limit (gameKind)
+  function validate(rows, meta){
     const w=[], nos=new Map(), names=new Map(); let starters=0;
     (rows||[]).forEach(r=>{
       const name=tidyKeep(r.name), no=cleanNo(r.no);
@@ -127,6 +151,9 @@
     nos.forEach((l,no)=>{ if(l.length>1) w.push('Number '+no+' is used '+l.length+' times ('+l.join(', ')+').'); });
     names.forEach(l=>{ if(l.length>1) w.push('"'+l[0]+'" is listed '+l.length+' times.'); });
     if(starters>15) w.push(starters+' starters — a team starts 15.');
+    if(meta){ const G=gameKind(meta);
+      const over=[...nos.keys()].map(Number).filter(n=>n>G.limit).sort((a,b)=>a-b).map(n=>'#'+n);
+      if(over.length) w.push((over.length===1?over[0]+' is':over.slice(0,-1).join(', ')+' and '+over[over.length-1]+' are')+' above '+G.limit+' for '+G.label+'.'); }
     return w;
   }
 
@@ -234,6 +261,32 @@
     return out!==String(raw)?out:'';
   }
 
+  // ── pitch layout (the Teams tab's Pitch view) ─────────────────
+  // Starters are drawn BY POSITION, never by number (a starter can wear #23): the entry's pos (1–15, written by the
+  // match-report paste, cohesion-report.js — kept in the entry's extra props) when it has one, else the order the
+  // starters are on the sheet (the order they were entered). Lines, keeper first:
+  //   GK 1 · full-backs 2–4 · half-backs 5–7 · midfield 8–9 · half-forwards 10–12 · full-forwards 13–15.
+  // A pos taken twice: the second player is placed as if he had none. Starters past the 15 slots go with the subs.
+  // → {lines:[[row…]×6, GK → full-forwards], bench:[row…], starters:n, byPos:n placed by pos, extra:[row…], notes:[…]}
+  // Each placed row gets .pos (its slot) and .by ('pos' | 'order').
+  const PITCH_LINES=[[1],[2,3,4],[5,6,7],[8,9],[10,11,12],[13,14,15]];
+  function posOf(r){ const v=r&&r.extra&&r.extra.pos, n=(v==null||v==='')?NaN:+v; return Number.isInteger(n)&&n>=1&&n<=15?n:0; }
+  function pitchLayout(game, side){
+    const rows=sheet(game, side).map(r=>Object.assign({}, r, {role:shownRole(r)}));
+    const st=rows.filter(r=>r.role==='start'), slot=[], rest=[], extra=[];
+    st.forEach(r=>{ const p=posOf(r); if(p&&!slot[p]){ r.pos=p; r.by='pos'; slot[p]=r; } else rest.push(r); });
+    let k=1;
+    rest.forEach(r=>{ while(k<=15&&slot[k]) k++; if(k<=15){ r.pos=k; r.by='order'; slot[k]=r; } else extra.push(r); });
+    const lines=PITCH_LINES.map(L=>L.map(p=>slot[p]).filter(Boolean));
+    const subs=sortRows(rows.filter(r=>r.role==='sub')), other=rows.filter(r=>!r.role);
+    const byPos=st.filter(r=>r.by==='pos').length, n=st.length, notes=[];
+    if(n!==15) notes.push(n+' starter'+(n===1?'':'s')+' on the sheet — a team starts 15'+(n>15?'; the '+(n-15)+' after the first 15 are listed with the substitutes':'; the lines show the positions that are filled')+'.');
+    if(n) notes.push(byPos===n?'Positions from the match report.':byPos?byPos+' position'+(byPos===1?'':'s')+' from the match report, the rest in sheet order.':'Positions in the order the starters are on the sheet.');
+    return {lines, bench:subs.concat(other, extra), starters:n, byPos, extra, notes};
+  }
+  // A player's score in GAA format "G-P" (P = points value, a 2-pointer adds 2); '' when he did not score.
+  function pitchScore(d){ const g=+(d&&d.g)||0, p=+(d&&d.pts)||0; return (g||p)?g+'-'+p:''; }
+
   // The one public hook for reading a team sheet from a photo or PDF:
   // cohTeamSheetFromFile(file, opts) → Promise<{home:{text,lines,confidence}, away:{…}, pages, source, …}>.
   // It is done in the browser by cohesion-teamsheet-reader.js (loaded on first use; the file is not uploaded).
@@ -244,7 +297,7 @@
   }
 
   const API={ tidyName, nameKey, matchKnown, splitNumberName, normEntry, toStored, sideOf, sheet, hasSheet, sortRows, groups,
-    validate, parsePaste, mergeMeta, label, orderedNames, sheetFirst, nameForNo, subDetail, subDetailFor, fromFile };
+    validate, gameKind, numberLimit, posOf, pitchLayout, pitchScore, parsePaste, mergeMeta, label, orderedNames, sheetFirst, nameForNo, subDetail, subDetailFor, fromFile };
   root.cohTS=API;
   root.cohTeamSheetFromFile=fromFile;
   if(typeof module!=='undefined'&&module.exports) module.exports=API;
@@ -354,6 +407,51 @@
 .cohts-pempty{text-align:center;padding:34px 12px;color:var(--t3,#777);font-size:13px;}
 .cohts-pempty .cohts-btn{margin-top:12px;}
 .cohts-pick{max-width:420px;}
+.cohps-vt{display:inline-flex;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;flex-shrink:0;}
+.cohps-vt button{border:none;background:var(--card,#252530);color:var(--t2,#999);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;padding:6px 10px;cursor:pointer;}
+.cohps-vt button.on{background:var(--accent,#4fc3f7);color:#fff;}
+.cohps-tabs{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;}
+.cohps-tabs button{display:flex;align-items:center;gap:6px;flex:1 1 0;min-width:0;padding:7px 10px;border-radius:8px;border:1px solid var(--border,#333);background:var(--card,#252530);color:var(--t2,#999);font:800 12.5px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cohps-tabs button i{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.cohps-tabs button.on{border-color:var(--accent,#4fc3f7);color:var(--t1,#eee);box-shadow:inset 0 -2px 0 var(--accent,#4fc3f7);}
+.cohps-tabs button.cohps-both{flex:0 0 auto;}
+.cohps-team{--pitch:#2f6b3a;--pitch2:#2a6135;--line:rgba(255,255,255,.42);}
+[data-theme="light"] .cohps-team{--pitch:#3f8c4b;--pitch2:#398244;--line:rgba(255,255,255,.6);}
+.cohps-pitch{position:relative;border-radius:10px;overflow:hidden;background:repeating-linear-gradient(180deg,var(--pitch) 0 8.33%,var(--pitch2) 8.33% 16.66%);color:var(--line);padding:4% 1.5%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);}
+.cohps-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.cohps-rows{position:relative;display:grid;grid-template-rows:repeat(6,auto);row-gap:6px;min-height:520px;align-content:space-between;}
+.cohps-row{display:flex;justify-content:space-evenly;align-items:flex-start;gap:2px;min-height:72px;}
+.cohps-pl{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:31%;max-width:132px;min-width:0;padding:0;margin:0;border:none;background:none;color:inherit;font:inherit;text-align:center;}
+.cohps-pl.pick{cursor:pointer;}
+.cohps-pl.pick:hover .cohps-nm,.cohps-pl.pick:focus-visible .cohps-nm{background:var(--accent,#4fc3f7);color:#fff;}
+.cohps-pl:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:8px;}
+.cohps-shirt{position:relative;display:block;width:44px;height:40px;flex-shrink:0;}
+.cohps-shirt>svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));}
+.cohps-shirt b{position:absolute;left:0;right:0;top:13px;text-align:center;font:800 16px/1 'Barlow Condensed',sans-serif;font-variant-numeric:tabular-nums;}
+.cohps-nm{display:block;max-width:100%;padding:2px 7px;border-radius:999px;background:#fff;color:#14141c;font:700 10.5px/1.2 Barlow,sans-serif;box-shadow:0 1px 2px rgba(0,0,0,.3);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.cohps-sc{display:inline-block;padding:0 6px;border-radius:5px;background:rgba(0,0,0,.55);color:#ffe27a;font:800 11px/1.45 'Barlow Condensed',sans-serif;letter-spacing:.4px;font-variant-numeric:tabular-nums;}
+.cohps-cards{position:absolute;left:calc(100% - 4px);top:-4px;display:flex;gap:2px;}
+.cohps-cards i{display:block;width:10px;height:14px;border-radius:1.5px;box-shadow:0 1px 2px rgba(0,0,0,.45);transform:rotate(10deg);}
+.cohps-cards i.cY{background:#facc15;} .cohps-cards i.cR{background:#dc2626;} .cohps-cards i.cB{background:#111;outline:1px solid rgba(255,255,255,.8);} .cohps-cards i.cX{background:#9ca3af;}
+.cohps-subs{position:absolute;right:calc(100% + 1px);top:-2px;display:flex;flex-direction:column;gap:2px;align-items:flex-start;}
+.cohps-sb{display:inline-flex;align-items:center;gap:1px;padding:1px 4px 1px 2px;border-radius:5px;background:#fff;font:800 11.5px/1.2 'Barlow Condensed',sans-serif;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.35);}
+.cohps-sb svg{width:11px;height:11px;flex-shrink:0;}
+.cohps-sb.off{color:#dc2626;} .cohps-sb.on{color:#16a34a;}
+.cohps-sb.blood{outline:1px dashed #dc2626;outline-offset:-1px;}
+.cohps-sb .cohps-drop{width:8px;height:10px;margin-right:1px;}
+.cohps-bench{margin-top:10px;border-radius:10px;background:var(--pitch2);padding:8px 6px 10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);}
+.cohps-bh{font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.9px;text-transform:uppercase;color:rgba(255,255,255,.85);margin:0 0 8px 4px;}
+.cohps-bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));row-gap:10px;column-gap:4px;justify-items:center;}
+.cohps-bgrid .cohps-pl{width:100%;}
+.cohps-pl.xs .cohps-nm{outline:1px dashed #14141c;outline-offset:-2px;}
+.cohps-note{font-size:11px;color:var(--t3,#777);margin:8px 2px 0;line-height:1.45;}
+.cohps-full{max-width:1180px;}
+.cohps-fh{display:flex;align-items:center;gap:10px;margin-bottom:12px;} .cohps-fh .cohts-h{flex:1;min-width:0;}
+.cohps-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.cohps-col{min-width:0;}
+.cohps-full .cohps-rows{min-height:640px;}
+.cohps-full .cohps-shirt{width:52px;height:47px;} .cohps-full .cohps-shirt b{top:15px;font-size:19px;} .cohps-full .cohps-nm{font-size:11.5px;}
+@media(max-width:860px){ .cohps-two{grid-template-columns:1fr;} .cohps-full .cohps-rows{min-height:520px;} }
 .cohts-plist{border:1px solid var(--border,#333);border-radius:10px;max-height:min(380px,52vh);overflow-y:auto;margin:10px 0 12px;}
 .cohts-pgh{padding:6px 12px 3px;font:700 9.5px 'Barlow Condensed',sans-serif;letter-spacing:.7px;text-transform:uppercase;color:var(--t3,#777);background:var(--card,#252530);}
 .cohts-pi{padding:8px 12px;font:600 13.5px Barlow,sans-serif;cursor:pointer;border-bottom:1px solid var(--border,#333);}
@@ -446,7 +544,7 @@
       const st=rows.filter(r=>r.role==='start').length, sb=rows.filter(r=>r.role==='sub').length, ns=rows.length-st-sb;
       return rows.length?(st+' starter'+(st===1?'':'s')+' · '+sb+' sub'+(sb===1?'':'s')+(ns?' · '+ns+' not set':'')):'No team sheet added';
     }
-    function warnHtml(side){ return T.validate(S[side].rows).map(w=>'⚠ '+esc(w)).join('<br>'); }
+    function warnHtml(side){ return T.validate(S[side].rows, game).map(w=>'⚠ '+esc(w)).join('<br>'); }
     function live(side){
       const c=col(side);
       c.querySelector('.cohts-team small').textContent=summary(side);
@@ -600,8 +698,7 @@
   // o = {canEdit, editCall:'jsCall()', title}
   // on-screen shade of a team colour that reads on the page's theme (cohesion-ink.js); display only — the game keeps its colour
   T._ink=function(c){ return window.cohTeamInk?window.cohTeamInk(c):c; };
-  T.panelHtml=function(game, o){
-    o=o||{}; T._css(); game=game||{};
+  function listHtml(game, o, bar){
     const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
     if(!T.hasSheet(game)) return `<div class="cohts-panel"><div class="cohts-pempty">No team sheet added${o.canEdit&&o.editCall?'<br>'+btn('+ Add team sheet'):''}</div></div>`;
     // player photo (signed-in users only) over the initials — cohesion-photos.js; without it, the plain line
@@ -621,8 +718,101 @@
           (g.other.length?'<div class="cohts-pgrp">Also listed</div>'+g.other.map(line).join(''):''))
           :'<div class="cohts-pnone">No team sheet added</div>')+'</div>';
     };
-    return `<div class="cohts-panel"><div class="cohts-ptop"><div>${esc(o.title||'Team Sheets')}</div>${btn('✏️ Edit')}</div>
+    return `<div class="cohts-panel"><div class="cohts-ptop"><div>${esc(o.title||'Team Sheets')}</div>${bar||''}${btn('✏️ Edit')}</div>
       <div class="cohts-pcols">${colHtml('home')}${colHtml('away')}</div></div>`;
+  };
+
+  // o = {canEdit, editCall:'jsCall()', title, events,
+  //      view:'pitch'|'list'   (the Dashboard; without it the List, exactly as before — other pages and old callers)
+  //      side:'home'|'away'    the team the Pitch view shows (one team in the panel; "Both teams" opens them side by side)
+  //      stateCall:'fn'        fn('view'|'side', value) — the page keeps the choice and redraws
+  //      players(side)         → {name: {g, pts, cards:['Y'|'B'|'R'…]}} — the Dashboard's own player figures
+  //                              (cohesion-graphics.js dashPlayerDetails, the match report's "Player Details")
+  //      playerCall:'fn', canPick(side, name)   a click on a jersey → fn(side, name) (the Dashboard's player filter)}
+  T.panelHtml=function(game, o){
+    o=o||{}; T._css(); game=game||{};
+    const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
+    if(!T.hasSheet(game)) return `<div class="cohts-panel"><div class="cohts-pempty">No team sheet added${o.canEdit&&o.editCall?'<br>'+btn('+ Add team sheet'):''}</div></div>`;
+    if(!o.view) return listHtml(game, o, '');
+    T._pitchLast={game, o};
+    const sc=(k,v)=>o.stateCall?esc(o.stateCall+'('+JSON.stringify(k)+','+JSON.stringify(v)+')'):'';
+    const bar=`<span class="cohps-vt" role="group" aria-label="View"><button class="${o.view==='pitch'?'on':''}" onclick="${sc('view','pitch')}">Pitch</button><button class="${o.view!=='pitch'?'on':''}" onclick="${sc('view','list')}">List</button></span>`;
+    if(o.view!=='pitch') return listHtml(game, o, bar);
+    const side=o.side==='away'?'away':'home', nm=s=>(s==='home'?game.homeTeam:game.awayTeam)||s;
+    const colr=s=>(s==='home'?game.homeColor:game.awayColor)||(s==='home'?'#2563eb':'#22c55e');
+    const tabs=`<div class="cohps-tabs">${['home','away'].map(s=>`<button class="${s===side?'on':''}" onclick="${sc('side',s)}"><i style="background:${esc(T._ink(colr(s)))}"></i>${esc(nm(s))}</button>`).join('')}<button class="cohps-both" onclick="cohTS._pitchFull()" title="Both teams side by side">⤢ Both</button></div>`;
+    return `<div class="cohts-panel cohps-panel"><div class="cohts-ptop"><div>${esc(o.title||'Team Sheets')}</div>${bar}${btn('✏️ Edit')}</div>${tabs}${T.pitchHtml(game, side, o)}</div>`;
+  };
+
+  // ── Pitch view: one team ──
+  // shirt in the team's colour (the real colour — the pitch is green on both themes), number in the ink that reads on it
+  const SHIRT='M20 3 L26 1 Q32 8 38 1 L44 3 L60 14 L53 28 L46 24 L46 56 L18 56 L18 24 L11 28 L4 14 Z';
+  const arrow=(dir)=>`<svg viewBox="0 0 10 10" aria-hidden="true"><path d="${dir==='on'?'M5 1 L9 6 L6.4 6 L6.4 9.2 L3.6 9.2 L3.6 6 L1 6 Z':'M5 9 L9 4 L6.4 4 L6.4 0.8 L3.6 0.8 L3.6 4 L1 4 Z'}" fill="currentColor"/></svg>`;
+  const drop='<svg class="cohps-drop" viewBox="0 0 10 12" aria-hidden="true"><path d="M5 0.5 C5 0.5 1 5.4 1 7.8 A4 4 0 0 0 9 7.8 C9 5.4 5 0.5 5 0.5 Z" fill="#ef4444"/></svg>';
+  function lum(hex){ const h=String(hex||'').trim().replace(/^#/,''); const x=/^[0-9a-f]{3}$/i.test(h)?h.replace(/./g,c=>c+c):h; if(!/^[0-9a-f]{6}$/i.test(x)) return .5;
+    const c=[0,2,4].map(i=>{ const v=parseInt(x.slice(i,i+2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+  function jersey(r, side, game, D, o, cls){
+    const fill=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e'), L=lum(fill);
+    const ink=window.cohInkOn?window.cohInkOn(fill):(L>.4?'#111':'#fff');
+    // the outline: dark on a pale shirt, light on a black one, and white on a shirt that would melt into the green pitch
+    const onGrass=window.cohContrast?Math.min(window.cohContrast(fill,'#2f6b3a'), window.cohContrast(fill,'#3f8c4b')):9;
+    const edge=L>.55?'rgba(0,0,0,.55)':(L<.02||onGrass<1.7)?'rgba(255,255,255,.75)':'rgba(0,0,0,.35)';
+    const d=D.get(T.nameKey(r.name))||{}, score=pitchScoreUi(d.stats), cards=(d.stats&&d.stats.cards)||[], marks=d.marks||[];
+    const cardHtml=cards.length?`<span class="cohps-cards" title="${esc(cards.map(c=>({Y:'Yellow',B:'Black',R:'Red'})[c]||'Card').join(', ')+' card'+(cards.length>1?'s':''))}">${cards.map(c=>`<i class="c${/^[YBR]$/.test(c)?c:'X'}"></i>`).join('')}</span>`:'';
+    const markHtml=marks.length?`<span class="cohps-subs">${marks.map(m=>`<span class="cohps-sb ${m.type}${m.blood?' blood':''}" title="${esc(m.text+(m.blood?' (blood sub)':''))}">${m.blood?drop:''}${arrow(m.type)}${m.min!==''?esc(m.min)+'\'':''}</span>`).join('')}</span>`:'';
+    const pick=!!(o.playerCall&&(typeof o.canPick!=='function'||o.canPick(side, r.name)));
+    const tag=pick?'button':'div', act=pick?` onclick="${esc(o.playerCall+'('+JSON.stringify(side)+','+JSON.stringify(r.name)+')')}" title="${esc('Show '+r.name+'’s events')}"`:'';
+    return `<${tag} class="cohps-pl${cls?' '+cls:''}${pick?' pick':''}"${act} data-name="${esc(r.name)}"${r.pos?` data-pos="${r.pos}"`:''}>
+      <span class="cohps-shirt"><svg viewBox="0 0 64 58" aria-hidden="true"><path d="${SHIRT}" fill="${esc(fill)}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/><path d="M26 1 Q32 8 38 1" fill="none" stroke="${edge}" stroke-width="1.2"/></svg><b style="color:${esc(ink)}">${esc(r.no)}</b>${cardHtml}${markHtml}</span>
+      <span class="cohps-nm">${esc(r.name)}</span>${score?`<span class="cohps-sc">${esc(score)}</span>`:''}</${tag}>`;
+  }
+  function pitchScoreUi(d){ return T.pitchScore(d); }
+  // the decorations of a side's players by name key: {stats:{g,pts,cards}, marks:[cohSubMarks …]}
+  function decorations(game, side, o){
+    const D=new Map(), get=k=>{ if(!D.has(k)) D.set(k, {}); return D.get(k); };
+    if(typeof o.players==='function'){ let m=null; try{ m=o.players(side); }catch(_){ m=null; }
+      Object.keys(m||{}).forEach(n=>{ const k=T.nameKey(n); if(!k) return; const x=get(k), v=m[n]||{};
+        x.stats=x.stats?{g:x.stats.g+(+v.g||0), pts:x.stats.pts+(+v.pts||0), cards:x.stats.cards.concat(v.cards||[])}:{g:+v.g||0, pts:+v.pts||0, cards:(v.cards||[]).slice()}; }); }
+    if(o.events&&typeof window.cohSubMarks==='function') window.cohSubMarks(o.events, game, side).forEach((l,k)=>{ get(k).marks=l; });
+    // cards: most severe first (red, black, yellow)
+    D.forEach(x=>{ if(x.stats) x.stats.cards.sort((a,b)=>'RBY?'.indexOf(a)-'RBY?'.indexOf(b)); });
+    return D;
+  }
+  const PITCH_SVG=`<svg class="cohps-lines" viewBox="0 0 100 145" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" vector-effect="non-scaling-stroke">
+    <rect x="3" y="2.5" width="94" height="140" vector-effect="non-scaling-stroke"/><line x1="3" y1="72.5" x2="97" y2="72.5" vector-effect="non-scaling-stroke"/>
+    ${[[0,1],[145,-1]].map(([y0,d])=>{ const Y=v=>y0+d*(2.5+v); return `<line x1="3" y1="${Y(13*140/145)}" x2="97" y2="${Y(13*140/145)}" vector-effect="non-scaling-stroke"/><line x1="3" y1="${Y(20*140/145)}" x2="97" y2="${Y(20*140/145)}" vector-effect="non-scaling-stroke"/><line x1="3" y1="${Y(45*140/145)}" x2="97" y2="${Y(45*140/145)}" vector-effect="non-scaling-stroke"/>
+      <rect x="40" y="${Math.min(Y(0),Y(4.5))}" width="20" height="4.5" vector-effect="non-scaling-stroke"/><rect x="34.5" y="${Math.min(Y(0),Y(13*140/145))}" width="31" height="${13*140/145}" vector-effect="non-scaling-stroke"/>
+      <path d="M38 ${Y(20*140/145)} A12 9 0 0 ${d>0?0:1} 62 ${Y(20*140/145)}" vector-effect="non-scaling-stroke"/>
+      <line x1="45" y1="${Y(0)}" x2="45" y2="${Y(-2.3)}" vector-effect="non-scaling-stroke"/><line x1="55" y1="${Y(0)}" x2="55" y2="${Y(-2.3)}" vector-effect="non-scaling-stroke"/>`; }).join('')}
+    <line x1="47" y1="72.5" x2="53" y2="72.5" stroke-width="3" vector-effect="non-scaling-stroke"/></g></svg>`;
+  T.pitchHtml=function(game, side, o){
+    o=o||{}; game=game||{}; T._css();
+    const nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
+    if(!T.hasSheet(game, side)) return `<div class="cohps-team" data-side="${side}"><div class="cohts-pnone">No team sheet added for ${esc(nm)}</div></div>`;
+    const P=T.pitchLayout(game, side), D=decorations(game, side, o);
+    const lines=P.lines.slice().reverse();   // full-forwards at the top (attacking the top goal), the keeper at the bottom
+    const rowHtml=(l,i)=>`<div class="cohps-row" data-line="${['ff','hf','mf','hb','fb','gk'][i]}">${l.map(r=>jersey(r, side, game, D, o)).join('')}</div>`;
+    const bench=P.bench.length?`<div class="cohps-bench"><div class="cohps-bh">Substitutes</div><div class="cohps-bgrid">${P.bench.map(r=>jersey(r, side, game, D, o, P.extra.includes(r)?'xs':'')).join('')}</div></div>`:'';
+    return `<div class="cohps-team" data-side="${side}">
+      <div class="cohps-pitch">${PITCH_SVG}<div class="cohps-rows">${lines.map(rowHtml).join('')}</div></div>
+      ${bench}${P.notes.length?`<div class="cohps-note">${P.notes.map(esc).join(' ')}</div>`:''}</div>`;
+  };
+  // "⤢ Both" — both teams side by side (stacked on a narrow screen), over the page
+  T._pitchFull=function(){
+    const L=T._pitchLast; if(!L) return;
+    const game=L.game, o=Object.assign({}, L.o), prev=document.querySelector('.cohps-ov'); if(prev) prev.remove();
+    const ov=document.createElement('div'); ov.className='cohts-ov cohps-ov';
+    const close=()=>{ ov.remove(); document.removeEventListener('keydown', key, true); };
+    const key=ev=>{ if(ev.key==='Escape'){ ev.stopPropagation(); close(); } };
+    if(o.playerCall){ const fn=o.playerCall; o.playerCall='cohTS._pitchPick'; T._pitchPick=(s,n)=>{ close(); const f=window[fn]; if(typeof f==='function') f(s,n); }; }
+    const head=s=>{ const c=(s==='home'?game.homeColor:game.awayColor)||(s==='home'?'#2563eb':'#22c55e'); return `<div class="cohts-pteam"><i style="background:${esc(T._ink(c))}"></i><span>${esc((s==='home'?game.homeTeam:game.awayTeam)||s)}</span></div>`; };
+    ov.innerHTML=`<div class="cohts-card cohps-full"><div class="cohps-fh"><div class="cohts-h">${esc(game.title||((game.homeTeam||'')+' v '+(game.awayTeam||'')))}</div><button class="cohts-btn" data-x="1" aria-label="Close">✕ Close</button></div>
+      <div class="cohps-two">${['home','away'].map(s=>`<div class="cohps-col">${head(s)}${T.pitchHtml(game, s, o)}</div>`).join('')}</div></div>`;
+    ov.addEventListener('mousedown', ev=>{ if(ev.target===ov) close(); });
+    ov.querySelector('[data-x]').onclick=close;
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(ov);
+    return ov;
   };
 
   // A themed pick list with a free-text box. sections:[{label, items:[{value,label}]}]

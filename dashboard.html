@@ -956,9 +956,30 @@ function dashSubVal(evs){   // a Labels-view "Sub Detail" value: named only when
   if(!evs||!evs.length||evs.some(e=>e.team!==evs[0].team)) return '';
   return dashSubTxt(evs[0]);
 }
+// Pitch | List: the Pitch view (the default when the game has a team sheet) lays each team's starters out by position
+// on a pitch, with each player's score and cards (dashPlayerDetails — the match report's own figures) and the
+// sub arrows / minutes the List shows (cohSubMarks); a click on a player filters the events to him.
+let dashTSView='pitch', dashTSSide='home';
 function renderTS(){
   const sc=document.getElementById('ES'); if(!sc) return;
-  sc.innerHTML=window.cohTS?cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()', events:ALL}):'<div class="empty">Team sheets unavailable</div>';
+  if(!window.cohTS){ sc.innerHTML='<div class="empty">Team sheets unavailable</div>'; return; }
+  const known={};   // the players the event filter lists, by team (dashPlayers: every player on a row, under HIS team)
+  const pickable=(side, name)=>{ if(!known[side]){ const T=String((side==='home'?GAME.homeTeam:GAME.awayTeam)||'').toUpperCase(); known[side]=new Set();
+      ALL.forEach(e=>dashPlayers(e).forEach(p=>{ if(p.name&&String(p.team||'').toUpperCase()===T) known[side].add(cohTS.nameKey(p.name)); })); }
+    return known[side].has(cohTS.nameKey(name)); };
+  sc.innerHTML=cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()', events:ALL, view:dashTSView, side:dashTSSide, stateCall:'dashTSState',
+    players:side=>dashPlayerDetails(side==='away'?'a':'h'), playerCall:'dashTSPlayer', canPick:pickable});
+}
+function dashTSState(k, v){ if(k==='view') dashTSView=v==='list'?'list':'pitch'; else if(k==='side') dashTSSide=v==='away'?'away':'home'; renderTS(); }
+// a player on the pitch → the Events list filtered to him (the Team / Player filters above the list)
+function dashTSPlayer(side, name){
+  const ft=document.getElementById('FT'), fp=document.getElementById('FP'); if(!ft||!fp) return;
+  const team=(side==='away'?GAME.awayTeam:GAME.homeTeam)||'';
+  if([...ft.options].some(o=>o.value===team)) ft.value=team;
+  populatePl();
+  const k=cohTS.nameKey(name), opt=[...fp.options].find(o=>o.value&&cohTS.nameKey(o.value)===k);
+  if(!opt) return;
+  fp.value=opt.value; setVM('events'); applyF();
 }
 // Names tagged for a side's team in this game (player, "<TEAM> Player Labels", Assist),
 // one spelling per player — the one used most.
