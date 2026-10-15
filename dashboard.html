@@ -346,7 +346,10 @@ function makeYTP(){
           if(e.data===2) msg.innerHTML='The stored video ID <b>'+vid+'</b> is not a valid YouTube ID.<br>Fix the video link for this game in Library → ✏ Edit.';
           else if(e.data===100) msg.innerHTML='This video was not found — it is <b>Private</b> or has been deleted.<br>In YouTube Studio set its visibility to <b>Unlisted</b> (or Public), then refresh.';
           else msg.innerHTML='YouTube would not play this video here. Two common reasons:<br>'
-            +'<b>1. YouTube is asking this internet connection to confirm it is not a bot.</b> Try another network (e.g. phone data),<br>restart your broadband router, or wait a few hours — meanwhile <b>Open in YouTube</b> works.<br>'
+            +'<b>1. YouTube wants a signed-in viewer</b> ("confirm you are not a bot"), and the browser keeps your YouTube sign-in away from this page.<br>'
+            +'<b>Safari:</b> Settings → Privacy → untick <b>Prevent cross-site tracking</b>, sign in at youtube.com, then reload this page.<br>'
+            +'<b>Chrome:</b> sign in at youtube.com, then Settings → Privacy and security → Third-party cookies → allow them (or allow this site), and reload.<br>'
+            +'Meanwhile <b>Open in YouTube</b> works.<br>'
             +'<b>2. The video does not allow playback outside YouTube</b> (a copyright claim, or "Allow embedding" unticked):<br>in YouTube Studio open the video → Edit → Show more → tick <b>Allow embedding</b>; trim or mute any claimed section.<br>'
             +'If other games play and only this one fails, it is usually reason 2.<br>(Error '+e.data+' · video '+vid+')';
         }
