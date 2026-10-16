@@ -6636,6 +6636,9 @@ function crMergeToggle(kind){ if(!crMerge) return; crMerge.open[kind]=!crMerge.o
 function crMergeTick(inp){ if(!crMerge) return; const k=inp.getAttribute('data-key'), o=inp.getAttribute('data-fa')?crMerge.faOff:crMerge.off; if(inp.checked) delete o[k]; else o[k]=true; crMergeRender(); }
 function crMergeTickAll(kind, on){ if(!crMerge||!crMerge.plan.ok) return; const T=crMerge.plan.types.find(x=>x.kind===kind); if(!T) return;
   T.rows.forEach(r=>{ if(on) delete crMerge.off[r.key]; else crMerge.off[r.key]=true; }); crMergeRender(); }
+// every type at once: the events ONLY in the file (NEW) ticked or not — the fills of the events in both are left as they are
+function crMergeTickNew(on){ if(!crMerge||!crMerge.plan.ok) return;
+  crMerge.plan.types.forEach(T=>T.rows.forEach(r=>{ if(r.status!=='new') return; if(on) delete crMerge.off[r.key]; else crMerge.off[r.key]=true; })); crMergeRender(); }
 function crMergeOffset(half, inp){ if(!crMerge) return; const v=String(inp.value||'').trim();
   if(v===''||!isFinite(+v)){ delete crMerge.offsets[half]; delete crMerge.offsetFrom[half]; } else { crMerge.offsets[half]=+v; crMerge.offsetFrom[half]='typed'; }
   crMergePlanNow(); }
@@ -6747,7 +6750,13 @@ function crMergeBody(){
 
   // types
   const ops=crMergeOpsNow();
-  h+=h3('2 · What to bring in')+'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeTypes" style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+  const newRows=[]; P.types.forEach(T=>{ const m=M.modes[T.kind]||T.mode; if(m!=='none') T.rows.forEach(r=>{ if(r.status==='new') newRows.push(r); }); });
+  const newOn=newRows.filter(r=>!M.off[r.key]).length;
+  h+=h3('2 · What to bring in')
+    +(newRows.length?'<div id="mergeNewOnly" style="font-size:11.5px;color:var(--t2);margin-bottom:6px;">'+newRows.length+' event'+(newRows.length===1?' is':'s are')+' only in the file ('+newOn+' ticked). '
+      +(newOn?'<a href="#" id="mergeNewOff" onclick="crMergeTickNew(false);return false;" style="color:var(--accent);">Don’t add events only in the file</a>':'<a href="#" id="mergeNewOn" onclick="crMergeTickNew(true);return false;" style="color:var(--accent);">Add them again</a>')
+      +' <span style="color:var(--t3);">— the details filled into the game’s own events stay ticked.</span></div>':'')
+    +'<div style="border:1px solid var(--border);border-radius:8px;overflow:auto;"><table id="mergeTypes"style="width:100%;border-collapse:collapse;font-size:11.5px;">'
     +'<tr><th style="'+th+'"></th><th style="'+th+'">Event type</th><th style="'+th+'">In the game</th><th style="'+th+'">In the file</th><th style="'+th+'">In both</th><th style="'+th+'">Only in the file</th><th style="'+th+'">Only in the game</th><th style="'+th+'">Choice</th></tr>';
   P.types.forEach(T=>{
     const mode=M.modes[T.kind]||T.mode, open=!!M.open[T.kind], simple=!T.nGame&&!T.paired;
@@ -6771,6 +6780,19 @@ function crMergeBody(){
     }
   });
   h+='</table></div>';
+  // the game's values kept over different ones in the file (each is also on its entry above), and the names written in the game's spelling
+  const kept=(P.kept||[]).filter(d=>{ const T=P.types.find(x=>x.kind===d.kind); return T&&(M.modes[d.kind]||T.mode)==='fill'&&!M.off[d.key]; });
+  if(kept.length){
+    const word=d=>d.why==='assist row'?'assist':d.why==='source row'?'source':d.group;
+    h+=h3('Yours kept where the file differs ('+kept.length+')')+'<div id="mergeKept" style="border:1px solid var(--border);border-radius:8px;max-height:220px;overflow:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+      +'<tr><th style="'+th+'">Video</th><th style="'+th+'">Half</th><th style="'+th+'">Event</th><th style="'+th+'">What</th><th style="'+th+'">Yours</th><th style="'+th+'">File</th></tr>'
+      +kept.map(d=>'<tr data-key="'+esc(d.key)+'" data-why="'+esc(d.why||'')+'"><td style="'+td+'white-space:nowrap;">'+(d.driveT!=null?fmt(d.driveT):'—')+'</td><td style="'+td+'">'+esc(HALF_SHORT(d.half))+'</td><td style="'+td+'">'+esc(d.gameCode||'')+'</td>'
+        +'<td style="'+td+'">'+esc(word(d))+'</td><td style="'+td+'"><b>'+esc(d.yours||'—')+'</b></td><td style="'+td+'color:var(--t3);">'+esc(d.file)+' · kept yours</td></tr>').join('')+'</table></div>';
+  }
+  const NM=P.names||{respelt:[], ambiguous:[]};
+  if(NM.respelt.length||NM.ambiguous.length) h+='<div id="mergeNames" style="font-size:11.5px;color:var(--t2);margin-top:8px;line-height:1.6;">'
+    +(NM.respelt.length?'Names written in the game’s spelling: '+NM.respelt.map(x=>esc(x.file)+' → <b>'+esc(x.game)+'</b>').join(' · '):'')
+    +(NM.ambiguous.length?(NM.respelt.length?'<br>':'')+'<span style="color:#f59e0b;">Written as the file spells them — the game has more than one spelling:</span> '+NM.ambiguous.map(x=>esc(x.file)+' ('+x.game.map(esc).join(' / ')+')').join(' · '):'')+'</div>';
   // FREE AGAINST
   if(P.fa.length){
     h+=h3('3 · Free against')+'<div style="font-size:11.5px;color:var(--t2);margin-bottom:6px;line-height:1.5;">The file has a foul BY a team at the moment that team lost the ball: the turnover’s type is FREE AGAINST. Only a turnover whose type is blank is filled.</div>'

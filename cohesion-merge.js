@@ -105,6 +105,50 @@
   const pTagOf = s => { const m = /^P\s*(\d+)$/i.exec(String(s || '').trim()); return m ? 'P' + (+m[1]) : ''; };
   const clockOf = t => { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const plural = (n, w) => n + ' ' + (n === 1 ? w[0] : w[1]);
+  // a helper of another COHESION script: a global of the page (code-room.html loads cohesion-labels.js and
+  // cohesion-sources.js first), else require()d in node; null when neither is there (the step that needs it is skipped)
+  const NODE = typeof module !== 'undefined' && module.exports && typeof require === 'function';
+  function dep(name){
+    if(typeof root[name] === 'function') return root[name];
+    if(NODE) for(const f of ['./cohesion-labels.js', './cohesion-sources.js']){ try{ const m = require(f); if(m && typeof m[name] === 'function') return m[name]; }catch(_){} }
+    return null;
+  }
+
+  // ── player names: the game's spelling ───────────────────────────
+  // Two files spell one player differently ("Ryan O Donoghue" / "Ryan O'Donoghue", "Sean O Se" / "Seán Ó Sé"). Before a
+  // name from the file is written anywhere (the player, Assist, Kickout Target / Won By / Taken By, Player In / Out) it
+  // is looked up among the names the game already has — on its rows and on its team sheet (meta.rosters /
+  // playerRoster) — by a LOOSE key: fadas folded, apostrophes, spaces, hyphens and dots dropped, case ignored. Exactly
+  // one spelling of the game's → that spelling is written; none → the file's; several → the file's, listed as
+  // ambiguous. Nothing looser (no initials, no edit distance). cohesion-labels.js cohNameKey is NOT changed: it keeps
+  // the apostrophe everywhere else, by design.
+  const looseKey = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s'‘’‛ʼ`´.\-‐‑‒–—]/g, '');
+  const NAME_GROUP = /(^|\s)(assist|kickout won by|kickout taken by|kickout target|player in|player out)$/i;
+  const isNameGroup = g => /player labels$/i.test(String(g || '')) || NAME_GROUP.test(String(g || '').trim());
+  function rosterName(r){
+    if(r == null) return '';
+    if(typeof r === 'object') return String(r.name != null ? r.name : r.player != null ? r.player : '').trim();
+    const s = String(r).trim(); let m = /^#?\s*\d{1,2}\s*[.\-:)]?\s+(\S.*)$/.exec(s); if(m) return m[1].trim();
+    m = /^(\S.*?)\s*(?:\(\s*#?\s*\d{1,2}\s*\)|#\s*\d{1,2})\s*$/.exec(s); return m ? m[1].trim() : s;
+  }
+  function nameBook(events, game){
+    const by = new Map(), add = v => { v = String(v == null ? '' : v).trim(); const k = looseKey(v); if(!k || isPTag(v)) return; if(!by.has(k)) by.set(k, new Set()); by.get(k).add(v); };
+    (events || []).forEach(e => { if(!e) return; add(e.player); const L = e.labels || {}, A = e.labelsAll || {};
+      Object.keys(L).forEach(g => { if(isNameGroup(g)) add(L[g]); }); Object.keys(A).forEach(g => { if(isNameGroup(g) && Array.isArray(A[g])) A[g].forEach(add); }); });
+    const R = (game && game.rosters) || {}; ['home', 'away'].forEach(s => { if(Array.isArray(R[s])) R[s].forEach(r => add(rosterName(r))); });
+    const PR = (game && game.playerRoster) || {}; ['teamA', 'teamB'].forEach(s => { const o = PR[s]; if(o && typeof o === 'object') Object.keys(o).forEach(k => add(o[k])); });
+    const respelt = new Map(), ambiguous = new Map();
+    const resolve = v => { const s = String(v == null ? '' : v).trim(), k = looseKey(s); if(!k || isPTag(s)) return v;
+      const hit = by.get(k); if(!hit || hit.has(s)) return v;
+      if(hit.size === 1){ const g = [...hit][0], key = s + '\u0001' + g; respelt.set(key, { file:s, game:g, n:(respelt.has(key) ? respelt.get(key).n : 0) + 1 }); return g; }
+      ambiguous.set(s, { file:s, game:[...hit].sort(), n:(ambiguous.has(s) ? ambiguous.get(s).n : 0) + 1 }); return v; };
+    // a file row in place: its player and every name label
+    const row = r => { if(!r) return r; if(r.player) r.player = resolve(r.player);
+      const L = r.labels || {}; Object.keys(L).forEach(g => { if(isNameGroup(g) && L[g] != null) L[g] = resolve(L[g]); });
+      if(r.labelsAll) Object.keys(r.labelsAll).forEach(g => { if(isNameGroup(g) && Array.isArray(r.labelsAll[g])) r.labelsAll[g] = r.labelsAll[g].map(resolve); });
+      return r; };
+    return { resolve, row, report: () => ({ respelt:[...respelt.values()].sort((a, b) => b.n - a.n || a.file.localeCompare(b.file)), ambiguous:[...ambiguous.values()] }) };
+  }
 
   // ── reading a file ──────────────────────────────────────────────
   function unesc(s){ return String(s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16)))
@@ -322,9 +366,34 @@
   const wonLost = s => /LOST/.test(up(s)) ? 'L' : /WON/.test(up(s)) ? 'W' : '';
   const sameThird = (a, b) => { const x = thirdOf(a), y = thirdOf(b); return !!x && x === y; };
   function playerOf(e){ const p = String((e && e.player) || '').trim(); if(p) return p; const L = (e && e.labels) || {}; const k = Object.keys(L).find(x => /player labels$/i.test(x)); return k ? String(L[k] || '').trim() : ''; }
-  // → { labels:{group:value}, player:{name, group, team, was}, n, what:[words], notes:[words] }
-  function fillPlan(g, f, kind){
-    const out = { labels:{}, player:null, n:0, what:[], notes:[], diffs:[] };
+  // THE GAME'S OWN ASSIST / SOURCE ROWS. A Sportscode game logs a shot's assist and source as rows of their own
+  // ("<TEAM> SCORE / SHOT ASSIST", "<TEAM> SCORE / SHOT SOURCE"). Those rows ARE the shot's: they are found by the
+  // pairing Analysis already uses (cohesion-labels.js cohAssistIndex → cohShotAssist; cohesion-sources.js
+  // cohShotSrcPairs), never by a pairing of the merge's own. A label on a shot wins over its row (the export re-points
+  // the row), so a file value written onto such a shot would override the game's own row. So, on a shot:
+  //   · its assist row names a player  → the game HAS an assist: Assist is not filled; a different name in the file is listed;
+  //   · its assist row has only the pass type (Hand Pass / Kick Pass) → the file's NAME goes onto that ROW as its player
+  //     (one row, its pass type kept — the way cohShotAssist reads it), not an 'Assist' label on the shot;
+  //   · it has a source row → no source label is added; a different source in the file is listed;
+  //   · no row and no label → filled as before.
+  const SRC_GROUPS = ['Score Source Outcomes', 'Shot Source Outcomes', 'Source'];
+  const isSrcGroup = g => SRC_GROUPS.some(n => n.toLowerCase() === String(g).trim().toLowerCase());
+  function shotRows(events, game){
+    const AI = dep('cohAssistIndex'), SP = dep('cohShotSrcPairs'), PG = dep('cohPlayerGroupFor'), cat = dep('ssSrcCat');
+    const ai = AI ? AI(events, game) : null, sp = SP ? SP(events, game) : null, idx = new Map(), pg = {};
+    (events || []).forEach((e, i) => { if(e) idx.set(e, i); });
+    return {
+      assist: e => (ai && ai.byShot.get(e)) || null,
+      source: e => (sp && sp.rowOf.get(e)) || null,
+      index: e => idx.has(e) ? idx.get(e) : null,
+      group: T => { if(!pg[T]) pg[T] = PG ? PG(events, T, game) : T + ' Player Labels'; return pg[T]; },
+      sameSource: (a, b) => { if(up(a) === up(b)) return true; if(!cat) return false; const x = cat(a), y = cat(b);
+        // "TURNOVER" (Gaelic Insights) says less than FORCED / UNFORCED TURNOVER, it does not disagree with it
+        return !!x && (x === y || (x === 'TO' && (y === 'FTO' || y === 'UTO')) || (y === 'TO' && (x === 'FTO' || x === 'UTO'))); } };
+  }
+  // → { labels:{group:value}, player:{name, group, team, was}, rowEdits:[{i, player, what}], n, what:[words], notes:[words], diffs }
+  function fillPlan(g, f, kind, ctx){
+    const out = { labels:{}, player:null, rowEdits:[], n:0, what:[], notes:[], diffs:[] };
     const gCode = up(g.code), fCode = up(f.code), dead = c => /SHOT DEAD ?BALL/.test(c);
     const shotKindDiffers = kind === 'shot' && /SHOT (OPEN|DEAD)/.test(gCode) && dead(gCode) !== dead(fCode);
     if(shotKindDiffers) out.notes.push('the file has it as ' + (dead(fCode) ? 'a dead ball' + (lbl(f, 'Deadball Shot Type') ? ' (' + lbl(f, 'Deadball Shot Type') + ')' : '') : 'open play') + ' — the game’s is kept');
@@ -336,10 +405,27 @@
     Object.keys(f.labels || {}).forEach(grp => {
       const v = String(f.labels[grp] == null ? '' : f.labels[grp]).trim();
       if(!v || grp === MERGE_SRC || grp === GI_SRC || SKIP_FILL.test(grp) || /player labels$/i.test(grp)) return;
-      const have = valCI(g, aliasOf(grp));
+      // the shot's own source row: the game has a source (its own label on the shot follows that row)
+      const srow = kind === 'shot' && ctx && isSrcGroup(grp) ? ctx.source(g) : null;
+      if(srow){ const sv = valCI(srow, SRC_GROUPS);
+        if(sv && !ctx.sameSource(sv, v)){ out.notes.push('source: your ' + srow.code + ' row says ' + sv + ' · the file says ' + v + ' · yours kept'); out.diffs.push({ group:grp, kept:sv, other:v, why:'source row' }); }
+        return; }
+      const have = valCI(g, aliasOf(grp)), differs = isNameGroup(grp) ? looseKey(have) !== looseKey(v) : up(have) !== up(v);
       if(have){
-        if(up(have) !== up(v) && !sameThird(have, v) && aliasOf(grp).length > 1 && keyCI(g.labels, grp) == null) return;   // the game says it in its own format's words
-        if(up(have) !== up(v) && !sameThird(have, v)){ out.notes.push(grp + ': the file says ' + v + ' — the game’s ' + have + ' is kept'); out.diffs.push({ group:grp, kept:have, other:v, why:'' }); }
+        if(differs && !sameThird(have, v) && aliasOf(grp).length > 1 && keyCI(g.labels, grp) == null) return;   // the game says it in its own format's words
+        if(differs && !sameThird(have, v)){ out.notes.push(grp + ': the file says ' + v + ' — the game’s ' + have + ' is kept'); out.diffs.push({ group:grp, kept:have, other:v, why:'' }); }
+        return;
+      }
+      // the shot's own assist row
+      const arow = kind === 'shot' && ctx && /^assist$/i.test(grp) ? ctx.assist(g) : null;
+      if(arow){
+        if(arow.name){ if(looseKey(arow.name) !== looseKey(v)){ out.notes.push('assist: your ' + arow.row.code + ' row says ' + arow.name + ' · the file says ' + v + ' · yours kept'); out.diffs.push({ group:'Assist', kept:arow.name, other:v, why:'assist row' }); }
+          return; }
+        const ri = ctx.index(arow.row);
+        if(ri == null) return;
+        const team = up(arow.row.team) || up(g.team);
+        const w = 'assist ' + v + ' → the ' + arow.row.code + ' row' + (arow.type ? ' (its ' + arow.type + ' kept)' : '');
+        out.rowEdits.push({ i:ri, player:{ name:v, group:ctx.group(team), team, was:'' }, what:w }); out.n++; out.what.push(w);
         return;
       }
       if(grp === 'Deadball Shot Type' && (shotKindDiffers || !dead(gCode))) return;
@@ -355,7 +441,7 @@
       const tg = f.pTag || pTagOf(pf);
       if(!pg){ out.player = { name:pf, group:fk, team, was:'', pTag:tg, pTagName: f.pTagName || '' }; out.n++; out.what.push('player ' + (tg && !isPTag(pf) ? tg + ' → ' : '') + pf); }
       else if(isPTag(pg) && !isPTag(pf)){ out.player = { name:pf, group:fk, team, was:pg, pTag:pTagOf(pg) }; out.n++; out.what.push('player ' + pg + ' → ' + pf); }
-      else if(up(pg) !== up(pf) && !(isPTag(pf) && !isPTag(pg))){ out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept'); out.diffs.push({ group:'player', kept:pg, other:pf, why:'' }); }
+      else if(looseKey(pg) !== looseKey(pf) && !(isPTag(pf) && !isPTag(pg))){ out.notes.push('player: the file says ' + pf + ' — the game’s ' + pg + ' is kept'); out.diffs.push({ group:'player', kept:pg, other:pf, why:'' }); }
     }
     return out;
   }
@@ -417,6 +503,10 @@
     const tag = A.short + '-' + hash6(text), marker = id => tag + ':' + id;
     const keep = { half: events.some(e => keyCI(e && e.labels, 'Half') != null), quarter: events.some(e => keyCI(e && e.labels, 'Quarter') != null) };
     const rd = A.read(text, game), fi = fileItems(rd.raw, game, A, keep), items = fi.items, leftOut = rd.skipped.concat(fi.out);
+    // every name the file would write, in the game's spelling (fills and added rows alike)
+    const book = nameBook(events, game);
+    items.forEach(it => { it.rows.forEach(book.row); if(it.pName) it.pName = book.resolve(it.pName); });
+    const ctx = shotRows(events, game);
     const G = gameItems(events, game);
     // rows already merged from THIS file
     const byMarker = new Map(); G.forEach(g => { if(g.marker && g.marker.indexOf(tag + ':') === 0 && !byMarker.has(g.marker + '|' + g.kind)) byMarker.set(g.marker + '|' + g.kind, g); });
@@ -529,7 +619,7 @@
           r.status = 'paired'; r.gi = it.pair.i; r.lag = Math.round(it.lag * 10) / 10; r.gameCode = it.pair.e.code; r.gameT = it.pair.t; r.gameDriveT = fin(it.pair.e.driveT) ? +it.pair.e.driveT : null;
           r.gamePlayer = playerOf(it.pair.e); r.fills = { labels:{}, player:null, n:0, what:[], notes:[] }; r.notes = ['nothing can be taken from the file: ' + it.bad]; r.unusable = true; return r; }
         if(it.pair){ r.status = 'paired'; r.gi = it.pair.i; r.lag = Math.round(it.lag * 10) / 10; r.gameCode = it.pair.e.code; r.gameT = it.pair.t; r.gameDriveT = fin(it.pair.e.driveT) ? +it.pair.e.driveT : null;
-          r.gamePlayer = playerOf(it.pair.e); const fp = fillPlan(it.pair.e, r.rows[0], k); r.fills = fp; r.notes = fp.notes; }
+          r.gamePlayer = playerOf(it.pair.e); const fp = fillPlan(it.pair.e, r.rows[0], k, ctx); r.fills = fp; r.notes = fp.notes; }
         else r.status = 'new';
         return r;
       });
@@ -549,8 +639,13 @@
       fa.push({ key: 'fa|' + t.srcId, toKey: row.key, foulKey: 'foul|' + f.srcId, team: t.team, half: row.half, t: row.gameT != null ? row.gameT : row.t, driveT: row.gameDriveT != null ? row.gameDriveT : row.driveT,
         gi: gi == null ? null : gi, gameCode: ge ? ge.code : '', gameType: ge ? (valCI(ge, TO_OUT) || String(ge.outcome || '').trim()) : '', gap: Math.round((t.ft - f.ft) * 10) / 10, foulCode: f.code, toCode: t.code }); });
 
+    // every value of the game's kept over a different one in the file, in one list (each also stays on its entry's notes)
+    const kept = [];
+    types.forEach(T => T.rows.forEach(r => { if(r.status !== 'paired' || !r.fills || !r.fills.diffs) return;
+      r.fills.diffs.forEach(d => kept.push({ key:r.key, kind:T.kind, half:r.half, team:r.team, driveT: r.gameDriveT != null ? r.gameDriveT : r.driveT, gameCode:r.gameCode,
+        group:d.group, yours:d.kept, file:d.other, why:d.why })); }));
     const plan = { ok:true, format:det.format, formatName:A.name, tag, fileTeams:teams, homeTeam:game.homeTeam, awayTeam:game.awayTeam, halved, align, types, fa, leftOut,
-      fileEvents: rd.raw.length, modes: MODES.slice() };
+      fileEvents: rd.raw.length, modes: MODES.slice(), names: book.report(), kept };
     Object.defineProperty(plan, '_events', { value: events, enumerable:false });
     return plan;
   }
@@ -573,7 +668,11 @@
       T.rows.forEach(r => {
         if(offT[r.key] || r.status === 'already' || r.status === 'out') return;
         if(r.status === 'paired' && m === 'fill'){
-          if(r.fills && r.fills.n){ const e = edit(r.gi); Object.assign(e.labels, r.fills.labels); if(r.fills.player) e.player = r.fills.player; r.fills.what.forEach(w => e.what.push(w)); counts.fills += r.fills.n; }
+          if(r.fills && r.fills.n){
+            const own = r.fills.what.filter(w => !(r.fills.rowEdits || []).some(x => x.what === w));
+            if(Object.keys(r.fills.labels).length || r.fills.player){ const e = edit(r.gi); Object.assign(e.labels, r.fills.labels); if(r.fills.player) e.player = r.fills.player; own.forEach(w => e.what.push(w)); }
+            (r.fills.rowEdits || []).forEach(x => { const e = edit(x.i); if(!e.player) e.player = x.player; e.what.push(x.what); });   // the shot's own assist row gains the name
+            counts.fills += r.fills.n; }
           return;
         }
         if(r.unusable) return;                                    // paired, but the file's event cannot be converted: the game's stays
