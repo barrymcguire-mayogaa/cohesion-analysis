@@ -861,6 +861,57 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .py-selbar{padding:10px 12px 12px;} .py-selbox{max-width:none;flex-basis:100%;}
   .py-klists{gap:16px 12px;} .py-kl li{font-size:14.5px;gap:6px;padding:4px 4px;} .py-kl li small{min-width:0;} .py-kl h4{font-size:13px;}
 }
+/* PLAYER PROFILE (Players tab) */
+.pf-ctl{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:0 2px 14px;} .pf-seg button{padding:9px 14px;} .pf-ctln{font-size:.8rem;color:var(--t3);min-width:0;}
+.pf-head{margin-bottom:16px;}
+.pf-who{display:flex;align-items:center;gap:12px;margin-bottom:12px;min-width:0;} .pf-who>div{min-width:0;flex:1;}
+.pf-who h3{margin:0;font:700 21px 'Barlow',sans-serif;overflow-wrap:anywhere;} .pf-who span{font-size:.84rem;color:var(--t2);}
+.pf-who em{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.12em;font-style:normal;color:var(--amber);border:1px solid var(--amber);border-radius:999px;padding:2px 9px;white-space:nowrap;}
+.pf-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;}
+.pf-kpi{min-width:0;border:1px solid var(--border);border-radius:12px;padding:10px 10px 9px;background:rgba(255,255,255,.012);}
+.pf-kt{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);text-transform:uppercase;}
+.pf-kv{font:800 30px 'Barlow',sans-serif;line-height:1.15;margin:2px 0;font-variant-numeric:tabular-nums;} .pf-kv.na{color:var(--t3);font-weight:600;font-size:22px;line-height:1.55;}
+.pf-kd{font-size:.76rem;font-weight:700;} .pf-kr{font-size:.72rem;color:var(--t3);margin-top:4px;line-height:1.4;}
+.pf-kpi.few .pf-kv{color:var(--t3);}
+#pyProfSec .pos{color:var(--green);} #pyProfSec .neg{color:var(--red);} #pyProfSec .mid{color:var(--t2);} #pyProfSec .na{color:var(--t3);}
+.pf-row2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px;}
+.pf-row2>:only-child{grid-column:1 / -1;}
+.pf-bh{display:flex;align-items:baseline;justify-content:space-between;gap:6px 14px;flex-wrap:wrap;} .pf-bh .td-ct{margin:0;}
+.pf-leg{display:flex;gap:4px 12px;flex-wrap:wrap;font-size:.72rem;color:var(--t2);} .pf-leg span{white-space:nowrap;}
+.pf-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;} .pf-sw.pos{background:var(--green);} .pf-sw.mid{background:#6d6d7a;} .pf-sw.neg{background:var(--red);} .pf-sw.avg{width:12px;height:0;border-top:2px dashed var(--t1);border-radius:0;vertical-align:3px;}
+.pf-mets{margin:10px 0 8px;} .pf-mets .chip{padding:6px 10px;}
+.pf-bl{list-style:none;margin:0;padding:0;max-height:560px;overflow-y:auto;}
+.pf-br{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) 46px;gap:10px;align-items:center;padding:3px 6px;border-left:3px solid transparent;border-radius:0 6px 6px 0;cursor:pointer;outline:none;}
+.pf-br:hover{background:rgba(255,255,255,.04);} .pf-br:focus-visible{outline:2px solid #19c3f0;outline-offset:-2px;}
+.pf-br.sel{background:#1c3b4c;border-left-color:#19c3f0;} .pf-br.sel .pf-bn{font-weight:700;color:#fff;}
+.pf-bn{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .pf-br b{text-align:right;font:700 .86rem 'Barlow',sans-serif;font-variant-numeric:tabular-nums;}
+.pf-bt{position:relative;height:12px;border-radius:6px;background:rgba(255,255,255,.06);}
+.pf-bf{position:absolute;left:0;top:0;bottom:0;border-radius:6px;min-width:2px;} .pf-bf.pos{background:var(--green);} .pf-bf.mid{background:#6d6d7a;} .pf-bf.neg{background:var(--red);} .pf-bf.few{background:#3a3a48;}
+.pf-br.few .pf-bn,.pf-br.few b{color:var(--t3);}
+.pf-avg{position:absolute;top:-4px;bottom:-4px;width:0;border-left:2px dashed var(--t1);opacity:.75;}
+.pf-oohd{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;} .pf-oohd>div{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;} .pf-oohd span{font-size:.84rem;color:var(--t2);}
+.pf-oohd b{font:800 34px 'Barlow',sans-serif;line-height:1.1;} .pf-oohd b.na{color:var(--t3);font-size:22px;} .pf-oohd small{font-size:.76rem;font-weight:700;} #pyProfSec .pf-oohd.few b,#pyProfSec .pf-oohd.few small{color:var(--t3);}
+.pf-ootab th small,.pf-ootab td small{display:block;font-weight:400;color:var(--t3);font-size:.68rem;letter-spacing:0;} .pf-ootab{min-width:420px;} .pf-ootab td.pos{color:var(--green);} .pf-ootab td.neg{color:var(--red);}
+.pf-pats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px;}
+.pf-pat{min-width:0;} .pf-pt{width:100%;} .pf-pt td.pos{color:var(--green);} .pf-pt td.neg{color:var(--red);} .pf-pt td.mid{color:var(--t2);} .pf-pt th .mm-sq{vertical-align:-1px;}
+.pf-l2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} .pf-l2 h5{margin:0 0 4px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);}
+.pf-ll{list-style:none;margin:0;padding:0;} .pf-ll li{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:.9rem;} .pf-ll li span{flex:1;min-width:0;overflow-wrap:anywhere;} .pf-ll li b{font-variant-numeric:tabular-nums;} .pf-ll li small{color:var(--t3);font-size:.72rem;white-space:nowrap;} .pf-lna{color:var(--t3);font-size:.84rem;}
+.pf-cr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:baseline;padding:4px 0;} .pf-cr span{font-size:.86rem;color:var(--t2);} .pf-cr b{font:800 22px 'Barlow',sans-serif;text-align:right;} .pf-cr small{grid-column:1 / -1;font-size:.74rem;font-weight:700;}
+.pf-trend{margin:8px 0 10px;} .pf-trend span{display:block;font-size:.78rem;color:var(--t3);margin-bottom:4px;}
+.pf-spark{display:block;width:100%;max-width:420px;height:auto;} .pf-sp{fill:var(--accent);} .pf-sp0{fill:#3a3a48;} .pf-spv{font:600 8px 'Barlow',sans-serif;fill:var(--t3);}
+.pf-tabcard .td-ct{margin:8px 4px 2px;} .pf-tab{min-width:980px;} .pf-tab th button{font-size:14px;padding:10px 3px 9px;}
+.pf-tab td{padding:6px 4px;font-size:15px;} .pf-tab td small{display:block;font-size:.66rem;font-weight:700;line-height:1.2;} .pf-tab td.py-n small{color:var(--t3);font-weight:400;}
+.pf-tab td.few{color:var(--t3);} .pf-tab td.few small{color:var(--t3);}
+.pf-note{margin:6px 4px 0;}
+.pf-row{cursor:pointer;outline:none;} .pf-row td:first-child{border-left:8px solid transparent;} .pf-row:hover td,.pf-row:focus-visible td{background:rgba(255,255,255,.04);}
+.pf-row.sel td{background:#1c3b4c;} .pf-row.sel td:first-child{border-left-color:#19c3f0;}
+@media (max-width:1100px){ .pf-row2{grid-template-columns:minmax(0,1fr);} }
+@media (max-width:760px){
+  .pf-pats{grid-template-columns:minmax(0,1fr);} .pf-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .pf-kv{font-size:24px;}
+  .pf-br{grid-template-columns:minmax(0,108px) minmax(0,1fr) 40px;gap:6px;} .pf-bn{font-size:.8rem;}
+  .pf-tab{min-width:860px;} .pf-tab td.py-n{position:sticky;left:0;background:var(--panel);z-index:1;} .pf-tab th.py-n{position:sticky;left:0;background:var(--panel);z-index:1;} .pf-row.sel td.py-n{background:#1c3b4c;}
+  .pf-who h3{font-size:18px;}
+}
 </style>
 </head>
 <body>
@@ -981,6 +1032,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-sources.js"></script>
 <script src="cohesion-periods.js"></script>
+<script src="cohesion-minutes.js"></script>
 <script src="cohesion-graphics.js"></script>
 <script src="cohesion-xml.js"></script>
 <script src="cohesion-player.js"></script>
@@ -6788,9 +6840,9 @@ function pyKoPlayers(R){
 }
 // TWO independent selections: sel (the players table, Game Involvement, the Selected player box) drives the shot sections
 // and the involvement detail; ksel (the Kickout Details box and lists) drives ONLY the kickout fields (koPlayer … mapKos).
-function pyView(R, sel, F, I, ksel){   // I (optional): pyInvolvement — a player with involvement rows but no shot or assist can be selected too
-  const ip=sel&&I?I.players.find(p=>p.key===sel):null;
-  const P=sel?(R.players.find(p=>p.key===sel)||(ip?{key:ip.key, name:ip.name, invOnly:true}:null)):null, key=P?P.key:null, T=R.team;
+function pyView(R, sel, F, I, ksel, PF){   // I (optional): pyInvolvement — a player with involvement rows but no shot or assist can be selected too; PF (optional): the PLAYER PROFILE squad (a player who played) likewise
+  const ip=sel&&I?I.players.find(p=>p.key===sel):null, fp=sel&&PF&&PF.byKey?PF.byKey.get(sel):null;
+  const P=sel?(R.players.find(p=>p.key===sel)||(ip?{key:ip.key, name:ip.name, invOnly:true}:null)||(fp?{key:fp.key, name:fp.name, pfOnly:true}:null)):null, key=P?P.key:null, T=R.team;
   const base=key?R.shots.filter(s=>s.pk===key):R.shots, shots=base.filter(s=>pyPass(s, F));
   const mapShots=shots.filter(s=>s.x!=null).sort((p,q)=>(q.xp||0)-(p.xp||0));
   const kip=ksel&&I?I.players.find(p=>p.key===ksel):null;
@@ -6862,8 +6914,9 @@ function pyInvDetailHTML(I, sel, col){
     +`<ol class="py-ibars">${bars}</ol>`
     +`<div class="dnote">${ssEsc('Every involvement type '+p.name+' is tagged with in these games, most frequent first; a bar’s length is relative to his most frequent type.'+(c?' Contests won % = Contest Won ÷ (Contest Won + Contest Lost), from his own labels.':''))}</div></div>`;
 }
-function pySelBarHTML(R, V, F, I){
-  const names=pySort(R.players.concat(((I&&I.players)||[]).filter(p=>!R.players.some(q=>q.key===p.key)).map(p=>({key:p.key, name:p.name}))), 'name', 'asc');
+function pySelBarHTML(R, V, F, I, PF){
+  const extra=((I&&I.players)||[]).map(p=>({key:p.key, name:p.name})).concat(((PF&&PF.players)||[]).map(p=>({key:p.key, name:p.name}))).filter((p,i,a)=>!R.players.some(q=>q.key===p.key)&&a.findIndex(q=>q.key===p.key)===i);
+  const names=pySort(R.players.concat(extra), 'name', 'asc');
   return '<div class="py-selbar"><div class="py-selbox"><label for="pySel">SELECTED PLAYER</label><div class="py-selin">'
     +`<input type="text" id="pySel" list="pyNames" placeholder="All players — type or pick a name" value="${V.player?ssEsc(V.player.name):''}" autocomplete="off" spellcheck="false">`
     +`<datalist id="pyNames">${names.map(p=>`<option value="${ssEsc(p.name)}"></option>`).join('')}</datalist>`
@@ -7022,9 +7075,10 @@ function pyHTML(R, V, o){
   const span=[ovShortDate(R.from), ovShortDate(R.to)].filter(Boolean).filter((d,i,a)=>a.indexOf(d)===i).join(' – ');
   return `<div class="tt-top"><div class="tt-who">${ssEsc(T)}<small>${ssEsc('All '+pyGames(R.nGames)+' in the current filters'+(R.missing?' ('+R.missing+' not loaded)':'')+(span?' · '+span:''))}</small></div></div>`
     +`<div id="pyTableSec">${pyTableHTML(R, o.sort, V.key, o.shown, o.col||'#4fc3f7')}</div>`
-    +`<div id="pySelSec">${pySelBarHTML(R, V, o.F, o.inv)}</div>`
+    +`<div id="pySelSec">${pySelBarHTML(R, V, o.F, o.inv, o.pf)}</div>`
     +(pyInvHas(o.inv)?`<h2 class="ov-h">GAME INVOLVEMENT</h2><div id="pyInvSec">${pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col})}</div>`:'')
     +`<div id="pyMapSec">${pyMapsHTML(R, V, o.F)}</div>`
+    +(o.pf&&o.pf.n?`<h2 class="ov-h">PLAYER PROFILE</h2><div id="pyProfSec">${pfHTML(o.pf, R, V, o.pfo||{}, o.bundleOf)}</div>`:'')
     +`<h2 class="ov-h">SHOOTING DETAILS</h2><div id="pyShootSec">${pyShootHTML(R, V, o.F)}</div>`
     +`<h2 class="ov-h">KICKOUT DETAILS</h2><div id="pyKoSec">${pyKoHTML(R, V)}</div>`
     +pyKeeperHTML(R)
@@ -7039,10 +7093,354 @@ function pyTipHTML(p, R, V, pinned){
   return '';
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  PLAYER PROFILE (Players tab, under the shot maps) — the selected player against his SQUAD: the selected team's
+//  players over the games in the current filters (the same games as the rest of the tab). Pure helpers first
+//  (headlessly tested: cohesion-tests analysis/test_player_profile.js), then the strings.
+//  · WHO PLAYED: a game with a team sheet for the team → the players with minutes > 0 (cohesion-minutes.js); a game
+//    without one → the players named on any of the team's events in it (a shot, an assist, an involvement row, a
+//    kickout, any player label of the team's — sub rows aside). A player named on an event of a sheet game but
+//    given no minutes there (a spelling the sheet does not have) still played: his minutes are n/a for that game.
+//    The SQUAD = everyone who played at least once. Squad totals of every metric = the players table's totals.
+//  · MINUTES (cohesion-minutes.js): starters from the sheet, subs from the SUB rows, blood subs back at RETURNED,
+//    red / black cards; period lengths from the file's own period rows, else the last event of the period, extra time
+//    included. No sheet → n/a. Never estimated.
+//  · LINE: Goalkeeper / Backs / Midfield / Forwards from the sheet's POSITION slot (1 · 2–7 · 8–9 · 10–15) — never a
+//    jersey number or the order of the rows. A player who came on takes the line of the player he replaced. The
+//    player's line = his most frequent STARTING line in the selection, else the most frequent line he came on in.
+//  · BASES: Totals · Per game (÷ games played; minutes ÷ the games with minutes) · Per 70 (county) / Per 60 (club):
+//    value ÷ minutes × 70 / 60, over the games where he has minutes. A selection of both levels → "Per game-length":
+//    value ÷ Σ(minutes ÷ that game's full length, 70 or 60). Players under ONE full game of minutes are greyed and left
+//    out of the ranks and the average.
+//  · AVERAGE = the mean over the squad players who have the figure (n/a left out). % v average = (value − avg) ÷ |avg|;
+//    beyond +3% green, beyond −3% red, within ±3% grey. Ranks: highest first, a tie shares its rank (=3rd).
+// ═══════════════════════════════════════════════════════════════
+const PF_METRICS=[['gp','Games played'],['min','Minutes played'],['total','Total scores'],['pts','Points'],['one','1-pt scores'],['two','2-pt scores'],['goals','Goals'],['shots','Shots'],['pct','Conversion %'],['xp','xP'],['assists','Assists']];
+const PF_SHORT={gp:'GP', min:'Mins', total:'Scores', pts:'Pts', one:'1pt', two:'2pt', goals:'Goals', shots:'Shots', pct:'Conv %', xp:'xP', assists:'Ast'};
+const PF_LINES=[['GK','Goalkeeper','goalkeepers'],['B','Backs','backs'],['M','Midfield','midfielders'],['F','Forwards','forwards']];
+const PF_BLOCKS=[[0,15,'0–15'],[15,30,'15–30'],[30,45,'30–45'],[45,60,'45–60'],[60,Infinity,'60+']];
+const PF_TOL=3;      // the ±3% band
+const PF_FLOOR=1;    // rate bases: at least one full game of minutes (70 county / 60 club)
+const PF_PAGE=PY_PAGE;
+const PF_TAGS={h1:'1H', h2:'2H', e1:'ET1', e2:'ET2'};
+// the game clock the tab uses everywhere else (Momentum: mmStarts / mmClock, the dashboard's scoreboard rule) in seconds
+function pfClockOf(meta, events){ const S=mmStarts(meta, events); return e=>{ const k=mmClock(e, S); return k?{p:k.p, secs:k.min*60}:null; }; }
+const PF_MIN_CACHE=new WeakMap();
+function pfMinutes(meta, events, T){
+  if(typeof cohMinutesGame!=='function') return {ok:false, reason:'the minutes helper (cohesion-minutes.js) is not loaded'};
+  let c=PF_MIN_CACHE.get(events);
+  const sig=JSON.stringify([meta.rosters||null, meta.scPeriods||null, meta.homeTeam, meta.awayTeam, meta.section]);
+  if(!c||c.n!==events.length||c.sig!==sig){ c={n:events.length, sig, t:new Map()}; PF_MIN_CACHE.set(events, c); }
+  if(!c.t.has(T)) c.t.set(T, cohMinutesGame({meta, events, team:T, clockOf:pfClockOf(meta, events), keyOf:pyKey}));
+  return c.t.get(T);
+}
+// every player of team T named on an event of the game (sub rows aside) → Map(key → name)
+function pfTagged(meta, events, T, shots, kos){
+  const m=new Map(), add=n=>{ const k=pyKey(n); if(k&&!m.has(k)) m.set(k, String(n).trim()); };
+  let idx=null;
+  (events||[]).forEach(e=>{ if(!e||(typeof cohIsSubRow==='function'&&cohIsSubRow(e))) return;
+    if(e.playerRow||(!e.team&&!e.player&&cohLabelValues(e, PY_INV_GROUP).length)){ if(!e.playerRow&&!idx) idx=cohPlayerIndex(events, meta); const w=cohPlayerRowOf(e, idx); if(w&&w.name&&ssUC(w.team)===T) add(w.name); return; }
+    cohEventPlayers(e, meta).forEach(p=>{ if(ssUC(p.team||e.team)===T) add(p.name); }); });
+  (shots||[]).forEach(s=>{ if(s.pk) add(s.player); if(s.ak) add(s.assist); });
+  (kos||[]).forEach(k=>{ if(k.who&&k.who.team===T) add(k.who.name); });
+  return m;
+}
+// where each of team T's scores came from, as the Analysis source figures count them (ssGameTally's score-source loop):
+// a SCORE SOURCE row gives its points to the score it is paired with (ssScoreSourceShots); a game with no source rows
+// reads the shot's own source label (or, a GIU game, its possession row). → {byShot: Map(shot event → {cat, val}),
+// pts:{cat → points} (= the tally's srcP), unpaired:{cat → points of rows paired with no shot}}
+function pfShotSources(meta, events, T){
+  const giSup=(typeof cohGiSupersededFn==='function')?cohGiSupersededFn(events):()=>false;
+  const giComp=e=>typeof cohGiIsCompanion==='function'&&cohGiIsCompanion(e), skip=e=>giSup(e)||giComp(e), mode=ssShotMode(events);
+  const rowMode=events.some(e=>!skip(e)&&/(SCORE|SHOT) SOURCE/.test(ssUC(e.code)));
+  const byShot=new Map(), pts={}, unpaired={};
+  const add=(o, k, v)=>{ o[k]=(o[k]||0)+v; };
+  if(rowMode){
+    const rec=ssScoreSourceValues(events, T, skip, mode), rs=ssScoreSourceShots(events, T, skip, mode);
+    events.forEach(e=>{ if(skip(e)||!ssSideOf(e,T)||!/SCORE SOURCE/.test(ssUC(e.code))) return;
+      const cat=ssSrcCat(ssLblCI(e,['Score Source Outcomes','Shot Source Outcomes','Source'])); if(!cat) return;
+      let val=ssScoreVal(ssL(e,'Score Source Score Outcomes')||ssLbl(e,SS_SHOT_GROUPS)||e.outcome||'');
+      if(!(val>0)&&rec.has(e)) val=rec.get(e);
+      if(!(val>0)) return;
+      add(pts, cat, val); const sh=rs.get(e);
+      if(sh&&!byShot.has(sh)) byShot.set(sh, {cat, val}); else add(unpaired, cat, val); });
+  } else {
+    const possSrc=ssPossSrc(events, skip, mode);
+    events.forEach(e=>{ if(skip(e)||!ssSideOf(e,T)||!ssIsShot(e, mode)) return;
+      let cat=ssSrcCat(ssLblCI(e,['Shot Source Outcomes','Score Source Outcomes','Source']));
+      if(!cat&&possSrc&&possSrc.map.has(e)) cat=ssSrcCat(possSrc.map.get(e));
+      const val=ssScoreVal(ssLbl(e,SS_SHOT_GROUPS)||e.outcome||''); if(!cat||!(val>0)) return;
+      add(pts, cat, val); byShot.set(e, {cat, val}); });
+  }
+  return {byShot, pts, unpaired, rowMode};
+}
+// the levels of the games → the rate basis: {level:'county'|'club'|'mixed', label, unit (minutes; null mixed)}
+function pfRateBasis(levels){
+  const u=[...new Set(levels)];
+  if(u.length===1&&u[0]==='county') return {level:'county', label:'Per 70', unit:70};
+  if(u.length===1&&u[0]==='club') return {level:'club', label:'Per 60', unit:60};
+  return {level:u.length?'mixed':'none', label:'Per game-length', unit:null};
+}
+// competition ranks, highest first, ties share: [{key, v}] → Map(key → {rank, tie, of})
+function pfRanks(list){
+  const a=list.filter(x=>x.v!=null&&isFinite(x.v)).slice().sort((p,q)=>q.v-p.v), out=new Map();
+  a.forEach((x,i)=>{ const r=a.findIndex(y=>y.v===x.v)+1, tie=a.filter(y=>y.v===x.v).length>1; out.set(x.key, {rank:r, tie, of:a.length}); });
+  return out;
+}
+function pfRankTxt(r){ return r?(r.tie?'=':'')+ovOrd(r.rank)+' of '+r.of:'n/a'; }
+// % against the average and its tone (the ±3% rule)
+function pfVs(v, avg){
+  if(v==null||avg==null||!isFinite(v)||!isFinite(avg)) return {pct:null, tone:'na'};
+  if(avg===0) return {pct:null, tone:v===0?'mid':'na'};
+  const p=(v-avg)/Math.abs(avg)*100;
+  return {pct:p, tone:p>PF_TOL?'pos':p<-PF_TOL?'neg':'mid'};
+}
+const PF_ZERO=()=>({total:0, pts:0, one:0, two:0, goals:0, shots:0, xp:0, xpShots:0, xpPts:0, assists:0});
+function pfAddShot(o, s){ o.shots++; if(s.v>0){ o.total++; o.pts+=s.v; if(s.v>=3) o.goals++; else if(s.v===2) o.two++; else o.one++; } if(s.xp!=null){ o.xp+=s.xp; o.xpShots++; o.xpPts+=s.v; } }
+// Everything the profile needs for team T over its games (oldest → newest). R = pyCompute's result (the same games).
+function pfCompute(T, games, bundleOf, R){
+  const list=ovTeamGames(games, T).slice().reverse(), P=new Map(), G=[];
+  const get=(k, n)=>{ let p=P.get(k); if(!p){ p={key:k, names:{}, gp:0, gpMin:0, secs:0, units:0, starts:0, subApps:0, startLines:[], subLines:[], noMinGames:0, games:[], tot:PF_ZERO(), totM:PF_ZERO(), scoredGames:0,
+      on:{secs:0, units:0, pf:0, pa:0}, off:{secs:0, units:0, pf:0, pa:0}, ooGames:0}; P.set(k, p); } if(n) p.names[n]=(p.names[n]||0)+1; return p; };
+  let unplaced=0;
+  list.forEach(g=>{
+    const b=bundleOf(g.id); if(!b||!b.meta||!Array.isArray(b.events)) return;
+    const meta=b.meta, level=cohGameLevel(meta), reg=2*COH_HALF_MIN[level], shots=R.shots.filter(s=>s.gid===g.id);
+    const PG=pyGame(meta, b.events, T), M=pfMinutes(meta, b.events, T), tagged=pfTagged(meta, b.events, T, shots, PG?PG.kos:[]), mins=new Map();
+    if(M.ok) M.players.forEach(p=>mins.set(p.key, p));
+    const played=new Map();
+    if(M.ok) M.players.forEach(p=>{ if(p.secs>0) played.set(p.key, p.name); });
+    tagged.forEach((n,k)=>{ if(!played.has(k)) played.set(k, n); });
+    const all=ttGameShots(meta, b.events), clock=pfClockOf(meta, b.events), O=ssUC(meta.homeTeam)===T?ssUC(meta.awayTeam):ssUC(meta.homeTeam);
+    const gt=s=>M.ok?cohMinutesGameTime(clock(s.e), M.periods):null;
+    const scoresT=all.filter(s=>s.team===T&&s.v>0), scoresO=all.filter(s=>s.team===O&&s.v>0);
+    const gi={gid:g.id, date:g.date||'', opp:ssUC(meta.homeTeam)===T?meta.awayTeam:meta.homeTeam, level, reg, M, played:played.size, pf:scoresT.reduce((a,s)=>a+s.v,0), pa:scoresO.reduce((a,s)=>a+s.v,0), src:pfShotSources(meta, b.events, T)};
+    if(M.ok){ gi.tPlaced=scoresT.map(s=>({t:gt(s), v:s.v})); gi.oPlaced=scoresO.map(s=>({t:gt(s), v:s.v})); unplaced+=gi.tPlaced.concat(gi.oPlaced).filter(x=>x.t==null).length; }
+    G.push(gi);
+    played.forEach((name, k)=>{ const p=get(k, name), m=mins.get(k), hasMin=!!(M.ok&&m&&m.secs>0);
+      const mine=shots.filter(s=>s.pk===k), ast=shots.filter(s=>s.ak===k&&s.v>0).length, rec={gid:g.id, min:hasMin?m.secs/60:null, pts:0, scores:0};
+      p.gp++; mine.forEach(s=>pfAddShot(p.tot, s)); p.tot.assists+=ast;
+      mine.forEach(s=>{ if(s.v>0){ rec.pts+=s.v; rec.scores++; } }); if(rec.scores) p.scoredGames++;
+      if(hasMin){ p.gpMin++; p.secs+=m.secs; p.units+=m.secs/60/reg; mine.forEach(s=>pfAddShot(p.totM, s)); p.totM.assists+=ast;
+        if(m.started){ p.starts++; if(m.lineFrom==='pos'&&m.line) p.startLines.push(m.line); } else { p.subApps++; if(m.line) p.subLines.push(m.line); } }
+      else if(M.ok) p.noMinGames++;
+      p.games.push(rec); });
+    // ON / OFF: every player in the squad of a sheet game (started, came on, or a named sub who stayed on the bench)
+    if(M.ok) M.players.forEach(m=>{ if(!m.squad) return; const p=get(m.key, m.name), on=m.secs, off=M.length-m.secs;
+      p.ooGames++; p.on.secs+=on; p.off.secs+=off; p.on.units+=on/60/reg; p.off.units+=off/60/reg;
+      const inS=t=>cohMinutesSplit(m.spells, t);
+      gi.tPlaced.forEach(x=>{ if(x.t==null) return; if(inS(x.t)) p.on.pf+=x.v; else p.off.pf+=x.v; });
+      gi.oPlaced.forEach(x=>{ if(x.t==null) return; if(inS(x.t)) p.on.pa+=x.v; else p.off.pa+=x.v; }); });
+  });
+  const basis=pfRateBasis(G.map(x=>x.level));
+  const lineOf=p=>{ const pick=a=>{ if(!a.length) return ''; const c={}; a.forEach(l=>{ c[l]=(c[l]||0)+1; }); const top=Math.max(...Object.values(c)); for(let i=a.length-1;i>=0;i--) if(c[a[i]]===top) return a[i]; return ''; };   // a tie: the latest game's
+    return pick(p.startLines)||pick(p.subLines); };
+  const players=[...P.values()].filter(p=>p.gp>0).map(p=>{ const t=p.tot, tm=p.totM, oo=p.ooGames?p.on:null;
+    const r={key:p.key, name:pyBestName(p.names), gp:p.gp, gpMin:p.gpMin, min:p.gpMin?p.secs/60:null, units:p.units, starts:p.starts, subApps:p.subApps, line:lineOf(p), noMinGames:p.noMinGames,
+      total:t.total, pts:t.pts, one:t.one, two:t.two, goals:t.goals, shots:t.shots, pct:ovPct(t.total, t.shots), xp:t.xpShots?t.xp:null, xpShots:t.xpShots, xpPts:t.xpPts, assists:t.assists,
+      m:tm, games:p.games, scoredGames:p.scoredGames, scoredPct:ovPct(p.scoredGames, p.gp), fin:t.xpShots?t.xpPts-t.xp:null,
+      oo:p.ooGames?{games:p.ooGames, on:Object.assign({}, p.on), off:Object.assign({}, p.off)}:null};
+    if(r.oo){ const f=(s,k)=>s.units>0?s[k]/s.units:null; ['on','off'].forEach(s=>{ const S=r.oo[s]; S.min=S.secs/60; S.pfR=f(S,'pf'); S.paR=f(S,'pa'); S.diff=S.pf-S.pa; S.diffR=S.units>0?S.diff/S.units:null; });
+      r.oo.swing=(r.oo.on.diffR!=null&&r.oo.off.diffR!=null)?r.oo.on.diffR-r.oo.off.diffR:null; r.oo.few=!(r.oo.on.units>=PF_FLOOR&&r.oo.off.units>=PF_FLOOR); }
+    return r; });
+  return {team:T, games:G, n:G.length, basis, players, byKey:new Map(players.map(p=>[p.key, p])), unplaced, noMinPG:players.reduce((a,p)=>a+p.noMinGames, 0),
+    sheetGames:G.filter(x=>x.M.ok).length, noSheet:G.filter(x=>!x.M.ok)};
+}
+// a player's figure for a metric on a basis ('tot' | 'pg' | 'rate'); null = n/a. few = under the rate floor.
+function pfVal(p, k, b){
+  if(k==='pct') return p.pct;
+  if(b==='tot') return k==='min'?p.min:k==='xp'?p.xp:p[k];
+  if(b==='pg'){ if(k==='gp') return null; if(k==='min') return p.gpMin?p.min/p.gpMin:null; if(k==='xp') return p.xp==null?null:p.xp/p.gp; return p[k]/p.gp; }
+  if(k==='gp'||k==='min') return null;
+  if(!(p.units>0)) return null;
+  if(k==='xp') return p.m.xpShots?p.m.xp/p.units:null;
+  return p.m[k]/p.units;
+}
+function pfFew(p, b, k){ return b==='rate'&&k!=='pct'&&!(p.units>=PF_FLOOR); }
+// the squad on a basis: per metric {avg, n, ranks, lineRanks:{line → Map}}
+function pfSquad(F, b){
+  const S={};
+  PF_METRICS.forEach(([k])=>{ const rows=F.players.filter(p=>!pfFew(p, b, k)).map(p=>({key:p.key, v:pfVal(p, k, b), line:p.line})).filter(x=>x.v!=null);
+    const avg=rows.length?rows.reduce((a,x)=>a+x.v, 0)/rows.length:null, lr={};
+    PF_LINES.forEach(([l])=>{ lr[l]=pfRanks(rows.filter(x=>x.line===l)); });
+    S[k]={avg, n:rows.length, ranks:pfRanks(rows), lineRanks:lr}; });
+  // the on / off swing (per 70 / 60 / game-length): players over the floor on BOTH sides
+  const sw=F.players.filter(p=>p.oo&&!p.oo.few&&p.oo.swing!=null).map(p=>({key:p.key, v:p.oo.swing}));
+  S.swing={avg:sw.length?sw.reduce((a,x)=>a+x.v,0)/sw.length:null, n:sw.length, ranks:pfRanks(sw)};
+  const fin=F.players.filter(p=>p.fin!=null).map(p=>({key:p.key, v:p.fin})); S.fin={avg:fin.length?fin.reduce((a,x)=>a+x.v,0)/fin.length:null, n:fin.length, ranks:pfRanks(fin)};
+  const sc=F.players.map(p=>({key:p.key, v:p.scoredPct})).filter(x=>x.v!=null); S.scored={avg:sc.length?sc.reduce((a,x)=>a+x.v,0)/sc.length:null, n:sc.length, ranks:pfRanks(sc)};
+  return S;
+}
+// WHEN THEY SCORE: the whole-game minute of a shot (cohesion-periods.js cohTotalMinutes: 1H 0–, 2H from the half's
+// length, ET after both halves) in 15-minute blocks; 60+ holds the rest (the end of a county game and extra time)
+function pfBlocks(shots, bundleOf){
+  const cl=new Map(), out=PF_BLOCKS.map(B=>({label:B[2], scores:0, pts:0})); let noClock=0, scores=0, pts=0;
+  (shots||[]).forEach(s=>{ if(!(s.v>0)) return; const b=bundleOf(s.gid); if(!b) return;
+    let f=cl.get(s.gid); if(!f){ f=pfClockOf(b.meta, b.events); cl.set(s.gid, f); }
+    const c=f(s.e), m=c?cohTotalMinutes(b.meta, PF_TAGS[c.p], c.secs):null;
+    scores++; pts+=s.v;
+    if(m==null){ noClock++; return; }
+    const i=PF_BLOCKS.findIndex(B=>m>=B[0]&&m<B[1]); out[i].scores++; out[i].pts+=s.v; });
+  out.forEach(o=>{ o.share=ovPct(o.scores, scores-noClock); o.ptsShare=ovPct(o.pts, pts); });
+  return {rows:out, scores, pts, noClock};
+}
+// SCORE SOURCES: the player's points by source (his scores the source figures pair with a source) v the team's (the tally)
+function pfSources(F, key, bundleOf, R){
+  const mine={}, team={}; let mineTot=0, teamTot=0, mineAll=0, unpairedTeam=0;
+  F.games.forEach(g=>{ const b=bundleOf(g.gid), t=ssTallyCached(b, F.team);
+    SS_SRC_CATS.forEach(c=>{ const v=(t&&t['srcP:'+c.k])||0; team[c.k]=(team[c.k]||0)+v; teamTot+=v; });
+    Object.values(g.src.unpaired).forEach(v=>{ unpairedTeam+=v; }); });
+  R.shots.forEach(s=>{ if(s.pk!==key||!(s.v>0)) return; mineAll+=s.v; const g=F.games.find(x=>x.gid===s.gid), x=g&&g.src.byShot.get(s.e);
+    if(x){ mine[x.cat]=(mine[x.cat]||0)+x.val; mineTot+=x.val; } });
+  const rows=SS_SRC_CATS.map(c=>({k:c.k, label:c.label, col:c.col, extra:!!c.extra, mine:mine[c.k]||0, team:team[c.k]||0}))
+    .filter(r=>!r.extra||r.mine||r.team).map(r=>Object.assign(r, {minePct:ovPct(r.mine, mineTot), teamPct:ovPct(r.team, teamTot)}));
+  return {rows, mineTot, teamTot, mineAll, unpairedTeam};
+}
+// ASSIST LINKS: who set him up (pyAssistors on his shots), and whom he set up (the scores that name him as the assist)
+function pfLinks(R, key){
+  const by=pyAssistors(R.shots.filter(s=>s.pk===key), new Map(R.players.map(p=>[p.key, p.name])));
+  const m=new Map(); let n=0;
+  R.shots.forEach(s=>{ if(s.ak!==key||!(s.v>0)||!s.pk) return; n++; let r=m.get(s.pk); if(!r){ r={key:s.pk, names:{}, scores:0, pts:0}; m.set(s.pk, r); } r.names[s.player]=(r.names[s.player]||0)+1; r.scores++; r.pts+=s.v; });
+  const to=[...m.values()].map(r=>({key:r.key, name:pyBestName(r.names), scores:r.scores, pts:r.pts})).sort((a,b)=>b.scores-a.scores||b.pts-a.pts||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1));
+  return {by, to:to.slice(0, PY_TOP), toCount:to.length, toScores:n};
+}
+// conversion by pressure level (pyPressure's cells, all sides added)
+function pfPressure(shots){
+  const P=pyPressure(shots), o={};
+  PY_LEVELS.forEach(([l])=>{ let sh=0, sc=0; PY_SIDES.forEach(([s])=>{ sh+=P.cells[s][l].shots; sc+=P.cells[s][l].scores; }); o[l]={shots:sh, scores:sc, pct:ovPct(sc, sh)}; });
+  return {lv:o, tagged:P.tagged, total:P.total};
+}
+// the table: sort (n/a and greyed last), as pySort
+function pfSort(rows, key, dir, b){
+  const d=dir==='asc'?1:-1, nm=r=>r.name.toLowerCase(), v=r=>key==='name'?null:(pfFew(r, b, key)?null:pfVal(r, key, b));
+  return rows.slice().sort((a,c)=>{ if(key==='name') return (nm(a)<nm(c)?-1:nm(a)>nm(c)?1:0)*d;
+    const x=v(a), y=v(c); if((x==null)!==(y==null)) return x==null?1:-1;
+    return (x==null||x===y?0:(x<y?-1:1)*d)||c.pts-a.pts||c.gp-a.gp||(nm(a)<nm(c)?-1:nm(a)>nm(c)?1:0); });
+}
+
+// ── PLAYER PROFILE strings (every interpolated value escaped) ──
+function pfNum(v, k, b){
+  if(v==null) return 'n/a';
+  if(k==='pct') return pyPct1(v);
+  if(k==='gp'&&b==='tot') return String(v);
+  if(k==='min'&&b==='tot') return String(Math.round(v));
+  if(b==='tot'&&k!=='xp') return String(v);
+  return (Math.round(v*100)/100).toFixed(k==='min'?0:(Math.abs(v)>=10?1:2));
+}
+function pfAvgTxt(v, k){ return v==null?'n/a':k==='pct'?pyPct1(v):(Math.round(v*100)/100).toFixed(Math.abs(v)>=10?1:2); }
+function pfVsTxt(x, short){ if(x.pct==null) return x.tone==='mid'?'= avg':'n/a'; const a=Math.abs(x.pct); return (x.pct>0?'▲ ':x.pct<0?'▼ ':'= ')+(a>=100?Math.round(a):a.toFixed(1))+'%'+(short?'':' vs squad avg'); }
+function pfBasisLabel(F, b){ return b==='tot'?'Totals':b==='pg'?'Per game':F.basis.label; }
+function pfLineName(l){ const x=PF_LINES.find(y=>y[0]===l); return x?x[1]:''; }
+function pfCtlHTML(F, o){
+  const B=[['tot','Totals'],['pg','Per game'],['rate',F.basis.label]];
+  return `<div class="pf-ctl"><div class="seg pf-seg" role="group" aria-label="Basis">${B.map(x=>`<button type="button" class="${o.basis===x[0]?'on':''}" data-pfbasis="${x[0]}" aria-pressed="${o.basis===x[0]?'true':'false'}">${ssEsc(x[1])}</button>`).join('')}</div>`
+    +`<span class="pf-ctln">${ssEsc(F.players.length+' players in the squad · '+F.n+' game'+(F.n===1?'':'s')+' · minutes from '+F.sheetGames+(F.sheetGames===1?' game':' games')+' with a team sheet')}</span></div>`;
+}
+function pfHeadHTML(F, p, S, b, col){
+  const line=p.line?pfLineName(p.line):'line n/a', mins=p.min==null?'minutes n/a':Math.round(p.min)+' min';
+  const kpis=PF_METRICS.map(([k,l])=>{ const v=pfVal(p, k, b), few=pfFew(p, b, k), s=S[k], x=few?{pct:null, tone:'na'}:pfVs(v, s.avg), r=few?null:s.ranks.get(p.key), lr=(!few&&p.line)?s.lineRanks[p.line].get(p.key):null;
+    return `<div class="pf-kpi${few?' few':''}"><div class="pf-kt">${ssEsc(l)}</div><div class="pf-kv${v==null?' na':''}">${ssEsc(pfNum(v, k, b))}</div>`
+      +`<div class="pf-kd ${x.tone}">${ssEsc(few?'under '+(F.basis.unit?F.basis.unit+' min':'one game'):v==null?'—':pfVsTxt(x))}</div>`
+      +`<div class="pf-kr">${ssEsc('Squad '+pfRankTxt(r))}<br>${ssEsc(p.line?pfLineName(p.line)+' '+(lr?pfRankTxt(lr):'n/a'):'Line rank n/a')}</div></div>`; }).join('');
+  return `<div class="tt-card pf-head" style="--bc:${ssEsc(col)}"><div class="pf-who">${cohPlayerBadgeHTML(F.team, p.name, {cls:'py-badge', color:col})}<div><h3>${ssEsc(p.name)}</h3>`
+    +`<span>${ssEsc(line+' · '+pyGames(p.gp)+' played ('+p.starts+' started, '+p.subApps+' off the bench in games with minutes) · '+mins)}</span></div><em>${ssEsc(pfBasisLabel(F, b))}</em></div>`
+    +`<div class="pf-kpis">${kpis}</div></div>`;
+}
+function pfBarsHTML(F, S, b, metric, sel){
+  const k=metric, lab=(PF_METRICS.find(m=>m[0]===k)||[])[1]||k, s=S[k];
+  const rows=F.players.map(p=>({p, v:pfVal(p, k, b), few:pfFew(p, b, k)})).filter(x=>x.v!=null).sort((x,y)=>(x.few?1:0)-(y.few?1:0)||y.v-x.v||(x.p.name.toLowerCase()<y.p.name.toLowerCase()?-1:1));
+  const sw=`<div class="chips pf-mets" role="group" aria-label="Metric">${PF_METRICS.map(([m,l])=>`<button type="button" class="chip${m===k?' on':''}" data-pfmetric="${m}" aria-pressed="${m===k?'true':'false'}">${ssEsc(PF_SHORT[m])}</button>`).join('')}</div>`;
+  const head=`<div class="pf-bh"><h4 class="td-ct">SQUAD RANKING · ${ssEsc(lab.toUpperCase())}</h4><span class="pf-leg"><span><i class="pf-sw pos"></i>&gt;3% ahead</span><span><i class="pf-sw mid"></i>within 3%</span><span><i class="pf-sw neg"></i>&gt;3% behind</span><span><i class="pf-sw avg"></i>squad avg</span></span></div>`;
+  if(!rows.length) return `<div class="tt-card pf-bars">${head}${sw}<div class="tt-empty">n/a — no player has this figure on this basis${k==='gp'||k==='min'?' (it is a total)':''}.</div></div>`;
+  const max=Math.max(...rows.map(x=>Math.max(0, x.v)), s.avg||0)||1, pc=v=>Math.max(0, Math.min(100, v/max*100));
+  const body=rows.map(x=>{ const t=x.few?'few':pfVs(x.v, s.avg).tone, on=x.p.key===sel;
+    return `<li class="pf-br${on?' sel':''}${x.few?' few':''}" data-pfpick="${ssEsc(x.p.key)}" tabindex="0" role="button" aria-label="${ssEsc((on?'Selected: ':'Select ')+x.p.name+', '+pfNum(x.v, k, b))}">`
+      +`<span class="pf-bn">${ssEsc(x.p.name)}</span><span class="pf-bt"><i class="pf-bf ${t}" style="width:${pc(x.v).toFixed(1)}%"></i>${s.avg!=null?`<i class="pf-avg" style="left:${pc(s.avg).toFixed(1)}%"></i>`:''}</span><b>${ssEsc(pfNum(x.v, k, b))}</b></li>`; }).join('');
+  const nf=rows.filter(x=>x.few).length;
+  return `<div class="tt-card pf-bars">${head}${sw}<ol class="pf-bl">${body}</ol>`
+    +`<div class="dnote">${ssEsc(lab+' ('+pfBasisLabel(F, b)+'). Dashed line = the squad average'+(s.avg!=null?' ('+pfAvgTxt(s.avg, k)+')':'')+'; a bar is green more than 3% above it, red more than 3% below, grey within 3%.'+(nf?' '+nf+' player'+(nf===1?' is':'s are')+' greyed (under '+(F.basis.unit?F.basis.unit+' minutes':'one full game')+'): not ranked, not in the average.':'')+' Click a bar to select the player.')}</div></div>`;
+}
+function pfTableHTML(F, S, b, sort, sel, shown){
+  const rows=pfSort(F.players, sort.key, sort.dir, b), pg=pyPage(rows.length, shown);
+  const cols=[['name','Player']].concat(PF_METRICS.map(([k])=>[k, PF_SHORT[k]]));
+  const th=cols.map(c=>{ const on=sort.key===c[0]; return `<th scope="col" class="${c[0]==='name'?'py-n':''}${on?' on':''}" aria-sort="${on?(sort.dir==='asc'?'ascending':'descending'):'none'}">${pySortBtnHTML('data-pfsort', c[0], c[1], on, sort.dir, c[0]==='name'?'Player':(PF_METRICS.find(m=>m[0]===c[0])||[])[1])}</th>`; }).join('');
+  const body=rows.slice(0, pg.shown).map(p=>{ const on=p.key===sel;
+    const cells=PF_METRICS.map(([k])=>{ const v=pfVal(p, k, b), few=pfFew(p, b, k);
+      if(v==null) return '<td class="na">n/a</td>';
+      const x=few?{pct:null, tone:'na'}:pfVs(v, S[k].avg);
+      return `<td class="${few?'few':''}">${ssEsc(pfNum(v, k, b))}<small class="${x.tone}">${ssEsc(few?'low mins':x.pct==null?(x.tone==='mid'?'=':''):pfVsTxt(x, true))}</small></td>`; }).join('');
+    return `<tr class="pf-row${on?' sel':''}" data-pfpick="${ssEsc(p.key)}" tabindex="0" role="button" aria-pressed="${on?'true':'false'}" aria-label="${ssEsc((on?'Selected: ':'Select ')+p.name)}"><td class="py-n">${ssEsc(p.name)}<small>${ssEsc(p.line?pfLineName(p.line):'line n/a')}</small></td>${cells}</tr>`; }).join('');
+  return `<div class="tt-card py-tabcard pf-tabcard"><h4 class="td-ct">SQUAD TABLE · ${ssEsc(pfBasisLabel(F, b).toUpperCase())}</h4><div class="py-scroll"><table class="py-tab pf-tab"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`
+    +`<div class="py-foot"><span class="mr-count">Showing ${pg.shown} of ${pg.total}</span>${pg.next>0?`<button type="button" class="mr-more" data-pfmore="1">Show next ${pg.next}</button>`:''}</div>`
+    +`<div class="dnote">${ssEsc('Each cell: the figure, and under it ▲ / ▼ its % against the squad average (green beyond +3%, red beyond −3%, grey within). Click a column to sort, a row to select the player.')}</div></div>`;
+}
+function pfSpark(p){
+  const g=p.games, max=Math.max(1, ...g.map(x=>x.pts)), W=Math.max(120, g.length*16), H=46, bw=Math.min(12, W/g.length-3);
+  return `<svg class="pf-spark" style="max-width:${Math.min(420, g.length*28+24)}px" viewBox="0 0 ${W} ${H+12}" role="img" aria-label="${ssEsc('Points per game, oldest to newest: '+g.map(x=>x.pts).join(', '))}" preserveAspectRatio="xMinYMid meet">`
+    +g.map((x,i)=>{ const h=x.pts/max*H, cx=i*(W/g.length)+(W/g.length)/2; return `<rect x="${(cx-bw/2).toFixed(1)}" y="${(H-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(x.pts?1.5:0.8, h).toFixed(1)}" rx="1.5" class="${x.pts?'pf-sp':'pf-sp0'}"/><text x="${cx.toFixed(1)}" y="${H+10}" text-anchor="middle" class="pf-spv">${x.pts}</text>`; }).join('')+'</svg>';
+}
+function pfPatternsHTML(F, p, S, R, bundleOf){
+  const mine=R.shots.filter(s=>s.pk===p.key), team=R.shots;
+  // a. when they score
+  const Bm=pfBlocks(mine, bundleOf), Bt=pfBlocks(team, bundleOf);
+  const blk=`<div class="tt-card pf-pat"><h4 class="td-ct">WHEN THEY SCORE</h4>`+(Bm.scores?`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">MIN</th><th scope="col">SCORES</th><th scope="col">PTS</th><th scope="col">SHARE</th><th scope="col">${ssEsc(F.team.length>10?'TEAM':F.team)}</th></tr></thead><tbody>`
+    +Bm.rows.map((r,i)=>{ const t=Bt.rows[i], x=pfVs(r.share, t.share); return `<tr><th scope="row">${ssEsc(r.label)}</th><td>${r.scores}</td><td>${r.pts}</td><td class="${r.share==null?'na':x.tone}">${ssEsc(r.share==null?'n/a':Math.round(r.share)+'%')}</td><td>${ssEsc(t.share==null?'n/a':Math.round(t.share)+'%')}</td></tr>`; }).join('')+'</tbody></table>':'<div class="tt-empty">No scores.</div>')
+    +`<div class="dnote">${ssEsc('Scores by the minute of the game (the scoreboard’s clock: 1H from 0, 2H from '+(F.basis.level==='club'?'30':F.basis.level==='county'?'35':'the half’s length')+'; 60+ is the last part of a county game and any extra time). SHARE = his scores in the block ÷ all his scores; '+F.team+' = the team’s share.'+(Bm.noClock?' '+Bm.noClock+' of his scores have no game clock and are left out.':''))}</div></div>`;
+  // b. sources
+  const So=pfSources(F, p.key, bundleOf, R);
+  const src=`<div class="tt-card pf-pat"><h4 class="td-ct">SCORE SOURCES</h4>`+(So.mineTot?`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">SOURCE</th><th scope="col">PTS</th><th scope="col">SHARE</th><th scope="col">TEAM</th></tr></thead><tbody>`
+    +So.rows.map(r=>{ const x=pfVs(r.minePct, r.teamPct); return `<tr><th scope="row"><i class="mm-sq" style="background:${ssEsc(r.col)}"></i> ${ssEsc(r.label)}</th><td>${r.mine}</td><td class="${r.minePct==null?'na':x.tone}">${ssEsc(r.minePct==null?'n/a':Math.round(r.minePct)+'%')}</td><td>${ssEsc(r.teamPct==null?'n/a':Math.round(r.teamPct)+'%')}</td></tr>`; }).join('')+'</tbody></table>'
+      :`<div class="tt-empty">${ssEsc(So.mineAll?'n/a — none of his '+So.mineAll+' points has a source tag.':'No scores.')}</div>`)
+    +`<div class="dnote">${ssEsc('Points by where the possession came from, the rule of the Overview’s score sources (a SCORE SOURCE row, else the shot’s own source label). TEAM = the team’s share of its '+So.teamTot+' sourced points (the Overview figure). '+So.mineTot+' of his '+So.mineAll+' points have a source.'+(So.unpairedTeam?' '+So.unpairedTeam+' team point'+(So.unpairedTeam===1?' is':'s are')+' on a source row that pairs with no shot, so no player has '+(So.unpairedTeam===1?'it':'them')+'.':''))}</div></div>`;
+  // c. assist links
+  const Lk=pfLinks(R, p.key), li=(rows, f)=>rows.length?`<ol class="pf-ll">${rows.map(r=>`<li><span>${ssEsc(r.name)}</span>${f(r)}</li>`).join('')}</ol>`:'<div class="pf-lna">None tagged.</div>';
+  const lnk=`<div class="tt-card pf-pat"><h4 class="td-ct">ASSIST LINKS</h4><div class="pf-l2"><div><h5>SET HIM UP</h5>${li(Lk.by.rows, r=>`<b>${r.total}</b><small>${ssEsc(r.score)}</small>`)}</div><div><h5>HE SET UP</h5>${li(Lk.to, r=>`<b>${r.scores}</b><small>${r.pts} pts</small>`)}</div></div>`
+    +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.')}</div></div>`;
+  // d. consistency + finishing
+  const Pm=pfPressure(mine), Pt=pfPressure(team), sc=S.scored, fi=S.fin, xs=pfVs(p.scoredPct, sc.avg), xf=pfVs(p.fin, fi.avg);
+  const cons=`<div class="tt-card pf-pat"><h4 class="td-ct">CONSISTENCY + FINISHING</h4>`
+    +`<div class="pf-cr"><span>Scored in</span><b>${ssEsc(p.scoredPct==null?'n/a':Math.round(p.scoredPct)+'%')}</b><small class="${xs.tone}">${ssEsc(p.scoredGames+' of '+pyGames(p.gp)+' · '+pfVsTxt(xs, true)+' · '+pfRankTxt(sc.ranks.get(p.key)))}</small></div>`
+    +`<div class="pf-cr"><span>Finishing (pts − xP)</span><b>${ssEsc(p.fin==null?'n/a':mrSigned(p.fin))}</b><small class="${p.fin==null?'na':xf.tone}">${ssEsc(p.fin==null?'no shot xP can rate':p.xpPts+' pts from shots worth '+p.xp.toFixed(1)+' xP · squad avg '+(fi.avg==null?'n/a':mrSigned(fi.avg))+' · '+pfRankTxt(fi.ranks.get(p.key)))}</small></div>`
+    +`<div class="pf-trend"><span>Points per game, oldest → newest</span>${pfSpark(p)}</div>`
+    +`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">PRESSURE</th><th scope="col">HIS CONV.</th><th scope="col">SHOTS</th><th scope="col">TEAM</th></tr></thead><tbody>`
+    +PY_LEVELS.map(([l, n])=>{ const a=Pm.lv[l], t=Pt.lv[l], x=pfVs(a.pct, t.pct); return `<tr><th scope="row">${ssEsc(n)}</th><td class="${a.pct==null?'na':x.tone}">${ssEsc(pyPct1(a.pct))}</td><td>${a.scores}/${a.shots}</td><td>${ssEsc(pyPct1(t.pct))}</td></tr>`; }).join('')+'</tbody></table>'
+    +`<div class="dnote">${ssEsc('Scored in = games in which he scored ÷ games played (squad avg '+(sc.avg==null?'n/a':Math.round(sc.avg)+'%')+'). Finishing = his points from shots xP can rate minus their xP; a few dozen shots are needed before it means much. Pressure: conversion by the Shot Pressure tag on shots that also carry a Shot Side tag (as the Pressure Rating) — '+Pm.tagged+' of his '+Pm.total+' shots; TEAM = the whole team’s.')}</div></div>`;
+  return `<div class="pf-pats">${blk}${src}${lnk}${cons}</div>`;
+}
+function pfOnOffHTML(F, p, S){
+  const oo=p.oo, u=F.basis.unit?'per '+F.basis.unit:'per game-length';
+  if(!oo) return `<div class="tt-card pf-oo"><h4 class="td-ct">ON / OFF PITCH</h4><div class="tt-empty">n/a — none of ${ssEsc(p.name)}’s games has a team sheet${F.sheetGames?'':' (no game in the selection has one)'}, so his time on the pitch is not known.</div></div>`;
+  const r=v=>v==null?'n/a':(Math.round(v*10)/10).toFixed(1), sg=v=>v==null?'n/a':mrSigned(v);
+  const row=(l, s)=>`<tr><th scope="row">${l}<small>${ssEsc(Math.round(s.min)+' min')}</small></th><td>${s.pf}</td><td>${s.pa}</td><td class="${s.diff>0?'pos':s.diff<0?'neg':''}">${ssEsc(sg(s.diff))}</td><td>${ssEsc(r(s.pfR))}</td><td>${ssEsc(r(s.paR))}</td><td class="${s.diffR==null?'na':s.diffR>0?'pos':s.diffR<0?'neg':''}">${ssEsc(sg(s.diffR))}</td></tr>`;
+  const x=oo.few?{pct:null, tone:'na'}:pfVs(oo.swing, S.swing.avg), rk=oo.few?null:S.swing.ranks.get(p.key);
+  return `<div class="tt-card pf-oo"><h4 class="td-ct">ON / OFF PITCH · SCORE IMPACT</h4>`
+    +`<div class="pf-oohd${oo.few?' few':''}"><div><span>On − off swing, score difference ${ssEsc(u)}</span><b class="${oo.swing==null?'na':oo.swing>0?'pos':oo.swing<0?'neg':''}">${ssEsc(sg(oo.swing))}</b></div>`
+    +`<small class="${x.tone}">${ssEsc(oo.few?'Not ranked: under '+(F.basis.unit?F.basis.unit+' minutes':'one full game')+' '+(oo.on.units<PF_FLOOR?'on':'off')+' the pitch':pfVsTxt(x)+' (squad avg '+sg(S.swing.avg)+') · '+pfRankTxt(rk))}</small></div>`
+    +`<div class="py-scroll"><table class="tt-ztab pf-ootab"><thead><tr><th scope="col"></th><th scope="col">FOR</th><th scope="col">AGAINST</th><th scope="col">DIFF</th><th scope="col">FOR <small>${ssEsc(u)}</small></th><th scope="col">AGST <small>${ssEsc(u)}</small></th><th scope="col">DIFF <small>${ssEsc(u)}</small></th></tr></thead><tbody>`
+    +row('ON', oo.on)+row('OFF', oo.off)+'</tbody></table></div>'
+    +`<div class="dnote">${ssEsc('Points for and against '+F.team+' while '+p.name+' was on the pitch (ON) and for the rest of those games (OFF), over the '+oo.games+' game'+(oo.games===1?'':'s')+' with a team sheet in which he was in the squad (started, came on, or a named sub who stayed on the bench). Rates: points ÷ minutes × '+(F.basis.unit||'each game’s full length')+'. Small samples are noisy, and the score while a player is on reflects the whole team, not him alone; a player under '+(F.basis.unit?F.basis.unit+' minutes':'one full game')+' on either side is not ranked.'+(F.unplaced?' '+F.unplaced+' score'+(F.unplaced===1?' has':'s have')+' no game clock and '+(F.unplaced===1?'is':'are')+' left out.':''))}</div></div>`;
+}
+// the whole section: o = {basis, metric, sort, shown, col}
+function pfHTML(F, R, V, o, bundleOf){
+  if(!F||!F.n) return '';
+  const b=o.basis||'tot', S=pfSquad(F, b), sel=V.key, p=sel?F.byKey.get(sel):null;
+  const noSheet=F.noSheet.map(g=>'v '+g.opp+' ('+(g.M.reason||'n/a')+')');
+  let h=pfCtlHTML(F, o);
+  if(p) h+=pfHeadHTML(F, p, S, b, o.col||'#4fc3f7');
+  else if(sel) h+=`<div class="tt-card tt-empty">n/a — ${ssEsc(V.player?V.player.name:'this player')} did not play in these games (no minutes and no tagged event).</div>`;
+  else h+='<div class="py-ihint">Select a player (above, or click a bar or a row below) to see his figures against the squad.</div>';
+  h+=`<div class="pf-row2">${pfBarsHTML(F, S, b, o.metric||'pts', sel)}${p?pfOnOffHTML(F, p, S):''}</div>`;
+  if(p) h+=pfPatternsHTML(F, p, S, R, bundleOf);
+  h+=pfTableHTML(F, S, b, o.sort, sel, o.shown);
+  h+=`<div class="dnote pf-note">${ssEsc('SQUAD = every '+F.team+' player who played in these games: minutes > 0 in a game with a team sheet; in a game without one, a player named on any of the team’s events. The squad average is the mean over those players who have the figure. Minutes: starters from the team sheet, subs from the game’s SUB rows (a blood sub counts only while on; the player he replaced is back on at the RETURNED time), red and black cards, period lengths from the period rows or the last event, extra time included; a game without a team sheet gives n/a minutes, never an estimate. Per game = ÷ games played (minutes ÷ the games with minutes). '+F.basis.label+(F.basis.unit?' = value ÷ minutes × '+F.basis.unit+' ('+(F.basis.level==='county'?'county':'club')+' games)':' = value ÷ Σ(minutes ÷ that game’s full length: 70 county, 60 club), as the selection has both levels')+', over the games with minutes; players under '+(F.basis.unit?F.basis.unit+' minutes':'one full game')+' are greyed and not ranked. Conversion % is scores ÷ shots on every basis. Ranks: highest first; =3rd is a shared rank. Line = the player’s most frequent starting position on the team sheets (1 goalkeeper, 2–7 backs, 8–9 midfield, 10–15 forwards; a sub takes the line of the player he replaced); never from a jersey number — no position, no line rank.'+(F.noMinPG?' '+F.noMinPG+' time'+(F.noMinPG===1?'':'s')+' a player is named on an event of a game with a team sheet that gives him no minutes (a name the sheet and subs do not have): he played, his minutes for that game are n/a.':'')+(noSheet.length?' No minutes for '+noSheet.length+' game'+(noSheet.length===1?'':'s')+': '+noSheet.join('; ')+'.':''))}</div>`;
+  return h;
+}
+
 // ── Players page wiring ──
-let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_KSEL=null, PY_SHOWN=PY_PAGE, PY_INV=null, PY_ISHOWN=PY_PAGE, PY_IPER=false;
+let PY_TOKEN=0, PY_TIMER=null, PY_LAST=null, PY_VIEW=null, PY_SEL=null, PY_KSEL=null, PY_SHOWN=PY_PAGE, PY_INV=null, PY_ISHOWN=PY_PAGE, PY_IPER=false, PF_LAST=null;
+const PF_O={basis:'tot', metric:'pts', sort:{key:'pts', dir:'desc'}, shown:PF_PAGE};   // the PLAYER PROFILE's own controls
 const PY_SORT={key:'total', dir:'desc'}, PY_F={types:new Set(), play:'both'}, PY_ISORT={key:'inv', dir:'desc'};
-function pyHas(key){ return !!key&&((!!PY_LAST&&PY_LAST.players.some(p=>p.key===key))||(!!PY_INV&&PY_INV.players.some(p=>p.key===key))); }   // a player of either table
+function pyHas(key){ return !!key&&((!!PY_LAST&&PY_LAST.players.some(p=>p.key===key))||(!!PY_INV&&PY_INV.players.some(p=>p.key===key))||(!!PF_LAST&&PF_LAST.byKey.has(key))); }   // a player of either table, or of the profile's squad
 function pyKoHas(key){ return !!key&&!!PY_LAST&&PY_LAST.kos.some(k=>k.who&&k.who.team===PY_LAST.team&&k.who.key===key); }   // a player the kickout box lists
 function pySchedule(){ if(TAB!=='players'||!GAMES_READY) return; clearTimeout(PY_TIMER); PY_TIMER=setTimeout(pyRun, 40); }
 async function pyRun(){
@@ -7064,22 +7462,26 @@ async function pyRun(){
   PY_LAST=pyCompute(T, pool, id=>BUNDLES.get(id));
   // the selected player survives a filter change while he is still in the table; a new team starts clean
   PY_INV=pyInvolvement(T, pool, id=>BUNDLES.get(id));
+  try{ PF_LAST=pfCompute(T, pool, id=>BUNDLES.get(id), PY_LAST); }catch(e){ PF_LAST=null; console.error('player profile', e); }   // the profile never takes the tab down
+  if(prev!==T){ PF_O.shown=PF_PAGE; }
   if(prev!==T) PY_KSEL=null; else if(PY_KSEL&&!pyKoHas(PY_KSEL)) PY_KSEL=null;   // the kickout selection: the same rule, on its own
   if(prev!==T){ PY_SEL=null; PY_SHOWN=PY_PAGE; PY_ISHOWN=PY_PAGE; PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
   else if(PY_SEL&&!pyHas(PY_SEL)) PY_SEL=null;
   if(!pyInvSortKeys(pyInvCols(PY_INV)).includes(PY_ISORT.key)){ PY_ISORT.key='inv'; PY_ISORT.dir='desc'; }
   pyRender();
 }
-function pyOpts(){ let col='#4fc3f7'; try{ col=ssDisplayColors(PY_LAST.team, '__baseline__').a||col; }catch(_){ } return {sort:PY_SORT, shown:PY_SHOWN, F:PY_F, col, inv:PY_INV, isort:PY_ISORT, ishown:PY_ISHOWN, iper:PY_IPER}; }
+function pyOpts(){ let col='#4fc3f7'; try{ col=ssDisplayColors(PY_LAST.team, '__baseline__').a||col; }catch(_){ } return {sort:PY_SORT, shown:PY_SHOWN, F:PY_F, col, inv:PY_INV, isort:PY_ISORT, ishown:PY_ISHOWN, iper:PY_IPER, pf:PF_LAST, pfo:Object.assign({col}, PF_O), bundleOf:id=>BUNDLES.get(id)}; }
 function pyRender(parts){
   const body=ssEl('pyBody'); if(!body||!PY_LAST) return;
   ttHideTip();
-  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F, PY_INV, PY_KSEL);
+  PY_VIEW=pyView(PY_LAST, PY_SEL, PY_F, PY_INV, PY_KSEL, PF_LAST);
   if(PY_VIEW.key){ const i=pySort(PY_LAST.players, PY_SORT.key, PY_SORT.dir).findIndex(p=>p.key===PY_VIEW.key); PY_SHOWN=pyShownFor(PY_LAST.players.length, i, PY_SHOWN); }   // the selected row is always among those shown
+  if(PY_VIEW.key&&PF_LAST&&PF_LAST.byKey.has(PY_VIEW.key)){ const i=pfSort(PF_LAST.players, PF_O.sort.key, PF_O.sort.dir, PF_O.basis).findIndex(p=>p.key===PY_VIEW.key); PF_O.shown=pyShownFor(PF_LAST.players.length, i, PF_O.shown); }
   if(PY_VIEW.key&&PY_INV&&PY_INV.players.length){ const C=pyInvCols(PY_INV), i=pySort(pyInvRows(PY_INV, C, PY_IPER), PY_ISORT.key, PY_ISORT.dir).findIndex(p=>p.key===PY_VIEW.key); if(i>=0) PY_ISHOWN=pyShownFor(PY_INV.players.length, i, PY_ISHOWN); }
   const o=pyOpts(), R=PY_LAST, V=PY_VIEW;
-  const fill={pyInvSec:()=>pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col}), pyTableSec:()=>pyTableHTML(R, o.sort, V.key, o.shown, o.col), pySelSec:()=>pySelBarHTML(R, V, o.F, o.inv), pyMapSec:()=>pyMapsHTML(R, V, o.F), pyShootSec:()=>pyShootHTML(R, V, o.F), pyKoSec:()=>pyKoHTML(R, V)};
+  const fill={pyInvSec:()=>pyInvHTML(o.inv, V.key, {sort:o.isort, shown:o.ishown, per:o.iper, col:o.col}), pyTableSec:()=>pyTableHTML(R, o.sort, V.key, o.shown, o.col), pySelSec:()=>pySelBarHTML(R, V, o.F, o.inv, o.pf), pyProfSec:()=>pfHTML(o.pf, R, V, o.pfo, o.bundleOf), pyMapSec:()=>pyMapsHTML(R, V, o.F), pyShootSec:()=>pyShootHTML(R, V, o.F), pyKoSec:()=>pyKoHTML(R, V)};
   if(parts&&!pyInvHas(o.inv)) parts=parts.filter(id=>id!=='pyInvSec');   // no involvement data: the section is not on the page
+  if(parts&&!(o.pf&&o.pf.n)) parts=parts.filter(id=>id!=='pyProfSec');   // no profile (no games loaded): nor is this one
   if(!parts||!parts.every(id=>ssEl(id)&&fill[id])) body.innerHTML=pyHTML(R, V, o);
   else parts.forEach(id=>{ ssEl(id).innerHTML=fill[id](); });
   pyFitHits();
@@ -7091,7 +7493,7 @@ function pyFitHits(){
 }
 function pySelect(key){
   PY_SEL=pyHas(key)?key:null;
-  pyRender(['pyTableSec','pySelSec','pyInvSec','pyMapSec','pyShootSec']);   // not the Kickout Details: that section has its own selection
+  pyRender(['pyTableSec','pySelSec','pyInvSec','pyMapSec','pyProfSec','pyShootSec']);   // not the Kickout Details: that section has its own selection
 }
 // the KICKOUT selection (the Kickout Details box and its lists); the top selection is not touched
 function pyKoSelect(key){ PY_KSEL=pyKoHas(key)?key:null; pyRender(['pyKoSec']); }
@@ -7113,6 +7515,15 @@ function pyInvSortBy(key){
 }
 function pyInvMore(){ if(!PY_INV) return; const n=PY_INV.players.length; PY_ISHOWN=Math.min(n, pyPage(n, PY_ISHOWN).shown+PY_STEP); pyRender(['pyInvSec']); }
 function pyInvPer(on){ PY_IPER=!!on; pyRender(['pyInvSec']); }
+// the PLAYER PROFILE's controls (its own section only; a bar / row click selects through pySelect, the tab's one selection)
+function pfSetBasis(b){ if(!['tot','pg','rate'].includes(b)) return; PF_O.basis=b; pyRender(['pyProfSec']); }
+function pfSetMetric(k){ if(!PF_METRICS.some(m=>m[0]===k)) return; PF_O.metric=k; pyRender(['pyProfSec']); }
+function pfSortBy(key){
+  if(key!=='name'&&!PF_METRICS.some(m=>m[0]===key)) return;
+  if(PF_O.sort.key===key) PF_O.sort.dir=PF_O.sort.dir==='asc'?'desc':'asc'; else { PF_O.sort.key=key; PF_O.sort.dir=key==='name'?'asc':'desc'; }
+  pyRender(['pyProfSec']);
+}
+function pfMore(){ if(!PF_LAST) return; const n=PF_LAST.players.length; PF_O.shown=Math.min(n, pyPage(n, PF_O.shown).shown+PY_STEP); pyRender(['pyProfSec']); }
 function pyMore(){ if(!PY_LAST) return; PY_SHOWN=Math.min(PY_LAST.players.length, pyPage(PY_LAST.players.length, PY_SHOWN).shown+PY_STEP); pyRender(['pyTableSec']); }
 function pyChip(k){ pySetChip(PY_F, k); pyRender(['pySelSec','pyMapSec','pyShootSec']); }
 // the typed / picked name → a player of the table (same name rule); an empty box clears the selection
@@ -7134,6 +7545,11 @@ function pyClick(e){
   if((x=c('[data-pychip]'))){ pyChip(x.dataset.pychip); return true; }
   if((x=c('[data-pyclear]'))){ if(!x.disabled) pySelect(null); return true; }
   if((x=c('[data-pyrow]'))){ pySelect(x.dataset.pyrow===PY_SEL?null:x.dataset.pyrow); return true; }
+  if((x=c('[data-pfbasis]'))){ pfSetBasis(x.dataset.pfbasis); return true; }
+  if((x=c('[data-pfmetric]'))){ pfSetMetric(x.dataset.pfmetric); return true; }
+  if((x=c('[data-pfsort]'))){ pfSortBy(x.dataset.pfsort); return true; }
+  if((x=c('[data-pfmore]'))){ pfMore(); return true; }
+  if((x=c('[data-pfpick]'))){ const k=x.dataset.pfpick; pySelect(k===PY_SEL?null:k); return true; }
   if((x=c('[data-pykclear]'))){ if(!x.disabled) pyKoSelect(null); return true; }
   if((x=c('[data-pykrow]'))){ pyKoSelect(x.dataset.pykrow===PY_KSEL?null:x.dataset.pykrow); return true; }
   if(c('#pySel')||c('#pyKoSel')) return true;
@@ -7148,6 +7564,8 @@ function pyInit(){
     if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pykrow!=null){ e.preventDefault(); const k=t.dataset.pykrow, kl=t.closest?t.closest('.py-kl'):null, li=kl&&pane.querySelectorAll?[...pane.querySelectorAll('#pyKoSec .py-kl')].indexOf(kl):-1;
       pyKoSelect(k===PY_KSEL?null:k);   // the section is redrawn: focus goes back to the same name in the same list
       const row=li>=0?[...pane.querySelectorAll('#pyKoSec .py-kl')[li].querySelectorAll('[data-pykrow]')].find(r=>r.dataset.pykrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } return; }
+    if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pfpick!=null){ e.preventDefault(); const k=t.dataset.pfpick, inTab=!!(t.closest&&t.closest('.pf-tab')); pySelect(k===PY_SEL?null:k);
+      const row=pane.querySelector?[...pane.querySelectorAll('#pyProfSec '+(inTab?'.pf-tab ':'.pf-bl ')+'[data-pfpick]')].find(r=>r.dataset.pfpick===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } return; }
     if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow, box=t.closest&&t.closest('#pyInvSec')?'#pyInvSec ':'#pyTableSec '; pySelect(k===PY_SEL?null:k);
       const row=pane.querySelector?[...pane.querySelectorAll(box+'[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
 }
