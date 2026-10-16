@@ -34,6 +34,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const EVENTS_PAGE = 1000;   // Supabase's (PostgREST's) default row cap per request
+
 function rolesOf(decoded) {
   const raw = (decoded.app_metadata && decoded.app_metadata.roles) || [];
   return raw.map(r => String(r).toLowerCase());
@@ -95,9 +97,17 @@ exports.handler = async (event, context) => {
       if (!allowed.includes(sectionOf(g.meta))) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this game' }) };
       }
-      const { data: ev, error: eErr } = await supabase.from('events')
-        .select('id, data').eq('game_id', id);
-      if (eErr) throw new Error(eErr.message);
+      // Every event of the game, a page at a time: Supabase returns at most 1000 rows per request, so a game with more
+      // events than that lost everything past the 1000th (a 1400-event Final stopped at about 57 minutes).
+      // Ordered by id so the pages never overlap or skip a row.
+      const ev = [];
+      for (let from = 0; ; from += EVENTS_PAGE) {
+        const { data: page, error: eErr } = await supabase.from('events')
+          .select('id, data').eq('game_id', id).order('id', { ascending: true }).range(from, from + EVENTS_PAGE - 1);
+        if (eErr) throw new Error(eErr.message);
+        (page || []).forEach(r => ev.push(r));
+        if (!page || page.length < EVENTS_PAGE) break;
+      }
       if (action === 'getEvents') {
         return { statusCode: 200, body: JSON.stringify({ ok: true, events: ev || [] }) };
       }
