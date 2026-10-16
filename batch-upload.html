@@ -225,6 +225,8 @@ header{
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-labels.js"></script>
+<script src="cohesion-gi.js"></script>
+<script src="cohesion-igc.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -450,6 +452,7 @@ function normalizeHeaders(headers) {
     'angle_4_et2_start': ['angle_4_et2_start', 'angle4_et2_start'],
     'angle_5_et1_start': ['angle_5_et1_start', 'angle5_et1_start'],
     'angle_5_et2_start': ['angle_5_et2_start', 'angle5_et2_start'],
+    'ta_team': ['ta_team', 'tateam', 'ta', 'ta_is'],
     'notes': ['notes']
   };
 
@@ -516,6 +519,8 @@ async function handleExcelFile(file) {
         half2StartText: String(row[normalized['half2_start']] || ''),
         et1StartText: String(row[normalized['et1_start']] || ''),
         et2StartText: String(row[normalized['et2_start']] || ''),
+        // iGaelicCoach files name their teams only TA / TB: which one TA is ('home' / 'away' or a team name; default home)
+        taIs: igcTaFrom(row[normalized['ta_team']], row[normalized['away_team']]),
         angles,
         xmlFile: null,
         xmlText: '',
@@ -637,6 +642,7 @@ function renderBatchTable() {
           ${game.xmlText ? `<span style="color:#86efac;">✓ XML attached (${game.xmlText.length} bytes)</span>` : '<span style="color:var(--t3);">No XML attached</span>'}
           ${game.xmlText.includes('NA Whistle') ? '<span style="margin-left:12px;color:#81d4fa;">📊 Gaelic Insights detected</span>' : ''}
           ${game.xmlText.includes('P1 START') && game.xmlText.includes('P2 START') ? '<span style="margin-left:12px;color:#81d4fa;">📊 GIU detected</span>' : ''}
+          ${igcInfoHtml(game)}
         </div>
       </div>
 
@@ -1094,6 +1100,29 @@ function parseGiuXml({
 // ═══════════════════════════════════════════════════════════════
 // VALIDATION & PARSING
 // ═══════════════════════════════════════════════════════════════
+// ── iGaelicCoach (cohesion-igc.js): which team TA is, from the sheet ("home" / "away" or a team name) or the row's box ──
+function igcTaFrom(v, awayTeam) {
+  const t = String(v == null ? '' : v).trim();
+  return /^away$/i.test(t) || (t && awayTeam && t.toUpperCase() === String(awayTeam).trim().toUpperCase()) ? 'away' : 'home';
+}
+function igcEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+// the row's iGaelicCoach box: "TA is [home ▾]" and each side's figures to check against the iGaelicCoach summary
+function igcInfoHtml(game) {
+  if (!game.xmlText || typeof cohIgcDetect !== 'function') return '';
+  const det = cohIgcDetect(game.xmlText);
+  if (!det.igc) return det.recognised || det.format === 'tracker-json' ? '' : '<span style="margin-left:12px;color:#fca5a5;">⚠ Format not recognised</span>';
+  const S = cohIgcSummary(game.xmlText), away = game.taIs === 'away', nm = { TA: away ? game.awayTeam : game.homeTeam, TB: away ? game.homeTeam : game.awayTeam };
+  const dis = game.parseStatus === 'uploaded' ? 'disabled' : '';
+  const line = k => { const x = S[k]; return `<div>${k} = <b>${igcEsc(nm[k] || '?')}</b>: ${x.goals}-${String(x.points).padStart(2, '0')} · ${x.poss} possessions · ${x.shots} shots · kickouts won ${x.kickoutsWon}/${x.kickouts} · ${x.turnovers} turnovers lost</div>`; };
+  return `<span style="margin-left:12px;color:#81d4fa;">📊 iGaelicCoach detected</span>
+    <div class="igc-row" style="margin-top:8px;font-size:12px;color:var(--t2);">
+      <label>TA is <select class="igc-ta" onchange="updateGame('${game.id}', 'taIs', this.value)" ${dis}>
+        <option value="home" ${away ? '' : 'selected'}>home (${igcEsc(game.homeTeam || '?')})</option>
+        <option value="away" ${away ? 'selected' : ''}>away (${igcEsc(game.awayTeam || '?')})</option></select></label>
+      ${line('TA')}${line('TB')}
+    </div>`;
+}
+
 function validateBatchGame(game) {
   const errors = [];
 
@@ -1125,6 +1154,25 @@ function parseBatchGame(game) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(game.xmlText, 'text/xml');
   const instances = Array.from(doc.querySelectorAll('instance'));
+  // iGaelicCoach first (cohesion-igc.js) — the other rules below would misread it — and a file no format reads, by name
+  const igcDet = (typeof cohIgcDetect === 'function') ? cohIgcDetect(game.xmlText) : null;
+  if (igcDet && igcDet.igc) {
+    const ig = cohIgcImport(game.xmlText, { homeTeam: game.homeTeam, awayTeam: game.awayTeam, taIs: game.taIs === 'away' ? 'away' : 'home',
+      videoStarts: { '1st Half': half1Video, '2nd Half': half2Video, 'ET 1st Half': et1Video, 'ET 2nd Half': et2Video } });
+    if (ig.error || (ig.stats.etNoVideoStart && ig.stats.etNoVideoStart.length)) {
+      game.parseStatus = 'blocked';
+      game.errors = [ig.error || ('This file has extra time (' + ig.stats.etNoVideoStart.join(' and ') + '): add et1_start and et2_start to this game’s row in the sheet.')];
+      return game;
+    }
+    game.scRows = ig.rows; game.scPeriods = ig.periods;
+    game.parsedEvents = ig.events;
+    game.diagnostics = { format: 'igaelicoach', eventCount: ig.events.length, ta: ig.teams.TA, tb: ig.teams.TB, byKind: ig.stats.byKind };
+    game.parseStatus = 'ready'; game.errors = [];
+    return game;
+  }
+  if (igcDet && !igcDet.recognised && igcDet.format !== 'tracker-json') {
+    return { ...game, parseStatus: 'blocked', errors: [igcDet.message] };
+  }
   const isGaelicInsights = instances.some(inst =>
     (inst.querySelector('code')?.textContent || '').trim() === 'NA Whistle'
   );

@@ -193,6 +193,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-labels.js"></script>
+<script src="cohesion-igc.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="cohesion-player.js"></script>
 </head>
@@ -267,6 +268,23 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <input type="file" id="scRestoreFile" accept=".xml" style="font-size:12px;">
       <button type="button" class="mode-btn" style="margin-top:8px;" onclick="scRestoreRun()">Check file &amp; restore values</button>
       <div id="scRestoreOut" style="font-size:12px;color:var(--t2);margin-top:8px;white-space:pre-line;"></div>
+    </div>
+    <!-- Add an iGaelicCoach file's information to the stored game of the same match — add-only (cohesion-igc.js) -->
+    <div class="field" id="igcMergeBox" style="margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:8px;">
+      <label>Add iGaelicCoach data to this game <span style="font-weight:400;color:var(--t3);">— adds only, keeps every value and player name</span></label>
+      <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:8px;">
+        Choose the game above and an <b>iGaelicCoach XML</b> of the same match. Its shots and kickouts are lined up with the game's
+        in order, half by half; then its <b>possessions</b> are added (retimed onto this game's video between the lined-up events), and
+        the lined-up events gain the details they lack (third, Goal Chance, source, kickout landing third, block / post / out for 45,
+        sideline / free). Nothing the game already has is replaced; where the two files disagree the game's value is kept and the
+        difference is listed. Nothing is saved until you press <b>Add to game</b>.
+      </div>
+      <input type="file" id="igcMergeFile" accept=".xml" style="font-size:12px;">
+      <label style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;font-size:12px;font-weight:400;">TA is
+        <select id="igcMergeTa" style="font-size:12px;padding:3px 6px;"><option value="">found automatically</option><option value="home">the home team</option><option value="away">the away team</option></select></label>
+      <div><button type="button" class="mode-btn" style="margin-top:8px;" onclick="igcMergeCheck()">Check file &amp; preview</button>
+        <button type="button" class="mode-btn" id="igcMergeGo" style="margin-top:8px;display:none;" onclick="igcMergeWrite()">Add to game</button></div>
+      <div id="igcMergeOut" style="font-size:12px;color:var(--t2);margin-top:8px;"></div>
     </div>
   </div>
 
@@ -552,7 +570,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <div class="step-num">3</div>
       <div>
         <div class="step-title">Upload Match Data File</div>
-        <div class="step-sub" id="xmlUploadSub">Sportscode XML, GIU XML, Gaelic Insights XML <em>or</em> Gaelic Tracker JSON — auto-detected</div>
+        <div class="step-sub" id="xmlUploadSub">Sportscode XML, GIU XML, Gaelic Insights XML, iGaelicCoach XML <em>or</em> Gaelic Tracker JSON — auto-detected</div>
       </div>
     </div>
 
@@ -587,11 +605,24 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
          ondrop="handleDrop(event)">
       <div class="dz-icon">📂</div>
       <div class="dz-title">Drop file here or click to browse</div>
-      <div class="dz-sub">Sportscode / GIU / Gaelic Insights <code>.xml</code> &nbsp;or&nbsp; Gaelic Tracker <code>.json</code></div>
+      <div class="dz-sub">Sportscode / GIU / Gaelic Insights / iGaelicCoach <code>.xml</code> &nbsp;or&nbsp; Gaelic Tracker <code>.json</code></div>
       <div class="dz-file" id="dzFileName"></div>
       <div id="srcBadge" style="display:none;" class="src-badge"></div>
     </div>
     <input type="file" id="xmlFile" accept=".xml,.json" onchange="handleFileSelect(this)">
+
+    <!-- iGaelicCoach: the file names its teams only TA / TB (cohesion-igc.js) -->
+    <div id="igcBox" style="display:none;margin:10px 0;padding:12px;border:1px solid #10b981;border-radius:8px;background:rgba(16,185,129,0.08);">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label for="igcTaIs" style="font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t1);">iGaelicCoach: TA is</label>
+        <select id="igcTaIs" onchange="igcRenderBox()" style="background:var(--card,#1c1c26);border:1px solid var(--border,#333);border-radius:8px;color:var(--t1,#eee);font-size:0.85rem;padding:6px 10px;">
+          <option value="home">the home team</option>
+          <option value="away">the away team</option>
+        </select>
+        <span style="font-size:11px;color:var(--t3);">— TB is the other team. Check the counts below against the iGaelicCoach summary.</span>
+      </div>
+      <div id="igcPreview" style="margin-top:8px;font-size:12px;color:var(--t2);"></div>
+    </div>
 
     <div class="error-box" id="errorBox"></div>
 
@@ -956,6 +987,82 @@ async function scRestoreRun(){
     }
     say(lines.concat([`✓ Restored ${st.values} label value(s) and ${st.times} exact time(s); ${done} event(s) updated.`+(rowsNew?` Rows saved.`:'')]).join('\n'));
   }catch(e){ say('✗ ' + e.message + '\nRun it again: events already updated are skipped.'); }
+}
+
+// ── Add iGaelicCoach data to a stored game (add-only; cohesion-igc.js cohIgcMergePlan) ──
+// Check: reads the stored events and the file, lines them up and shows what would be added — nothing is written.
+// Add to game: the same save path as the restore above (editEvent: updates for the labels added, inserts for the
+// possessions), on a FRESH read of the events, re-planned so nothing changed since the preview is overwritten.
+let igcMergeState = null;
+function igcEsc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function igcMergeHtml(game, plan){
+  const P = plan, st = P.stats, team = t => igcEsc(t), H = '<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--border);">';
+  const td = s => '<td style="padding:3px 8px;border-bottom:1px solid var(--border);vertical-align:top;">' + s + '</td>';
+  const kindW = k => k === 'ko' ? 'kickout' : 'shot';
+  const head = `<div style="margin-bottom:6px;"><b>${igcEsc(game.title || game.id)}</b> — TA = <b>${team(P.teams.TA)}</b>, TB = <b>${team(P.teams.TB)}</b>`
+    + (P.auto && P.auto.home != null && P.auto.away != null ? ` <span style="color:var(--t3);">(TA as home lines up ${P.auto.home}, as away ${P.auto.away})</span>` : '') + '</div>'
+    + `<div>Lined up <b>${st.matched}</b> of ${st.slots} shots and kickouts (game ${st.anchorsGame}, iGaelicCoach ${st.anchorsFile}): `
+    + P.halves.map(h => `${igcEsc(h.half)} ${h.matched} of ${h.slots}`).join(' · ') + '</div>'
+    + `<div>To add: <b>${st.possAdd}</b> possessions` + (st.possAlready ? ` (${st.possAlready} already added)` : '') + (st.possNoAnchor ? ` — ${st.possNoAnchor} left out: their half has too few lined-up events` : '')
+    + ` · <b>${st.labels}</b> label values on ${st.fills} events · ${st.diffs} differences listed (game's value kept)</div>`;
+  const matched = P.matched.map(m => '<tr>' + td(igcEsc(m.half)) + td(team(m.team) + ' ' + kindW(m.kind)) + td(igcEsc(m.game.clock) + ' · ' + igcEsc(m.game.desc)) + td(igcEsc(m.file.clock) + ' · ' + igcEsc(m.file.desc))
+    + td(m.adds.length ? igcEsc(m.adds.join('; ')) : '<span style="color:var(--t3);">—</span>') + td(m.diffs.length ? igcEsc(m.diffs.map(d => d.what + ': game ' + d.kept + ', iGaelicCoach ' + d.other + (d.type === 'refined' ? ' (detail added)' : '')).join('; ')) : '') + '</tr>').join('');
+  const only = (L, other) => L.map(x => '<tr>' + td(igcEsc(x.half)) + td(team(x.team) + ' ' + kindW(x.kind)) + td(igcEsc(x.clock)) + td(igcEsc(x.desc)) + td(x.note ? igcEsc(x.note) : '') + '</tr>').join('');
+  const diffs = P.diffs.map(d => '<tr>' + td(igcEsc(d.half)) + td(team(d.team) + ' ' + kindW(d.kind)) + td(igcEsc(d.what)) + td('game ' + igcEsc(d.gameClock) + ': <b>' + igcEsc(d.kept) + '</b> (kept)') + td('iGaelicCoach ' + igcEsc(d.fileClock) + ': ' + igcEsc(d.other) + (d.type === 'refined' ? ' — added as a detail' : '')) + '</tr>').join('');
+  const tbl = (cols, rows) => `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:11.5px;margin-top:6px;"><tr>${cols.map(c => H + c + '</th>').join('')}</tr>${rows}</table></div>`;
+  const sec = (id, title, n, body, open) => `<details id="${id}" ${open ? 'open' : ''} style="margin-top:8px;"><summary style="cursor:pointer;font-weight:700;">${title} (${n})</summary>${n ? body : '<div style="color:var(--t3);">none</div>'}</details>`;
+  return head
+    + sec('igcMergeDiffs', 'Differences — the game’s value is kept', P.diffs.length, tbl(['Half','Event','What','Game','iGaelicCoach'], diffs), true)
+    + sec('igcMergeMatched', 'Lined up — and what each would gain', P.matched.length, tbl(['Half','Event','Game','iGaelicCoach','Would add','Differs'], matched), false)
+    + sec('igcMergeOnlyGame', 'Only in the existing game', P.onlyGame.length, tbl(['Half','Event','Clock','Detail','Note'], only(P.onlyGame)), true)
+    + sec('igcMergeOnlyIgc', 'Only in iGaelicCoach', P.onlyIgc.length, tbl(['Half','Event','Clock','Detail','Note'], only(P.onlyIgc)), true);
+}
+async function igcMergeCheck(){
+  const out = document.getElementById('igcMergeOut'), go = document.getElementById('igcMergeGo'), say = h => { out.innerHTML = h; };
+  go.style.display = 'none'; igcMergeState = null;
+  const rIdx = parseInt(document.getElementById('reparseGame').value);
+  const game = (!isNaN(rIdx) && reparseGames[rIdx]) ? reparseGames[rIdx] : null;
+  const file = (document.getElementById('igcMergeFile').files || [])[0];
+  if(!game){ say('Choose the game first (search above).'); return; }
+  if(!file){ say('Choose the iGaelicCoach XML file of this match.'); return; }
+  try{
+    say('Reading the file and the stored events…');
+    const text = cohScDecode(await file.arrayBuffer());
+    const rows = (await cohesionRead({ action:'getEvents', gameId: game.id })).events || [];
+    const taIs = document.getElementById('igcMergeTa').value || undefined;
+    const plan = cohIgcMergePlan(rows.map(r => r.data), game, text, { taIs });
+    if(!plan.ok){ say('✗ ' + igcEsc(plan.error) + '<br>Nothing was changed.'); return; }
+    const ops = cohIgcMergeOps(rows, plan);
+    igcMergeState = { gameId: game.id, text, taIs: plan.taIs, n: ops.updates.length + ops.inserts.length };
+    say(igcMergeHtml(game, plan) + (igcMergeState.n ? '' : '<div style="margin-top:8px;">✓ Nothing to add — this file\'s information is already in the game.</div>'));
+    if(igcMergeState.n) go.style.display = '';
+  }catch(e){ say('✗ ' + igcEsc(e.message)); }
+}
+async function igcMergeWrite(){
+  const out = document.getElementById('igcMergeOut'), go = document.getElementById('igcMergeGo'), S = igcMergeState;
+  const status = t => { let el = document.getElementById('igcMergeStatus'); if(!el){ el = document.createElement('div'); el.id = 'igcMergeStatus'; el.style.cssText = 'margin-top:8px;font-weight:700;'; out.prepend(el); } el.textContent = t; };
+  if(!S) return;
+  try{
+    // a fresh read: the plan is made again on the events as they are now (an edit since the preview stands)
+    const rows = (await cohesionRead({ action:'getEvents', gameId: S.gameId })).events || [];
+    const game = reparseGames.find(g => g.id === S.gameId) || { id:S.gameId };
+    const plan = cohIgcMergePlan(rows.map(r => r.data), game, S.text, { taIs: S.taIs });
+    if(!plan.ok) throw new Error(plan.error);
+    const ops = cohIgcMergeOps(rows, plan);
+    if(!confirm(`Add to “${game.title || game.id}”:\n· ${ops.inserts.length} possession(s)\n· ${plan.stats.labels} label value(s) on ${ops.updates.length} event(s)\n\nNothing is deleted or replaced; ${plan.stats.diffs} difference(s) keep the game's value.`)){ status('Cancelled — nothing was changed.'); return; }
+    go.style.display = 'none';
+    const all = ops.updates.map(u => ({ action:'update', id:u.id, data:u.data })).concat(ops.inserts.map(d => ({ action:'insert', game_id:S.gameId, data:d })));
+    let done = 0;
+    for(let i = 0; i < all.length; i += 40){
+      const chunk = all.slice(i, i + 40);
+      const { results } = await adminFetch('editEvent', { ops: chunk });
+      const failed = (results || []).filter(r => !r.ok);
+      if(failed.length) throw new Error(failed.length + ' change(s) failed after ' + done + ' were saved: ' + failed.map(f => f.error).join('; '));
+      done += chunk.length; status(`Saving… ${done} of ${all.length}`);
+    }
+    status(`✓ Added ${ops.inserts.length} possession(s) and ${plan.stats.labels} label value(s) on ${ops.updates.length} event(s).`);
+    igcMergeState = null;
+  }catch(e){ status('✗ ' + e.message + ' — run it again: what is already added is found and skipped.'); }
 }
 
 // ── Mode toggle (New Game / Re-parse) ─────────────────────────
@@ -1419,8 +1526,30 @@ async function setFile(f){
     // wizard simply works without assists.
     try { gsPreScan(await f.text()); gsRenderRows(); } catch(_){ gsPre = null; }
     try { prefillFromCarry(cohXmlCarryRead(cohScDecode(await f.arrayBuffer()))); } catch(_){}
+    // iGaelicCoach (TA / TB, no label groups) and files no format reads — told at once (cohesion-igc.js)
+    igcText = null; igcRenderBox();
+    try {
+      const txt = cohScDecode(await f.arrayBuffer()), det = (typeof cohIgcDetect === 'function') ? cohIgcDetect(txt) : null;
+      if(det && det.igc){ igcText = txt; badge.className = 'src-badge gaelicinsights'; badge.textContent = '📊 iGaelicCoach XML — teams are TA / TB: say which is which below'; igcRenderBox(); }
+      else if(det && !det.recognised && det.format !== 'tracker-json'){ badge.className = 'src-badge'; badge.textContent = '⚠ Format not recognised'; showError(det.message); }
+    } catch(_){}
   }
 }
+// ── iGaelicCoach: "TA is" + each side's figures, so the user can check them against the iGaelicCoach summary ──
+let igcText = null;
+function igcRenderBox(){
+  const box = document.getElementById('igcBox'); if(!box) return;
+  if(!igcText || typeof cohIgcSummary !== 'function'){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const home = document.getElementById('homeTeam').value.trim() || 'home team', away = document.getElementById('awayTeam').value.trim() || 'away team';
+  const sel = document.getElementById('igcTaIs'), taIs = sel.value === 'away' ? 'away' : 'home';
+  sel.options[0].textContent = 'the home team (' + home + ')'; sel.options[1].textContent = 'the away team (' + away + ')';
+  const S = cohIgcSummary(igcText), nm = { TA: taIs === 'away' ? away : home, TB: taIs === 'away' ? home : away };
+  const line = k => { const s = S[k]; return `<tr><td style="padding:2px 10px 2px 0;"><b>${k}</b> = ${esc(nm[k])}</td><td style="padding:2px 10px;">${s.goals}-${String(s.points).padStart(2,'0')} (${s.scores} scores)</td><td style="padding:2px 10px;">${s.poss} possessions</td><td style="padding:2px 10px;">${s.shots} shots</td><td style="padding:2px 10px;">kickouts won ${s.kickoutsWon}/${s.kickouts}</td><td style="padding:2px 10px;">${s.turnovers} turnovers lost</td></tr>`; };
+  document.getElementById('igcPreview').innerHTML = `<table style="border-collapse:collapse;">${line('TA')}${line('TB')}</table>`;
+}
+['homeTeam','awayTeam'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('input', () => { try{ igcRenderBox(); }catch(_){} }); });
 // A Code Room export carries its team sheets, goalkeepers and team colours (cohesion-labels.js cohXmlCarry*).
 // On a NEW upload the colours go onto the form (still editable) and, when no away team is entered yet, both team names; the
 // sheets and goalkeepers are stored with the game when it is processed. An update of a stored game leaves
@@ -1734,6 +1863,27 @@ async function processGame(){
 
       const instances = Array.from(doc.querySelectorAll('instance'));
       setProgress(55, `Found ${instances.length} instances…`);
+
+      // ── iGaelicCoach XML (TA / TB rows, "Throw In" half markers, labels with no group) — before the other formats,
+      // which would misread it; and a file no format can read is refused by name (cohesion-igc.js) ──
+      const igcDet = (typeof cohIgcDetect === 'function') ? cohIgcDetect(text) : null;
+      if(igcDet && !igcDet.recognised && igcDet.format !== 'tracker-json'){ showError(igcDet.message); return; }
+      if(igcDet && igcDet.igc){
+        const badgeI = document.getElementById('srcBadge'); badgeI.className = 'src-badge gaelicinsights'; badgeI.textContent = '📊 iGaelicCoach XML';
+        const taIs = document.getElementById('igcTaIs').value === 'away' ? 'away' : 'home';
+        const ig = cohIgcImport(text, { homeTeam, awayTeam, taIs,
+          videoStarts: {'1st Half':half1Video, '2nd Half':half2Video, 'ET 1st Half':et1Video, 'ET 2nd Half':et2Video} });
+        if(ig.error){ showError(ig.error); return; }
+        if(ig.stats.etNoVideoStart && ig.stats.etNoVideoStart.length){
+          showError('This file has extra time (' + ig.stats.etNoVideoStart.join(' and ') + '). Tick “This game has extra time” and enter where each extra-time period starts on the video, then upload again.');
+          return;
+        }
+        events.push(...ig.events);
+        scRowsMeta = ig.rows; scPeriodsMeta = ig.periods;
+        window.cohLastIgcImport = ig.stats;
+        console.log(`✓ iGaelicCoach: TA = ${ig.teams.TA}, TB = ${ig.teams.TB}; ${ig.stats.events} events`, ig.stats.byKind);
+        setProgress(80, 'Generating files…');
+      } else {
 
       // Helper: read a named label group from an <instance>
       function getLbl(inst, group){
@@ -2437,6 +2587,7 @@ async function processGame(){
         console.log(`✓ Sportscode: ${sc.stats.events} events, ${sc.stats.labelValues} label values (${sc.stats.extraValues} extra values kept on ${sc.stats.multiValueEvents} events), ${sc.stats.playerRows} player rows`, sc.stats.unmatchedCodes);
       }
       setProgress(80, 'Generating files…');
+      }   // (end of the formats other than iGaelicCoach)
     }
 
     // Offer to re-apply a previously saved player roster after a genuine XML
@@ -3533,6 +3684,23 @@ async function startBatchUpload() {
             return '';
           }
 
+          // iGaelicCoach first (cohesion-igc.js): TA / TB from the sheet's ta_team column ("home" / "away" or a team name;
+          // default home); a file no format reads is blocked by name
+          const igcDet = (typeof cohIgcDetect === 'function') ? cohIgcDetect(xmlText) : null;
+          if (igcDet && igcDet.igc) {
+            const xr = game.excelRow || {}, taRaw = String(xr['ta_team'] || xr['TA Team'] || xr['ta'] || xr['TA'] || '').trim();
+            const taIs = /^away$/i.test(taRaw) || (taRaw && taRaw.toUpperCase() === String(gameMeta.awayTeam || '').toUpperCase()) ? 'away' : 'home';
+            const ig = cohIgcImport(xmlText, { homeTeam: gameMeta.homeTeam, awayTeam: gameMeta.awayTeam, taIs,
+              videoStarts: {'1st Half': half1Video, '2nd Half': half2Video, 'ET 1st Half': gameMeta.et1Start != null ? gameMeta.et1Start : null, 'ET 2nd Half': gameMeta.et2Start != null ? gameMeta.et2Start : null} });
+            if (ig.error) throw new Error(ig.error);
+            if (ig.stats.etNoVideoStart && ig.stats.etNoVideoStart.length) throw new Error('this file has extra time (' + ig.stats.etNoVideoStart.join(' and ') + '): add et1_start / et2_start to its row');
+            if (ig.rows.length) gameMeta.rows = ig.rows; if (ig.periods.length) gameMeta.scPeriods = ig.periods;
+            eventRows = ig.events.map(evt => ({ game_id: game.gameId, data: evt }));
+            parseStatus = `igaelicoach-${eventRows.length}-events, TA = ${ig.teams.TA}`;
+          } else if (igcDet && !igcDet.recognised) {
+            parseStatus = 'format-not-recognised';
+            logMessage(`✗ ${game.gameId}: ${igcDet.message}`);
+          } else {
           // Auto-detect XML format
           const hasPeriodMarkers = instances.some(i => /^P[12] START$/.test((i.querySelector('code')?.textContent || '').trim()));
           const hasHalfMarkers = instances.some(i => /^(?:ET\s)?[12](?:st|nd)\sHalf$/.test((i.querySelector('code')?.textContent || '').trim()));
@@ -3658,6 +3826,7 @@ async function startBatchUpload() {
 
             parseStatus = `sportscode-${eventRows.length}-events`;
           }
+          }   // (end of the formats other than iGaelicCoach)
         } catch (e) {
           parseStatus = `xml-error: ${e.message}`;
         }
