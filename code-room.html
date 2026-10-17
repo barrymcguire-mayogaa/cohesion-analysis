@@ -741,6 +741,7 @@ async function openGame(id){
     const j=await cohesionRead({action:'getEvents', gameId:id});
     EVENTS=(j.events||[]).map(r=>({...r.data,_rowId:r.id}));
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
+    crDetectConv(EVENTS);   // the game's coordinate convention, from the events as stored (what the maps read)
   }catch(e){
     document.getElementById('loading').innerHTML='Could not load events: '+e.message; return;
   }
@@ -862,6 +863,7 @@ async function lvOpenSession(){
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
   await crRestoreBackup(); crFixRowIds(); crSelTeamLabels();   // recover events from a crashed local session
+  crDetectConv(EVENTS);   // a local session is coded here: the tracker convention (unless its backup says otherwise)
   const sel=document.getElementById('eperiod');
   sel.innerHTML='<option value="">All periods</option>';
   refreshDatalists();
@@ -1942,8 +1944,45 @@ function shotPitchArt(){
 // penalty purple; grey until an outcome is set.
 // Coordinates can arrive from Match Tracker XMLs as label pairs
 // (X-Shot/Y-Shot, X-Shot_away, X-KOs, ...). Maps read native e.x/e.y first
-// and fall back to the first label pair; saving updates BOTH so nothing is
-// duplicated and the XML round-trip stays intact.
+// and fall back to the first label pair (un-rotated on a rotated Sportscode
+// game, see CR_CONV above); saving updates BOTH so nothing is duplicated and
+// the XML round-trip stays intact.
+// ── The open game's coordinate convention ──
+// Older Mayo Sportscode timelines store a location ROTATED 90°: X label = 100 - depth%, Y label = 100 - lateral%
+// ('sportscode_rot'). Every map (Dashboard dashCoordOf, Analysis ttCoordOf, the print-out, xP) detects that once per
+// game with cohesionXpDetectConv (cohesion-xp.js: the Shot Zones labels read both ways, majority vote) and un-rotates
+// the label pairs — shots AND kickouts (X-KOs / Y-KOs). Code Room does exactly the same, with the same function, so a
+// location shows where the maps show it:
+//   · CANONICAL frame (the tracker's: goal at the top, X = % across, Y = % down) is what Code Room draws, clicks,
+//     derives zone / attempt / '45 snap from, and keeps in draft.x/y and the row's own e.x / e.y (the maps read the
+//     own fields FIRST and as canonical, in every convention);
+//   · the X- / Y- LABEL PAIR is written in the game's convention (crCanonToPair) and read back through crPairToCanon,
+//     so the whole game stays in ONE convention and an XML export / re-import reads the same way.
+// Detected when the game is (re)loaded (crDetectConv), from the events as stored, and kept for the session.
+let CR_CONV='tracker';
+function crDetectConv(events){
+  let v='tracker'; try{ if(typeof window.cohesionXpDetectConv==='function') v=window.cohesionXpDetectConv(events||EVENTS)||'tracker'; }catch(_){ v='tracker'; }
+  CR_CONV=v==='sportscode_rot'?'sportscode_rot':'tracker'; return CR_CONV;
+}
+function crRot(){ return CR_CONV==='sportscode_rot'; }
+// the 90° turn is its own inverse: stored -> canonical and canonical -> stored are the same mapping
+function crPairToCanon(x,y){ return crRot()?{x:100-y, y:100-x}:{x, y}; }
+function crCanonToPair(x,y){ return crRot()?{x:100-y, y:100-x}:{x, y}; }
+// the label strings Code Room writes for a canonical position (whole numbers, as always)
+function crPairStrings(x,y){ const s=crCanonToPair(x,y); return {xs:String(Math.round(s.x)), ys:String(Math.round(s.y))}; }
+const CR_ROT_NOTE='Sportscode coordinates (rotated) — shown and saved in this file’s convention';
+function crRotNoteHtml(){ return crRot()?'<div class="crrotnote" style="font-size:11px;color:var(--t3);margin:-4px 0 8px;">↻ '+esc(CR_ROT_NOTE)+'</div>':''; }
+// Rows of a rotated game whose own e.x / e.y and label pair disagree under the game's convention — saved by
+// Code Room before it read the convention (the pair a tracker-frame copy of the own fields, or the own fields
+// the raw rotated labels). Listed, never changed.
+function crCoordMixed(events){
+  if(!crRot()) return [];
+  return (events||EVENTS).filter(e=>e&&e.x!=null&&e.y!=null&&isFinite(+e.x)&&isFinite(+e.y)).map(e=>{
+    const p=crCoordPairs(e.labels)[0]; if(!p) return null;
+    const c=crPairToCanon(p.x,p.y); if(Math.abs(c.x-(+e.x))<=1&&Math.abs(c.y-(+e.y))<=1) return null;
+    return {e, own:{x:+e.x, y:+e.y}, pair:{xg:p.xg, yg:p.yg, x:p.x, y:p.y}, kind:(Math.abs(p.x-(+e.x))<=1&&Math.abs(p.y-(+e.y))<=1)?'same-frame':'other'};
+  }).filter(Boolean);
+}
 function crCoordPairs(labels){
   const out=[], keys=Object.keys(labels||{});
   keys.forEach(k=>{ const m=/^x([-_ ].*)$/i.exec(k); if(!m) return;
@@ -1956,15 +1995,17 @@ function crCoordPairs(labels){
 }
 function crCoordOf(e){
   if(e&&e.x!=null&&e.y!=null) return {x:e.x,y:e.y};
-  const p=crCoordPairs(e&&e.labels)[0];
-  return p?{x:Math.max(0,Math.min(100,p.x)),y:Math.max(0,Math.min(100,p.y))}:null;
+  const p=crCoordPairs(e&&e.labels)[0]; if(!p) return null;
+  const c=crPairToCanon(p.x,p.y);   // = dashCoordOf / ttCoordOf: a rotated game's pair un-rotated, then clamped
+  return {x:Math.max(0,Math.min(100,c.x)),y:Math.max(0,Math.min(100,c.y))};
 }
 // ── Shot Attempts from location ─────────────────────────────
 // Placing (or moving) a shot's location fills a BLANK "Shot Attempts" with
 // 1 Point Attempt inside the 40m arc, 2 Point Attempt outside it. Distance is
 // cohesion-xp.js's geometry (xpForShot with a stub attempt → parts.dist) in
-// the tracker convention, which is how Code Room stores placed shots (goal at
-// the top, X = lateral %, Y = % down the drawn half-pitch). The threshold is
+// the tracker convention on the CANONICAL position (crCoordOf / draft.x,y: goal at
+// the top, X = lateral %, Y = % down the drawn half-pitch — a rotated Sportscode
+// game's labels are un-rotated first, see crPairToCanon). The threshold is
 // the 40 m arc: the shot pitch is drawn to true scale (shotPitchArt), so the
 // drawn arc is 40 m out on the model's metre scale. (Until Oct 2026 the
 // picture's arc was ~4% large and the threshold was 41.8 m to match it; no
@@ -2002,7 +2043,8 @@ function crAttemptFromLoc(rowId, code, labels, x, y){
 // ── '45s are taken ON the 45 m line ─────────────────────────
 // When a location is placed or moved for a shot whose Deadball Shot Type is a
 // '45 (cohIs45: '45 · 45 · '45 SHOT), its Y goes onto the drawn 45 m line
-// (CR_45_Y, the stored Y that plots on it); X stays where it was clicked. The
+// (CR_45_Y, the CANONICAL Y that plots on it — on a rotated Sportscode game the
+// label written is X = 100 - 69.3, crPairStrings); X stays where it was clicked. The
 // same when the type is set to '45 AFTER the location was placed in this
 // session — and set back to something else, the location returns to where it
 // was clicked. Only a location clicked this session moves (crLocClick): a '45
@@ -2033,7 +2075,7 @@ function crAttNoteText(att){ return 'attempt set from location: '+(/^2/.test(att
 // create the Match Tracker-named pair if the event has none.
 function crSyncCoordGroups(kind){
   if(kind==='shot') crDraftAutoAttempt();
-  const xs=String(Math.round(draft.x)), ys=String(Math.round(draft.y));
+  const {xs, ys}=crPairStrings(draft.x, draft.y);   // draft.x/y are canonical; the pair is written in the game's convention
   if(draft.groups.some(r=>/^x[-_ ]/i.test(r.g))){
     draft.groups.forEach(r=>{ if(/^x[-_ ]/i.test(r.g)) r.v=xs; else if(/^y[-_ ]/i.test(r.g)) r.v=ys; });
     return;
@@ -2086,6 +2128,7 @@ function crShotMap(){
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--accent);border-radius:14px;padding:20px;width:420px;max-width:calc(100vw - 40px);font-family:Barlow,sans-serif;pointer-events:auto;box-shadow:0 18px 48px rgba(0,0,0,.6);max-height:calc(100vh - 84px);overflow-y:auto;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Shot location</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the shot was taken from — goal at the top. <b id="smZone" style="color:var(--accent);">${px!=null?crZoneOf(px,py):''}</b></div>
+    ${crRotNoteHtml()}
     <svg id="smSvg" viewBox="0 0 100 75" style="width:100%;aspect-ratio:4/3;background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
       ${shotPitchArt()}
       <g id="smMark" style="display:${px!=null?'':'none'};"><circle id="smDot" cx="${px||0}" cy="${(py||0)*0.75}" r="1.8" fill="#c4c4c4" stroke="#000" stroke-width=".4"/><rect id="smSq" x="${(px||0)-1.7}" y="${(py||0)*0.75-1.7}" width="3.4" height="3.4" fill="#c4c4c4" stroke="#000" stroke-width=".4" style="display:none;"/></g>
@@ -2142,6 +2185,7 @@ function crKoMap(){
   ov.innerHTML=`<div style="background:var(--panel);color:var(--t1);border:1px solid var(--accent);border-radius:14px;padding:20px;width:420px;max-width:calc(100vw - 40px);font-family:Barlow,sans-serif;pointer-events:auto;box-shadow:0 18px 48px rgba(0,0,0,.6);max-height:calc(100vh - 84px);overflow-y:auto;">
     <div style="font:800 17px 'Barlow Condensed',sans-serif;letter-spacing:.5px;">Kickout landing</div>
     <div style="font-size:12px;color:var(--t2);margin:2px 0 10px;">Click where the kickout landed — the kicking goal is at the top. <b id="koZone" style="color:var(--accent);">${px!=null?(crKoZoneOf(px,py).zone+' · '+crKoZoneOf(px,py).loc):''}</b></div>
+    ${crRotNoteHtml()}
     <svg id="koSvg" viewBox="0 0 100 ${KO_VB_H}" style="width:100%;aspect-ratio:100/${KO_VB_H};background:#256e17;border-radius:10px;cursor:crosshair;display:block;">
 ${CR_PITCH_KO}
       <g id="koMark" style="display:${px!=null?'':'none'};"><circle id="koDot" cx="${px||0}" cy="${py!=null?koPlotY(py):0}" r="1.8" fill="#ffd700" stroke="#000" stroke-width=".4"/></g>
@@ -5297,7 +5341,8 @@ function renderCodePitch(){
     +'<svg id="cpSvg" viewBox="0 0 100 '+(ko?KO_VB_H:75)+'" style="width:230px;max-width:100%;background:#256e17;border-radius:8px;cursor:crosshair;display:block;flex:none;" onclick="codePitchClick(event)">'
     +(ko?CR_PITCH_KO:CR_PITCH_SHOT)
     +'<g id="cpMark" style="display:none;"><circle id="cpDot" r="1.8" fill="#ffffff" stroke="#000" stroke-width=".4"/></g></svg>'
-    +'<div id="cpInfo" style="font-size:11px;color:var(--t2);line-height:1.55;">'+(ko?'Click where it landed — the kicking goal is at the top.':'Click where it was struck from — goal at the top.')+'</div></div>';
+    +'<div id="cpInfo" style="font-size:11px;color:var(--t2);line-height:1.55;">'+(ko?'Click where it landed — the kicking goal is at the top.':'Click where it was struck from — goal at the top.')+'</div></div>'
+    +(crRot()?'<div class="crrotnote" style="font-size:10.5px;color:var(--t3);margin-top:4px;">↻ '+esc(CR_ROT_NOTE)+'</div>':'');
 }
 function codePitchClick(ev){
   if(!codePitch) return;
@@ -5332,7 +5377,7 @@ function crApplyLocToRow(row, kind, px, py){
     if(att){ row.labels['Shot Attempts']=att; crAutoAtt[row._rowId]=att; desc+=' · '+crAttNoteText(att); } }
   const keys=Object.keys(row.labels);
   const xk=keys.find(k=>/^x[-_ ]/i.test(k)), yk=keys.find(k=>/^y[-_ ]/i.test(k));
-  const xs=String(Math.round(row.x)), ys=String(Math.round(row.y));
+  const {xs, ys}=crPairStrings(row.x, row.y);   // own x/y canonical; the pair in the game's convention
   if(xk&&yk){ row.labels[xk]=xs; row.labels[yk]=ys; }
   else {
     const suf=(!(row.team||'')||(row.team||'').toUpperCase()===(GAME.homeTeam||'').toUpperCase())?'':'_away';
@@ -6432,7 +6477,9 @@ function crGiBtnSync(){
 //  · ANY game: a KICKOUT LOST turnover saying ATTACKING THIRD whose kickout is KO LONG or KO MEDIUM with no landing
 //    marked beyond the far 45 m line → MIDDLE THIRD, and the FOUL row of a free at such a LONG kickout (see crKoLocToThird).
 // They go through the same preview, the same queue (_dirty rows) and the same single Undo step.
-const crGiCarryOpts={ attempt:(row,x,y)=>crAttemptFromLoc(undefined, row.code, row.labels, x, y) };
+// x / y are the original's own fields (canonical) or its label pair (the game's convention) — carryPos, cohesion-gi.js
+const crGiCarryOpts={ attempt:(row,x,y,o)=>{ const own=o&&o.x!=null&&o.y!=null&&isFinite(+o.x)&&isFinite(+o.y), c=own?{x,y}:crPairToCanon(x,y);
+  return crAttemptFromLoc(undefined, row.code, row.labels, c.x, c.y); } };
 function crGiCarryList(){
   const carry=(typeof cohGiCarryDetails!=='function'||!EVENTS.some(e=>(e.labels||{})['GI Source ID']))?[]
     :cohGiCarryDetails(EVENTS, GAME, crGiCarryOpts).map(it=>{ const e=EVENTS[it.index]; return Object.assign({}, it, {e, rowId:e._rowId, orig:EVENTS.find(o=>String(o.id)===String(it.originalId)&&!(o.labels||{})['GI Source ID'])}); });
@@ -7519,7 +7566,9 @@ function crKoFixIsKo(e){ return /(^|\s)(KO|KICKOUT|KICKOUTS)$/i.test(String(e&&e
 function crKoFixPos(e){
   const p=crCoordPairs(e.labels).find(q=>/^y[-_ ]?ko/i.test(q.yg))||null;
   if(e.x!=null&&e.y!=null&&isFinite(+e.x)&&isFinite(+e.y)) return {x:+e.x, y:+e.y, native:true, pair:p};
-  return p?{x:p.x, y:p.y, native:false, pair:p}:null;
+  if(!p) return null;
+  const c=crPairToCanon(p.x, p.y);   // canonical (a rotated game's pair un-rotated, as the maps read it)
+  return {x:c.x, y:c.y, native:false, pair:p};
 }
 // what the tags say: the band (0 short / 1 medium / 2 long) from Kickout Locations and from Kickout Zones
 function crKoFixTags(e){
@@ -7578,7 +7627,8 @@ function crKoFixApply(ids){
     const pos=crKoFixPos(e), oldY=pos.y, tags=crKoFixTags(e);
     const y1=koOldToCurY(oldY, 1), y0=koOldToCurY(oldY, 0);
     if(pos.native) e.y=y1;
-    if(pos.pair) e.labels[pos.pair.yg]=String(y0);
+    if(pos.pair){ if(crRot()) e.labels[pos.pair.xg]=String(Math.round(100-y0));   // rotated game: the depth is in the X label
+      else e.labels[pos.pair.yg]=String(y0); }
     const band=koBandOfM((pos.native?y1:y0)*KO_UNIT_M/100), agree=crKoFixAgree(tags, band);
     e.labels=e.labels||{}; e.labels[KO_FIX_LABEL]=today+' · old chart Y '+oldY+(agree?'':' · check length / zone');
     if(!e._new) e._dirty=true;

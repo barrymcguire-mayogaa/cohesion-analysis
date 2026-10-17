@@ -18,7 +18,8 @@
  *   label pair    X-<name> / Y-<name> (X-Shot / Y-Shot, X-Shot_away / Y-Shot_away; any case, '-', '_' or ' ').
  *                 · on a row that also has own fields, and whose pair is the own fields rounded to whole numbers,
  *                   it is Code Room's COPY of them (crSyncCoordGroups / crApplyLocToRow write String(Math.round()))
- *                   — the same frame as the own fields, whatever the game's convention;
+ *                   — the same frame as the own fields, whatever the game's convention (Code Room before Oct 2026;
+ *                   since then it writes the pair in the game's convention, crPairStrings, which the next case reads);
  *                 · otherwise it is the location itself, in the GAME's convention (cohesionXpDetectConv):
  *                   'tracker' = as above (depth in the Y label), 'sportscode_rot' = X label = 100 - depth,
  *                   Y label = 100 - across (depth in the X label).
