@@ -3,8 +3,8 @@
  *
  * Purpose: Handle all game insert/update/delete operations atomically
  * - Validates user is authenticated admin
- * - Deletes old events
- * - Inserts new events (in chunks to avoid timeout)
+ * - Replaces the game's events (netlify/lib/replaceEvents.js: insert 500 a request,
+ *   count, then delete the old rows — never half-empty) and reports the stored count
  * - Updates game metadata
  * - Returns clean error handling
  *
@@ -28,6 +28,7 @@
  *   });
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { replaceEvents } = require('../lib/replaceEvents');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -149,27 +150,19 @@ exports.handler = async (event, context) => {
     // existing events are already correct and must be left untouched, not
     // re-inserted on top of themselves)
     // ========================================================================
+    // Replace-safe and fast (netlify/lib/replaceEvents.js): the new rows go in first (500 a request), are COUNTED,
+    // and only then are the old rows removed — a failure leaves the game as it was, never half-empty.
+    let stored = null;
     if (!(skipXml && isReparse)) {
-      const { error: delErr } = await supabase
-        .from('events')
-        .delete()
-        .eq('game_id', gameId);
-
-      if (delErr) {
-        throw new Error(`Failed to delete old events: ${delErr.message}`);
+      const r = await replaceEvents(supabase, gameId, eventRows);
+      if (!r.ok) {
+        console.error('processGame replace failed:', r);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: r.error, stage: r.stage, stored: r.stored, expected: r.expected, rolledBack: !!r.rolledBack })
+        };
       }
-
-      const chunkSize = 50;
-      for (let i = 0; i < eventRows.length; i += chunkSize) {
-        const chunk = eventRows.slice(i, i + chunkSize);
-        const { error: insErr } = await supabase
-          .from('events')
-          .insert(chunk);
-
-        if (insErr) {
-          throw new Error(`Failed to insert events chunk ${i / chunkSize + 1}: ${insErr.message}`);
-        }
-      }
+      stored = r.stored;
     }
 
     // ========================================================================
@@ -181,7 +174,9 @@ exports.handler = async (event, context) => {
         success: true,
         gameId: gameId,
         eventCount: eventRows.length,
-        message: `Game processed successfully: ${eventRows.length} events stored`
+        stored,
+        expected: eventRows.length,
+        message: `Game processed successfully: ${stored == null ? 'events unchanged' : stored + ' events stored'}`
       })
     };
 

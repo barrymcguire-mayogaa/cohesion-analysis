@@ -3,7 +3,9 @@
  *
  * Purpose: Handle multiple games in a single function call to reduce token usage
  * - Validates user is authenticated admin ONCE
- * - Processes each game sequentially (upsert metadata, delete old events, insert new events)
+ * - Processes each game sequentially (upsert metadata, then replace its events safely —
+ *   netlify/lib/replaceEvents.js: insert 500 a request, count, then delete the old rows)
+ * - The pages send ONE game per request, so no request nears the 6 MB payload or the time limit
  * - Returns array of results (per-game success/failure)
  * - Continues processing remaining games if one fails
  *
@@ -16,6 +18,7 @@
  * CRITICAL: Validation happens BEFORE any database writes to prevent orphaned records
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { replaceEvents } = require('../lib/replaceEvents');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -155,71 +158,49 @@ exports.handler = async (event, context) => {
         // NOW that all validation passed, write to database
         // ====================================================================
 
-        let metadataWritten = false;
+        // The game's meta as it is now (null: a new game), so a failed update can put it back.
+        const { data: prevRows, error: prevErr } = await supabase.from('games').select('id, meta').eq('id', gameId).limit(1);
+        if (prevErr) throw new Error(`Could not read the stored game: ${prevErr.message}`);
+        const prev = (prevRows && prevRows[0]) || null;
 
-        try {
-          // UPSERT game metadata
-          const gameRecord = {
-            id: gameId,
-            meta: gameMeta
-          };
-
-          const { error: upsertErr } = await supabase
-            .from('games')
-            .upsert(gameRecord);
-
-          if (upsertErr) {
-            throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
-          }
-          metadataWritten = true;
-
-          // DELETE old events
-          const { error: delErr } = await supabase
-            .from('events')
-            .delete()
-            .eq('game_id', gameId);
-
-          if (delErr) {
-            throw new Error(`Failed to delete old events: ${delErr.message}`);
-          }
-
-          // INSERT new events in chunks (avoid timeout with large datasets)
-          const chunkSize = 50;
-          for (let i = 0; i < eventRows.length; i += chunkSize) {
-            const chunk = eventRows.slice(i, i + chunkSize);
-            const { error: insErr } = await supabase
-              .from('events')
-              .insert(chunk);
-
-            if (insErr) {
-              throw new Error(`Failed to insert events chunk ${Math.floor(i / chunkSize) + 1}: ${insErr.message}`);
-            }
-          }
-
-          // Mark as success
-          gameResult.success = true;
-          gameResult.eventCount = eventRows.length;
-          successCount++;
-
-        } catch (dbError) {
-          // If metadata was written but events failed, rollback the metadata
-          if (metadataWritten) {
-            try {
-              await supabase
-                .from('games')
-                .delete()
-                .eq('id', gameId);
-              console.log(`Rolled back metadata for game ${gameId} due to event insert failure`);
-            } catch (rollbackErr) {
-              console.error(`Failed to rollback metadata for game ${gameId}:`, rollbackErr);
-            }
-          }
-          throw dbError;
+        // UPSERT game metadata (required first: events reference the game)
+        const { error: upsertErr } = await supabase
+          .from('games')
+          .upsert({ id: gameId, meta: gameMeta });
+        if (upsertErr) {
+          throw new Error(`Failed to save game metadata: ${upsertErr.message}`);
         }
+
+        // Replace the events: insert 500 a request, count, then remove the old rows (netlify/lib/replaceEvents.js).
+        // A failure leaves an existing game's events as they were (and puts its meta back); a new game is removed
+        // again (ON DELETE CASCADE takes any rows that did arrive), so nothing half-saved is left behind.
+        const r = await replaceEvents(supabase, gameId, eventRows);
+        if (!r.ok) {
+          const newRowsIn = r.stage === 'delete' || r.stage === 'final';   // the new events ARE stored: keep the new meta
+          let note = '';
+          if (newRowsIn) note = '';
+          else if (prev) {
+            const { error: backErr } = await supabase.from('games').upsert({ id: gameId, meta: prev.meta });
+            note = backErr ? ` (its previous details could not be put back: ${backErr.message})` : '';
+          } else {
+            const { error: rmErr } = await supabase.from('games').delete().eq('id', gameId);
+            note = rmErr ? ` (the new game could not be removed again: ${rmErr.message})` : ' Nothing was saved for this game.';
+          }
+          const e = new Error(((newRowsIn || prev) ? r.error : r.why) + note);
+          e.counts = { stored: r.stored, expected: r.expected };
+          throw e;
+        }
+
+        gameResult.success = true;
+        gameResult.eventCount = r.stored;
+        gameResult.stored = r.stored;
+        gameResult.expected = r.expected;
+        successCount++;
 
       } catch (error) {
         gameResult.success = false;
         gameResult.error = error.message || 'Unknown error';
+        if (error.counts) { gameResult.stored = error.counts.stored; gameResult.expected = error.counts.expected; }
         failureCount++;
         console.error(`Error processing game ${gameId}:`, error);
       }

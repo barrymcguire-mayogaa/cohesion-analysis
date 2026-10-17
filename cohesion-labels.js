@@ -954,3 +954,144 @@ function cohToRolesTxt(e, meta){
 }
 function cohFoulers(e, meta){ const T=cohUp(e&&e.team); return cohEventPlayers(e, meta).filter(p=>cohUp(p.team)===T); }
 if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohIsToRow, cohIsFoulRow, cohToTeams, cohToRoles, cohToRolesTxt, cohFoulers, cohXmlCarryBuild, cohXmlCarryRead, cohXmlCarryFor, cohCarryApply, cohScGameTime});
+
+/* ── Saving an upload: never a silent success ──────────────────────
+ * processGame / processBatchGames answer {success, stored, expected} (netlify/lib/replaceEvents.js counts the rows).
+ * A Netlify time-out answers a non-JSON 502 / 504 page instead. The pages check every answer here:
+ *   cohSaveVerdict(status, bodyText, expected) -> {ok, json, reason}
+ *     ok only for a 2xx JSON answer that does not report an error and, when expected is a number, whose
+ *     stored count equals it (expected null: no events were written, e.g. a re-parse that keeps them).
+ *   cohSaveMessage(verdict, expected, storedNow) -> the error to show; storedNow = the game's events counted
+ *     after the failure (null when that read failed too).
+ */
+function cohSaveVerdict(status, text, expected){
+  let j=null; try{ j=JSON.parse(text); }catch(_){}
+  const st=+status||0, timeout=st===502||st===504||st===408;
+  if(!j||typeof j!=='object') return {ok:false, json:null, timeout, reason:'The server stopped before it answered (HTTP '+(st||'?')+(timeout?' — a time-out':'')+').'};
+  if(st<200||st>=300||j.error||j.success===false) return {ok:false, json:j, timeout, reason:String(j.error||('HTTP '+st))};
+  if(typeof expected==='number'){
+    const s=typeof j.stored==='number'?j.stored:null;
+    if(s===null) return {ok:false, json:j, timeout:false, reason:'The server did not confirm how many events it stored.'};
+    if(s!==expected) return {ok:false, json:j, timeout:false, reason:'The server stored '+s+' of '+expected+' events.'};
+  }
+  return {ok:true, json:j, timeout:false, reason:''};
+}
+const COH_REPAIR_HINT='use Repair missing events (Re-parse Existing Game → choose the game → Repair missing events)';
+function cohSaveMessage(v, expected, storedNow){
+  const why=(v&&v.reason)||'The save did not complete.', j=v&&v.json, M=expected;
+  const N=typeof storedNow==='number'?storedNow:(j&&typeof j.stored==='number'?j.stored:null);
+  if(j&&j.rolledBack) return why+(N!=null?' (The game has '+N+' events.)':'');
+  if(typeof M!=='number') return why;
+  if(N==null) return why+' The number of events stored could not be checked — open the game; if events are missing, '+COH_REPAIR_HINT+'.';
+  const bare=why.replace(/\s*Only \d+ of \d+ events were saved — use Repair missing events\.?/,'').trim();
+  if(N<M) return 'Only '+N+' of '+M+' events were saved — '+COH_REPAIR_HINT+'.'+(bare?' ('+bare+')':'');
+  if(N>M) return 'The game now has '+N+' events but the file has '+M+' — the save was interrupted. Upload the file again to replace them. ('+why+')';
+  return 'All '+M+' events are stored, but the server did not confirm the save ('+why+'). Open the game to check it.';
+}
+
+/* ── Repair missing events (Admin → Re-parse): ADD-ONLY ─────────────
+ * For a game whose upload stopped part-way (the old 50-rows-a-request save timed out after ~1000 rows), the file is
+ * imported again exactly as the upload does (cohScRepairImport) and compared with the stored events (cohScRepairPlan).
+ * The match is cohScRestore's: file <ID> + code + start second (both rounded). A file event no stored event matches is
+ * MISSING — that includes the rows the import adds itself (the opposition break rows, ids "bp-<ko>-w|l").
+ * Period rows are never events (they are kept in meta.scPeriods), so they are not compared.
+ * Nothing stored is changed or deleted: stored events the file does not have (Code Room additions, rows removed from
+ * the file since, rows re-coded / moved since) are only listed.
+ */
+const COH_CR_ID_RE=/^(manual|autosrc|tmp)-/i;   // ids Code Room gives the rows it adds — never a Sportscode <ID>
+function cohRepairKey(e){ return String(e&&e.id!=null?e.id:'')+'\u0001'+String((e&&e.code)||'')+'\u0001'+Math.round(+(e&&e.start)||0); }
+function cohIsFileBornId(id){ const s=String(id==null?'':id); return !!s&&!COH_CR_ID_RE.test(s); }
+function cohScRepairImport(insts, meta, opts){
+  opts=opts||{}; meta=meta||{};
+  const num=v=>(v==null||v===''||isNaN(+v))?null:+v;
+  return cohScImport(insts, { homeTeam:meta.homeTeam||'', awayTeam:meta.awayTeam||'',
+    videoStarts:{'1st Half':num(meta.half1Start), '2nd Half':num(meta.half2Start), 'ET 1st Half':num(meta.et1Start), 'ET 2nd Half':num(meta.et2Start)},
+    gameTime:opts.gameTime||cohScGameTime, category:opts.category||cohScCategory, rosters:meta.rosters||null });
+}
+// a stored break row that already stands for the import's added one: same team, same WON / LOST, same half, same kickout window
+function cohRepairBreakCovered(d, bp){
+  if(!d||!cohIsBreakRow(d)||cohUp(d.team)!==cohUp(bp.team)) return false;
+  const w=/WON\s*$/i.test(bp.code||'')?'WON':'LOST'; if(!new RegExp('BREAK\\s+'+w+'\\s*$','i').test(d.code||'')) return false;
+  if(d.half&&bp.half&&d.half!==bp.half) return false;
+  return Math.abs((+d.start||0)-(+bp.start||0))<=4;
+}
+function cohRepairClock(e){
+  if(e&&e.gameTime) return String(e.gameTime);
+  return (e&&e.half?e.half+' ':'')+Math.floor((+(e&&e.start)||0)/60)+"'";
+}
+function cohRepairMinute(e){ const m=/^(\S+)\s+(\d+):/.exec(cohRepairClock(e)); return m?m[1]+' '+m[2]+"'":cohRepairClock(e); }
+function cohRepairVideo(s){ s=Math.max(0, Math.round(+s||0)); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+':'+String(m).padStart(2,'0'):String(m))+':'+String(x).padStart(2,'0'); }
+/* cohScRepairPlan(rows, imported, opts)
+ *   rows     the game's stored events [{id, data}] (data.js getEvents — every page)
+ *   imported the file's events from cohScRepairImport(...).events
+ *   opts.minMatch  share of the stored file-born events that must match the file (default 0.6)
+ * -> {ok, reason, missing:[event], matched, edited:[{file, stored}], covered:[{file, stored}], extra:[{row, kind}], stats}
+ *   missing  the events to add, in the file's order; the video position (driveT) follows the game's own offset when
+ *            the stored events of that half sit consistently elsewhere on the video (stats.driveShift)
+ *   edited   file events whose <ID> the game has under another code / start (re-coded or moved since) — NOT re-added
+ *   covered  break rows the import adds that the game already has as another row — NOT re-added
+ *   extra    stored events the file does not have: kind 'coderoom' | 'edited' | 'removed' (a file <ID> the file no
+ *            longer has) | 'derived' — listed only, never deleted
+ */
+function cohScRepairPlan(rows, imported, opts){
+  opts=opts||{}; const minMatch=opts.minMatch!=null?opts.minMatch:0.6;
+  const stored=(rows||[]).filter(r=>r&&r.data), imp=imported||[];
+  const byKey=new Map(), byId=new Map();
+  stored.forEach(r=>{ const k=cohRepairKey(r.data); if(!byKey.has(k)) byKey.set(k, []); byKey.get(k).push(r);
+    const id=String(r.data.id==null?'':r.data.id); if(!byId.has(id)) byId.set(id, []); byId.get(id).push(r); });
+  const used=new Set(), matched=[], pending=[];
+  imp.forEach(e=>{ const hit=(byKey.get(cohRepairKey(e))||[]).find(r=>!used.has(r));
+    if(hit){ used.add(hit); matched.push({file:e, stored:hit}); } else pending.push(e); });
+  const fileIds=new Set(imp.map(e=>String(e.id)));
+  const missing=[], edited=[], covered=[], claimed=new Set();
+  pending.forEach(e=>{
+    if(e.derived==='break-pair'){ const c=stored.find(r=>!used.has(r)&&!claimed.has(r)&&cohRepairBreakCovered(r.data, e)); if(c){ claimed.add(c); covered.push({file:e, stored:c}); return; } }
+    const same=(byId.get(String(e.id))||[]).filter(r=>!used.has(r));
+    if(same.length&&cohIsFileBornId(e.id)){ edited.push({file:e, stored:same}); return; }
+    missing.push(e);
+  });
+  const editedRows=new Set(); edited.forEach(x=>x.stored.forEach(r=>editedRows.add(r)));
+  const extra=stored.filter(r=>!used.has(r)&&!claimed.has(r)).map(r=>{ const id=String(r.data.id==null?'':r.data.id);
+    const kind=editedRows.has(r)?'edited':!cohIsFileBornId(id)?'coderoom':(/^bp-/.test(id)||r.data.derived)?'derived':fileIds.has(id)?'edited':'removed';
+    return {row:r, kind}; });
+  // the guard: is this the file the game came from?
+  const born=stored.filter(r=>cohIsFileBornId(r.data.id)), bornMatched=matched.filter(m=>cohIsFileBornId(m.stored.data.id)).length;
+  const stats={stored:stored.length, fileEvents:imp.length, fileBorn:born.length, matched:matched.length, bornMatched, share:born.length?bornMatched/born.length:0,
+    missing:missing.length, edited:edited.length, covered:covered.length, extra:extra.length, byCode:{}, extraByKind:{}, driveShift:{}, storedBreakPairs:0, missingBreakPairs:0, range:null};
+  extra.forEach(x=>{ stats.extraByKind[x.kind]=(stats.extraByKind[x.kind]||0)+1; });
+  stats.storedBreakPairs=stored.filter(r=>r.data.derived==='break-pair'||/^bp-/.test(String(r.data.id||''))).length;
+  const no=reason=>({ok:false, reason, missing:[], matched, edited, covered, extra, stats});
+  if(!imp.length) return no('The file has no events.');
+  if(!born.length) return no('The game has no events from a Sportscode file to compare with — use a full re-parse instead.');
+  if(stats.share<minMatch) return no('This looks like a different file: only '+bornMatched+' of the game\'s '+born.length+' events from its file ('+Math.round(stats.share*100)+'%) match an event of this file (ID, code and start time). Nothing was changed.');
+  // the video position: the stored events of a half may sit at another offset than the game's start times give now
+  // (start times changed later without moving the events) — the added events follow the stored ones of their half
+  const shift={};
+  COH_SC_PERIODS.forEach(h=>{ const d=new Map(); let n=0;
+    matched.forEach(m=>{ if(m.file.half!==h||typeof m.stored.data.driveT!=='number'||typeof m.file.driveT!=='number') return; const x=m.stored.data.driveT-m.file.driveT; d.set(x,(d.get(x)||0)+1); n++; });
+    let best=0, bn=0; d.forEach((c,x)=>{ if(c>bn){ bn=c; best=x; } });
+    if(n&&best!==0&&bn>=n*0.5) shift[h]=best; });
+  stats.driveShift=shift;
+  const out=missing.map(e=>shift[e.half]?Object.assign({}, e, {driveT:Math.max(0, e.driveT+shift[e.half])}):e);
+  out.forEach(e=>{ stats.byCode[e.code]=(stats.byCode[e.code]||0)+1; if(e.derived==='break-pair') stats.missingBreakPairs++; });
+  if(out.length){ const s=out.slice().sort((a,b)=>(+a.start||0)-(+b.start||0)), a=s[0], b=s[s.length-1];
+    stats.range={from:cohRepairClock(a), to:cohRepairClock(b), videoFrom:cohRepairVideo(a.driveT), videoTo:cohRepairVideo(b.driveT)}; }
+  return {ok:true, reason:'', missing:out, matched, edited, covered, extra, stats};
+}
+if(typeof module!=='undefined'&&module.exports) Object.assign(module.exports, {cohSaveVerdict, cohSaveMessage, COH_REPAIR_HINT, cohRepairKey, cohIsFileBornId, cohScRepairImport, cohScRepairPlan, cohRepairBreakCovered, cohRepairClock, cohRepairMinute, cohRepairVideo});
+
+// One game's answer from processBatchGames ({results:[{gameId, success, stored, expected, error}]}) -> {ok, stored, verdict}
+// verdict is cohSaveVerdict's shape, for cohSaveMessage.
+function cohBatchGameVerdict(status, text, gameId, expected){
+  let j0=null; try{ j0=JSON.parse(text); }catch(_){}
+  // a batch answer is HTTP 200 with success:false when a game failed — read the game's own result, not the summary
+  const v=(j0&&Array.isArray(j0.results)&&+status>=200&&+status<300)?{ok:true, json:j0, timeout:false, reason:''}:cohSaveVerdict(status, text, null);
+  if(!v.ok) return {ok:false, stored:null, verdict:v};
+  const r=((v.json&&v.json.results)||[]).find(x=>x&&x.gameId===gameId)||((v.json&&v.json.results)||[])[0];
+  if(!r) return {ok:false, stored:null, verdict:{ok:false, json:v.json, reason:'The server did not report on this game.'}};
+  const j={stored:typeof r.stored==='number'?r.stored:null, rolledBack:false};
+  if(!r.success) return {ok:false, stored:j.stored, verdict:{ok:false, json:Object.assign(j, {rolledBack:/nothing was changed|Nothing was saved/i.test(r.error||'')}), reason:String(r.error||'failed')}};
+  if(typeof expected==='number'&&j.stored!==expected) return {ok:false, stored:j.stored, verdict:{ok:false, json:j, reason:j.stored==null?'The server did not confirm how many events it stored.':'The server stored '+j.stored+' of '+expected+' events.'}};
+  return {ok:true, stored:j.stored, verdict:v};
+}
+if(typeof module!=='undefined'&&module.exports) module.exports.cohBatchGameVerdict=cohBatchGameVerdict;

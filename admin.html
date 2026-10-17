@@ -269,6 +269,22 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <button type="button" class="mode-btn" style="margin-top:8px;" onclick="scRestoreRun()">Check file &amp; restore values</button>
       <div id="scRestoreOut" style="font-size:12px;color:var(--t2);margin-top:8px;white-space:pre-line;"></div>
     </div>
+    <!-- Add the events an upload that stopped part-way left out — add-only (cohesion-labels.js cohScRepairPlan) -->
+    <div class="field" id="scRepairBox" style="margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:8px;">
+      <label>Repair missing events <span style="font-weight:400;color:var(--t3);">— adds only, keeps every edit</span></label>
+      <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:8px;">
+        A long game whose upload stopped part-way (before October 2026 a save could stop after about 1000 events) is complete only
+        up to that point. Choose the game above and its <b>Sportscode XML</b>: the file is read exactly as the upload reads it and
+        compared with the stored events (file ID, code and start time). Only the events the game does not have are added —
+        nothing stored is changed or deleted. Events the game has that the file does not (Code Room additions, rows removed from
+        the file since) are listed and left alone. Nothing is saved until you press <b>Add ticked events</b>.
+      </div>
+      <input type="file" id="scRepairFile" accept=".xml" style="font-size:12px;">
+      <div><button type="button" class="mode-btn" style="margin-top:8px;" onclick="scRepairCheck()">Check file &amp; preview</button>
+        <button type="button" class="mode-btn" id="scRepairGo" style="margin-top:8px;display:none;" onclick="scRepairWrite()">Add ticked events</button></div>
+      <div id="scRepairStatus" style="font-size:12px;font-weight:700;margin-top:8px;"></div>
+      <div id="scRepairOut" style="font-size:12px;color:var(--t2);margin-top:6px;"></div>
+    </div>
     <!-- Add an iGaelicCoach file's information to the stored game of the same match — add-only (cohesion-igc.js) -->
     <div class="field" id="igcMergeBox" style="margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:8px;">
       <label>Add iGaelicCoach data to this game <span style="font-weight:400;color:var(--t3);">— adds only, keeps every value and player name</span></label>
@@ -814,28 +830,40 @@ async function processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse
       console.warn('⚠️  Could not decode token for debugging:', e.message);
     }
 
-    // Call Netlify Function with auth token
-    const response = await fetch('/.netlify/functions/processGame', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        gameId,
-        gameMeta,
-        eventRows,
-        skipXml,
-        isReparse
-      })
-    });
+    // Call Netlify Function with auth token. Every answer is checked (cohesion-labels.js cohSaveVerdict): a time-out
+    // comes back as a non-JSON 502 / 504 page, and a save is only a success when the server counted every event.
+    const expected = (skipXml && isReparse) ? null : eventRows.length;
+    let status = 0, text = '';
+    try {
+      const response = await fetch('/.netlify/functions/processGame', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          gameId,
+          gameMeta,
+          eventRows,
+          skipXml,
+          isReparse
+        })
+      });
+      status = response.status;
+      text = await response.text().catch(() => '');
+    } catch(netErr) { console.error('processGame request failed:', netErr); }
 
-    const result = await response.json();
-
-    if(!response.ok) {
-      console.error('❌ Function error:', result);
-      throw new Error(result.error || `HTTP ${response.status}`);
+    const verdict = cohSaveVerdict(status, text, expected);
+    if(!verdict.ok) {
+      console.error('❌ Function error:', status, verdict.json || text.slice(0, 300));
+      // how many events the game has now — the message says what was saved and what to do
+      let storedNow = null;
+      if(expected !== null){ try { storedNow = ((await cohesionRead({ action:'getEvents', gameId })).events || []).length; } catch(_) {} }
+      const e = new Error(cohSaveMessage(verdict, expected, storedNow));
+      e.saveVerdict = verdict; e.storedNow = storedNow;
+      throw e;
     }
+    const result = verdict.json;
 
     console.log('✓ Game processed successfully:', result);
     return result;
@@ -987,6 +1015,130 @@ async function scRestoreRun(){
     }
     say(lines.concat([`✓ Restored ${st.values} label value(s) and ${st.times} exact time(s); ${done} event(s) updated.`+(rowsNew?` Rows saved.`:'')]).join('\n'));
   }catch(e){ say('✗ ' + e.message + '\nRun it again: events already updated are skipped.'); }
+}
+
+// ── Repair missing events (add-only; cohesion-labels.js cohScRepairImport / cohScRepairPlan) ──
+// Check: the file is read exactly as the Sportscode upload reads it (DOMParser + cohScFromDom, the game's teams, video
+// starts, team sheet, game clock and categories) and compared with the stored events (getEvents — every page).
+// Add ticked events: a FRESH read and a new plan (nothing added twice), inserts through editEvent 50 a request, then
+// the events are counted again.
+let scRepairState = null;
+function scRepairImportText(game, text){
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  if(doc.querySelector('parsererror')) return { error:'Could not read the XML file.' };
+  const sc = cohScRepairImport(cohScFromDom(doc), game, { gameTime:getGameTime, category:getCategory });
+  if(sc.error) return { error: sc.error + ' Repair works on Sportscode files.' };
+  return sc;
+}
+async function scRepairPlanNow(game, text){
+  const rows = (await cohesionRead({ action:'getEvents', gameId: game.id })).events || [];
+  const sc = scRepairImportText(game, text);
+  if(sc.error) return { rows, error: sc.error };
+  return { rows, sc, plan: cohScRepairPlan(rows, sc.events) };
+}
+function scRepairDesc(e){
+  const bits = [e.player !== e.code ? e.player : '', e.outcome, e.subtype].filter(Boolean);
+  return igcEsc(e.code) + (bits.length ? ' <span style="color:var(--t3);">' + igcEsc(bits.join(' · ')) + '</span>' : '') + (e.derived === 'break-pair' ? ' <span style="color:var(--t3);">(added break row)</span>' : '');
+}
+function scRepairHtml(game, P, ticked){
+  const st = P.stats, H = '<th style="text-align:left;padding:3px 8px;border-bottom:1px solid var(--border);">';
+  const td = s => '<td style="padding:3px 8px;border-bottom:1px solid var(--border);vertical-align:top;">' + s + '</td>';
+  const tbl = (cols, rows) => `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:11.5px;margin-top:6px;"><tr>${cols.map(c => H + c + '</th>').join('')}</tr>${rows}</table></div>`;
+  const sec = (id, title, n, body, open) => `<details id="${id}" ${open ? 'open' : ''} style="margin-top:8px;"><summary style="cursor:pointer;font-weight:700;">${title} (${n})</summary>${n ? body : '<div style="color:var(--t3);">none</div>'}</details>`;
+  const nT = P.missing.filter(e => ticked.has(cohRepairKey(e))).length;
+  let h = `<div><b>${igcEsc(game.title || game.id)}</b>: ${st.stored} stored events, ${st.fileEvents} events in the file.</div>`
+    + `<div>Matched <b>${st.matched}</b> (file ID, code and start time) — ${st.bornMatched} of the game's ${st.fileBorn} events from its file (${Math.round(st.share * 100)}%).</div>`
+    + `<div style="margin-top:4px;">Missing from the game: <b>${st.missing}</b>` + (st.range ? ` — ${igcEsc(st.range.from)} to ${igcEsc(st.range.to)} (video ${st.range.videoFrom} to ${st.range.videoTo})` : '') + `. Ticked to add: <b id="scRepairTicked">${nT}</b>.</div>`;
+  const sh = Object.keys(st.driveShift || {});
+  if(sh.length) h += `<div style="color:var(--t3);">Video position: the stored events of ${sh.map(k => igcEsc(k) + ' sit ' + st.driveShift[k] + ' s').join(', ')} from where the game's start times put them — the added events follow them.</div>`;
+  if(st.missingBreakPairs && !st.storedBreakPairs) h += `<div style="color:var(--t3);">This game was uploaded before COHESION added the opposition's break rows; the ${st.missingBreakPairs} such rows in the list are left unticked, so the game stays as it was uploaded. Tick them to add them.</div>`;
+  // counts by code, a tick per code
+  const codes = Object.keys(st.byCode).sort((a, b) => st.byCode[b] - st.byCode[a] || a.localeCompare(b));
+  const codeRows = codes.map(c => { const evs = P.missing.filter(e => e.code === c), n = evs.filter(e => ticked.has(cohRepairKey(e))).length;
+    return '<tr>' + td(`<input type="checkbox" data-code="${igcEsc(c)}" ${n === evs.length ? 'checked' : ''}>`) + td(igcEsc(c)) + td(String(evs.length)) + td(n === evs.length ? 'all' : n ? n + ' ticked' : 'none') + '</tr>'; }).join('');
+  h += sec('scRepairCodes', 'Missing events by code', codes.length, tbl(['Add', 'Code', 'Events', 'Ticked'], codeRows), true);
+  // grouped by minute, a tick per event
+  const groups = []; P.missing.slice().sort((a, b) => (+a.start || 0) - (+b.start || 0)).forEach(e => { const m = cohRepairMinute(e); let g = groups[groups.length - 1]; if(!g || g.m !== m){ g = { m, evs:[] }; groups.push(g); } g.evs.push(e); });
+  const minRows = groups.map(g => '<tr>' + td('<b>' + igcEsc(g.m) + '</b>') + td(g.evs.map(e => { const k = cohRepairKey(e);
+    return `<label style="display:block;font-weight:400;text-transform:none;letter-spacing:normal;font-family:inherit;font-size:11.5px;color:var(--t1);margin:0;"><input type="checkbox" data-key="${igcEsc(k)}" ${ticked.has(k) ? 'checked' : ''}> ${igcEsc(cohRepairClock(e))} · ${scRepairDesc(e)} <span style="color:var(--t3);">#${igcEsc(e.id)}</span></label>`; }).join('')) + '</tr>').join('');
+  h += sec('scRepairMinutes', 'Missing events, minute by minute', P.missing.length, tbl(['Minute', 'Events'], minRows), false);
+  // in the game, not in the file — information only
+  const kindW = { coderoom:'added in Code Room', removed:'not in this file (removed from it since?)', edited:'re-coded or moved since the upload', derived:'COHESION row' };
+  const extraRows = P.extra.slice().sort((a, b) => (+a.row.data.start || 0) - (+b.row.data.start || 0)).map(x => '<tr>' + td(igcEsc(cohRepairClock(x.row.data))) + td(scRepairDesc(x.row.data)) + td('#' + igcEsc(x.row.data.id)) + td(kindW[x.kind] || x.kind) + '</tr>').join('');
+  h += sec('scRepairExtra', 'In the game, not in the file — kept, never deleted', P.extra.length, tbl(['Clock', 'Event', 'ID', 'Why'], extraRows), true);
+  if(P.edited.length) h += sec('scRepairEdited', 'In the file under an ID the game has changed — not added again', P.edited.length,
+    tbl(['File', 'Event', 'ID'], P.edited.map(x => '<tr>' + td(igcEsc(cohRepairClock(x.file))) + td(scRepairDesc(x.file)) + td('#' + igcEsc(x.file.id)) + '</tr>').join('')), false);
+  if(P.covered.length) h += sec('scRepairCovered', 'Break rows the game already has — not added again', P.covered.length,
+    tbl(['File', 'Event', 'Game\'s row'], P.covered.map(x => '<tr>' + td(igcEsc(cohRepairClock(x.file))) + td(scRepairDesc(x.file)) + td(igcEsc(x.stored.data.code) + ' #' + igcEsc(x.stored.data.id)) + '</tr>').join('')), false);
+  return h;
+}
+function scRepairRender(){
+  const S = scRepairState; if(!S) return;
+  const out = document.getElementById('scRepairOut');
+  out.innerHTML = scRepairHtml(S.game, S.plan, S.ticked);
+  const n = S.plan.missing.filter(e => S.ticked.has(cohRepairKey(e))).length;
+  const go = document.getElementById('scRepairGo'); go.style.display = n ? '' : 'none'; go.textContent = 'Add ' + n + ' ticked event' + (n === 1 ? '' : 's');
+}
+document.addEventListener('change', ev => {
+  const t = ev.target, S = scRepairState; if(!S || !t || !t.closest || !t.closest('#scRepairOut')) return;
+  const open = Array.from(document.querySelectorAll('#scRepairOut details')).map(d => d.open);
+  if(t.dataset.code != null){ S.plan.missing.forEach(e => { if(e.code === t.dataset.code){ const k = cohRepairKey(e); t.checked ? S.ticked.add(k) : S.ticked.delete(k); } }); }
+  else if(t.dataset.key != null){ t.checked ? S.ticked.add(t.dataset.key) : S.ticked.delete(t.dataset.key); }
+  else return;
+  scRepairRender();
+  document.querySelectorAll('#scRepairOut details').forEach((d, i) => { if(open[i] != null) d.open = open[i]; });
+});
+async function scRepairCheck(){
+  const status = t => { document.getElementById('scRepairStatus').textContent = t; }, out = document.getElementById('scRepairOut');
+  document.getElementById('scRepairGo').style.display = 'none'; out.innerHTML = ''; scRepairState = null;
+  const rIdx = parseInt(document.getElementById('reparseGame').value);
+  const game = (!isNaN(rIdx) && reparseGames[rIdx]) ? reparseGames[rIdx] : null;
+  const file = (document.getElementById('scRepairFile').files || [])[0];
+  if(!game){ status('Choose the game first (search above).'); return; }
+  if(!file){ status('Choose the game\'s Sportscode XML file.'); return; }
+  try{
+    status('Reading the file and the stored events…');
+    const text = cohScDecode(await file.arrayBuffer());
+    const r = await scRepairPlanNow(game, text);
+    if(r.error){ status('✗ ' + r.error + ' Nothing was changed.'); return; }
+    if(!r.plan.ok){ status('✗ ' + r.plan.reason); return; }
+    const preBp = r.plan.stats.missingBreakPairs && !r.plan.stats.storedBreakPairs;
+    const ticked = new Set(r.plan.missing.filter(e => !(preBp && e.derived === 'break-pair')).map(cohRepairKey));
+    scRepairState = { game, text, plan: r.plan, ticked, before: r.rows.length };
+    status(r.plan.missing.length ? `${r.plan.missing.length} event(s) of the file are missing from the game — check the list, then press Add.` : '✓ Nothing is missing — every event of this file is in the game.');
+    scRepairRender();
+  }catch(e){ status('✗ ' + e.message); }
+}
+async function scRepairWrite(){
+  const S = scRepairState, go = document.getElementById('scRepairGo');
+  const status = t => { document.getElementById('scRepairStatus').textContent = t; };
+  if(!S) return;
+  try{
+    // a fresh read and a new plan: an event added since the preview (another tab, a first run) is not added twice
+    const r = await scRepairPlanNow(S.game, S.text);
+    if(r.error) throw new Error(r.error);
+    if(!r.plan.ok) throw new Error(r.plan.reason);
+    const add = r.plan.missing.filter(e => S.ticked.has(cohRepairKey(e)));
+    if(!add.length){ status('✓ Nothing to add — the ticked events are already in the game.'); go.style.display = 'none'; return; }
+    const before = r.rows.length;
+    if(!confirm(`Add ${add.length} missing event(s) to “${S.game.title || S.game.id}”?\n\nThe game has ${before} events now; afterwards it should have ${before + add.length}. Nothing stored is changed or deleted.`)){ status('Cancelled — nothing was changed.'); return; }
+    go.style.display = 'none';
+    let done = 0;
+    for(let i = 0; i < add.length; i += 50){
+      const ops = add.slice(i, i + 50).map((d, j) => ({ action:'insert', game_id:S.game.id, data:d, ref:i + j }));
+      const { results } = await adminFetch('editEvent', { ops });
+      const failed = (results || []).filter(x => !x.ok);
+      done += (results || []).filter(x => x.ok).length;
+      if(failed.length) throw new Error(failed.length + ' event(s) could not be added (' + failed.map(f => f.error).join('; ') + ') after ' + done + ' were added');
+      status(`Adding… ${done} of ${add.length}`);
+    }
+    // count again
+    const after = await scRepairPlanNow(S.game, S.text);
+    const n = after.rows.length, left = after.plan && after.plan.ok ? after.plan.missing.filter(e => S.ticked.has(cohRepairKey(e))).length : null;
+    const okAll = n === before + add.length && left === 0;
+    status((okAll ? '✓ ' : '⚠ ') + `Added ${done} event(s). The game had ${before} events and now has ${n}` + (okAll ? ` (${before} + ${add.length}).` : ` — expected ${before + add.length}.`) + (left ? ` ${left} ticked event(s) are still missing: run Check again.` : ''));
+    if(after.plan && after.plan.ok){ S.plan = after.plan; S.before = n; scRepairRender(); }
+  }catch(e){ status('✗ ' + e.message + ' — run Check again: the events already added are found and skipped.'); }
 }
 
 // ── Add iGaelicCoach data to a stored game (add-only; cohesion-igc.js cohIgcMergePlan) ──
@@ -2769,10 +2921,11 @@ async function processGame(){
     const result = await processGameSecure(gameId, gameMeta, eventRows, skipXml, isReparse);
 
     console.log('✓ Game processed successfully:', result);
-    setProgress(100, `Done — ${events.length} events saved to database.`);
+    const savedN = (result && typeof result.stored === 'number') ? result.stored : events.length;
+    setProgress(100, `Done — ${savedN} events saved to database (counted after saving).`);
     document.getElementById('downloadsBlock').classList.add('show');
     document.getElementById('dlTitle').textContent = isReparse
-      ? `✅ Events updated — ${events.length} events saved to database.`
+      ? `✅ Events updated — ${savedN} events saved to database.`
       : `✅ Game saved — ${gameMeta.title} is now live in the library.`;
     document.getElementById('dlEvents').style.display = 'none';
     document.getElementById('dlGames').style.display = 'none';
@@ -2781,7 +2934,8 @@ async function processGame(){
       '<div class="inst-step"><div class="inst-n">✓</div><div>Your game has been saved directly to the database. It will appear in the library immediately — no file uploads needed.</div></div>';
 
   } catch(err){
-    showError('An error occurred: ' + err.message);
+    if(err && err.saveVerdict){ showError(err.message); setProgress(90, '✗ Not saved completely — see the message above.'); }
+    else showError('An error occurred: ' + err.message);
     console.error(err);
   } finally {
     document.getElementById('processBtn').disabled = false;
@@ -4031,43 +4185,38 @@ function logMessage(msg) {
 }
 
 async function callBatchUpload(games) {
+  // ONE game per request: a request stays far inside Netlify's 6 MB payload and time limits (several 1400-event
+  // games in one call could exceed both), and every game's answer is checked (cohesion-labels.js cohSaveVerdict).
   try {
     const user = netlifyIdentity.currentUser();
     if (!user) {
       logMessage('❌ Not authenticated');
       return false;
     }
-
-    const response = await fetch('/.netlify/functions/processBatchGames', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
-      },
-      body: JSON.stringify({ games: games })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      logMessage(`❌ Upload failed: ${result.error}`);
-      return false;
+    let okCount = 0, failCount = 0;
+    for (const g of games) {
+      const expected = Array.isArray(g.eventRows) ? g.eventRows.length : null;
+      let status = 0, text = '';
+      try {
+        const response = await fetch('/.netlify/functions/processBatchGames', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
+          },
+          body: JSON.stringify({ games: [g] })
+        });
+        status = response.status; text = await response.text().catch(() => '');
+      } catch (netErr) { console.error('processBatchGames request failed:', netErr); }
+      const r = cohBatchGameVerdict(status, text, g.gameId, expected);
+      if (r.ok) { okCount++; logMessage(`  ✓ ${g.gameId}: ${r.stored} events (counted after saving)`); continue; }
+      failCount++;
+      let storedNow = null;
+      try { storedNow = ((await cohesionRead({ action:'getEvents', gameId: g.gameId })).events || []).length; } catch (_) {}
+      logMessage(`  ✗ ${g.gameId}: ${cohSaveMessage(r.verdict, expected, storedNow)}`);
     }
-
-    logMessage(`✅ Batch upload complete: ${result.processed} succeeded, ${result.failed} failed`);
-
-    if (result.results) {
-      for (const r of result.results) {
-        if (r.success) {
-          logMessage(`  ✓ ${r.gameId}: ${r.eventCount} events`);
-        } else {
-          logMessage(`  ✗ ${r.gameId}: ${r.error}`);
-        }
-      }
-    }
-
-    // Return true only if all games succeeded
-    return result.success === true && result.failed === 0;
+    logMessage(`${failCount ? '⚠️' : '✅'} Batch upload complete: ${okCount} succeeded, ${failCount} failed`);
+    return failCount === 0;
   } catch (err) {
     logMessage(`❌ Error: ${err.message}`);
     return false;

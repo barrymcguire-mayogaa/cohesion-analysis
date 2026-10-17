@@ -1370,21 +1370,32 @@ async function uploadReadyGames() {
 
     const user = netlifyIdentity.currentUser();
 
-    const response = await fetch('/.netlify/functions/processBatchGames', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      showToast(`Upload failed: ${result.error}`, 'error');
-      return;
+    // ONE game per request: each stays far inside Netlify's 6 MB payload and time limits, and each game's answer is
+    // checked (cohesion-labels.js cohBatchGameVerdict) — a time-out (non-JSON 502 / 504) or a count that does not
+    // match is reported for that game, never shown as uploaded.
+    const result = { processed: 0, failed: 0, results: [] };
+    for (const g of payload.games) {
+      const expected = g.eventRows.length;
+      let status = 0, text = '';
+      try {
+        const response = await fetch('/.netlify/functions/processBatchGames', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${(user.jwt ? await user.jwt().catch(()=>null) : null) || user.token.access_token}`
+          },
+          body: JSON.stringify({ games: [g] })
+        });
+        status = response.status; text = await response.text().catch(() => '');
+      } catch (netErr) { console.error('processBatchGames request failed:', netErr); }
+      const r = cohBatchGameVerdict(status, text, g.gameId, expected);
+      if (r.ok) { result.processed++; result.results.push({ gameId: g.gameId, success: true, eventCount: r.stored }); continue; }
+      let storedNow = null;
+      try { storedNow = ((await cohesionRead({ action:'getEvents', gameId: g.gameId })).events || []).length; } catch (_) {}
+      result.failed++;
+      result.results.push({ gameId: g.gameId, success: false, error: cohSaveMessage(r.verdict, expected, storedNow) });
     }
+    result.success = result.failed === 0;
 
     // Mark uploaded games
     result.results.forEach(res => {
@@ -1394,6 +1405,7 @@ async function uploadReadyGames() {
         if (!res.success) game.errors = [res.error];
       }
     });
+    if (result.failed) showToast(`${result.failed} game(s) were not saved completely — see the list`, 'error');
 
     showResults(result);
   } catch (e) {
