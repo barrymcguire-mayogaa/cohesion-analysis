@@ -483,6 +483,35 @@ function openLocMap(kind){
   document.body.appendChild(ov);
   renderLocMap();
 }
+// The hover / tap card of a map marker (a native SVG <title> is slow and does not show on touch or in every browser)
+function locTipText(e){
+  const L=e.labels||{}, xp=locMap.kind==='shot'?dashXpOf(e):null;
+  const out=String(L['Shot Outcomes']||L['Kickout Outcomes']||L['ShotOutcome']||L['Outcome']||e.outcome||'').trim();
+  const att=locMap.kind==='shot'?String(L['Shot Attempts']||'').trim():String(L['Kickout Locations']||'').trim();
+  const rows=[`<b>${esc(e.code||'')}</b>`];
+  if(e.player) rows.push(esc(e.player));
+  const meta=[e.gameTime||'', att, out].filter(Boolean).map(v=>esc(v)).join(' · '); if(meta) rows.push(meta);
+  if(locMap.kind==='shot') rows.push(xp!=null?`xP <b>${xp.toFixed(2)}</b>`:'no xP (no location / attempt type for the model)');
+  return rows.join('<br>');
+}
+function locTipWire(marks){
+  const svg=marks.ownerSVGElement||marks.closest('svg'); if(!svg||svg.__locTip) return; svg.__locTip=1;
+  const box=svg.parentNode; if(getComputedStyle(box).position==='static') box.style.position='relative';
+  const tip=document.createElement('div'); tip.id='locTip';
+  tip.style.cssText='position:absolute;display:none;pointer-events:none;z-index:2;background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font:600 12px Barlow,sans-serif;line-height:1.45;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:240px;';
+  box.appendChild(tip);
+  const show=ev=>{ const el=ev.target.closest&&ev.target.closest('[data-li]'); const e=el&&locMap&&locMap.evs?locMap.evs[+el.getAttribute('data-li')]:null;
+    if(!e){ tip.style.display='none'; return; }
+    tip.innerHTML=locTipText(e); tip.style.display='block';
+    const b=box.getBoundingClientRect(), r=el.getBoundingClientRect();
+    let x=r.left+r.width/2-b.left+10, y=r.top-b.top-tip.offsetHeight-6;
+    if(x+tip.offsetWidth>box.clientWidth) x=r.left-b.left-tip.offsetWidth-10;
+    if(y<0) y=r.bottom-b.top+6;
+    tip.style.left=Math.max(0,x)+'px'; tip.style.top=y+'px'; };
+  svg.addEventListener('pointerover', show);
+  svg.addEventListener('click', show);
+  svg.addEventListener('pointerleave', ()=>{ tip.style.display='none'; });
+}
 function closeLocMap(){ const ov=document.getElementById('locOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); }
 function locSetTeam(t){ locMap.team=t; renderLocMap(); }
 function renderLocMap(){
@@ -492,22 +521,24 @@ function renderLocMap(){
   btns.innerHTML=`<div class="tl-pb ${locMap.team==='h'?'on':''}" onclick="locSetTeam('h')" style="cursor:pointer;">${H}</div><div class="tl-pb ${locMap.team==='a'?'on':''}" onclick="locSetTeam('a')" style="cursor:pointer;">${A}</div>`;
   const yf=locMap.kind==='shot'?0.75:null;   // ko uses koPlotY (full-pitch % labels)
   const evs=locEvents(locMap.kind).filter(e=>statSide(e)===locMap.team);
-  marks.innerHTML=evs.map(e=>{
+  locMap.evs=evs;
+  marks.innerHTML=evs.map((e,i)=>{
     const co=dashCoordOf(e); if(!co) return '';
     const cy=locMap.kind==='shot'?co.y*yf:koPlotY(co.y);
     if(locMap.kind==='shot'){
-      const g=locShotGlyph(e), xp=dashXpOf(e), k=dashXpScale(xp);
-      const tip=`<title>${tc(e.code||'')}${e.player?' — '+esc(e.player):''}${xp!=null?' · xP '+xp.toFixed(2):' · no xP'}</title>`;
+      // every marker the same size (xP is in the hover / tap card, not the marker size)
+      const g=locShotGlyph(e);
       return g.shape==='square'
-        ? `<rect x="${co.x-1.7*k}" y="${co.y*yf-1.7*k}" width="${3.4*k}" height="${3.4*k}" fill="${g.color}" stroke="#000" stroke-width=".4">${tip}</rect>`
-        : `<circle cx="${co.x}" cy="${co.y*yf}" r="${1.8*k}" fill="${g.color}" stroke="#000" stroke-width=".4">${tip}</circle>`;
+        ? `<rect data-li="${i}" x="${co.x-1.7}" y="${co.y*yf-1.7}" width="3.4" height="3.4" fill="${g.color}" stroke="#000" stroke-width=".4" style="cursor:pointer"></rect>`
+        : `<circle data-li="${i}" cx="${co.x}" cy="${co.y*yf}" r="1.8" fill="${g.color}" stroke="#000" stroke-width=".4" style="cursor:pointer"></circle>`;
     }
     const out=String((e.labels||{})['Kickout Outcomes']||e.outcome||'').toUpperCase();
     const col=/WON/.test(out)?'#4ade80':/LOST/.test(out)?'#ef4444':'#e5e5e5';
-    return `<circle cx="${co.x}" cy="${cy}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4"><title>${tc(e.code||'')}${out?' — '+tc(out):''}</title></circle>`;
+    return `<circle data-li="${i}" cx="${co.x}" cy="${cy}" r="1.8" fill="${col}" stroke="#000" stroke-width=".4" style="cursor:pointer"></circle>`;
   }).join('');
+  locTipWire(marks);
   if(leg) leg.innerHTML=locMap.kind==='shot'
-    ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty${dashXpModel()?' · bigger marker = higher xP (hover for the value)':''}`
+    ? `${evs.length} located shots — ● open play · ■ dead ball &nbsp; <span style="color:#fff">●</span> 1pt <span style="color:#f97316">●</span> 2pt <span style="color:#ffd700">●</span> goal <span style="color:#ef4444">●</span> miss <span style="color:#a855f7">●</span> penalty · hover or tap a marker for its details${dashXpModel()?' and xP':''}`
     : `${evs.length} located kickouts — <span style="color:#4ade80">●</span> won · <span style="color:#ef4444">●</span> lost`;
 }
 
