@@ -1089,8 +1089,8 @@ function dashMapSvg(kind,hHex,aHex,pxW,opts){
         +`<g stroke="${c}" stroke-width=".75"><line x1="${x-1.25}" y1="${y-1.25}" x2="${x+1.25}" y2="${y+1.25}"/><line x1="${x-1.25}" y1="${y+1.25}" x2="${x+1.25}" y2="${y-1.25}"/></g>`;
     }
     const fill=m.scored?c:'none', stroke=m.scored?'#111':c, sw=m.scored?'.35':'.8';
-    // marker size by xP (dashXpScale); same glyphs and colours
-    const k=dashXpScale(m.xp), f=v=>(v*k).toFixed(3);
+    // every marker the same size (Oct 2026: sizing by xP read as confusing; xP stays in the numbers / hover card)
+    const k=1, f=v=>(v*k).toFixed(3);
     if(m.shape==='tri') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y+(+f(1.35))} L ${x-f(1.7)} ${y+(+f(1.35))} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
     if(m.shape==='dia') return `<path d="M ${x} ${y-f(1.85)} L ${x+(+f(1.7))} ${y} L ${x} ${y+(+f(1.85))} L ${x-f(1.7)} ${y} Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
     if(m.db) return `<rect x="${x-f(1.3)}" y="${y-f(1.3)}" width="${f(2.6)}" height="${f(2.6)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
@@ -1139,7 +1139,7 @@ function dashBuildMapCanvas(kind,hHex,aHex){
     const im=new Image();
     im.onload=()=>{
       const xpOn=kind==='shot'&&!!dashXpModel();
-      const W=640,LEG=xpOn?90:64;
+      const W=640,LEG=64;   // (no marker-size key row any more)
       const cv=document.createElement('canvas'); cv.width=W; cv.height=MH+LEG+20;
       const ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cv.width,cv.height);
@@ -1158,7 +1158,6 @@ function dashBuildMapCanvas(kind,hHex,aHex){
         dot('#8a93a0',true); word('SCORED'); dot('#8a93a0',false); word('MISSED');
         [['cir','1PT'],['dia','2PT'],['tri','GOAL'],['sq','DEADBALL']].forEach(([sh,lb])=>{
           dashGlyph(ctx,sh,lx+6,ly-5,6,'#8a93a0',true); lx+=17; word(lb); });
-        if(xpOn) dashXpSizeKey(ctx,24,ly+27,6,'#8a93a0','#555e6a','600 17px Helvetica,Arial,sans-serif');
       } else {
         dot(hHex,true); word(Hn); dot(aHex,true); word(An);
         ly+=24; lx=24;
@@ -1734,7 +1733,7 @@ async function dashBuildMapsImage(){
   const noteTxt=(m,what)=>{ const n=m.h+m.a; if(!n) return '';
     return '* '+['h','a'].filter(s=>m[s]).map(s=>(s==='h'?T.Hn:T.An)+' '+m[s]).join(' · ')+' '+what+(n>1?'s':'')+' with no location tagged'; };
   const cards=[
-    shotCv&&{cv:shotCv,title:'SHOT MAP',sub:'ATTACKING UP THE PAGE · '+MD.shots.length+' LOCATED'+(dashXpModel()?' · SIZE = XP':''),note:noteTxt(MD.shotMiss,'shot')},
+    shotCv&&{cv:shotCv,title:'SHOT MAP',sub:'ATTACKING UP THE PAGE · '+MD.shots.length+' LOCATED',note:noteTxt(MD.shotMiss,'shot')},
     koCv&&{cv:koCv,title:'KICKOUT LANDING MAP',sub:'TOP = KICKING GOAL · '+MD.kos.length+' LOCATED',note:noteTxt(MD.koMiss,'kickout')}
   ].filter(Boolean);
   const PAD=40, GAP=24, CW=680, HEAD=156, CT=58, NOTE=40, FOOT=44;
@@ -2083,7 +2082,7 @@ async function dashBuildInfographic(){
     [['cir',true,'SCORED'],['cir',false,'MISSED'],['cir',true,'1PT'],['dia',true,'2PT'],['tri',true,'GOAL'],['sq',true,'DEADBALL']].forEach(([shp,fl,lb])=>{
       dashGlyph(ctx,shp,lx+6,ly+8,5.5,G,fl,BG); lx+=16; txt(lb,lx,ly,F(600,14),T2,'left',0.5); lx+=tw(lb,F(600,14),0.5)+18; });
     ly+=30;
-    if(xpOn){ // marker size key at the pitch's own scale (pw px per 100 units)
+    if(false){ // (marker size key: markers are no longer sized by xP)
       const u=pw/100; let kx=px+2;
       txt('MARKER SIZE = XP',kx,ly,F(600,14),T2,'left',0.5); kx+=tw('MARKER SIZE = XP',F(600,14),0.5)+12;
       [0.2,0.6,1.5].forEach(v=>{ const r=1.4*u*dashXpScale(v);
