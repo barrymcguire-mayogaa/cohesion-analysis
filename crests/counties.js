@@ -7,10 +7,11 @@
  * underline, the print-out cover and header bars) — never in charts, tiles, arrows or maps, where yellow / gold would read
  * as COHESION's goal colour and red as a miss.
  *
- * Loaded after crests/index.js: each county is added to window.COHESION_TEAM_COLOURS (the stored palette cohTeamColourDefault
- * and the Analysis Player Dashboard read) unless the palette already has that slug. Display rules (readable on the dark
+ * SCOPE (Barry, Oct 2026): ONLY the new Analysis views read this list — the Player Dashboard and the Panel Print-out
+ * (cohesion-playerdash.js pdColours). It is NOT merged into COHESION_TEAM_COLOURS, so every other page keeps drawing a
+ * game in the colours saved on that game (a team may wear a change or third kit). Display rules (readable on the dark
  * pages: a white or black primary gives way to the secondary, colours are lifted through cohesion-ink.js) live where the
- * colours are drawn, not here.
+ * colours are drawn, not here. Confirmed by Barry, including London, New York and Kildare.
  */
 (function(root){
   var COUNTY_COLOURS={
@@ -32,13 +33,13 @@
     laois:     {primary:'#0055a4', secondary:'#ffffff'},   // blue, white
     leitrim:   {primary:'#00843d', secondary:'#f2c200'},   // green, gold
     limerick:  {primary:'#00843d', secondary:'#ffffff'},   // green, white
-    london:    {primary:'#00843d', secondary:'#ffffff'},   // green, white — UNSURE
+    london:    {primary:'#00843d', secondary:'#ffffff'},   // green, white
     longford:  {primary:'#0055a4', secondary:'#f2c200'},   // blue, gold
     louth:     {primary:'#d3202f', secondary:'#ffffff'},   // red, white
     mayo:      {primary:'#00843d', secondary:'#e4002b'},   // green, red
     meath:     {primary:'#00843d', secondary:'#f2c200'},   // green, gold
     monaghan:  {primary:'#ffffff', secondary:'#0055a4'},   // white, blue
-    newyork:   {primary:'#0b2a6b', secondary:'#d3202f'},   // navy, red — UNSURE
+    newyork:   {primary:'#0b2a6b', secondary:'#d3202f'},   // navy, red
     offaly:    {primary:'#00843d', secondary:'#ffffff', tertiary:'#f2c200'},   // green, white, gold
     roscommon: {primary:'#f5d300', secondary:'#0055a4'},   // primrose, blue
     sligo:     {primary:'#000000', secondary:'#ffffff'},   // black, white
@@ -50,7 +51,5 @@
     wicklow:   {primary:'#0055a4', secondary:'#f2c200'},   // blue, gold
   };
   root.COHESION_COUNTY_COLOURS=COUNTY_COLOURS;
-  var C=root.COHESION_TEAM_COLOURS=root.COHESION_TEAM_COLOURS||{};
-  Object.keys(COUNTY_COLOURS).forEach(function(k){ if(!C[k]) C[k]=COUNTY_COLOURS[k]; });
   if(typeof module!=='undefined'&&module.exports) module.exports=COUNTY_COLOURS;
 })(typeof window!=='undefined'?window:globalThis);

@@ -57,11 +57,14 @@ function pdRangeTxt(r, games){
   if(r.kind==='game'){ const g=(games||[])[0]; return g?(g.title||'')+' · '+[g.competition, g.round].filter(Boolean).join(' '):'No game'; }
   return gl;
 }
-// the team's colours: COHESION's stored palette (crests/index.js COHESION_TEAM_COLOURS — cohTeamColourDefault's source), else
+// the team's colours: COHESION's stored palette (crests/index.js COHESION_TEAM_COLOURS — cohTeamColourDefault's source) or the
+// county list (crests/counties.js), else
 // the colour saved on the team's most recent game (ssTeamColor). On screen through cohTeamInk (readable on the dark page).
 function pdColours(T){
   const C=(typeof window!=='undefined'&&window.COHESION_TEAM_COLOURS)||{}, sl=typeof cohCrestSlug==='function'?cohCrestSlug(T):String(T||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const pal=C[sl]||null, g=(typeof ssTeamColor==='function')?ssTeamColor(T):null;
+  // clubs: the stored palette; counties: the county list (crests/counties.js — read HERE only, never merged into the palette)
+  const CC=(typeof window!=='undefined'&&window.COHESION_COUNTY_COLOURS)||{};
+  const pal=C[sl]||CC[sl]||null, g=(typeof ssTeamColor==='function')?ssTeamColor(T):null;
   const primary=(pal&&pal.primary)||(g&&g.hex)||'#4fc3f7', secondary=(pal&&pal.secondary)||null;
   // text and marks on the dark page: the same hue lifted to 4.5:1 (WCAG text) against the panels
   const ink=(c,bg)=>(typeof window!=='undefined'&&window.cohTeamInk)?window.cohTeamInk(c, {theme:'dark', bg:bg||'#1b1b25', min:4.5}):c;
@@ -321,8 +324,21 @@ function pdBarsHTML(S, row, col, one){   // one: a single-game range — his per
 // (pyView), maps (pyMapsHTML → pyMapSVG / ttShotMark: one marker size, COHESION's colours, rotated games read as the Players tab
 // reads them), legend, n/a notes and hover cards (the cards are routed to this view: pdTipState)
 function pdShotView(S, key){ const F={types:new Set(), play:'both'}; return {F, V:pyView(S.R, key, F, null, null, S.F)}; }
-function pdMapsHTML(S, M){
+function pdMapsHTML(S, M, V){
   if(!M.V.player) return '<div class="tt-empty">n/a — he is not in these games.</div>';
+  return pdMapsOnly(S, M)+pdBandsHTML(S, M, V);
+}
+// SHOOTING BY DISTANCE on the dashboard (the shared pyBandsHTML / cohesion-shotbands.js): the player's shots over the range;
+// the comparison column follows the toggle — vs squad: the team's % in the same band over the same games; vs previous
+// season / season average: his own % in that range
+function pdBandsHTML(S, M, V){
+  if(!V||typeof pyBandsHTML!=='function') return '';
+  const mine=S.R.shots.filter(s=>s.pk===V.key);
+  let cmp={label:titleCase(S.T)+' %', what:'the whole team (same games)', shots:S.R.shots};
+  if(V.mode!=='squad'&&V.P&&V.P.S&&V.prow) cmp={label:(V.P.savg?'His '+V.P.season+' %':'His '+V.P.season+' %'), what:V.P.savg?'his own '+V.P.season+' season':'his own '+V.P.season+' range', shots:V.P.S.R.shots.filter(s=>s.pk===V.key)};
+  return pyBandsHTML(mine, cmp, {});
+}
+function pdMapsOnly(S, M){
   return pyMapsHTML(S.R, M.V, M.F).replace(' The 1-point, 2-point and Goal chips filter by the tagged attempt type (a shot with no attempt type then drops out); a marker’s', ' A marker’s');   // no chips on this tab
 }
 function pdCtlHTML(V){
@@ -352,7 +368,7 @@ function pdHTML(V){
     +`<div class="dnote">${ssEsc((V.range.kind==='game'?'The '+(V.P&&V.P.season||'')+' season around the selected game (ringed). ':'Oldest → newest across the range. ')+'“–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
     +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col, V.range.kind==='game')}<div class="dnote">${V.range.kind==='game'?'This game: his figures are the tiles above; the number is the squad average in this game.':'Per game.'} Squad average as the Player Profile: the mean over the squad players who have the figure. Hover an n/a row for the reason.</div></div>`
     +`<div class="tt-card pd-p pd-p4"><h4 class="td-ct">SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
-    +`<div class="tt-card pd-p pd-p5 pd-maps"><h4 class="td-ct">SHOT MAPS</h4>${pdMapsHTML(S, V.map)}</div></div>`;
+    +`<div class="tt-card pd-p pd-p5 pd-maps"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4>${pdMapsHTML(S, V.map, V)}</div></div>`;
   const naList=[...new Set(PD_KPIS.filter(d=>S.na[d.k]).map(d=>d.l+': '+S.na[d.k]))];
   h+=`<div class="dnote pd-foot">${ssEsc('Totals are the Players tab’s for the same games (its players table: shots, scores, assists, xP; its kickout lists: targets named on '+S.T+'’s own kickouts). Games = games he is named on an event'+(S.F.sheetGames?', or has minutes on a team sheet':'')+'. ARROWS — what is compared: counts (scores, shots, assists, kickouts, turnovers, fouls, cards) PER GAME; rates (Shooting %, Points per game, Finishing v xP) as they are; Games and Minutes as TOTALS. Against: '+(V.mode==='squad'?'the squad average (the Player Profile’s: the mean over the squad players who have the figure)':V.P&&V.P.savg?'his own average per game over the '+V.P.season+' season ('+V.P.games.length+' games; Minutes: this game against his minutes per game; Games: not compared)':'his own figures in the same kind of range in the previous season ('+(V.P&&V.P.games.length?V.P.season+': '+V.P.games.length+' game'+(V.P.games.length===1?'':'s'):'n/a — '+(V.P?V.P.reason:''))+')')+'. Green = better by more than 3%, red = worse by more than 3% (fewer is better for turnovers lost, fouls and cards), grey within 3%. Score assists = his assists on scores; shot assists = every shot he is named as the assist on. Goal attempts = shots tagged Goal Attempt.'+(naList.length?' N/A in this range — '+naList.join(' · ')+'.':''))}</div>`;
   return h;
@@ -582,7 +598,7 @@ function ppPlayerHTML(T, s, ctx, col){
     +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
     +`<button type="button" class="pp-noprint mini" data-ppreset="${ssEsc(key)}" title="Replace this player’s notes with the draft from the figures">Re-draft notes</button></div>`
-    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}</div></div></section>`;
+    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
 }
 function ppChainTable(T, s, ctx, col){
   const A=ppChains(ctx.Sf, T, s.name), B=ctx.Sc?ppChains(ctx.Sc, T, s.name):null, cs=pdCompShort(PP.comp);
@@ -793,6 +809,8 @@ const PD_CSS=`
 .pp-side .mini{font-size:10px;}
 .pp-kc th,.pp-kc td{border:1px solid #d9ddd9;padding:1.4mm 1.5mm;text-align:center;font-size:10px;} .pp-kc tbody th{text-align:left;font-weight:700;} .pp-kc td.cmp{color:#8b1a1a;} .pp-kc thead th{font-size:9.5px;}
 .pp-fn{font-size:8.5px;color:#555;line-height:1.35;}
+.pp-bt{width:100%;border-collapse:collapse;font-size:9.5px;margin-top:2.5mm;} .pp-bt th,.pp-bt td{border:1px solid #d9ddd9;padding:.7mm 1.5mm;text-align:center;} .pp-bt tbody th{text-align:left;font-weight:600;} .pp-bt tr.bsub th{padding-left:4mm;font-weight:400;color:#444;} .pp-bt thead th{background:#f0f2f0;}
+.pp-bands.na{margin-top:2.5mm;font-size:9.5px;font-weight:700;color:#555;border:1px dashed #bbb;border-radius:3px;padding:1.5mm 2mm;} .pp-bands.na small{font-weight:400;}
 .pp-kmaps{display:flex;gap:6mm;justify-content:center;} .pp-kmap{width:60mm;text-align:center;font-size:9px;color:#555;} .pp-kmap .tt-pitch{width:100%;height:auto;} .pp-kmap .pp-map.na{width:auto;}
 .pp-h{color:var(--pp);font:800 15px 'Barlow',sans-serif;margin:0;} .pp-p{font-size:13px;margin:0;color:#222;}
 .pp-at th{background:#111;color:#fff;padding:2.2mm 2mm;text-align:right;font:700 11.5px 'Barlow',sans-serif;} .pp-at th:first-child,.pp-at td:first-child{text-align:left;} .pp-at td{border:1px solid #777;padding:2mm;text-align:right;font-size:12px;}
