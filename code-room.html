@@ -430,6 +430,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-ink.js"></script>
 <script src="cohesion-labels.js"></script>
+<script src="cohesion-shotbands.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-sources.js"></script>
@@ -2017,10 +2018,12 @@ function crCoordOf(e){
 const CR_ARC_2PT_M=40;
 let crAutoAtt={};                  // rowId → attempt value auto-set this session
 let crAttNote={id:null,text:''};   // "attempt set from location: 2pt" for the Edit panel / Locate
+// metres from the goal centre ON THE DRAWN PITCH (cohesion-shotbands.js cohShotPitchDistM — the scale of the drawn 20 m /
+// 45 m lines and 40 m arc, the one the Analysis shot bands use; since Oct 2026, was the xP model's xpForShot(...).parts.dist,
+// whose scale puts the lines ~1 m off the drawing). x / y = the canonical position Code Room stores. xP keeps its own scale.
 function crShotDistM(x,y){
-  if(typeof xpForShot!=='function'||x==null||y==null||!isFinite(x)||!isFinite(y)) return null;
-  try{ const r=xpForShot({'Shot Attempts':'1 Point Attempt','X-Shot':String(x),'Y-Shot':String(y)},'home',null,{conv:'tracker'});
-    return r&&r.parts&&isFinite(r.parts.dist)?r.parts.dist:null; }catch(_){ return null; }
+  if(typeof cohShotPitchDistM!=='function'||x==null||y==null||!isFinite(x)||!isFinite(y)) return null;
+  const d=cohShotPitchDistM(x,y); return d!=null&&isFinite(d)?d:null;
 }
 // labels: {group:value}. Returns the attempt to write, or '' to leave it.
 function crAttemptFromLoc(rowId, code, labels, x, y){
