@@ -70,9 +70,15 @@ function pdColours(T){
   const hi=pdAchro(primary)&&secondary&&(!pdAchro(secondary)||pdLum(primary)<0.15)?secondary:primary, lo=hi===primary?(secondary||primary):primary;
   const a=ink(hi), b=ink(lo);
   // the print-out's header bar on white paper: the primary, unless it is (near) white — then the secondary, else charcoal
-  const bar=pdLum(primary)>0.85?(secondary&&pdLum(secondary)<0.85?secondary:'#2b2b2b'):primary, tag=bar===primary?(secondary||'#ffffff'):primary;
-  return {primary:hi, secondary:lo, a, b, bar, tag, stored:{primary, secondary}, from:pal?'palette':g?'game':'default'};
+  const bar=pdLum(primary)>0.85?(secondary&&pdLum(secondary)<0.85?secondary:'#2b2b2b'):primary, tag0=bar===primary?(secondary||'#ffffff'):primary;
+  const tag=pdLum(tag0)>0.9?'#e6e9e6':tag0;   // a white position block would vanish on the paper: a pale grey instead (Cork, Offaly, Derry …)
+  // BANDS — decoration only (the name underline, the print-out cover stripe, a thin edge on the print-out bars): the stored
+  // colours in order, with the optional third (Carlow, Offaly). The third is never a highlight, a bar, an arrow or a marker.
+  const tertiary=(pal&&pal.tertiary)||null, bands=[primary].concat(secondary?[secondary]:[], tertiary?[tertiary]:[]);
+  return {primary:hi, secondary:lo, a, b, bar, tag, bands, tertiary, stored:{primary, secondary, tertiary}, from:pal?'palette':g?'game':'default'};
 }
+// a decorative stripe of the team's bands (an outline keeps a white or black band visible on either background)
+function pdStripeHTML(col, cls){ return `<div class="pd-stripe ${cls||''}" aria-hidden="true">${col.bands.map(c=>`<i style="background:${ssEsc(c)}"></i>`).join('')}</div>`; }
 function pdRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(String(h||'').trim()); if(!m) return [128,128,128]; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
 function pdLum(h){ const c=pdRgb(h); return (0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255; }
 function pdAchro(h){ const c=pdRgb(h); return (Math.max(...c)-Math.min(...c))/255<0.15; }   // black, white or grey
@@ -255,7 +261,7 @@ function pdHeadHTML(V){
   const shirt=sheet&&sheet.no!==''&&sheet.no!=null?'#'+sheet.no:'No. n/a', pos=sheet&&sheet.pos?sheet.pos:'Position n/a';
   const sheetTip=sheet?'From the team sheet of '+sheet.game:'n/a — no team sheet in these games lists him';
   return `<div class="pd-head"><div class="pd-photo">${cohPlayerBadgeHTML(T, name, {cls:'pd-badge', color:col.primary})}</div>`
-    +`<div class="pd-who"><h2><span>${ssEsc(first)}</span> <b>${ssEsc(last)}</b></h2><div class="pd-team">${crestH}<div><div class="pd-tn">${ssEsc(titleCase(T))}</div><div class="pd-sheet" title="${ssEsc(sheetTip)}">${ssEsc(shirt+' · '+pos)}</div></div></div></div>`
+    +`<div class="pd-who"><h2><span>${ssEsc(first)}</span> <b>${ssEsc(last)}</b></h2>${pdStripeHTML(V.col, 'pd-uline')}<div class="pd-team">${crestH}<div><div class="pd-tn">${ssEsc(titleCase(T))}</div><div class="pd-sheet" title="${ssEsc(sheetTip)}">${ssEsc(shirt+' · '+pos)}</div></div></div></div>`
     +`<div class="pd-range"><span>RANGE</span><b>${ssEsc(rangeTxt)}</b></div></div>`;
 }
 function titleCase(s){ return String(s||'').toLowerCase().replace(/(^|[\s'-])(\S)/g,(m,a,b)=>a+b.toUpperCase()); }
@@ -549,7 +555,7 @@ function ppPages(P){
 // ── print-out strings ──
 function ppBarHTML(s, T, col, club){
   const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff', fg2=typeof cohInkOn==='function'?cohInkOn(col.tag||col.bar):'#111';
-  return `<div class="pp-bar" style="background:${ssEsc(col.bar)};color:${fg}"><div class="pp-no">${s.no}</div><div class="pp-nm"><b>${ssEsc(s.name)}</b><small>${ssEsc(club||'')}</small></div><div class="pp-pos" style="background:${ssEsc(col.tag||col.bar)};color:${fg2}">${ssEsc(ppSlotLabel(s))}</div></div>`;
+  return `<div class="pp-bar" style="background:${ssEsc(col.bar)};color:${fg}"><div class="pp-no">${s.no}</div><div class="pp-nm"><b>${ssEsc(s.name)}</b><small>${ssEsc(club||'')}</small></div><div class="pp-pos" style="background:${ssEsc(col.tag||col.bar)};color:${fg2}">${ssEsc(ppSlotLabel(s))}</div></div>${col.tertiary?pdStripeHTML(col, 'pp-bedge'):''}`;   // a three-colour county: a thin band edge under the bar
 }
 function ppSeasonTable(T, key, Sf, Sc, P, col){
   const row=(lab, S)=>{ const r=key?S.rows.get(key):null, na=v=>v==null?'n/a':v;
@@ -598,7 +604,7 @@ function ppCoverHTML(T, ctx, col, list){
   const n=Object.values(PP.slots).filter(s=>s&&s.name).length;
   return `<div class="pp-cover" style="--cp:${ssEsc(col.bar)};--cs:${ssEsc(col.tag||col.bar)}"><div class="pp-cband" style="background:${ssEsc(col.bar)};color:${fg}">`
     +(crest?`<img class="pp-ccrest" src="${ssEsc(crest)}" alt="${ssEsc(T)} crest">`:`<div class="pp-ccrest pp-c0" style="border-color:${ssEsc(col.tag||'#fff')}">${ssEsc(pdOppShort(T))}</div>`)
-    +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div><div class="pp-cstripe" style="background:${ssEsc(col.tag||col.bar)}"></div>`
+    +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div>${pdStripeHTML(col.tertiary?col:{bands:[col.tag||col.bar]}, 'pp-cbands')}`
     +`<dl class="pp-cdl"><dt>Competition</dt><dd>${ssEsc(PP.comp+' '+PP.season)}</dd><dt>Opponent</dt><dd><span class="pp-ed" contenteditable="true" data-cover="opponent" aria-label="Opponent">${ssEsc(PP.cover.opponent||'')}</span></dd><dt>Date</dt><dd><span class="pp-ed" contenteditable="true" data-cover="date" aria-label="Date">${ssEsc(PP.cover.date||'')}</span></dd></dl>`
     +`<div class="pp-cfoot">${ssEsc('Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'. “n/a” = the files do not carry it.')}</div></div>`;
 }
@@ -717,7 +723,10 @@ const PD_CSS=`
 .pd-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;background:linear-gradient(120deg,color-mix(in srgb,var(--pp) 30%,var(--panel)) 0%,var(--panel) 55%);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:14px;border-left:5px solid var(--pa);}
 .pd-photo .coh-pb{--pbs:112px;width:112px;height:112px;font-size:38px;border-radius:14px;}
 .pd-who h2{margin:0;font:800 40px/1.02 'Barlow',sans-serif;letter-spacing:-.01em;} .pd-who h2 span{color:var(--t1);} .pd-who h2 b{color:var(--pa);}
-.pd-who h2::after{content:'';display:block;width:120px;height:5px;margin-top:8px;border-radius:3px;background:linear-gradient(90deg,var(--pa) 0 60%,var(--pb) 60%);}
+.pd-stripe{display:flex;} .pd-stripe i{flex:1 1 0;display:block;}
+.pd-uline{width:120px;height:5px;margin-top:8px;gap:2px;} .pd-uline i{border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.22);}
+.pp-cbands{height:6mm;} .pp-cbands i{box-shadow:inset 0 0 0 .3mm rgba(0,0,0,.18);}
+.pp-bedge{height:1.4mm;} .pp-bedge i{box-shadow:inset 0 0 0 .2mm rgba(0,0,0,.18);}
 .pd-team{display:flex;gap:12px;align-items:center;margin-top:10px;} .pd-crest{width:44px;height:44px;object-fit:contain;flex:none;}
 .pd-crest0{display:grid;place-items:center;border-radius:50%;border:2px solid var(--pb);background:var(--pp);color:#fff;font:800 13px 'Barlow Condensed',sans-serif;}
 .pd-tn{font:700 19px 'Barlow',sans-serif;} .pd-sheet{color:var(--t2);font-size:.95rem;cursor:help;}
