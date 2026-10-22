@@ -1009,6 +1009,11 @@ function pdStyle(){
   const s=document.createElement('style'); s.id='pdCss'; s.textContent=PD_CSS; document.head.appendChild(s);
 }
 const PD_CSS=`
+/* PLAYER PHOTO SHAPE — ONE setting for the dashboard header, the landscape print and the Panel Print-out (photos are stored as
+   square crops; cohesion-photos.js only rounds them). 50% = circle · 10% = slightly rounded square (Barry, Oct 2026: SQUARE, as his Kerry PDF; the photo fills it,
+   object-fit cover). Only these containers: the Players tab and the rest of COHESION keep cohesion-photos.js's circle. */
+:root{--pd-photo-r:10%;}
+.pd-photo .coh-pb img,.pdp-head .coh-pb img,.pp-side .coh-pb img{border-radius:0;}
 #pane-player-dash{--pa:var(--accent);--pb:#c9c9d4;--pp:#4fc3f7;--ps:#4fc3f7;--pd-grid:color-mix(in srgb,var(--t1) 8%,transparent);--pd-grid2:color-mix(in srgb,var(--t1) 15%,transparent);}
 .pd-views{display:flex;justify-content:center;margin:0 0 14px;} .pd-views .seg button{padding:10px 18px;font-size:14px;}
 #pane-player-dash .seg button.on{background:var(--pa);color:#0b0b10;}
@@ -1016,7 +1021,7 @@ const PD_CSS=`
 .pd-f{display:flex;flex-direction:column;gap:5px;min-width:0;} .pd-f>span{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);} .pd-f select{max-width:100%;}
 .pd-f .seg{flex-wrap:wrap;}
 .pd-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;background:linear-gradient(120deg,color-mix(in srgb,var(--pp) 30%,var(--panel)) 0%,var(--panel) 55%);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:14px;border-left:5px solid var(--pa);}
-.pd-photo{padding:5px;} .pd-photo .coh-pb{--pbs:112px;width:112px;height:112px;font-size:38px;border-radius:50%;border:3px solid var(--pp);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ps);}
+.pd-photo{padding:5px;} .pd-photo .coh-pb{--pbs:112px;width:112px;height:112px;font-size:38px;border-radius:var(--pd-photo-r);border:3px solid var(--pp);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ps);}
 .pd-who h2{margin:0;font:800 40px/1.02 'Barlow',sans-serif;letter-spacing:-.01em;} .pd-who h2 span{color:var(--t1);} .pd-who h2 b{color:var(--pa);}
 .pd-stripe{display:flex;} .pd-stripe i{flex:1 1 0;display:block;}
 .pd-uline{width:120px;height:5px;margin-top:8px;gap:2px;} .pd-uline i{border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.22);}
@@ -1099,7 +1104,7 @@ const PD_CSS=`
 .pp-no{display:grid;place-items:center;font:800 15px 'Barlow',sans-serif;border-right:1px solid rgba(255,255,255,.25);} .pp-nm{padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;} .pp-nm b{font:800 16px 'Barlow',sans-serif;} .pp-nm small{font-size:10px;opacity:.85;min-height:12px;}
 .pp-pos{display:grid;place-items:center;font:700 13px 'Barlow',sans-serif;text-align:center;padding:0 3mm;}
 .pp-row{display:grid;grid-template-columns:44mm minmax(0,1fr);gap:5mm;margin-top:3mm;}
-.pp-side{display:flex;flex-direction:column;gap:3mm;align-items:center;} .pp-side .coh-pb{--pbs:40mm;width:40mm;height:40mm;font-size:36px;border-radius:50%;border-width:1mm;}
+.pp-side{display:flex;flex-direction:column;gap:3mm;align-items:center;} .pp-side .coh-pb{--pbs:40mm;width:40mm;height:40mm;font-size:36px;border-radius:var(--pd-photo-r);border-width:1mm;}
 .pp-st,.pp-nt,.pp-kc,.pp-at{width:100%;border-collapse:collapse;font-size:11px;}
 .pp-st th{font:600 13px 'Barlow',sans-serif;text-align:left;padding:1.5mm 2mm;border:1px solid #fff;} .pp-st td{border:1px solid #cfd4cf;padding:1mm 2mm;text-align:center;font-size:12px;} .pp-st td:first-child{text-align:left;} .pp-st tr:nth-child(2) td{background:#eef2ee;} .pp-st td.na{color:#888;font-size:10.5px;}
 .pp-nt{margin-top:3mm;} .pp-nt th{width:32mm;text-align:left;vertical-align:middle;border:1px solid #cfd4cf;padding:1.1mm 2mm;font:700 12px 'Barlow',sans-serif;} .pp-nt td{border:1px solid #cfd4cf;padding:1.5mm 2mm;vertical-align:top;} .pp-nt tr:nth-child(even){background:#eef2ee;}
@@ -1132,7 +1137,7 @@ const PD_CSS=`
 .pdp-page:last-child{break-after:auto;page-break-after:auto;}
 .pdp-page *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .pdp-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4mm;align-items:center;position:relative;padding-bottom:2.2mm;}
-.pdp-head .coh-pb{--pbs:16mm;width:16mm;height:16mm;font-size:18pt;border-radius:50%;border:.7mm solid var(--pp);box-shadow:0 0 0 .4mm #fff,0 0 0 .9mm var(--ps);margin:1mm;}
+.pdp-head .coh-pb{--pbs:16mm;width:16mm;height:16mm;font-size:18pt;border-radius:var(--pd-photo-r);border:.7mm solid var(--pp);box-shadow:0 0 0 .4mm #fff,0 0 0 .9mm var(--ps);margin:1mm;}
 .pdp-who h1{margin:0;font:800 18pt 'Barlow',sans-serif;color:var(--pa);} .pdp-who div{font-size:9pt;display:flex;align-items:center;gap:2mm;} .pdp-crest{width:7mm;height:7mm;object-fit:contain;}
 .pdp-meta{display:flex;gap:5mm;} .pdp-meta div{display:flex;flex-direction:column;} .pdp-meta span{font:700 6pt 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:#666;} .pdp-meta b{font-size:8.5pt;}
 .pdp-stripe{position:absolute;left:0;right:0;bottom:0;height:1.2mm;} .pdp-stripe i{box-shadow:inset 0 0 0 .2mm rgba(0,0,0,.15);}
