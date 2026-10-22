@@ -7374,12 +7374,15 @@ function pfSources(F, key, bundleOf, R){
   return {rows, mineTot, teamTot, mineAll, unpairedTeam};
 }
 // ASSIST LINKS: who set him up (pyAssistors on his shots), and whom he set up (the scores that name him as the assist)
+// A player is never his own assist link: a shot that names its shooter as the assist (a tagging slip) is left out of both
+// lists and counted in self (shown in the card's note so it can be fixed in the data).
 function pfLinks(R, key){
-  const by=pyAssistors(R.shots.filter(s=>s.pk===key), new Map(R.players.map(p=>[p.key, p.name])));
+  const mine=R.shots.filter(s=>s.pk===key), self=mine.filter(s=>s.ak&&s.ak===key).length;
+  const by=pyAssistors(mine.map(s=>s.ak&&s.ak===key?Object.assign({}, s, {ak:'', assist:''}):s), new Map(R.players.map(p=>[p.key, p.name])));
   const m=new Map(); let n=0;
-  R.shots.forEach(s=>{ if(s.ak!==key||!(s.v>0)||!s.pk) return; n++; let r=m.get(s.pk); if(!r){ r={key:s.pk, names:{}, scores:0, pts:0}; m.set(s.pk, r); } r.names[s.player]=(r.names[s.player]||0)+1; r.scores++; r.pts+=s.v; });
+  R.shots.forEach(s=>{ if(s.ak!==key||!(s.v>0)||!s.pk||s.pk===key) return; n++; let r=m.get(s.pk); if(!r){ r={key:s.pk, names:{}, scores:0, pts:0}; m.set(s.pk, r); } r.names[s.player]=(r.names[s.player]||0)+1; r.scores++; r.pts+=s.v; });
   const to=[...m.values()].map(r=>({key:r.key, name:pyBestName(r.names), scores:r.scores, pts:r.pts})).sort((a,b)=>b.scores-a.scores||b.pts-a.pts||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1));
-  return {by, to:to.slice(0, PY_TOP), toCount:to.length, toScores:n};
+  return {by, to:to.slice(0, PY_TOP), toCount:to.length, toScores:n, self};
 }
 // conversion by pressure level (pyPressure's cells, all sides added)
 function pfPressure(shots){
@@ -7479,7 +7482,7 @@ function pfLinksCardHTML(F, p, S, R, bundleOf){
   // c. assist links
   const Lk=pfLinks(R, p.key), li=(rows, f)=>rows.length?`<ol class="pf-ll">${rows.map(r=>`<li><span>${ssEsc(r.name)}</span>${f(r)}</li>`).join('')}</ol>`:'<div class="pf-lna">None tagged.</div>';
   const lnk=`<div class="tt-card pf-pat"><h4 class="td-ct">ASSIST LINKS</h4><div class="pf-l2"><div><h5>SET HIM UP</h5>${li(Lk.by.rows, r=>`<b>${r.total}</b><small>${ssEsc(r.score)}</small>`)}</div><div><h5>HE SET UP</h5>${li(Lk.to, r=>`<b>${r.scores}</b><small>${r.pts} pts</small>`)}</div></div>`
-    +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.')}</div></div>`;
+    +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.'+(Lk.self?' '+Lk.self+' of his shots name him as his own assist (a tagging slip): left out of both lists.':''))}</div></div>`;
   return lnk;
 }
 function pfConsCardHTML(F, p, S, R, bundleOf){

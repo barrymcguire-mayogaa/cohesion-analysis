@@ -157,7 +157,7 @@ function pdKpi(k){ return PD_KPIS.find(x=>x.k===k)||null; }
 function pdRow(S, key){
   const f=S.F.byKey.get(key); if(!f) return null;
   const p=S.R.players.find(x=>x.key===key)||null, x=S.X.byKey.get(key)||{}, mine=S.R.shots.filter(s=>s.pk===key);
-  const o={key, name:f.name, gp:f.gp, min:f.min, line:f.line,
+  const o={key, name:f.name, gp:f.gp, gpMin:f.gpMin, min:f.min, line:f.line,
     one:p?p.one:0, two:p?p.two:0, goals:p?p.goals:0, pts:p?p.pts:0, total:p?p.total:0, shots:p?p.shots:0, gatt:mine.filter(s=>s.att==='G').length,
     pct:p?p.pct:null, xp:p?p.xp:null, xpShots:p?p.xpShots:0, xpPts:p?p.xpPts:0, assists:p?p.assists:0, astShots:p?p.assistShots:0};
   o.ppg=o.gp?o.pts/o.gp:null; o.fin=o.xp!=null?o.xpPts-o.xp:null;
@@ -214,13 +214,13 @@ function pdCompare(k, S, row, mode, P, prow){
 const PD_AXES=[
   {k:'ppg', l:'Scoring', how:'points per game'}, {k:'pct', l:'Shooting %', how:'scores ÷ shots', abs:true}, {k:'shots', l:'Shot volume', how:'shots per game'},
   {k:'astShots', l:'Playmaking', how:'shot assists per game'}, {k:'koW', l:'Kickouts', how:'kickouts won per game'}, {k:'toW', l:'Work rate', how:'turnovers won per game'},
-  {k:'fouls', l:'Discipline', how:'fouls conceded per game, fewer = higher', inv:true}, {k:'min', l:'Game time', how:'minutes per game'},
+  {k:'fouls', l:'Discipline', how:'fouls conceded per game, fewer = higher', inv:true}, {k:'min', l:'Game time', how:'minutes per game with a team sheet'},
 ];
 function pdRadar(S, key){
   const row=S.rows.get(key), axes=[], left=[];
   PD_AXES.forEach(a=>{
     if(S.na[a.k]){ left.push(a.l+' ('+S.na[a.k]+')'); return; }
-    const val=r=>{ if(!r) return null; if(a.k==='min') return r.min!=null&&r.gp?r.min/r.gp:null; return pdCmpVal(S, r, a.k); };
+    const val=r=>{ if(!r) return null; if(a.k==='min') return r.min!=null&&r.gpMin?r.min/r.gpMin:null; return pdCmpVal(S, r, a.k); };   // minutes ÷ the games WITH minutes (a team sheet)
     const all=S.F.players.map(p=>val(S.rows.get(p.key))).filter(v=>v!=null&&isFinite(v));
     if(!all.length){ left.push(a.l+' (no player has the figure)'); return; }
     const max=Math.max(...all), mean=all.reduce((x,y)=>x+y,0)/all.length, v=val(row);
@@ -255,8 +255,10 @@ function pdIcon(g){ const P={sc:'<circle cx="12" cy="12" r="8"/><circle cx="12" 
   return `<svg class="pd-ic" viewBox="0 0 24 24" aria-hidden="true">${P[g]||''}</svg>`; }
 function pdTileHTML(d, S, row, mode, P, prow){
   const v=pdVal(S, row, d.k), na=S.na[d.k], c=v==null?null:pdCompare(d.k, S, row, mode, P, prow);
+  // Minutes over a range where only some games have a team sheet: say from how many, so it is not read as the range's minutes
+  const sub=d.k==='min'&&v!=null&&row&&row.gpMin<row.gp?`<div class="pd-tsub">${row.gpMin} of ${row.gp} games with a team sheet</div>`:'';
   const tip=na?'n/a — '+na:(v==null?'n/a — he did not play in these games':'');
-  return `<div class="pd-tile${v==null?' na':''}" data-k="${d.k}"${tip?` title="${ssEsc(tip)}"`:''}>${pdIcon(d.g)}<div class="pd-tl">${ssEsc(d.l)}</div><div class="pd-tv">${ssEsc(pdNum(d.k, v))}</div>`
+  return `<div class="pd-tile${v==null?' na':''}" data-k="${d.k}"${tip?` title="${ssEsc(tip)}"`:''}>${pdIcon(d.g)}<div class="pd-tl">${ssEsc(d.l)}</div><div class="pd-tv">${ssEsc(pdNum(d.k, v))}</div>${sub}`
     +`<div class="pd-tc ${c?c.tone:'na'}"${c&&c.ref!=null?` title="${ssEsc(pdCmpTxt(d, pdCmpVal(S,row,d.k))+' v '+pdCmpTxt(d, c.ref)+(mode==='squad'?' (squad average)':' ('+P.season+')'))}"`:''}>${ssEsc(v==null?(na?'ⓘ no data — see note':'did not play'):c.txt)}</div></div>`;
 }
 // the compared figure as text: a count compared per game shows two decimals
@@ -373,7 +375,7 @@ function pdHTML(V){
   const Rd=pdRadar(S, V.key), tk=V.trendK, trend=V.trend;
   h+=`<div class="pd-panels"><div class="tt-card pd-p pd-p1"><h4 class="td-ct">PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(Rd, col, row.name):'<div class="tt-empty">n/a</div>'}`
     +`<div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>${ssEsc(row?row.name:'Player')}</span><span><i class="sq"></i>Team average</span></div>`
-    +`<div class="dnote">${ssEsc('Each axis is scored 0–100 against the '+S.F.players.length+' squad players in this range (everyone named on a '+S.T+' event; with a team sheet, everyone with minutes): player ÷ the squad’s highest × 100, per game; Shooting % is the % itself; Discipline is 100 × (1 − fouls per game ÷ the squad’s highest). The grey shape is the squad average on the same scale. '+Rd.axes.map(a=>a.l+' = '+a.how).join('; ')+'.'+(Rd.left.length?' Left out (n/a): '+Rd.left.join('; ')+'.':''))}</div></div>`
+    +`<div class="dnote">${ssEsc('Each axis is scored 0–100 against the '+S.F.players.length+' squad players in this range (everyone named on a '+S.T+' event; with a team sheet, everyone with minutes): player ÷ the squad’s highest × 100, per game; Shooting % is the % itself; Discipline is 100 × (1 − fouls per game ÷ the squad’s highest). The grey shape is the squad average on the same scale. '+Rd.axes.map(a=>a.l+' = '+a.how).join('; ')+'.'+(Rd.axes.some(a=>a.k==='min')&&row&&row.gpMin<row.gp?' Game time comes from '+row.gpMin+' of his '+row.gp+' games — only those have a team sheet.':'')+(Rd.left.length?' Left out (n/a): '+Rd.left.join('; ')+'.':''))}</div></div>`
     +`<div class="tt-card pd-p pd-p2"><div class="pd-ph"><h4 class="td-ct">PER-GAME TREND</h4><select id="pdTrendK" aria-label="Trend figure">${PD_TREND.map(t=>`<option value="${t[0]}"${t[0]===tk?' selected':''}>${t[1]}</option>`).join('')}</select></div><div class="pd-scroll">${pdTrendSVG(trend, tk, col)}</div>`
     +`<div class="dnote">${ssEsc((V.range.kind==='game'?'The '+(V.P&&V.P.season||'')+' season around the selected game (ringed). ':'Oldest → newest across the range. ')+'“–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
     +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col, V.range.kind==='game')}<div class="dnote">${V.range.kind==='game'?'This game: his figures are the tiles above; the number is the squad average in this game.':'Per game.'} Squad average as the Player Profile: the mean over the squad players who have the figure. Hover an n/a row for the reason.</div></div>`
@@ -425,9 +427,9 @@ function pdAreasHTML(V){
   const shooting=`<div class="tt-card pd-maps wide"><div class="pd-ph"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4><span class="pd-ws">${pdW('shots', 'pshot', mine, mine.length+' shot'+(mine.length===1?'':'s'))}${pdW('scores', 'pshot', mine.filter(s=>s.v>0), mine.filter(s=>s.v>0).length+' score'+(mine.filter(s=>s.v>0).length===1?'':'s'))}</span></div>${pdMapsHTML(S, V.map, V)}</div>`+pdPressureHTML(S, V)+pdDeadHTML(S, V);
   const wrap=(card, btns)=>btns?card.replace(/<\/div>$/, `<div class="pd-wrow">${btns}</div></div>`):card;   // the Watch buttons go at the foot of the reused card
   // assist links: the scores he set up, per team-mate (the card's HE SET UP rows), and every assisted score of his
-  const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk);
+  const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk&&s.pk!==V.key);
   const lnkBtns=Lk?pdW('ast:all', 'pshot', setUp, setUp.length+' score'+(setUp.length===1?'':'s')+' he set up')+Lk.to.map(r=>{ const l=setUp.filter(s=>s.pk===r.key); return pdW('ast:'+r.key, 'pshot', l, 'assists to '+r.name+' ('+l.length+')'); }).join('')
-    +pdW('ast:by', 'pshot', mine.filter(s=>s.ak&&s.v>0), mine.filter(s=>s.ak&&s.v>0).length+' assisted scores of his'):'';
+    +pdW('ast:by', 'pshot', mine.filter(s=>s.ak&&s.ak!==V.key&&s.v>0), mine.filter(s=>s.ak&&s.ak!==V.key&&s.v>0).length+' assisted scores of his'):'';
   const whenBtns=fp?PF_BLOCKS.map((B,i)=>{ const l=mine.filter(s=>s.v>0&&pdBlockOf(s)===i); return pdW('when:'+i, 'pshot', l, B[2]+' min ('+l.length+')'); }).join(''):'';
   const build=fp?pfSourcesCardHTML(S.F, fp, sq, S.R, bo)+wrap(pfLinksCardHTML(S.F, fp, sq, S.R, bo), lnkBtns):na();
   const impact=fp?wrap(pfWhenCardHTML(S.F, fp, sq, S.R, bo), whenBtns)+pfOnOffHTML(S.F, fp, sq):na();
@@ -497,7 +499,7 @@ function pdPrintHTML(V){
     +`<div class="pdp-card pdp-trend"><h4>PER GAME · ${ssEsc((PD_TREND.find(t=>t[0]===V.trendK)||[])[1]||'')}</h4>${pdTrendSVG(V.trend, V.trendK, col)}</div>`
     +`<div class="pdp-card"><h4>SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
     +`<div class="pdp-card pdp-maps"><h4>SHOT MAPS</h4>${V.map.V.player?pdMapsOnly(S, V.map):'<div class="tt-empty">n/a</div>'}</div></div>`
-    +`<div class="pdp-note">${ssEsc('Arrows: counts per game, rates as they are, Games / Minutes as totals; green / red = more than 3% better / worse. Radar: 0–100 against the squad’s best. '+(naList.length?'n/a: '+naList.join(' · ')+'.':''))}</div>${foot(1)}</section>`;
+    +`<div class="pdp-note">${ssEsc('Arrows: counts per game, rates as they are, Games / Minutes as totals; green / red = more than 3% better / worse. Radar: 0–100 against the squad’s best. '+(row&&row.min!=null&&row.gpMin<row.gp?'Minutes and Game time: from '+row.gpMin+' of his '+row.gp+' games — only those have a team sheet. ':'')+(naList.length?'n/a: '+naList.join(' · ')+'.':''))}</div>${foot(1)}</section>`;
   const fp=S.F.byKey.get(V.key), bo=pdBundleOf, sq=S.sq.tot;
   const card=(cls, html)=>`<div class="pdp-card ${cls}">${html}</div>`;
   const p2=`<section class="pdp-page" data-page="2"><div class="pdp-h2">${ssEsc(name+' · '+titleCase(V.T)+' · '+V.rangeTxt)}</div><div class="pdp-grid">`
@@ -948,7 +950,7 @@ const PD_CSS=`
 .pd-boxes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .pd-box{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:0;}
 .pd-box span{display:block;font-size:.74rem;color:var(--t2);} .pd-box b{font:800 20px 'Barlow',sans-serif;} .pd-box.na b{color:var(--t3);font-size:15px;}
 .pd-bx{flex:none;width:16px;height:22px;border-radius:3px;background:var(--pa);} .pd-bx.yel{background:#f2c200;} .pd-bx.blk{background:#111;border:1px solid #555;} .pd-bx.red{background:#e0303a;} .pd-bx.fouls,.pd-bx.toL{background:#a0a0ae;border-radius:50%;width:18px;height:18px;} .pd-bx.toW,.pd-bx.poss,.pd-bx.tck{border-radius:50%;width:18px;height:18px;}
-.pd-foot{margin:12px 4px 0;}
+.pd-foot{margin:12px 4px 0;} .pd-tsub{font-size:.68rem;color:var(--amber);line-height:1.2;margin:-1px 0 2px;}
 .pd-w{background:transparent;border:1px solid var(--pa);color:var(--pa);border-radius:999px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;white-space:nowrap;margin:2px 4px 2px 0;}
 .pd-w:hover,.pd-w:focus-visible{background:var(--pa);color:#0b0b10;} .pd-grp h4 .pd-w{margin-left:8px;letter-spacing:0;}
 .pd-wrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;} .pd-ws{display:flex;flex-wrap:wrap;gap:2px;} .py-bw{text-align:right;white-space:nowrap;}
@@ -1014,7 +1016,7 @@ const PD_CSS=`
 .pdp-tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(17mm,1fr));gap:1mm;}
 .pdp-tg .pd-tile{padding:.8mm .6mm;border-radius:1.2mm;background:#f5f6f5;border:1px solid #e1e4e1;} .pdp-tg .pd-ic{display:none;}
 .pdp-tg .pd-tl{font-size:6.3pt;color:#3a3a3a;margin:0;} .pdp-tg .pd-tv{font-size:11pt;margin:.2mm 0;color:#141414;} .pdp-tg .pd-tc{font-size:6pt;} .pdp-tg .pd-tile.na{opacity:1;} .pdp-tg .pd-tile.na .pd-tc{display:none;}
-.pdp-tg .pd-tc.pos{color:#157a35;} .pdp-tg .pd-tc.neg{color:#b42318;}
+.pdp-tg .pd-tsub{font-size:6pt;color:#8a5a00;margin:0;} .pdp-tg .pd-tc.pos{color:#157a35;} .pdp-tg .pd-tc.neg{color:#b42318;}
 .pdp-row{display:grid;grid-template-columns:60mm minmax(0,1fr) 44mm 98mm;gap:2mm;height:74mm;flex:none;} .pdp-row .pd-radar{overflow:visible;}
 .pdp-card{border:1px solid #d4d7d4;border-radius:2mm;padding:1.5mm 2mm;min-width:0;overflow:hidden;break-inside:avoid;background:#fff;}
 .pdp-card h4,.pdp-card .td-ct{margin:0 0 1mm;font:800 7.5pt 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--pa);}
