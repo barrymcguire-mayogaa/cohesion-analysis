@@ -336,7 +336,7 @@ function pdBandsHTML(S, M, V){
   const mine=S.R.shots.filter(s=>s.pk===V.key);
   let cmp={label:titleCase(S.T)+' %', what:'the whole team (same games)', shots:S.R.shots};
   if(V.mode!=='squad'&&V.P&&V.P.S&&V.prow) cmp={label:(V.P.savg?'His '+V.P.season+' %':'His '+V.P.season+' %'), what:V.P.savg?'his own '+V.P.season+' season':'his own '+V.P.season+' range', shots:V.P.S.R.shots.filter(s=>s.pk===V.key)};
-  return pyBandsHTML(mine, cmp, {});
+  return pyBandsHTML(mine, cmp, {gameOf:S.R.gameOf});
 }
 function pdMapsOnly(S, M){
   return pyMapsHTML(S.R, M.V, M.F).replace(' The 1-point, 2-point and Goal chips filter by the tagged attempt type (a shot with no attempt type then drops out); a marker’s', ' A marker’s');   // no chips on this tab
@@ -598,7 +598,7 @@ function ppPlayerHTML(T, s, ctx, col){
     +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
     +`<button type="button" class="pp-noprint mini" data-ppreset="${ssEsc(key)}" title="Replace this player’s notes with the draft from the figures">Re-draft notes</button></div>`
-    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
+    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
 }
 function ppChainTable(T, s, ctx, col){
   const A=ppChains(ctx.Sf, T, s.name), B=ctx.Sc?ppChains(ctx.Sc, T, s.name):null, cs=pdCompShort(PP.comp);
@@ -792,15 +792,15 @@ const PD_CSS=`
 .pp-page{width:210mm;height:297mm;background:#fff;color:#161616;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);font-family:'Barlow',Arial,sans-serif;}
 .pp-in{padding:14mm 12mm 12mm;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:5mm;}
 .pp-pn{position:absolute;right:10mm;bottom:6mm;font-size:9px;color:#888;}
-.pp-bar{display:grid;grid-template-columns:22mm minmax(0,1fr) 58mm;min-height:15mm;align-items:stretch;}
-.pp-no{display:grid;place-items:center;font:800 15px 'Barlow',sans-serif;border-right:1px solid rgba(255,255,255,.25);} .pp-nm{padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center;} .pp-nm b{font:800 16px 'Barlow',sans-serif;} .pp-nm small{font-size:10px;opacity:.85;min-height:12px;}
+.pp-bar{display:grid;grid-template-columns:22mm minmax(0,1fr) 58mm;min-height:13mm;align-items:stretch;}
+.pp-no{display:grid;place-items:center;font:800 15px 'Barlow',sans-serif;border-right:1px solid rgba(255,255,255,.25);} .pp-nm{padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;} .pp-nm b{font:800 16px 'Barlow',sans-serif;} .pp-nm small{font-size:10px;opacity:.85;min-height:12px;}
 .pp-pos{display:grid;place-items:center;font:700 13px 'Barlow',sans-serif;text-align:center;padding:0 3mm;}
-.pp-row{display:grid;grid-template-columns:44mm minmax(0,1fr);gap:5mm;margin-top:4mm;}
+.pp-row{display:grid;grid-template-columns:44mm minmax(0,1fr);gap:5mm;margin-top:3mm;}
 .pp-side{display:flex;flex-direction:column;gap:3mm;align-items:center;} .pp-side .coh-pb{--pbs:40mm;width:40mm;height:40mm;font-size:36px;border-radius:6px;}
 .pp-st,.pp-nt,.pp-kc,.pp-at{width:100%;border-collapse:collapse;font-size:11px;}
 .pp-st th{font:600 13px 'Barlow',sans-serif;text-align:left;padding:1.5mm 2mm;border:1px solid #fff;} .pp-st td{border:1px solid #cfd4cf;padding:1mm 2mm;text-align:center;font-size:12px;} .pp-st td:first-child{text-align:left;} .pp-st tr:nth-child(2) td{background:#eef2ee;} .pp-st td.na{color:#888;font-size:10.5px;}
-.pp-nt{margin-top:3mm;} .pp-nt th{width:32mm;text-align:left;vertical-align:middle;border:1px solid #cfd4cf;padding:1.4mm 2mm;font:700 12px 'Barlow',sans-serif;} .pp-nt td{border:1px solid #cfd4cf;padding:1.5mm 2mm;vertical-align:top;} .pp-nt tr:nth-child(even){background:#eef2ee;}
-.pp-ed{min-height:5mm;font-size:10.5px;line-height:1.38;outline:none;white-space:pre-wrap;} .pp-ed:focus{background:#fff8d6;box-shadow:0 0 0 1px #e0c35a;}
+.pp-nt{margin-top:3mm;} .pp-nt th{width:32mm;text-align:left;vertical-align:middle;border:1px solid #cfd4cf;padding:1.1mm 2mm;font:700 12px 'Barlow',sans-serif;} .pp-nt td{border:1px solid #cfd4cf;padding:1.5mm 2mm;vertical-align:top;} .pp-nt tr:nth-child(even){background:#eef2ee;}
+.pp-ed{min-height:4.5mm;font-size:10px;line-height:1.32;outline:none;white-space:pre-wrap;} .pp-ed:focus{background:#fff8d6;box-shadow:0 0 0 1px #e0c35a;}
 .pp-pl.gk .pp-ed{font-size:10.5px;}
 .pp-out .pp-pl{height:132mm;overflow:hidden;} .pp-out .pp-pl+.pp-pl{margin-top:4mm;}
 .pp-map{width:42mm;text-align:center;font-size:9px;color:#555;} .pp-map .tt-pitch{width:100%;height:auto;display:block;border-radius:3px;} .pp-map small{display:block;margin-top:1mm;}
@@ -810,7 +810,7 @@ const PD_CSS=`
 .pp-kc th,.pp-kc td{border:1px solid #d9ddd9;padding:1.4mm 1.5mm;text-align:center;font-size:10px;} .pp-kc tbody th{text-align:left;font-weight:700;} .pp-kc td.cmp{color:#8b1a1a;} .pp-kc thead th{font-size:9.5px;}
 .pp-fn{font-size:8.5px;color:#555;line-height:1.35;}
 .pp-bt{width:100%;border-collapse:collapse;font-size:9px;line-height:1.15;margin-top:2mm;} .pp-bt th,.pp-bt td{border:1px solid #d9ddd9;padding:.35mm 1.5mm;text-align:center;} .pp-bt tbody th{text-align:left;font-weight:600;} .pp-bt tr.bsub th{padding-left:4mm;font-weight:400;color:#444;} .pp-bt thead th{background:#f0f2f0;}
-.pp-bands.na{margin-top:2.5mm;font-size:9.5px;font-weight:700;color:#555;border:1px dashed #bbb;border-radius:3px;padding:1.5mm 2mm;} .pp-bands.na small{font-weight:400;}
+.pp-misc{color:#8a5a00;} .pp-bands.na{margin-top:2.5mm;font-size:9.5px;font-weight:700;color:#555;border:1px dashed #bbb;border-radius:3px;padding:1.5mm 2mm;} .pp-bands.na small{font-weight:400;}
 .pp-kmaps{display:flex;gap:6mm;justify-content:center;} .pp-kmap{width:60mm;text-align:center;font-size:9px;color:#555;} .pp-kmap .tt-pitch{width:100%;height:auto;} .pp-kmap .pp-map.na{width:auto;}
 .pp-h{color:var(--pp);font:800 15px 'Barlow',sans-serif;margin:0;} .pp-p{font-size:13px;margin:0;color:#222;}
 .pp-at th{background:#111;color:#fff;padding:2.2mm 2mm;text-align:right;font:700 11.5px 'Barlow',sans-serif;} .pp-at th:first-child,.pp-at td:first-child{text-align:left;} .pp-at td{border:1px solid #777;padding:2mm;text-align:right;font-size:12px;}

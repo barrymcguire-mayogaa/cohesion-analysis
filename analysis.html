@@ -900,7 +900,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .pf-l2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} .pf-l2 h5{margin:0 0 4px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);}
 .pf-ll{list-style:none;margin:0;padding:0;} .pf-ll li{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:.9rem;} .pf-ll li span{flex:1;min-width:0;overflow-wrap:anywhere;} .pf-ll li b{font-variant-numeric:tabular-nums;} .pf-ll li small{color:var(--t3);font-size:.72rem;white-space:nowrap;} .pf-lna{color:var(--t3);font-size:.84rem;}
 .pf-cr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:baseline;padding:4px 0;} .pf-cr span{font-size:.86rem;color:var(--t2);} .pf-cr b{font:800 22px 'Barlow',sans-serif;text-align:right;} .pf-cr small{grid-column:1 / -1;font-size:.74rem;font-weight:700;}
-.py-bands{margin:14px 0 4px;} .py-bh{margin:0 2px 8px;font:700 16px 'Barlow',sans-serif;color:var(--t1);letter-spacing:.02em;}
+.py-bands{margin:14px 0 4px;} .py-misc{margin:8px 2px 0;padding:8px 12px;border:1px solid #6b5520;background:rgba(245,166,35,.08);border-radius:10px;font-size:.8rem;color:var(--t2);} .py-misc b{color:var(--amber);letter-spacing:.06em;margin-right:6px;} .py-misc ul{margin:4px 0 0 18px;padding:0;} .py-misc small{display:block;color:var(--t3);margin-top:4px;} .py-bh{margin:0 2px 8px;font:700 16px 'Barlow',sans-serif;color:var(--t1);letter-spacing:.02em;}
 .py-bt{min-width:640px;} .py-bt tr.bsub th{padding-left:22px;font-weight:400;color:var(--t2);} .py-bt th b{color:var(--accent);margin-right:4px;}
 .py-bt td{position:relative;} .py-bb{position:absolute;left:0;bottom:2px;height:3px;border-radius:2px;background:var(--accent);opacity:.55;}
 .py-bt td.pos{color:var(--green);} .py-bt td.neg{color:var(--red);} .py-bt td.na{color:var(--t3);}
@@ -6963,23 +6963,36 @@ function pyMapsHTML(R, V, F){
 // B1 1-pt / B2 2-pt / B3 goal attempts / other · C beyond the 45m line; a '45 is B, a penalty A). One renderer for the Players tab, the Player Dashboard and the Panel Print-out.
 //   mine = the player's shots (ttGameShots objects: canonical x / y), cmp = {label, shots} the comparison column (or null),
 //   o = {who, print:true (the compact print table), cmp2:{label, shots} a second column set (print: the competition)}
-const PY_BANDS=[['A','A','Inside the 20m line'],['B','B','20m line to 45m line'],['B1','B1','1-point attempts',1],['B2','B2','2-point attempts',1],['B3','B3','Goal attempts',1],['Bx','B','other (attempt not tagged)',1],['C','C','Beyond the 45m line']];
+const PY_BANDS=[['A','A','Inside the 20m line'],['B','B','20m line to 45m line'],['B1','B1','1-point attempts',1],['B2','B2','2-point attempts',1],['B3','B3','Goal attempts',1],['Bx','B','other (attempt not tagged)',1],['C','C','Beyond the 45m line'],['C1','C1','2-point attempts',1],['C2','C2','Goal attempts',1],['Cx','C','other (not tagged / tagged 1-point)',1]];
+// DATA CHECK: shots tagged 1-point whose location is beyond the 2-point arc (Code Room's 40 m rule, + 1 m tolerance) or
+// beyond the 45m line — still counted in their band, listed with the game, the clock, the band and the distance so the
+// tag or the location can be checked ('45s, penalties and goal attempts never). o.gameOf = Map(gid → match card).
+function pyMisTagHTML(list, gameOf, print){
+  if(!list||!list.length) return '';
+  const A=(typeof COH_SHOT_ARC!=='undefined'&&COH_SHOT_ARC)||{m:40, tol:1};
+  const one=x=>{ const s=x.s, m=gameOf&&gameOf.get(s.gid), clock=ttClockTxt(s.e); return (m?'v '+m.opp:'game n/a')+' · '+clock+(s.player?' · '+s.player:'')+' · band '+x.band+(x.dist!=null?' · '+x.dist.toFixed(1)+' m':''); };
+  const n=list.length, head=n+' shot'+(n===1?'':'s')+' beyond the 2-point arc '+(n===1?'is':'are')+' tagged 1-point — check the tag or the location. '+(n===1?'It stays':'They stay')+' in '+(n===1?'its':'their')+' band.';
+  const tol='Flagged: tagged 1-point, more than '+A.tol+' m beyond the '+A.m+' m arc (Code Room’s distance to the goal centre) or beyond the 45m line; ’45s, penalties and goal attempts never.';
+  if(print){ const short=x=>{ const m=gameOf&&gameOf.get(x.s.gid), h=String((x.s.e&&x.s.e.half)||'').replace(/^1st Half$/,'1H').replace(/^2nd Half$/,'2H'), c=String((x.s.e&&x.s.e.gameTime)||'').replace(/^(1H|2H|ET1|ET2)\s+/,''); return (m?'v '+m.opp:'?')+' '+[h,c].filter(Boolean).join(' ')+', '+x.band+(x.dist!=null?', '+x.dist.toFixed(1)+' m':''); };
+    return `<div class="pp-fn pp-misc">${ssEsc('Data check — '+n+' shot'+(n===1?'':'s')+' beyond the 2-pt arc tagged 1-point (check the tag or the location): '+list.map(short).join('; ')+'.')}</div>`; }
+  return `<div class="py-misc" role="note"><b>DATA CHECK</b> ${ssEsc(head)}<ul>${list.map(x=>`<li>${ssEsc(one(x))}</li>`).join('')}</ul><small>${ssEsc(tol)}</small></div>`;
+}
 function pyBandsHTML(mine, cmp, o){
   o=o||{}; if(typeof cohShotBands!=='function') return '';
   const B=cohShotBands(mine), C=cmp?cohShotBands(cmp.shots):null, D=o.cmp2?cohShotBands(o.cmp2.shots):null, n=(mine||[]).length;
   const pc=v=>v==null?'n/a':Math.round(v)+'%', sp=x=>x.shots?x.scores+'/'+x.shots:'–';
-  const rows=PY_BANDS.filter(r=>r[0]!=='Bx'||B.rows.Bx.shots||(D&&D.rows.Bx.shots));
+  const rows=PY_BANDS.filter(r=>!['Bx','C2','Cx'].includes(r[0])||B.rows[r[0]].shots||(D&&D.rows[r[0]].shots));   // B other, C2 and C other only when there are any
   // n/a when no shot has a pitch location (a penalty or a ’45 alone bands by rule, but a table of only those would mislead)
   const hasLoc=a=>(a||[]).some(s=>s.y!=null&&isFinite(+s.y)), noLoc=!hasLoc(mine)&&!(o.cmp2&&hasLoc(o.cmp2.shots));
   const why=!n?'No shots.':'n/a — none of these '+n+' shot'+(n===1?' has':'s have')+' a pitch location.';
-  const note='Bands by depth, straight across the pitch on the drawn lines (not distance to goal): A inside the 20m line (a shot on the 20m line counts in A); B from the 20m line to the 45m line (a shot on the 45m line counts in B) — B1 1-point attempts, B2 2-point attempts, B3 goal attempts (by the Shot Attempts tag), “other” when the attempt is not tagged; C beyond the 45m line. A ’45 is always B, a penalty always A.'
+  const note='Bands by depth, straight across the pitch on the drawn lines (not distance to goal): A inside the 20m line (a shot on the 20m line counts in A); B from the 20m line to the 45m line (a shot on the 45m line counts in B) — B1 1-point attempts, B2 2-point attempts, B3 goal attempts (by the Shot Attempts tag), “other” when the attempt is not tagged; C beyond the 45m line — C1 2-point attempts, C2 goal attempts, “other” when not tagged (a 1-pointer cannot come from beyond the 45: the only 1-point shot from there is a ’45, which is B). A ’45 is always B, a penalty always A.'
     +(B.unlocated?' '+B.unlocated+' of '+n+' shots have no location and are in no band.':'');
   if(o.print){
     if(noLoc) return `<div class="pp-bands na">Shooting by distance n/a <small>${ssEsc(n?'no shot of his in these games has a pitch location':'no shots')}</small></div>`;
     const cell=x=>`<td>${x.shots?x.scores+'/'+x.shots:'–'}</td><td>${x.shots?pc(x.pct):''}</td>`;
     return `<table class="pp-bt"><thead><tr><th>By distance</th><th colspan="2">${ssEsc(o.label||'Full')}</th>${D?`<th colspan="2">${ssEsc(o.cmp2.label)}</th>`:''}</tr></thead><tbody>`
       +rows.map(r=>`<tr class="${r[3]?'bsub':''}"><th>${ssEsc(r[1]+' '+r[2])}</th>${cell(B.rows[r[0]])}${D?cell(D.rows[r[0]]):''}</tr>`).join('')+'</tbody></table>'
-      +`<div class="pp-fn">${ssEsc('Scores/shots. On the 20m line = A, on the 45m line = B; a ’45 is B, a penalty A.'+((B.unlocated||(D&&D.unlocated))?' Unlocated (in no band): '+B.unlocated+(D?' · '+D.unlocated:'')+'.':''))}</div>`;
+      +`<div class="pp-fn">${ssEsc('Scores/shots. On the 20m line = A, on the 45m line = B; a ’45 is B, a penalty A; no 1-pointer from C.'+((B.unlocated||(D&&D.unlocated))?' Unlocated (in no band): '+B.unlocated+(D?' · '+D.unlocated:'')+'.':''))}</div>`+pyMisTagHTML(B.misTag, o.gameOf, true);
   }
   if(noLoc) return `<div class="py-bands"><h3 class="py-bh">SHOOTING BY DISTANCE</h3><div class="py-nomap">${ssEsc(why)}</div></div>`;
   const xpTxt=x=>x.xp==null?'n/a':x.xp.toFixed(1);
@@ -6988,6 +7001,7 @@ function pyBandsHTML(mine, cmp, o){
     return `<tr class="${r[3]?'bsub':''}" data-band="${r[0]}"><th scope="row"><b>${ssEsc(r[1])}</b> ${ssEsc(r[2])}</th><td>${x.shots}<i class="py-bb" style="width:${(x.shots/max*100).toFixed(1)}%"></i></td><td>${x.scores}</td><td>${pc(x.pct)}</td><td>${x.pts}</td><td>${ssEsc(xpTxt(x))}</td><td>${ssEsc(sp(x.op))}</td><td>${ssEsc(sp(x.db))}</td>`
       +(C?`<td class="${x.pct==null||c.pct==null?'na':t.tone}">${ssEsc(pc(c.pct))}</td>`:'')+'</tr>'; }).join('');
   return `<div class="py-bands"><h3 class="py-bh">SHOOTING BY DISTANCE${o.who?' · '+ssEsc(o.who):''}</h3><div class="py-scroll"><table class="tt-ztab py-bt"><thead><tr><th scope="col">BAND</th><th scope="col">SHOTS</th><th scope="col">SCORES</th><th scope="col">CONV %</th><th scope="col">PTS</th><th scope="col">xP</th><th scope="col">OPEN PLAY</th><th scope="col">DEAD BALL</th>${C?`<th scope="col">${ssEsc(cmp.label)}</th>`:''}</tr></thead><tbody>${body}</tbody></table></div>`
+    +pyMisTagHTML(B.misTag, o.gameOf, false)
     +`<div class="dnote">${ssEsc(note+' Open play / dead ball = scores/shots. xP only where the model can rate the shot (n/a otherwise).'+(C?' '+cmp.label+' = '+(cmp.what||'the comparison')+'’s conversion % in the same band; his % is green more than 3% above it, red more than 3% below.':''))}</div></div>`;
 }
 const PY_PR_COL={L:'#b8e986', M:'#f5a623', H:'#ff8a80'};
@@ -7135,7 +7149,7 @@ function pyHTML(R, V, o){
     +`<div class="foot">Players covers every ${ssEsc(T)} game in the current filters. Each shot counts once. “n/a” means those games don’t carry the data needed.</div>`;
 }
 // the Players tab's SHOOTING BY DISTANCE: the selected player's shots after the chips, against the team's shots after the same chips
-function pyBandSecHTML(R, V, F){ if(!V.player) return ''; return pyBandsHTML(V.shots, {label:R.team+' %', what:'the whole team (same games, same chips)', shots:R.shots.filter(s=>pyPass(s, F))}, {who:V.player.name}); }
+function pyBandSecHTML(R, V, F){ if(!V.player) return ''; return pyBandsHTML(V.shots, {label:R.team+' %', what:'the whole team (same games, same chips)', shots:R.shots.filter(s=>pyPass(s, F))}, {who:V.player.name, gameOf:R.gameOf}); }
 function pyTipHTML(p, R, V, pinned){
   const i=+p[1];
   if(p[0]==='pshot') return ttShotCardHTML(V.mapShots[i], R.gameOf, {pinned});
