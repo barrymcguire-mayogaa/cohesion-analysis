@@ -36,7 +36,8 @@ function pdRangeGames(list, r){
 function pdPrevRange(list, r, games){
   const cur=(games||[]).map(pdSeasonOf).filter(Boolean)[0]||(r&&r.season)||'';
   if(!/^\d{4}$/.test(cur)) return {games:[], season:'', reason:'the season of these games is not known'};
-  if(r.kind==='game') return {games:[], season:String(+cur-1), reason:'a single game has no previous-season range'};
+  // a single game: against the player's OWN average per game over that game's season (savg)
+  if(r.kind==='game'){ const S=(list||[]).filter(g=>pdSeasonOf(g)===cur); return {games:S, season:cur, savg:true, reason:S.length?'':'no '+cur+' games'}; }
   const prev=String(+cur-1), P=(list||[]).filter(g=>pdSeasonOf(g)===prev);
   let out=[];
   if(r.kind==='last5') out=P.slice(0,5); else if(r.kind==='last10') out=P.slice(0,10);
@@ -64,9 +65,17 @@ function pdColours(T){
   const primary=(pal&&pal.primary)||(g&&g.hex)||'#4fc3f7', secondary=(pal&&pal.secondary)||null;
   // text and marks on the dark page: the same hue lifted to 4.5:1 (WCAG text) against the panels
   const ink=(c,bg)=>(typeof window!=='undefined'&&window.cohTeamInk)?window.cohTeamInk(c, {theme:'dark', bg:bg||'#1b1b25', min:4.5}):c;
-  const a=ink(primary), b=secondary?ink(secondary):'#c9c9d4';
-  return {primary, secondary, a, b, from:pal?'palette':g?'game':'default'};
+  // the HIGHLIGHT: the primary, unless it is black or white (Sligo, Kilkenny, Kildare, Tyrone …) and the secondary is a real
+  // colour — then the secondary; black with no colour beside it falls back to the other (white). Lifted to 4.5:1 on the panels.
+  const hi=pdAchro(primary)&&secondary&&(!pdAchro(secondary)||pdLum(primary)<0.15)?secondary:primary, lo=hi===primary?(secondary||primary):primary;
+  const a=ink(hi), b=ink(lo);
+  // the print-out's header bar on white paper: the primary, unless it is (near) white — then the secondary, else charcoal
+  const bar=pdLum(primary)>0.85?(secondary&&pdLum(secondary)<0.85?secondary:'#2b2b2b'):primary, tag=bar===primary?(secondary||'#ffffff'):primary;
+  return {primary:hi, secondary:lo, a, b, bar, tag, stored:{primary, secondary}, from:pal?'palette':g?'game':'default'};
 }
+function pdRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(String(h||'').trim()); if(!m) return [128,128,128]; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
+function pdLum(h){ const c=pdRgb(h); return (0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255; }
+function pdAchro(h){ const c=pdRgb(h); return (Math.max(...c)-Math.min(...c))/255<0.15; }   // black, white or grey
 
 // ═════ per-player figures over a set of games ═════
 // pdExtras: what the shot table does not hold — kickout targets, turnovers, fouls, cards, tackles, possessions — per player key,
@@ -180,10 +189,12 @@ function pdCompare(k, S, row, mode, P, prow){
   else { if(!P||!P.games.length) why=P&&P.reason?P.reason:'no previous season';
     else if(P.S.na[k]) why='n/a in '+P.season;
     else if(!prow) why='did not play in '+P.season;
+    else if(P.savg&&k==='gp') return {pct:null, tone:'na', txt:'one game'};   // a game against a season: games played is not a comparison
+    else if(P.savg&&k==='min'){ if(prow.min!=null&&prow.gp) ref=prow.min/prow.gp; else why='n/a in '+P.season; }   // minutes: this game v his minutes per game
     else { ref=pdCmpVal(P.S, prow, k); if(ref==null) why='n/a in '+P.season; } }
   if(ref==null) return {pct:null, tone:'na', txt:why||'n/a'};
   const x=pfVs(v, ref), tone=x.tone==='pos'?(d.low?'neg':'pos'):x.tone==='neg'?(d.low?'pos':'neg'):x.tone;
-  return {pct:x.pct, tone, ref, dir:x.pct==null?'':x.pct>0?'up':x.pct<0?'down':'', txt:(x.pct==null?(x.tone==='mid'?'=':'n/a'):(x.pct>0?'▲ ':x.pct<0?'▼ ':'= ')+(Math.abs(x.pct)>=100?Math.round(Math.abs(x.pct)):Math.abs(x.pct).toFixed(0))+'%')+' '+(mode==='squad'?'vs squad avg':'vs '+P.season)};
+  return {pct:x.pct, tone, ref, dir:x.pct==null?'':x.pct>0?'up':x.pct<0?'down':'', txt:(x.pct==null?(x.tone==='mid'?'=':'n/a'):(x.pct>0?'▲ ':x.pct<0?'▼ ':'= ')+(Math.abs(x.pct)>=100?Math.round(Math.abs(x.pct)):Math.abs(x.pct).toFixed(0))+'%')+' '+(mode==='squad'?'vs squad avg':P.savg?'vs his '+P.season+' average':'vs '+P.season)};
 }
 // RADAR: each axis 0–100 against the squad (documented in the footnote). An axis the data cannot supply is left out.
 const PD_AXES=[
@@ -212,8 +223,8 @@ function pdTrend(T, games, key, k, bundleOf){
     return {gid:g.id, opp:m.opp, round:g.round||'', comp:g.competition||'', season:pdSeasonOf(g), played:!!row, v:row?pdVal(S, row, k):null, na:S.na[k]||''}; });
 }
 // Player v squad bars (per game) and the discipline / possession boxes
-const PD_BARS=[['ppg','Points per game'],['pct','Shooting %'],['astShots','Shot assists per game'],['koW','Kickouts won per game'],['toW','Turnovers won per game'],['fouls','Fouls per game']];
-const PD_BOXES=[['yel','Yellow cards'],['blk','Black cards'],['red','Red cards'],['fouls','Fouls conceded'],['toW','Turnovers won'],['toL','Turnovers lost'],['poss','Possessions'],['tck','Tackles']];
+// Player v squad: per-game figures only (the tiles hold the totals, Points per game and Shooting % — no figure twice)
+const PD_BARS=[['total','Scores per game'],['shots','Shots per game'],['assists','Score assists per game'],['astShots','Shot assists per game'],['koT','Kickout targets per game'],['koW','Kickouts won per game'],['toW','Turnovers won per game'],['fouls','Fouls per game']];
 
 // ═════ dashboard strings ═════
 function pdNum(k, v){
@@ -275,29 +286,38 @@ function pdTrendSVG(rows, k, col){
   rows.forEach((r,i)=>{ const x=X(i);
     h+=`<text x="${x.toFixed(1)}" y="${H-B+16}" text-anchor="middle" class="pd-ta">${ssEsc(pdRoundShort(r.round)+(multi&&r.season?' ’'+r.season.slice(2):''))}</text><text x="${x.toFixed(1)}" y="${H-B+29}" text-anchor="middle" class="pd-ta">v ${ssEsc(pdOppShort(r.opp))}</text>`;
     if(r.v==null){ h+=`<text x="${x.toFixed(1)}" y="${(H-B-6).toFixed(1)}" text-anchor="middle" class="pd-tdnp">${r.played?'n/a':'–'}</text>`; return; }
-    const y=Y(r.v); h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" style="fill:${ssEsc(col.a)}"/><text x="${x.toFixed(1)}" y="${(y-9).toFixed(1)}" text-anchor="middle" class="pd-tv2">${ssEsc(pdNum(k, r.v))}</text>`; });
+    const y=Y(r.v); h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" style="fill:${ssEsc(col.a)}"/>`+(r.hl?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="none" stroke-width="2" style="stroke:${ssEsc(col.b)}"/>`:`<text x="${x.toFixed(1)}" y="${(y-9).toFixed(1)}" text-anchor="middle" class="pd-tv2">${ssEsc(pdNum(k, r.v))}</text>`); });
   return h+'</svg>';
 }
 function pdScoringHTML(row, S, col){
   if(!row) return '<div class="tt-empty">n/a</div>';
-  const a=row.one, b=row.two*2, c=row.goals*3, tot=a+b+c;
-  if(!tot) return `<div class="tt-empty">No scores in these games (${row.shots} shot${row.shots===1?'':'s'}).</div>`;
-  const seg=(n, pts, lbl, cls)=>pts?`<div class="pd-sb ${cls}" style="flex:${pts} 1 0" title="${ssEsc(lbl+': '+n+' = '+pts+' pts')}"><b>${n}</b><span>${Math.round(pts/tot*100)}%</span></div>`:'';
-  const R=44, C=2*Math.PI*R;
-  return `<div class="pd-score"><div class="pd-sbar">${seg(row.one, a, '1-points', 'one')}${seg(row.two, b, '2-points', 'two')}${seg(row.goals, c, 'Goals', 'gl')}</div>`
-    +`<svg class="pd-ring" viewBox="0 0 110 110" role="img" aria-label="${ssEsc(tot+' total points')}"><circle cx="55" cy="55" r="${R}" class="pd-rgb"/><circle cx="55" cy="55" r="${R}" fill="none" stroke-width="9" style="stroke:${ssEsc(col.a)}" stroke-dasharray="${C.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)"/><text x="55" y="58" text-anchor="middle" class="pd-rn">${tot}</text><text x="55" y="74" text-anchor="middle" class="pd-rs">Total points</text></svg></div>`
+  const a=row.one, b=row.two*2, c=row.goals*3, tot=a+b+c, team=S.R.shots.reduce((x,s)=>x+(s.v>0?s.v:0),0);
+  if(!tot) return `<div class="tt-empty">No scores in these games.</div>`;
+  const seg=(n, pts, lbl, cls)=>pts?`<div class="pd-sb ${cls}" style="flex:${pts} 1 0" title="${ssEsc(lbl+': '+n+' = '+pts+' pts')}"><b>${Math.round(pts/tot*100)}%</b><span>${ssEsc(lbl)}</span></div>`:'';
+  const R=44, C=2*Math.PI*R, sh=team?tot/team:0;
+  return `<div class="pd-score"><div class="pd-sbar">${seg(row.one, a, '1-pt', 'one')}${seg(row.two, b, '2-pt', 'two')}${seg(row.goals, c, 'Goals', 'gl')}</div>`
+    +`<svg class="pd-ring" viewBox="0 0 110 110" role="img" aria-label="${ssEsc(Math.round(sh*100)+'% of '+S.T+'’s points')}"><circle cx="55" cy="55" r="${R}" class="pd-rgb"/><circle cx="55" cy="55" r="${R}" fill="none" stroke-width="9" style="stroke:${ssEsc(col.a)}" stroke-dasharray="${(C*sh).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)"/><text x="55" y="58" text-anchor="middle" class="pd-rn">${Math.round(sh*100)}%</text><text x="55" y="74" text-anchor="middle" class="pd-rs">of team points</text></svg></div>`
     +`<div class="pd-sleg"><span><i class="one"></i>1-Points</span><span><i class="two"></i>2-Points</span><span><i class="gl"></i>Goals</span></div>`
-    +`<div class="dnote">Each block: the number of scores, and its share of his ${tot} points (a 2-pointer counts 2, a goal 3). Score: ${ssEsc(pyScoreTxt(row.goals, row.one, row.two))} from ${row.shots} shots.</div>`;
+    +`<div class="dnote">${ssEsc('The bar: the share of his points from 1-pointers, 2-pointers and goals (a 2-pointer counts 2, a goal 3; hover a block for the count). The ring: his points as a share of all '+team+' '+S.T+' points in these games.')}</div>`;
 }
-function pdBarsHTML(S, row, col){
-  return PD_BARS.map(([k,l])=>{ const v=pdCmpVal(S, row, k), avg=pdSquadAvg(S, k), na=S.na[k];
+// per game (the comparison basis): a count ÷ games played; the squad average = the Player Profile's (pfSquad 'pg') for its metrics,
+// the same rule (the mean over the squad players with the figure) for the rest
+function pdPg(S, row, k){ if(S.na[k]||!row||!row.gp) return null; const v=row[k]; return v==null?null:v/row.gp; }
+function pdPgAvg(S, k){ if(S.na[k]) return null; if(S.sq.pg[k]&&PF_METRICS.some(m=>m[0]===k)) return S.sq.pg[k].avg;
+  const v=S.F.players.map(p=>pdPg(S, S.rows.get(p.key), k)).filter(x=>x!=null&&isFinite(x)); return v.length?v.reduce((a,x)=>a+x,0)/v.length:null; }
+function pdBarsHTML(S, row, col, one){   // one: a single-game range — his per-game figure IS the tile's total, so it is not printed again
+  return PD_BARS.map(([k,l])=>{ const v=pdPg(S, row, k), avg=pdPgAvg(S, k), na=S.na[k];
     if(v==null||avg==null) return `<div class="pd-br na" title="${ssEsc('n/a — '+(na||'no figure'))}"><span>${ssEsc(l)}</span><em>n/a</em></div>`;
-    const m=Math.max(v, avg, k==='pct'?0:1e-9)||1, w=x=>Math.max(1.5, x/m*100).toFixed(1);
-    return `<div class="pd-br"><span>${ssEsc(l)}</span><div class="pd-bt"><i style="width:${w(v)}%;background:${ssEsc(col.a)}"></i><i class="sq" style="width:${w(avg)}%"></i></div><b>${ssEsc(pdNum(k==='pct'?'pct':'ppg', v))}<small>${ssEsc(pdNum(k==='pct'?'pct':'ppg', avg))}</small></b></div>`; }).join('');
+    const m=Math.max(v, avg, 1e-9), w=x=>Math.max(1.5, x/m*100).toFixed(1), f=x=>(Math.round(x*100)/100).toFixed(2);
+    return `<div class="pd-br" data-k="${k}"><span>${ssEsc(l)}</span><div class="pd-bt"><i style="width:${w(v)}%;background:${ssEsc(col.a)}"></i><i class="sq" style="width:${w(avg)}%"></i></div><b>${one?'':f(v)}<small>${f(avg)}</small></b></div>`; }).join('');
 }
-function pdBoxesHTML(S, row){
-  return PD_BOXES.map(([k,l])=>{ const v=pdVal(S, row, k), na=S.na[k];
-    return `<div class="pd-box${v==null?' na':''}"${na?` title="${ssEsc('n/a — '+na)}"`:''}><i class="pd-bx ${k}"></i><div><span>${ssEsc(l)}</span><b>${ssEsc(v==null?'n/a':String(v))}</b></div></div>`; }).join('');
+// SHOT MAPS: the Players tab's three maps (total / right foot / left foot) for the player over the range — its own view
+// (pyView), maps (pyMapsHTML → pyMapSVG / ttShotMark: one marker size, COHESION's colours, rotated games read as the Players tab
+// reads them), legend, n/a notes and hover cards (the cards are routed to this view: pdTipState)
+function pdShotView(S, key){ const F={types:new Set(), play:'both'}; return {F, V:pyView(S.R, key, F, null, null, S.F)}; }
+function pdMapsHTML(S, M){
+  if(!M.V.player) return '<div class="tt-empty">n/a — he is not in these games.</div>';
+  return pyMapsHTML(S.R, M.V, M.F).replace(' The 1-point, 2-point and Goal chips filter by the tagged attempt type (a shot with no attempt type then drops out); a marker’s', ' A marker’s');   // no chips on this tab
 }
 function pdCtlHTML(V){
   const r=V.range, kinds=[['last5','Last 5'],['last10','Last 10'],['season','Season'],['comp','Competition'],['game','Game']];
@@ -307,7 +327,7 @@ function pdCtlHTML(V){
   if(r.kind==='season'||r.kind==='comp') h+=sel('pdSeason', seasons.map(s=>[s,s]), r.season, 'SEASON');
   if(r.kind==='comp') h+=sel('pdComp', comps.map(c=>[c,c]), r.comp, 'COMPETITION');
   if(r.kind==='game') h+=sel('pdGame', V.list.map(g=>[g.id, [pdSeasonOf(g), pdCompShort(g.competition), g.round, 'v '+ovMatch(g,null,null,V.T).opp].filter(Boolean).join(' · ')]), r.gid, 'GAME');
-  h+=`<div class="pd-f"><span>COMPARE</span><div class="seg" id="pdMode" role="group" aria-label="Compare">${[['prev','vs previous season'],['squad','vs squad average']].map(m=>`<button type="button" data-pdmode="${m[0]}" class="${V.mode===m[0]?'on':''}" aria-pressed="${V.mode===m[0]}">${m[1]}</button>`).join('')}</div></div></div>`;
+  h+=`<div class="pd-f"><span>COMPARE</span><div class="seg" id="pdMode" role="group" aria-label="Compare">${[['prev',r.kind==='game'?'vs season average':'vs previous season'],['squad','vs squad average']].map(m=>`<button type="button" data-pdmode="${m[0]}" class="${V.mode===m[0]?'on':''}" aria-pressed="${V.mode===m[0]}">${m[1]}</button>`).join('')}</div></div></div>`;
   return h;
 }
 function pdHTML(V){
@@ -316,18 +336,19 @@ function pdHTML(V){
   if(!S.games.length) return h+'<div class="soon"><p>No games in this range.</p></div>';
   h+=pdHeadHTML(V);
   if(!row) h+=`<div class="tt-card tt-empty">n/a — ${ssEsc(V.name||'this player')} is not named on any ${ssEsc(V.T)} event in this range (no minutes and no tagged event).</div>`;
-  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
+  // a single game: Points per game would repeat Total points, so it is left out
+  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
   const Rd=pdRadar(S, V.key), tk=V.trendK, trend=V.trend;
   h+=`<div class="pd-panels"><div class="tt-card pd-p pd-p1"><h4 class="td-ct">PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(Rd, col, row.name):'<div class="tt-empty">n/a</div>'}`
     +`<div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>${ssEsc(row?row.name:'Player')}</span><span><i class="sq"></i>Team average</span></div>`
     +`<div class="dnote">${ssEsc('Each axis is scored 0–100 against the '+S.F.players.length+' squad players in this range (everyone named on a '+S.T+' event; with a team sheet, everyone with minutes): player ÷ the squad’s highest × 100, per game; Shooting % is the % itself; Discipline is 100 × (1 − fouls per game ÷ the squad’s highest). The grey shape is the squad average on the same scale. '+Rd.axes.map(a=>a.l+' = '+a.how).join('; ')+'.'+(Rd.left.length?' Left out (n/a): '+Rd.left.join('; ')+'.':''))}</div></div>`
     +`<div class="tt-card pd-p pd-p2"><div class="pd-ph"><h4 class="td-ct">PER-GAME TREND</h4><select id="pdTrendK" aria-label="Trend figure">${PD_TREND.map(t=>`<option value="${t[0]}"${t[0]===tk?' selected':''}>${t[1]}</option>`).join('')}</select></div><div class="pd-scroll">${pdTrendSVG(trend, tk, col)}</div>`
-    +`<div class="dnote">${ssEsc('Oldest → newest across the range. “–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
-    +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col)}<div class="dnote">Per game (Shooting % as it is). Squad average as the Player Profile: the mean over the squad players who have the figure.</div></div>`
+    +`<div class="dnote">${ssEsc((V.range.kind==='game'?'The '+(V.P&&V.P.season||'')+' season around the selected game (ringed). ':'Oldest → newest across the range. ')+'“–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
+    +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col, V.range.kind==='game')}<div class="dnote">${V.range.kind==='game'?'This game: his figures are the tiles above; the number is the squad average in this game.':'Per game.'} Squad average as the Player Profile: the mean over the squad players who have the figure. Hover an n/a row for the reason.</div></div>`
     +`<div class="tt-card pd-p pd-p4"><h4 class="td-ct">SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
-    +`<div class="tt-card pd-p pd-p5"><h4 class="td-ct">DISCIPLINE &amp; POSSESSION</h4><div class="pd-boxes">${pdBoxesHTML(S, row)}</div><div class="dnote">Totals over the range. Hover an n/a box for the reason.</div></div></div>`;
+    +`<div class="tt-card pd-p pd-p5 pd-maps"><h4 class="td-ct">SHOT MAPS</h4>${pdMapsHTML(S, V.map)}</div></div>`;
   const naList=[...new Set(PD_KPIS.filter(d=>S.na[d.k]).map(d=>d.l+': '+S.na[d.k]))];
-  h+=`<div class="dnote pd-foot">${ssEsc('Totals are the Players tab’s for the same games (its players table: shots, scores, assists, xP; its kickout lists: targets named on '+S.T+'’s own kickouts). Games = games he is named on an event'+(S.F.sheetGames?', or has minutes on a team sheet':'')+'. ARROWS: '+(V.mode==='squad'?'his figure per game against the squad average per game (Shooting %, Points per game and Finishing as they are; Games and Minutes as totals)':'his figure per game against his own per game in the same kind of range in the previous season ('+(V.P&&V.P.games.length?V.P.season+': '+V.P.games.length+' game'+(V.P.games.length===1?'':'s'):'n/a — '+(V.P?V.P.reason:''))+')')+'; green = better by more than 3%, red = worse by more than 3% (fewer is better for turnovers lost, fouls and cards), grey within 3%. Score assists = his assists on scores; shot assists = every shot he is named as the assist on. Goal attempts = shots tagged Goal Attempt.'+(naList.length?' N/A in this range — '+naList.join(' · ')+'.':''))}</div>`;
+  h+=`<div class="dnote pd-foot">${ssEsc('Totals are the Players tab’s for the same games (its players table: shots, scores, assists, xP; its kickout lists: targets named on '+S.T+'’s own kickouts). Games = games he is named on an event'+(S.F.sheetGames?', or has minutes on a team sheet':'')+'. ARROWS — what is compared: counts (scores, shots, assists, kickouts, turnovers, fouls, cards) PER GAME; rates (Shooting %, Points per game, Finishing v xP) as they are; Games and Minutes as TOTALS. Against: '+(V.mode==='squad'?'the squad average (the Player Profile’s: the mean over the squad players who have the figure)':V.P&&V.P.savg?'his own average per game over the '+V.P.season+' season ('+V.P.games.length+' games; Minutes: this game against his minutes per game; Games: not compared)':'his own figures in the same kind of range in the previous season ('+(V.P&&V.P.games.length?V.P.season+': '+V.P.games.length+' game'+(V.P.games.length===1?'':'s'):'n/a — '+(V.P?V.P.reason:''))+')')+'. Green = better by more than 3%, red = worse by more than 3% (fewer is better for turnovers lost, fouls and cards), grey within 3%. Score assists = his assists on scores; shot assists = every shot he is named as the assist on. Goal attempts = shots tagged Goal Attempt.'+(naList.length?' N/A in this range — '+naList.join(' · ')+'.':''))}</div>`;
   return h;
 }
 
@@ -372,7 +393,8 @@ function pdView(){
   const key=PD_O.key, row=S.rows.get(key)||null, name=(squad.find(p=>p.key===key)||{}).name||'';
   const P=pdPrevRange(list, r, games); P.S=P.games.length?pdSummaries(T, P.games, pdBundleOf):null;
   const prow=P.S?P.S.rows.get(key)||null:null;
-  return {T, list, range:r, games, S, row, key, name, squad, mode:PD_O.mode, P, prow, col:pdColours(T), trendK:PD_O.trendK, trend:pdTrend(T, games, key, PD_O.trendK, pdBundleOf),
+  const tg=r.kind==='game'&&P.savg?P.games:games, trend=pdTrend(T, tg, key, PD_O.trendK, pdBundleOf); if(r.kind==='game') trend.forEach(x=>{ x.hl=x.gid===r.gid; });
+  return {T, list, range:r, games, S, row, key, name, squad, mode:PD_O.mode, P, prow, col:pdColours(T), trendK:PD_O.trendK, trend, map:pdShotView(S, key),
     sheet:pdSheetOf(T, key, games, pdBundleOf), rangeTxt:pdRangeTxt(r, games)};
 }
 function pdApplyCol(col){ const p=ssEl('pane-player-dash'); if(!p||!p.style) return; p.style.setProperty('--pa', col.a); p.style.setProperty('--pb', col.b); p.style.setProperty('--pp', col.primary); p.style.setProperty('--ps', col.secondary||col.primary); }
@@ -381,8 +403,13 @@ function pdRender(){
   pdSyncView();
   try{ PD_V=pdView(); }catch(e){ console.error('player dashboard', e); body.innerHTML='<div class="soon"><p>Could not build the dashboard: '+ssEsc(e.message)+'</p></div>'; return; }
   pdApplyCol(PD_V.col);
+  if(typeof ttHideTip==='function') ttHideTip();
   body.innerHTML=pdHTML(PD_V);
+  body.querySelectorAll('.pd-scroll').forEach(x=>{ x.scrollLeft=x.scrollWidth; });   // a long trend: the newest games in view
+  body.querySelectorAll('svg.tt-locs').forEach(svg=>{ const w=svg.getBoundingClientRect?svg.getBoundingClientRect().width:0; if(!(w>0)) return; const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r)); });   // = pyFitHits
 }
+// the shot-map hover / pinned cards on this tab read this view (analysis.html pyTipState)
+function pdTipState(){ return PD_V&&PD_V.map?{R:PD_V.S.R, V:PD_V.map.V}:{R:null, V:null}; }
 function pdSyncView(){ document.querySelectorAll('#pdViews button').forEach(b=>{ const on=b.dataset.pdview===PD_O.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
   const d=ssEl('pdBody'), p=ssEl('ppWrap'); if(d) d.hidden=PD_O.view!=='dash'; if(p) p.hidden=PD_O.view!=='print'; }
 function pdSetView(v){ PD_O.view=v==='print'?'print':'dash'; pdSyncView(); if(PD_O.view==='print') ppRender(); else pdRender(); }
@@ -416,11 +443,13 @@ function pdInit(){
 //  keyed by team + player) — a mockup: no database table.
 // ═════════════════════════════════════════════════════════════════════════════
 const PP_LINES=[['','Substitute'],['GK','Goalkeeper (Sub)'],['B','Defender (Sub)'],['M','Midfielder (Sub)'],['F','Forward (Sub)']];
-const PP_NOTE_KEYS=[['hand','Dominant Hand/Foot'],['style','Attacking Style'],['strengths','Strengths'],['watch','Watch Point'],['form','Form']];
+const PP_NOTE_KEYS=[['hand','Dominant Hand/Foot'],['style','Style of Play'],['strengths','Strengths'],['watch','Watch Point'],['form','Form']];
 function ppStore(k, v){ try{ if(v===undefined){ const s=localStorage.getItem(k); return s?JSON.parse(s):null; } if(v===null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); }catch(_){ } return null; }
 function ppPanelKey(T){ return 'coh_panel_v1|'+T; }
 function ppNoteKey(T, key){ return 'coh_panel_notes_v1|'+T+'|'+key; }
+// the slot's default label (1–15: the slot's position; a sub: his line + "(Sub)"); the label printed = the one typed for this game day, else that
 function ppPosLabel(no, line){ return no>=1&&no<=15?PP_POS_NAME(no):(PP_LINES.find(l=>l[0]===(line||''))||PP_LINES[0])[1]; }
+function ppSlotLabel(s){ const t=String((s&&s.pos)||'').trim(); return t||ppPosLabel(s.no, s.line); }
 function PP_POS_NAME(no){ return PD_POS[no-1]; }
 function ppIsKeeper(s){ return s.no===1||(s.no>15&&s.line==='GK'); }
 // the competition's limit (cohesion-teamsheet.js gameKind on a game of that competition)
@@ -514,19 +543,19 @@ function ppPages(P){
   const gk=filled.filter(ppIsKeeper), out=filled.filter(s=>!ppIsKeeper(s)), pages=[{kind:'cover'}];
   gk.forEach(s=>pages.push({kind:'gk', slots:[s]}));
   for(let i=0;i<out.length;i+=2) pages.push({kind:'out', slots:out.slice(i,i+2)});
-  pages.push({kind:'assists'});
+  pages.push({kind:'assists', scope:'full'}, {kind:'assists', scope:'comp'});   // the full season, then the competition chosen for the season rows
   return pages;
 }
 // ── print-out strings ──
 function ppBarHTML(s, T, col, club){
-  const fg=typeof cohInkOn==='function'?cohInkOn(col.primary):'#fff', fg2=typeof cohInkOn==='function'?cohInkOn(col.secondary||col.primary):'#111';
-  return `<div class="pp-bar" style="background:${ssEsc(col.primary)};color:${fg}"><div class="pp-no">${s.no}</div><div class="pp-nm"><b>${ssEsc(s.name)}</b><small>${ssEsc(club||'')}</small></div><div class="pp-pos" style="background:${ssEsc(col.secondary||col.primary)};color:${fg2}">${ssEsc(ppPosLabel(s.no, s.line))}</div></div>`;
+  const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff', fg2=typeof cohInkOn==='function'?cohInkOn(col.tag||col.bar):'#111';
+  return `<div class="pp-bar" style="background:${ssEsc(col.bar)};color:${fg}"><div class="pp-no">${s.no}</div><div class="pp-nm"><b>${ssEsc(s.name)}</b><small>${ssEsc(club||'')}</small></div><div class="pp-pos" style="background:${ssEsc(col.tag||col.bar)};color:${fg2}">${ssEsc(ppSlotLabel(s))}</div></div>`;
 }
 function ppSeasonTable(T, key, Sf, Sc, P, col){
   const row=(lab, S)=>{ const r=key?S.rows.get(key):null, na=v=>v==null?'n/a':v;
     if(!r) return `<tr><td>${ssEsc(lab)}</td><td colspan="6" class="na">${key?'not named on any '+ssEsc(titleCase(T))+' event':'no data for this name'}</td></tr>`;
     return `<tr><td>${ssEsc(lab)}</td><td>${r.gp}</td><td>${r.min==null?'<span title="no team sheet">n/a</span>':Math.round(r.min)+'\''}</td><td>${r.one}</td><td>${r.two}</td><td>${r.goals}</td><td><b>${na(r.pts)}</b></td></tr>`; };
-  return `<table class="pp-st"><thead><tr style="background:${ssEsc(col.primary)};color:${typeof cohInkOn==='function'?cohInkOn(col.primary):'#fff'}"><th>Season</th><th>Games</th><th>Mins</th><th>1-Pts</th><th>2-Pts</th><th>Goals</th><th>Total</th></tr></thead><tbody>`
+  return `<table class="pp-st"><thead><tr style="background:${ssEsc(col.bar)};color:${typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff'}"><th>Season</th><th>Games</th><th>Mins</th><th>1-Pts</th><th>2-Pts</th><th>Goals</th><th>Total</th></tr></thead><tbody>`
     +row('Full '+P.season, Sf)+(Sc?row(pdCompShort(P.comp)+' only', Sc):'')+'</tbody></table>';
 }
 function ppNotesTable(T, s, keeper, note){
@@ -544,7 +573,7 @@ function ppPlayerHTML(T, s, ctx, col){
   PP_NOTE_KEYS.forEach(([k])=>{ note[k]=saved[k]!=null?saved[k]:draft[k]; });
   const sk=Object.assign({}, s, {key});
   return `<section class="pp-pl${keeper?' gk':''}" data-key="${ssEsc(key)}">${ppBarHTML(s, T, col, saved.club||'')}`
-    +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.primary})}${keeper?'':ppShotMap(ctx.Sf, real)}`
+    +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
     +`<button type="button" class="pp-noprint mini" data-ppreset="${ssEsc(key)}" title="Replace this player’s notes with the draft from the figures">Re-draft notes</button></div>`
     +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}</div></div></section>`;
@@ -554,8 +583,8 @@ function ppChainTable(T, s, ctx, col){
   const cols=[]; TK_LENS.forEach(([l,n])=>{ cols.push([A[l], n+' (Full)']); if(B) cols.push([B[l], n+' ('+cs+')']); });
   const src=A.src, f=(o,k)=>o[k]==null?'n/a':(k==='pct'||k==='conv')?(o[k]==null?'n/a':Math.round(o[k])+'%'):o[k];
   const R=[['taken','Kickouts taken'],['pct','Kickout win %'],['shots','Shots generated'],['scores','Scores'],['one','Points'],['two','2-Pts'],['goals','Goals'],['value','Total value'],['conv','Conversion %']];
-  const fg=typeof cohInkOn==='function'?cohInkOn(col.primary):'#fff';
-  return `<table class="pp-kc"><thead><tr style="background:${ssEsc(col.primary)};color:${fg}"><th>${ssEsc(s.name)} — Kickout Chains</th>${cols.map(c=>`<th>${ssEsc(c[1])}</th>`).join('')}</tr></thead><tbody>`
+  const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff';
+  return `<table class="pp-kc"><thead><tr style="background:${ssEsc(col.bar)};color:${fg}"><th>${ssEsc(s.name)} — Kickout Chains</th>${cols.map(c=>`<th>${ssEsc(c[1])}</th>`).join('')}</tr></thead><tbody>`
     +R.map(([k,l])=>`<tr><th>${l}</th>${cols.map((c,i)=>`<td class="${i%2&&B?'cmp':''}">${f(c[0],k)}</td>`).join('')}</tr>`).join('')+'</tbody></table>'
     +`<div class="pp-fn">${ssEsc((A.byKeeper?'His kickouts (Kickout Taken By tags). ':'All '+titleCase(T)+' kickouts — the games do not name the kicker. ')+'Won % = won by '+titleCase(T)+'. Shots generated / scores / value = '+titleCase(T)+'’s shots whose tagged source is Own Kickout after a kickout '+titleCase(T)+' won, before the next kickout (the Kickouts tab’s WHAT FOLLOWED); Points = 1-point scores, Total value = points value. '+(src?'':'n/a: no shot source tags in these games. ')+'Lengths as tagged (Short / Mid-Range / Long).')}</div>`;
 }
@@ -565,17 +594,19 @@ function ppKoMaps(T, ctx){
   return `<div class="pp-kmaps">${m(ctx.Sf, 'Full '+PP.season)}${ctx.Sc?m(ctx.Sc, PP.comp+' '+PP.season):''}</div>`;
 }
 function ppCoverHTML(T, ctx, col, list){
-  const crest=typeof cohCrestSrc==='function'?cohCrestSrc(T):null, fg=typeof cohInkOn==='function'?cohInkOn(col.primary):'#fff';
+  const crest=typeof cohCrestSrc==='function'?cohCrestSrc(T):null, fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff';
   const n=Object.values(PP.slots).filter(s=>s&&s.name).length;
-  return `<div class="pp-cover" style="--cp:${ssEsc(col.primary)};--cs:${ssEsc(col.secondary||col.primary)}"><div class="pp-cband" style="background:${ssEsc(col.primary)};color:${fg}">`
-    +(crest?`<img class="pp-ccrest" src="${ssEsc(crest)}" alt="${ssEsc(T)} crest">`:`<div class="pp-ccrest pp-c0" style="border-color:${ssEsc(col.secondary||'#fff')}">${ssEsc(pdOppShort(T))}</div>`)
-    +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div><div class="pp-cstripe" style="background:${ssEsc(col.secondary||col.primary)}"></div>`
+  return `<div class="pp-cover" style="--cp:${ssEsc(col.bar)};--cs:${ssEsc(col.tag||col.bar)}"><div class="pp-cband" style="background:${ssEsc(col.bar)};color:${fg}">`
+    +(crest?`<img class="pp-ccrest" src="${ssEsc(crest)}" alt="${ssEsc(T)} crest">`:`<div class="pp-ccrest pp-c0" style="border-color:${ssEsc(col.tag||'#fff')}">${ssEsc(pdOppShort(T))}</div>`)
+    +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div><div class="pp-cstripe" style="background:${ssEsc(col.tag||col.bar)}"></div>`
     +`<dl class="pp-cdl"><dt>Competition</dt><dd>${ssEsc(PP.comp+' '+PP.season)}</dd><dt>Opponent</dt><dd><span class="pp-ed" contenteditable="true" data-cover="opponent" aria-label="Opponent">${ssEsc(PP.cover.opponent||'')}</span></dd><dt>Date</dt><dd><span class="pp-ed" contenteditable="true" data-cover="date" aria-label="Date">${ssEsc(PP.cover.date||'')}</span></dd></dl>`
     +`<div class="pp-cfoot">${ssEsc('Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'. “n/a” = the files do not carry it.')}</div></div>`;
 }
-function ppAssistsHTML(T, ctx){
-  const A=ppAssists(ctx.Sf), top=A.rows.slice(0,10), x=v=>v==null?'n/a':v.toFixed(1), q=v=>v==null?'n/a':v.toFixed(2);
-  return `<h3 class="pp-h">Assist by Footballer:</h3><p class="pp-p">${ssEsc('Who is providing the '+titleCase(T)+' shooters and free takers with the most shots ('+PP.season+', '+ctx.Sf.games.length+' games; '+A.tagged+' of '+A.total+' shots name an assist).')}</p>`
+function ppAssistsHTML(T, S, scope){
+  const lab=scope==='comp'?PP.comp+' '+PP.season:'Full '+PP.season;
+  if(!S) return `<h3 class="pp-h">Assist by Footballer — ${ssEsc(lab)}:</h3><p class="pp-p">n/a — no ${ssEsc(PP.comp)} games in ${ssEsc(PP.season)}.</p>`;
+  const A=ppAssists(S), top=A.rows.slice(0,10), x=v=>v==null?'n/a':v.toFixed(1), q=v=>v==null?'n/a':v.toFixed(2);
+  return `<h3 class="pp-h">Assist by Footballer — ${ssEsc(lab)}:</h3><p class="pp-p">${ssEsc('Who is providing the '+titleCase(T)+' shooters and free takers with the most shots ('+lab+', '+S.games.length+' game'+(S.games.length===1?'':'s')+'; '+A.tagged+' of '+A.total+' shots name an assist).')}</p>`
     +`<table class="pp-at"><thead><tr><th>Assist</th><th>Shots</th><th>Goals</th><th>Two Pts</th><th>Pts</th><th>Total Pts</th><th>ExPts</th><th>Avg Shot Quality</th></tr></thead><tbody>`
     +top.map(r=>`<tr><td>${ssEsc(r.name)}</td><td>${r.shots}</td><td>${r.goals}</td><td>${r.two}</td><td>${r.one}</td><td>${r.pts}</td><td>${x(r.xp)}</td><td>${q(r.q)}</td></tr>`).join('')+'</tbody></table>'
     +`<div class="pp-fn">${ssEsc('Top '+top.length+' of '+A.rows.length+' by shots assisted. Pts = 1-point scores; Total Pts = points value. ExPts / Avg Shot Quality (ExPts ÷ shots) need xP, which needs a pitch location'+(A.rows.some(r=>r.xp!=null)?'':': n/a, no shot in these games has one')+'.')}</div>`
@@ -589,8 +620,8 @@ function ppPagesHTML(T, ctx, col, list){
     if(p.kind==='cover') h=ppCoverHTML(T, ctx, col, list);
     else if(p.kind==='gk') h=ppPlayerHTML(T, p.slots[0], ctx, col)+ppChainTable(T, p.slots[0], ctx, col)+ppKoMaps(T, ctx);
     else if(p.kind==='out') h=p.slots.map(s=>ppPlayerHTML(T, s, ctx, col)).join('');
-    else h=ppAssistsHTML(T, ctx);
-    return `<div class="pp-page pp-${p.kind}" data-kind="${p.kind}"><div class="pp-in">${h}</div><div class="pp-pn">${i+1} / ${pages.length}</div></div>`; }).join('');
+    else h=ppAssistsHTML(T, p.scope==='comp'?ctx.Sc:ctx.Sf, p.scope);
+    return `<div class="pp-page pp-${p.kind}" data-kind="${p.kind}"${p.scope?` data-scope="${p.scope}"`:''}><div class="pp-in">${h}</div><div class="pp-pn">${i+1} / ${pages.length}</div></div>`; }).join('');
 }
 function ppPickerHTML(T, ctx, list, lim){
   const squad=ctx.Sf.F.players.slice().sort((a,b)=>a.name.localeCompare(b.name)), N=Math.max(15, +PP.size||lim.limit);
@@ -604,10 +635,11 @@ function ppPickerHTML(T, ctx, list, lim){
   h+=`<details class="pp-pick pp-noprint" open><summary>SQUAD — pick a player for each number (${Object.values(PP.slots).filter(s=>s&&s.name).length} of ${N} filled)</summary><div class="pp-slots">`;
   for(let n=1;n<=N;n++){ const s=PP.slots[n]||{}, free=!!s.free;
     const opts=`<option value="">—</option>`+squad.map(p=>`<option value="${ssEsc(p.key)}"${s.key===p.key&&!free?' selected':''}${used.has(p.key)&&used.get(p.key)!==n?' disabled':''}>${ssEsc(p.name)}</option>`).join('')+`<option value="__free"${free?' selected':''}>Type a name…</option>`;
-    h+=`<div class="pp-slot${n===16?' first-sub':''}"><b>${n}</b><select data-ppslot="${n}" aria-label="Number ${n}">${opts}</select>`
+    h+=`<div class="pp-slot${n===16?' first-sub':''}"><b>${n}</b><div class="pp-sf"><select data-ppslot="${n}" aria-label="Number ${n}">${opts}</select>`
       +(free?`<input type="text" data-ppfree="${n}" value="${ssEsc(s.name||'')}" placeholder="name (no data)" aria-label="Name for number ${n}">`:'')
-      +(n>15?`<select data-ppline="${n}" aria-label="Line of number ${n}">${PP_LINES.map(l=>`<option value="${l[0]}"${(s.line||'')===l[0]?' selected':''}>${l[1]}</option>`).join('')}</select>`:`<span class="pp-sl">${ssEsc(PD_POS[n-1])}</span>`)+'</div>'; }
-  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. 1–15 take their position from the number’s slot; a sub’s line is picked here. The squad, clubs, the cover’s opponent and date and every note are kept in this browser only.</div></details>`;
+      +(n>15?`<select data-ppline="${n}" aria-label="Line of number ${n}" title="The sub’s line: a goalkeeper gets the goalkeeper page">${PP_LINES.map(l=>`<option value="${l[0]}"${(s.line||'')===l[0]?' selected':''}>${l[1]}</option>`).join('')}</select>`:'')
+      +`<input type="text" class="pp-posin" data-pppos="${n}" value="${ssEsc(s.pos||'')}" placeholder="${ssEsc(ppPosLabel(n, s.line))}" aria-label="Position label for number ${n}" title="The position printed for this game day (empty = ${ssEsc(ppPosLabel(n, s.line))})"></div></div>`; }
+  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. The POSITION box is the label printed for this game day — type over it; left empty it is the slot’s (1 Goalkeeper … 15 Left Corner Forward; a sub: his line + “(Sub)”). A sub picked as a goalkeeper gets the goalkeeper page. The squad, the labels, clubs, the cover’s opponent and date and every note are kept in this browser only.</div></details>`;
   return h;
 }
 function ppRender(){
@@ -625,10 +657,10 @@ function ppRender(){
 function ppFit(){ const p=ssEl('ppPages'); if(!p||!p.style) return; const w=p.parentNode&&p.parentNode.clientWidth||0; const z=w>0?Math.min(1, w/800):1; p.style.zoom=String(+z.toFixed(3)); }
 function ppSlotSet(n, v){
   if(!PP) return; const cur=PP.slots[n]||{};
-  if(!v){ delete PP.slots[n]; }
-  else if(v==='__free'){ PP.slots[n]={key:'', name:cur.free?cur.name:'', free:true, line:cur.line||''}; }
+  if(!v){ if(cur.pos) PP.slots[n]={pos:cur.pos}; else delete PP.slots[n]; }
+  else if(v==='__free'){ PP.slots[n]={key:'', name:cur.free?cur.name:'', free:true, line:cur.line||''}; if(cur.pos) PP.slots[n].pos=cur.pos; }
   else { const S=pdSummaries(PD_TEAM, pdRangeGames(pdTeamList(PD_TEAM), {kind:'season', season:PP.season}), pdBundleOf), p=S.F.byKey.get(v);
-    PP.slots[n]={key:v, name:p?p.name:v, free:false, line:cur.line||(n>15&&p&&p.line?p.line:'')}; }
+    PP.slots[n]={key:v, name:p?p.name:v, free:false, line:cur.line||(n>15&&p&&p.line?p.line:'')}; if(cur.pos) PP.slots[n].pos=cur.pos; }
   ppSave(); ppRender();
 }
 function ppClick(e){
@@ -644,6 +676,7 @@ function ppChange(e){
   if(t.id==='ppComp'){ PP.comp=t.value; PP.size=ppLimit(pdTeamList(PD_TEAM), PP.comp).limit; ppSave(); ppRender(); return; }
   if(t.id==='ppSize'){ PP.size=+t.value; ppSave(); ppRender(); return; }
   if(t.dataset&&t.dataset.ppslot){ ppSlotSet(+t.dataset.ppslot, t.value); return; }
+  if(t.dataset&&t.dataset.pppos){ const n=+t.dataset.pppos, v=String(t.value||'').replace(/\s+/g,' ').trim(); PP.slots[n]=Object.assign(PP.slots[n]||{}, {pos:v}); if(!v) delete PP.slots[n].pos; if(!Object.keys(PP.slots[n]).length) delete PP.slots[n]; ppSave(); ppRender(); return; }
   if(t.dataset&&t.dataset.ppline){ const n=+t.dataset.ppline; if(PP.slots[n]){ PP.slots[n].line=t.value; ppSave(); ppRender(); } return; }
   if(t.dataset&&t.dataset.ppfree){ const n=+t.dataset.ppfree; if(PP.slots[n]){ PP.slots[n].name=String(t.value||'').replace(/\s+/g,' ').trim(); PP.slots[n].key=pyKey(PP.slots[n].name); ppSave(); ppRender(); } return; }
   if(t.dataset&&t.dataset.club!=null){ ppNoteSet(t.dataset.club, 'club', t.value); return; }
@@ -697,7 +730,8 @@ const PD_CSS=`
 .pd-ic{width:20px;height:20px;fill:none;stroke:var(--pa);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .pd-tl{font-size:.78rem;color:var(--t2);margin-top:2px;} .pd-tv{font:800 26px/1.1 'Barlow',sans-serif;margin:3px 0;}
 .pd-tc{font:700 .72rem 'Barlow',sans-serif;color:var(--t3);line-height:1.25;overflow-wrap:anywhere;} .pd-tc.pos{color:var(--green);} .pd-tc.neg{color:var(--red);} .pd-tc.mid{color:var(--t2);} .pd-tc.na{font-weight:400;font-size:.66rem;}
-.pd-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);grid-template-areas:'a b c' 'a d e';gap:12px;}
+.pd-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);grid-template-areas:'a b c' 'a d c' 'e e e';gap:12px;}
+.pd-maps .py-maps{margin-top:4px;}
 .pd-p1{grid-area:a;} .pd-p2{grid-area:b;} .pd-p3{grid-area:c;} .pd-p4{grid-area:d;} .pd-p5{grid-area:e;}
 .pd-p .td-ct{color:var(--pa);}
 .pd-ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;} .pd-ph .td-ct{margin:0;}
@@ -710,10 +744,10 @@ const PD_CSS=`
 .pd-br b{text-align:right;font-size:.85rem;} .pd-br b small{display:block;color:var(--t3);font-weight:400;font-size:.72rem;}
 .pd-score{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:14px;align-items:center;}
 .pd-sbar{display:flex;height:66px;border-radius:10px;overflow:hidden;} .pd-sb{display:flex;flex-direction:column;justify-content:center;align-items:center;color:#fff;min-width:34px;}
-.pd-sb b{font:800 21px 'Barlow',sans-serif;} .pd-sb span{font-size:.78rem;font-weight:700;}
+.pd-sb b{font:800 21px 'Barlow',sans-serif;} .pd-sb span{font-size:.74rem;font-weight:700;}
 .pd-sb.one,.pd-sleg i.one{background:color-mix(in srgb,var(--pp) 80%,#000);} .pd-sb.two,.pd-sleg i.two{background:#b8892b;} .pd-sb.gl,.pd-sleg i.gl{background:#c8343b;}
 .pd-sleg{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--t2);margin-top:10px;} .pd-sleg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;}
-.pd-ring{width:110px;height:110px;} .pd-rgb{fill:none;stroke:#2c2c38;stroke-width:9;} .pd-rn{font:800 28px 'Barlow',sans-serif;fill:var(--t1);} .pd-rs{font:600 9.5px 'Barlow',sans-serif;fill:var(--t2);}
+.pd-ring{width:110px;height:110px;} .pd-rgb{fill:none;stroke:#2c2c38;stroke-width:9;} .pd-rn{font:800 26px 'Barlow',sans-serif;fill:var(--t1);} .pd-rs{font:600 9.5px 'Barlow',sans-serif;fill:var(--t2);}
 .pd-boxes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .pd-box{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:0;}
 .pd-box span{display:block;font-size:.74rem;color:var(--t2);} .pd-box b{font:800 20px 'Barlow',sans-serif;} .pd-box.na b{color:var(--t3);font-size:15px;}
 .pd-bx{flex:none;width:16px;height:22px;border-radius:3px;background:var(--pa);} .pd-bx.yel{background:#f2c200;} .pd-bx.blk{background:#111;border:1px solid #555;} .pd-bx.red{background:#e0303a;} .pd-bx.fouls,.pd-bx.toL{background:#a0a0ae;border-radius:50%;width:18px;height:18px;} .pd-bx.toW,.pd-bx.poss,.pd-bx.tck{border-radius:50%;width:18px;height:18px;}
@@ -726,8 +760,8 @@ const PD_CSS=`
 .pp-warn{font-size:.82rem;color:var(--t2);margin:-6px 4px 10px;} .pp-warn b{color:var(--amber);}
 .pp-pick{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 14px 12px;margin-bottom:16px;} .pp-pick summary{cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t2);padding:8px 0;}
 .pp-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px 14px;}
-.pp-slot{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(0,1fr);gap:6px;align-items:center;font-size:.85rem;} .pp-slot b{text-align:right;color:var(--pa);} .pp-slot select,.pp-slot input{min-width:0;width:100%;padding:6px 6px;font-size:.82rem;}
-.pp-slot input{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);} .pp-slot:has(input){grid-template-columns:28px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);}
+.pp-slot{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;align-items:center;font-size:.85rem;} .pp-sf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;} .pp-slot b{text-align:right;color:var(--pa);} .pp-slot select,.pp-slot input{min-width:0;width:100%;padding:6px 6px;font-size:.82rem;}
+.pp-slot input{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--t1);}
 .pp-slot.first-sub{grid-column:1/-1;border-top:1px solid var(--border);padding-top:8px;margin-top:4px;} .pp-sl{color:var(--t3);font-size:.78rem;}
 .pp-pages{display:flex;flex-direction:column;align-items:center;gap:18px;transform-origin:top left;}
 .pp-page{width:210mm;height:297mm;background:#fff;color:#161616;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);font-family:'Barlow',Arial,sans-serif;}
@@ -764,6 +798,7 @@ const PD_CSS=`
   @page{size:A4;margin:0;}
   html,body{background:#fff !important;overflow:visible !important;}
   header,.tabs,.filters,#gamesPick,#status,#pdStatus,.pd-views,#pdBody,.pp-noprint,.pane:not(#pane-player-dash){display:none !important;}
+  html body[data-tab=player-dash] #ovCtl.only-team{display:none !important;}
   .wrap{max-width:none !important;margin:0 !important;padding:0 !important;}
   .pp-pages{zoom:1 !important;gap:0;display:block;} .pp-page{box-shadow:none;break-after:page;page-break-after:always;} .pp-page:last-child{break-after:auto;page-break-after:auto;}
   .pp-ed:focus{background:none;box-shadow:none;}

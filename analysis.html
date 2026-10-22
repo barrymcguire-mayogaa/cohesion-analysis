@@ -103,7 +103,8 @@ body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body
 body[data-tab=player-dash] #sharedBar{display:none;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-basis{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=player-dash]):not([data-tab=players]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-team{display:none !important;}
+body[data-tab=player-dash] #ovCtl.only-team{display:flex !important;}   /* PLAYER DASHBOARD: the TEAM box too */
 body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
@@ -1030,6 +1031,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="crests/index.js"></script>
+<script src="crests/counties.js"></script>
 <script src="cohesion-ink.js"></script>
 <script src="cohesion-labels.js"></script>
 <script src="cohesion-edit.js"></script>
@@ -2022,7 +2024,7 @@ function anSetTab(tab, sub){
   const chips=ssEl('fTypesWrap'), slot=(TAB==='overview'||TAB==='match-reports'||TAB==='team-trends'||TAB==='momentum'||TAB==='players')?ssEl('ovTypesSlot'):ssEl('cmpModeRow');
   if(chips&&slot&&chips.parentNode!==slot) slot.appendChild(chips);
   // the one floating card (hover cards, the playlist menu) sits in the pane on show: Team Trends, Momentum or Players
-  { const tip=ssEl('ttTip'), host=ssEl(TAB==='momentum'?'pane-momentum':TAB==='players'?'pane-players':'pane-team-trends'); if(tip&&host&&tip.parentNode&&tip.parentNode!==host){ ttHideTip(); host.appendChild(tip); } }
+  { const tip=ssEl('ttTip'), host=ssEl(TAB==='momentum'?'pane-momentum':TAB==='players'?'pane-players':TAB==='player-dash'?'pane-player-dash':'pane-team-trends'); if(tip&&host&&tip.parentNode&&tip.parentNode!==host){ ttHideTip(); host.appendChild(tip); } }
   if(GAMES_READY){ renderTypeChips(); applyFilters(); }
 }
 let GAMES_READY=false;
@@ -4759,7 +4761,7 @@ function ttSetFilter(f, v){
 function ttTipHTML(key, pinned){
   const p=String(key||'').split(':'), i=+p[1];
   if(/^mm[a-z]$/.test(p[0])) return MM_LAST&&MM_VIEW?mmTipHTML(p[0], i, MM_LAST, MM_VIEW):'';
-  if(/^p(shot|ko|zone|pr)$/.test(p[0])) return PY_LAST&&PY_VIEW?pyTipHTML(p, PY_LAST, PY_VIEW, !!pinned):'';   // the Players tab's cards
+  if(/^p(shot|ko|zone|pr)$/.test(p[0])){ const st=pyTipState(); return st.R&&st.V?pyTipHTML(p, st.R, st.V, !!pinned):''; }   // the Players tab's cards (or the Player Dashboard's shot maps)
   if(p[0]==='dto'||p[0]==='dfl') return TD_LAST&&TD_CHART?tdTrendCardHTML(TD_CHART.rows[i], p[0]==='dto'?'to':'fouls', TD_LAST.team):'';
   if(p[0]==='tvt') return TV_LAST?tvTrendCardHTML(TV_LAST.trend[i], TV_LAST.team):'';
   if(p[0]==='kz') return TK_LAST&&TK_VIEW?tkZoneCardHTML(TK_VIEW.zones.byKey[p[1]], TK_VIEW, TK_LAST):'';
@@ -4963,8 +4965,10 @@ function cpList(items, gameOf, clipOf){   // items with no video are left out, s
     return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
 }
 // the window's header: who, "v Opponent · date", and the event in a line
-function cpViewOf(kind){ return kind==='pshot'||kind==='pko'?PY_VIEW:kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:kind==='ms'?MM_VIEW:TT_VIEW; }   // 'ms' = a shot of Momentum's scoring log
-function cpResOf(kind){ return kind==='pshot'||kind==='pko'?PY_LAST:kind==='ko'?TK_LAST:kind==='to'?TV_LAST:kind==='ms'?MM_LAST:TT_LAST; }   // pshot / pko = a shot / kickout of the Players tab
+// the Players-tab cards (pshot / pko) read the Players tab's view — or, on PLAYER DASHBOARD, its shot maps' view (cohesion-playerdash.js)
+function pyTipState(){ return TAB==='player-dash'&&typeof pdTipState==='function'?pdTipState():{R:PY_LAST, V:PY_VIEW}; }
+function cpViewOf(kind){ return kind==='pshot'||kind==='pko'?pyTipState().V:kind==='ko'?TK_VIEW:kind==='to'?TV_VIEW:kind==='ms'?MM_VIEW:TT_VIEW; }   // 'ms' = a shot of Momentum's scoring log
+function cpResOf(kind){ return kind==='pshot'||kind==='pko'?pyTipState().R:kind==='ko'?TK_LAST:kind==='to'?TV_LAST:kind==='ms'?MM_LAST:TT_LAST; }   // pshot / pko = a shot / kickout of the Players tab
 function cpItemsOf(kind){ const v=cpViewOf(kind); return v?(kind==='ko'||kind==='pko'?v.mapKos:(kind==='to'||kind==='ms')?v.rows:v.mapShots):null; }
 function cpInfo(kind, s, R){
   const m=R&&R.gameOf&&R.gameOf.get(s.gid), clock=ttClockTxt(s.e), when=clock==='n/a'?[]:[clock], date=m?(ovShortDate(m.date)||'date n/a'):'';
@@ -5118,7 +5122,7 @@ function ttPinItem(){
 }
 function ttInit(){
   // one set of delegated listeners per pane: Team Trends and Momentum share the floating card and the games dropdowns
-  const panes=[ssEl('pane-team-trends'), ssEl('pane-momentum'), ssEl('pane-players')].filter(p=>p&&p.addEventListener); if(!panes.length) return;
+  const panes=[ssEl('pane-team-trends'), ssEl('pane-momentum'), ssEl('pane-players'), ssEl('pane-player-dash')].filter(p=>p&&p.addEventListener); if(!panes.length) return;
   const within=t=>panes.some(p=>p.contains&&p.contains(t));
   const tipOf=e=>e.target&&e.target.closest?e.target.closest('[data-tip]'):null;
   const inCard=e=>!!(e.target&&e.target.closest&&e.target.closest('#ttTip'));
