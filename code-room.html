@@ -218,6 +218,7 @@ body.crfit .editcol{position:static;height:100%;max-height:none;min-height:0;ove
 .colorrow .teambtn:hover{border-color:var(--accent);color:var(--accent);}
 .epanel input:focus{border-color:var(--accent);}
 .lblrow{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.crnearrow{margin:-2px 0 8px 124px;} .crnear{display:inline-block;font-size:11px;font-weight:700;color:#1a1100;background:#f5a623;border-radius:6px;padding:2px 7px;margin-left:6px;white-space:nowrap;} .crnear.passive{background:transparent;color:#f5a623;border:1px solid #f5a623;font-weight:600;} .crnearrow .crnear{margin-left:0;}
 .ep-role{color:var(--accent) !important;}
 .lblrow .g{min-width:118px;font:700 10px 'Barlow Condensed',sans-serif;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;overflow:hidden;text-overflow:ellipsis;}
 .lblrow input{flex:1;margin:0;}
@@ -430,7 +431,6 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cohesion-ink.js"></script>
 <script src="cohesion-labels.js"></script>
-<script src="cohesion-shotbands.js"></script>
 <script src="cohesion-config.js"></script>
 <script src="cohesion-gi.js"></script>
 <script src="cohesion-sources.js"></script>
@@ -734,7 +734,7 @@ function filterGames(){
 async function openGame(id){
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crNearArc={}; crLocClick={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowSel=[]; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('loading').style.display='';
@@ -859,7 +859,7 @@ async function startYtSession(){
 }
 async function lvOpenSession(){
   EVENTS=[];
-  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
+  crDeleted=[]; undoStack=[]; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crNearArc={}; crLocClick={}; crAttNote={id:null,text:''};
   crRowOrder=[]; crExtraRows=[]; crRowPend=[]; crEtPend=null; crActiveRow=null; crRowSel=[]; crRowsLoaded=false; crSel=[]; crBox=null; crAngleIdx=0; crRec={}; crTLRec=null; crAAReset(); crKprReset(); crCodesLoad();
   document.getElementById('setup').style.display='none';
   document.getElementById('editor').style.display='';
@@ -2018,12 +2018,27 @@ function crCoordOf(e){
 const CR_ARC_2PT_M=40;
 let crAutoAtt={};                  // rowId → attempt value auto-set this session
 let crAttNote={id:null,text:''};   // "attempt set from location: 2pt" for the Edit panel / Locate
-// metres from the goal centre ON THE DRAWN PITCH (cohesion-shotbands.js cohShotPitchDistM — the scale of the drawn 20 m /
-// 45 m lines and 40 m arc, the one the Analysis shot bands use; since Oct 2026, was the xP model's xpForShot(...).parts.dist,
-// whose scale puts the lines ~1 m off the drawing). x / y = the canonical position Code Room stores. xP keeps its own scale.
+// NEAR THE ARC (Barry, Oct 2026): within CR_ARC_NEAR_M of the 40 m arc (39–41 m on this distance) a click cannot tell the side.
+// The attempt is still set by side as above (≤ 40 → 1 Point, > 40 → 2 Point); a shot whose attempt was set automatically this
+// session in that zone is MARKED (amber "near the arc — check" by Shot Attempts in the Edit panel and in Locate; counted in
+// the attempt note). An existing tag in the zone gets only a passive hint. DISPLAY ONLY: nothing is written to the labels or the
+// XML (the ⚑ Review label is the existing review-flag pattern; it is not used for this).
+const CR_ARC_NEAR_M=1;
+let crNearArc={};                  // rowId → metres, the auto-set shots near the arc this session
+function crNearArcDist(x,y){ const d=crShotDistM(x,y); return d!=null&&Math.abs(d-CR_ARC_2PT_M)<=CR_ARC_NEAR_M?d:null; }
+// the mark for the shot open in the Edit panel / Locate ('' when none)
+function crNearArcHtml(rowId){
+  if(!draft||!CR_LOC_RE.test(draft.code||'')||draft.x==null) return '';
+  const k=String(rowId), auto=crNearArc[k]!=null;
+  const d=auto?crNearArc[k]:crNearArcDist(draft.x, draft.y); if(d==null) return '';
+  if(/PENALTY/i.test(draft.code||'')) return '';
+  return auto?`<span class="crnear" title="Set from the location, but it is within ${CR_ARC_NEAR_M} m of the 40 m arc: check the video">⚠ near the arc — check (${d.toFixed(1)} m)</span>`
+    :`<span class="crnear passive" title="Within ${CR_ARC_NEAR_M} m of the 40 m arc — a hint only; the tag is not changed">near the arc (${d.toFixed(1)} m)</span>`;
+}
 function crShotDistM(x,y){
-  if(typeof cohShotPitchDistM!=='function'||x==null||y==null||!isFinite(x)||!isFinite(y)) return null;
-  const d=cohShotPitchDistM(x,y); return d!=null&&isFinite(d)?d:null;
+  if(typeof xpForShot!=='function'||x==null||y==null||!isFinite(x)||!isFinite(y)) return null;
+  try{ const r=xpForShot({'Shot Attempts':'1 Point Attempt','X-Shot':String(x),'Y-Shot':String(y)},'home',null,{conv:'tracker'});
+    return r&&r.parts&&isFinite(r.parts.dist)?r.parts.dist:null; }catch(_){ return null; }
 }
 // labels: {group:value}. Returns the attempt to write, or '' to leave it.
 function crAttemptFromLoc(rowId, code, labels, x, y){
@@ -2074,6 +2089,11 @@ function crDraft45Sync(name){
   else if(draft.x!=null&&crAutoAtt[activeId]) crDraftAutoAttempt();
 }
 function crAttNoteText(att){ return 'attempt set from location: '+(/^2/.test(att)?'2pt':'1pt'); }
+// the session's near-the-arc count for the attempt note
+// (only on a near-the-arc shot's own note, so every other shot's note reads exactly as before)
+function crNearArcNote(rowId){ if(crNearArc[String(rowId)]==null) return ''; const n=Object.keys(crNearArc).length; return ' · near the arc — check ('+n+' this session)'; }
+// record / clear the near-the-arc mark of a shot whose attempt was just set from its location
+function crNearArcSet(rowId, x, y){ const d=crNearArcDist(x,y); if(d!=null) crNearArc[String(rowId)]=d; else delete crNearArc[String(rowId)]; }
 // After placing on a map: update existing X-/Y- label rows in the draft, or
 // create the Match Tracker-named pair if the event has none.
 function crSyncCoordGroups(kind){
@@ -2097,7 +2117,8 @@ function crDraftAutoAttempt(){
   const r=draft.groups.find(x=>x.g.toLowerCase()==='shot attempts');
   if(r) r.v=att; else draft.groups.push({g:'Shot Attempts',v:att});
   crAutoAtt[activeId]=att;
-  crAttNote={id:activeId,text:crAttNoteText(att)};
+  crNearArcSet(activeId, draft.x, draft.y);
+  crAttNote={id:activeId,text:crAttNoteText(att)+crNearArcNote(activeId)};
 }
 function crShotGlyph(){
   const code=((draft&&draft.code)||'').toUpperCase();
@@ -3096,7 +3117,8 @@ function renderPanel(){
     if(val&&!choices.includes(val)) choices.unshift(val);
     const opts=[`<option value="">${d.players?'— no assist —':'— select —'}</option>`].concat(choices.map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join('');
     const need=shotDraft&&!val;
-    return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`;
+    return `<div class="lblrow${need?' need':''}"><span class="g" title="${esc(d.name)}${need?' — not set':''}">${esc(d.name)}</span><select data-group="${esc(d.name)}" onchange="setDefinedLabel(this.dataset.group,this.value)">${opts}</select></div>`
+      +(d.name==='Shot Attempts'&&shotDraft?((h=>h?`<div class="crnearrow">${h}</div>`:'')(crNearArcHtml(e._rowId))):'');
   }).join('');
   // free-text rows: every value of an undefined group — and, for a defined group that holds several values, the earlier
   // ones (its dropdown shows and edits the last)
@@ -5377,7 +5399,7 @@ function crApplyLocToRow(row, kind, px, py){
   if(kind==='ko'){ const z=crKoZoneOf(px,py); row.labels['Kickout Zones']=z.zone; row.labels['Kickout Locations']=z.loc; desc=z.zone+' · '+z.loc; }
   else { const z=crZoneOf(px,py); row.labels['Shot Zones']=z; desc=z;
     const att=crAttemptFromLoc(row._rowId, row.code, row.labels, row.x, row.y);
-    if(att){ row.labels['Shot Attempts']=att; crAutoAtt[row._rowId]=att; desc+=' · '+crAttNoteText(att); } }
+    if(att){ row.labels['Shot Attempts']=att; crAutoAtt[row._rowId]=att; crNearArcSet(row._rowId, row.x, row.y); desc+=' · '+crAttNoteText(att); } }
   const keys=Object.keys(row.labels);
   const xk=keys.find(k=>/^x[-_ ]/i.test(k)), yk=keys.find(k=>/^y[-_ ]/i.test(k));
   const {xs, ys}=crPairStrings(row.x, row.y);   // own x/y canonical; the pair in the game's convention
@@ -5525,7 +5547,7 @@ function codeShotQual(group,value){
   if(group==='Deadball Shot Type'&&CR_LOC_RE.test(sq.code||'')){   // '45 set (or unset) after the location was clicked: on / off the 45 m line
     const ny=cr45Resnap(sq._rowId, sq.labels, sq.x, sq.y);
     if(ny!=null) crApplyLocToRow(sq, 'shot', sq.x, ny);
-    else if(sq.x!=null&&sq.y!=null&&crAutoAtt[sq._rowId]){ const att=crAttemptFromLoc(sq._rowId, sq.code, sq.labels, sq.x, sq.y); if(att){ sq.labels['Shot Attempts']=att; crAutoAtt[sq._rowId]=att; } }
+    else if(sq.x!=null&&sq.y!=null&&crAutoAtt[sq._rowId]){ const att=crAttemptFromLoc(sq._rowId, sq.code, sq.labels, sq.x, sq.y); if(att){ sq.labels['Shot Attempts']=att; crAutoAtt[sq._rowId]=att; crNearArcSet(sq._rowId, sq.x, sq.y); } }
     if(codePitch&&codePitch.rowId===sq._rowId){ const dot=document.getElementById('cpDot'); if(dot&&sq.y!=null) dot.setAttribute('cy',sq.y*0.75); }
     renderList();
   }
@@ -7840,7 +7862,7 @@ function crLocRender(){
   p.innerHTML=`<div class="crfr-h"><span>LOCATE SHOTS</span><span class="crfr-sub" id="locProg">${done} of ${n} located</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this shot's changes to the session)">✕</span></div>
     <div class="crloc-ev" title="${esc(e.code||'')}">${crLoc.i+1}/${n} · ${esc(e.code||'')} <span>${esc(e.gameTime||fmt(e.driveT||0))}${e.player?' · '+esc(e.player):''}${out?' · '+esc(out):''}</span></div>
     <div class="crfr-row"><button class="cbtn" onclick="crLocMap()" title="Open the shot pitch (Alt+↑)">📍 Pitch</button>
-      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}${crAttNote.id!=null&&String(crAttNote.id)===String(e._rowId)&&crAttNote.text?' · '+esc(crAttNote.text):''}</span></div>
+      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}${crAttNote.id!=null&&String(crAttNote.id)===String(e._rowId)&&crAttNote.text?' · '+esc(crAttNote.text):''}</span>${crNearArcHtml(e._rowId)}</div>
     ${rows}
     <div class="crfr-row crfr-btns" style="margin-top:4px;">
       <button class="cbtn" onclick="crLocStep(-1)" ${crLoc.i===0?'disabled':''} title="Previous shot (Alt+←)">‹ Prev</button>

@@ -15,9 +15,11 @@
  *
  * DATA CHECK — 1-point tags beyond the 2-point ARC (Barry, Oct 2026): a shot tagged 1 Point Attempt whose location is
  * beyond the 40 m arc by more than ARC_TOL_M (1 m) is listed too, in whatever band it is (usually B). The distance is the
- * one Code Room uses to auto-set the attempt type (code-room.html crShotDistM / CR_ARC_2PT_M = 40): cohShotPitchDistM below,
- * on the DRAWN pitch (the band lines' scale), from the canonical X / Y (the analysis shot's x / y, rotated games already
- * un-rotated). The 1 m tolerance is for click and storage precision on the arc. '45s and penalties are never listed, nor goal attempts.
+ * one Code Room uses to auto-set the attempt type (code-room.html crShotDistM / CR_ARC_2PT_M = 40): the xP model's scale,
+ * cohesion-xp.js xpForShot(...).parts.dist, from the canonical X / Y (the analysis shot's x / y, rotated games already
+ * un-rotated) — Barry, Oct 2026: on his tagged shots that scale agrees with the tags better than the drawn one. The 1 m
+ * tolerance is for click and storage precision on the arc. A shot flagged ONLY because it is beyond the drawn 45 m line
+ * shows no distance (the two scales can disagree there by ~0.5 m). '45s and penalties are never listed, nor goal attempts.
  *   misTag: [{s, band, dist (m or null), beyond45 (in C), arc (beyond the arc + tolerance)}] — every flagged shot once;
  *   misC = the beyond-45 ones (kept for the C counts).
  * A '45 is ALWAYS band B (it is taken on the 45 m line: cohesion-labels.js cohIs45 on 'Deadball Shot Type', or the
@@ -51,8 +53,8 @@
     return A[i][1]+(m-A[i][0])*(A[i+1][1]-A[i][1])/(A[i+1][0]-A[i][0]); }
   function shotLabelY(m){ return shotMY(m)*100/SHOT_VB_H; }                   // metres from the goal line -> stored Y (% down the box)
   // ── end of the copy ──
-  // DISTANCE TO GOAL ON THE DRAWN PITCH (Barry, Oct 2026: the arc check and Code Room's automatic 1pt / 2pt use the SAME
-  // scale as the band lines). The inverse of the drawing above: stored X → metres across (SHOT_M_PER_X a unit, goal centre
+  // DISTANCE TO GOAL ON THE DRAWN PITCH — kept for the bands' geometry only (the arc check and Code Room use the xP model's
+  // distance, cohShotDistM below; Barry, Oct 2026). The inverse of the drawing above: stored X → metres across (SHOT_M_PER_X a unit, goal centre
   // at X 50), stored Y → viewBox y (× 0.75) → metres from the goal line through SHOT_LINES (piecewise linear; beyond the
   // last knot the last segment's slope, as shotMY extrapolates). So the drawn 20 m line is 20 m, the drawn 45 m line 45 m and
   // every point of the drawn 40 m arc (shotLocus(0, 40, 20)) 40 m from the goal centre — exactly. The position must be
@@ -65,8 +67,12 @@
     return Math.hypot(lat, d); }
   const Y20=shotLabelY(20), Y45=shotLabelY(45), LINE_EPS=0.05;
   const CR_ARC_2PT_M=40, ARC_TOL_M=1;   // = code-room.html CR_ARC_2PT_M (the test checks it); the flag tolerance
-  // a shot's metres from the goal centre on the drawn pitch (= Code Room's crShotDistM)
-  function cohShotDistM(s){ return s?cohShotPitchDistM(s.x, s.y):null; }
+  // a shot's metres from the goal centre as Code Room's crShotDistM reads it (the xP model's scale, canonical frame, conv
+  // tracker); null when the model is not loaded
+  function cohShotDistM(s){
+    const f=root.xpForShot; if(typeof f!=='function'||!s||s.x==null||s.y==null||!isFinite(+s.x)||!isFinite(+s.y)) return null;
+    try{ const r=f({'Shot Attempts':'1 Point Attempt','X-Shot':String(s.x),'Y-Shot':String(s.y)},'home',null,{conv:'tracker'});
+      return r&&r.parts&&isFinite(r.parts.dist)?r.parts.dist:null; }catch(_){ return null; } }
   const UC=s=>String(s==null?'':s).toUpperCase().trim();
   function lab(e, g){ const L=(e&&e.labels)||{}; const k=Object.keys(L).find(x=>x.toLowerCase()===g.toLowerCase()); return k?L[k]:''; }
   function is45(s){

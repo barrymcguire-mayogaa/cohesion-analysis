@@ -6970,10 +6970,13 @@ const PY_BANDS=[['A','A','Inside the 20m line'],['B','B','20m line to 45m line']
 function pyMisTagHTML(list, gameOf, print){
   if(!list||!list.length) return '';
   const A=(typeof COH_SHOT_ARC!=='undefined'&&COH_SHOT_ARC)||{m:40, tol:1};
-  const one=x=>{ const s=x.s, m=gameOf&&gameOf.get(s.gid), clock=ttClockTxt(s.e); return (m?'v '+m.opp:'game n/a')+' · '+clock+(s.player?' · '+s.player:'')+' · band '+x.band+(x.dist!=null?' · '+x.dist.toFixed(1)+' m':''); };
+  // the distance only for a shot in B or A (an arc flag); a shot beyond the drawn 45m line says so instead — the xP-scale
+  // distance can read under 45 m there (the two scales differ by ~0.5 m)
+  const where=x=>!x.beyond45&&x.dist!=null?x.dist.toFixed(1)+' m':'beyond the 45m line';
+  const one=x=>{ const s=x.s, m=gameOf&&gameOf.get(s.gid), clock=ttClockTxt(s.e); return (m?'v '+m.opp:'game n/a')+' · '+clock+(s.player?' · '+s.player:'')+' · band '+x.band+' · '+where(x); };
   const n=list.length, head=n+' shot'+(n===1?'':'s')+' beyond the 2-point arc '+(n===1?'is':'are')+' tagged 1-point — check the tag or the location. '+(n===1?'It stays':'They stay')+' in '+(n===1?'its':'their')+' band.';
-  const tol='Flagged: tagged 1-point, more than '+A.tol+' m beyond the '+A.m+' m arc (Code Room’s distance to the goal centre) or beyond the 45m line; ’45s, penalties and goal attempts never.';
-  if(print){ const short=x=>{ const m=gameOf&&gameOf.get(x.s.gid), h=String((x.s.e&&x.s.e.half)||'').replace(/^1st Half$/,'1H').replace(/^2nd Half$/,'2H'), c=String((x.s.e&&x.s.e.gameTime)||'').replace(/^(1H|2H|ET1|ET2)\s+/,''); return (m?'v '+m.opp:'?')+' '+[h,c].filter(Boolean).join(' ')+', '+x.band+(x.dist!=null?', '+x.dist.toFixed(1)+' m':''); };
+  const tol='Flagged: tagged 1-point, more than '+A.tol+' m beyond the '+A.m+' m arc (Code Room’s distance to the goal centre, the xP model’s scale) or beyond the drawn 45m line; ’45s, penalties and goal attempts never.';
+  if(print){ const short=x=>{ const m=gameOf&&gameOf.get(x.s.gid), h=String((x.s.e&&x.s.e.half)||'').replace(/^1st Half$/,'1H').replace(/^2nd Half$/,'2H'), c=String((x.s.e&&x.s.e.gameTime)||'').replace(/^(1H|2H|ET1|ET2)\s+/,''); return (m?'v '+m.opp:'?')+' '+[h,c].filter(Boolean).join(' ')+', '+x.band+', '+(!x.beyond45&&x.dist!=null?x.dist.toFixed(1)+' m':'beyond the 45'); };
     return `<div class="pp-fn pp-misc">${ssEsc('Data check — '+n+' shot'+(n===1?'':'s')+' beyond the 2-pt arc tagged 1-point (check the tag or the location): '+list.map(short).join('; ')+'.')}</div>`; }
   return `<div class="py-misc" role="note"><b>DATA CHECK</b> ${ssEsc(head)}<ul>${list.map(x=>`<li>${ssEsc(one(x))}</li>`).join('')}</ul><small>${ssEsc(tol)}</small></div>`;
 }
