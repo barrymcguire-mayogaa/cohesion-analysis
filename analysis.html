@@ -898,7 +898,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .pf-pats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px;}
 .pf-pat{min-width:0;} .pf-pt{width:100%;} .pf-pt td.pos{color:var(--green);} .pf-pt td.neg{color:var(--red);} .pf-pt td.mid{color:var(--t2);} .pf-pt th .mm-sq{vertical-align:-1px;}
 .pf-l2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} .pf-l2 h5{margin:0 0 4px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--t3);}
-.pf-ll{list-style:none;margin:0;padding:0;} .pf-ll li{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:.9rem;} .pf-ll li span{flex:1;min-width:0;overflow-wrap:anywhere;} .pf-ll li b{font-variant-numeric:tabular-nums;} .pf-ll li small{color:var(--t3);font-size:.72rem;white-space:nowrap;} .pf-lna{color:var(--t3);font-size:.84rem;}
+.pf-ll{list-style:none;margin:0;padding:0;} .pf-ll li{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:.9rem;} .pf-ll li span{flex:1;min-width:0;overflow-wrap:anywhere;} .pf-ll li b{font-variant-numeric:tabular-nums;} .pf-ll li small{color:var(--t3);font-size:.72rem;white-space:nowrap;} .pf-lna{color:var(--t3);font-size:.84rem;} .pf-ll li small.pf-own{color:var(--amber);margin-left:4px;}
 .pf-cr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;align-items:baseline;padding:4px 0;} .pf-cr span{font-size:.86rem;color:var(--t2);} .pf-cr b{font:800 22px 'Barlow',sans-serif;text-align:right;} .pf-cr small{grid-column:1 / -1;font-size:.74rem;font-weight:700;}
 .py-bands{margin:14px 0 4px;} .py-bna{font-size:.82rem;color:var(--t3);padding:6px 10px;border:1px dashed var(--border);border-radius:8px;} .py-misc{margin:8px 2px 0;padding:8px 12px;border:1px solid #6b5520;background:rgba(245,166,35,.08);border-radius:10px;font-size:.8rem;color:var(--t2);} .py-misc b{color:var(--amber);letter-spacing:.06em;margin-right:6px;} .py-misc ul{margin:4px 0 0 18px;padding:0;} .py-misc small{display:block;color:var(--t3);margin-top:4px;} .py-bh{margin:0 2px 8px;font:700 16px 'Barlow',sans-serif;color:var(--t1);letter-spacing:.02em;}
 .py-bt{min-width:640px;} .py-bt tr.bsub th{padding-left:22px;font-weight:400;color:var(--t2);} .py-bt th b{color:var(--accent);margin-right:4px;}
@@ -7374,15 +7374,12 @@ function pfSources(F, key, bundleOf, R){
   return {rows, mineTot, teamTot, mineAll, unpairedTeam};
 }
 // ASSIST LINKS: who set him up (pyAssistors on his shots), and whom he set up (the scores that name him as the assist)
-// A player is never his own assist link: a shot that names its shooter as the assist (a tagging slip) is left out of both
-// lists and counted in self (shown in the card's note so it can be fixed in the data).
 function pfLinks(R, key){
-  const mine=R.shots.filter(s=>s.pk===key), self=mine.filter(s=>s.ak&&s.ak===key).length;
-  const by=pyAssistors(mine.map(s=>s.ak&&s.ak===key?Object.assign({}, s, {ak:'', assist:''}):s), new Map(R.players.map(p=>[p.key, p.name])));
+  const by=pyAssistors(R.shots.filter(s=>s.pk===key), new Map(R.players.map(p=>[p.key, p.name])));
   const m=new Map(); let n=0;
-  R.shots.forEach(s=>{ if(s.ak!==key||!(s.v>0)||!s.pk||s.pk===key) return; n++; let r=m.get(s.pk); if(!r){ r={key:s.pk, names:{}, scores:0, pts:0}; m.set(s.pk, r); } r.names[s.player]=(r.names[s.player]||0)+1; r.scores++; r.pts+=s.v; });
+  R.shots.forEach(s=>{ if(s.ak!==key||!(s.v>0)||!s.pk) return; n++; let r=m.get(s.pk); if(!r){ r={key:s.pk, names:{}, scores:0, pts:0}; m.set(s.pk, r); } r.names[s.player]=(r.names[s.player]||0)+1; r.scores++; r.pts+=s.v; });
   const to=[...m.values()].map(r=>({key:r.key, name:pyBestName(r.names), scores:r.scores, pts:r.pts})).sort((a,b)=>b.scores-a.scores||b.pts-a.pts||(a.name.toLowerCase()<b.name.toLowerCase()?-1:1));
-  return {by, to:to.slice(0, PY_TOP), toCount:to.length, toScores:n, self};
+  return {by, to:to.slice(0, PY_TOP), toCount:to.length, toScores:n};
 }
 // conversion by pressure level (pyPressure's cells, all sides added)
 function pfPressure(shots){
@@ -7480,9 +7477,11 @@ function pfSourcesCardHTML(F, p, S, R, bundleOf){
 }
 function pfLinksCardHTML(F, p, S, R, bundleOf){
   // c. assist links
-  const Lk=pfLinks(R, p.key), li=(rows, f)=>rows.length?`<ol class="pf-ll">${rows.map(r=>`<li><span>${ssEsc(r.name)}</span>${f(r)}</li>`).join('')}</ol>`:'<div class="pf-lna">None tagged.</div>';
+  // a player can be his own assist (he recovered the ball before the score): his own entry is marked "(own recovery)"
+  const Lk=pfLinks(R, p.key), own=Lk.by.rows.some(r=>r.key===p.key)||Lk.to.some(r=>r.key===p.key);
+  const li=(rows, f)=>rows.length?`<ol class="pf-ll">${rows.map(r=>`<li><span>${ssEsc(r.name)}${r.key===p.key?' <small class="pf-own">(own recovery)</small>':''}</span>${f(r)}</li>`).join('')}</ol>`:'<div class="pf-lna">None tagged.</div>';
   const lnk=`<div class="tt-card pf-pat"><h4 class="td-ct">ASSIST LINKS</h4><div class="pf-l2"><div><h5>SET HIM UP</h5>${li(Lk.by.rows, r=>`<b>${r.total}</b><small>${ssEsc(r.score)}</small>`)}</div><div><h5>HE SET UP</h5>${li(Lk.to, r=>`<b>${r.scores}</b><small>${r.pts} pts</small>`)}</div></div>`
-    +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.'+(Lk.self?' '+Lk.self+' of his shots name him as his own assist (a tagging slip): left out of both lists.':''))}</div></div>`;
+    +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.'+(own?' “(own recovery)”: he is his own assist — he won the ball back himself before the score.':''))}</div></div>`;
   return lnk;
 }
 function pfConsCardHTML(F, p, S, R, bundleOf){

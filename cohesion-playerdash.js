@@ -427,9 +427,9 @@ function pdAreasHTML(V){
   const shooting=`<div class="tt-card pd-maps wide"><div class="pd-ph"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4><span class="pd-ws">${pdW('shots', 'pshot', mine, mine.length+' shot'+(mine.length===1?'':'s'))}${pdW('scores', 'pshot', mine.filter(s=>s.v>0), mine.filter(s=>s.v>0).length+' score'+(mine.filter(s=>s.v>0).length===1?'':'s'))}</span></div>${pdMapsHTML(S, V.map, V)}</div>`+pdPressureHTML(S, V)+pdDeadHTML(S, V);
   const wrap=(card, btns)=>btns?card.replace(/<\/div>$/, `<div class="pd-wrow">${btns}</div></div>`):card;   // the Watch buttons go at the foot of the reused card
   // assist links: the scores he set up, per team-mate (the card's HE SET UP rows), and every assisted score of his
-  const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk&&s.pk!==V.key);
-  const lnkBtns=Lk?pdW('ast:all', 'pshot', setUp, setUp.length+' score'+(setUp.length===1?'':'s')+' he set up')+Lk.to.map(r=>{ const l=setUp.filter(s=>s.pk===r.key); return pdW('ast:'+r.key, 'pshot', l, 'assists to '+r.name+' ('+l.length+')'); }).join('')
-    +pdW('ast:by', 'pshot', mine.filter(s=>s.ak&&s.ak!==V.key&&s.v>0), mine.filter(s=>s.ak&&s.ak!==V.key&&s.v>0).length+' assisted scores of his'):'';
+  const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk);
+  const lnkBtns=Lk?pdW('ast:all', 'pshot', setUp, setUp.length+' score'+(setUp.length===1?'':'s')+' he set up')+Lk.to.map(r=>{ const l=setUp.filter(s=>s.pk===r.key); return pdW('ast:'+r.key, 'pshot', l, (r.key===V.key?'own recovery':'assists to '+r.name)+' ('+l.length+')'); }).join('')
+    +pdW('ast:by', 'pshot', mine.filter(s=>s.ak&&s.v>0), mine.filter(s=>s.ak&&s.v>0).length+' assisted scores of his'):'';
   const whenBtns=fp?PF_BLOCKS.map((B,i)=>{ const l=mine.filter(s=>s.v>0&&pdBlockOf(s)===i); return pdW('when:'+i, 'pshot', l, B[2]+' min ('+l.length+')'); }).join(''):'';
   const build=fp?pfSourcesCardHTML(S.F, fp, sq, S.R, bo)+wrap(pfLinksCardHTML(S.F, fp, sq, S.R, bo), lnkBtns):na();
   const impact=fp?wrap(pfWhenCardHTML(S.F, fp, sq, S.R, bo), whenBtns)+pfOnOffHTML(S.F, fp, sq):na();
