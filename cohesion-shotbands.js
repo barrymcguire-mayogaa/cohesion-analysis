@@ -2,12 +2,15 @@
  *
  * BANDS are set by the pitch LINES, straight across the pitch — the shot's DEPTH from the goal line, not its radial
  * distance to goal:
- *     A   inside the 20 m line
- *     B   from the 20 m line to the 45 m line — B1 = 1-point attempts, B2 = 2-point attempts (the shot's tagged
- *         'Shot Attempts', as the Players tab reads it: ssAttType); a goal attempt or an untagged shot here is "B other"
+ *     A   inside the 20 m line (a shot ON the 20 m line included)
+ *     B   beyond the 20 m line up to the 45 m line (a shot ON the 45 m line included) — split by the shot's tagged
+ *         'Shot Attempts' (as the Players tab reads it: ssAttType): B1 = 1-point attempts, B2 = 2-point attempts,
+ *         B3 = goal attempts (Goal Attempt, plus penalties — the Players tab's and xP's goal-attempt rule), and
+ *         "B other" = attempt not tagged.  B1 + B2 + B3 + other = B.
  *     C   beyond the 45 m line
  * A '45 is ALWAYS band B (it is taken on the 45 m line: cohesion-labels.js cohIs45 on 'Deadball Shot Type', or the
- * Analysis dead-ball type '45'), with or without a location. Any other shot with no location is in NO band: "unlocated".
+ * Analysis dead-ball type '45'), with or without a location. A PENALTY is always band A (the 11 m spot), with or without a
+ * location. Any other shot with no location is in NO band: "unlocated".
  *
  * WHERE THE LINES ARE: exactly where COHESION's true-scale shot pitch DRAWS them. SHOT_LINES / shotMY / shotLabelY below
  * are copied VERBATIM from cohesion-graphics.js (shotPitchArt — the map every tab draws; cohesion-shot45.js keeps the same
@@ -17,12 +20,12 @@
  * The shot's Y must be in the CANONICAL frame — the one the maps and xP use: Analysis' ttGameShots (ttCoordOf: the first
  * X-/Y- label pair, a rotated Sportscode game un-rotated as cohesionXpDetectConv decides) gives exactly that.
  *
- * ON A LINE: a shot within LINE_EPS (0.05 of a stored unit, half the 0.1 step stored positions are rounded to) of a line
- * is ON it, and a shot on either line is band B — the 20 m line and the 45 m line both belong to "20 m line to 45 m line".
+ * ON A LINE (Barry, Oct 2026): a shot within LINE_EPS (0.05 of a stored unit, half the 0.1 step stored positions are rounded
+ * to) of a line is ON it. ON the 20 m line → A (inside the 20 m line). ON the 45 m line → B.
  *
  *   cohShotBand(s)          → 'A' | 'B' | 'C' | null      s = {y, is45?, deadType?, e?}
- *   cohShotBandOf(s)        → 'A' | 'B1' | 'B2' | 'Bx' | 'C' | null
- *   cohShotBands(shots)     → {rows:{A,B,B1,B2,Bx,C}, unlocated, total, located}; each row {shots, scores, pts, pct, xp,
+ *   cohShotBandOf(s)        → 'A' | 'B1' | 'B2' | 'B3' | 'Bx' | 'C' | null
+ *   cohShotBands(shots)     → {rows:{A,B,B1,B2,B3,Bx,C}, unlocated, total, located}; each row {shots, scores, pts, pct, xp,
  *                              xpShots, xpPts, op:{shots,scores,pct}, db:{shots,scores,pct}}  (xp null when no shot of the
  *                              row has an xP rating)
  *   COH_SHOT_BANDS          the geometry: {y20, y45, eps, lines}
@@ -47,20 +50,22 @@
     if(v&&typeof root.cohIs45==='function'&&root.cohIs45(v)) return true;
     return false;
   }
+  function isPen(s){ return !!s&&(s.kind==='P'||s.deadType==='Penalty'||/PENALT/i.test(lab(s.e, 'Deadball Shot Type'))); }
   function cohShotBand(s){
     if(!s) return null;
     if(is45(s)) return 'B';
+    if(isPen(s)) return 'A';
     const y=s.y; if(y==null||y===''||!isFinite(+y)) return null;
     const v=+y;
-    if(v<Y20-LINE_EPS) return 'A';
-    if(v>Y45+LINE_EPS) return 'C';
+    if(v<=Y20+LINE_EPS) return 'A';    // inside the 20 m line, or on it
+    if(v>Y45+LINE_EPS) return 'C';     // beyond the 45 m line (on it is B)
     return 'B';
   }
-  function cohShotBandOf(s){ const b=cohShotBand(s); if(b!=='B') return b; return s.att==='1'?'B1':s.att==='2'?'B2':'Bx'; }
+  function cohShotBandOf(s){ const b=cohShotBand(s); if(b!=='B') return b; return s.att==='1'?'B1':s.att==='2'?'B2':(s.att==='G'||isPen(s))?'B3':'Bx'; }
   function pct(n, d){ return d>0?n/d*100:null; }
   function cohShotBands(shots){
     const mk=()=>({shots:0, scores:0, pts:0, xp:0, xpShots:0, xpPts:0, op:{shots:0, scores:0}, db:{shots:0, scores:0}});
-    const rows={A:mk(), B:mk(), B1:mk(), B2:mk(), Bx:mk(), C:mk()}, total=mk(); let unlocated=0, unlocated45=0;
+    const rows={A:mk(), B:mk(), B1:mk(), B2:mk(), B3:mk(), Bx:mk(), C:mk()}, total=mk(); let unlocated=0, unlocated45=0;
     const add=(o,s)=>{ o.shots++; if(s.v>0){ o.scores++; o.pts+=s.v; } if(s.xp!=null){ o.xp+=s.xp; o.xpShots++; o.xpPts+=(s.v>0?s.v:0); }
       const p=s.dead?o.db:o.op; p.shots++; if(s.v>0) p.scores++; };
     (shots||[]).forEach(s=>{ add(total, s); const b=cohShotBandOf(s); if(!b){ unlocated++; return; }

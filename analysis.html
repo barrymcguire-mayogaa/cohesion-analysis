@@ -6959,26 +6959,27 @@ function pyMapsHTML(R, V, F){
     +(loc?ttMapKeyHTML():'')
     +`<div class="dnote">${ssEsc(pyWho(R, V)+(pyChipTxt(F)?' · '+pyChipTxt(F):'')+': '+n+' shot'+(n===1?'':'s')+'. Total shots includes '+G.H.shots+' hand-pass shot'+(G.H.shots===1?'':'s')+' (No Leg, '+G.H.scores+' scored) and '+G.none.shots+' shot'+(G.none.shots===1?'':'s')+' with no leg tagged, which are on neither foot map. Scoring % counts every shot in the group; the maps plot the '+loc+' of '+n+' with a location. The 1-point, 2-point and Goal chips filter by the tagged attempt type (a shot with no attempt type then drops out); a marker’s colour is the score for a scored shot and the attempt for a missed one. Hover a marker for its card; click it to pin the card and use Watch clip or Add to playlist.')}</div>`;
 }
-// SHOOTING BY DISTANCE (cohesion-shotbands.js: A inside the 20m line · B 20m–45m, B1 1-pt / B2 2-pt attempts · C beyond the
-// 45m line; a '45 is B; a shot on a line is B). One renderer for the Players tab, the Player Dashboard and the Panel Print-out.
+// SHOOTING BY DISTANCE (cohesion-shotbands.js: A inside the 20m line, on it included · B to the 45m line, on it included:
+// B1 1-pt / B2 2-pt / B3 goal attempts / other · C beyond the 45m line; a '45 is B, a penalty A). One renderer for the Players tab, the Player Dashboard and the Panel Print-out.
 //   mine = the player's shots (ttGameShots objects: canonical x / y), cmp = {label, shots} the comparison column (or null),
 //   o = {who, print:true (the compact print table), cmp2:{label, shots} a second column set (print: the competition)}
-const PY_BANDS=[['A','A','Inside the 20m line'],['B','B','20m line to 45m line'],['B1','B1','1-point attempts',1],['B2','B2','2-point attempts',1],['Bx','B','goal attempt / not tagged',1],['C','C','Beyond the 45m line']];
+const PY_BANDS=[['A','A','Inside the 20m line'],['B','B','20m line to 45m line'],['B1','B1','1-point attempts',1],['B2','B2','2-point attempts',1],['B3','B3','Goal attempts',1],['Bx','B','other (attempt not tagged)',1],['C','C','Beyond the 45m line']];
 function pyBandsHTML(mine, cmp, o){
   o=o||{}; if(typeof cohShotBands!=='function') return '';
   const B=cohShotBands(mine), C=cmp?cohShotBands(cmp.shots):null, D=o.cmp2?cohShotBands(o.cmp2.shots):null, n=(mine||[]).length;
   const pc=v=>v==null?'n/a':Math.round(v)+'%', sp=x=>x.shots?x.scores+'/'+x.shots:'–';
   const rows=PY_BANDS.filter(r=>r[0]!=='Bx'||B.rows.Bx.shots||(D&&D.rows.Bx.shots));
-  const noLoc=!B.located&&!(D&&D.located);
-  const why=!n?'No shots.':'n/a — none of these '+n+' shot'+(n===1?' has':'s have')+' a pitch location'+(B.unlocated<n?' (only '+(n-B.unlocated)+' '+(n-B.unlocated===1?'’45':'’45s')+', which count in B)':'')+'.';
-  const note='Bands by depth, straight across the pitch on the drawn lines (not distance to goal): A inside the 20m line, B from the 20m to the 45m line (B1 1-point attempts, B2 2-point attempts, by the Shot Attempts tag), C beyond the 45m line. A ’45 is always B; a shot on a line counts in B.'
+  // n/a when no shot has a pitch location (a penalty or a ’45 alone bands by rule, but a table of only those would mislead)
+  const hasLoc=a=>(a||[]).some(s=>s.y!=null&&isFinite(+s.y)), noLoc=!hasLoc(mine)&&!(o.cmp2&&hasLoc(o.cmp2.shots));
+  const why=!n?'No shots.':'n/a — none of these '+n+' shot'+(n===1?' has':'s have')+' a pitch location.';
+  const note='Bands by depth, straight across the pitch on the drawn lines (not distance to goal): A inside the 20m line (a shot on the 20m line counts in A); B from the 20m line to the 45m line (a shot on the 45m line counts in B) — B1 1-point attempts, B2 2-point attempts, B3 goal attempts (by the Shot Attempts tag), “other” when the attempt is not tagged; C beyond the 45m line. A ’45 is always B, a penalty always A.'
     +(B.unlocated?' '+B.unlocated+' of '+n+' shots have no location and are in no band.':'');
   if(o.print){
     if(noLoc) return `<div class="pp-bands na">Shooting by distance n/a <small>${ssEsc(n?'no shot of his in these games has a pitch location':'no shots')}</small></div>`;
     const cell=x=>`<td>${x.shots?x.scores+'/'+x.shots:'–'}</td><td>${x.shots?pc(x.pct):''}</td>`;
     return `<table class="pp-bt"><thead><tr><th>By distance</th><th colspan="2">${ssEsc(o.label||'Full')}</th>${D?`<th colspan="2">${ssEsc(o.cmp2.label)}</th>`:''}</tr></thead><tbody>`
       +rows.map(r=>`<tr class="${r[3]?'bsub':''}"><th>${ssEsc(r[1]+' '+r[2])}</th>${cell(B.rows[r[0]])}${D?cell(D.rows[r[0]]):''}</tr>`).join('')+'</tbody></table>'
-      +((B.unlocated||(D&&D.unlocated))?`<div class="pp-fn">${ssEsc('Scores/shots. Unlocated (in no band): '+B.unlocated+(D?' · '+D.unlocated:'')+'. A ’45 counts in B; a shot on a line counts in B.')}</div>`:'');
+      +`<div class="pp-fn">${ssEsc('Scores/shots. On the 20m line = A, on the 45m line = B; a ’45 is B, a penalty A.'+((B.unlocated||(D&&D.unlocated))?' Unlocated (in no band): '+B.unlocated+(D?' · '+D.unlocated:'')+'.':''))}</div>`;
   }
   if(noLoc) return `<div class="py-bands"><h3 class="py-bh">SHOOTING BY DISTANCE</h3><div class="py-nomap">${ssEsc(why)}</div></div>`;
   const xpTxt=x=>x.xp==null?'n/a':x.xp.toFixed(1);
