@@ -98,10 +98,12 @@ html,body{max-width:100%;overflow-x:hidden;}
 .tabs a.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);}
 .pane{display:none;}
 body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-reports,body[data-tab=team-trends] #pane-team-trends,
-body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=compare] #pane-compare{display:block;}
+body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=player-dash] #pane-player-dash,body[data-tab=compare] #pane-compare{display:block;}
+/* PLAYER DASHBOARD: its own range picker — the shared filter bar and the games list do not apply */
+body[data-tab=player-dash] #sharedBar{display:none;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-basis{display:none !important;}
-body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-team{display:none !important;}
+body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=player-dash]):not([data-tab=players]) .only-team{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-data{display:none !important;}
 .soon{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:54px 22px;text-align:center;}
 .soon h2{margin:0 0 6px;font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--accent);}
@@ -109,7 +111,7 @@ body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-report
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap,body[data-tab=players] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap,body[data-tab=players] .wrap,body[data-tab=player-dash] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -930,6 +932,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   <a href="#team-trends" data-tab="team-trends">TEAM TRENDS</a>
   <a href="#momentum" data-tab="momentum">MOMENTUM</a>
   <a href="#players" data-tab="players">PLAYERS</a>
+  <a href="#player-dash" data-tab="player-dash">PLAYER DASHBOARD</a>
   <a href="#compare" data-tab="compare">COMPARE</a>
 </nav>
 <div class="wrap">
@@ -1007,6 +1010,10 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   </div>
   <div class="pane" id="pane-momentum"><div id="mmStatus" role="status"></div><div id="mmBody"></div></div>
   <div class="pane" id="pane-players"><div id="pyStatus" role="status"></div><div id="pyBody"></div></div>
+  <div class="pane" id="pane-player-dash">
+    <nav class="pd-views"><div class="seg" id="pdViews" role="group" aria-label="Player Dashboard view"><button type="button" data-pdview="dash" class="on" aria-pressed="true">DASHBOARD</button><button type="button" data-pdview="print" aria-pressed="false">PANEL PRINT-OUT</button></div></nav>
+    <div id="pdStatus" role="status"></div><div id="pdBody"></div><div id="ppWrap" hidden></div>
+  </div>
   <div class="pane" id="pane-compare">
   <div class="board" id="board">
     <div class="head2">
@@ -1036,6 +1043,8 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-graphics.js"></script>
 <script src="cohesion-xml.js"></script>
 <script src="cohesion-player.js"></script>
+<script src="cohesion-teamsheet.js"></script>
+<script src="cohesion-playerdash.js"></script>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
 
@@ -1982,7 +1991,7 @@ function ssEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 //  PAGE — filters, gateway fetching, mirrored bars
 // ═══════════════════════════════════════════════════════════════
 // ── tabs: the hash selects the tab (#overview … #compare); pure helper ──
-const AN_TABS=['overview','match-reports','team-trends','momentum','players','compare'];
+const AN_TABS=['overview','match-reports','team-trends','momentum','players','player-dash','compare'];
 // Team Trends has sub-tabs: #team-trends/attacking … (#team-trends alone keeps the last one)
 const TT_SUBS=['attacking','defending','kickouts','turnover'];
 function anTabFromHash(h){
@@ -2146,7 +2155,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule();
+  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); if(typeof pdSchedule==='function') pdSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -2701,8 +2710,6 @@ function ovHTML(R){
   h+=ovRecentHTML(R.recent);
   // b. KPI cards
   h+='<div class="ov-kpis">'+R.kpis.map(k=>`<div class="kpi"><div class="kpi-t">${ssEsc(k.title)}</div><div class="kpi-v ${k.txt==null?'na':''}">${k.txt==null?'n/a':ssEsc(k.txt)}</div><div class="kpi-d">${ssEsc(k.detail)}</div><div class="kpi-b">${ssEsc(k.basis)}</div></div>`).join('')+'</div>';
-  // b2. productivity (omitted entirely when no game has possession rows for the team)
-  h+=ovProdHTML(R.prod, T);
   // c. doughnuts
   const sc=R.scoreSrc, sh=R.shotSrc;
   h+='<h2 class="ov-h">HOW SCORES AND SHOTS WERE BUILT</h2><div class="ov-donuts">'
@@ -2720,6 +2727,8 @@ function ovHTML(R){
     +`<div class="pz-note">${to.data?ssEsc('In-play turnovers only. Thirds are from '+T+'\'s point of view for both lost and won. % = share of in-play turnovers with a tagged third (lost '+to.lostLoc+' of '+to.team.lost+', won '+to.wonLoc+' of '+to.team.won+') · '+ovFromNote(to.locGames,n)):ssEsc('No turnover data in '+(n===1?'this game':'these '+n+' games'))}</div></div>`
     +ovToPanel('OPPOSITION', to.opposition, to.games, 'tp-opp', n, T)
     +'</div>';
+  // e. productivity, directly below the turnovers (omitted entirely when no game has possession rows for the team)
+  h+=ovProdHTML(R.prod, T);
   h+=`<div class="foot">Overview covers ${ssEsc(T)}'s ${R.basis==='all'?'':'last '}${n} game${n===1?'':'s'} in the current filters; “Opposition” is every opponent in those games. Turnover headlines, thirds and creation rates count in-play turnovers only (forced, unforced, handling, free against, untyped); kickouts lost and shot attempts turned over are listed separately. “n/a” means those games don't carry the data needed.</div>`;
   return h;
 }
@@ -2774,7 +2783,7 @@ async function ovRun(){
   body.innerHTML=ovHTML(OV_LAST);
 }
 function ovInit(){
-  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); });
+  const s=ssEl('fTeamO'); if(s) s.addEventListener('change', ()=>{ ovStore('cohesion_analysis_team', s.value); ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); if(typeof pdSchedule==='function') pdSchedule(); });
   document.querySelectorAll('#ovBasis button').forEach(b=>b.addEventListener('click', ()=>anSetBasis(b.dataset.basis)));
 }
 // ═══════════════════════════════════════════════════════════════
@@ -3766,12 +3775,12 @@ function tkGameKos(meta, events){
   const items=tkSrcItems(events, [H,A], skip, ssShotMode(events)), srcTagged=items.length>0;
   let srcUnmatched=0;
   if(srcTagged){
-    kos.forEach(k=>{ k.follow={shots:0, scores:0, pts:0}; });
+    kos.forEach(k=>{ k.follow={shots:0, scores:0, pts:0, one:0, two:0, goals:0}; });   // one / two / goals: the scores by type (the Player Dashboard's kickout chains)
     items.forEach(it=>{
       if(it.cat!=='OWN KO'&&it.cat!=='OPP KO') return;
       let k=null; for(const q of kos){ if(q.t<=it.t) k=q; else break; }               // the last kickout before the shot
       if(!k||(k.won?k.team:k.opp)!==it.team||(it.cat==='OWN KO')!==k.won){ srcUnmatched++; return; }
-      k.follow.shots++; if(it.v>0){ k.follow.scores++; k.follow.pts+=it.v; }
+      k.follow.shots++; if(it.v>0){ k.follow.scores++; k.follow.pts+=it.v; if(it.v>=3) k.follow.goals++; else if(it.v===2) k.follow.two++; else k.follow.one++; }
     });
   }
   // srcFrom: 'tags' = the tagged source, 'poss' = derived from GIU possession rows (possSrc = its match counts)
@@ -7569,7 +7578,7 @@ function pyInit(){
     if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow, box=t.closest&&t.closest('#pyInvSec')?'#pyInvSec ':'#pyTableSec '; pySelect(k===PY_SEL?null:k);
       const row=pane.querySelector?[...pane.querySelectorAll(box+'[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
 }
-ovInit(); mrInit(); ttInit(); pyInit();
+ovInit(); mrInit(); ttInit(); pyInit(); if(typeof pdInit==='function') pdInit();
 anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
