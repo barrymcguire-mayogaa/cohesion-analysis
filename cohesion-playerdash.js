@@ -1,4 +1,4 @@
-/* COHESION — Analysis › PLAYER DASHBOARD and PANEL PRINT-OUT  (MOCKUP: layout, styling and KPIs)
+/* COHESION — Analysis › PLAYER DASHBOARD and PANEL PRINT-OUT
  *
  * Loaded by analysis.html before its inline script. Every figure is computed by the engine the other Analysis tabs
  * already use — nothing is counted twice and nothing is estimated:
@@ -305,16 +305,19 @@ function pdTrendSVG(rows, k, col){
     const y=Y(r.v); h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" style="fill:${ssEsc(col.a)}"/>`+(r.hl?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="none" stroke-width="2" style="stroke:${ssEsc(col.b)}"/>`:`<text x="${x.toFixed(1)}" y="${(y-9).toFixed(1)}" text-anchor="middle" class="pd-tv2">${ssEsc(pdNum(k, r.v))}</text>`); });
   return h+'</svg>';
 }
+// SCORING BREAKDOWN: three stacked rows (1-pointers, 2-pointers, goals), each a label line — his POINTS from that kind and
+// their share — over a mini bar; no text ever sits inside a bar, so a narrow share can never overflow. Beside them, the
+// ring: his points as a share of the team's. (The counts are the tiles' — not repeated here; hover a row for it.)
 function pdScoringHTML(row, S, col){
   if(!row) return '<div class="tt-empty">n/a</div>';
   const a=row.one, b=row.two*2, c=row.goals*3, tot=a+b+c, team=S.R.shots.reduce((x,s)=>x+(s.v>0?s.v:0),0);
   if(!tot) return `<div class="tt-empty">No scores in these games.</div>`;
-  const seg=(n, pts, lbl, cls)=>pts?`<div class="pd-sb ${cls}" style="flex:${pts} 1 0" title="${ssEsc(lbl+': '+n+' = '+pts+' pts')}"><b>${Math.round(pts/tot*100)}%</b><span>${ssEsc(lbl)}</span></div>`:'';
+  const pc=x=>Math.round(x/tot*100);
+  const line=(n, pts, lbl, cls, unit)=>`<div class="pd-srow" title="${ssEsc(lbl+': '+n+' '+unit+(n===1?'':'s')+' = '+pts+' pts')}"><div class="pd-srh"><i class="pd-sdot ${cls}"></i><span>${ssEsc(lbl)}</span><b>${pts} pts</b><small>${pc(pts)}%</small></div><div class="pd-sbt"><i class="${cls}" style="width:${(pts/tot*100).toFixed(1)}%"></i></div></div>`;
   const R=44, C=2*Math.PI*R, sh=team?tot/team:0;
-  return `<div class="pd-score"><div class="pd-sbar">${seg(row.one, a, '1-pt', 'one')}${seg(row.two, b, '2-pt', 'two')}${seg(row.goals, c, 'Goals', 'gl')}</div>`
+  return `<div class="pd-score"><div class="pd-srows">${line(row.one, a, '1-pointers', 'one', 'score')}${line(row.two, b, '2-pointers', 'two', 'score')}${line(row.goals, c, 'Goals', 'gl', 'goal')}</div>`
     +`<svg class="pd-ring" viewBox="0 0 110 110" role="img" aria-label="${ssEsc(Math.round(sh*100)+'% of '+S.T+'’s points')}"><circle cx="55" cy="55" r="${R}" class="pd-rgb"/><circle cx="55" cy="55" r="${R}" fill="none" stroke-width="9" style="stroke:${ssEsc(col.a)}" stroke-dasharray="${(C*sh).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 55 55)"/><text x="55" y="58" text-anchor="middle" class="pd-rn">${Math.round(sh*100)}%</text><text x="55" y="74" text-anchor="middle" class="pd-rs">of team points</text></svg></div>`
-    +`<div class="pd-sleg"><span><i class="one"></i>1-Points</span><span><i class="two"></i>2-Points</span><span><i class="gl"></i>Goals</span></div>`
-    +`<div class="dnote">${ssEsc('The bar: the share of his points from 1-pointers, 2-pointers and goals (a 2-pointer counts 2, a goal 3; hover a block for the count). The ring: his points as a share of all '+team+' '+S.T+' points in these games.')}</div>`;
+    +`<div class="dnote">${ssEsc('His '+tot+' points by kind (a 2-pointer counts 2, a goal 3) and their share; hover a row for the count. The ring: his share of all '+team+' '+S.T+' points in these games.')}</div>`;
 }
 // per game (the comparison basis): a count ÷ games played; the squad average = the Player Profile's (pfSquad 'pg') for its metrics,
 // the same rule (the mean over the squad players with the figure) for the rest
@@ -590,8 +593,8 @@ function pdRender(){
 function pdTipState(){ return PD_V&&PD_V.map?{R:PD_V.S.R, V:PD_V.map.V}:{R:null, V:null}; }
 // STAFF ONLY (Barry, Oct 2026): the PANEL PRINT-OUT — its tab, the squad picker, the notes, clubs and position labels — is for
 // admins: Analysis' own check (mrIsAdmin: an admin sign-in marker AND the admin role). For anyone else the tab is taken OUT
-// of the page and nothing of the print-out is built, so no note is ever read into their page. (The live version's notes
-// store must check the admin role server-side, as processGame / editEvent do — see the mockup README.)
+// of the page and nothing of the print-out is built, so no note is ever read into their page. The notes store
+// (netlify/functions/playerNotes.js) checks the admin role again server-side on every call.
 function pdIsStaff(){ try{ return typeof mrIsAdmin==='function'&&!!mrIsAdmin(); }catch(_){ return false; } }
 function pdSyncView(){
   if(!pdIsStaff()){ PD_O.view='dash'; const b=document.querySelector('#pdViews [data-pdview="print"]'); if(b&&b.parentNode) b.parentNode.removeChild(b); const w=ssEl('ppWrap'); if(w) w.innerHTML=''; } document.querySelectorAll('#pdViews button').forEach(b=>{ const on=b.dataset.pdview===PD_O.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
@@ -626,8 +629,8 @@ function pdInit(){
 //  gameKind: 26 inter-county league / championship, 30 FBD / O'Byrne / McGrath / McKenna, 40 challenge / club) — a warning
 //  only. The position label comes from the SLOT (1 Goalkeeper … 15 Left Corner Forward; a sub: his line, picked here,
 //  + "(Sub)") — never from a number on a sheet and never from the order of a list.
-//  Notes are drafted from the figures (true figures only), editable on the page, and kept in THIS BROWSER (localStorage,
-//  keyed by team + player) — a mockup: no database table.
+//  Notes are drafted from the figures (true figures only), editable on the page, and saved in the notes store (the
+//  admin-only function playerNotes.js; this browser only as a fallback while the store does not answer).
 // ═════════════════════════════════════════════════════════════════════════════
 const PP_LINES=[['','Substitute'],['GK','Goalkeeper (Sub)'],['B','Defender (Sub)'],['M','Midfielder (Sub)'],['F','Forward (Sub)']];
 const PP_NOTE_KEYS=[['hand','Dominant Hand/Foot'],['style','Style of Play'],['strengths','Strengths'],['watch','Watch Point'],['form','Form']];
@@ -655,9 +658,72 @@ function ppLoad(T, list){
   if(!s.size) s.size=ppLimit(list, s.comp).limit;
   return s;
 }
-function ppSave(){ if(PP&&PP_TEAM) ppStore(ppPanelKey(PP_TEAM), PP); }
-// the notes of one player: saved (this browser) or null
-function ppNotes(T, key){ return ppStore(ppNoteKey(T, key)); }
+// ═════ THE NOTES STORE — netlify/functions/playerNotes.js (tables player_notes / panel_squads, supabase/player_notes.sql):
+// ADMIN ONLY on the server. The print-out loads the team's notes and its 'current' squad when it opens, and saves a
+// change a moment after it is made (debounced) — "saving… / saved ✓ / not saved: <reason>". If the function fails (e.g.
+// the tables are not set up yet) the edit is kept in this browser (localStorage) and listed as
+// pending, said so plainly, and sent the next time the store answers. Notes left in this browser from before the store
+// can be uploaded once (the "Upload" offer). A non-admin never reaches any of this (ppRender returns first).
+const PPN={team:null, state:'idle', reason:'', notes:new Map(), pend:{notes:[], squad:false}, timer:null, busy:false, offer:[], last:''};
+function ppPendKey(T){ return 'coh_panel_pending_v1|'+T; }
+function ppPendSave(){ if(PPN.team) ppStore(ppPendKey(PPN.team), PPN.pend.notes.length||PPN.pend.squad?PPN.pend:null); }
+function ppApi(body){ if(typeof cohesionAuthFetch!=='function') return Promise.reject(new Error('the notes store cannot be reached from this page')); return cohesionAuthFetch('playerNotes', body); }
+// the local notes of a team kept in this browser: [key…]
+function ppLocalNoteKeys(T){ const out=[], pre=ppNoteKey(T, ''); try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf(pre)===0) out.push(k.slice(pre.length)); } }catch(_){ } return out; }
+async function ppRemoteLoad(T, list){
+  PPN.state='loading'; PPN.reason=''; ppSaveIndicator();
+  try{
+    const [n, q]=await Promise.all([ppApi({action:'getNotes', team:T}), ppApi({action:'getSquads', team:T})]);
+    if(PPN.team!==T) return;
+    PPN.notes=new Map((n.notes||[]).map(r=>[r.player_key, Object.assign({}, r.notes||{}, {club:r.club||'', name:r.player_name||''})]));
+    const sq=(q.squads||[]).find(x=>x.name==='current');
+    if(sq){ const d=sq.data||{}; PP=Object.assign(ppLoad(T, list), {season:sq.season||'', comp:sq.competition||'', size:d.size, opp:d.opp||'', slots:d.slots||{}, cover:d.cover||{opponent:'', date:''}}); if(!PP.size) PP.size=ppLimit(list, PP.comp).limit; }
+    PPN.state='ok';
+    // edits that could not be sent earlier (kept in this browser): sent now
+    const pend=ppStore(ppPendKey(T))||{notes:[], squad:false}; PPN.pend={notes:(pend.notes||[]).slice(), squad:!!pend.squad};
+    PPN.pend.notes.forEach(k=>{ const l=ppStore(ppNoteKey(T, k)); if(l) PPN.notes.set(k, l); });
+    if(PPN.pend.squad){ const l=ppStore(ppPanelKey(T)); if(l) PP=Object.assign(ppLoad(T, list), l); }
+    else if(!sq&&ppStore(ppPanelKey(T))) PPN.offerSquad=true;
+    // notes kept in this browser from before the store (not pending, not on the server): offered for upload, once
+    PPN.offer=ppLocalNoteKeys(T).filter(k=>!PPN.pend.notes.includes(k)&&!PPN.notes.has(k));
+    if(PPN.pend.notes.length||PPN.pend.squad) ppFlush(); else ppSaveIndicator();
+  }catch(e){ if(PPN.team!==T) return; PPN.state='error'; PPN.reason=String((e&&e.message)||e); }
+  ppRender();
+}
+// send what is pending: each note, then the squad
+async function ppFlush(){
+  if(PPN.busy||!PPN.team) return; PPN.busy=true;
+  const T=PPN.team; PPN.state='saving'; ppSaveIndicator();
+  try{
+    while(PPN.pend.notes.length){ const k=PPN.pend.notes[0], n=PPN.notes.get(k)||ppStore(ppNoteKey(T, k))||{};
+      const notes={}; ['hand','style','strengths','watch','form','pos'].forEach(f=>{ if(n[f]!=null) notes[f]=String(n[f]); });
+      await ppApi({action:'saveNote', team:T, player:{key:k, name:n.name||ppNameOf(k)}, club:String(n.club||''), notes});
+      PPN.pend.notes.shift(); ppStore(ppNoteKey(T, k), null); ppPendSave(); }
+    if(PPN.pend.squad&&PP){ await ppApi({action:'saveSquad', team:T, name:'current', season:PP.season||'', competition:PP.comp||'', data:{size:PP.size, opp:PP.opp||'', slots:PP.slots||{}, cover:PP.cover||{}}});
+      PPN.pend.squad=false; ppStore(ppPanelKey(T), null); ppPendSave(); }
+    PPN.state='ok'; PPN.reason=''; PPN.last=new Date().toLocaleTimeString('en-IE', {hour:'2-digit', minute:'2-digit'});
+  }catch(e){ PPN.state='error'; PPN.reason=String((e&&e.message)||e); }
+  PPN.busy=false; ppSaveIndicator();
+  if(PPN.state==='ok'&&(PPN.pend.notes.length||PPN.pend.squad)) ppFlush();
+}
+function ppSchedule(){ clearTimeout(PPN.timer); PPN.timer=setTimeout(ppFlush, 700); ppSaveIndicator('pending'); }
+function ppNameOf(key){ const sl=PP&&Object.values(PP.slots||{}).find(x=>x&&pyKey(x.name)===key); return sl?sl.name:''; }
+function ppSaveIndicatorTxt(force){
+  const n=PPN.pend.notes.length+(PPN.pend.squad?1:0);
+  if(PPN.state==='loading') return ['loading', 'loading the notes…'];
+  if(force==='pending'||PPN.state==='saving') return ['saving', 'saving…'];
+  if(PPN.state==='error') return ['err', (n?'not saved: ':'notes store unavailable: ')+PPN.reason+(n?' — '+n+' change'+(n===1?'':'s')+' kept in this browser; sent as soon as the store answers':' — changes are kept in this browser until it answers')];
+  if(PPN.state==='ok') return ['ok', 'saved ✓'+(PPN.last?' '+PPN.last:'')];
+  return ['', ''];
+}
+function ppSaveIndicator(force){ const el=ssEl('ppSaveState'); if(!el) return; const [c, t]=ppSaveIndicatorTxt(force); el.className='pp-save '+c; el.textContent=t; }
+// the panel state: kept locally (pending) and sent to the store
+function ppSave(){ if(!PP||!PP_TEAM) return; ppStore(ppPanelKey(PP_TEAM), PP); PPN.pend.squad=true; ppPendSave(); ppSchedule(); }
+// the notes of one player: the store's (as loaded / edited), else — the store not answering — this browser's
+function ppNotes(T, key){ if(PPN.team===T&&PPN.state!=='error'&&PPN.notes.has(key)) return PPN.notes.get(key); if(PPN.team===T&&PPN.state==='ok') return null; return ppStore(ppNoteKey(T, key)); }
+// upload the notes kept in this browser from before the store (the one-time offer)
+function ppMigrate(){ const T=PPN.team; PPN.offer.forEach(k=>{ const l=ppStore(ppNoteKey(T, k)); if(l){ PPN.notes.set(k, l); if(!PPN.pend.notes.includes(k)) PPN.pend.notes.push(k); } });
+  if(PPN.offerSquad){ PPN.pend.squad=true; PPN.offerSquad=false; } PPN.offer=[]; ppPendSave(); ppRender(); ppFlush(); }
 // a score line "G-P" (P = points value)
 function ppScore(r){ return pyScoreTxt(r.goals, r.one, r.two); }
 // DRAFT NOTES from the figures — every number is a count of the games' own rows. ctx = {S (full season), C (competition), T, key, keeper, comp, season}
@@ -818,7 +884,9 @@ function ppPickerHTML(T, ctx, list, lim){
     +`<label class="pd-f"><span>ONE COMPETITION</span><select id="ppComp">${comps.map(c=>`<option${c===PP.comp?' selected':''}>${ssEsc(c)}</option>`).join('')}</select></label>`
     +`<label class="pd-f"><span>OPPONENT RECORD</span><select id="ppOpp"><option value="">— none —</option>${pdOpps(list, T).map(o=>`<option value="${ssEsc(o)}"${o===PP.opp?' selected':''}>v ${ssEsc(titleCase(o))} (${list.filter(g=>pdIsOpp(g,o)).length})</option>`).join('')}</select></label>`
     +`<label class="pd-f"><span>PANEL SIZE</span><select id="ppSize">${[26,30,40].map(n=>`<option value="${n}"${n===N?' selected':''}>${n}</option>`).join('')}</select></label>`
-    +`<button type="button" class="act primary" data-ppprint="1">Print / Save as PDF</button><button type="button" class="act" data-ppclear="1">Clear the squad</button></div>`
+    +`<button type="button" class="act primary" data-ppprint="1">Print / Save as PDF</button><button type="button" class="act" data-ppclear="1">Clear the squad</button>`
+    +`<span class="pp-save ${ppSaveIndicatorTxt()[0]}" id="ppSaveState" role="status" aria-live="polite">${ssEsc(ppSaveIndicatorTxt()[1])}</span>${PPN.state==='error'?'<button type="button" class="act" data-ppretry="1">Retry</button>':''}</div>`
+    +(PPN.state==='ok'&&(PPN.offer.length||PPN.offerSquad)?`<div class="pp-migrate pp-noprint">${ssEsc((PPN.offer.length?PPN.offer.length+' player note'+(PPN.offer.length===1?' is':'s are'):'')+(PPN.offer.length&&PPN.offerSquad?' and ':'')+(PPN.offerSquad?'a squad is':'')+' kept in this browser from before the notes store.')} <button type="button" class="act" data-ppmigrate="1">Upload to the notes store</button></div>`:'')
     +`<div class="pp-warn pp-noprint">${ssEsc(PP.comp+' is '+lim.label+': numbers up to '+lim.limit+'.')}${N>lim.limit?' <b>⚠ The panel size ('+N+') is above that limit.</b>':''}${over.length?' <b>⚠ Number'+(over.length===1?' ':'s ')+over.join(', ')+' '+(over.length===1?'is':'are')+' above '+lim.limit+'.</b>':''}</div>`;
   h+=`<details class="pp-pick pp-noprint" open><summary>SQUAD — pick a player for each number (${Object.values(PP.slots).filter(s=>s&&s.name).length} of ${N} filled)</summary><div class="pp-slots">`;
   for(let n=1;n<=N;n++){ const s=PP.slots[n]||{}, free=!!s.free;
@@ -827,13 +895,13 @@ function ppPickerHTML(T, ctx, list, lim){
       +(free?`<input type="text" data-ppfree="${n}" value="${ssEsc(s.name||'')}" placeholder="name (no data)" aria-label="Name for number ${n}">`:'')
       +(n>15?`<select data-ppline="${n}" aria-label="Line of number ${n}" title="The sub’s line: a goalkeeper gets the goalkeeper page">${PP_LINES.map(l=>`<option value="${l[0]}"${(s.line||'')===l[0]?' selected':''}>${l[1]}</option>`).join('')}</select>`:'')
       +`<input type="text" class="pp-posin" data-pppos="${n}" value="${ssEsc(s.pos||'')}" placeholder="${ssEsc(ppPosLabel(n, s.line))}" aria-label="Position label for number ${n}" title="The position printed for this game day (empty = ${ssEsc(ppPosLabel(n, s.line))})"></div></div>`; }
-  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. The POSITION box is the label printed for this game day — type over it; left empty it is the slot’s (1 Goalkeeper … 15 Left Corner Forward; a sub: his line + “(Sub)”). A sub picked as a goalkeeper gets the goalkeeper page. The squad, the labels, clubs, the cover’s opponent and date and every note are kept in this browser only.</div></details>`;
+  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. The POSITION box is the label printed for this game day — type over it; left empty it is the slot’s (1 Goalkeeper … 15 Left Corner Forward; a sub: his line + “(Sub)”). A sub picked as a goalkeeper gets the goalkeeper page. The squad, the labels, clubs, the cover’s opponent and date and every note are saved to the staff notes store (admins only); if it cannot be reached they are kept in this browser until it answers.</div></details>`;
   return h;
 }
 function ppRender(){
   const wrap=ssEl('ppWrap'); if(!wrap||!PD_TEAM||!pdIsStaff()) return;   // staff only: nothing of the print-out (notes included) for anyone else
   const T=PD_TEAM, list=pdTeamList(T);
-  if(PP_TEAM!==T){ PP_TEAM=T; PP=ppLoad(T, list); }
+  if(PP_TEAM!==T){ PP_TEAM=T; PP=ppLoad(T, list); PPN.team=T; PPN.notes=new Map(); PPN.pend={notes:[], squad:false}; PPN.offer=[]; PPN.offerSquad=false; ppRemoteLoad(T, list); }   // the store: loaded when the print-out opens
   const seasons=pdSeasons(list); if(!seasons.includes(PP.season)) PP.season=seasons[0]||'';
   const comps=pdComps(list, PP.season); if(!comps.includes(PP.comp)) PP.comp=comps[0]||'';
   const games=pdRangeGames(list, {kind:'season', season:PP.season}), cg=pdRangeGames(list, {kind:'comp', season:PP.season, comp:PP.comp});
@@ -858,7 +926,9 @@ function ppClick(e){
   const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
   if((x=c('[data-ppprint]'))){ ppFit(); const p=ssEl('ppPages'); if(p) p.style.zoom='1'; try{ window.print(); }finally{ ppFit(); } return true; }
   if((x=c('[data-ppclear]'))){ PP.slots={}; ppSave(); ppRender(); return true; }
-  if((x=c('[data-ppreset]'))){ const k=x.dataset.ppreset, n=ppNotes(PD_TEAM, k)||{}; ppStore(ppNoteKey(PD_TEAM, k), n.club?{club:n.club}:null); ppRender(); return true; }
+  if((x=c('[data-ppreset]'))){ const k=x.dataset.ppreset, n=ppNotes(PD_TEAM, k)||{}, fresh={club:n.club||'', name:n.name||ppNameOf(k)}; PPN.notes.set(k, fresh); ppStore(ppNoteKey(PD_TEAM, k), fresh); if(!PPN.pend.notes.includes(k)) PPN.pend.notes.push(k); ppPendSave(); ppSchedule(); ppRender(); return true; }
+  if((x=c('[data-ppmigrate]'))){ ppMigrate(); return true; }
+  if((x=c('[data-ppretry]'))){ if(PPN.state==='error'&&!PPN.pend.notes.length&&!PPN.pend.squad) ppRemoteLoad(PD_TEAM, pdTeamList(PD_TEAM)); else ppFlush(); return true; }
   return false;
 }
 function ppChange(e){
@@ -885,7 +955,9 @@ function ppNoteSet(key, field, val){
     PP_NOTE_KEYS.forEach(([k])=>{ if(cur[k]==null) cur[k]=d[k]; });
   }
   cur[field]=String(val==null?'':val);
-  ppStore(ppNoteKey(T, key), cur);
+  if(!cur.name) cur.name=ppNameOf(key);
+  PPN.notes.set(key, cur); ppStore(ppNoteKey(T, key), cur);   // this browser too, until the store has it
+  if(!PPN.pend.notes.includes(key)) PPN.pend.notes.push(key); ppPendSave(); ppSchedule();
   if(field==='club'){ document.querySelectorAll('.pp-pl[data-key="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"] .pp-nm small').forEach(x=>{ x.textContent=cur.club; }); }
 }
 function ppInput(e){
@@ -942,6 +1014,10 @@ const PD_CSS=`
 .pd-bt{display:flex;flex-direction:column;gap:3px;} .pd-bt i{display:block;height:8px;border-radius:4px;} .pd-bt i.sq{background:#6d6d7a;height:6px;}
 .pd-br b{text-align:right;font-size:.85rem;} .pd-br b small{display:block;color:var(--t3);font-weight:400;font-size:.72rem;}
 .pd-score{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:14px;align-items:center;}
+.pd-srows{display:flex;flex-direction:column;gap:10px;min-width:0;width:100%;} .pd-srh{display:flex;align-items:baseline;gap:8px;font-size:.88rem;min-width:0;}
+.pd-srh span{flex:1;min-width:0;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .pd-srh b{white-space:nowrap;} .pd-srh small{color:var(--t3);min-width:3.2em;text-align:right;white-space:nowrap;}
+.pd-sdot{flex:none;width:10px;height:10px;border-radius:50%;align-self:center;} .pd-sbt{height:8px;border-radius:4px;background:#2c2c38;margin-top:4px;overflow:hidden;} .pd-sbt i{display:block;height:100%;border-radius:4px;}
+.pd-sdot.one,.pd-sbt i.one{background:color-mix(in srgb,var(--pp) 80%,#000);} .pd-sdot.two,.pd-sbt i.two{background:#b8892b;} .pd-sdot.gl,.pd-sbt i.gl{background:#c8343b;}
 .pd-sbar{display:flex;height:66px;border-radius:10px;overflow:hidden;} .pd-sb{display:flex;flex-direction:column;justify-content:center;align-items:center;color:#fff;min-width:34px;}
 .pd-sb b{font:800 21px 'Barlow',sans-serif;} .pd-sb span{font-size:.74rem;font-weight:700;}
 .pd-sb.one,.pd-sleg i.one{background:color-mix(in srgb,var(--pp) 80%,#000);} .pd-sb.two,.pd-sleg i.two{background:#b8892b;} .pd-sb.gl,.pd-sleg i.gl{background:#c8343b;}
@@ -960,7 +1036,9 @@ const PD_CSS=`
   .pd-groups{grid-template-columns:minmax(0,1fr);} .pd-panels{grid-template-columns:minmax(0,1fr);grid-template-areas:'a' 'b' 'c' 'd';} .pd-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;} .pd-sbar{width:100%;}
   .pd-f .seg button{padding:9px 8px;} .pd-f select{width:100%;} .pd-f{flex:1 1 140px;} }
 /* ── PANEL PRINT-OUT ── */
-.pp-warn{font-size:.82rem;color:var(--t2);margin:-6px 4px 10px;} .pp-warn b{color:var(--amber);}
+.pp-warn{font-size:.82rem;color:var(--t2);margin:-6px 4px 10px;}
+.pp-save{font-size:.8rem;align-self:center;color:var(--t3);} .pp-save.ok{color:var(--green);} .pp-save.saving,.pp-save.loading{color:var(--t2);} .pp-save.err{color:var(--amber);max-width:520px;}
+.pp-migrate{background:rgba(245,166,35,.08);border:1px solid #6b5520;border-radius:10px;padding:8px 12px;margin:-4px 0 12px;font-size:.84rem;color:var(--t2);} .pp-warn b{color:var(--amber);}
 .pp-pick{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px 14px 12px;margin-bottom:16px;} .pp-pick summary{cursor:pointer;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t2);padding:8px 0;}
 .pp-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px 14px;}
 .pp-slot{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px;align-items:center;font-size:.85rem;} .pp-sf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;} .pp-slot b{text-align:right;color:var(--pa);} .pp-slot select,.pp-slot input{min-width:0;width:100%;padding:6px 6px;font-size:.82rem;}
@@ -1022,7 +1100,8 @@ const PD_CSS=`
 .pdp-card h4,.pdp-card .td-ct{margin:0 0 1mm;font:800 7.5pt 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--pa);}
 .pdp-card .tt-card{background:transparent;border:0;padding:0;border-radius:0;}
 .pdp-card .pd-radar{max-width:100%;} .pdp-card .pd-trend{min-width:0 !important;width:100%;} .pd-rl{fill:#141414;} .pd-rg{stroke:#cfd2cf;} .pd-tg{stroke:#e3e5e3;}
-.pdp-card .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;gap:1mm;} .pdp-card .pd-sbar{height:10mm;width:100%;} .pdp-card .pd-ring{width:22mm;height:22mm;} .pdp-card .pd-rgb{stroke:#e3e5e3;} .pdp-card .pd-rn{fill:#141414;}
+.pdp-card .pd-score{grid-template-columns:minmax(0,1fr);gap:2mm;align-items:start;} .pdp-card .pd-srows{gap:1.6mm;} .pdp-card .pd-srh{font-size:7.5pt;gap:1.5mm;} .pdp-card .pd-srh span{color:#3a3a3a;} .pdp-card .pd-srh small{color:#555;}
+.pdp-card .pd-sbt{height:2.2mm;background:#e6e8e6;margin-top:.6mm;} .pdp-card .pd-sdot{width:2.4mm;height:2.4mm;} .pdp-card .pd-ring{width:30mm;height:30mm;justify-self:center;margin-top:2mm;} .pdp-card .pd-rgb{stroke:#e3e5e3;} .pdp-card .pd-rn{fill:#141414;}
 .pdp-maps .py-maps{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:1.5mm;} .pdp-maps .py-map{grid-column:auto !important;min-width:0;} .pdp-maps .tt-pitch{width:100%;height:auto;max-height:48mm;display:block;} .pdp-maps .py-map h3{font-size:6.5pt;margin:0;} .pdp-maps .py-maph{display:flex;justify-content:space-between;gap:1mm;font-size:6pt;} .pdp-maps .py-nomap{min-height:0;height:auto;padding:2mm;font-size:6.5pt;}
 .pdp-maps .tt-key{font-size:6pt;gap:1.5mm;flex-wrap:wrap;}
 #pdPrint .dnote,#pdPrint .pd-w,#pdPrint .pd-wrow,#pdPrint .py-bw,#pdPrint .py-misc small,#pdPrint .pd-sleg{display:none !important;}
