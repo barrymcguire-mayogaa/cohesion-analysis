@@ -277,22 +277,25 @@ function pdHeadHTML(V){
 function titleCase(s){ return String(s||'').toLowerCase().replace(/(^|[\s'-])(\S)/g,(m,a,b)=>a+b.toUpperCase()); }
 function pdRadarSVG(Rd, col, name){
   const A=Rd.axes, n=A.length; if(n<3) return `<div class="tt-empty">n/a — fewer than three axes have data${Rd.left.length?' ('+ssEsc(Rd.left.join('; '))+')':''}.</div>`;
-  const W=360, H=330, cx=W/2, cy=H/2+4, r=112, ang=i=>-Math.PI/2+i*2*Math.PI/n, pt=(i,v)=>[cx+Math.cos(ang(i))*r*v/100, cy+Math.sin(ang(i))*r*v/100];
+  const W=440, H=334, cx=W/2, cy=H/2+4, r=112, ang=i=>-Math.PI/2+i*2*Math.PI/n, pt=(i,v)=>[cx+Math.cos(ang(i))*r*v/100, cy+Math.sin(ang(i))*r*v/100];
   let h=`<svg class="pd-radar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${ssEsc(name+' against the team average: '+A.map(a=>a.l+' '+(a.p==null?'n/a':Math.round(a.p))).join(', '))}">`;
   [25,50,75,100].forEach(v=>{ h+=`<polygon points="${A.map((a,i)=>pt(i,v).map(x=>x.toFixed(1)).join(',')).join(' ')}" class="pd-rg"/>`; });
   A.forEach((a,i)=>{ const [x,y]=pt(i,100), [lx,ly]=pt(i,124), anc=Math.abs(lx-cx)<8?'middle':lx<cx?'end':'start';
-    h+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="pd-rg"/><text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anc}" class="pd-rl">${ssEsc(a.l)}<tspan x="${lx.toFixed(1)}" dy="13" class="pd-rv">(${a.p==null?'n/a':Math.round(a.p)})</tspan></text>`; });
+    h+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="pd-rg"/><text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anc}" class="pd-rl">${ssEsc(a.l)}<tspan x="${lx.toFixed(1)}" dy="14" class="pd-rv">(${a.p==null?'n/a':Math.round(a.p)})</tspan></text>`; });
   const poly=(k,cls,st)=>`<polygon points="${A.map((a,i)=>pt(i,a[k]==null?0:a[k]).map(x=>x.toFixed(1)).join(',')).join(' ')}" class="${cls}" ${st}/>`;
   h+=poly('t','pd-rt','')+poly('p','pd-rp',`style="fill:${ssEsc(col.a)};stroke:${ssEsc(col.a)}"`);
   A.forEach((a,i)=>{ if(a.p==null) return; const [x,y]=pt(i,a.p); h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.4" style="fill:${ssEsc(col.a)}"/>`; });
   return h+'</svg>';
 }
+function pdTrendScale(rows, k){ const pts=rows.filter(r=>r.v!=null), W=Math.max(380, 46+rows.length*38), H=236, L=34, Tp=22, B=42, max=Math.max(1, ...pts.map(r=>r.v));
+  const step=k==='pct'?25:[0.25,0.5,1,2,2.5,5,10,20,25,50,100].find(s=>max*1.12/4<=s)||Math.ceil(max/4), top=k==='pct'?100:step*4; return {W, H, L, Tp, B, top, Y:v=>Tp+(H-Tp-B)*(1-v/top)}; }
+function pdTrendAxisSVG(rows, k){ if(!rows.some(r=>r.v!=null)) return ''; const {H, L, top, Y}=pdTrendScale(rows, k); let h=`<svg class="pd-tax" viewBox="0 0 ${L} ${H}" width="${L}" height="${H}" aria-hidden="true">`;
+  for(let i=0;i<=4;i++){ const v=top*i/4; h+=`<text x="${L-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" class="pd-ta">${k==='pct'?Math.round(v):(Math.round(v*100)/100)}</text>`; } return h+'</svg>'; }
 function pdTrendSVG(rows, k, col){
   const pts=rows.filter(r=>r.v!=null); if(!rows.length) return '<div class="tt-empty">No games.</div>';
   if(!pts.length) return `<div class="tt-empty">${ssEsc('n/a — '+(rows[0].na||'he has no figure in these games'))}</div>`;
-  const W=Math.max(380, 46+rows.length*38), H=236, L=34, Rr=14, Tp=22, B=42, max=Math.max(1, ...pts.map(r=>r.v));
-  const step=k==='pct'?25:[0.25,0.5,1,2,2.5,5,10,20,25,50,100].find(s=>max*1.12/4<=s)||Math.ceil(max/4), top=k==='pct'?100:step*4;
-  const X=i=>L+(rows.length===1?(W-L-Rr)/2:i*(W-L-Rr)/(rows.length-1)), Y=v=>Tp+(H-Tp-B)*(1-v/top);
+  const {W, H, L, B, top, Y}=pdTrendScale(rows, k), Rr=14;   // the same scale as the fixed axis (pdTrendAxisSVG)
+  const X=i=>L+(rows.length===1?(W-L-Rr)/2:i*(W-L-Rr)/(rows.length-1));
   let h=`<svg class="pd-trend" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" preserveAspectRatio="xMinYMid meet" role="img" aria-label="${ssEsc('Per game, oldest to newest: '+rows.map(r=>(r.v==null?'n/a':pdNum(k,r.v))).join(', '))}">`;
   for(let i=0;i<=4;i++){ const v=top*i/4, y=Y(v); h+=`<line x1="${L}" x2="${W-Rr}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" class="pd-tg"/><text x="${L-6}" y="${(y+4).toFixed(1)}" text-anchor="end" class="pd-ta">${k==='pct'?Math.round(v):(Math.round(v*100)/100)}</text>`; }
   let seg=[], path='';
@@ -379,7 +382,7 @@ function pdHTML(V){
   h+=`<div class="pd-panels"><div class="tt-card pd-p pd-p1"><h4 class="td-ct">PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(Rd, col, row.name):'<div class="tt-empty">n/a</div>'}`
     +`<div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>${ssEsc(row?row.name:'Player')}</span><span><i class="sq"></i>Team average</span></div>`
     +`<div class="dnote">${ssEsc('Each axis is scored 0–100 against the '+S.F.players.length+' squad players in this range (everyone named on a '+S.T+' event; with a team sheet, everyone with minutes): player ÷ the squad’s highest × 100, per game; Shooting % is the % itself; Discipline is 100 × (1 − fouls per game ÷ the squad’s highest). The grey shape is the squad average on the same scale. '+Rd.axes.map(a=>a.l+' = '+a.how).join('; ')+'.'+(Rd.axes.some(a=>a.k==='min')&&row&&row.gpMin<row.gp?' Game time comes from '+row.gpMin+' of his '+row.gp+' games — only those have a team sheet.':'')+(Rd.left.length?' Left out (n/a): '+Rd.left.join('; ')+'.':''))}</div></div>`
-    +`<div class="tt-card pd-p pd-p2"><div class="pd-ph"><h4 class="td-ct">PER-GAME TREND</h4><select id="pdTrendK" aria-label="Trend figure">${PD_TREND.map(t=>`<option value="${t[0]}"${t[0]===tk?' selected':''}>${t[1]}</option>`).join('')}</select></div><div class="pd-scroll">${pdTrendSVG(trend, tk, col)}</div>`
+    +`<div class="tt-card pd-p pd-p2"><div class="pd-ph"><h4 class="td-ct">PER-GAME TREND</h4><select id="pdTrendK" aria-label="Trend figure">${PD_TREND.map(t=>`<option value="${t[0]}"${t[0]===tk?' selected':''}>${t[1]}</option>`).join('')}</select></div><div class="pd-trw"><div class="pd-scroll">${pdTrendSVG(trend, tk, col)}</div>${pdTrendAxisSVG(trend, tk)}</div>`
     +`<div class="dnote">${ssEsc((V.range.kind==='game'?'The '+(V.P&&V.P.season||'')+' season around the selected game (ringed). ':'Oldest → newest across the range. ')+'“–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
     +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col, V.range.kind==='game')}<div class="dnote">${V.range.kind==='game'?'This game: his figures are the tiles above; the number is the squad average in this game.':'Per game.'} Squad average as the Player Profile: the mean over the squad players who have the figure. Hover an n/a row for the reason.</div></div>`
     +`<div class="tt-card pd-p pd-p4"><h4 class="td-ct">SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
@@ -427,7 +430,7 @@ function pdAreasHTML(V){
   const {S}=V, fp=S.F.byKey.get(V.key), bo=pdBundleOf, sq=S.sq.tot;
   const na=t=>`<div class="tt-card tt-empty">${ssEsc('n/a — '+(V.name||'he')+' is not named on any '+S.T+' event in these games')}</div>`;
   const mine=S.R.shots.filter(s=>s.pk===V.key);
-  const shooting=`<div class="tt-card pd-maps wide"><div class="pd-ph"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4><span class="pd-ws">${pdW('shots', 'pshot', mine, mine.length+' shot'+(mine.length===1?'':'s'))}${pdW('scores', 'pshot', mine.filter(s=>s.v>0), mine.filter(s=>s.v>0).length+' score'+(mine.filter(s=>s.v>0).length===1?'':'s'))}</span></div>${pdMapsHTML(S, V.map, V)}</div>`+pdPressureHTML(S, V)+pdDeadHTML(S, V);
+  const shooting=`<div class="tt-card pd-maps wide"><div class="pd-ph"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4><span class="pd-ws">${pdW('shots', 'pshot', mine, mine.length+' shot'+(mine.length===1?'':'s'))}${pdW('scores', 'pshot', mine.filter(s=>s.v>0), mine.filter(s=>s.v>0).length+' score'+(mine.filter(s=>s.v>0).length===1?'':'s'))}</span></div>${pdMapsHTML(S, V.map, V)}</div>`+pdDeadHTML(S, V)+pdPressureHTML(S, V);
   const wrap=(card, btns)=>btns?card.replace(/<\/div>$/, `<div class="pd-wrow">${btns}</div></div>`):card;   // the Watch buttons go at the foot of the reused card
   // assist links: the scores he set up, per team-mate (the card's HE SET UP rows), and every assisted score of his
   const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk);
@@ -436,7 +439,7 @@ function pdAreasHTML(V){
   const whenBtns=fp?PF_BLOCKS.map((B,i)=>{ const l=mine.filter(s=>s.v>0&&pdBlockOf(s)===i); return pdW('when:'+i, 'pshot', l, B[2]+' min ('+l.length+')'); }).join(''):'';
   const build=fp?pfSourcesCardHTML(S.F, fp, sq, S.R, bo)+wrap(pfLinksCardHTML(S.F, fp, sq, S.R, bo), lnkBtns):na();
   const impact=fp?wrap(pfWhenCardHTML(S.F, fp, sq, S.R, bo), whenBtns)+pfOnOffHTML(S.F, fp, sq):na();
-  return `<div class="pd-area" data-area="shooting"><h3>SHOOTING</h3><div class="pd-area-g">${shooting}</div></div>`
+  return `<div class="pd-area" data-area="shooting"><h3>SHOOTING</h3><div class="pd-area-g pd-shoot${shooting.includes('py-pr"')?'':' norate'}">${shooting}</div></div>`
     +`<div class="pd-area" data-area="build"><h3>BUILD-UP</h3><div class="pd-area-g">${build}</div></div>`
     +`<div class="pd-area" data-area="impact"><h3>GAME IMPACT</h3><div class="pd-area-g">${impact}</div></div>`;
 }
@@ -507,7 +510,7 @@ function pdPrintHTML(V){
   const card=(cls, html)=>`<div class="pdp-card ${cls}">${html}</div>`;
   const p2=`<section class="pdp-page" data-page="2"><div class="pdp-h2">${ssEsc(name+' · '+titleCase(V.T)+' · '+V.rangeTxt)}</div><div class="pdp-grid">`
     +card('pdp-bands', pdBandsHTML(S, V.map, V, true))
-    +card('', pdPressureHTML(S, V, true))+card('', pdDeadHTML(S, V))
+    +card('', pdDeadHTML(S, V))+card('', pdPressureHTML(S, V, true))
     +(fp?card('', pfSourcesCardHTML(S.F, fp, sq, S.R, bo))+card('', pfLinksCardHTML(S.F, fp, sq, S.R, bo))+card('', pfWhenCardHTML(S.F, fp, sq, S.R, bo))+card('pdp-oo', pfOnOffHTML(S.F, fp, sq)):card('wide', '<div class="tt-empty">n/a — not named on any '+ssEsc(S.T)+' event in these games</div>'))
     +`</div><div class="pdp-note">${ssEsc('Bands by depth on the drawn lines (A inside the 20m, B to the 45m, C beyond); a ’45 is B, a penalty A. Pressure: shots tagged with Shot Side + Shot Pressure. Sources: the Overview’s rule. On / off: games with a team sheet, per '+(S.F.basis.unit||'game-length')+' min; under one full game on either side is not ranked.')}</div>${foot(2)}</section>`;
   return p1+p2;
@@ -587,8 +590,37 @@ function pdRender(){
   PD_WQ=new Map();
   body.innerHTML=pdHTML(PD_V);
   body.querySelectorAll('.pd-scroll').forEach(x=>{ x.scrollLeft=x.scrollWidth; });   // a long trend: the newest games in view
+  pdTrendAxis(body); pdInfoize(body);
   body.querySelectorAll('svg.tt-locs').forEach(svg=>{ const w=svg.getBoundingClientRect?svg.getBoundingClientRect().width:0; if(!(w>0)) return; const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r)); });   // = pyFitHits
 }
+// the trend's fixed y axis shows only while the chart is wider than its card (scrolled to the newest games)
+function pdTrendAxis(root){ (root||document).querySelectorAll('.pd-trw').forEach(w=>{ const s=w.querySelector('.pd-scroll'); w.classList.toggle('scrolled', !!s&&s.scrollWidth>s.clientWidth+1&&s.scrollLeft>0); }); }
+// ⓘ (Barry, Oct 2026): a long footnote is not printed under its chart on screen — it opens from a small ⓘ button beside the
+// card's title (a pop-out under the title; the button again, a click elsewhere or Esc closes it). One pattern for every
+// card on the dashboard, including the Players-tab cards it reuses; a short note (a one-line n/a reason) stays in place.
+// The landscape print keeps its own short notes (#pdPrint is built separately and never gets a button).
+const PD_INFO_MIN=100;
+let PD_INFO_N=0;
+function pdInfoBtn(title, pop){ const id='pdInfo'+(++PD_INFO_N), b=document.createElement('button'); b.type='button'; b.className='pd-i';
+  b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', id); b.setAttribute('aria-label', 'About '+title); b.title='About '+title; pop.id=id; return b; }
+function pdInfoPop(notes){ const pop=document.createElement('div'); pop.className='pd-ipop'; pop.hidden=true; pop.setAttribute('role', 'note');
+  notes.forEach(d=>{ const p=document.createElement('p'); p.innerHTML=d.innerHTML; pop.appendChild(p); if(d.parentNode) d.parentNode.removeChild(d); }); return pop; }
+function pdInfoize(root){
+  if(!root||!root.querySelectorAll) return;
+  root.querySelectorAll('.tt-card').forEach(card=>{
+    const notes=[...card.querySelectorAll('.dnote')].filter(d=>d.closest('.tt-card')===card&&d.textContent.trim().length>PD_INFO_MIN);
+    const h=card.querySelector('h4'); if(!notes.length||!h||h.closest('.tt-card')!==card) return;
+    const pop=pdInfoPop(notes), title=h.textContent.trim().replace(/\s+/g, ' ').toLowerCase();
+    h.appendChild(pdInfoBtn(title, pop)); card.classList.add('pd-hasi'); card.appendChild(pop); });
+  // the page's own note on how the tiles are counted: under the tiles, as a titled ⓘ
+  const foot=root.querySelector('.dnote.pd-foot'), groups=root.querySelector('.pd-groups');
+  if(foot&&groups){ const row=document.createElement('div'); row.className='pd-finfo pd-hasi'; const lab=document.createElement('span'); lab.textContent='How the tiles are counted';
+    const pop=pdInfoPop([foot]); row.appendChild(lab); row.appendChild(pdInfoBtn('how the tiles are counted', pop)); row.appendChild(pop); groups.parentNode.insertBefore(row, groups.nextSibling); }
+}
+function pdInfoClose(except){ document.querySelectorAll('#pane-player-dash .pd-i[aria-expanded="true"]').forEach(b=>{ if(b===except) return; b.setAttribute('aria-expanded', 'false'); const p=ssEl(b.getAttribute('aria-controls')); if(p) p.hidden=true; }); }
+function pdInfoToggle(b){ const p=ssEl(b.getAttribute('aria-controls')); if(!p) return; const open=b.getAttribute('aria-expanded')!=='true'; pdInfoClose(b);
+  b.setAttribute('aria-expanded', open?'true':'false'); p.hidden=!open;
+  if(open){ const host=p.parentNode, hb=b.getBoundingClientRect(), cb=host.getBoundingClientRect(); p.style.top=Math.round(hb.bottom-cb.top+6)+'px'; } }
 // the shot-map hover / pinned cards on this tab read this view (analysis.html pyTipState)
 function pdTipState(){ return PD_V&&PD_V.map?{R:PD_V.S.R, V:PD_V.map.V}:{R:null, V:null}; }
 // STAFF ONLY (Barry, Oct 2026): the PANEL PRINT-OUT — its tab, the squad picker, the notes, clubs and position labels — is for
@@ -603,6 +635,8 @@ function pdSetView(v){ PD_O.view=v==='print'&&pdIsStaff()?'print':'dash'; pdSync
 function pdInit(){
   const pane=ssEl('pane-player-dash'); if(!pane||!pane.addEventListener) return;
   pane.addEventListener('click', e=>{ const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
+    if((x=c('.pd-i'))){ pdInfoToggle(x); return; }
+    if(!c('.pd-ipop')) pdInfoClose();
     if((x=c('[data-pdview]'))){ pdSetView(x.dataset.pdview); return; }
     if((x=c('[data-pdkind]'))){ PD_O.range.kind=x.dataset.pdkind; pdRender(); return; }
     if((x=c('[data-pdmode]'))){ PD_O.mode=x.dataset.pdmode==='squad'?'squad':'prev'; pdRender(); return; }
@@ -618,7 +652,10 @@ function pdInit(){
     if(t.id==='pdTrendK'){ PD_O.trendK=t.value; pdRender(); return; }
     ppChange(e); });
   pane.addEventListener('input', e=>ppInput(e));
-  if(typeof window!=='undefined'&&window.addEventListener){ window.addEventListener('resize', ()=>{ if(PD_O.view==='print') ppFit(); }); window.addEventListener('afterprint', pdPrintDone); }
+  pane.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; const o=pane.querySelector('.pd-i[aria-expanded="true"]'); if(o){ pdInfoClose(); o.focus(); } });
+  pane.addEventListener('scroll', e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains('pd-scroll')&&t.parentNode) pdTrendAxis(t.parentNode.parentNode); }, true);
+  if(typeof document!=='undefined'&&document.addEventListener) document.addEventListener('click', e=>{ const t=e.target; if(!(t&&t.closest&&t.closest('#pane-player-dash'))) pdInfoClose(); });
+  if(typeof window!=='undefined'&&window.addEventListener){ window.addEventListener('resize', ()=>{ if(PD_O.view==='print') ppFit(); else pdTrendAxis(ssEl('pdBody')); }); window.addEventListener('afterprint', pdPrintDone); }
   pdStyle();
 }
 
@@ -972,14 +1009,14 @@ function pdStyle(){
   const s=document.createElement('style'); s.id='pdCss'; s.textContent=PD_CSS; document.head.appendChild(s);
 }
 const PD_CSS=`
-#pane-player-dash{--pa:var(--accent);--pb:#c9c9d4;--pp:#4fc3f7;--ps:#4fc3f7;}
+#pane-player-dash{--pa:var(--accent);--pb:#c9c9d4;--pp:#4fc3f7;--ps:#4fc3f7;--pd-grid:color-mix(in srgb,var(--t1) 8%,transparent);--pd-grid2:color-mix(in srgb,var(--t1) 15%,transparent);}
 .pd-views{display:flex;justify-content:center;margin:0 0 14px;} .pd-views .seg button{padding:10px 18px;font-size:14px;}
 #pane-player-dash .seg button.on{background:var(--pa);color:#0b0b10;}
 .pd-ctl,.pp-ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:14px;}
 .pd-f{display:flex;flex-direction:column;gap:5px;min-width:0;} .pd-f>span{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--t3);} .pd-f select{max-width:100%;}
 .pd-f .seg{flex-wrap:wrap;}
 .pd-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;background:linear-gradient(120deg,color-mix(in srgb,var(--pp) 30%,var(--panel)) 0%,var(--panel) 55%);border:1px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:14px;border-left:5px solid var(--pa);}
-.pd-photo .coh-pb{--pbs:112px;width:112px;height:112px;font-size:38px;border-radius:14px;}
+.pd-photo{padding:5px;} .pd-photo .coh-pb{--pbs:112px;width:112px;height:112px;font-size:38px;border-radius:50%;border:3px solid var(--pp);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--ps);}
 .pd-who h2{margin:0;font:800 40px/1.02 'Barlow',sans-serif;letter-spacing:-.01em;} .pd-who h2 span{color:var(--t1);} .pd-who h2 b{color:var(--pa);}
 .pd-stripe{display:flex;} .pd-stripe i{flex:1 1 0;display:block;}
 .pd-uline{width:120px;height:5px;margin-top:8px;gap:2px;} .pd-uline i{border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.22);}
@@ -1001,15 +1038,19 @@ const PD_CSS=`
 .pd-maps .py-maps{margin-top:4px;}
 .pd-area{margin-top:18px;} .pd-area>h3{margin:0 2px 10px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--pa);border-bottom:1px solid var(--border);padding-bottom:6px;}
 .pd-area-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} .pd-area-g>.tt-card{min-width:0;} .pd-area-g .wide{grid-column:1/-1;}
+.pd-shoot{grid-template-areas:'maps maps' 'dead rate' 'press rate';grid-template-rows:auto auto 1fr;align-items:start;} .pd-shoot.norate{grid-template-areas:'maps maps' 'dead press';}
+.pd-shoot>.pd-maps{grid-area:maps;} .pd-shoot>.pd-db{grid-area:dead;} .pd-shoot>.pd-pr{grid-area:press;} .pd-shoot>.py-pr{grid-area:rate;align-self:stretch;}
 .pd-area .pf-pat,.pd-area .pf-oo{margin:0;} .pd-area .td-ct{color:var(--pa);}
 .pd-dt{width:100%;} .pd-dt tr.sub th{padding-left:18px;font-weight:400;color:var(--t2);}
 .pd-p1{grid-area:a;} .pd-p2{grid-area:b;} .pd-p3{grid-area:c;} .pd-p4{grid-area:d;} .pd-p5{grid-area:e;}
 .pd-p .td-ct{color:var(--pa);}
 .pd-ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;} .pd-ph .td-ct{margin:0;}
-.pd-radar{display:block;width:100%;height:auto;max-width:420px;margin:0 auto;} .pd-rg{fill:none;stroke:#34343f;stroke-width:1;} .pd-rl{font:600 11.5px 'Barlow',sans-serif;fill:var(--t1);} .pd-rv{fill:var(--t3);font-weight:400;}
+.pd-radar{display:block;width:100%;height:auto;max-width:420px;margin:0 auto;} .pd-rg{fill:none;stroke:var(--pd-grid2);stroke-width:1;} .pd-rl{font:700 13.5px 'Barlow',sans-serif;fill:var(--t1);} .pd-rv{fill:var(--t2);font-weight:500;font-size:12px;}
+.pd-p1{display:flex;flex-direction:column;} .pd-p1 .pd-radar{margin:auto;}
 .pd-rp{fill-opacity:.28;stroke-width:2.2;} .pd-rt{fill:rgba(200,200,212,.08);stroke:#b8b8c4;stroke-width:1.4;stroke-dasharray:4 3;}
 .pd-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--t2);margin:6px 0;} .pd-leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;} .pd-leg i.sq{background:#8a8a96;}
-.pd-scroll{overflow-x:auto;} .pd-trend{display:block;width:100%;height:auto;} .pd-tg{stroke:#2c2c38;} .pd-ta{font:500 11px 'Barlow',sans-serif;fill:var(--t2);} .pd-tv2{font:700 12px 'Barlow',sans-serif;fill:var(--t1);} .pd-tdnp{font:600 11px 'Barlow',sans-serif;fill:var(--t3);}
+.pd-scroll{overflow-x:auto;} .pd-trend{display:block;width:100%;height:auto;} .pd-tg{stroke:var(--pd-grid);} #pane-player-dash .tt-grid{stroke:var(--pd-grid);}
+.pd-trw{position:relative;} .pd-tax{position:absolute;left:0;top:0;display:none;pointer-events:none;background:var(--panel);box-shadow:6px 0 6px -4px var(--panel);} .pd-trw.scrolled .pd-tax{display:block;} .pd-ta{font:500 11px 'Barlow',sans-serif;fill:var(--t2);} .pd-tv2{font:700 12px 'Barlow',sans-serif;fill:var(--t1);} .pd-tdnp{font:600 11px 'Barlow',sans-serif;fill:var(--t3);}
 .pd-br{display:grid;grid-template-columns:minmax(0,130px) minmax(0,1fr) 46px;gap:8px;align-items:center;margin:9px 0;font-size:.85rem;} .pd-br.na{grid-template-columns:minmax(0,1fr) auto;color:var(--t3);} .pd-br em{font-style:normal;}
 .pd-bt{display:flex;flex-direction:column;gap:3px;} .pd-bt i{display:block;height:8px;border-radius:4px;} .pd-bt i.sq{background:#6d6d7a;height:6px;}
 .pd-br b{text-align:right;font-size:.85rem;} .pd-br b small{display:block;color:var(--t3);font-weight:400;font-size:.72rem;}
@@ -1026,12 +1067,18 @@ const PD_CSS=`
 .pd-boxes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;} .pd-box{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;min-width:0;}
 .pd-box span{display:block;font-size:.74rem;color:var(--t2);} .pd-box b{font:800 20px 'Barlow',sans-serif;} .pd-box.na b{color:var(--t3);font-size:15px;}
 .pd-bx{flex:none;width:16px;height:22px;border-radius:3px;background:var(--pa);} .pd-bx.yel{background:#f2c200;} .pd-bx.blk{background:#111;border:1px solid #555;} .pd-bx.red{background:#e0303a;} .pd-bx.fouls,.pd-bx.toL{background:#a0a0ae;border-radius:50%;width:18px;height:18px;} .pd-bx.toW,.pd-bx.poss,.pd-bx.tck{border-radius:50%;width:18px;height:18px;}
-.pd-foot{margin:12px 4px 0;} .pd-tsub{font-size:.68rem;color:var(--amber);line-height:1.2;margin:-1px 0 2px;}
+.pd-foot{margin:12px 4px 0;}
+.pd-hasi{position:relative;} .pd-i{display:inline-grid;place-items:center;width:22px;height:22px;margin:0 0 0 8px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--t2);font:italic 700 13px/1 Georgia,'Times New Roman',serif;letter-spacing:0;text-transform:none;cursor:pointer;vertical-align:middle;flex:none;}
+.pd-i::before{content:'i';} .pd-i:hover,.pd-i[aria-expanded="true"]{color:var(--pa);border-color:var(--pa);} .pd-i:focus-visible{outline:2px solid var(--pa);outline-offset:2px;}
+.pd-ipop{position:absolute;z-index:40;left:10px;right:10px;max-height:min(60vh,440px);overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 16px 40px rgba(0,0,0,.45);font-size:.78rem;line-height:1.5;color:var(--t2);text-align:left;}
+.pd-ipop[hidden]{display:none;} .pd-ipop p{margin:0;} .pd-ipop p+p{margin-top:6px;}
+.pd-finfo{display:flex;align-items:center;justify-content:flex-end;gap:2px;margin:-6px 4px 14px;font-size:.78rem;color:var(--t3);}
+@media print{ .pd-i,.pd-ipop{display:none !important;} } .pd-tsub{font-size:.68rem;color:var(--amber);line-height:1.2;margin:-1px 0 2px;}
 .pd-w{background:transparent;border:1px solid var(--pa);color:var(--pa);border-radius:999px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;white-space:nowrap;margin:2px 4px 2px 0;}
 .pd-w:hover,.pd-w:focus-visible{background:var(--pa);color:#0b0b10;} .pd-grp h4 .pd-w{margin-left:8px;letter-spacing:0;}
 .pd-wrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;} .pd-ws{display:flex;flex-wrap:wrap;gap:2px;} .py-bw{text-align:right;white-space:nowrap;}
 .pd-range .pd-w{align-self:flex-start;}
-@media (max-width:1100px){ .pd-panels{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'a b' 'c d';} .pd-area-g{grid-template-columns:minmax(0,1fr);} }
+@media (max-width:1100px){ .pd-panels{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'a b' 'c d';} .pd-area-g{grid-template-columns:minmax(0,1fr);} .pd-shoot,.pd-shoot.norate{grid-template-areas:'maps' 'dead' 'press' 'rate';grid-template-rows:none;} }
 @media (max-width:760px){ .pd-head{grid-template-columns:auto minmax(0,1fr);} .pd-range{grid-column:1/-1;max-width:none;} .pd-who h2{font-size:28px;} .pd-photo .coh-pb{--pbs:76px;width:76px;height:76px;font-size:26px;}
   .pd-groups{grid-template-columns:minmax(0,1fr);} .pd-panels{grid-template-columns:minmax(0,1fr);grid-template-areas:'a' 'b' 'c' 'd';} .pd-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;} .pd-sbar{width:100%;}
   .pd-f .seg button{padding:9px 8px;} .pd-f select{width:100%;} .pd-f{flex:1 1 140px;} }
@@ -1052,7 +1099,7 @@ const PD_CSS=`
 .pp-no{display:grid;place-items:center;font:800 15px 'Barlow',sans-serif;border-right:1px solid rgba(255,255,255,.25);} .pp-nm{padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;} .pp-nm b{font:800 16px 'Barlow',sans-serif;} .pp-nm small{font-size:10px;opacity:.85;min-height:12px;}
 .pp-pos{display:grid;place-items:center;font:700 13px 'Barlow',sans-serif;text-align:center;padding:0 3mm;}
 .pp-row{display:grid;grid-template-columns:44mm minmax(0,1fr);gap:5mm;margin-top:3mm;}
-.pp-side{display:flex;flex-direction:column;gap:3mm;align-items:center;} .pp-side .coh-pb{--pbs:40mm;width:40mm;height:40mm;font-size:36px;border-radius:6px;}
+.pp-side{display:flex;flex-direction:column;gap:3mm;align-items:center;} .pp-side .coh-pb{--pbs:40mm;width:40mm;height:40mm;font-size:36px;border-radius:50%;border-width:1mm;}
 .pp-st,.pp-nt,.pp-kc,.pp-at{width:100%;border-collapse:collapse;font-size:11px;}
 .pp-st th{font:600 13px 'Barlow',sans-serif;text-align:left;padding:1.5mm 2mm;border:1px solid #fff;} .pp-st td{border:1px solid #cfd4cf;padding:1mm 2mm;text-align:center;font-size:12px;} .pp-st td:first-child{text-align:left;} .pp-st tr:nth-child(2) td{background:#eef2ee;} .pp-st td.na{color:#888;font-size:10.5px;}
 .pp-nt{margin-top:3mm;} .pp-nt th{width:32mm;text-align:left;vertical-align:middle;border:1px solid #cfd4cf;padding:1.1mm 2mm;font:700 12px 'Barlow',sans-serif;} .pp-nt td{border:1px solid #cfd4cf;padding:1.5mm 2mm;vertical-align:top;} .pp-nt tr:nth-child(even){background:#eef2ee;}
@@ -1085,7 +1132,7 @@ const PD_CSS=`
 .pdp-page:last-child{break-after:auto;page-break-after:auto;}
 .pdp-page *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .pdp-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4mm;align-items:center;position:relative;padding-bottom:2.2mm;}
-.pdp-head .coh-pb{--pbs:16mm;width:16mm;height:16mm;font-size:18pt;border-radius:3mm;}
+.pdp-head .coh-pb{--pbs:16mm;width:16mm;height:16mm;font-size:18pt;border-radius:50%;border:.7mm solid var(--pp);box-shadow:0 0 0 .4mm #fff,0 0 0 .9mm var(--ps);margin:1mm;}
 .pdp-who h1{margin:0;font:800 18pt 'Barlow',sans-serif;color:var(--pa);} .pdp-who div{font-size:9pt;display:flex;align-items:center;gap:2mm;} .pdp-crest{width:7mm;height:7mm;object-fit:contain;}
 .pdp-meta{display:flex;gap:5mm;} .pdp-meta div{display:flex;flex-direction:column;} .pdp-meta span{font:700 6pt 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:#666;} .pdp-meta b{font-size:8.5pt;}
 .pdp-stripe{position:absolute;left:0;right:0;bottom:0;height:1.2mm;} .pdp-stripe i{box-shadow:inset 0 0 0 .2mm rgba(0,0,0,.15);}
@@ -1099,7 +1146,7 @@ const PD_CSS=`
 .pdp-card{border:1px solid #d4d7d4;border-radius:2mm;padding:1.5mm 2mm;min-width:0;overflow:hidden;break-inside:avoid;background:#fff;}
 .pdp-card h4,.pdp-card .td-ct{margin:0 0 1mm;font:800 7.5pt 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--pa);}
 .pdp-card .tt-card{background:transparent;border:0;padding:0;border-radius:0;}
-.pdp-card .pd-radar{max-width:100%;} .pdp-card .pd-trend{min-width:0 !important;width:100%;} .pd-rl{fill:#141414;} .pd-rg{stroke:#cfd2cf;} .pd-tg{stroke:#e3e5e3;}
+.pdp-card .pd-radar{max-width:100%;} .pdp-card .pd-trend{min-width:0 !important;width:100%;} #pdPrint .pd-rl{fill:#141414;} #pdPrint .pd-rv{fill:#555;} #pdPrint .pd-rg{stroke:#dfe2df;} #pdPrint .pd-tg{stroke:#eef0ee;}
 .pdp-card .pd-score{grid-template-columns:minmax(0,1fr);gap:2mm;align-items:start;} .pdp-card .pd-srows{gap:1.6mm;} .pdp-card .pd-srh{font-size:7.5pt;gap:1.5mm;} .pdp-card .pd-srh span{color:#3a3a3a;} .pdp-card .pd-srh small{color:#555;}
 .pdp-card .pd-sbt{height:2.2mm;background:#e6e8e6;margin-top:.6mm;} .pdp-card .pd-sdot{width:2.4mm;height:2.4mm;} .pdp-card .pd-ring{width:30mm;height:30mm;justify-self:center;margin-top:2mm;} .pdp-card .pd-rgb{stroke:#e3e5e3;} .pdp-card .pd-rn{fill:#141414;}
 .pdp-maps .py-maps{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:1.5mm;} .pdp-maps .py-map{grid-column:auto !important;min-width:0;} .pdp-maps .tt-pitch{width:100%;height:auto;max-height:48mm;display:block;} .pdp-maps .py-map h3{font-size:6.5pt;margin:0;} .pdp-maps .py-maph{display:flex;justify-content:space-between;gap:1mm;font-size:6pt;} .pdp-maps .py-nomap{min-height:0;height:auto;padding:2mm;font-size:6.5pt;}
