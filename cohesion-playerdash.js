@@ -30,14 +30,18 @@ function pdRangeGames(list, r){
   if(r.kind==='season') return L.filter(g=>pdSeasonOf(g)===r.season);
   if(r.kind==='comp') return L.filter(g=>pdSeasonOf(g)===r.season&&String(g.competition||'').trim()===r.comp);
   if(r.kind==='game') return L.filter(g=>g.id===r.gid);
+  if(r.kind==='opp') return L.filter(g=>pdIsOpp(g, r.opp));   // AGAINST THE OPPOSITION: every uploaded game v that team
   return [];
 }
+function pdIsOpp(g, opp){ const o=String(opp||'').toUpperCase().trim(); return !!o&&(ssUC(g.homeTeam)===o||ssUC(g.awayTeam)===o); }
+// the opponents of team T in its games (most games first, then by name)
+function pdOpps(list, T){ const c={}; (list||[]).forEach(g=>{ const o=ssUC(g.homeTeam)===T?ssUC(g.awayTeam):ssUC(g.homeTeam); if(o) c[o]=(c[o]||0)+1; }); return Object.keys(c).sort((a,b)=>c[b]-c[a]||a.localeCompare(b)); }
 // the same kind of range in the previous season: {games, season, reason}
 function pdPrevRange(list, r, games){
   const cur=(games||[]).map(pdSeasonOf).filter(Boolean)[0]||(r&&r.season)||'';
   if(!/^\d{4}$/.test(cur)) return {games:[], season:'', reason:'the season of these games is not known'};
   // a single game: against the player's OWN average per game over that game's season (savg)
-  if(r.kind==='game'){ const S=(list||[]).filter(g=>pdSeasonOf(g)===cur); return {games:S, season:cur, savg:true, reason:S.length?'':'no '+cur+' games'}; }
+  if(r.kind==='game'||r.kind==='opp'){ const S=(list||[]).filter(g=>pdSeasonOf(g)===cur); return {games:S, season:cur, savg:true, reason:S.length?'':'no '+cur+' games'}; }   // v an opponent: his own average over the season of the latest game v them
   const prev=String(+cur-1), P=(list||[]).filter(g=>pdSeasonOf(g)===prev);
   let out=[];
   if(r.kind==='last5') out=P.slice(0,5); else if(r.kind==='last10') out=P.slice(0,10);
@@ -55,6 +59,7 @@ function pdRangeTxt(r, games){
   if(r.kind==='season') return r.season+' season · '+gl;
   if(r.kind==='comp') return r.season+' '+r.comp+' · '+gl;
   if(r.kind==='game'){ const g=(games||[])[0]; return g?(g.title||'')+' · '+[g.competition, g.round].filter(Boolean).join(' '):'No game'; }
+  if(r.kind==='opp') return 'v '+titleCase(r.opp)+' · '+gl+(games&&games.length?' ('+pdSeasons(games).slice().reverse().join('–')+')':'');
   return gl;
 }
 // the team's colours: COHESION's stored palette (crests/index.js COHESION_TEAM_COLOURS — cohTeamColourDefault's source) or the
@@ -331,25 +336,27 @@ function pdMapsHTML(S, M, V){
 // SHOOTING BY DISTANCE on the dashboard (the shared pyBandsHTML / cohesion-shotbands.js): the player's shots over the range;
 // the comparison column follows the toggle — vs squad: the team's % in the same band over the same games; vs previous
 // season / season average: his own % in that range
-function pdBandsHTML(S, M, V){
+function pdBandsHTML(S, M, V, print){
   if(!V||typeof pyBandsHTML!=='function') return '';
   const mine=S.R.shots.filter(s=>s.pk===V.key);
   let cmp={label:titleCase(S.T)+' %', what:'the whole team (same games)', shots:S.R.shots};
   if(V.mode!=='squad'&&V.P&&V.P.S&&V.prow) cmp={label:(V.P.savg?'His '+V.P.season+' %':'His '+V.P.season+' %'), what:V.P.savg?'his own '+V.P.season+' season':'his own '+V.P.season+' range', shots:V.P.S.R.shots.filter(s=>s.pk===V.key)};
-  return pyBandsHTML(mine, cmp, {gameOf:S.R.gameOf});
+  return pyBandsHTML(mine, cmp, {gameOf:S.R.gameOf, watch:print?null:(k, lab, list)=>pdW('band:'+k, 'pshot', list, list.length+' · '+lab)});
 }
 function pdMapsOnly(S, M){
   return pyMapsHTML(S.R, M.V, M.F).replace(' The 1-point, 2-point and Goal chips filter by the tagged attempt type (a shot with no attempt type then drops out); a marker’s', ' A marker’s');   // no chips on this tab
 }
 function pdCtlHTML(V){
-  const r=V.range, kinds=[['last5','Last 5'],['last10','Last 10'],['season','Season'],['comp','Competition'],['game','Game']];
+  const r=V.range, kinds=[['last5','Last 5'],['last10','Last 10'],['season','Season'],['comp','Competition'],['game','Game'],['opp','v Opponent']];
   const seasons=pdSeasons(V.list), comps=pdComps(V.list, r.season), sel=(id, opts, cur, lab)=>`<label class="pd-f"><span>${lab}</span><select id="${id}">${opts.map(o=>`<option value="${ssEsc(o[0])}"${o[0]===cur?' selected':''}>${ssEsc(o[1])}</option>`).join('')}</select></label>`;
   const players=V.squad.map(p=>[p.key, p.name]);
   let h=`<div class="pd-ctl">${sel('pdPlayer', players, V.key, 'PLAYER')}<div class="pd-f"><span>RANGE</span><div class="seg" id="pdKind" role="group" aria-label="Range">${kinds.map(k=>`<button type="button" data-pdkind="${k[0]}" class="${r.kind===k[0]?'on':''}" aria-pressed="${r.kind===k[0]}">${k[1]}</button>`).join('')}</div></div>`;
   if(r.kind==='season'||r.kind==='comp') h+=sel('pdSeason', seasons.map(s=>[s,s]), r.season, 'SEASON');
   if(r.kind==='comp') h+=sel('pdComp', comps.map(c=>[c,c]), r.comp, 'COMPETITION');
   if(r.kind==='game') h+=sel('pdGame', V.list.map(g=>[g.id, [pdSeasonOf(g), pdCompShort(g.competition), g.round, 'v '+ovMatch(g,null,null,V.T).opp].filter(Boolean).join(' · ')]), r.gid, 'GAME');
-  h+=`<div class="pd-f"><span>COMPARE</span><div class="seg" id="pdMode" role="group" aria-label="Compare">${[['prev',r.kind==='game'?'vs season average':'vs previous season'],['squad','vs squad average']].map(m=>`<button type="button" data-pdmode="${m[0]}" class="${V.mode===m[0]?'on':''}" aria-pressed="${V.mode===m[0]}">${m[1]}</button>`).join('')}</div></div></div>`;
+  if(r.kind==='opp') h+=sel('pdOpp', pdOpps(V.list, V.T).map(o=>[o, 'v '+titleCase(o)+' ('+V.list.filter(g=>pdIsOpp(g,o)).length+')']), r.opp, 'OPPONENT');
+  h+=`<div class="pd-f pd-fprint"><span>&nbsp;</span><button type="button" class="act" data-pdprint="1" title="Lay this dashboard out on landscape A4 and open the print dialog (Save as PDF)">Print / Save PDF</button></div>`;
+  h+=`<div class="pd-f"><span>COMPARE</span><div class="seg" id="pdMode" role="group" aria-label="Compare">${[['prev',r.kind==='game'||r.kind==='opp'?'vs season average':'vs previous season'],['squad','vs squad average']].map(m=>`<button type="button" data-pdmode="${m[0]}" class="${V.mode===m[0]?'on':''}" aria-pressed="${V.mode===m[0]}">${m[1]}</button>`).join('')}</div></div></div>`;
   return h;
 }
 function pdHTML(V){
@@ -359,7 +366,10 @@ function pdHTML(V){
   h+=pdHeadHTML(V);
   if(!row) h+=`<div class="tt-card tt-empty">n/a — ${ssEsc(V.name||'this player')} is not named on any ${ssEsc(V.T)} event in this range (no minutes and no tagged event).</div>`;
   // a single game: Points per game would repeat Total points, so it is left out
-  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
+  const myKo=S.R.kos.filter(k=>k.team===S.T&&k.who&&k.who.team===S.T&&k.who.key===V.key), myShots=S.R.shots.filter(s=>s.pk===V.key);
+  const gw={sc:pdW('tile:shots', 'pshot', myShots, myShots.length+' shots'), pm:pdW('tile:ko', 'pko', myKo, myKo.length+' kickout targets')};
+  if(V.range.kind==='opp') h=h.replace('<div class="pd-range"><span>RANGE</span>', '<div class="pd-range"><span>RANGE</span>'+pdW('opp', 'pshot', myShots, 'v '+titleCase(V.range.opp)+' · '+myShots.length+' shots'));
+  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}${gw[g]?' '+gw[g]:''}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
   const Rd=pdRadar(S, V.key), tk=V.trendK, trend=V.trend;
   h+=`<div class="pd-panels"><div class="tt-card pd-p pd-p1"><h4 class="td-ct">PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(Rd, col, row.name):'<div class="tt-empty">n/a</div>'}`
     +`<div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>${ssEsc(row?row.name:'Player')}</span><span><i class="sq"></i>Team average</span></div>`
@@ -368,15 +378,156 @@ function pdHTML(V){
     +`<div class="dnote">${ssEsc((V.range.kind==='game'?'The '+(V.P&&V.P.season||'')+' season around the selected game (ringed). ':'Oldest → newest across the range. ')+'“–” = not named on any '+S.T+' event in that game; a game without the data shows no point.')}</div></div>`
     +`<div class="tt-card pd-p pd-p3"><h4 class="td-ct">PLAYER V SQUAD</h4><div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>Player</span><span><i class="sq"></i>Squad avg</span></div>${pdBarsHTML(S, row, col, V.range.kind==='game')}<div class="dnote">${V.range.kind==='game'?'This game: his figures are the tiles above; the number is the squad average in this game.':'Per game.'} Squad average as the Player Profile: the mean over the squad players who have the figure. Hover an n/a row for the reason.</div></div>`
     +`<div class="tt-card pd-p pd-p4"><h4 class="td-ct">SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
-    +`<div class="tt-card pd-p pd-p5 pd-maps"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4>${pdMapsHTML(S, V.map, V)}</div></div>`;
+    +'</div>'
+    +pdAreasHTML(V);
   const naList=[...new Set(PD_KPIS.filter(d=>S.na[d.k]).map(d=>d.l+': '+S.na[d.k]))];
   h+=`<div class="dnote pd-foot">${ssEsc('Totals are the Players tab’s for the same games (its players table: shots, scores, assists, xP; its kickout lists: targets named on '+S.T+'’s own kickouts). Games = games he is named on an event'+(S.F.sheetGames?', or has minutes on a team sheet':'')+'. ARROWS — what is compared: counts (scores, shots, assists, kickouts, turnovers, fouls, cards) PER GAME; rates (Shooting %, Points per game, Finishing v xP) as they are; Games and Minutes as TOTALS. Against: '+(V.mode==='squad'?'the squad average (the Player Profile’s: the mean over the squad players who have the figure)':V.P&&V.P.savg?'his own average per game over the '+V.P.season+' season ('+V.P.games.length+' games; Minutes: this game against his minutes per game; Games: not compared)':'his own figures in the same kind of range in the previous season ('+(V.P&&V.P.games.length?V.P.season+': '+V.P.games.length+' game'+(V.P.games.length===1?'':'s'):'n/a — '+(V.P?V.P.reason:''))+')')+'. Green = better by more than 3%, red = worse by more than 3% (fewer is better for turnovers lost, fouls and cards), grey within 3%. Score assists = his assists on scores; shot assists = every shot he is named as the assist on. Goal attempts = shots tagged Goal Attempt.'+(naList.length?' N/A in this range — '+naList.join(' · ')+'.':''))}</div>`;
   return h;
 }
 
+// ═════ the SHOOTING / BUILD-UP / GAME IMPACT areas — the Players tab's and the PLAYER PROFILE's own code, over the range ═════
+// SHOT PRESSURE: conversion under Low / Medium / High (Shot Pressure tag; pfPressure: shots that also carry a Shot Side tag, as
+// the Pressure Rating) v the team's over the same games, and the Players tab's side × pressure grid (pyPrHTML, its hover cards)
+function pdPressureHTML(S, V, print){
+  const mine=S.R.shots.filter(s=>s.pk===V.key), Pm=pfPressure(mine), Pt=pfPressure(S.R.shots);
+  let h='<div class="tt-card pd-pr"><h4 class="td-ct">SHOT PRESSURE</h4>';
+  if(!mine.length) return h+'<div class="tt-empty">No shots.</div></div>';
+  if(!Pm.tagged) return h+`<div class="tt-empty">${ssEsc('n/a — none of his '+mine.length+' shots carries both a Shot Pressure and a Shot Side tag.')}</div></div>`;
+  h+=`<table class="tt-ztab pd-dt"><thead><tr><th scope="col">PRESSURE</th><th scope="col">SHOTS</th><th scope="col">SCORES</th><th scope="col">HIS CONV.</th><th scope="col">${ssEsc(titleCase(S.T))}</th><th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`
+    +PY_LEVELS.map(([l, n])=>{ const a=Pm.lv[l], t=Pt.lv[l], x=pfVs(a.pct, t.pct), list=mine.filter(s=>(s.side==='L'||s.side==='C'||s.side==='R')&&s.pr===l);   // = pyPressure's tagged shots
+      return `<tr data-pr="${l}"><th scope="row">${ssEsc(n)}</th><td>${a.shots}</td><td>${a.scores}</td><td class="${a.pct==null?'na':x.tone}">${ssEsc(pyPct1(a.pct))}</td><td>${ssEsc(pyPct1(t.pct))}</td><td class="py-bw">${pdW('pr:'+l, 'pshot', list, list.length+' under '+n.toLowerCase()+' pressure')}</td></tr>`; }).join('')+'</tbody></table>'
+    +`<div class="dnote">${ssEsc(Pm.tagged+' of his '+Pm.total+' shots carry both tags (the Pressure Rating’s rule); '+titleCase(S.T)+' = the whole team’s conversion over the same games. His % is green more than 3% above it, red more than 3% below.')}</div></div>`;
+  return print?h:h+pyPrHTML(V.map.V.pressure);
+}
+// FREE-TAKING / DEAD BALLS: his dead-ball shots by type (the Analysis dead-ball type: Free, ’45, Mark, Penalty, Sideline) and by
+// distance band (cohesion-shotbands.js)
+const PD_DEAD=[['Free','Frees'],['45','’45s'],['Mark','Marks'],['Penalty','Penalties'],['Sideline','Sidelines'],['Dead ball','Type not tagged']];
+function pdDeadHTML(S, V){
+  const dead=S.R.shots.filter(s=>s.pk===V.key&&s.dead);
+  let h='<div class="tt-card pd-db"><h4 class="td-ct">FREE-TAKING · DEAD BALLS</h4>';
+  if(!dead.length) return h+`<div class="tt-empty">${ssEsc('No dead-ball shots by him in these games.')}</div></div>`;
+  const row=(lab, a, k)=>{ const sc=a.filter(s=>s.v>0), xs=a.filter(s=>s.xp!=null), xp=xs.reduce((x,s)=>x+s.xp,0);
+    return `<tr${k?` data-db="${ssEsc(k)}"`:''}><th scope="row">${ssEsc(lab)}</th><td>${a.length}</td><td>${sc.length}</td><td>${ssEsc(pyPct1(ovPct(sc.length, a.length)))}</td><td>${sc.reduce((x,s)=>x+s.v,0)}</td><td>${xs.length?xp.toFixed(1):'n/a'}</td><td class="py-bw">${pdW('db:'+k, 'pshot', a, a.length+' '+lab.toLowerCase())}</td></tr>`; };
+  const types=PD_DEAD.map(([k,l])=>[l, dead.filter(s=>(s.deadType||'Dead ball')===k), k]).filter(x=>x[1].length);
+  h+=`<table class="tt-ztab pd-dt"><thead><tr><th scope="col">TYPE</th><th scope="col">TAKEN</th><th scope="col">SCORED</th><th scope="col">%</th><th scope="col">PTS</th><th scope="col">xP</th><th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`
+    +types.map(([l,a,k])=>row(l,a,k)).join('')+row('All dead balls', dead, 'all')+'</tbody></table>';
+  const B=typeof cohShotBands==='function'?cohShotBands(dead):null;
+  if(B&&dead.some(s=>s.y!=null)) h+=`<table class="tt-ztab pd-dt"><thead><tr><th scope="col">BY DISTANCE</th><th scope="col">TAKEN</th><th scope="col">SCORED</th><th scope="col">%</th></tr></thead><tbody>`
+    +[['A','A Inside the 20m line'],['B','B 20m line to 45m line'],['C','C Beyond the 45m line']].map(([k,l])=>{ const x=B.rows[k]; return `<tr data-dbb="${k}"><th scope="row">${ssEsc(l)}</th><td>${x.shots}</td><td>${x.scores}</td><td>${ssEsc(pyPct1(x.pct))}</td></tr>`; }).join('')+'</tbody></table>'
+    +(B.unlocated?`<div class="dnote">${ssEsc(B.unlocated+' of them with no location are in no band.')}</div>`:'');
+  else h+='<div class="dnote">By distance: n/a — none of these dead balls has a pitch location (a ’45 alone counts in B).</div>';
+  return h+`<div class="dnote">${ssEsc('Dead-ball type from the Deadball Shot Type tag, else the code / description (the Analysis rule). xP only for the shots the model can rate. A ’45 is band B, a penalty band A.')}</div></div>`;
+}
+function pdAreasHTML(V){
+  const {S}=V, fp=S.F.byKey.get(V.key), bo=pdBundleOf, sq=S.sq.tot;
+  const na=t=>`<div class="tt-card tt-empty">${ssEsc('n/a — '+(V.name||'he')+' is not named on any '+S.T+' event in these games')}</div>`;
+  const mine=S.R.shots.filter(s=>s.pk===V.key);
+  const shooting=`<div class="tt-card pd-maps wide"><div class="pd-ph"><h4 class="td-ct">SHOT MAPS · SHOOTING BY DISTANCE</h4><span class="pd-ws">${pdW('shots', 'pshot', mine, mine.length+' shot'+(mine.length===1?'':'s'))}${pdW('scores', 'pshot', mine.filter(s=>s.v>0), mine.filter(s=>s.v>0).length+' score'+(mine.filter(s=>s.v>0).length===1?'':'s'))}</span></div>${pdMapsHTML(S, V.map, V)}</div>`+pdPressureHTML(S, V)+pdDeadHTML(S, V);
+  const wrap=(card, btns)=>btns?card.replace(/<\/div>$/, `<div class="pd-wrow">${btns}</div></div>`):card;   // the Watch buttons go at the foot of the reused card
+  // assist links: the scores he set up, per team-mate (the card's HE SET UP rows), and every assisted score of his
+  const Lk=fp?pfLinks(S.R, V.key):null, setUp=S.R.shots.filter(s=>s.ak===V.key&&s.v>0&&s.pk);
+  const lnkBtns=Lk?pdW('ast:all', 'pshot', setUp, setUp.length+' score'+(setUp.length===1?'':'s')+' he set up')+Lk.to.map(r=>{ const l=setUp.filter(s=>s.pk===r.key); return pdW('ast:'+r.key, 'pshot', l, 'assists to '+r.name+' ('+l.length+')'); }).join('')
+    +pdW('ast:by', 'pshot', mine.filter(s=>s.ak&&s.v>0), mine.filter(s=>s.ak&&s.v>0).length+' assisted scores of his'):'';
+  const whenBtns=fp?PF_BLOCKS.map((B,i)=>{ const l=mine.filter(s=>s.v>0&&pdBlockOf(s)===i); return pdW('when:'+i, 'pshot', l, B[2]+' min ('+l.length+')'); }).join(''):'';
+  const build=fp?pfSourcesCardHTML(S.F, fp, sq, S.R, bo)+wrap(pfLinksCardHTML(S.F, fp, sq, S.R, bo), lnkBtns):na();
+  const impact=fp?wrap(pfWhenCardHTML(S.F, fp, sq, S.R, bo), whenBtns)+pfOnOffHTML(S.F, fp, sq):na();
+  return `<div class="pd-area" data-area="shooting"><h3>SHOOTING</h3><div class="pd-area-g">${shooting}</div></div>`
+    +`<div class="pd-area" data-area="build"><h3>BUILD-UP</h3><div class="pd-area-g">${build}</div></div>`
+    +`<div class="pd-area" data-area="impact"><h3>GAME IMPACT</h3><div class="pd-area-g">${impact}</div></div>`;
+}
+
+// ═════ ▶ WATCH — the clips behind a figure, back to back across the range's games (Analysis' own clip player: cpOpen /
+// cpList / ttClipOf — the same clip, pre- and post-roll as "Watch clip" and the playlists; a game with no video is skipped
+// and named; "Save all as playlist" = the existing playlists flow). Every button and the player are hidden in print.
+let PD_WQ=new Map();
+function pdW(key, kind, items, label){
+  if(!items||!items.length) return '';
+  PD_WQ.set(key, {kind, items:items.slice(), label});
+  return `<button type="button" class="pd-w" data-pdwatch="${ssEsc(key)}" title="${ssEsc('Watch the '+items.length+' clip'+(items.length===1?'':'s')+' behind this figure, back to back')}">▶ ${ssEsc(label)}</button>`;
+}
+// the queue of a button, in the range's game order (oldest first) and time order within a game → {kind, items, list (playable),
+// skipped:{n, games:['v Galway'…]}}
+function pdWatchQueue(key){
+  const q=PD_WQ.get(key); if(!q||!PD_V) return null;
+  const R=PD_V.S.R, order=new Map(PD_V.S.games.slice().reverse().map((g,i)=>[g.id, i]));
+  const items=q.items.slice().sort((a,b)=>((order.get(a.gid)||0)-(order.get(b.gid)||0))||((a.e&&a.e.driveT||0)-(b.e&&b.e.driveT||0)));
+  const list=cpList(items, R.gameOf, cpClip), noVid=items.filter(s=>!cpClip(s));
+  const games=[...new Set(noVid.map(s=>{ const m=R.gameOf.get(s.gid); return m?'v '+m.opp:s.gid; }))];
+  return {kind:q.kind, label:q.label, items, list, skipped:{n:noVid.length, games}};
+}
+function pdWatchNote(Q){ return Q.skipped.n?Q.skipped.n+' clip'+(Q.skipped.n===1?'':'s')+' skipped: no video for '+Q.skipped.games.join(', '):''; }
+function pdWatch(btn){
+  const Q=pdWatchQueue(btn.dataset.pdwatch); if(!Q) return;
+  const note=pdWatchNote(Q);
+  if(!Q.list.length){ const st=ssEl('pdStatus'); if(st) st.textContent='Nothing to play: '+(note||'no video'); return; }
+  cpOpen(Q.kind, Q.list[0].s, btn, Q.items, {ctx:true, note, queue:true});
+}
+// the scoring 15-minute block of a shot (pfBlocks' rule): 0…4, or -1 with no game clock
+function pdBlockOf(s){
+  const b=pdBundleOf(s.gid); if(!b) return -1;
+  const c=pfClockOf(b.meta, b.events)(s.e), m=c?cohTotalMinutes(b.meta, PF_TAGS[c.p], c.secs):null; if(m==null) return -1;
+  return PF_BLOCKS.findIndex(B=>m>=B[0]&&m<B[1]);
+}
+
+// ═════ PRINT / SAVE PDF — the dashboard laid out for LANDSCAPE A4 (Barry, Oct 2026): page 1 the overview (header, tiles, radar,
+// trend, scoring breakdown, the three shot maps), page 2 the detail (shooting by distance, pressure, free-taking, score sources,
+// assist links, when he scores, on / off). Two pages: the whole dashboard on one page would need type under 6 pt. Built as its
+// own pages (#pdPrint, outside the screen layout, named page "pdland" = A4 landscape), from the same HTML as the screen — the
+// pitch maps stay SVG; no Watch buttons and no controls (the range and the comparison are printed as text); stats only, so no
+// staff-only line; a footer "COHESION Analysis · generated <date> · <data source>". The Panel Print-out keeps portrait A4.
+function pdShortNa(r){ r=String(r||'');
+  if(/none names a/.test(r)) return 'no player named on the rows';
+  if(/pitch location/.test(r)) return 'no shot locations';
+  if(/team sheet/.test(r)) return 'no team sheet';
+  const m=/^no (.+?) rows/.exec(r); if(m) return 'no '+m[1]+' rows';
+  return r.replace(/ in (this game|these \d+ games)/,''); }
+function pdPrintHTML(V){
+  const {S, row, col}=V, today=new Date().toLocaleDateString('en-IE',{day:'numeric', month:'short', year:'numeric'});
+  const src=[...new Set(S.games.map(g=>g.source==='gaelic-insights'||(!g.source&&g.file)?'Gaelic Insights XMLs':g.source?g.source.replace(/\s*\(.*$/,''):'uploaded game files'))].join(' + ');
+  const foot=n=>`<div class="pdp-foot"><span>COHESION Analysis · generated ${ssEsc(today)} · ${ssEsc(S.games.length+' game'+(S.games.length===1?'':'s')+': '+src)}</span><span>${n} / 2</span></div>`;
+  const cmp=V.mode==='squad'?'vs squad average (per game)':V.P&&V.P.savg?'vs his '+V.P.season+' average (per game)':'vs previous season'+(V.P&&V.P.games.length?' ('+V.P.season+', per game)':' — n/a');
+  const name=row?row.name:V.name, crest=typeof cohCrestSrc==='function'?cohCrestSrc(V.T):null, sh=V.sheet;
+  const head=`<div class="pdp-head"><div class="pdp-badge">${cohPlayerBadgeHTML(V.T, name, {cls:'pd-badge', color:col.primary})}</div><div class="pdp-who"><h1>${ssEsc(name)}</h1>`
+    +`<div>${crest?`<img src="${ssEsc(crest)}" alt="" class="pdp-crest">`:''}<b>${ssEsc(titleCase(V.T))}</b> · ${ssEsc(sh&&sh.no!=null&&sh.no!==''?'#'+sh.no:'No. n/a')} · ${ssEsc(sh&&sh.pos?sh.pos:'Position n/a')}</div></div>`
+    +`<div class="pdp-meta"><div><span>RANGE</span><b>${ssEsc(V.rangeTxt)}</b></div><div><span>COMPARED</span><b>${ssEsc(cmp)}</b></div><div><span>PRINTED</span><b>${ssEsc(today)}</b></div></div>${pdStripeHTML(col, 'pdp-stripe')}</div>`;
+  const tiles='<div class="pdp-tiles">'+PD_GROUPS.map(([g,l])=>`<div class="pdp-grp"><h4>${l}</h4><div class="pdp-tg">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
+  const naList=[...new Set(PD_KPIS.filter(d=>S.na[d.k]).map(d=>d.l+' — '+pdShortNa(S.na[d.k])))];
+  const p1=`<section class="pdp-page" data-page="1">${head}${tiles}<div class="pdp-row">`
+    +`<div class="pdp-card"><h4>PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(pdRadar(S, V.key), col, name):'<div class="tt-empty">n/a</div>'}</div>`
+    +`<div class="pdp-card pdp-trend"><h4>PER GAME · ${ssEsc((PD_TREND.find(t=>t[0]===V.trendK)||[])[1]||'')}</h4>${pdTrendSVG(V.trend, V.trendK, col)}</div>`
+    +`<div class="pdp-card"><h4>SCORING BREAKDOWN</h4>${pdScoringHTML(row, S, col)}</div>`
+    +`<div class="pdp-card pdp-maps"><h4>SHOT MAPS</h4>${V.map.V.player?pdMapsOnly(S, V.map):'<div class="tt-empty">n/a</div>'}</div></div>`
+    +`<div class="pdp-note">${ssEsc('Arrows: counts per game, rates as they are, Games / Minutes as totals; green / red = more than 3% better / worse. Radar: 0–100 against the squad’s best. '+(naList.length?'n/a: '+naList.join(' · ')+'.':''))}</div>${foot(1)}</section>`;
+  const fp=S.F.byKey.get(V.key), bo=pdBundleOf, sq=S.sq.tot;
+  const card=(cls, html)=>`<div class="pdp-card ${cls}">${html}</div>`;
+  const p2=`<section class="pdp-page" data-page="2"><div class="pdp-h2">${ssEsc(name+' · '+titleCase(V.T)+' · '+V.rangeTxt)}</div><div class="pdp-grid">`
+    +card('pdp-bands', pdBandsHTML(S, V.map, V, true))
+    +card('', pdPressureHTML(S, V, true))+card('', pdDeadHTML(S, V))
+    +(fp?card('', pfSourcesCardHTML(S.F, fp, sq, S.R, bo))+card('', pfLinksCardHTML(S.F, fp, sq, S.R, bo))+card('', pfWhenCardHTML(S.F, fp, sq, S.R, bo))+card('pdp-oo', pfOnOffHTML(S.F, fp, sq)):card('wide', '<div class="tt-empty">n/a — not named on any '+ssEsc(S.T)+' event in these games</div>'))
+    +`</div><div class="pdp-note">${ssEsc('Bands by depth on the drawn lines (A inside the 20m, B to the 45m, C beyond); a ’45 is B, a penalty A. Pressure: shots tagged with Shot Side + Shot Pressure. Sources: the Overview’s rule. On / off: games with a team sheet, per '+(S.F.basis.unit||'game-length')+' min; under one full game on either side is not ranked.')}</div>${foot(2)}</section>`;
+  return p1+p2;
+}
+// build the print pages and open the browser's print dialog (Save as PDF); pdPrintPrepare alone = the tests' printToPDF
+function pdPrintPrepare(){
+  if(!PD_V) return 0;
+  let host=ssEl('pdPrint'); if(!host){ host=document.createElement('div'); host.id='pdPrint'; document.body.appendChild(host); }
+  const ink=c=>(window.cohTeamInk?window.cohTeamInk(c, {theme:'light', bg:'#ffffff', min:4.5}):c);
+  host.style.setProperty('--pa', ink(PD_V.col.primary)); host.style.setProperty('--pb', ink(PD_V.col.secondary||PD_V.col.primary)); host.style.setProperty('--pp', PD_V.col.primary); host.style.setProperty('--ps', PD_V.col.secondary||PD_V.col.primary);
+  host.innerHTML=pdPrintHTML(Object.assign({}, PD_V, {col:Object.assign({}, PD_V.col, {a:ink(PD_V.col.primary), b:ink(PD_V.col.secondary||PD_V.col.primary)})}));
+  // no Watch button and no control in the print: the Watch cells and their header cells are taken out (not only hidden)
+  host.querySelectorAll('.pd-w, .pd-wrow, td.py-bw, button, select, input').forEach(e=>e.remove());
+  // a comparison that has nothing to compare with (e.g. no previous season uploaded) is said once, in the header — not in every tile
+  if(PD_V.mode!=='squad'&&!(PD_V.P&&PD_V.P.games.length)) host.querySelectorAll('.pd-tc.na').forEach(e=>{ e.textContent=''; });
+  host.querySelectorAll('th').forEach(th=>{ if(th.querySelector('.py-sr')&&th.textContent.trim()==='Watch') th.remove(); });
+  document.body.classList.add('pd-printing');
+  return host.querySelectorAll('.pdp-page').length;
+}
+function pdPrintDone(){ document.body.classList.remove('pd-printing'); }
+function pdPrint(){ pdPrintPrepare(); try{ window.print(); }finally{ pdPrintDone(); } }
+
 // ═════ dashboard wiring ═════
 let PD_TOKEN=0, PD_TIMER=null, PD_V=null, PD_TEAM=null;
-const PD_O={key:null, range:{kind:'season', season:'', comp:'', gid:''}, mode:'prev', trendK:'pts', view:'dash'};
+const PD_O={key:null, range:{kind:'season', season:'', comp:'', gid:'', opp:''}, mode:'prev', trendK:'pts', view:'dash'};
 function pdSchedule(){ if(typeof TAB==='undefined'||TAB!=='player-dash'||!GAMES_READY) return; clearTimeout(PD_TIMER); PD_TIMER=setTimeout(pdRun, 40); }
 function pdBundleOf(id){ return BUNDLES.get(id); }
 // the team sheet entry of the player in the newest game of the range that lists him: {no, pos, game}
@@ -400,6 +551,7 @@ async function pdRun(){
   try{ await pdEnsure(T, my, st); }catch(e){ if(my===PD_TOKEN) st.textContent='Could not load games: '+e.message; return; }
   if(my!==PD_TOKEN) return; st.textContent='';
   if(PD_TEAM!==T){ PD_TEAM=T; PD_O.key=null; PD_O.range.season=''; }
+  pdSyncView();
   if(PD_O.view==='print'){ ppRender(); return; }
   pdRender();
 }
@@ -408,6 +560,7 @@ function pdView(){
   if(!r.season||!seasons.includes(r.season)) r.season=seasons[0]||'';
   const comps=pdComps(list, r.season); if(!comps.includes(r.comp)) r.comp=comps.includes('All-Ireland SFC')?'All-Ireland SFC':comps[0]||'';
   if(!list.some(g=>g.id===r.gid)) r.gid=list[0]?list[0].id:'';
+  { const O=pdOpps(list, T); if(!O.includes(r.opp)){ const g=list[0]; r.opp=g?(ssUC(g.homeTeam)===T?ssUC(g.awayTeam):ssUC(g.homeTeam)):''; } }   // default: the latest opponent
   const games=pdRangeGames(list, r), S=pdSummaries(T, games, pdBundleOf);
   // the player list: everyone in the squad over ALL the team's games; default = the most points in the range
   const all=pdSummaries(T, list, pdBundleOf), squad=all.F.players.slice().sort((a,b)=>a.name.localeCompare(b.name));
@@ -426,31 +579,41 @@ function pdRender(){
   try{ PD_V=pdView(); }catch(e){ console.error('player dashboard', e); body.innerHTML='<div class="soon"><p>Could not build the dashboard: '+ssEsc(e.message)+'</p></div>'; return; }
   pdApplyCol(PD_V.col);
   if(typeof ttHideTip==='function') ttHideTip();
+  PD_WQ=new Map();
   body.innerHTML=pdHTML(PD_V);
   body.querySelectorAll('.pd-scroll').forEach(x=>{ x.scrollLeft=x.scrollWidth; });   // a long trend: the newest games in view
   body.querySelectorAll('svg.tt-locs').forEach(svg=>{ const w=svg.getBoundingClientRect?svg.getBoundingClientRect().width:0; if(!(w>0)) return; const r=ttHitR(w); svg.querySelectorAll('.tt-mx').forEach(c=>c.setAttribute('r', r)); });   // = pyFitHits
 }
 // the shot-map hover / pinned cards on this tab read this view (analysis.html pyTipState)
 function pdTipState(){ return PD_V&&PD_V.map?{R:PD_V.S.R, V:PD_V.map.V}:{R:null, V:null}; }
-function pdSyncView(){ document.querySelectorAll('#pdViews button').forEach(b=>{ const on=b.dataset.pdview===PD_O.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
+// STAFF ONLY (Barry, Oct 2026): the PANEL PRINT-OUT — its tab, the squad picker, the notes, clubs and position labels — is for
+// admins: Analysis' own check (mrIsAdmin: an admin sign-in marker AND the admin role). For anyone else the tab is taken OUT
+// of the page and nothing of the print-out is built, so no note is ever read into their page. (The live version's notes
+// store must check the admin role server-side, as processGame / editEvent do — see the mockup README.)
+function pdIsStaff(){ try{ return typeof mrIsAdmin==='function'&&!!mrIsAdmin(); }catch(_){ return false; } }
+function pdSyncView(){
+  if(!pdIsStaff()){ PD_O.view='dash'; const b=document.querySelector('#pdViews [data-pdview="print"]'); if(b&&b.parentNode) b.parentNode.removeChild(b); const w=ssEl('ppWrap'); if(w) w.innerHTML=''; } document.querySelectorAll('#pdViews button').forEach(b=>{ const on=b.dataset.pdview===PD_O.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
   const d=ssEl('pdBody'), p=ssEl('ppWrap'); if(d) d.hidden=PD_O.view!=='dash'; if(p) p.hidden=PD_O.view!=='print'; }
-function pdSetView(v){ PD_O.view=v==='print'?'print':'dash'; pdSyncView(); if(PD_O.view==='print') ppRender(); else pdRender(); }
+function pdSetView(v){ PD_O.view=v==='print'&&pdIsStaff()?'print':'dash'; pdSyncView(); if(PD_O.view==='print') ppRender(); else pdRender(); }
 function pdInit(){
   const pane=ssEl('pane-player-dash'); if(!pane||!pane.addEventListener) return;
   pane.addEventListener('click', e=>{ const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
     if((x=c('[data-pdview]'))){ pdSetView(x.dataset.pdview); return; }
     if((x=c('[data-pdkind]'))){ PD_O.range.kind=x.dataset.pdkind; pdRender(); return; }
     if((x=c('[data-pdmode]'))){ PD_O.mode=x.dataset.pdmode==='squad'?'squad':'prev'; pdRender(); return; }
+    if((x=c('[data-pdwatch]'))){ pdWatch(x); return; }
+    if((x=c('[data-pdprint]'))){ pdPrint(); return; }
     if(ppClick(e)) return; });
   pane.addEventListener('change', e=>{ const t=e.target; if(!t) return;
     if(t.id==='pdPlayer'){ PD_O.key=t.value; pdRender(); return; }
     if(t.id==='pdSeason'){ PD_O.range.season=t.value; pdRender(); return; }
     if(t.id==='pdComp'){ PD_O.range.comp=t.value; pdRender(); return; }
     if(t.id==='pdGame'){ PD_O.range.gid=t.value; pdRender(); return; }
+    if(t.id==='pdOpp'){ PD_O.range.opp=t.value; pdRender(); return; }
     if(t.id==='pdTrendK'){ PD_O.trendK=t.value; pdRender(); return; }
     ppChange(e); });
   pane.addEventListener('input', e=>ppInput(e));
-  if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('resize', ()=>{ if(PD_O.view==='print') ppFit(); });
+  if(typeof window!=='undefined'&&window.addEventListener){ window.addEventListener('resize', ()=>{ if(PD_O.view==='print') ppFit(); }); window.addEventListener('afterprint', pdPrintDone); }
   pdStyle();
 }
 
@@ -573,12 +736,12 @@ function ppBarHTML(s, T, col, club){
   const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff', fg2=typeof cohInkOn==='function'?cohInkOn(col.tag||col.bar):'#111';
   return `<div class="pp-bar" style="background:${ssEsc(col.bar)};color:${fg}"><div class="pp-no">${s.no}</div><div class="pp-nm"><b>${ssEsc(s.name)}</b><small>${ssEsc(club||'')}</small></div><div class="pp-pos" style="background:${ssEsc(col.tag||col.bar)};color:${fg2}">${ssEsc(ppSlotLabel(s))}</div></div>${col.tertiary?pdStripeHTML(col, 'pp-bedge'):''}`;   // a three-colour county: a thin band edge under the bar
 }
-function ppSeasonTable(T, key, Sf, Sc, P, col){
+function ppSeasonTable(T, key, Sf, Sc, P, col, So){   // So (optional): the OPPONENT RECORD — every uploaded game v P.opp
   const row=(lab, S)=>{ const r=key?S.rows.get(key):null, na=v=>v==null?'n/a':v;
     if(!r) return `<tr><td>${ssEsc(lab)}</td><td colspan="6" class="na">${key?'not named on any '+ssEsc(titleCase(T))+' event':'no data for this name'}</td></tr>`;
     return `<tr><td>${ssEsc(lab)}</td><td>${r.gp}</td><td>${r.min==null?'<span title="no team sheet">n/a</span>':Math.round(r.min)+'\''}</td><td>${r.one}</td><td>${r.two}</td><td>${r.goals}</td><td><b>${na(r.pts)}</b></td></tr>`; };
   return `<table class="pp-st"><thead><tr style="background:${ssEsc(col.bar)};color:${typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff'}"><th>Season</th><th>Games</th><th>Mins</th><th>1-Pts</th><th>2-Pts</th><th>Goals</th><th>Total</th></tr></thead><tbody>`
-    +row('Full '+P.season, Sf)+(Sc?row(pdCompShort(P.comp)+' only', Sc):'')+'</tbody></table>';
+    +row('Full '+P.season, Sf)+(Sc?row(pdCompShort(P.comp)+' only', Sc):'')+(So?row('v '+titleCase(P.opp)+' (all)', So):'')+'</tbody></table>';
 }
 function ppNotesTable(T, s, keeper, note){
   const labs=PP_NOTE_KEYS.map(([k,l])=>[k, k==='style'&&keeper?'Kickout Style':k==='form'?PP.season+' Form':l]);
@@ -598,7 +761,7 @@ function ppPlayerHTML(T, s, ctx, col){
     +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
     +`<button type="button" class="pp-noprint mini" data-ppreset="${ssEsc(key)}" title="Replace this player’s notes with the draft from the figures">Re-draft notes</button></div>`
-    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
+    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col, ctx.So)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
 }
 function ppChainTable(T, s, ctx, col){
   const A=ppChains(ctx.Sf, T, s.name), B=ctx.Sc?ppChains(ctx.Sc, T, s.name):null, cs=pdCompShort(PP.comp);
@@ -622,7 +785,7 @@ function ppCoverHTML(T, ctx, col, list){
     +(crest?`<img class="pp-ccrest" src="${ssEsc(crest)}" alt="${ssEsc(T)} crest">`:`<div class="pp-ccrest pp-c0" style="border-color:${ssEsc(col.tag||'#fff')}">${ssEsc(pdOppShort(T))}</div>`)
     +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div>${pdStripeHTML(col.tertiary?col:{bands:[col.tag||col.bar]}, 'pp-cbands')}`
     +`<dl class="pp-cdl"><dt>Competition</dt><dd>${ssEsc(PP.comp+' '+PP.season)}</dd><dt>Opponent</dt><dd><span class="pp-ed" contenteditable="true" data-cover="opponent" aria-label="Opponent">${ssEsc(PP.cover.opponent||'')}</span></dd><dt>Date</dt><dd><span class="pp-ed" contenteditable="true" data-cover="date" aria-label="Date">${ssEsc(PP.cover.date||'')}</span></dd></dl>`
-    +`<div class="pp-cfoot">${ssEsc('Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'. “n/a” = the files do not carry it.')}</div></div>`;
+    +`<div class="pp-cfoot">${ssEsc('Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'.'+(ctx.So?' Opponent record: the '+ctx.soN+' uploaded game'+(ctx.soN===1?'':'s')+' v '+titleCase(PP.opp)+'.':'')+' “n/a” = the files do not carry it.')}</div></div>`;
 }
 function ppAssistsHTML(T, S, scope){
   const lab=scope==='comp'?PP.comp+' '+PP.season:'Full '+PP.season;
@@ -643,7 +806,7 @@ function ppPagesHTML(T, ctx, col, list){
     else if(p.kind==='gk') h=ppPlayerHTML(T, p.slots[0], ctx, col)+ppChainTable(T, p.slots[0], ctx, col)+ppKoMaps(T, ctx);
     else if(p.kind==='out') h=p.slots.map(s=>ppPlayerHTML(T, s, ctx, col)).join('');
     else h=ppAssistsHTML(T, p.scope==='comp'?ctx.Sc:ctx.Sf, p.scope);
-    return `<div class="pp-page pp-${p.kind}" data-kind="${p.kind}"${p.scope?` data-scope="${p.scope}"`:''}><div class="pp-in">${h}</div><div class="pp-pn">${i+1} / ${pages.length}</div></div>`; }).join('');
+    return `<div class="pp-page pp-${p.kind}" data-kind="${p.kind}"${p.scope?` data-scope="${p.scope}"`:''}><div class="pp-in">${h}</div><div class="pp-pn"><span class="pp-staff">Staff only – not for circulation</span> · ${i+1} / ${pages.length}</div></div>`; }).join('');
 }
 function ppPickerHTML(T, ctx, list, lim){
   const squad=ctx.Sf.F.players.slice().sort((a,b)=>a.name.localeCompare(b.name)), N=Math.max(15, +PP.size||lim.limit);
@@ -651,6 +814,7 @@ function ppPickerHTML(T, ctx, list, lim){
   const seasons=pdSeasons(list), comps=pdComps(list, PP.season), over=Object.keys(PP.slots).filter(n=>+n>lim.limit&&PP.slots[n]&&PP.slots[n].name);
   let h=`<div class="pp-ctl pp-noprint"><label class="pd-f"><span>SEASON</span><select id="ppSeason">${seasons.map(s=>`<option${s===PP.season?' selected':''}>${s}</option>`).join('')}</select></label>`
     +`<label class="pd-f"><span>ONE COMPETITION</span><select id="ppComp">${comps.map(c=>`<option${c===PP.comp?' selected':''}>${ssEsc(c)}</option>`).join('')}</select></label>`
+    +`<label class="pd-f"><span>OPPONENT RECORD</span><select id="ppOpp"><option value="">— none —</option>${pdOpps(list, T).map(o=>`<option value="${ssEsc(o)}"${o===PP.opp?' selected':''}>v ${ssEsc(titleCase(o))} (${list.filter(g=>pdIsOpp(g,o)).length})</option>`).join('')}</select></label>`
     +`<label class="pd-f"><span>PANEL SIZE</span><select id="ppSize">${[26,30,40].map(n=>`<option value="${n}"${n===N?' selected':''}>${n}</option>`).join('')}</select></label>`
     +`<button type="button" class="act primary" data-ppprint="1">Print / Save as PDF</button><button type="button" class="act" data-ppclear="1">Clear the squad</button></div>`
     +`<div class="pp-warn pp-noprint">${ssEsc(PP.comp+' is '+lim.label+': numbers up to '+lim.limit+'.')}${N>lim.limit?' <b>⚠ The panel size ('+N+') is above that limit.</b>':''}${over.length?' <b>⚠ Number'+(over.length===1?' ':'s ')+over.join(', ')+' '+(over.length===1?'is':'are')+' above '+lim.limit+'.</b>':''}</div>`;
@@ -665,13 +829,15 @@ function ppPickerHTML(T, ctx, list, lim){
   return h;
 }
 function ppRender(){
-  const wrap=ssEl('ppWrap'); if(!wrap||!PD_TEAM) return;
+  const wrap=ssEl('ppWrap'); if(!wrap||!PD_TEAM||!pdIsStaff()) return;   // staff only: nothing of the print-out (notes included) for anyone else
   const T=PD_TEAM, list=pdTeamList(T);
   if(PP_TEAM!==T){ PP_TEAM=T; PP=ppLoad(T, list); }
   const seasons=pdSeasons(list); if(!seasons.includes(PP.season)) PP.season=seasons[0]||'';
   const comps=pdComps(list, PP.season); if(!comps.includes(PP.comp)) PP.comp=comps[0]||'';
   const games=pdRangeGames(list, {kind:'season', season:PP.season}), cg=pdRangeGames(list, {kind:'comp', season:PP.season, comp:PP.comp});
-  const ctx={Sf:pdSummaries(T, games, pdBundleOf), Sc:cg.length?pdSummaries(T, cg, pdBundleOf):null}, col=pdColours(T), lim=ppLimit(list, PP.comp);
+  if(PP.opp&&!pdOpps(list, T).includes(PP.opp)) PP.opp='';
+  const og=PP.opp?pdRangeGames(list, {kind:'opp', opp:PP.opp}):[];
+  const ctx={Sf:pdSummaries(T, games, pdBundleOf), Sc:cg.length?pdSummaries(T, cg, pdBundleOf):null, So:og.length?pdSummaries(T, og, pdBundleOf):null, soN:og.length}, col=pdColours(T), lim=ppLimit(list, PP.comp);
   pdApplyCol(col);
   wrap.innerHTML=ppPickerHTML(T, ctx, list, lim)+`<div class="pp-pages" id="ppPages">${ppPagesHTML(T, ctx, col, list)}</div>`;
   ppFit();
@@ -686,6 +852,7 @@ function ppSlotSet(n, v){
   ppSave(); ppRender();
 }
 function ppClick(e){
+  if(!pdIsStaff()) return false;
   const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
   if((x=c('[data-ppprint]'))){ ppFit(); const p=ssEl('ppPages'); if(p) p.style.zoom='1'; try{ window.print(); }finally{ ppFit(); } return true; }
   if((x=c('[data-ppclear]'))){ PP.slots={}; ppSave(); ppRender(); return true; }
@@ -693,10 +860,11 @@ function ppClick(e){
   return false;
 }
 function ppChange(e){
-  const t=e.target; if(!t||!PP) return;
+  const t=e.target; if(!t||!PP||!pdIsStaff()) return;
   if(t.id==='ppSeason'){ PP.season=t.value; ppSave(); ppRender(); return; }
   if(t.id==='ppComp'){ PP.comp=t.value; PP.size=ppLimit(pdTeamList(PD_TEAM), PP.comp).limit; ppSave(); ppRender(); return; }
   if(t.id==='ppSize'){ PP.size=+t.value; ppSave(); ppRender(); return; }
+  if(t.id==='ppOpp'){ PP.opp=t.value; if(PP.opp&&!String(PP.cover.opponent||'').trim()) PP.cover.opponent=titleCase(PP.opp); ppSave(); ppRender(); return; }   // the record v the next opponent: a row in every season table
   if(t.dataset&&t.dataset.ppslot){ ppSlotSet(+t.dataset.ppslot, t.value); return; }
   if(t.dataset&&t.dataset.pppos){ const n=+t.dataset.pppos, v=String(t.value||'').replace(/\s+/g,' ').trim(); PP.slots[n]=Object.assign(PP.slots[n]||{}, {pos:v}); if(!v) delete PP.slots[n].pos; if(!Object.keys(PP.slots[n]).length) delete PP.slots[n]; ppSave(); ppRender(); return; }
   if(t.dataset&&t.dataset.ppline){ const n=+t.dataset.ppline; if(PP.slots[n]){ PP.slots[n].line=t.value; ppSave(); ppRender(); } return; }
@@ -719,7 +887,7 @@ function ppNoteSet(key, field, val){
   if(field==='club'){ document.querySelectorAll('.pp-pl[data-key="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"] .pp-nm small').forEach(x=>{ x.textContent=cur.club; }); }
 }
 function ppInput(e){
-  const t=e.target; if(!t||!t.dataset) return;
+  const t=e.target; if(!t||!t.dataset||!pdIsStaff()) return;
   if(t.dataset.note&&t.dataset.key){ ppNoteSet(t.dataset.key, t.dataset.note, t.innerText.replace(/\n+$/,'')); return; }
   if(t.dataset.cover&&PP){ PP.cover[t.dataset.cover]=t.innerText.trim(); ppSave(); }
 }
@@ -755,8 +923,12 @@ const PD_CSS=`
 .pd-ic{width:20px;height:20px;fill:none;stroke:var(--pa);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
 .pd-tl{font-size:.78rem;color:var(--t2);margin-top:2px;} .pd-tv{font:800 26px/1.1 'Barlow',sans-serif;margin:3px 0;}
 .pd-tc{font:700 .72rem 'Barlow',sans-serif;color:var(--t3);line-height:1.25;overflow-wrap:anywhere;} .pd-tc.pos{color:var(--green);} .pd-tc.neg{color:var(--red);} .pd-tc.mid{color:var(--t2);} .pd-tc.na{font-weight:400;font-size:.66rem;}
-.pd-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);grid-template-areas:'a b c' 'a d c' 'e e e';gap:12px;}
+.pd-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr);grid-template-areas:'a b c' 'a d c';gap:12px;}
 .pd-maps .py-maps{margin-top:4px;}
+.pd-area{margin-top:18px;} .pd-area>h3{margin:0 2px 10px;font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.16em;color:var(--pa);border-bottom:1px solid var(--border);padding-bottom:6px;}
+.pd-area-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;} .pd-area-g>.tt-card{min-width:0;} .pd-area-g .wide{grid-column:1/-1;}
+.pd-area .pf-pat,.pd-area .pf-oo{margin:0;} .pd-area .td-ct{color:var(--pa);}
+.pd-dt{width:100%;} .pd-dt tr.sub th{padding-left:18px;font-weight:400;color:var(--t2);}
 .pd-p1{grid-area:a;} .pd-p2{grid-area:b;} .pd-p3{grid-area:c;} .pd-p4{grid-area:d;} .pd-p5{grid-area:e;}
 .pd-p .td-ct{color:var(--pa);}
 .pd-ph{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;} .pd-ph .td-ct{margin:0;}
@@ -777,9 +949,13 @@ const PD_CSS=`
 .pd-box span{display:block;font-size:.74rem;color:var(--t2);} .pd-box b{font:800 20px 'Barlow',sans-serif;} .pd-box.na b{color:var(--t3);font-size:15px;}
 .pd-bx{flex:none;width:16px;height:22px;border-radius:3px;background:var(--pa);} .pd-bx.yel{background:#f2c200;} .pd-bx.blk{background:#111;border:1px solid #555;} .pd-bx.red{background:#e0303a;} .pd-bx.fouls,.pd-bx.toL{background:#a0a0ae;border-radius:50%;width:18px;height:18px;} .pd-bx.toW,.pd-bx.poss,.pd-bx.tck{border-radius:50%;width:18px;height:18px;}
 .pd-foot{margin:12px 4px 0;}
-@media (max-width:1100px){ .pd-panels{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'a b' 'c d' 'e e';} }
+.pd-w{background:transparent;border:1px solid var(--pa);color:var(--pa);border-radius:999px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;white-space:nowrap;margin:2px 4px 2px 0;}
+.pd-w:hover,.pd-w:focus-visible{background:var(--pa);color:#0b0b10;} .pd-grp h4 .pd-w{margin-left:8px;letter-spacing:0;}
+.pd-wrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;} .pd-ws{display:flex;flex-wrap:wrap;gap:2px;} .py-bw{text-align:right;white-space:nowrap;}
+.pd-range .pd-w{align-self:flex-start;}
+@media (max-width:1100px){ .pd-panels{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'a b' 'c d';} .pd-area-g{grid-template-columns:minmax(0,1fr);} }
 @media (max-width:760px){ .pd-head{grid-template-columns:auto minmax(0,1fr);} .pd-range{grid-column:1/-1;max-width:none;} .pd-who h2{font-size:28px;} .pd-photo .coh-pb{--pbs:76px;width:76px;height:76px;font-size:26px;}
-  .pd-groups{grid-template-columns:minmax(0,1fr);} .pd-panels{grid-template-columns:minmax(0,1fr);grid-template-areas:'a' 'b' 'c' 'd' 'e';} .pd-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;} .pd-sbar{width:100%;}
+  .pd-groups{grid-template-columns:minmax(0,1fr);} .pd-panels{grid-template-columns:minmax(0,1fr);grid-template-areas:'a' 'b' 'c' 'd';} .pd-tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;} .pd-sbar{width:100%;}
   .pd-f .seg button{padding:9px 8px;} .pd-f select{width:100%;} .pd-f{flex:1 1 140px;} }
 /* ── PANEL PRINT-OUT ── */
 .pp-warn{font-size:.82rem;color:var(--t2);margin:-6px 4px 10px;} .pp-warn b{color:var(--amber);}
@@ -791,7 +967,7 @@ const PD_CSS=`
 .pp-pages{display:flex;flex-direction:column;align-items:center;gap:18px;transform-origin:top left;}
 .pp-page{width:210mm;height:297mm;background:#fff;color:#161616;position:relative;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);font-family:'Barlow',Arial,sans-serif;}
 .pp-in{padding:14mm 12mm 12mm;height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:5mm;}
-.pp-pn{position:absolute;right:10mm;bottom:6mm;font-size:9px;color:#888;}
+.pp-pn{position:absolute;right:10mm;bottom:6mm;font-size:9px;color:#888;} .pp-staff{font-weight:700;color:#8b1a1a;letter-spacing:.02em;}
 .pp-bar{display:grid;grid-template-columns:22mm minmax(0,1fr) 58mm;min-height:13mm;align-items:stretch;}
 .pp-no{display:grid;place-items:center;font:800 15px 'Barlow',sans-serif;border-right:1px solid rgba(255,255,255,.25);} .pp-nm{padding:2mm 4mm;display:flex;flex-direction:column;justify-content:center;} .pp-nm b{font:800 16px 'Barlow',sans-serif;} .pp-nm small{font-size:10px;opacity:.85;min-height:12px;}
 .pp-pos{display:grid;place-items:center;font:700 13px 'Barlow',sans-serif;text-align:center;padding:0 3mm;}
@@ -821,11 +997,52 @@ const PD_CSS=`
 .pp-cdl{display:grid;grid-template-columns:40mm minmax(0,1fr);gap:4mm 6mm;padding:14mm 16mm;font-size:17px;margin:0;} .pp-cdl dt{font-weight:700;color:#555;} .pp-cdl dd{margin:0;min-height:7mm;border-bottom:1px solid #ddd;}
 .pp-cdl .pp-ed{font-size:inherit;display:block;min-height:7mm;}
 .pp-cfoot{position:absolute;left:16mm;right:16mm;bottom:14mm;font-size:10px;color:#666;}
+/* ── the dashboard's LANDSCAPE print (#pdPrint) ── */
+#pdPrint{display:none;}
+@page pdland{size:A4 landscape;margin:0;}
+#pdPrint{--panel:#ffffff;--card:#f5f6f5;--border:#d4d7d4;--t1:#141414;--t2:#3a3a3a;--t3:#5c5c5c;--accent:var(--pa);font-family:'Barlow',Arial,sans-serif;color:#141414;}
+.pdp-page{page:pdland;width:297mm;height:210mm;box-sizing:border-box;padding:7mm 8mm 9mm;position:relative;overflow:hidden;background:#fff;break-after:page;page-break-after:always;display:flex;flex-direction:column;gap:2.4mm;font-size:7.5pt;}
+.pdp-page:last-child{break-after:auto;page-break-after:auto;}
+.pdp-page *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.pdp-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4mm;align-items:center;position:relative;padding-bottom:2.2mm;}
+.pdp-head .coh-pb{--pbs:16mm;width:16mm;height:16mm;font-size:18pt;border-radius:3mm;}
+.pdp-who h1{margin:0;font:800 18pt 'Barlow',sans-serif;color:var(--pa);} .pdp-who div{font-size:9pt;display:flex;align-items:center;gap:2mm;} .pdp-crest{width:7mm;height:7mm;object-fit:contain;}
+.pdp-meta{display:flex;gap:5mm;} .pdp-meta div{display:flex;flex-direction:column;} .pdp-meta span{font:700 6pt 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:#666;} .pdp-meta b{font-size:8.5pt;}
+.pdp-stripe{position:absolute;left:0;right:0;bottom:0;height:1.2mm;} .pdp-stripe i{box-shadow:inset 0 0 0 .2mm rgba(0,0,0,.15);}
+.pdp-tiles{display:grid;grid-template-columns:1.7fr 1.3fr 1fr 1.3fr;gap:2mm;align-items:start;}
+.pdp-grp{border:1px solid #d4d7d4;border-radius:2mm;padding:1.2mm 1.5mm;break-inside:avoid;} .pdp-grp h4{margin:0 0 1mm;font:800 7pt 'Barlow Condensed',sans-serif;letter-spacing:.12em;color:var(--pa);}
+.pdp-tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(17mm,1fr));gap:1mm;}
+.pdp-tg .pd-tile{padding:.8mm .6mm;border-radius:1.2mm;background:#f5f6f5;border:1px solid #e1e4e1;} .pdp-tg .pd-ic{display:none;}
+.pdp-tg .pd-tl{font-size:6.3pt;color:#3a3a3a;margin:0;} .pdp-tg .pd-tv{font-size:11pt;margin:.2mm 0;color:#141414;} .pdp-tg .pd-tc{font-size:6pt;} .pdp-tg .pd-tile.na{opacity:1;} .pdp-tg .pd-tile.na .pd-tc{display:none;}
+.pdp-tg .pd-tc.pos{color:#157a35;} .pdp-tg .pd-tc.neg{color:#b42318;}
+.pdp-row{display:grid;grid-template-columns:60mm minmax(0,1fr) 44mm 98mm;gap:2mm;height:74mm;flex:none;} .pdp-row .pd-radar{overflow:visible;}
+.pdp-card{border:1px solid #d4d7d4;border-radius:2mm;padding:1.5mm 2mm;min-width:0;overflow:hidden;break-inside:avoid;background:#fff;}
+.pdp-card h4,.pdp-card .td-ct{margin:0 0 1mm;font:800 7.5pt 'Barlow Condensed',sans-serif;letter-spacing:.1em;color:var(--pa);}
+.pdp-card .tt-card{background:transparent;border:0;padding:0;border-radius:0;}
+.pdp-card .pd-radar{max-width:100%;} .pdp-card .pd-trend{min-width:0 !important;width:100%;} .pd-rl{fill:#141414;} .pd-rg{stroke:#cfd2cf;} .pd-tg{stroke:#e3e5e3;}
+.pdp-card .pd-score{grid-template-columns:minmax(0,1fr);justify-items:center;gap:1mm;} .pdp-card .pd-sbar{height:10mm;width:100%;} .pdp-card .pd-ring{width:22mm;height:22mm;} .pdp-card .pd-rgb{stroke:#e3e5e3;} .pdp-card .pd-rn{fill:#141414;}
+.pdp-maps .py-maps{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:1.5mm;} .pdp-maps .py-map{grid-column:auto !important;min-width:0;} .pdp-maps .tt-pitch{width:100%;height:auto;max-height:48mm;display:block;} .pdp-maps .py-map h3{font-size:6.5pt;margin:0;} .pdp-maps .py-maph{display:flex;justify-content:space-between;gap:1mm;font-size:6pt;} .pdp-maps .py-nomap{min-height:0;height:auto;padding:2mm;font-size:6.5pt;}
+.pdp-maps .tt-key{font-size:6pt;gap:1.5mm;flex-wrap:wrap;}
+#pdPrint .dnote,#pdPrint .pd-w,#pdPrint .pd-wrow,#pdPrint .py-bw,#pdPrint .py-misc small,#pdPrint .pd-sleg{display:none !important;}
+.pdp-note{font-size:6pt;color:#555;line-height:1.3;}
+.pdp-foot{position:absolute;left:8mm;right:8mm;bottom:3.5mm;display:flex;justify-content:space-between;font-size:6pt;color:#777;}
+.pdp-h2{font:800 10pt 'Barlow',sans-serif;color:var(--pa);border-bottom:1.2mm solid var(--pp);padding-bottom:1mm;}
+.pdp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2mm;flex:1 1 auto;min-height:0;align-content:start;}
+.pdp-grid .pdp-bands{grid-column:span 2;} .pdp-grid .wide{grid-column:1/-1;}
+#pdPrint table{width:100%;border-collapse:collapse;font-size:7pt;} #pdPrint th,#pdPrint td{padding:.5mm 1mm;border-bottom:1px solid #e3e5e3;color:#141414;} #pdPrint thead th{font-size:6.3pt;color:#555;}
+#pdPrint .py-bt,#pdPrint table{min-width:0 !important;} #pdPrint .pdp-oo{grid-column:span 2;} #pdPrint .py-bb{display:none;} #pdPrint .py-misc{background:#fff8e6;border-color:#e0b860;color:#5a4410;padding:1mm 2mm;font-size:6.5pt;margin:1mm 0 0;}
+#pdPrint .py-bh{font-size:7.5pt;margin:0 0 1mm;} #pdPrint .py-scroll{overflow:visible;} #pdPrint .tt-ztab td.pos,#pdPrint .py-bt td.pos{color:#157a35;} #pdPrint .tt-ztab td.neg,#pdPrint .py-bt td.neg{color:#b42318;}
+#pdPrint .pf-ll li{font-size:7pt;} #pdPrint .pf-l2 h5{font-size:6.5pt;margin:0 0 .5mm;} #pdPrint .pf-oohd b{font-size:12pt;} #pdPrint .tt-empty{padding:2mm;font-size:7pt;}
+#pdPrint .pf-pat,#pdPrint .pf-oo{margin:0;}
 @media print{
+  body.pd-printing > *:not(#pdPrint){display:none !important;}
+  body.pd-printing #pdPrint{display:block !important;}
+  body:not(.pd-printing) #pdPrint{display:none !important;}
   @page{size:A4;margin:0;}
   html,body{background:#fff !important;overflow:visible !important;}
   header,.tabs,.filters,#gamesPick,#status,#pdStatus,.pd-views,#pdBody,.pp-noprint,.pane:not(#pane-player-dash){display:none !important;}
   html body[data-tab=player-dash] #ovCtl.only-team{display:none !important;}
+  .pd-w,.pd-wrow,.cp-modal,#mockSources{display:none !important;}
   .wrap{max-width:none !important;margin:0 !important;padding:0 !important;}
   .pp-pages{zoom:1 !important;gap:0;display:block;} .pp-page{box-shadow:none;break-after:page;page-break-after:always;} .pp-page:last-child{break-after:auto;page-break-after:auto;}
   .pp-ed:focus{background:none;box-shadow:none;}

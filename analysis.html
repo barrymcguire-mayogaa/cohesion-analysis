@@ -4967,6 +4967,7 @@ function cpList(items, gameOf, clipOf){   // items with no video are left out, s
   const out=[]; (items||[]).forEach((s,idx)=>{ const clip=clipOf(s); if(clip) out.push({s, clip, idx}); });
   const day=x=>{ const m=gameOf&&gameOf.get(x.s.gid); return (m&&(ssIsoDate(m.date)||String(m.date||'')))||''; };
   return out.sort((a,b)=>{ const da=day(a), db=day(b), ga=String(a.s.gid), gb=String(b.s.gid);
+    if(!da&&!db&&ga!==gb) return a.idx-b.idx;   // two games with no date: the order the caller gave (a queue already in game order)
     return da<db?-1:da>db?1:ga<gb?-1:ga>gb?1:((a.clip.driveT-b.clip.driveT)||(a.idx-b.idx)); });
 }
 // the window's header: who, "v Opponent · date", and the event in a line
@@ -4988,13 +4989,16 @@ function cpInfo(kind, s, R){
 }
 function cpArgs(c){ return {videoId:c.videoId, startSeconds:Math.max(0,Math.floor(c.start||0)), endSeconds:Math.max(1,Math.ceil(c.end||((c.start||0)+8)))}; }   // = playlists.html playClip
 function cpPosTxt(i, n){ return (i+1)+' of '+n; }
-function cpHTML(){
+// a queue across games (the Player Dashboard): " · v Kerry 2H 12:33" after the position
+function cpCtxTxt(s, R){ const m=R&&R.gameOf&&R.gameOf.get(s.gid), c=String((s.e&&s.e.gameTime)||'').trim()||ttClockTxt(s.e); return ' · '+(m?'v '+m.opp:'')+(c&&c!=='n/a'?' '+c:''); }
+function cpHTML(o){   // o.queue (the Player Dashboard's ▶ Watch queues): a "Save all as playlist" button
   return '<div class="mr-mcard cp-card" id="cpCard" tabindex="-1"><div class="mr-mhd"><div class="cp-ht"><b id="cpTitle"></b><span id="cpSub"></span><small id="cpSum"></small></div>'
     +'<button type="button" class="mr-mx" data-cp="close" aria-label="Close clip player">×</button></div>'
     +'<div class="cp-vid" id="cpVid"></div>'
     +'<div class="cp-bar"><div class="cp-nav"><button type="button" class="tt-btn" id="cpPrev" data-cp="prev" aria-label="Previous clip">‹ Previous</button><span class="cp-pos" id="cpPos" aria-live="polite"></span>'
     +'<button type="button" class="tt-btn" id="cpNext" data-cp="next" aria-label="Next clip">Next ›</button></div>'
     +'<button type="button" class="tt-btn" data-cp="replay">Replay clip</button><button type="button" class="tt-btn pri" data-act="pl" aria-haspopup="menu">Add to playlist</button>'
+    +(o&&o.queue?'<button type="button" class="tt-btn" data-cp="saveall" aria-haspopup="menu">Save all '+o.queue+' as playlist</button>':'')
     +'<a class="tt-btn cp-dash" id="cpDash" href="#" target="_blank" rel="opener">Open in dashboard</a></div>'
     +'<div class="cp-msg" id="cpMsg" role="status"></div><div class="tt-plm cp-plm" id="ttPlMenu" aria-live="polite"></div></div>';
 }
@@ -5005,7 +5009,7 @@ function cpShow(i){
   const m=CP; if(!m||!m.list[i]) return;
   m.i=i; TT_JOB=null;                                   // the playlist menu is about the clip on screen
   const cur=m.list[i], I=cpInfo(m.kind, cur.s, cpResOf(m.kind)), set=(id,t)=>{ const x=ssEl(id); if(x) x.textContent=t; };
-  set('cpTitle', I.title); set('cpSub', I.sub); set('cpSum', I.sum); set('cpPos', cpPosTxt(i, m.list.length)); cpSay('');
+  set('cpTitle', I.title); set('cpSub', I.sub); set('cpSum', I.sum); set('cpPos', cpPosTxt(i, m.list.length)+(m.ctx?cpCtxTxt(cur.s, cpResOf(m.kind)):'')); cpSay(m.note||'');
   const pm=ssEl('ttPlMenu'); if(pm) pm.innerHTML='';
   const pv=ssEl('cpPrev'), nx=ssEl('cpNext'), da=ssEl('cpDash');
   if(pv) pv.disabled=i<=0; if(nx) nx.disabled=i>=m.list.length-1;      // no wrapping at the ends
@@ -5088,6 +5092,7 @@ function cpClick(ev){
   if(b){ if(b.disabled) return;
     const a=b.dataset.cp;
     if(a==='close'){ cpClose(); return; }
+    if(a==='saveall'){ TT_JOB={shots:m.list.map(x=>x.s), bulk:true}; ttPlOpen(); return; }   // the whole queue to one playlist (the existing playlists flow)
     if(a==='prev') cpStep(-1); else if(a==='next') cpStep(1); else if(a==='replay') cpReplay();
     if(ev.detail||b.disabled) cpFocusCard();            // a mouse / touch press: Space is play / pause again
     return; }
@@ -5098,7 +5103,9 @@ function cpClick(ev){
 }
 // kind: 'shot' | 'ko' | 'to' (a turnover of the Turnover log); item: the shot / kickout to open at; opener: its marker (or button);
 // items: the list to step through when it is not the map's (the "Landings to check" list)
-function cpOpen(kind, item, opener, items){
+// o (optional, the Player Dashboard's queues): {ctx:true → the game and clock after the position, note → a standing line
+// (e.g. the clips skipped for no video), queue:n → "Save all n as playlist"}
+function cpOpen(kind, item, opener, items, o){
   cpClose();
   kind=kind==='ko'?'ko':kind==='to'?'to':kind==='ms'?'ms':kind==='pshot'?'pshot':kind==='pko'?'pko':'shot';
   const R=cpResOf(kind);
@@ -5107,8 +5114,8 @@ function cpOpen(kind, item, opener, items){
   ttHideTip();
   const el=document.createElement('div');
   el.className='mr-modal cp-modal'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true');
-  el.innerHTML=cpHTML();
-  const m=CP={el, kind, list, i, first:item, opener:opener||null, player:null, making:false, done:false, inert:[]};
+  el.innerHTML=cpHTML(o&&o.queue?{queue:list.length}:null);
+  const m=CP={el, kind, list, i, first:item, opener:opener||null, player:null, making:false, done:false, inert:[], ctx:!!(o&&o.ctx), note:(o&&o.note)||''};
   m.onKey=cpKey;
   document.addEventListener('keydown', m.onKey, true);
   el.addEventListener('click', cpClick);
@@ -7000,10 +7007,11 @@ function pyBandsHTML(mine, cmp, o){
   if(noLoc) return `<div class="py-bands py-bands-na"><h3 class="py-bh">SHOOTING BY DISTANCE</h3><div class="py-bna">${ssEsc(why)}</div></div>`;   // one compact line (not the map placeholder's tall box)
   const xpTxt=x=>x.xp==null?'n/a':x.xp.toFixed(1);
   const max=Math.max(1, ...rows.map(r=>B.rows[r[0]].shots));
+  const inBand=k=>(mine||[]).filter(s=>{ const b=cohShotBandOf(s); return !!b&&(k.length===1?b.charAt(0)===k:b===k); });
   const body=rows.map(r=>{ const x=B.rows[r[0]], c=C?C.rows[r[0]]:null, t=c?pfVs(x.pct, c.pct):null;
     return `<tr class="${r[3]?'bsub':''}" data-band="${r[0]}"><th scope="row"><b>${ssEsc(r[1])}</b> ${ssEsc(r[2])}</th><td>${x.shots}<i class="py-bb" style="width:${(x.shots/max*100).toFixed(1)}%"></i></td><td>${x.scores}</td><td>${pc(x.pct)}</td><td>${x.pts}</td><td>${ssEsc(xpTxt(x))}</td><td>${ssEsc(sp(x.op))}</td><td>${ssEsc(sp(x.db))}</td>`
-      +(C?`<td class="${x.pct==null||c.pct==null?'na':t.tone}">${ssEsc(pc(c.pct))}</td>`:'')+'</tr>'; }).join('');
-  return `<div class="py-bands"><h3 class="py-bh">SHOOTING BY DISTANCE${o.who?' · '+ssEsc(o.who):''}</h3><div class="py-scroll"><table class="tt-ztab py-bt"><thead><tr><th scope="col">BAND</th><th scope="col">SHOTS</th><th scope="col">SCORES</th><th scope="col">CONV %</th><th scope="col">PTS</th><th scope="col">xP</th><th scope="col">OPEN PLAY</th><th scope="col">DEAD BALL</th>${C?`<th scope="col">${ssEsc(cmp.label)}</th>`:''}</tr></thead><tbody>${body}</tbody></table></div>`
+      +(C?`<td class="${x.pct==null||c.pct==null?'na':t.tone}">${ssEsc(pc(c.pct))}</td>`:'')+(o.watch?`<td class="py-bw">${o.watch(r[0], (r[0]==='B'||r[0]==='C'?'band ':'')+r[0]+(r[3]?' '+r[2].replace(/ \(.*$/,''):''), inBand(r[0]))}</td>`:'')+'</tr>'; }).join('');
+  return `<div class="py-bands"><h3 class="py-bh">SHOOTING BY DISTANCE${o.who?' · '+ssEsc(o.who):''}</h3><div class="py-scroll"><table class="tt-ztab py-bt"><thead><tr><th scope="col">BAND</th><th scope="col">SHOTS</th><th scope="col">SCORES</th><th scope="col">CONV %</th><th scope="col">PTS</th><th scope="col">xP</th><th scope="col">OPEN PLAY</th><th scope="col">DEAD BALL</th>${C?`<th scope="col">${ssEsc(cmp.label)}</th>`:''}${o.watch?'<th scope="col"><span class="py-sr">Watch</span></th>':''}</tr></thead><tbody>${body}</tbody></table></div>`
     +pyMisTagHTML(B.misTag, o.gameOf, false)
     +`<div class="dnote">${ssEsc(note+' Open play / dead ball = scores/shots. xP only where the model can rate the shot (n/a otherwise).'+(C?' '+cmp.label+' = '+(cmp.what||'the comparison')+'’s conversion % in the same band; his % is green more than 3% above it, red more than 3% below.':''))}</div></div>`;
 }
@@ -7448,23 +7456,34 @@ function pfSpark(p){
   return `<svg class="pf-spark" style="max-width:${Math.min(420, g.length*28+24)}px" viewBox="0 0 ${W} ${H+12}" role="img" aria-label="${ssEsc('Points per game, oldest to newest: '+g.map(x=>x.pts).join(', '))}" preserveAspectRatio="xMinYMid meet">`
     +g.map((x,i)=>{ const h=x.pts/max*H, cx=i*(W/g.length)+(W/g.length)/2; return `<rect x="${(cx-bw/2).toFixed(1)}" y="${(H-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(x.pts?1.5:0.8, h).toFixed(1)}" rx="1.5" class="${x.pts?'pf-sp':'pf-sp0'}"/><text x="${cx.toFixed(1)}" y="${H+10}" text-anchor="middle" class="pf-spv">${x.pts}</text>`; }).join('')+'</svg>';
 }
-function pfPatternsHTML(F, p, S, R, bundleOf){
+// The four PLAYER PROFILE pattern cards, one function each (the Player Dashboard reuses three of them); pfPatternsHTML = all four
+function pfWhenCardHTML(F, p, S, R, bundleOf){
   const mine=R.shots.filter(s=>s.pk===p.key), team=R.shots;
   // a. when they score
   const Bm=pfBlocks(mine, bundleOf), Bt=pfBlocks(team, bundleOf);
   const blk=`<div class="tt-card pf-pat"><h4 class="td-ct">WHEN THEY SCORE</h4>`+(Bm.scores?`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">MIN</th><th scope="col">SCORES</th><th scope="col">PTS</th><th scope="col">SHARE</th><th scope="col">${ssEsc(F.team.length>10?'TEAM':F.team)}</th></tr></thead><tbody>`
     +Bm.rows.map((r,i)=>{ const t=Bt.rows[i], x=pfVs(r.share, t.share); return `<tr><th scope="row">${ssEsc(r.label)}</th><td>${r.scores}</td><td>${r.pts}</td><td class="${r.share==null?'na':x.tone}">${ssEsc(r.share==null?'n/a':Math.round(r.share)+'%')}</td><td>${ssEsc(t.share==null?'n/a':Math.round(t.share)+'%')}</td></tr>`; }).join('')+'</tbody></table>':'<div class="tt-empty">No scores.</div>')
     +`<div class="dnote">${ssEsc('Scores by the minute of the game (the scoreboard’s clock: 1H from 0, 2H from '+(F.basis.level==='club'?'30':F.basis.level==='county'?'35':'the half’s length')+'; 60+ is the last part of a county game and any extra time). SHARE = his scores in the block ÷ all his scores; '+F.team+' = the team’s share.'+(Bm.noClock?' '+Bm.noClock+' of his scores have no game clock and are left out.':''))}</div></div>`;
+  return blk;
+}
+function pfSourcesCardHTML(F, p, S, R, bundleOf){
   // b. sources
   const So=pfSources(F, p.key, bundleOf, R);
   const src=`<div class="tt-card pf-pat"><h4 class="td-ct">SCORE SOURCES</h4>`+(So.mineTot?`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">SOURCE</th><th scope="col">PTS</th><th scope="col">SHARE</th><th scope="col">TEAM</th></tr></thead><tbody>`
     +So.rows.map(r=>{ const x=pfVs(r.minePct, r.teamPct); return `<tr><th scope="row"><i class="mm-sq" style="background:${ssEsc(r.col)}"></i> ${ssEsc(r.label)}</th><td>${r.mine}</td><td class="${r.minePct==null?'na':x.tone}">${ssEsc(r.minePct==null?'n/a':Math.round(r.minePct)+'%')}</td><td>${ssEsc(r.teamPct==null?'n/a':Math.round(r.teamPct)+'%')}</td></tr>`; }).join('')+'</tbody></table>'
       :`<div class="tt-empty">${ssEsc(So.mineAll?'n/a — none of his '+So.mineAll+' points has a source tag.':'No scores.')}</div>`)
     +`<div class="dnote">${ssEsc('Points by where the possession came from, the rule of the Overview’s score sources (a SCORE SOURCE row, else the shot’s own source label). TEAM = the team’s share of its '+So.teamTot+' sourced points (the Overview figure). '+So.mineTot+' of his '+So.mineAll+' points have a source.'+(So.unpairedTeam?' '+So.unpairedTeam+' team point'+(So.unpairedTeam===1?' is':'s are')+' on a source row that pairs with no shot, so no player has '+(So.unpairedTeam===1?'it':'them')+'.':''))}</div></div>`;
+  return src;
+}
+function pfLinksCardHTML(F, p, S, R, bundleOf){
   // c. assist links
   const Lk=pfLinks(R, p.key), li=(rows, f)=>rows.length?`<ol class="pf-ll">${rows.map(r=>`<li><span>${ssEsc(r.name)}</span>${f(r)}</li>`).join('')}</ol>`:'<div class="pf-lna">None tagged.</div>';
   const lnk=`<div class="tt-card pf-pat"><h4 class="td-ct">ASSIST LINKS</h4><div class="pf-l2"><div><h5>SET HIM UP</h5>${li(Lk.by.rows, r=>`<b>${r.total}</b><small>${ssEsc(r.score)}</small>`)}</div><div><h5>HE SET UP</h5>${li(Lk.to, r=>`<b>${r.scores}</b><small>${r.pts} pts</small>`)}</div></div>`
     +`<div class="dnote">${ssEsc('Set him up: the team-mates named as the assist on his scores ('+Lk.by.tagged+' of his '+Lk.by.total+' shots carry an assist). He set up: the team-mates whose scores name him as the assist ('+Lk.toScores+' scores). Top '+PY_TOP+' each, most scores first.')}</div></div>`;
+  return lnk;
+}
+function pfConsCardHTML(F, p, S, R, bundleOf){
+  const mine=R.shots.filter(s=>s.pk===p.key), team=R.shots;
   // d. consistency + finishing
   const Pm=pfPressure(mine), Pt=pfPressure(team), sc=S.scored, fi=S.fin, xs=pfVs(p.scoredPct, sc.avg), xf=pfVs(p.fin, fi.avg);
   const cons=`<div class="tt-card pf-pat"><h4 class="td-ct">CONSISTENCY + FINISHING</h4>`
@@ -7474,7 +7493,10 @@ function pfPatternsHTML(F, p, S, R, bundleOf){
     +`<table class="tt-ztab pf-pt"><thead><tr><th scope="col">PRESSURE</th><th scope="col">HIS CONV.</th><th scope="col">SHOTS</th><th scope="col">TEAM</th></tr></thead><tbody>`
     +PY_LEVELS.map(([l, n])=>{ const a=Pm.lv[l], t=Pt.lv[l], x=pfVs(a.pct, t.pct); return `<tr><th scope="row">${ssEsc(n)}</th><td class="${a.pct==null?'na':x.tone}">${ssEsc(pyPct1(a.pct))}</td><td>${a.scores}/${a.shots}</td><td>${ssEsc(pyPct1(t.pct))}</td></tr>`; }).join('')+'</tbody></table>'
     +`<div class="dnote">${ssEsc('Scored in = games in which he scored ÷ games played (squad avg '+(sc.avg==null?'n/a':Math.round(sc.avg)+'%')+'). Finishing = his points from shots xP can rate minus their xP; a few dozen shots are needed before it means much. Pressure: conversion by the Shot Pressure tag on shots that also carry a Shot Side tag (as the Pressure Rating) — '+Pm.tagged+' of his '+Pm.total+' shots; TEAM = the whole team’s.')}</div></div>`;
-  return `<div class="pf-pats">${blk}${src}${lnk}${cons}</div>`;
+  return cons;
+}
+function pfPatternsHTML(F, p, S, R, bundleOf){
+  return `<div class="pf-pats">${pfWhenCardHTML(F, p, S, R, bundleOf)}${pfSourcesCardHTML(F, p, S, R, bundleOf)}${pfLinksCardHTML(F, p, S, R, bundleOf)}${pfConsCardHTML(F, p, S, R, bundleOf)}</div>`;
 }
 function pfOnOffHTML(F, p, S){
   const oo=p.oo, u=F.basis.unit?'per '+F.basis.unit:'per game-length';
