@@ -764,11 +764,31 @@ function ppMigrate(){ const T=PPN.team; PPN.offer.forEach(k=>{ const l=ppStore(p
 // a score line "G-P" (P = points value)
 function ppScore(r){ return pyScoreTxt(r.goals, r.one, r.two); }
 // DRAFT NOTES from the figures — every number is a count of the games' own rows. ctx = {S (full season), C (competition), T, key, keeper, comp, season}
+// a goalkeeper's kickouts: HIS (Kickout Taken By = him, the kickout chains table's own rule) and, separately, the team's in
+// the games where no kickout names a kicker (so nothing is counted twice and nothing of another keeper is called his)
+function ppKeeperKos(S, T, name){
+  const own=S.R.kos.filter(k=>k.team===T), kk=pyKey(name||''), tagGames=new Set(own.filter(k=>k.takenBy).map(k=>k.gid));
+  const his=kk?own.filter(k=>k.takenBy&&pyKey(k.takenBy)===kk):[], untagged=own.filter(k=>!tagGames.has(k.gid));
+  return {his, hisGames:new Set(his.map(k=>k.gid)), untagged, untagGames:new Set(untagged.map(k=>k.gid)), named:tagGames.size>0};
+}
+// "N taken, P% won; Short a (p% won); Medium …; Long …" — the chains table's figures (taken, win %), by tkByLen
+function ppKoLenTxt(list){ const L=tkByLen(list); return L.all.n+' taken, '+Math.round(L.all.pct)+'% won'+TK_LENS.filter(l=>L[l[0]].n).map(l=>'; '+l[1]+' '+L[l[0]].n+' ('+Math.round(L[l[0]].pct)+'% won)').join(''); }
+const ppGamesTxt=n=>n+' game'+(n===1?'':'s');
 function ppDraft(ctx){
   const {S, C, T, key}=ctx, r=S.rows.get(key), out={hand:'', style:'', strengths:'', watch:'', form:''};
+  let KK=null;
   if(ctx.keeper){
-    const own=S.R.kos.filter(k=>k.team===T), L=tkByLen(own);
-    if(own.length) out.style=titleCase(T)+' kickouts in '+ctx.season+' (the files do not name the kicker): '+L.all.n+' taken, '+Math.round(L.all.pct)+'% won'+TK_LENS.filter(l=>L[l[0]].n).map(l=>'; '+l[1]+' '+L[l[0]].n+' ('+Math.round(L[l[0]].pct)+'% won)').join('')+'.';
+    KK=ppKeeperKos(S, T, ctx.name);
+    const p=[];
+    if(KK.his.length) p.push('His kickouts (Kickout Taken By) in '+ctx.season+', '+ppGamesTxt(KK.hisGames.size)+': '+ppKoLenTxt(KK.his)+'.');
+    if(KK.untagged.length) p.push((KK.his.length?'In the other ':'In ')+ppGamesTxt(KK.untagGames.size)+(KK.his.length?'':' of '+ctx.season)+', no kicker tagged — all '+titleCase(T)+' kickouts: '+ppKoLenTxt(KK.untagged)+'.');
+    out.style=p.join(' ');
+    // FORM for a keeper is about his kickouts: the last three games he kicked in (his tagged kickouts), or — in a game
+    // with no kicker tagged that he played — the team's, said so
+    const played=new Set(((S.F.byKey.get(key)||{}).games||[]).map(g=>g.gid)), list=S.games.filter(g=>KK.hisGames.has(g.id)||(KK.untagGames.has(g.id)&&played.has(g.id)));
+    const last=list.slice(0, 3).map(g=>{ const m=ovMatch(g, null, null, T), mine=KK.hisGames.has(g.id), l=(mine?KK.his:KK.untagged).filter(k=>k.gid===g.id), w=l.filter(k=>k.won).length;
+      return 'v '+(m?m.opp:'?')+' '+l.length+(mine?'':' '+titleCase(T))+' kickout'+(l.length===1?'':'s')+(mine?'':' (no kicker tagged)')+', '+Math.round(w/l.length*100)+'% won'; });
+    if(list.length) out.form=ppGamesTxt(list.length)+' in '+ctx.season+(r&&r.min!=null?', '+Math.round(r.min)+' minutes':'')+'. Last '+last.length+': '+last.join('; ')+'.';
   }
   if(!r) return out;
   const mine=S.R.shots.filter(s=>s.pk===key), legs=pyLegStats(mine);
@@ -795,7 +815,7 @@ function ppDraft(ctx){
   const games=S.F.byKey.get(key).games.slice(-3).reverse().map(gr=>{ const g=S.games.find(x=>x.id===gr.gid), m=g?ovMatch(g,null,null,T):null, sh=S.R.shots.filter(s=>s.pk===key&&s.gid===gr.gid);
     const o={goals:0, one:0, two:0}; sh.forEach(s=>{ if(s.v>=3) o.goals++; else if(s.v===2) o.two++; else if(s.v>0) o.one++; });
     return 'v '+(m?m.opp:'?')+' '+(sh.length?ppScore(o)+' ('+sh.filter(s=>s.v>0).length+' from '+sh.length+')':'no shot'); });
-  out.form=r.gp+' game'+(r.gp===1?'':'s')+' in '+ctx.season+(r.min!=null?', '+Math.round(r.min)+' minutes':'')+'. Last '+games.length+': '+games.join(', ')+'.';
+  if(!ctx.keeper) out.form=r.gp+' game'+(r.gp===1?'':'s')+' in '+ctx.season+(r.min!=null?', '+Math.round(r.min)+' minutes':'')+'. Last '+games.length+': '+games.join(', ')+'.';
   return out;
 }
 // the kickout chains of the keeper's kickouts by length: {S:{…}, M:{…}, L:{…}} each {taken, won, pct, shots, scores, one, two, goals, value, conv} or null fields n/a
@@ -857,15 +877,17 @@ function ppShotMap(S, key){
   if(!mine.length) return `<div class="pp-map na">Shot map n/a<small>${ssEsc(S.R.shots.some(s=>s.x!=null)?'no located shot of his in these games':'no shot in these games has a pitch location')}</small></div>`;
   return `<div class="pp-map">${ttMapSVG(mine, {view:'loc'})}<small>${mine.length} located shot${mine.length===1?'':'s'} · filled = scored</small></div>`;
 }
+// the notes are the draft when no note field was edited, or every edited field equals the draft
+function ppSameAsDraft(saved, draft){ return PP_NOTE_KEYS.every(([k])=>saved[k]==null||String(saved[k])===String(draft[k]||'')); }
 function ppPlayerHTML(T, s, ctx, col){
   const key=pyKey(s.name), real=ctx.Sf.rows.has(key)?key:null, keeper=ppIsKeeper(s);
-  const saved=ppNotes(T, key)||{}, draft=ppDraft({S:ctx.Sf, C:ctx.Sc, T, key:real, keeper, comp:PP.comp, season:PP.season}), note={};
+  const saved=ppNotes(T, key)||{}, draft=ppDraft({S:ctx.Sf, C:ctx.Sc, T, key:real, keeper, comp:PP.comp, season:PP.season, name:s.name}), note={};
   PP_NOTE_KEYS.forEach(([k])=>{ note[k]=saved[k]!=null?saved[k]:draft[k]; });
-  const sk=Object.assign({}, s, {key});
+  const sk=Object.assign({}, s, {key}), same=ppSameAsDraft(saved, draft);
   return `<section class="pp-pl${keeper?' gk':''}" data-key="${ssEsc(key)}">${ppBarHTML(s, T, col, saved.club||'')}`
     +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
-    +`<button type="button" class="pp-noprint mini" data-ppreset="${ssEsc(key)}" title="Replace this player’s notes with the draft from the figures">Re-draft notes</button></div>`
+    +`<div class="pp-noprint pp-resetw"><button type="button" class="mini" data-ppreset="${ssEsc(key)}" data-name="${ssEsc(s.name)}"${same?' disabled aria-disabled="true" title="Notes already match the figures"':' title="Replace this player’s edited notes with a fresh draft from the figures"'}>Reset to draft</button><span class="pp-redone" role="status" aria-live="polite"></span></div></div>`
     +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col, ctx.So)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
 }
 function ppChainTable(T, s, ctx, col){
@@ -947,7 +969,18 @@ function ppRender(){
   const ctx={Sf:pdSummaries(T, games, pdBundleOf), Sc:cg.length?pdSummaries(T, cg, pdBundleOf):null, So:og.length?pdSummaries(T, og, pdBundleOf):null, soN:og.length}, col=pdColours(T), lim=ppLimit(list, PP.comp);
   pdApplyCol(col);
   wrap.innerHTML=ppPickerHTML(T, ctx, list, lim)+`<div class="pp-pages" id="ppPages">${ppPagesHTML(T, ctx, col, list)}</div>`;
-  ppFit();
+  ppFit(); ppLongCheck();
+}
+// a player's block that no longer fits its half page (two to a page) or a page whose content overflows: warned on the page in
+// the editor (never printed), instead of the print clipping it. Measured as a share of the page, so the editor's zoom does not matter.
+let PP_LONG_T=0;
+function ppLongCheck(){
+  document.querySelectorAll('#ppPages .pp-long').forEach(x=>x.remove());
+  document.querySelectorAll('#ppPages .pp-page').forEach(pg=>{ const inn=pg.querySelector('.pp-in'), H=pg.offsetHeight; if(!inn||!H) return;
+    const over=inn.scrollHeight>inn.clientHeight+1, two=pg.classList.contains('pp-out');
+    pg.querySelectorAll('.pp-pl').forEach(pl=>{ const long=two?pl.offsetHeight>H*132/297+1:over; if(!long&&!over) return;
+      const w=document.createElement('div'); w.className='pp-noprint pp-long'; w.setAttribute('role', 'status');
+      w.textContent=long&&two?'Notes too long for half a page — shorten them so the page prints whole':'Too long for the page — shorten the notes so the page prints whole'; (pl.querySelector('.pp-resetw')||pl).appendChild(w); }); });
 }
 function ppFit(){ const p=ssEl('ppPages'); if(!p||!p.style) return; const w=p.parentNode&&p.parentNode.clientWidth||0; const z=w>0?Math.min(1, w/800):1; p.style.zoom=String(+z.toFixed(3)); }
 function ppSlotSet(n, v){
@@ -963,7 +996,13 @@ function ppClick(e){
   const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
   if((x=c('[data-ppprint]'))){ ppFit(); const p=ssEl('ppPages'); if(p) p.style.zoom='1'; try{ window.print(); }finally{ ppFit(); } return true; }
   if((x=c('[data-ppclear]'))){ PP.slots={}; ppSave(); ppRender(); return true; }
-  if((x=c('[data-ppreset]'))){ const k=x.dataset.ppreset, n=ppNotes(PD_TEAM, k)||{}, fresh={club:n.club||'', name:n.name||ppNameOf(k)}; PPN.notes.set(k, fresh); ppStore(ppNoteKey(PD_TEAM, k), fresh); if(!PPN.pend.notes.includes(k)) PPN.pend.notes.push(k); ppPendSave(); ppSchedule(); ppRender(); return true; }
+  if((x=c('[data-ppreset]'))){ if(x.disabled) return true; const k=x.dataset.ppreset, nm=x.dataset.name||ppNameOf(k)||'this player';
+    if(typeof window.confirm==='function'&&!window.confirm('Replace your edited notes for '+nm+' with a fresh draft from the figures?')) return true;
+    const n=ppNotes(PD_TEAM, k)||{}, fresh={}; Object.keys(n).forEach(f=>{ if(!PP_NOTE_KEYS.some(([q])=>q===f)) fresh[f]=n[f]; }); fresh.club=n.club||''; fresh.name=n.name||ppNameOf(k);   // the club and the other fields stay
+    PPN.notes.set(k, fresh); ppStore(ppNoteKey(PD_TEAM, k), fresh); if(!PPN.pend.notes.includes(k)) PPN.pend.notes.push(k); ppPendSave(); ppSchedule(); ppRender();
+    const sel='[data-ppreset="'+(window.CSS&&CSS.escape?CSS.escape(k):k)+'"]', b=document.querySelector(sel), d=b&&b.parentNode.querySelector('.pp-redone');
+    if(d){ d.textContent='Re-drafted ✓'; setTimeout(()=>{ if(d.isConnected) d.textContent=''; }, 2500); } if(b&&b.focus) b.focus();
+    return true; }
   if((x=c('[data-ppmigrate]'))){ ppMigrate(); return true; }
   if((x=c('[data-ppretry]'))){ if(PPN.state==='error'&&!PPN.pend.notes.length&&!PPN.pend.squad) ppRemoteLoad(PD_TEAM, pdTeamList(PD_TEAM)); else ppFlush(); return true; }
   return false;
@@ -988,7 +1027,7 @@ function ppNoteSet(key, field, val){
     // first edit of this player: keep the other fields as drafted now, so they do not change under him later
     const games=pdRangeGames(pdTeamList(T), {kind:'season', season:PP.season}), cg=pdRangeGames(pdTeamList(T), {kind:'comp', season:PP.season, comp:PP.comp});
     const S=pdSummaries(T, games, pdBundleOf), slot=Object.values(PP.slots).find(s=>s&&pyKey(s.name)===key)||{no:0};
-    const d=ppDraft({S, C:cg.length?pdSummaries(T, cg, pdBundleOf):null, T, key:S.rows.has(key)?key:null, keeper:ppIsKeeper(slot), comp:PP.comp, season:PP.season});
+    const d=ppDraft({S, C:cg.length?pdSummaries(T, cg, pdBundleOf):null, T, key:S.rows.has(key)?key:null, keeper:ppIsKeeper(slot), comp:PP.comp, season:PP.season, name:slot.name||ppNameOf(key)});
     PP_NOTE_KEYS.forEach(([k])=>{ if(cur[k]==null) cur[k]=d[k]; });
   }
   cur[field]=String(val==null?'':val);
@@ -999,7 +1038,9 @@ function ppNoteSet(key, field, val){
 }
 function ppInput(e){
   const t=e.target; if(!t||!t.dataset||!pdIsStaff()) return;
-  if(t.dataset.note&&t.dataset.key){ ppNoteSet(t.dataset.key, t.dataset.note, t.innerText.replace(/\n+$/,'')); return; }
+  if(t.dataset.note&&t.dataset.key){ ppNoteSet(t.dataset.key, t.dataset.note, t.innerText.replace(/\n+$/,''));
+    const b=document.querySelector('[data-ppreset="'+(window.CSS&&CSS.escape?CSS.escape(t.dataset.key):t.dataset.key)+'"]'); if(b&&b.disabled){ b.disabled=false; b.removeAttribute('aria-disabled'); b.title='Replace this player’s edited notes with a fresh draft from the figures'; }
+    clearTimeout(PP_LONG_T); PP_LONG_T=setTimeout(ppLongCheck, 250); return; }
   if(t.dataset.cover&&PP){ PP.cover[t.dataset.cover]=t.innerText.trim(); ppSave(); }
 }
 
@@ -1110,7 +1151,9 @@ const PD_CSS=`
 .pp-nt{margin-top:3mm;} .pp-nt th{width:32mm;text-align:left;vertical-align:middle;border:1px solid #cfd4cf;padding:1.1mm 2mm;font:700 12px 'Barlow',sans-serif;} .pp-nt td{border:1px solid #cfd4cf;padding:1.5mm 2mm;vertical-align:top;} .pp-nt tr:nth-child(even){background:#eef2ee;}
 .pp-ed{min-height:4.5mm;font-size:10px;line-height:1.32;outline:none;white-space:pre-wrap;} .pp-ed:focus{background:#fff8d6;box-shadow:0 0 0 1px #e0c35a;}
 .pp-pl.gk .pp-ed{font-size:10.5px;}
-.pp-out .pp-pl{height:132mm;overflow:hidden;} .pp-out .pp-pl+.pp-pl{margin-top:4mm;}
+.pp-out .pp-pl{min-height:132mm;} .pp-pl{position:relative;flex-shrink:0;}
+.pp-resetw{display:flex;flex-direction:column;align-items:center;gap:1mm;} .pp-resetw .mini[disabled]{opacity:.45;cursor:not-allowed;} .pp-redone{font:700 10px 'Barlow',sans-serif;color:#157a35;min-height:12px;}
+.pp-long{max-width:42mm;text-align:center;background:#fff4d6;border:1px solid #e0b860;color:#6a4b00;border-radius:4px;padding:1mm 2mm;font:700 10px 'Barlow',sans-serif;} .pp-out .pp-pl+.pp-pl{margin-top:4mm;}
 .pp-map{width:42mm;text-align:center;font-size:9px;color:#555;} .pp-map .tt-pitch{width:100%;height:auto;display:block;border-radius:3px;} .pp-map small{display:block;margin-top:1mm;}
 .pp-map.na{border:1px dashed #bbb;border-radius:4px;padding:5mm 2mm;color:#666;font-size:10px;font-weight:700;} .pp-map.na small{font-weight:400;}
 .pp-club{display:flex;flex-direction:column;font-size:10px;color:#444;width:42mm;} .pp-club input{border:1px solid #bbb;border-radius:4px;padding:1mm 2mm;font-size:11px;}
