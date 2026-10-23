@@ -646,6 +646,17 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 }
 .tk-pitchbox{max-width:540px;}
 .tk-warn{color:#ffd23f;font-weight:600;}
+.tk-tband,.tk-tnext,.tk-tprev{margin-bottom:12px;} .tk-tsub{margin:0 0 10px;}
+.tk-band{margin:12px 0 4px;} .tk-bh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0 2px 6px;} .tk-bh b{font:800 15px 'Barlow',sans-serif;color:var(--accent);} .tk-bh small{color:var(--t2);font-size:.78rem;} .tk-bh .tk-ktw{margin-left:auto;}
+.tk-ttab,.tk-ctab2{width:100%;} .tk-ttab th[scope=row],.tk-ctab2 th[scope=row]{text-align:left;}
+.tk-ret{font-weight:700;} .tk-ret.hi{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);} .tk-ret.mid{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent);} .tk-ret.lo{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);} .tk-ret.na{color:var(--t3);}
+.tk-small,.tk-ret.tk-small{color:var(--t3) !important;background:color-mix(in srgb,var(--t3) 12%,transparent) !important;font-weight:400;}
+.tk-scroll{overflow-x:auto;max-width:100%;position:relative;} .tk-ccap{text-align:left;font:700 13px 'Barlow',sans-serif;color:var(--t1);padding:12px 2px 6px;}
+.tk-cue{margin:12px 0 0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--green) 12%,transparent);border-left:3px solid var(--green);font-size:.85rem;color:var(--t1);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;}
+.tk-bandn{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 2px;font-size:.85rem;color:var(--t2);} .tk-bandn b{color:var(--t1);}
+.tk-info{margin-top:10px;font-size:.78rem;color:var(--t2);line-height:1.5;} .tk-info summary{cursor:pointer;color:var(--t2);display:inline-flex;align-items:center;gap:6px;} .tk-info summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+.tk-i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1px solid var(--border);font:italic 700 12px/1 Georgia,serif;} .tk-info p{margin:6px 0 0;}
+@media (max-width:640px){ .tk-ctab2,.tk-ttab{font-size:.78rem;} .tk-ctab2 th,.tk-ctab2 td{padding:5px 3px;} }
 .tk-pov{margin:-4px 0 10px;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(79,195,247,.08);border-radius:0 8px 8px 0;font-size:.82rem;color:var(--t1);}
 .tk-flcap{margin-top:16px;color:var(--accent);} .tk-lsw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;} .tk-fltab thead th{white-space:normal;line-height:1.15;vertical-align:bottom;} .tk-fltab small{color:var(--t3);font-weight:400;}
 .tk-tcap{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:var(--t2);margin-bottom:6px;} .tk-povline{color:var(--t1);}
@@ -3943,6 +3954,8 @@ function tkHTML(R, V, o){
   const pov=tkPovHTML(V);
   h+=`<h2 class="ov-h">KICKOUT CONTEST OUTCOMES ${tag}</h2>${pov}<div id="tkContestSec">`+tkContestSecHTML(R, V, o)+'</div>';
   h+=`<h2 class="ov-h">KICKOUT ZONES ${tag}</h2>${pov}`+tkZoneSecHTML(R, V);
+  TK_KTW=new Map(); let TM=null; try{ TM=tkTimingCompute(R, id=>BUNDLES.get(id)); }catch(err){ console.error('kickout timing', err); }
+  h+=`<h2 class="ov-h">KICKOUT TIMING &amp; TARGETS <em>OWN</em></h2>`+(TM?tkTimingSecHTML(TM):'<div class="tt-card tt-empty">n/a — could not compute the kickout timing.</div>');
   h+=`<h2 class="ov-h">LANDING LOCATIONS ${tag}${V.check.length?` <small class="tk-chkn">${V.check.length} landing${V.check.length===1?'':'s'} to check</small>`:''}</h2>${pov}<div id="tkMapSec">`+tkMapSectionHTML(R, V, o.F, o)+'</div>';
   h+=`<div class="foot">Kickouts covers ${R.custom?'the '+n+' selected game'+(n===1?'':'s')+' of '+ssEsc(T):ssEsc(T)+"'s "+(R.basis==='all'?'':'last ')+n+' game'+(n===1?'':'s')} in the current filters. One row per kickout event. On Own kickouts “won” = won by the kicking team (${ssEsc(T)}); on Opposition kickouts everything is read from ${ssEsc(T)}’s side — “won” = ${ssEsc(T)} won the opposition’s kickout — so that view’s total is the OPP KO WIN % card. Length is the tagged label (else under 45 m short, under 65 m medium, else long); zones come from the landing location. ${ssEsc(TK_ARC_RULE)} “n/a” means those games don't carry the data needed.</div>`;
   return h;
@@ -3982,6 +3995,124 @@ function tkContestSecHTML(R, V, o){
       +(oppN?T+' won '+C1.total.won+' of the opposition’s '+oppN+' kickouts ('+ttPctTxt(C1.total.pct)+') — the OPP KO WIN % card. ':'')
       +(A?'The all-teams average beside the opposition rows is the pooled receiving-side share (all kickouts won by the receiving team ÷ all taken). ':'');
   return h+`<div class="dnote">${ssEsc(note+'Kickout data '+ovFromNote(Math.max(C1.koGames, C2.koGames), R.n)+'.')}</div></div>`;
+}
+// ── KICKOUT TIMING & TARGETS (Barry, Oct 2026): timing bands, intended targets, the next kickout after a loss, and
+// retention after an open-play v a dead-ball shot. Engine (tkTiming / tkTargetOf / tkTimingCompute) + rendering.
+// TIMING (Barry, Oct 2026) = ball dead → kick, as tagged: the kickout row's START − the previous shot row's END (any team,
+// the same period). No calibration: timings can vary by up to about 2 seconds.
+const TK_TIME_MAX=120;   // a shot more than this before the kickout (or none in the period) → untimed
+const TK_TBANDS=[['7–13 s',-Infinity,14],['14–20 s',14,21],['21–26 s',21,27],['27 s+',27,Infinity]];
+const TK_TIME_CACHE=new WeakMap();
+// per kickout of a game: {raw, gap, shot, dead, band, why} — why = '' (timed) | 'noshot' | 'over' | 'neg'.
+// The previous shot = the last shot of the same period that starts after the previous kickout of the period (a shot
+// before that belongs to the earlier restart) and no later than this kickout.
+function tkTiming(meta, events){
+  if(!meta||!Array.isArray(events)) return null;
+  const c=TK_TIME_CACHE.get(events); if(c&&c.n===events.length) return c.v;
+  const K=tkGameKos(meta, events), shots=ttGameShots(meta, events).map(s=>({s, t:ssEvT(s.e), end:s.e.end!=null&&s.e.end!==''&&isFinite(+s.e.end)?+s.e.end:null, p:mmPeriodOf(s.e.half)})).sort((a,b)=>a.t-b.t), m=new Map();
+  (K?K.kos:[]).forEach((k,i)=>{
+    const p=mmPeriodOf(k.e.half); let prevKo=-Infinity; for(let j=i-1;j>=0;j--){ if(mmPeriodOf(K.kos[j].e.half)===p){ prevKo=K.kos[j].t; break; } }
+    let sh=null; shots.forEach(x=>{ if(x.p===p&&x.t<=k.t&&x.t>prevKo) sh=x; });
+    if(!sh){ m.set(k, {raw:null, gap:null, shot:null, dead:null, band:null, why:'noshot'}); return; }
+    if(sh.end==null){ m.set(k, {raw:null, gap:null, shot:sh.s, dead:!!sh.s.dead, band:null, why:'noend'}); return; }
+    const raw=Math.round((k.t-sh.end)*10)/10, gap=raw;
+    const why=raw>TK_TIME_MAX?'over':gap<0?'neg':'';
+    m.set(k, {raw, gap:why?null:gap, shot:sh.s, dead:!!sh.s.dead, band:why?null:TK_TBANDS.findIndex(b=>gap>=b[1]&&gap<b[2]), why});
+  });
+  TK_TIME_CACHE.set(events, {n:events.length, v:m});
+  return m;
+}
+// the INTENDED TARGET (Barry): 'Kickout Target' where tagged, else 'Kickout Won By' — only when the kicking team won it
+// (on a lost kickout that is an opposition player, not the target); else an unconverted Gaelic Insights "<Team> Kickout"
+// row's player (KT / RT outcomes = a player of the kicking team, pyKoWho's rule). '' = target not tagged.
+function tkTargetOf(k){
+  const e=k&&k.e; if(!e) return '';
+  const tg=ssLblCI(e,['Kickout Target']); if(tg) return String(tg).trim();
+  const w=ssLblCI(e,['Kickout Won By']); if(w&&k.won) return String(w).trim();
+  if(/(^|\s)KICKOUT$/.test(ssUC(e.code))&&/(^|\s)(KT|RT)\s/.test(ssUC(k.out)+' ')){ const p=String(e.player||ssLblCI(e,['Player'])||'').trim(); if(p) return p; }
+  return '';
+}
+function tkRetTally(list){ const n=list.length, won=list.filter(k=>k.won).length; return {n, won, pct:ovPct(won, n), kos:list}; }
+// rows by target: [{key, name, uses, won, pct, kos}], most used first
+function tkTargetRows(list){
+  const m=new Map();
+  list.forEach(k=>{ const nm=k.tgt, key=pyKey(nm); if(!key) return; let r=m.get(key); if(!r){ r={key, names:{}, kos:[]}; m.set(key, r); } r.names[nm]=(r.names[nm]||0)+1; r.kos.push(k); });
+  return [...m.values()].map(r=>Object.assign({key:r.key, name:pyBestName(r.names)}, tkRetTally(r.kos), {uses:r.kos.length})).sort((a,b)=>b.uses-a.uses||b.won-a.won||(a.name<b.name?-1:1));
+}
+function tkAvgGap(list){ const g=list.map(k=>k.tm&&k.tm.gap).filter(v=>v!=null); return g.length?g.reduce((a,b)=>a+b,0)/g.length:null; }
+// Everything the three sections show, over R's games (the team / game filters): own = R.team's kickouts, opp = the opposition's
+function tkTimingCompute(R, bundleOf){
+  const dec=k=>{ const b=bundleOf(k.gid), M=b&&b.meta&&Array.isArray(b.events)?tkTiming(b.meta, b.events):null; return Object.assign({}, k, {tm:M&&M.get(k)||{raw:null, gap:null, why:'noshot'}, tgt:tkTargetOf(k)}); };
+  const own=R.own.kos.map(dec), opp=R.opp.kos.map(dec);
+  const tagGames=new Set(own.filter(k=>k.tgt).map(k=>k.gid)), games=new Set(own.map(k=>k.gid));
+  // A. bands
+  const timed=own.filter(k=>k.tm.gap!=null), untimed={noshot:0, over:0, neg:0, noend:0}; own.forEach(k=>{ if(k.tm.gap==null) untimed[k.tm.why||'noshot']++; });
+  const bands=TK_TBANDS.map((b,i)=>{ const l=timed.filter(k=>k.tm.band===i), tg=l.filter(k=>k.tgt); return {label:b[0], n:l.length, all:tkRetTally(l), rows:tkTargetRows(tg), notTagged:l.length-tg.length, under7:i===0?l.filter(k=>k.tm.gap<7).length:0}; });
+  // B. the next own kickout of the same game and period after each LOST own kickout
+  const byGame=new Map(); own.forEach(k=>{ if(!byGame.has(k.gid)) byGame.set(k.gid, []); byGame.get(k.gid).push(k); });
+  const next=[]; let lost=0, noNext=0;
+  byGame.forEach(l=>{ l.sort((a,b)=>a.t-b.t); l.forEach((k,i)=>{ if(k.won) return; lost++; const p=mmPeriodOf(k.e.half), n=l.slice(i+1).find(q=>mmPeriodOf(q.e.half)===p); if(n) next.push(Object.assign({}, n, {after:k})); else noNext++; }); });
+  const nt=next.filter(k=>k.tgt), nRows=tkTargetRows(nt).map(r=>Object.assign(r, {avg:tkAvgGap(r.kos)}));
+  const top=nRows.slice(0, 4), rest=nRows.slice(4), restK=[].concat(...rest.map(r=>r.kos));
+  const B={rows:top, other:rest.length?Object.assign(tkRetTally(restK), {uses:restK.length, avg:tkAvgGap(restK), names:rest.length}):null, notTagged:tkRetTally(next.filter(k=>!k.tgt)), all:tkRetTally(next), allAvg:tkAvgGap(next), lost, noNext};
+  // C. retention after an open-play v a dead-ball shot (the previous shot of the timing rule, within TK_TIME_MAX)
+  const cls=k=>k.tm.shot&&k.tm.why!=='over'&&k.tm.why!=='noshot'?(k.tm.dead?'dead':'open'):'other';
+  const Cside=l=>{ const o={}; ['open','dead','other'].forEach(c=>{ const x=l.filter(k=>cls(k)===c); o[c]=Object.assign(tkRetTally(x), {len:{}}); ['S','M','L','X'].forEach(L=>{ o[c].len[L]=tkRetTally(x.filter(k=>(k.len||'X')===L)); }); }); o.n=l.length; return o; };
+  return {team:R.team, own, opp, games:games.size, tagGames:tagGames.size, tagged:own.filter(k=>k.tgt).length, timed:timed.length, untimed, bands, B, C:{own:Cside(own), opp:Cside(opp)}};
+}
+// ── rendering ──
+let TK_KTW=new Map();   // the Watch buttons' kickout lists, by key (re-made on every draw)
+function tkKtWatch(key, list, label){
+  if(!list||!list.length) return '';
+  TK_KTW.set(key, list); const has=list.some(k=>cpClip(k));
+  return `<button type="button" class="tt-btn tk-ktw" data-act="kt-watch" data-k="${ssEsc(key)}"${has?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'} aria-label="${ssEsc('Watch '+label)}">▶ ${list.length}</button>`;
+}
+function tkRetCls(p){ return p==null?'na':p>=75?'hi':p>=50?'mid':'lo'; }
+function tkRetTd(p){ return `<td class="tk-ret ${tkRetCls(p)}">${ssEsc(p==null?'n/a':pyPct1(p))}</td>`; }
+function tkSecsTxt(v){ return v==null?'–':v.toFixed(1)+' s'; }
+function tkTimingNote(){
+  return `<details class="tk-info"><summary><span class="tk-i" aria-hidden="true">i</span> How timing and targets are counted</summary><p>${ssEsc('Timing = from the end of the previous shot to the kickout, as tagged; timings can vary by up to about 2 seconds. The previous shot (a score or a wide, either team) is the last one of the same half after the half’s previous kickout. Untimed: no such shot in the half, one more than '+TK_TIME_MAX+' s before, or a kickout tagged before the shot ended. Bands: 7–13 s (a gap under 7 s is counted here and said), 14–20 s, 21–26 s, 27 s and more.')}</p><p>${ssEsc('Intended target = the Kickout Target tag, else Kickout Won By on a kickout the kicking team won (on a lost one that is an opposition player), else a Gaelic Insights kickout row’s player. Retention = the kicking team won the kickout. Colours: green 75% and over, amber 50–75%, red under 50%.')}</p></details>`;
+}
+function tkTargetTable(rows, o){
+  o=o||{}; const nm=o.next?'NEXT INTENDED TARGET':'TARGET';
+  let h=`<div class="tk-scroll"><table class="tt-ztab tk-ttab"><thead><tr><th scope="col">${nm}</th><th scope="col">USES</th><th scope="col">WON</th><th scope="col">RETENTION</th>${o.next?'<th scope="col">AVG TIME</th>':''}<th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr data-tk="${ssEsc(r.key||'')}"><th scope="row">${ssEsc(r.name)}</th><td>${r.uses}</td><td>${r.won}</td>${tkRetTd(r.pct)}${o.next?`<td>${ssEsc(tkSecsTxt(r.avg))}</td>`:''}<td class="py-bw">${tkKtWatch((o.pfx||'')+(r.key||r.name), r.kos, r.name+' ('+r.uses+')')}</td></tr>`; });
+  return h+'</tbody></table></div>';
+}
+function tkTimingSecHTML(TM){
+  const T=TM.team, own=TM.own.length;
+  if(!own) return `<div class="tt-card tt-empty">${ssEsc('n/a — no '+T+' kickouts in these games.')}</div>`;
+  const tagNa=!TM.tagged?`<div class="tt-empty">${ssEsc('n/a — no Kickout Target / Won By tags in these games, so no intended target is known.')}</div>`:'';
+  const un=TM.untimed, unN=un.noshot+un.over+un.neg+un.noend;
+  // A
+  let a=`<div class="tt-card tk-tband"><h4 class="td-ct">INTENDED TARGETS BY KICKOUT TIMING BAND</h4>`;
+  a+=`<div class="dnote tk-tsub">${ssEsc(T+'’s own kickouts: '+TM.timed+' of '+own+' timed'+(unN?' · '+unN+' untimed ('+[un.noshot?un.noshot+' with no shot before in the half':'', un.over?un.over+' with the shot over '+TK_TIME_MAX+' s before':'', un.neg?un.neg+' with the kickout tagged before the shot ended':'', un.noend?un.noend+' with no end time on the shot':''].filter(Boolean).join(', ')+')':'')+(TM.tagged?' · target tagged on '+TM.tagged+' of '+own+' ('+TM.tagGames+' of '+TM.games+' game'+(TM.games===1?'':'s')+')':''))}</div>`;
+  if(tagNa) a+=tagNa+'<div class="tk-bandn">'+TM.bands.map(b=>`<span><b>${ssEsc(b.label)}</b> ${b.n} kickout${b.n===1?'':'s'} · ${ssEsc(b.n?pyPct1(b.all.pct)+' retained':'–')}</span>`).join('')+'</div>';
+  else TM.bands.forEach((b,i)=>{
+    a+=`<div class="tk-band" data-band="${i}"><div class="tk-bh"><b>${ssEsc(b.label)}</b><small>${ssEsc(b.n+' kickout'+(b.n===1?'':'s')+(b.n?' · '+pyPct1(b.all.pct)+' retained':'')+(b.under7?' · '+b.under7+' under 7 s':'')+(b.notTagged?' · '+b.notTagged+' target not tagged':''))}</small>${tkKtWatch('band'+i, b.all.kos, b.label+' kickouts')}</div>`
+      +(b.rows.length?tkTargetTable(b.rows.slice(0,5), {pfx:'b'+i+':'}):'<div class="tt-empty">No tagged target in this band.</div>')+'</div>'; });
+  a+=`<div class="dnote">${ssEsc('Timing = from the end of the previous shot to the kickout, as tagged; timings can vary by up to about 2 seconds.')}</div>`+tkTimingNote()+'</div>';
+  // B
+  const B=TM.B; let b=`<div class="tt-card tk-tnext"><h4 class="td-ct">${ssEsc('NEXT KICKOUT AFTER '+T+' INITIALLY LOSE A KICKOUT')}</h4>`;
+  if(!B.lost) b+=`<div class="tt-empty">${ssEsc('n/a — '+T+' lost none of their kickouts in these games.')}</div>`;
+  else {
+    b+=`<div class="dnote tk-tsub">${ssEsc(B.lost+' lost '+T+' kickout'+(B.lost===1?'':'s')+' → '+B.all.n+' next kickout'+(B.all.n===1?'':'s')+' in the same half'+(B.noNext?' ('+B.noNext+' with no later '+T+' kickout in that half)':''))}</div>`;
+    if(tagNa) b+=tagNa;
+    else { const rows=B.rows.slice(); if(B.other) rows.push(Object.assign({key:'other', name:'Other targets ('+B.other.names+')'}, B.other)); if(B.notTagged.n) rows.push(Object.assign({key:'untagged', name:'Target not tagged', uses:B.notTagged.n, avg:tkAvgGap(B.notTagged.kos)}, B.notTagged)); b+=tkTargetTable(rows, {next:true, pfx:'nx:'}); }
+    if(B.all.n) b+=`<div class="tk-cue" role="note"><b>Pressure cue:</b> ${ssEsc('Across all next kickouts after an initial loss, '+T+' retained '+pyPct1(B.all.pct)+' ('+B.all.won+' of '+B.all.n+(B.allAvg!=null?', average time '+tkSecsTxt(B.allAvg):'')+').')} ${tkKtWatch('nx:all', B.all.kos, 'all next kickouts after a loss')}</div>`;
+  }
+  if(B.lost) b+=`<div class="dnote">${ssEsc('Timing = from the end of the previous shot to the kickout, as tagged; timings can vary by up to about 2 seconds. Average time = the mean over the timed next kickouts. “Other targets” = every target beyond the top 4.')}</div>`;
+  b+='</div>';
+  // C
+  const cell=(t, lab)=>`<td class="${t.n<5?'tk-small':''}"${t.n<5?' title="Fewer than 5 kickouts"':''}>${t.n?`<b>${t.won}/${t.n}</b> ${ssEsc(pyPct1(t.pct))}`:'–'}</td>`;
+  const ctab=(S, who, pfx)=>{ let h=`<div class="tk-ccap">${ssEsc(who)}</div><div class="tk-scroll"><table class="tt-ztab tk-ctab2" aria-label="${ssEsc(who)}"><thead><tr><th scope="col">PREVIOUS SHOT</th><th scope="col">KICKOUTS</th><th scope="col">WON</th><th scope="col">RETENTION</th><th scope="col">SHORT</th><th scope="col">MEDIUM</th><th scope="col">LONG</th><th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`;
+    [['open','Open play'],['dead','Dead ball']].concat(S.other.n?[['other','Other / unknown']]:[]).forEach(([k,l])=>{ const x=S[k];
+      h+=`<tr data-prev="${k}"><th scope="row">${ssEsc(l)}</th><td class="${x.n<5?'tk-small':''}">${x.n}</td><td>${x.won}</td>${x.n<5&&x.n?`<td class="tk-ret tk-small">${ssEsc(pyPct1(x.pct))}</td>`:tkRetTd(x.pct)}${['S','M','L'].map(L=>cell(x.len[L])).join('')}<td class="py-bw">${tkKtWatch(pfx+k, x.kos, l+' kickouts')}</td></tr>`; });
+    return h+'</tbody></table></div>'; };
+  let c=`<div class="tt-card tk-tprev"><h4 class="td-ct">KICKOUT RETENTION AFTER AN OPEN-PLAY v A DEAD-BALL SHOT</h4>`
+    +ctab(TM.C.own, T+' — own kickouts', 'co:')+(TM.C.opp.n?ctab(TM.C.opp, 'Opposition — their own kickouts', 'cp:'):'')
+    +`<div class="dnote">${ssEsc('The shot before the kickout (the timing rule: same half, within '+TK_TIME_MAX+' s, after the previous kickout): dead ball = a free, ’45, mark, penalty or sideline (the Analysis dead-ball rule), otherwise open play; with no such shot the kickout is “other / unknown”. After a dead ball the kicking team has had time to set up. Short / medium / long: the kickout length rule of this tab; a cell shows won / taken and retention. Greyed: fewer than 5 kickouts.')}</div></div>`;
+  return a+b+c;
 }
 // ii. zones — the kickout pitch, drawn TO SCALE from the kicking team's 20m line (the top edge, as in the
 // reference picture) to the far 45m line: 84 m wide, 75 m long (20 m → 95 m out), 1 m = TK_K units both ways.
@@ -5164,6 +5295,7 @@ function ttInit(){
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
     if(b&&b.dataset.act==='pl-all'){ if(!b.disabled) ttPlAll(b); return; }
     if(b&&(b.dataset.act==='chk-watch'||b.dataset.act==='chk-pl')){ if(!b.disabled) tkCheckAct(b); return; }
+    if(b&&b.dataset.act==='kt-watch'){ const l=TK_KTW.get(b.dataset.k); if(!b.disabled&&l&&l.length){ const v=l.filter(k=>cpClip(k)); if(v.length) cpOpen('ko', v[0], b, v); } return; }
     const tip=tipOf(e);
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
