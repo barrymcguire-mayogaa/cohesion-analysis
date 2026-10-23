@@ -648,7 +648,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-warn{color:#ffd23f;font-weight:600;}
 .tk-tband,.tk-tnext,.tk-tprev{margin-bottom:12px;} .tk-tsub{margin:0 0 10px;}
 .tk-band{margin:12px 0 4px;} .tk-bh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin:0 2px 6px;} .tk-bh b{font:800 15px 'Barlow',sans-serif;color:var(--accent);} .tk-bh small{color:var(--t2);font-size:.78rem;} .tk-bh .tk-ktw{margin-left:auto;}
-.tk-ttab,.tk-ctab2{width:100%;} .tk-ttab th[scope=row],.tk-ctab2 th[scope=row]{text-align:left;}
+.tk-ttab,.tk-ctab2{width:100%;} .tk-ttab{table-layout:fixed;} .tk-ttab th[scope=row]{overflow-wrap:anywhere;} .tk-c-t{width:32%;} .tk-c-n{width:11%;} .tk-c-r{width:16%;} .tk-c-a{width:15%;} .tk-c-w{width:15%;} .tk-ttab th[scope=row],.tk-ctab2 th[scope=row]{text-align:left;}
 .tk-ret{font-weight:700;} .tk-ret.hi{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent);} .tk-ret.mid{color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent);} .tk-ret.lo{color:var(--red);background:color-mix(in srgb,var(--red) 14%,transparent);} .tk-ret.na{color:var(--t3);}
 .tk-small,.tk-ret.tk-small{color:var(--t3) !important;background:color-mix(in srgb,var(--t3) 12%,transparent) !important;font-weight:400;}
 .tk-scroll{overflow-x:auto;max-width:100%;position:relative;} .tk-ccap{text-align:left;font:700 13px 'Barlow',sans-serif;color:var(--t1);padding:12px 2px 6px;}
@@ -4075,8 +4075,10 @@ function tkTimingNote(){
 }
 function tkTargetTable(rows, o){
   o=o||{}; const nm=o.next?'NEXT INTENDED TARGET':'TARGET';
-  let h=`<div class="tk-scroll"><table class="tt-ztab tk-ttab"><thead><tr><th scope="col">${nm}</th><th scope="col">USES</th><th scope="col">WON</th><th scope="col">RETENTION</th>${o.next?'<th scope="col">AVG TIME</th>':''}<th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`;
-  rows.forEach(r=>{ h+=`<tr data-tk="${ssEsc(r.key||'')}"><th scope="row">${ssEsc(r.name)}</th><td>${r.uses}</td><td>${r.won}</td>${tkRetTd(r.pct)}${o.next?`<td>${ssEsc(tkSecsTxt(r.avg))}</td>`:''}<td class="py-bw">${tkKtWatch((o.pfx||'')+(r.key||r.name), r.kos, r.name+' ('+r.uses+')')}</td></tr>`; });
+  // ONE colgroup for every band table and the next-kickout table, so the columns line up down the page (A has no average
+  // time: its column is left empty)
+  let h=`<div class="tk-scroll"><table class="tt-ztab tk-ttab"><colgroup><col class="tk-c-t"><col class="tk-c-n"><col class="tk-c-n"><col class="tk-c-r"><col class="tk-c-a"><col class="tk-c-w"></colgroup><thead><tr><th scope="col">${nm}</th><th scope="col">USES</th><th scope="col">WON</th><th scope="col">RETENTION</th>${o.next?'<th scope="col">AVG TIME</th>':'<td aria-hidden="true"></td>'}<th scope="col"><span class="py-sr">Watch</span></th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr data-tk="${ssEsc(r.key||'')}"><th scope="row">${ssEsc(r.name)}</th><td>${r.uses}</td><td>${r.won}</td>${tkRetTd(r.pct)}${o.next?`<td>${ssEsc(tkSecsTxt(r.avg))}</td>`:'<td aria-hidden="true"></td>'}<td class="py-bw">${tkKtWatch((o.pfx||'')+(r.key||r.name), r.kos, r.name+' ('+r.uses+')')}</td></tr>`; });
   return h+'</tbody></table></div>';
 }
 function tkTimingSecHTML(TM){
