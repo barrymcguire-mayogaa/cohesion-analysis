@@ -3786,7 +3786,7 @@ function tkGameKos(meta, events){
     const dist=co?tkDist(co.y):null, zoneRaw=co?tkZoneOf(co.x, co.y):null, zone=co?tkZoneFor(co.x, dist, won):null, checkWhy=co?tkCheckWhy(co.x, dist, zoneRaw, lab, tkZoneLabel(e)):[];
     const arcWhy=co?tkArcWhy(co.x, dist, won):''; if(arcWhy) checkWhy.push(arcWhy);
     kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
-      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, zoneRaw, arcMoved:zoneRaw==='arc'&&zone!=='arc', far:dist!=null&&dist>TK_VIEW_M, check:checkWhy.length>0, checkWhy,
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, zoneRaw, arcMoved:zoneRaw==='arc'&&zone!=='arc', far:dist!=null&&dist>TK_VIEW_M, check:tkShowChecks()&&checkWhy.length>0, checkWhy,
       t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
   });
   kos.sort((a,b)=>a.t-b.t||a.i-b.i);
@@ -3925,6 +3925,9 @@ function tkFollowNote(S){
   return !n?'':!k?'What followed: n/a (no source tags) in '+(n===1?'this game':'these '+n+' games')+'.':'What followed (shots and scores) uses the tagged shot source, from '+k+' of '+n+' game'+(n===1?'':'s')+'.'+(S.possGames?' In '+S.possGames+' of them (GIU) the source is derived from the possession each shot falls in (PossFrom).':'');
 }
 // the out-of-range landings of the selected games, BOTH sides: by game (oldest first), then in time order
+// "Landings to check" (the list, the dashed ring, the card's Check tag line) is for admins only: only they can
+// re-place a landing in Code Room, so for anyone else it would only confuse (Oct 2026).
+function tkShowChecks(){ return typeof mrIsAdmin==='function'&&mrIsAdmin(); }
 function tkCheckList(R){
   const ord=new Map(); let i=0; R.gameOf.forEach((m,id)=>ord.set(id, i++));
   return R.own.kos.concat(R.opp.kos).filter(k=>k.check).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
