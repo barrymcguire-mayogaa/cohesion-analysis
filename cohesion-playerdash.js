@@ -377,7 +377,8 @@ function pdHTML(V){
   const myKo=S.R.kos.filter(k=>k.team===S.T&&k.who&&k.who.team===S.T&&k.who.key===V.key), myShots=S.R.shots.filter(s=>s.pk===V.key);
   const gw={sc:pdW('tile:shots', 'pshot', myShots, myShots.length+' shots'), pm:pdW('tile:ko', 'pko', myKo, myKo.length+' kickout targets')};
   if(V.range.kind==='opp') h=h.replace('<div class="pd-range"><span>RANGE</span>', '<div class="pd-range"><span>RANGE</span>'+pdW('opp', 'pshot', myShots, 'v '+titleCase(V.range.opp)+' · '+myShots.length+' shots'));
-  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}${gw[g]?' '+gw[g]:''}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
+  const imgBtn=row?'<button type="button" class="pd-imgbtn" data-pdimg="1" title="Download this player’s scoring as an image (PNG, 2000 × 1074) for the current range">⬇ Image</button>':'';
+  h+='<div class="pd-groups">'+PD_GROUPS.map(([g,l])=>`<div class="pd-grp"><h4>${l}${gw[g]?' '+gw[g]:''}${g==='sc'?imgBtn:''}</h4><div class="pd-tiles">${PD_KPIS.filter(d=>d.g===g&&!(d.k==='ppg'&&V.range.kind==='game')).map(d=>pdTileHTML(d, S, row, V.mode, V.P, V.prow)).join('')}</div></div>`).join('')+'</div>';
   const Rd=pdRadar(S, V.key), tk=V.trendK, trend=V.trend;
   h+=`<div class="pd-panels"><div class="tt-card pd-p pd-p1"><h4 class="td-ct">PLAYER V TEAM AVERAGE</h4>${row?pdRadarSVG(Rd, col, row.name):'<div class="tt-empty">n/a</div>'}`
     +`<div class="pd-leg"><span><i style="background:${ssEsc(col.a)}"></i>${ssEsc(row?row.name:'Player')}</span><span><i class="sq"></i>Team average</span></div>`
@@ -642,6 +643,7 @@ function pdInit(){
     if((x=c('[data-pdmode]'))){ PD_O.mode=x.dataset.pdmode==='squad'?'squad':'prev'; pdRender(); return; }
     if((x=c('[data-pdwatch]'))){ pdWatch(x); return; }
     if((x=c('[data-pdprint]'))){ pdPrint(); return; }
+    if((x=c('[data-pdimg]'))){ if(typeof pdsDownload==='function'&&!x.disabled) pdsDownload(x); return; }
     if(ppClick(e)) return; });
   pane.addEventListener('change', e=>{ const t=e.target; if(!t) return;
     if(t.id==='pdPlayer'){ PD_O.key=t.value; pdRender(); return; }
@@ -1114,6 +1116,8 @@ const PD_CSS=`
 .pd-box span{display:block;font-size:.74rem;color:var(--t2);} .pd-box b{font:800 20px 'Barlow',sans-serif;} .pd-box.na b{color:var(--t3);font-size:15px;}
 .pd-bx{flex:none;width:16px;height:22px;border-radius:3px;background:var(--pa);} .pd-bx.yel{background:#f2c200;} .pd-bx.blk{background:#111;border:1px solid #555;} .pd-bx.red{background:#e0303a;} .pd-bx.fouls,.pd-bx.toL{background:#a0a0ae;border-radius:50%;width:18px;height:18px;} .pd-bx.toW,.pd-bx.poss,.pd-bx.tck{border-radius:50%;width:18px;height:18px;}
 .pd-foot{margin:12px 4px 0;}
+.pd-imgbtn{float:right;margin:-3px 0 0 8px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12px 'Barlow',sans-serif;letter-spacing:.02em;cursor:pointer;} .pd-imgbtn:hover{border-color:var(--pa);color:var(--pa);} .pd-imgbtn:focus-visible{outline:2px solid var(--pa);outline-offset:2px;} .pd-imgbtn[disabled]{opacity:.6;cursor:progress;}
+@media print{ .pd-imgbtn{display:none !important;} }
 .pd-hasi{position:relative;} .pd-i{display:inline-grid;place-items:center;width:22px;height:22px;margin:0 0 0 8px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--card);color:var(--t2);font:italic 700 13px/1 Georgia,'Times New Roman',serif;letter-spacing:0;text-transform:none;cursor:pointer;vertical-align:middle;flex:none;}
 .pd-i::before{content:'i';} .pd-i:hover,.pd-i[aria-expanded="true"]{color:var(--pa);border-color:var(--pa);} .pd-i:focus-visible{outline:2px solid var(--pa);outline-offset:2px;}
 .pd-ipop{position:absolute;z-index:40;left:10px;right:10px;max-height:min(60vh,440px);overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;box-shadow:0 16px 40px rgba(0,0,0,.45);font-size:.78rem;line-height:1.5;color:var(--t2);text-align:left;}
