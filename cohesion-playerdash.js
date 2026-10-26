@@ -537,6 +537,29 @@ function pdPrint(){ pdPrintPrepare(); try{ window.print(); }finally{ pdPrintDone
 // ═════ dashboard wiring ═════
 let PD_TOKEN=0, PD_TIMER=null, PD_V=null, PD_TEAM=null;
 const PD_O={key:null, range:{kind:'season', season:'', comp:'', gid:'', opp:''}, mode:'prev', trendK:'pts', view:'dash'};
+// MY PAGE (my.html — the Team page's player links): analysis.html?team=KERRY&player=davidclifford&pname=David+Clifford&section=county#player-dash
+// opens the Player Dashboard on that team and that player. The team is put where the TEAM box looks first (the Overview's
+// remembered team) and the section where the games list looks, both before the page boots; the player is picked ONCE,
+// when the team's squad is known: his key exactly, else the one squad name with the same loose key (a spelling variant in
+// the stats — cohesion-merge.js looseKey). It is a shortcut, not a restriction: every control works as before.
+function pdWantOf(search){
+  let q; try{ q=new URLSearchParams(String(search||'')); }catch(_){ return null; }
+  const team=String(q.get('team')||'').replace(/\s+/g,' ').trim().toUpperCase(), key=String(q.get('player')||'').trim();
+  if(!team||!key) return null;
+  const sec=String(q.get('section')||'').toLowerCase();
+  return {team, key, name:String(q.get('pname')||'').trim(), section:sec==='club'||sec==='u20'||sec==='county'?sec:'', used:false};
+}
+function pdLooseKey(s){ return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[\s'‘’‛ʼ`´.\-‐‑‒–—]/g,''); }
+function pdWantKey(squad, want){
+  const S=squad||[]; if(!want) return null;
+  if(S.some(p=>p.key===want.key)) return want.key;
+  const lk=pdLooseKey(want.name||''), m=lk?S.filter(p=>pdLooseKey(p.name)===lk):[];
+  return m.length===1?m[0].key:null;
+}
+let PD_WANT=null;
+try{ if(typeof location!=='undefined'&&location&&location.search){ PD_WANT=pdWantOf(location.search);
+  if(PD_WANT){ try{ sessionStorage.setItem('cohesion_analysis_team', PD_WANT.team); }catch(_){ }
+    if(PD_WANT.section&&typeof cohesionSetSection==='function') cohesionSetSection(PD_WANT.section); } } }catch(_){ PD_WANT=null; }
 function pdSchedule(){ if(typeof TAB==='undefined'||TAB!=='player-dash'||!GAMES_READY) return; clearTimeout(PD_TIMER); PD_TIMER=setTimeout(pdRun, 40); }
 function pdBundleOf(id){ return BUNDLES.get(id); }
 // the team sheet entry of the player in the newest game of the range that lists him: {no, pos, game}
@@ -573,6 +596,7 @@ function pdView(){
   const games=pdRangeGames(list, r), S=pdSummaries(T, games, pdBundleOf);
   // the player list: everyone in the squad over ALL the team's games; default = the most points in the range
   const all=pdSummaries(T, list, pdBundleOf), squad=all.F.players.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  if(PD_WANT&&!PD_WANT.used&&PD_WANT.team===T){ PD_WANT.used=true; const k=pdWantKey(squad, PD_WANT); if(k) PD_O.key=k; }   // MY PAGE: the linked player, once
   if(!PD_O.key||!squad.some(p=>p.key===PD_O.key)){ const top=S.R.players.slice().sort((a,b)=>b.pts-a.pts)[0]||all.R.players.slice().sort((a,b)=>b.pts-a.pts)[0]; PD_O.key=top?top.key:(squad[0]&&squad[0].key)||null; }
   const key=PD_O.key, row=S.rows.get(key)||null, name=(squad.find(p=>p.key===key)||{}).name||'';
   const P=pdPrevRange(list, r, games); P.S=P.games.length?pdSummaries(T, P.games, pdBundleOf):null;

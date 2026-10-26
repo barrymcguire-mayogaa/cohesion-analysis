@@ -348,8 +348,14 @@ select option{background:var(--card);}
   <a href="player-names-admin.html" class="hdr-btn hdr-btn-admin" id="namesBtn" style="display:none" title="Player names — find every spelling of a team's players across all its games and merge the wrong ones">
     🔤 Player Names
   </a>
+  <a href="team-admin.html" class="hdr-btn hdr-btn-admin" id="teamBtn" style="display:none" title="Team — invite people, set their roles and details, link a player to his name in the stats">
+    👥 Team
+  </a>
   <a href="playlists.html" class="hdr-btn" id="plNavBtn">
     🎞 Playlists
+  </a>
+  <a href="my.html" class="hdr-btn" id="myBtn" style="display:none" title="Your own Player Dashboard, clips and playlists">
+    ⭐ My stats
   </a>
   <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
   <div class="hdr-btn" onclick="logout()">Sign Out</div>
@@ -550,7 +556,12 @@ if(auth === 'admin') {
   document.getElementById('xpBtn').style.display = 'flex';
   document.getElementById('photosBtn').style.display = 'flex';
   document.getElementById('namesBtn').style.display = 'flex';
+  document.getElementById('teamBtn').style.display = 'flex';
 }
+// MY STATS: shown when the signed-in person is linked to a player (Admin › Team). Quietly absent when the Team tables or
+// the function are not there.
+if(typeof cohesionAuthFetch === 'function') cohesionAuthFetch('teamAdmin', { action:'me' })
+  .then(j => { if(j && j.member && j.member.link) document.getElementById('myBtn').style.display = 'flex'; }).catch(() => {});
 
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
 
