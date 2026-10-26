@@ -2865,6 +2865,7 @@ function crClipOf(e){
   const clip={ videoId:ang.youtubeId||GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'', driveT:e.driveT||0,
            start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+  if(e.id!=null&&e.id!=='') clip.eventId=String(e.id);   // a playlist recognises the same event twice (append skips it), as the dashboard's clips
   if(idx>0) clip.angle=ang.label||('Cam '+(idx+1));
   return clip;
 }
