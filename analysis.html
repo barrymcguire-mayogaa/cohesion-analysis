@@ -94,6 +94,7 @@ html,body{max-width:100%;overflow-x:hidden;}
 .tabs{display:flex;justify-content:center;gap:6px 30px;flex-wrap:wrap;padding:14px 16px 0;border-bottom:1px solid var(--border);}
 .tabs a{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;padding:6px 2px 14px;position:relative;white-space:nowrap;opacity:.82;}
 .tabs a:hover{opacity:1;}
+@media (min-width:641px) and (max-width:1400px){ .tabs{gap:6px 20px;} .tabs a{font-size:23px;} }   /* eight tabs on one line at 1280 px (REPORTS added) */
 .tabs a.on{opacity:1;}
 .tabs a.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);}
 .pane{display:none;}
