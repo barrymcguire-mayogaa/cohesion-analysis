@@ -1148,6 +1148,12 @@ function ssXpGame(meta, events){
   SS_XP_CACHE.set(events,{M,n:events.length,H:meta.homeTeam,A:meta.awayTeam,v});
   return v;
 }
+// a game's attempt types are usable for a per-type conversion when its MISSED shots carry them (at least half the misses;
+// a game with no miss: when any shot is typed). Gaelic Insights tags only its scores → not usable.
+function ssAttOnMiss(misses, missTagged, anyTagged){ return misses>0?missTagged/misses>=0.5:!!anyTagged; }
+// the games (gid) of a list of shots whose misses carry an attempt type — the per-type conversion's games
+function ssAttMissGames(shots){ const m=new Map(); (shots||[]).forEach(x=>{ const r=m.get(x.gid)||{mi:0, mt:0, any:false}; if(x.att) r.any=true; if(!(x.v>0)){ r.mi++; if(x.att) r.mt++; } m.set(x.gid, r); });
+  return new Set([...m].filter(([,r])=>ssAttOnMiss(r.mi, r.mt, r.any)).map(([g])=>g)); }
 // Per-game tallies for team T (uppercase). O = opponent name (uppercase).
 function ssGameTally(meta, events, T){
   const H=ssUC(meta.homeTeam), A=ssUC(meta.awayTeam);
@@ -1156,7 +1162,7 @@ function ssGameTally(meta, events, T){
   const g={ games:1,
     shots:0, scores:0, pts:0, onePts:0, twoPts:0, goals:0,
     att1:0, att1Scored:0, att2:0, att2Scored:0,
-    goalCh:0, goalScored:0, attemptData:false,
+    goalCh:0, goalScored:0, attemptData:false, attMiss:0, attMissTagged:0, attGames:0,
     ownKO:0, ownKOWon:0, oppKO:0, oppKOWonByT:0, koData:false,
     srcData:false, srcOwnKO:0, srcOppKO:0, srcTO:0, srcTotal:0,
     ptsFromOwnKO:0, ptsConcededOwnKO:0,
@@ -1196,6 +1202,7 @@ function ssGameTally(meta, events, T){
       // per-type conversion: only shots that CARRY an attempt label count,
       // so unlabelled games simply add nothing (→ n/a, not a fake 0%).
       const aType=ssAttType(att);
+      if(!(v>0)){ g.attMiss++; if(aType) g.attMissTagged++; }
       if(aType==='1'){ g.att1++; if(v===1) g.att1Scored++; }
       else if(aType==='2'){ g.att2++; if(v===2) g.att2Scored++; }
       const attGoal=att&&/GOAL/.test(ssUC(att));
@@ -1289,6 +1296,12 @@ function ssGameTally(meta, events, T){
   ssDefendTally(meta, events, T, O, g, e=>giSup(e)||giComp(e), shotMode);
   // Compare's turnovers conceded: a Tracker free-against foul has no turnover row, so add it once
   g.tosConceded+=g.toLostFaFoul; g.tosPossG=g.possData?g.tosConceded:0;
+  // ATTEMPT TYPES ON MISSES (Barry, Oct 2026): a Gaelic Insights file carries the attempt type on SCORES only (derived from the
+  // score) and leaves its misses blank, so a per-type conversion over it reads close to 100%. A game counts toward the
+  // 1-point / 2-point conversion only when its MISSED shots carry the tag too (ssAttOnMiss: at least half of them); otherwise
+  // its typed attempts are dropped from att1 / att2 and attGames (the games that count) stays 0.
+  g.attOnMiss=ssAttOnMiss(g.attMiss, g.attMissTagged, g.attemptData);
+  if(g.attOnMiss) g.attGames=1; else { g.att1=0; g.att1Scored=0; g.att2=0; g.att2Scored=0; }
   return g;
 }
 // ═══════════════════════════════════════════════════════════════
@@ -1874,8 +1887,8 @@ function ssMetrics(){
     ['SHOOTING','1pt per Game','', a=>per(a.onePts,a.games,1)],
     ['SHOOTING','2pt per Game','', a=>per(a.twoPts,a.games,2)],
     ['SHOOTING','Goals per Game','', a=>per(a.goals,a.games,2)],
-    ['SHOOTING','1pt Conversion %','1pt scores ÷ labelled 1pt attempts', a=>a.att1>0?pct(a.att1Scored,a.att1):null],
-    ['SHOOTING','2pt Conversion %','2pt scores ÷ labelled 2pt attempts', a=>a.att2>0?pct(a.att2Scored,a.att2):null],
+    ['SHOOTING','1pt Conversion %','1pt scores ÷ labelled 1pt attempts · games with attempts tagged on misses', a=>a.att1>0?pct(a.att1Scored,a.att1):null],
+    ['SHOOTING','2pt Conversion %','2pt scores ÷ labelled 2pt attempts · games with attempts tagged on misses', a=>a.att2>0?pct(a.att2Scored,a.att2):null],
     ['SHOOTING','Goal Chances per Game','', a=>(a.attemptData||a.goalCh>0)?per(a.goalCh,a.games):null],
     ['SHOOTING','Goal Chance Conversion %','', a=>(a.goalCh>0)?pct(a.goalScored,a.goalCh):null],
     ['EXPECTED POINTS','xP per Game','games with located shots', a=>a.xpGames>0?per(a.xp,a.xpGames,1):null],
@@ -5935,7 +5948,7 @@ function mrCard(T, b){
   // 2-point shots: made = 2-pointers scored; attempts = shots tagged as a
   // 2-point attempt, plus any 2-pointer scored without that tag
   const made2=t.twoPts, att2=t.att2+Math.max(0, t.twoPts-t.att2Scored);
-  const two=!(t.shots>0)?null:t.attemptData?{txt:made2+'/'+att2, sub:'made/attempts'}:{txt:String(made2), sub:'made · attempts n/a'};
+  const two=!(t.shots>0)?null:t.attemptData&&t.attOnMiss!==false?{txt:made2+'/'+att2, sub:'made/attempts'}:{txt:String(made2), sub:'made · attempts n/a'};
   const xp=t.xpShots>0?{txt:t.xpPts+' from '+t.xp.toFixed(1)+' xP', sub:mrSigned(t.xpPts-t.xp)+' pts − xP', tone:(t.xpPts-t.xp)>=0.05?'pos':(t.xpPts-t.xp)<=-0.05?'neg':'',
     hint:t.xpMiss>0?t.xpShots+' of '+(t.xpShots+t.xpMiss)+' shots located':''}:null;
   const fig=(k,label,f,hint)=>Object.assign({k, label, txt:null, sub:'', tone:'', hint:hint||''}, f||{});

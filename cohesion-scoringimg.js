@@ -65,7 +65,11 @@ function pdsData(V, o){
   D.bands=DIST_BANDS.map(([l,a,b])=>Object.assign({label:l}, tally(loc.filter(x=>x.d>=a&&x.d<b).map(x=>x.s))));
   D.types=TYPES.map(([k,l])=>Object.assign({key:k, label:l}, tally(k==='open'?mine.filter(s=>!s.dead):mine.filter(s=>s.dead&&s.deadType===k))));
   D.typesOther={sideline:mine.filter(s=>s.dead&&s.deadType==='Sideline').length, untyped:mine.filter(s=>s.dead&&(!s.deadType||s.deadType==='Dead ball')).length};
-  D.atts=ATTS.map(([k,l])=>Object.assign({key:k, label:l}, tally(mine.filter(s=>s.att===k)))); D.attTagged=mine.filter(s=>s.att==='1'||s.att==='2'||s.att==='G').length;
+  // attempt type: only the games whose MISSED shots carry it (a Gaelic Insights file types its scores only — the team's shots
+  // in the game decide, ssAttMissGames); coverage = those games of the games he shot in
+  const okG=typeof ssAttMissGames==='function'?ssAttMissGames(o.teamShots||S.R.shots):null, attShots=okG?mine.filter(s=>okG.has(s.gid)):mine;
+  D.attGames=new Set(attShots.map(s=>s.gid)).size; D.shotGames=new Set(mine.map(s=>s.gid)).size;
+  D.atts=ATTS.map(([k,l])=>Object.assign({key:k, label:l}, tally(attShots.filter(s=>s.att===k)))); D.attTagged=attShots.filter(s=>s.att==='1'||s.att==='2'||s.att==='G').length; D.attAny=mine.some(s=>s.att);
   const prOf=s=>s.pr&&s.pr!=='N'?s.pr:'';
   D.prs=PRS.map(([k,l])=>Object.assign({key:k, label:l}, tally(mine.filter(s=>prOf(s)===k)))); D.prTagged=mine.filter(s=>prOf(s)).length;
   D.sides=SIDES.map(([k,l])=>Object.assign({key:k, label:l}, tally(mine.filter(s=>s.side===k)))); D.sideTagged=mine.filter(s=>s.side==='L'||s.side==='C'||s.side==='R').length;
@@ -215,13 +219,15 @@ async function pdsCanvas(V, o){
 
   // BOTTOM: attempt type · pressure · side
   box(c, 898, 808, 1074, 246, {fill:'rgba(0,0,0,0)'}); reg('bottom', 898, 808, 1074, 246);
-  const listPanel=(x, y, w, h, rows, tagged, tagName, id)=>{ box(c, x, y, w, h, {r:14, fill:CARD, lw:1.5}); reg(id, x, y, w, h);
-    if(!tagged){ pdsText(c, 'n/a — no '+tagName+' tags in these games', x+w/2, y+h/2+6, {size:17, wt:600, col:T3, align:'center', maxW:w-30, reg:id}); return; }
+  const listPanel=(x, y, w, h, rows, tagged, tagName, id, cov)=>{ box(c, x, y, w, h, {r:14, fill:CARD, lw:1.5}); reg(id, x, y, w, h);
+    if(!tagged){ pdsText(c, cov&&cov.na?cov.na:'n/a — no '+tagName+' tags in these games', x+w/2, y+h/2+6, {size:17, wt:600, col:T3, align:'center', maxW:w-30, reg:id}); return; }
     const top=Math.max(...rows.map(r=>r.shots), 1);
     rows.forEach((r,i)=>{ const yy=y+28+i*62; pdsText(c, r.label, x+16, yy, {size:17, wt:700, col:T1, maxW:w-120, reg:id});
       pdsText(c, r.shots?r.scores+' · '+pctTxt(r.pct):'–', x+w-16, yy, {size:14, wt:600, col:T2, align:'right', maxW:96, reg:id}); hbar(x+16, yy+10, w-32, 24, r, top); });
-    if(tagged<D.shots) pdsText(c, tagged+' of '+D.shots+' shots tagged', x+w-16, y+h-8, {size:11, wt:500, col:T3, align:'right', reg:id}); };
-  listPanel(922, 828, 322, 206, D.atts, D.attTagged, 'Shot Attempts', 'att');
+    if(cov&&cov.txt) pdsText(c, cov.txt, x+w-16, y+h-8, {size:11, wt:500, col:T3, align:'right', maxW:w-32, reg:id});
+    else if(tagged<D.shots) pdsText(c, tagged+' of '+D.shots+' shots tagged', x+w-16, y+h-8, {size:11, wt:500, col:T3, align:'right', reg:id}); };
+  listPanel(922, 828, 322, 206, D.atts, D.attTagged, 'Shot Attempts', 'att', {na:D.attAny?'n/a — attempt type not tagged on missed shots':null,
+    txt:D.attGames<D.shotGames?'from '+D.attGames+' of '+D.shotGames+' game'+(D.shotGames===1?'':'s')+' (attempts tagged on misses)':null});
   listPanel(1275, 828, 322, 206, D.prs, D.prTagged, 'Shot Pressure', 'press');
   // side chart
   { const x=1628, y=828, w=322, h=206; box(c, x, y, w, h, {r:14, fill:CARD, lw:1.5}); reg('side', x, y, w, h);
