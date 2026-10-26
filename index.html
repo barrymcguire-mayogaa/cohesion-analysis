@@ -201,7 +201,7 @@ function cohesionSignInMarkers(roles){
   const lower = (Array.isArray(roles) ? roles : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
   const secs = new Set();
   if (lower.includes('admin')) ['county', 'club', 'u20'].forEach(x => secs.add(x));
-  lower.forEach(r => { if (r === 'club' || r === 'u20') secs.add(r); else if (r !== 'admin' && r !== 'analyst') secs.add('county'); });
+  lower.forEach(r => { if (r === 'club' || r === 'u20') secs.add(r); else if (/^group:[a-z0-9][a-z0-9_-]{0,39}$/.test(r)) return; else if (r !== 'admin' && r !== 'analyst') secs.add('county'); });   // group:<name> = a playlist-sharing group, never a section (= access.js)
   if (!secs.size) secs.add('county');
   sessionStorage.setItem('cohesion_auth', lower.includes('admin') ? 'admin' : lower.includes('analyst') ? 'analyst' : 'viewer');
   sessionStorage.setItem('cohesion_roles', JSON.stringify(roles || []));
@@ -243,6 +243,15 @@ netlifyIdentity.on('init', user => {
     cohesionSignInMarkers(user.app_metadata?.roles || []);
     window.location.href = cohesionAfterLogin();
   }
+});
+// An INVITATION (Admin › Team sends it from Netlify Identity): the email's link opens this page with #invite_token=…; the
+// Identity widget asks for a password and signs the person in — then on into COHESION with the roles the admin gave.
+netlifyIdentity.on('login', user => {
+  if(!user) return;
+  try { netlifyIdentity.close(); } catch (_) {}
+  cohesionSignInMarkers(user.app_metadata?.roles || []);
+  if(user.email) sessionStorage.setItem('cohesion_user', user.email);
+  window.location.href = cohesionAfterLogin();
 });
 
 initTheme();

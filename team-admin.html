@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Team</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--shadow:rgba(0,0,0,0.4);
+  --green:#4caf50;--green-bg:rgba(76,175,80,0.12);
+  --red:#f44336;--red-bg:rgba(244,67,54,0.12);--logo-color:#ffffff;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.12);
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--shadow:rgba(0,0,0,0.12);
+  --green:#15803d;--green-bg:rgba(21,128,61,0.1);--logo-color:#1a1a28;
+  --red:#b91c1c;--red-bg:rgba(185,28,28,0.1);
+  --amber:#b45309;--amber-bg:rgba(180,83,9,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.page{max-width:1280px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 28px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--t2);line-height:1.6;max-width:900px;}
+.step{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin-top:20px;}
+.step-title{font:700 16px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:12px;}
+.note{border-radius:8px;padding:11px 14px;margin-top:14px;font-size:12px;line-height:1.6;border:1px solid var(--accent);background:var(--accent-bg);color:var(--t1);}
+.note b{color:var(--accent);}
+.note.warn{background:var(--amber-bg);border-color:var(--amber);}
+.note.warn b{color:var(--amber);}
+.error-box{background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:12px 16px;margin-top:12px;font-size:12px;color:var(--red);display:none;line-height:1.6;}
+.error-box.show{display:block;}
+select,input[type=text],input[type=search],input[type=email],input[type=tel],input[type=number]{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;max-width:100%;}
+select:focus,input:focus{border-color:var(--accent);}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+.process-btn{padding:10px 18px;border-radius:9px;background:var(--accent);color:#fff;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;border:none;cursor:pointer;}
+.process-btn:disabled{opacity:.4;cursor:not-allowed;}
+.sec-btn{padding:6px 10px;border-radius:7px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;white-space:nowrap;}
+.sec-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.sec-btn.danger:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.sec-btn:disabled{opacity:.4;cursor:not-allowed;}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+.bar input[type=search]{flex:0 1 280px;}
+.st{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t3);}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+table.tm{width:100%;border-collapse:collapse;font-size:13px;min-width:1080px;}
+table.tm th{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);text-align:left;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.tm td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.tm tr:last-child td{border-bottom:none;}
+table.tm tr.removed td{color:var(--t3);}
+table.tm td.nm{font-weight:600;}
+table.tm td.em{color:var(--t2);font-size:12px;}
+table.tm td.acts{white-space:nowrap;text-align:right;}
+.chip{display:inline-block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--t2);white-space:nowrap;margin:1px 4px 1px 0;}
+.chip.admin{color:var(--red);border-color:var(--red);}
+.chip.analyst{color:var(--amber);border-color:var(--amber);}
+.chip.grp{color:var(--green);border-color:var(--green);}
+.chip.sec{color:var(--accent);border-color:var(--accent);}
+.status{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;}
+.status.accepted{color:var(--green);} .status.invited{color:var(--amber);} .status.removed,.status.no-account{color:var(--t3);}
+.link{color:var(--accent);font-weight:600;}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;z-index:200;overflow-y:auto;padding:40px 12px;}
+.ov.show{display:flex;}
+.mcard{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px;width:min(760px,100%);box-shadow:0 24px 64px var(--shadow);}
+.mtitle{font:800 20px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:4px;}
+.msub{font-size:12px;color:var(--t3);margin-bottom:14px;line-height:1.5;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;}
+.fld label{display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-bottom:5px;}
+.fld input,.fld select{width:100%;}
+.fld .hint{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45;}
+.roles{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:4px;}
+.roles label{display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--t1);font-family:'Barlow',sans-serif;font-weight:500;}
+.roles .rh{font-size:11px;color:var(--t3);}
+.subhead{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin:18px 0 8px;}
+.access{font-size:12px;color:var(--t2);margin-top:8px;}
+.access b{color:var(--t1);}
+.mbtns{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;align-items:center;flex-wrap:wrap;}
+.mmsg{flex:1;font-size:12px;color:var(--t2);}
+.mmsg.err{color:var(--red);}
+.lkrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.lkrow select,.lkrow input{flex:1 1 160px;}
+.hist{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.hist:last-child{border-bottom:none;}
+.hist .when{color:var(--t3);width:130px;flex:0 0 auto;}
+.hist .what{flex:1;}
+@media(max-width:700px){ .page{padding:18px 12px 50px;} .grid{grid-template-columns:1fr;} .step{padding:16px 12px;} }
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-config.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+</head>
+<body>
+
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="admin.html" class="hdr-btn">← Admin</a>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page">
+  <div class="page-title">👥 Team</div>
+  <div class="page-sub">
+    Everyone who can sign in to COHESION. Add a person and they get an invitation email from Netlify Identity to set their
+    password. Roles decide what they see: <b>admin</b> everything · <b>analyst</b> tag, upload and edit games · <b>u20</b> the
+    U20s section · <b>club</b> the club section · any other role (or none) the county section. Groups (coach, player,
+    forwards, backs) are for sharing playlists and change nothing else.
+  </div>
+  <div class="note"><b>Role changes take effect at the person's next sign-in.</b> A session already open keeps its old access
+    until it refreshes (up to an hour); removing someone stops new sign-ins at once. Phone numbers are personal data: they are
+    shown on this page to admins only, never anywhere else.</div>
+  <div class="note warn" id="setupNote" style="display:none;"></div>
+  <div class="error-box" id="pageErr"></div>
+
+  <div class="step">
+    <div class="bar">
+      <button class="process-btn" id="addBtn" onclick="openAdd()">+ Add a person</button>
+      <input type="search" id="search" placeholder="Search name, email, club, player…" autocomplete="off" spellcheck="false" aria-label="Search">
+      <select id="fSection" aria-label="Section"><option value="">Every section</option><option value="county">County</option><option value="club">Club</option><option value="u20">U20s</option></select>
+      <select id="fRole" aria-label="Role or group"><option value="">Every role / group</option></select>
+      <label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--t2);cursor:pointer;"><input type="checkbox" id="fRemoved"> Show removed</label>
+      <span class="st" id="listMsg">Loading…</span>
+    </div>
+    <div class="tbl-wrap"><table class="tm" id="tbl">
+      <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th>Linked player</th><th>Position</th><th>No.</th><th>Club</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="step">
+    <div class="step-title">Activity log</div>
+    <div id="auditBox" style="max-height:340px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- add / edit -->
+<div class="ov" id="pm" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+  <div class="mcard">
+    <div class="mtitle" id="pmTitle">Add a person</div>
+    <div class="msub" id="pmSub">Saving sends the invitation email (from Netlify Identity) and stores their details.</div>
+    <div class="grid">
+      <div class="fld"><label for="fName">Name</label><input type="text" id="fName" maxlength="80" autocomplete="off"></div>
+      <div class="fld"><label for="fEmail">Email</label><input type="email" id="fEmail" maxlength="200" autocomplete="off" spellcheck="false"><div class="hint" id="fEmailHint"></div></div>
+    </div>
+    <div class="subhead">Roles</div>
+    <div class="roles" id="roleBoxes"></div>
+    <div class="roles" id="groupBoxes" style="margin-top:10px;"></div>
+    <div class="fld" style="margin-top:10px;"><label for="fExtra">Other roles (comma separated)</label><input type="text" id="fExtra" placeholder="e.g. viewer" autocomplete="off" spellcheck="false"></div>
+    <div class="access" id="pmAccess"></div>
+    <div class="subhead">Details</div>
+    <div class="grid">
+      <div class="fld"><label for="fPos">Position</label><input type="text" id="fPos" list="posList" maxlength="60" autocomplete="off"><datalist id="posList"></datalist></div>
+      <div class="fld"><label for="fNum">Squad number</label><input type="number" id="fNum" min="0" max="99" step="1"></div>
+      <div class="fld"><label for="fClub">Club</label><input type="text" id="fClub" maxlength="120" autocomplete="off"></div>
+      <div class="fld"><label for="fPhone">Phone (admins only)</label><input type="tel" id="fPhone" maxlength="40" autocomplete="off"></div>
+      <div class="fld"><label for="fTeam">Team</label><input type="text" id="fTeam" maxlength="80" autocomplete="off" placeholder="e.g. MAYO"></div>
+      <div class="fld"><label for="fSec">Squad section</label><select id="fSec"><option value="county">County</option><option value="club">Club</option><option value="u20">U20s</option></select></div>
+    </div>
+    <div id="linkBlock" style="display:none;">
+      <div class="subhead">Linked player — their name in the stats</div>
+      <div class="msub" style="margin-bottom:8px;">Links this sign-in to a player so "My stats" opens their Player Dashboard, clips and playlists. Pick from the team's known players (team sheets and tagged names); a spelling that differs only by fadas, apostrophes or spaces finds the same player.</div>
+      <div class="lkrow">
+        <select id="lkSec" aria-label="Section"><option value="county">County</option><option value="club">Club</option><option value="u20">U20s</option></select>
+        <select id="lkTeam" aria-label="Team"><option value="">Team…</option></select>
+        <input type="text" id="lkPlayer" list="lkList" placeholder="Player…" autocomplete="off" spellcheck="false" aria-label="Player"><datalist id="lkList"></datalist>
+        <button class="sec-btn" id="lkBtn" onclick="doLink()">Link</button>
+        <button class="sec-btn danger" id="lkUnlink" onclick="doUnlink()">Unlink</button>
+      </div>
+      <div class="mmsg" id="lkMsg" style="margin-top:6px;"></div>
+    </div>
+    <div class="mbtns">
+      <span class="mmsg" id="pmMsg"></span>
+      <button class="sec-btn" onclick="closePm()">Cancel</button>
+      <button class="process-btn" id="pmSave" onclick="savePm()">Send invitation</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Auth: admins only (the function teamAdmin.js checks the admin role again on every call) ──
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){ const t = localStorage.getItem('cohesion_theme')||'dark'; document.documentElement.setAttribute('data-theme',t); document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙'; }
+function toggleTheme(){ const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('cohesion_theme',n); document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙'; }
+initTheme();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api = body => cohesionAuthFetch('teamAdmin', body);
+const ROLES = [['admin','Admin','everything, every section'],['analyst','Analyst','tag, upload, edit games'],['u20','U20s','the U20s section'],['club','Club','the club section']];
+const GROUPS = [['group:coach','Coach'],['group:player','Player'],['group:forwards','Forwards'],['group:backs','Backs']];
+const KNOWN = ROLES.map(r=>r[0]).concat(GROUPS.map(g=>g[0]));
+const POSITIONS = ['Goalkeeper','Corner Back','Full Back','Half Back','Centre Half Back','Midfield','Half Forward','Centre Half Forward','Corner Forward','Full Forward','Manager','Coach','Selector','Strength & Conditioning','Analyst','Physio','Kit Manager'];
+const SEC_LABEL = s => s==='club'?'Club':s==='u20'?'U20s':'County';
+const fmtWhen = d => { if(!d) return ''; const t=new Date(d); if(isNaN(t)) return ''; return t.toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'numeric'})+' '+t.toLocaleTimeString('en-IE',{hour:'2-digit',minute:'2-digit'}); };
+const ME = (()=>{ try{ return String(sessionStorage.getItem('cohesion_user')||'').toLowerCase(); }catch(_){ return ''; } })();
+
+let MEMBERS = [], EDIT = null, GAMES = null;
+
+function showErr(msg){ const e=$('pageErr'); e.textContent=msg||''; e.classList.toggle('show', !!msg); }
+function roleChip(r){ const g=r.startsWith('group:'); const lbl=g?(GROUPS.find(x=>x[0]===r)||[r, r.slice(6)])[1]:(ROLES.find(x=>x[0]===r)||[r,r])[1];
+  return '<span class="chip '+(g?'grp':r==='admin'?'admin':r==='analyst'?'analyst':'')+'" title="'+esc(r)+'">'+esc(lbl)+'</span>'; }
+
+async function load(){
+  $('listMsg').textContent='Loading…';
+  try{
+    const j = await api({action:'list'});
+    MEMBERS = j.members||[];
+    $('setupNote').style.display = j.identity&&j.identity.ok ? 'none' : '';
+    if(!(j.identity&&j.identity.ok)) $('setupNote').innerHTML = '<b>Netlify Identity could not be read:</b> '+esc((j.identity&&j.identity.error)||'')+'. The list shows the details stored here only.';
+    showErr('');
+  }catch(e){
+    MEMBERS = [];
+    if(/team tables not set up/.test(e.message)){ $('setupNote').style.display=''; $('setupNote').innerHTML='<b>Set-up needed:</b> run <code>supabase/team_members.sql</code> in the Supabase SQL editor, then reload this page.'; }
+    else showErr('Could not load the team: '+e.message);
+  }
+  fillRoleFilter(); draw(); loadAudit();
+}
+function fillRoleFilter(){
+  const cur=$('fRole').value, have=new Set(KNOWN); MEMBERS.forEach(m=>(m.roles||[]).forEach(r=>have.add(r)));
+  $('fRole').innerHTML='<option value="">Every role / group</option>'+[...have].map(r=>'<option value="'+esc(r)+'"'+(r===cur?' selected':'')+'>'+esc(r.startsWith('group:')?'Group: '+((GROUPS.find(g=>g[0]===r)||[0,r.slice(6)])[1]):r)+'</option>').join('');
+}
+function visible(){
+  const q=$('search').value.trim().toLowerCase(), sec=$('fSection').value, role=$('fRole').value, rem=$('fRemoved').checked;
+  return MEMBERS.filter(m=>{
+    if(!rem&&m.status==='removed') return false;
+    if(sec&&!(m.sections||[]).includes(sec)) return false;
+    if(role&&!(m.roles||[]).includes(role)) return false;
+    if(q){ const hay=[m.name,m.email,m.club,m.position,m.team,m.link&&m.link.player_name,(m.roles||[]).join(' ')].join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
+    return true; });
+}
+function draw(){
+  const list=visible();
+  $('listMsg').textContent = list.length+' of '+MEMBERS.filter(m=>m.status!=='removed').length+' people'+(MEMBERS.some(m=>m.status==='removed')?' · '+MEMBERS.filter(m=>m.status==='removed').length+' removed':'');
+  $('tbody').innerHTML = list.map(m=>{
+    const self = m.email===ME, removed=m.status==='removed';
+    const st = m.status==='accepted'?'Accepted':m.status==='invited'?'Invited':m.status==='removed'?'Removed':'No account';
+    return '<tr data-uid="'+esc(m.user_id)+'" class="'+(removed?'removed':'')+'">'
+      +'<td class="nm">'+esc(m.name)+(self?' <span class="chip sec">you</span>':'')+'</td>'
+      +'<td class="em">'+esc(m.email)+'</td>'
+      +'<td>'+((m.roles||[]).map(roleChip).join('')||'<span class="chip">no roles</span>')+'<div>'+(m.sections||[]).map(s=>'<span class="chip sec">'+SEC_LABEL(s)+'</span>').join('')+'</div></td>'
+      +'<td>'+(m.link?'<span class="link" title="'+esc(m.link.team+' · '+SEC_LABEL(m.link.section))+'">'+esc(m.link.player_name)+'</span><div class="st">'+esc(m.link.team)+'</div>':'<span class="st">—</span>')+'</td>'
+      +'<td>'+esc(m.position)+'</td><td>'+(m.squad_number==null?'':esc(m.squad_number))+'</td><td>'+esc(m.club)+'</td>'
+      +'<td><span class="status '+esc(m.status)+'" title="'+esc(m.status==='invited'&&m.invited_at?'Invited '+fmtWhen(m.invited_at):m.confirmed_at?'Accepted '+fmtWhen(m.confirmed_at):m.removed_at?'Removed '+fmtWhen(m.removed_at)+' by '+m.removed_by:'')+'">'+st+'</span></td>'
+      +'<td class="em">'+(m.last_sign_in_at?esc(fmtWhen(m.last_sign_in_at)):m.status==='accepted'?'not recorded':'')+'</td>'
+      +'<td class="acts">'+(removed?'':'<button class="sec-btn" data-act="edit">Edit</button> '
+        +(m.status==='invited'||m.status==='no-account'?'<button class="sec-btn" data-act="resend">'+(m.status==='invited'?'Resend invite':'Invite again')+'</button> ':'')
+        +'<button class="sec-btn danger" data-act="remove"'+(self?' disabled title="You can\'t remove yourself"':'')+'>Remove access</button>')+'</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="color:var(--t3);padding:18px;">No one matches.</td></tr>';
+}
+$('tbody').addEventListener('click', e=>{
+  const b=e.target.closest&&e.target.closest('[data-act]'); if(!b||b.disabled) return;
+  const m=MEMBERS.find(x=>x.user_id===b.closest('tr').dataset.uid); if(!m) return;
+  if(b.dataset.act==='edit') openEdit(m); else if(b.dataset.act==='resend') resend(m, b); else if(b.dataset.act==='remove') removeAccess(m, b);
+});
+['search','fSection','fRole','fRemoved'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change', draw));
+
+async function loadAudit(){
+  try{
+    const j=await api({action:'audit', limit:200});
+    const L={invite:'invited', update:'changed', resend:'re-sent the invitation to', remove:'removed the access of', link:'linked', unlink:'unlinked'};
+    $('auditBox').innerHTML=(j.entries||[]).map(a=>{ const d=a.detail||{}; let x='';
+      if(a.action==='update'){ const p=[]; if(d.roles) p.push('roles '+(d.roles.from||[]).join(', ')+' → '+(d.roles.to||[]).join(', ')); if(d.changed&&d.changed.length) p.push(d.changed.join(', ')); x=p.length?' ('+p.join('; ')+')':''; }
+      else if(a.action==='invite') x=d.roles&&d.roles.length?' as '+d.roles.join(', '):'';
+      else if(a.action==='link') x=' to '+(d.player||'')+' ('+(d.team||'')+(d.how==='variant'?', typed “'+(d.typed||'')+'”':'')+')';
+      return '<div class="hist"><span class="when">'+esc(fmtWhen(a.at))+'</span><span class="what"><b>'+esc(a.actor)+'</b> '+esc(L[a.action]||a.action)+' <b>'+esc(a.target_email)+'</b>'+esc(x)+'</span></div>'; }).join('')||'<div class="st">Nothing yet.</div>';
+  }catch(e){ $('auditBox').innerHTML='<div class="st">'+esc(e.message)+'</div>'; }
+}
+
+// ── the add / edit form ──
+function paintRoleBoxes(roles){
+  $('roleBoxes').innerHTML=ROLES.map(r=>'<label><input type="checkbox" data-role="'+r[0]+'"'+(roles.includes(r[0])?' checked':'')+'> '+r[1]+' <span class="rh">'+esc(r[2])+'</span></label>').join('');
+  $('groupBoxes').innerHTML='<span class="rh" style="align-self:center;">Groups:</span>'+GROUPS.map(g=>'<label><input type="checkbox" data-role="'+g[0]+'"'+(roles.includes(g[0])?' checked':'')+'> '+g[1]+'</label>').join('');
+  $('fExtra').value=roles.filter(r=>!KNOWN.includes(r)).join(', ');
+  paintAccess();
+}
+function formRoles(){
+  const out=[...document.querySelectorAll('#pm input[data-role]:checked')].map(b=>b.dataset.role);
+  $('fExtra').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean).forEach(r=>{ if(!out.includes(r)) out.push(r); });
+  return out;
+}
+function paintAccess(){
+  const r=formRoles(), secs=typeof cohesionSectionsOf==='function'?cohesionSectionsOf(r):['county'];
+  const cap=r.includes('admin')?'everything':r.includes('analyst')?'tag, upload and edit games':'view';
+  $('pmAccess').innerHTML='Access: <b>'+secs.map(SEC_LABEL).join(' + ')+'</b> · '+cap+(r.some(x=>x.startsWith('group:'))?' · groups '+r.filter(x=>x.startsWith('group:')).map(x=>x.slice(6)).join(', '):'');
+  const self=EDIT&&EDIT.email===ME, box=document.querySelector('#pm input[data-role="admin"]');
+  if(box&&self){ box.disabled=true; box.parentNode.title='You can\'t remove your own admin role'; }
+}
+$('pm').addEventListener('change', e=>{ if(e.target&&(e.target.dataset.role||e.target.id==='fExtra')) paintAccess(); });
+$('fExtra').addEventListener('input', paintAccess);
+$('posList').innerHTML=POSITIONS.map(p=>'<option value="'+esc(p)+'">').join('');
+
+function openAdd(){
+  EDIT=null; $('pmTitle').textContent='Add a person'; $('pmSub').textContent='Saving sends the invitation email (from Netlify Identity) and stores their details. They choose their own password from the email.';
+  ['fName','fEmail','fPos','fNum','fClub','fPhone','fTeam'].forEach(id=>$(id).value=''); $('fSec').value=(typeof cohesionSection==='function'?cohesionSection():'county');
+  $('fEmail').disabled=false; $('fEmailHint').textContent=''; paintRoleBoxes([]); $('linkBlock').style.display='none';
+  $('pmSave').textContent='Send invitation'; msg(''); $('pm').classList.add('show'); setTimeout(()=>$('fName').focus(),0);
+}
+function openEdit(m){
+  EDIT=m; $('pmTitle').textContent='Edit '+m.name; $('pmSub').textContent=m.status==='invited'?'Invited '+fmtWhen(m.invited_at)+' — has not set a password yet.':m.status==='accepted'?'Accepted the invitation'+(m.last_sign_in_at?' · last signed in '+fmtWhen(m.last_sign_in_at):''):'';
+  $('fName').value=m.name||''; $('fEmail').value=m.email||''; $('fEmail').disabled=true; $('fEmailHint').textContent='The sign-in email cannot be changed here.';
+  $('fPos').value=m.position||''; $('fNum').value=m.squad_number==null?'':m.squad_number; $('fClub').value=m.club||''; $('fPhone').value=m.phone||''; $('fTeam').value=m.team||''; $('fSec').value=m.section||'county';
+  paintRoleBoxes(m.roles||[]); $('pmSave').textContent='Save'; msg('');
+  $('linkBlock').style.display=''; paintLink(); $('pm').classList.add('show');
+}
+function closePm(){ $('pm').classList.remove('show'); EDIT=null; }
+function msg(t, err){ const e=$('pmMsg'); e.textContent=t||''; e.classList.toggle('err', !!err); }
+function details(){ return { position:$('fPos').value, squad_number:$('fNum').value===''?null:$('fNum').value, club:$('fClub').value, phone:$('fPhone').value, team:$('fTeam').value, section:$('fSec').value }; }
+async function savePm(){
+  const btn=$('pmSave'); btn.disabled=true;
+  try{
+    if(!EDIT){
+      msg('Sending the invitation…');
+      const j=await api({action:'invite', email:$('fEmail').value, name:$('fName').value, roles:formRoles(), details:details()});
+      MEMBERS.push(j.member); closePm(); fillRoleFilter(); draw(); loadAudit();
+      flash('Invitation sent to '+j.member.email+'.');
+    } else {
+      msg('Saving…');
+      const j=await api({action:'update', user_id:EDIT.user_id, name:$('fName').value, roles:EDIT.status==='removed'||EDIT.status==='no-account'?undefined:formRoles(), details:details()});
+      const i=MEMBERS.findIndex(x=>x.user_id===EDIT.user_id); if(i>=0) MEMBERS[i]=j.member;
+      closePm(); fillRoleFilter(); draw(); loadAudit(); flash('Saved. Role changes take effect at their next sign-in.');
+    }
+  }catch(e){ msg(e.message, true); }
+  btn.disabled=false;
+}
+function flash(t){ $('listMsg').textContent=t; setTimeout(draw, 4000); }
+async function resend(m, b){
+  if(!confirm('Send '+m.email+' a new invitation email? The link in the earlier email stops working.')) return;
+  b.disabled=true;
+  try{ const j=await api({action:'resend', user_id:m.user_id}); const i=MEMBERS.indexOf(m); MEMBERS[i]=Object.assign({}, m, j.member, {phone:j.member.phone||m.phone}); draw(); loadAudit(); flash('A new invitation was sent to '+m.email+'.'); }
+  catch(e){ showErr(e.message); b.disabled=false; }
+}
+async function removeAccess(m, b){
+  if(!confirm('Remove '+m.name+' ('+m.email+') from COHESION?\n\nTheir Netlify Identity account is deleted: they can no longer sign in. Their details stay here, marked removed, for the record. This cannot be undone — to bring them back, add them again.')) return;
+  b.disabled=true;
+  try{ const j=await api({action:'remove', user_id:m.user_id}); const i=MEMBERS.indexOf(m); MEMBERS[i]=Object.assign({}, m, j.member, {status:'removed'}); draw(); loadAudit(); flash(m.name+'\'s access was removed.'); }
+  catch(e){ showErr(e.message); b.disabled=false; }
+}
+
+// ── the player link ──
+const KNOWN_CACHE = new Map();
+async function gamesList(){ if(GAMES) return GAMES; try{ const j=await cohesionRead({action:'listGames', section:'all'}); GAMES=(j.games||[]).map(g=>{ let m=g.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ m={}; } } return m||{}; }); }catch(_){ GAMES=[]; } return GAMES; }
+const secOf = m => (m&&m.section)==='club'?'club':(m&&m.section)==='u20'?'u20':'county';
+async function paintLink(){
+  const m=EDIT; if(!m) return;
+  const L=m.link; $('lkMsg').textContent=L?'Linked to '+L.player_name+' ('+L.team+', '+SEC_LABEL(L.section)+').':'Not linked.';
+  $('lkUnlink').disabled=!L;
+  $('lkSec').value=L?L.section:(m.section||'county');
+  await paintTeams(L?L.team:(m.team||''));
+  $('lkPlayer').value=L?L.player_name:'';
+}
+async function paintTeams(want){
+  const sec=$('lkSec').value, G=await gamesList(), c={};
+  G.filter(g=>secOf(g)===sec).forEach(g=>[g.homeTeam,g.awayTeam].forEach(t=>{ t=String(t||'').replace(/\s+/g,' ').trim().toUpperCase(); if(t) c[t]=(c[t]||0)+1; }));
+  const T=Object.keys(c).sort(); want=String(want||'').toUpperCase();
+  $('lkTeam').innerHTML='<option value="">Team…</option>'+T.map(t=>'<option'+(t===want?' selected':'')+'>'+esc(t)+'</option>').join('');
+  await paintPlayers();
+}
+async function paintPlayers(){
+  const team=$('lkTeam').value, sec=$('lkSec').value; $('lkList').innerHTML=''; if(!team) return;
+  const k=sec+'|'+team;
+  if(!KNOWN_CACHE.has(k)) KNOWN_CACHE.set(k, api({action:'knownPlayers', team, section:sec}).then(j=>j.players||[]).catch(e=>{ KNOWN_CACHE.delete(k); $('lkMsg').textContent='Could not read the known players: '+e.message; return []; }));
+  const P=await KNOWN_CACHE.get(k);
+  if($('lkTeam').value!==team) return;
+  $('lkList').innerHTML=P.map(p=>'<option value="'+esc(p.name)+'">').join('');
+}
+$('lkSec').addEventListener('change', ()=>paintTeams(''));
+$('lkTeam').addEventListener('change', paintPlayers);
+async function doLink(){
+  const m=EDIT; if(!m) return;
+  $('lkBtn').disabled=true; $('lkMsg').textContent='Linking…';
+  try{
+    const j=await api({action:'link', user_id:m.user_id, team:$('lkTeam').value, section:$('lkSec').value, player:{name:$('lkPlayer').value}});
+    m.link=j.link; const i=MEMBERS.findIndex(x=>x.user_id===m.user_id); if(i>=0) MEMBERS[i]=Object.assign(MEMBERS[i], {link:j.link});
+    $('lkPlayer').value=j.link.player_name; $('lkUnlink').disabled=false;
+    $('lkMsg').textContent='Linked to '+j.link.player_name+(j.how==='variant'?' (the spelling in the stats)':'')+'.'; draw(); loadAudit();
+  }catch(e){ $('lkMsg').textContent=e.message; }
+  $('lkBtn').disabled=false;
+}
+async function doUnlink(){
+  const m=EDIT; if(!m||!m.link) return;
+  try{ await api({action:'unlink', user_id:m.user_id}); m.link=null; const i=MEMBERS.findIndex(x=>x.user_id===m.user_id); if(i>=0) MEMBERS[i].link=null; $('lkPlayer').value=''; $('lkUnlink').disabled=true; $('lkMsg').textContent='Not linked.'; draw(); loadAudit(); }
+  catch(e){ $('lkMsg').textContent=e.message; }
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&$('pm').classList.contains('show')) closePm(); });
+
+if(gated && auth==='admin') (typeof cohesionIdentityReady==='function'?cohesionIdentityReady():Promise.resolve()).then(load);
+</script>
+</body>
+</html>

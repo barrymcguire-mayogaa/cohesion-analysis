@@ -184,6 +184,7 @@
   // ── SECTIONS and ROLES — the same rules as netlify/lib/access.js (the server decides; this only draws the UI) ──
   //   capability roles: admin (everything, every section) · analyst (tag, upload, edit; no deletes / management)
   //   section roles:    club → club · u20 → u20 · any other role → county · none / analyst only → county
+  //   group roles:      group:<name> (playlist sharing groups: group:coaches, group:forwards …) — never a section
   //   admin → county + club + u20; combinations → the union (club + anything else → county + club, as before)
   const COH_SECTIONS = ['county', 'club', 'u20'];
   const COH_CAP_ROLES = ['admin', 'analyst'];
@@ -196,7 +197,7 @@
     const lower = lowerRoles(roles);
     if (lower.includes('admin')) return COH_SECTIONS.slice();
     const s = new Set();
-    lower.forEach(r => { if (r === 'club' || r === 'u20') s.add(r); else if (!COH_CAP_ROLES.includes(r)) s.add('county'); });
+    lower.forEach(r => { if (r === 'club' || r === 'u20') s.add(r); else if (/^group:[a-z0-9][a-z0-9_-]{0,39}$/.test(r)) return; else if (!COH_CAP_ROLES.includes(r)) s.add('county'); });   // group:<name> = a playlist-sharing group, never a section
     if (!s.size) s.add('county');
     return COH_SECTIONS.filter(x => s.has(x));
   };

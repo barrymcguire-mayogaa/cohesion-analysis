@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — My stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{--bg:#181820;--panel:#1e1e28;--card:#252530;--border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;--accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--green:#4caf50;--logo-color:#fff;--shadow:rgba(0,0,0,.4);}
+[data-theme="light"]{--bg:#f0eeeb;--panel:#fff;--card:#f7f6f3;--border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;--accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--green:#15803d;--logo-color:#1a1a28;--shadow:rgba(0,0,0,.12);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;}
+header{height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.page{max-width:960px;margin:0 auto;padding:28px 20px 60px;}
+.hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+.av{width:84px;height:84px;border-radius:50%;background:var(--accent-bg);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font:800 28px 'Barlow Condensed',sans-serif;color:var(--accent);overflow:hidden;flex:0 0 auto;}
+.av img{width:100%;height:100%;object-fit:cover;}
+.who{flex:1 1 260px;min-width:0;}
+.who .nm{font:800 30px 'Barlow Condensed',sans-serif;letter-spacing:.5px;line-height:1.1;}
+.who .sub{font-size:13px;color:var(--t2);margin-top:4px;}
+.big{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:10px;background:var(--accent);color:#fff;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:18px;}
+.ct{font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px;}
+.cs{font-size:13px;color:var(--t2);line-height:1.6;}
+.pl{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.pl:last-child{border-bottom:none;}
+.pl a{color:var(--t1);text-decoration:none;font-weight:600;flex:1;}
+.pl a:hover{color:var(--accent);}
+.pl .n{color:var(--t3);font-size:12px;}
+.empty{color:var(--t3);font-size:13px;}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-config.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="hdr-s"></div>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <a href="library.html" class="hdr-btn">Library</a>
+  <a href="analysis.html" class="hdr-btn">📊 Analysis</a>
+  <a href="playlists.html" class="hdr-btn">🎞 Playlists</a>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page" id="page">
+  <div class="cs" id="status">Loading…</div>
+</div>
+
+<script>
+// MY PAGE — a shortcut for a signed-in person linked to a player (Admin › Team): their Player Dashboard (pre-selected to
+// them; its ▶ Watch buttons play their clips), and their playlists. It restricts nothing: Analysis, the Library and the
+// Playlists page work exactly as before for them, within their sections. Staff notes and the Panel Print-out are not here
+// (staff only, never about yourself).
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){ const t = localStorage.getItem('cohesion_theme')||'dark'; document.documentElement.setAttribute('data-theme',t); document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙'; }
+function toggleTheme(){ const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('cohesion_theme',n); document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙'; }
+initTheme();
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEC_LABEL = s => s==='club'?'Club':s==='u20'?'U20s':'County';
+const looseKey = s => String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[\s'‘’‛ʼ`´.\-‐‑‒–—]/g,'');   // = cohesion-merge.js
+const ME = (()=>{ try{ return String(sessionStorage.getItem('cohesion_user')||'').toLowerCase(); }catch(_){ return ''; } })();
+
+// the Player Dashboard deep link (cohesion-playerdash.js pdWantOf reads it)
+function dashUrl(link){
+  const q=new URLSearchParams({ section:link.section||'county', team:link.team, player:link.player_key, pname:link.player_name });
+  return 'analysis.html?'+q.toString()+'#player-dash';
+}
+// PLAYLISTS — the hook for playlists-share: today 'list' returns club-wide + your personal ones; once sharing lands it
+// also returns the ones shared with you. A row counts as
+//   mine          you own it (scope personal / any level, owner = your email)
+//   shared        someone else's, reaching you through a share (playlists-share marks it: sharedWithMe / shared_with_me,
+//                 or a 'people' / 'groups' visibility row you are not the owner of)
+//   your clips    any playlist you can see with a clip naming you (the player label of a clip), whoever made it
+function playlistGroups(rows, email, link){
+  const mine=[], shared=[], clips=[], lk=link?looseKey(link.player_name):'';
+  (rows||[]).forEach(p=>{
+    const own=!!p.owner&&String(p.owner).toLowerCase()===email;
+    const viaShare=!own&&(p.sharedWithMe===true||p.shared_with_me===true||((p.visibility==='people'||p.visibility==='groups')&&!!p.owner));
+    if(own) mine.push(p); else if(viaShare) shared.push(p);
+    const items=(p.data&&Array.isArray(p.data.items))?p.data.items:[];
+    const n=lk?items.filter(it=>it&&it.player&&looseKey(it.player)===lk).length:0;
+    if(n&&!own) clips.push(Object.assign({}, p, {_mine:n}));
+  });
+  return {mine, shared, clips};
+}
+function plRow(p, sec, extra){ const n=(p.data&&p.data.items||[]).length;
+  return '<div class="pl"><a href="playlists.html?pl='+encodeURIComponent(p.id)+'" data-sec="'+esc(sec)+'">🎞 '+esc(p.name)+'</a><span class="n">'+n+' clip'+(n===1?'':'s')+(extra?' · '+esc(extra):'')+'</span></div>'; }
+
+async function boot(){
+  let me;
+  try{ me=await cohesionAuthFetch('teamAdmin', {action:'me'}); }
+  catch(e){ $('status').textContent='Could not read your details: '+e.message; return; }
+  const m=me.member, L=m&&m.link;
+  if(!L){
+    $('page').innerHTML='<div class="card"><div class="ct">My stats</div><div class="cs" id="noLink">Your sign-in is not linked to a player yet. Ask an admin to link you on the Team page — then this page opens your own Player Dashboard, clips and playlists.</div></div>';
+    return;
+  }
+  const init=String(L.player_name||m.name||'?').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+  const sub=[L.team, SEC_LABEL(L.section), m.position, m.squad_number!=null?'#'+m.squad_number:'', m.club].filter(Boolean).join(' · ');
+  $('page').innerHTML=
+    '<div class="hero"><div class="av" id="myAv">'+esc(init)+'</div><div class="who"><div class="nm" id="myName">'+esc(L.player_name)+'</div><div class="sub">'+esc(sub)+'</div></div>'
+    +'<a class="big" id="myDashBtn" href="'+esc(dashUrl(L))+'">📊 My Player Dashboard</a></div>'
+    +'<div class="card"><div class="ct">My clips</div><div class="cs">Every figure on your Player Dashboard has a <b>▶ Watch</b> button: it plays the clips behind that number — your shots, scores, assists, kickouts and turnovers — back to back. <a href="'+esc(dashUrl(L))+'" style="color:var(--accent);">Open it</a>.</div></div>'
+    +'<div class="card" id="plCard"><div class="ct">My playlists</div><div id="plBox" class="cs">Loading…</div></div>';
+  if(L.section&&typeof cohesionSetSection==='function') cohesionSetSection(L.section);
+  try{
+    const secs=typeof cohesionSections==='function'?cohesionSections():['county'], sec=secs.includes(L.section)?L.section:secs[0];
+    const j=await cohesionAuthFetch('playlists', {action:'list', section:sec});
+    const G=playlistGroups(j.playlists||[], ME, L);
+    let h='';
+    h+='<div class="st" style="font:700 11px \'Barlow Condensed\',sans-serif;letter-spacing:1px;color:var(--t3);margin:4px 0;">MINE</div>'+(G.mine.map(p=>plRow(p, sec)).join('')||'<div class="empty">None yet.</div>');
+    h+='<div style="font:700 11px \'Barlow Condensed\',sans-serif;letter-spacing:1px;color:var(--t3);margin:14px 0 4px;">SHARED WITH ME</div>'+(G.shared.map(p=>plRow(p, sec, p.owner?'from '+p.owner.split('@')[0]:'')).join('')||'<div class="empty">Nothing shared with you yet.</div>');
+    if(G.clips.length) h+='<div style="font:700 11px \'Barlow Condensed\',sans-serif;letter-spacing:1px;color:var(--t3);margin:14px 0 4px;">WITH YOUR CLIPS</div>'+G.clips.map(p=>plRow(p, sec, p._mine+' of yours')).join('');
+    $('plBox').innerHTML=h;
+    $('plBox').addEventListener('click', e=>{ const a=e.target.closest&&e.target.closest('a[data-sec]'); if(a&&typeof cohesionSetSection==='function') cohesionSetSection(a.dataset.sec); });
+  }catch(e){ $('plBox').textContent='Could not load playlists: '+e.message; }
+}
+if(gated) (typeof cohesionIdentityReady==='function'?cohesionIdentityReady():Promise.resolve()).then(boot);
+</script>
+</body>
+</html>
