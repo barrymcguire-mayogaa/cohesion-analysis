@@ -8,6 +8,8 @@
  *                     analyst  tag, upload and edit games (no deletes, no management, no admin settings)
  *   section roles     club     the club section
  *                     u20      the U20s section
+ *   group roles       group:<name>  a PLAYLIST SHARING group only (group:coaches, group:forwards …): never a section and
+ *                                   never a capability, so adding one changes nothing else a user sees or may do
  *   any other role (or none)   the county section — exactly as before sections had a third value
  *
  * SECTIONS a user sees (allowedSections):
@@ -33,12 +35,22 @@ function rolesOf(claims) {
   const raw = (claims && claims.app_metadata && claims.app_metadata.roles) || [];
   return (Array.isArray(raw) ? raw : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
 }
+// Playlist-sharing GROUPS: any Identity role written 'group:<name>' (lower case letters, digits, - or _; up to 40).
+// The group's label is <name> in title case with - / _ as spaces: group:coaches → Coaches, group:half-backs → Half Backs.
+const GROUP_PREFIX = 'group:';
+function isGroupRole(r) { return /^group:[a-z0-9][a-z0-9_-]{0,39}$/.test(String(r || '').toLowerCase().trim()); }
+function groupsOf(roles) { return (roles || []).map(r => String(r).toLowerCase().trim()).filter(isGroupRole); }
+function groupLabel(g) {
+  return String(g || '').toLowerCase().replace(/^group:/, '').split(/[-_]+/).filter(Boolean)
+    .map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
 function allowedSections(roles) {
   roles = roles || [];
   if (roles.includes('admin')) return SECTIONS.slice();
   const s = new Set();
   roles.forEach(r => {
     if (SECTION_ROLES[r]) s.add(SECTION_ROLES[r]);
+    else if (isGroupRole(r)) return;                      // a playlist-sharing group is not a section
     else if (!CAPABILITY_ROLES.includes(r)) s.add('county');
   });
   if (!s.size) s.add('county');
@@ -88,4 +100,5 @@ function uploaderOf(meta) { meta = metaObj(meta); return String((meta && meta.up
 
 function forbid(msg) { return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: ' + msg }) }; }
 
-module.exports = { SECTIONS, metaObj, rolesOf, allowedSections, sectionOf, normSection, can, isAdmin, isAnalyst, uploaderOf, forbid };
+module.exports = { SECTIONS, GROUP_PREFIX, metaObj, rolesOf, allowedSections, sectionOf, normSection, can, isAdmin, isAnalyst, uploaderOf, forbid,
+  isGroupRole, groupsOf, groupLabel };
