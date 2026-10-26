@@ -541,7 +541,7 @@ exports.handler = async (event, context) => {
         }
         await logAction(row, u, 'comment_add', { on: where, clipId: it ? it.cid : null, text: str(text, 300), t });
         await enqueue(row, u, 'comment', [row.owner], text);
-        return answer({ commentId: newId });
+        return answer({ commentId: newId, clipId: it ? it.cid : null });
       }
 
       // edit / delete: one's own comment; the owner and admins remove anyone's (an admin may also edit)

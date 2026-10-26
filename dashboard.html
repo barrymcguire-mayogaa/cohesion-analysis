@@ -251,6 +251,9 @@ const isAdmin = sessionStorage.getItem('cohesion_auth') === 'admin';
 // may TAG / EDIT this game (team sheet, custom tags) and add clips to playlists: an admin, or an analyst (the analyst
 // marker AND role — cohesion-edit.js cohesionCan). The functions verify the JWT and its roles on every write.
 const canEdit = isAdmin || (sessionStorage.getItem('cohesion_auth') === 'analyst' && typeof cohesionCan === 'function' && cohesionCan('edit'));
+// Add to playlist: EVERY signed-in user (players and coaches make their own playlists — Barry, Oct 2026). The
+// playlists function decides which playlists he may add to; the picker only offers those.
+const canPlaylist = !!sessionStorage.getItem('cohesion_auth');
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -548,7 +551,7 @@ function buildHTML(H,A){
       </div>
       <div class="chips-row" id="catChips"></div>
       <div class="chips-row" id="subChips" style="display:none"></div>
-      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div>${canEdit?`<div class="sp" id="plAddBtn" onclick="dashAddToPlaylist()" style="cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;" title="Add every event in the current filter to a playlist">🎞 Playlist</div>`:''}</div>
+      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div>${canPlaylist?`<div class="sp" id="plAddBtn" onclick="dashAddToPlaylist()" style="cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;" title="Add every event in the current filter to a playlist">🎞 Playlist</div>`:''}</div>
     </div>
     <div class="lbl-active-bar" id="LAB"><span id="LAT"></span><div class="lbl-clear" onclick="clearLF()">✕ Clear</div></div>
     <div class="event-scroller" id="ES"></div>
@@ -1126,19 +1129,19 @@ async function dashAddToPlaylist(){
   const angNote=(GAME.angles&&currentAngleIdx>0&&GAME.angles[currentAngleIdx])?' Clips use the camera you are watching now ('+((GAME.angles[currentAngleIdx].label)||('Cam '+(currentAngleIdx+1)))+').':'';
   const c=await cohesionPlaylistPicker(lists, {title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Every event in the current filter becomes a clip.'+angNote+' Rename or reorder them any time on the Playlists page.'});
   if(c==='cancel'||c==null) return;
-  let target=null, name='', scope='club';
-  if(c==='new'){
-    name=(prompt('New playlist name:')||'').trim(); if(!name) return;
-    const sc=await cohesionModal({title:'Who can see this playlist?', message:'Club-wide is visible to every analyst, coach and player; personal is only you.', buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
-    if(sc==='cancel') return; scope=sc;
-  } else {
-    target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
-    name=target.name; scope=target.scope;
-  }
-  const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(dashClipOf));
+  const clips=evs.map(dashClipOf);
   try{
-    await dashAuthFetchPL({action:'save', id:target?target.id:undefined, name, scope, section: cohesionSection(), data:{items}});
-    await cohesionModal({title:'Added ✓', message:evs.length+' clip'+(evs.length>1?'s':'')+' added to "'+name+'". Watch it on the Playlists page.', buttons:[{label:'OK',value:true,primary:true}]});
+    let name;
+    if(c==='new'){
+      const n=await cohesionAskNewPlaylist({section: cohesionSection()}); if(!n) return;
+      name=n.name;
+      await dashAuthFetchPL(Object.assign({action:'save', name, section: cohesionSection(), data:{items:clips}}, n.share));
+    } else {
+      const target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
+      name=target.name;
+      for(let i=0;i<clips.length;i+=500) await dashAuthFetchPL({action:'append', id:target.id, items:clips.slice(i,i+500)});   // ONE write per 500 (the function's cap); clips already there are skipped
+    }
+    await cohesionModal({title:'Added ✓', message:evs.length+' clip'+(evs.length>1?'s':'')+' added to "'+String(name).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'". Watch it on the Playlists page.', buttons:[{label:'OK',value:true,primary:true}]});
   }catch(e){ alert('Could not add to playlist: '+e.message); }
 }
 async function dashRestoreBackup(){
