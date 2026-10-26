@@ -496,6 +496,11 @@ select option{background:var(--card);}
       <label>Date</label>
       <input type="date" id="eDate">
     </div>
+    <div class="edit-field" id="eSectionField">
+      <label>Section</label>
+      <select id="eSection"></select>
+      <span id="eSectionNote" style="font-size:11px;color:var(--t3);">Moving a game changes who can see it: U20s games only show for the U20 role, never in county lists or stats.</span>
+    </div>
     <div class="edit-field">
       <label>Main video (YouTube link)</label>
       <input type="text" id="eMainVideo" placeholder="https://youtu.be/… or the 11-character video ID" autocomplete="off" spellcheck="false">
@@ -1093,6 +1098,10 @@ function startEdit(id, e){
   document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  // its section (county / club / U20s) — only the sections this user can see are offered; the server checks again
+  { const secs = cohesionSections(), cur = cohSectionOf(g), sel = document.getElementById('eSection');
+    sel.innerHTML = ['county','club','u20'].filter(x => secs.includes(x) || x === cur).map(x => '<option value="'+x+'"'+(x===cur?' selected':'')+'>'+cohSectionLabel(x)+'</option>').join('');
+    document.getElementById('eSectionField').style.display = sel.options.length > 1 ? '' : 'none'; }
   libMainVideoFill(g);
   // Show/hide division field based on competition
   toggleEditDivisionField();
@@ -1162,6 +1171,8 @@ async function confirmEdit(){
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
   g.title       = `${homeTeam} v ${awayTeam}`;
+  const secWas = cohSectionOf(g), secNow = document.getElementById('eSection').value || secWas;
+  if(secNow !== secWas) g.section = secNow;      // a game never moved keeps its meta exactly as it was
   const validAlts = editAngles.filter(a=>a.youtubeId&&a.youtubeId.trim());
   if(validAlts.length>0){
     const mainAngle = g.angles&&g.angles.length>0
@@ -1190,7 +1201,8 @@ async function confirmEdit(){
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();
-    showToast('Game updated. '+migMsg);
+    showToast((secNow !== secWas ? 'Game moved to '+cohSectionLabel(secNow)+'. ' : 'Game updated. ')+migMsg);
+    if(secNow !== secWas) loadGames();             // it leaves this section's list
   } catch(e){
     showToast('Error saving changes: ' + e.message);
   }
