@@ -271,7 +271,8 @@
   window.cohesionCan = function(cap){
     let a = ''; try { a = sessionStorage.getItem('cohesion_auth') || ''; } catch (_) {}
     if (cap === 'view') return !!a;
-    if (a !== 'admin' && a !== 'analyst') return false;      // the marker and the roles must agree
+    if (a === 'admin') return true;                          // the admin marker: everything, exactly as before
+    if (a !== 'analyst') return false;                       // an analyst marker AND an analyst role
     return window.cohesionCanRoles(window.cohesionRoles(), cap);
   };
   window.cohesionSection = function(){
