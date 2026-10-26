@@ -177,7 +177,7 @@ const RP_KO_OPT=[['contested','Contested By'],['oppContested','Opp Contested By'
 function rpKoDepth(d){ return d==null?null:d<45?'Up to 45m':d<65?'45–65m':d<=70?'65m–half':'Opp half'; }
 function rpKoSide(x){ return x==null?null:x<33.3?'Left':x<66.7?'Centre':'Right'; }
 function rpClock(t){ if(t==null||!isFinite(t)) return 'n/a'; const s=Math.max(0, Math.round(t)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
-function rpHalfOf(e){ const h=ssUC(e&&e.half); return /^ET\s*2|EXTRA.*2/.test(h)?'ET2':/^ET|EXTRA/.test(h)?'ET1':/^2/.test(h)?'2':/^1/.test(h)?'1':''; }
+function rpHalfOf(e){ const h=ssUC(e&&e.half); return /^ET\s*2|^ET.*2ND|EXTRA.*2/.test(h)?'ET2':/^ET|EXTRA/.test(h)?'ET1':/^2/.test(h)?'2':/^1/.test(h)?'1':''; }
 function rpKoCompute(T, g, ctx){
   const b=ctx.bundleOf(g.id); if(!b) return null;
   const K=tkGameKos(b.meta, b.events), KI=typeof cohKoIndexCached==='function'?cohKoIndexCached(b.events, b.meta):null;
