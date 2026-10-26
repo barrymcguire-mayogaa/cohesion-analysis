@@ -247,8 +247,10 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
-// isAdmin here = may TAG / EDIT this game and add clips to playlists: an admin or an analyst (cohesion-edit.js cohesionCan).
-const isAdmin = typeof cohesionCan === 'function' ? cohesionCan('edit') : sessionStorage.getItem('cohesion_auth') === 'admin';
+const isAdmin = sessionStorage.getItem('cohesion_auth') === 'admin';
+// may TAG / EDIT this game (team sheet, custom tags) and add clips to playlists: an admin, or an analyst (the analyst
+// marker AND role — cohesion-edit.js cohesionCan). The functions verify the JWT and its roles on every write.
+const canEdit = isAdmin || (sessionStorage.getItem('cohesion_auth') === 'analyst' && typeof cohesionCan === 'function' && cohesionCan('edit'));
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -542,7 +544,7 @@ function buildHTML(H,A){
       </div>
       <div class="chips-row" id="catChips"></div>
       <div class="chips-row" id="subChips" style="display:none"></div>
-      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div>${isAdmin?`<div class="sp" id="plAddBtn" onclick="dashAddToPlaylist()" style="cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;" title="Add every event in the current filter to a playlist">🎞 Playlist</div>`:''}</div>
+      <div class="statbar"><div class="sp">Showing <b id="CT">—</b></div><div class="sp">${H} <b id="CH">—</b></div><div class="sp">${A} <b id="CA">—</b></div>${canEdit?`<div class="sp" id="plAddBtn" onclick="dashAddToPlaylist()" style="cursor:pointer;border:1px solid var(--accent);color:var(--accent);border-radius:6px;" title="Add every event in the current filter to a playlist">🎞 Playlist</div>`:''}</div>
     </div>
     <div class="lbl-active-bar" id="LAB"><span id="LAT"></span><div class="lbl-clear" onclick="clearLF()">✕ Clear</div></div>
     <div class="event-scroller" id="ES"></div>
@@ -600,7 +602,7 @@ function buildHTML(H,A){
       </div>
       <canvas id="tlC" height="70"></canvas>
     </div>
-    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div>${isAdmin?`<div class="np-tag-btn" id="NPTagBtn" style="display:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-top:6px;" onclick="openPlayerTagEditor()">✏️ Assign Player</div><div id="NPCustom" style="display:none;margin-top:8px;"></div>`:''}</div>
+    <div class="now-playing"><div class="np-lbl">Now Playing</div><div class="np-name" id="NPN">Select an event to jump to that moment</div><div class="np-meta" id="NPM">${H} v ${A} — ${GAME.competition||''}</div><div class="np-time" id="NPT"></div>${canEdit?`<div class="np-tag-btn" id="NPTagBtn" style="display:none;cursor:pointer;color:var(--accent);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-top:6px;" onclick="openPlayerTagEditor()">✏️ Assign Player</div><div id="NPCustom" style="display:none;margin-top:8px;"></div>`:''}</div>
     <div class="idle" id="IB"><div class="idle-icon">▶</div><div class="idle-text">Click any event to jump to that moment.<br><br><strong>S M L Xl</strong> — resize player<br><strong>Drag handle</strong> — custom resize<br><strong>Timeline</strong> — click to seek · scroll to zoom</div></div>
     <div class="nearby" id="NB" style="display:none"><div class="nb-lbl">Nearby Events</div><div id="NBI"></div></div>
   </div>`;
@@ -938,7 +940,7 @@ function pickI(id){
   document.getElementById('NPT').textContent='Video: '+fmt(ev.driveT);
   document.getElementById('IB').style.display='none';
   document.getElementById('NB').style.display='block';
-  if(isAdmin){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block'; renderCustomTags(ev);}
+  if(canEdit){const tb=document.getElementById('NPTagBtn');if(tb)tb.style.display='block'; renderCustomTags(ev);}
   const ai=ALL.findIndex(e=>e.id===id);
   const nb=ALL.slice(Math.max(0,ai-6),ai+7).filter(e=>e.id!==id);
   document.getElementById('NBI').innerHTML=nb.map(r=>`<div class="nbrow" onclick="pickI('${r.id}')"><div class="nb-t">${r.gameTime}</div><div class="nb-c">${tc(r.code)}${r.player&&!r.playerRow&&!dashSubTxt(r)?' · '+dashPlayersTxt(r):''}${dashSubTxt(r)?' · '+dashSubTxt(r):''}</div></div>`).join('');
@@ -968,7 +970,7 @@ function renderTS(){
   const pickable=(side, name)=>{ if(!known[side]){ const T=String((side==='home'?GAME.homeTeam:GAME.awayTeam)||'').toUpperCase(); known[side]=new Set();
       ALL.forEach(e=>dashPlayers(e).forEach(p=>{ if(p.name&&String(p.team||'').toUpperCase()===T) known[side].add(cohTS.nameKey(p.name)); })); }
     return known[side].has(cohTS.nameKey(name)); };
-  sc.innerHTML=cohTS.panelHtml(GAME,{canEdit:isAdmin, editCall:'dashTeamSheetEdit()', events:ALL, view:dashTSView, side:dashTSSide, stateCall:'dashTSState',
+  sc.innerHTML=cohTS.panelHtml(GAME,{canEdit:canEdit, editCall:'dashTeamSheetEdit()', events:ALL, view:dashTSView, side:dashTSSide, stateCall:'dashTSState',
     players:side=>dashPlayerDetails(side==='away'?'a':'h'), playerCall:'dashTSPlayer', canPick:pickable});
 }
 function dashTSState(k, v){ if(k==='view') dashTSView=v==='list'?'list':'pitch'; else if(k==='side') dashTSSide=v==='away'?'away':'home'; renderTS(); }
@@ -990,7 +992,7 @@ function dashTeamNames(side){
   return out.sort((a,b)=>a.localeCompare(b));
 }
 function dashTeamSheetEdit(){
-  if(!isAdmin||!window.cohTS) return;
+  if(!canEdit||!window.cohTS) return;
   cohTS.openEditor({ game:GAME, known:{home:dashTeamNames('home'), away:dashTeamNames('away')},
     loadKnown:side=>cohTS.loadKnown(side==='home'?GAME.homeTeam:GAME.awayTeam, {exceptId:GAME.id, section:cohSectionOf(GAME)}),
     onSaved:merged=>{ GAME.rosters=merged.rosters; renderP(); const ev=ALL.find(e=>e.id===activeId); if(ev) renderCustomTags(ev); } });
@@ -1010,7 +1012,7 @@ function dashPickPlayer(ev, current){
   return cohTS.pick({title:'Assign player', message:[tc(ev.code), ev.gameTime].filter(Boolean).join(' @ '), sections, current});
 }
 function openPlayerTagEditor(){
-  if(!isAdmin||!activeId)return;
+  if(!canEdit||!activeId)return;
   const ev=ALL.find(e=>e.id===activeId);if(!ev)return;
   const currentName=ev.player||'';
   if(currentName){

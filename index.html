@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Team Analysis</title>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-<script src="cohesion-edit.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -195,13 +194,18 @@ function cohesionAfterLogin(){
 }
 
 // The session markers the pages draw from: cohesion_auth 'admin' | 'analyst' | 'viewer', the roles, and the first
-// section the roles can see (county, else club, else U20s) — cohesionSessionMarkers in cohesion-edit.js, the same
-// rules as the server (netlify/lib/access.js).
+// section the roles can see (county, else club, else U20s). = cohesion-edit.js cohesionSessionMarkers and the server's
+// netlify/lib/access.js (this page does not load cohesion-edit.js, so the rule is written out here too):
+//   admin → county + club + u20 · club → club · u20 → u20 · any other role (not analyst) or none → county.
 function cohesionSignInMarkers(roles){
-  const m = cohesionSessionMarkers({ app_metadata: { roles: roles } });
-  sessionStorage.setItem('cohesion_auth', m.auth);
-  sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
-  sessionStorage.setItem('cohesion_section', m.section);
+  const lower = (Array.isArray(roles) ? roles : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
+  const secs = new Set();
+  if (lower.includes('admin')) ['county', 'club', 'u20'].forEach(x => secs.add(x));
+  lower.forEach(r => { if (r === 'club' || r === 'u20') secs.add(r); else if (r !== 'admin' && r !== 'analyst') secs.add('county'); });
+  if (!secs.size) secs.add('county');
+  sessionStorage.setItem('cohesion_auth', lower.includes('admin') ? 'admin' : lower.includes('analyst') ? 'analyst' : 'viewer');
+  sessionStorage.setItem('cohesion_roles', JSON.stringify(roles || []));
+  sessionStorage.setItem('cohesion_section', ['county', 'club', 'u20'].find(x => secs.has(x)));
 }
 
 async function doLogin(){
