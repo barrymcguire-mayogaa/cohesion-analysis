@@ -470,8 +470,12 @@ function sbToggle(){ sbOn=!sbOn; try{ localStorage.setItem('coh_scoreboard',sbOn
 function sbSyncBtn(){ const b=document.getElementById('sbBtn'); if(b){ b.style.borderColor=sbOn?'var(--accent)':''; b.style.color=sbOn?'var(--accent)':''; } }
 setInterval(sbTick,500);
 function seekV(t){curT=t;const vt=driveToAngle(t,currentAngleIdx);if(YTP&&YTP.seekTo){YTP.seekTo(vt,true);YTP.playVideo();}else pendSeek=vt;updatePH(t);}
-function startRAF(){stopRAF();function f(){if(YTP&&YTP.getCurrentTime){const vt=YTP.getCurrentTime();vidT=videoTimeToDrive(vt,currentAngleIdx);updatePH(vidT);}rafID=requestAnimationFrame(f);}rafID=requestAnimationFrame(f);}
-function stopRAF(){if(rafID)cancelAnimationFrame(rafID);}
+// the playhead loop while the video plays, and the play button's state (updateVCPlay). ONE declaration each: the old
+// "patch" further down re-declared both, and declarations are hoisted, so its saved "originals" were the patched functions
+// themselves and each called itself (Maximum call stack size exceeded) the moment the video played or paused.
+function rafHalt(){if(rafID)cancelAnimationFrame(rafID);rafID=null;}
+function startRAF(){rafHalt();function f(){if(YTP&&YTP.getCurrentTime){const vt=YTP.getCurrentTime();vidT=videoTimeToDrive(vt,currentAngleIdx);updatePH(vidT);}rafID=requestAnimationFrame(f);}rafID=requestAnimationFrame(f);updateVCPlay();}
+function stopRAF(){rafHalt();updateVCPlay();}
 async function loadGame(){
   try{
     // xP model: published one if available, else the bundled v1 (never blocks the load)
@@ -1323,11 +1327,7 @@ function updateVCPlay(){
   const s=YTP&&YTP.getPlayerState?YTP.getPlayerState():-1;
   btn.textContent=s===1?'⏸':'▶';
 }
-/* Patch startRAF / stopRAF to also update controls */
-const _origStart=startRAF;
-function startRAF(){_origStart();updateVCPlay();}
-const _origStop=stopRAF;
-function stopRAF(){_origStop();updateVCPlay();}
+/* startRAF / stopRAF (above) also update the play button */
 /* Arrow key + Space shortcuts */
 document.addEventListener('keydown',function(e){
   const tag=document.activeElement&&document.activeElement.tagName;
