@@ -855,9 +855,17 @@ function ppPages(P){
   const gk=filled.filter(ppIsKeeper), out=filled.filter(s=>!ppIsKeeper(s)), pages=[{kind:'cover'}];
   gk.forEach(s=>pages.push({kind:'gk', slots:[s]}));
   for(let i=0;i<out.length;i+=2) pages.push({kind:'out', slots:out.slice(i,i+2)});
-  pages.push({kind:'assists', scope:'full'}, {kind:'assists', scope:'comp'});   // the full season, then the competition chosen for the season rows
+  pages.push({kind:'assists', scope:'full'});   // the full season, then the competition chosen for the season rows
+  if(!ppSingle()) pages.push({kind:'assists', scope:'comp'});   // (one game: its own assists page only)
   return pages;
 }
+// ONE GAME (the desktop app's offline copy, Oct 2026): window.COH_SINGLE_GAME = true — the page was handed ONE game and
+// the print-out is for that game alone (Barry: "all data figures and printouts are just for the one game being analysed").
+// No season, competition or opponent choice; every season table is a single "This game" row; the shot maps, the kickout
+// chains and maps, the assists page and the notes drafts come from that game only. The website never sets the flag, so
+// nothing below changes there.
+function ppSingle(){ return typeof window!=='undefined'&&!!window.COH_SINGLE_GAME; }
+function ppFullLab(){ return ppSingle()?'This game':'Full '+PP.season; }
 // ── print-out strings ──
 function ppBarHTML(s, T, col, club){
   const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff', fg2=typeof cohInkOn==='function'?cohInkOn(col.tag||col.bar):'#111';
@@ -867,11 +875,11 @@ function ppSeasonTable(T, key, Sf, Sc, P, col, So){   // So (optional): the OPPO
   const row=(lab, S)=>{ const r=key?S.rows.get(key):null, na=v=>v==null?'n/a':v;
     if(!r) return `<tr><td>${ssEsc(lab)}</td><td colspan="6" class="na">${key?'not named on any '+ssEsc(titleCase(T))+' event':'no data for this name'}</td></tr>`;
     return `<tr><td>${ssEsc(lab)}</td><td>${r.gp}</td><td>${r.min==null?'<span title="no team sheet">n/a</span>':Math.round(r.min)+'\''}</td><td>${r.one}</td><td>${r.two}</td><td>${r.goals}</td><td><b>${na(r.pts)}</b></td></tr>`; };
-  return `<table class="pp-st"><thead><tr style="background:${ssEsc(col.bar)};color:${typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff'}"><th>Season</th><th>Games</th><th>Mins</th><th>1-Pts</th><th>2-Pts</th><th>Goals</th><th>Total</th></tr></thead><tbody>`
-    +row('Full '+P.season, Sf)+(Sc?row(pdCompShort(P.comp)+' only', Sc):'')+(So?row('v '+titleCase(P.opp)+' (all)', So):'')+'</tbody></table>';
+  return `<table class="pp-st"><thead><tr style="background:${ssEsc(col.bar)};color:${typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff'}"><th>${ppSingle()?'Game':'Season'}</th><th>Games</th><th>Mins</th><th>1-Pts</th><th>2-Pts</th><th>Goals</th><th>Total</th></tr></thead><tbody>`
+    +row(ppSingle()?'This game':'Full '+P.season, Sf)+(Sc?row(pdCompShort(P.comp)+' only', Sc):'')+(So?row('v '+titleCase(P.opp)+' (all)', So):'')+'</tbody></table>';
 }
 function ppNotesTable(T, s, keeper, note){
-  const labs=PP_NOTE_KEYS.map(([k,l])=>[k, k==='style'&&keeper?'Kickout Style':k==='form'?PP.season+' Form':l]);
+  const labs=PP_NOTE_KEYS.map(([k,l])=>[k, k==='style'&&keeper?'Kickout Style':k==='form'?(ppSingle()?'Form (this game)':PP.season+' Form'):l]);
   return `<table class="pp-nt" data-key="${ssEsc(s.key)}"><tbody>${labs.map(([k,l])=>`<tr><th>${ssEsc(l)}</th><td><div class="pp-ed" contenteditable="true" spellcheck="true" data-note="${k}" data-key="${ssEsc(s.key)}" aria-label="${ssEsc(l+' — '+s.name)}">${ssEsc(note[k]||'')}</div></td></tr>`).join('')}</tbody></table>`;
 }
 function ppShotMap(S, key){
@@ -890,11 +898,11 @@ function ppPlayerHTML(T, s, ctx, col){
     +`<div class="pp-row"><div class="pp-side">${cohPlayerBadgeHTML(T, s.name, {cls:'pp-badge', color:col.bar})}${keeper?'':ppShotMap(ctx.Sf, real)}`
     +`<label class="pp-noprint pp-club">Club <input type="text" data-club="${ssEsc(key)}" value="${ssEsc(saved.club||'')}" placeholder="type the club"></label>`
     +`<div class="pp-noprint pp-resetw"><button type="button" class="mini" data-ppreset="${ssEsc(key)}" data-name="${ssEsc(s.name)}"${same?' disabled aria-disabled="true" title="Notes already match the figures"':' title="Replace this player’s edited notes with a fresh draft from the figures"'}>Reset to draft</button><span class="pp-redone" role="status" aria-live="polite"></span></div></div>`
-    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col, ctx.So)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:'Full '+PP.season, cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
+    +`<div class="pp-main">${ppSeasonTable(T, real, ctx.Sf, ctx.Sc, PP, col, ctx.So)}${ppNotesTable(T, sk, keeper, note)}${keeper||typeof pyBandsHTML!=='function'?'':pyBandsHTML(ctx.Sf.R.shots.filter(x=>real&&x.pk===real), null, {print:true, gameOf:ctx.Sf.R.gameOf, label:ppFullLab(), cmp2:ctx.Sc?{label:pdCompShort(PP.comp)+' only', shots:ctx.Sc.R.shots.filter(x=>real&&x.pk===real)}:null})}</div></div></section>`;
 }
 function ppChainTable(T, s, ctx, col){
   const A=ppChains(ctx.Sf, T, s.name), B=ctx.Sc?ppChains(ctx.Sc, T, s.name):null, cs=pdCompShort(PP.comp);
-  const cols=[]; TK_LENS.forEach(([l,n])=>{ cols.push([A[l], n+' (Full)']); if(B) cols.push([B[l], n+' ('+cs+')']); });
+  const cols=[]; TK_LENS.forEach(([l,n])=>{ cols.push([A[l], ppSingle()?n:n+' (Full)']); if(B) cols.push([B[l], n+' ('+cs+')']); });
   const src=A.src, f=(o,k)=>o[k]==null?'n/a':(k==='pct'||k==='conv')?(o[k]==null?'n/a':Math.round(o[k])+'%'):o[k];
   const R=[['taken','Kickouts taken'],['pct','Kickout win %'],['shots','Shots generated'],['scores','Scores'],['one','Points'],['two','2-Pts'],['goals','Goals'],['value','Total value'],['conv','Conversion %']];
   const fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff';
@@ -905,7 +913,7 @@ function ppChainTable(T, s, ctx, col){
 function ppKoMaps(T, ctx){
   const m=(S, lab)=>{ const A=ppChains(S, T, ''); const k=A.located;
     return `<div class="pp-kmap">${k.length?tkMapSVG(k, null):'<div class="pp-map na">Kickout map n/a<small>no kickout in these games has a landing location</small></div>'}<small>${ssEsc(lab+(k.length?' · '+k.length+' located':''))}</small></div>`; };
-  return `<div class="pp-kmaps">${m(ctx.Sf, 'Full '+PP.season)}${ctx.Sc?m(ctx.Sc, PP.comp+' '+PP.season):''}</div>`;
+  return `<div class="pp-kmaps">${m(ctx.Sf, ppFullLab())}${ctx.Sc?m(ctx.Sc, PP.comp+' '+PP.season):''}</div>`;
 }
 function ppCoverHTML(T, ctx, col, list){
   const crest=typeof cohCrestSrc==='function'?cohCrestSrc(T):null, fg=typeof cohInkOn==='function'?cohInkOn(col.bar):'#fff';
@@ -914,10 +922,13 @@ function ppCoverHTML(T, ctx, col, list){
     +(crest?`<img class="pp-ccrest" src="${ssEsc(crest)}" alt="${ssEsc(T)} crest">`:`<div class="pp-ccrest pp-c0" style="border-color:${ssEsc(col.tag||'#fff')}">${ssEsc(pdOppShort(T))}</div>`)
     +`<h1>${ssEsc(titleCase(T))}</h1><h2>Senior Panel · ${n} players</h2></div>${pdStripeHTML(col.tertiary?col:{bands:[col.tag||col.bar]}, 'pp-cbands')}`
     +`<dl class="pp-cdl"><dt>Competition</dt><dd>${ssEsc(PP.comp+' '+PP.season)}</dd><dt>Opponent</dt><dd><span class="pp-ed" contenteditable="true" data-cover="opponent" aria-label="Opponent">${ssEsc(PP.cover.opponent||'')}</span></dd><dt>Date</dt><dd><span class="pp-ed" contenteditable="true" data-cover="date" aria-label="Date">${ssEsc(PP.cover.date||'')}</span></dd></dl>`
-    +`<div class="pp-cfoot">${ssEsc('Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'.'+(ctx.So?' Opponent record: the '+ctx.soN+' uploaded game'+(ctx.soN===1?'':'s')+' v '+titleCase(PP.opp)+'.':'')+' “n/a” = the files do not carry it.')}</div></div>`;
+    +`<div class="pp-cfoot">${ssEsc(ppSingle()?ppOneGameTxt(T, ctx):'Figures from '+ctx.Sf.games.length+' '+titleCase(T)+' games in '+PP.season+' ('+ctx.Sf.games.map(g=>pdCompShort(g.competition)).filter((x,i,a)=>a.indexOf(x)===i).join(', ')+'), '+(ctx.Sc?ctx.Sc.games.length+' of them '+PP.comp:'')+'.'+(ctx.So?' Opponent record: the '+ctx.soN+' uploaded game'+(ctx.soN===1?'':'s')+' v '+titleCase(PP.opp)+'.':'')+' “n/a” = the files do not carry it.')}</div></div>`;
 }
+// the cover's foot for ONE game: which game the figures are from
+function ppOneGameTxt(T, ctx){ const g=ctx.Sf.games[0]||{};
+  return 'Figures from this game only: '+(g.title||titleCase(T))+' · '+[g.competition, g.round, g.date].filter(Boolean).join(' · ')+'. “n/a” = the file does not carry it.'; }
 function ppAssistsHTML(T, S, scope){
-  const lab=scope==='comp'?PP.comp+' '+PP.season:'Full '+PP.season;
+  const lab=scope==='comp'?PP.comp+' '+PP.season:ppFullLab();
   if(!S) return `<h3 class="pp-h">Assist by Footballer — ${ssEsc(lab)}:</h3><p class="pp-p">n/a — no ${ssEsc(PP.comp)} games in ${ssEsc(PP.season)}.</p>`;
   const A=ppAssists(S), top=A.rows.slice(0,10), x=v=>v==null?'n/a':v.toFixed(1), q=v=>v==null?'n/a':v.toFixed(2);
   return `<h3 class="pp-h">Assist by Footballer — ${ssEsc(lab)}:</h3><p class="pp-p">${ssEsc('Who is providing the '+titleCase(T)+' shooters and free takers with the most shots ('+lab+', '+S.games.length+' game'+(S.games.length===1?'':'s')+'; '+A.tagged+' of '+A.total+' shots name an assist).')}</p>`
@@ -941,9 +952,10 @@ function ppPickerHTML(T, ctx, list, lim){
   const squad=ctx.Sf.F.players.slice().sort((a,b)=>a.name.localeCompare(b.name)), N=Math.max(15, +PP.size||lim.limit);
   const used=new Map(); Object.keys(PP.slots).forEach(n=>{ const s=PP.slots[n]; if(s&&s.key) used.set(s.key, +n); });
   const seasons=pdSeasons(list), comps=pdComps(list, PP.season), over=Object.keys(PP.slots).filter(n=>+n>lim.limit&&PP.slots[n]&&PP.slots[n].name);
-  let h=`<div class="pp-ctl pp-noprint"><label class="pd-f"><span>SEASON</span><select id="ppSeason">${seasons.map(s=>`<option${s===PP.season?' selected':''}>${s}</option>`).join('')}</select></label>`
+  const g1=ppSingle()?(ctx.Sf.games[0]||{}):null;
+  let h=`<div class="pp-ctl pp-noprint">`+(g1?`<div class="pd-f pp-onegame"><span>GAME</span><b>${ssEsc((g1.title||'')+(g1.round?' · '+g1.round:''))}</b></div>`:`<label class="pd-f"><span>SEASON</span><select id="ppSeason">${seasons.map(s=>`<option${s===PP.season?' selected':''}>${s}</option>`).join('')}</select></label>`
     +`<label class="pd-f"><span>ONE COMPETITION</span><select id="ppComp">${comps.map(c=>`<option${c===PP.comp?' selected':''}>${ssEsc(c)}</option>`).join('')}</select></label>`
-    +`<label class="pd-f"><span>OPPONENT RECORD</span><select id="ppOpp"><option value="">— none —</option>${pdOpps(list, T).map(o=>`<option value="${ssEsc(o)}"${o===PP.opp?' selected':''}>v ${ssEsc(titleCase(o))} (${list.filter(g=>pdIsOpp(g,o)).length})</option>`).join('')}</select></label>`
+    +`<label class="pd-f"><span>OPPONENT RECORD</span><select id="ppOpp"><option value="">— none —</option>${pdOpps(list, T).map(o=>`<option value="${ssEsc(o)}"${o===PP.opp?' selected':''}>v ${ssEsc(titleCase(o))} (${list.filter(g=>pdIsOpp(g,o)).length})</option>`).join('')}</select></label>`)
     +`<label class="pd-f"><span>PANEL SIZE</span><select id="ppSize">${[26,30,40].map(n=>`<option value="${n}"${n===N?' selected':''}>${n}</option>`).join('')}</select></label>`
     +`<button type="button" class="act primary" data-ppprint="1">Print / Save as PDF</button><button type="button" class="act" data-ppclear="1">Clear the squad</button>`
     +`<span class="pp-save ${ppSaveIndicatorTxt()[0]}" id="ppSaveState" role="status" aria-live="polite">${ssEsc(ppSaveIndicatorTxt()[1])}</span>${PPN.state==='error'?'<button type="button" class="act" data-ppretry="1">Retry</button>':''}</div>`
@@ -956,7 +968,7 @@ function ppPickerHTML(T, ctx, list, lim){
       +(free?`<input type="text" data-ppfree="${n}" value="${ssEsc(s.name||'')}" placeholder="name (no data)" aria-label="Name for number ${n}">`:'')
       +(n>15?`<select data-ppline="${n}" aria-label="Line of number ${n}" title="The sub’s line: a goalkeeper gets the goalkeeper page">${PP_LINES.map(l=>`<option value="${l[0]}"${(s.line||'')===l[0]?' selected':''}>${l[1]}</option>`).join('')}</select>`:'')
       +`<input type="text" class="pp-posin" data-pppos="${n}" value="${ssEsc(s.pos||'')}" placeholder="${ssEsc(ppPosLabel(n, s.line))}" aria-label="Position label for number ${n}" title="The position printed for this game day (empty = ${ssEsc(ppPosLabel(n, s.line))})"></div></div>`; }
-  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. The POSITION box is the label printed for this game day — type over it; left empty it is the slot’s (1 Goalkeeper … 15 Left Corner Forward; a sub: his line + “(Sub)”). A sub picked as a goalkeeper gets the goalkeeper page. The squad, the labels, clubs, the cover’s opponent and date and every note are saved to the staff notes store (admins only); if it cannot be reached they are kept in this browser until it answers.</div></details>`;
+  h+=`</div><div class="dnote">The list: everyone named on a ${ssEsc(titleCase(T))} event in ${ssEsc(ppSingle()?'this game':PP.season)} (a player is on one number only). “Type a name…” adds someone with no data. The POSITION box is the label printed for this game day — type over it; left empty it is the slot’s (1 Goalkeeper … 15 Left Corner Forward; a sub: his line + “(Sub)”). A sub picked as a goalkeeper gets the goalkeeper page. The squad, the labels, clubs, the cover’s opponent and date and every note are saved to the staff notes store (admins only); if it cannot be reached they are kept in this browser until it answers.</div></details>`;
   return h;
 }
 function ppRender(){
@@ -965,7 +977,9 @@ function ppRender(){
   if(PP_TEAM!==T){ PP_TEAM=T; PP=ppLoad(T, list); PPN.team=T; PPN.notes=new Map(); PPN.pend={notes:[], squad:false}; PPN.offer=[]; PPN.offerSquad=false; ppRemoteLoad(T, list); }   // the store: loaded when the print-out opens
   const seasons=pdSeasons(list); if(!seasons.includes(PP.season)) PP.season=seasons[0]||'';
   const comps=pdComps(list, PP.season); if(!comps.includes(PP.comp)) PP.comp=comps[0]||'';
-  const games=pdRangeGames(list, {kind:'season', season:PP.season}), cg=pdRangeGames(list, {kind:'comp', season:PP.season, comp:PP.comp});
+  const one=ppSingle();
+  if(one) PP.opp='';   // one game: no opponent record (the game IS the record)
+  const games=one?list.slice(0, 1):pdRangeGames(list, {kind:'season', season:PP.season}), cg=one?[]:pdRangeGames(list, {kind:'comp', season:PP.season, comp:PP.comp});
   if(PP.opp&&!pdOpps(list, T).includes(PP.opp)) PP.opp='';
   const og=PP.opp?pdRangeGames(list, {kind:'opp', opp:PP.opp}):[];
   const ctx={Sf:pdSummaries(T, games, pdBundleOf), Sc:cg.length?pdSummaries(T, cg, pdBundleOf):null, So:og.length?pdSummaries(T, og, pdBundleOf):null, soN:og.length}, col=pdColours(T), lim=ppLimit(list, PP.comp);
