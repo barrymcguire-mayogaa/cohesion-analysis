@@ -18,8 +18,12 @@
  *   { action: 'setCurrentXpModel', id }       -> rollback: make an older version current;
  *                                                id 'bundled' reverts to cohesion-xp.js's built-in v1
  * Never called automatically — publishing is always an admin clicking Publish.
+ *
+ * ROLES (netlify/lib/access.js): updateMeta — admin, or analyst for a game in a section he can see (and only into a
+ * section he can see); deleteGame and every xP action — ADMIN ONLY. meta.uploadedBy is the server's: always kept.
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, allowedSections, sectionOf, can, isAdmin, uploaderOf, metaObj } = require('../lib/access');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -47,7 +51,11 @@ exports.handler = async (event, context) => {
     let decoded;
     decoded = verifiedClaims(context);
     if (!decoded) return UNAUTH;
-    if (!((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin')) {
+    const roles = rolesOf(decoded);
+    const admin = isAdmin(roles);
+    // updateMeta is a game edit (Code Room team sheets, game details, Repair / Merge): admin or analyst.
+    // Everything else here deletes or manages: admin only.
+    if (!(action === 'updateMeta' ? can(roles, 'edit') : admin)) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
     }
 
@@ -61,6 +69,16 @@ exports.handler = async (event, context) => {
       if (!meta || typeof meta !== 'object') {
         return { statusCode: 400, body: JSON.stringify({ error: 'updateMeta needs a meta object' }) };
       }
+      const { data: rows, error: rErr } = await supabase.from('games').select('id, meta').eq('id', gameId).limit(1);
+      if (rErr) throw new Error(rErr.message);
+      const stored = (rows && rows[0]) || null;
+      if (!stored) return { statusCode: 404, body: JSON.stringify({ error: 'Game not found' }) };
+      if (!admin) {
+        const allowed = allowedSections(roles);
+        if (!allowed.includes(sectionOf(stored.meta))) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this game' }) };
+        if (!allowed.includes(sectionOf(meta))) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: you cannot move a game to the ' + sectionOf(meta) + ' section' }) };
+      }
+      if (uploaderOf(stored.meta)) meta.uploadedBy = metaObj(stored.meta).uploadedBy; else delete meta.uploadedBy;
       const { error } = await supabase.from('games').update({ meta }).eq('id', gameId);
       if (error) throw new Error(error.message);
       return { statusCode: 200, body: JSON.stringify({ ok: true, gameId }) };

@@ -17,6 +17,7 @@
  *        -> { ok, slug, removed }
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, can } = require('../lib/access');
 const { cohCrestSlug } = require('../../cohesion-crests.js');
 
 const { createClient } = require('@supabase/supabase-js');
@@ -113,8 +114,8 @@ exports.handler = async (event, context) => {
     if (!token) return json(401, { error: 'Authentication required' });
     const decoded = verifiedClaims(context);
     if (!decoded) return UNAUTH;
-    const roles = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase());
-    const isAdmin = roles.includes('admin');
+    const roles = rolesOf(decoded);
+    const isAdmin = can(roles, 'manage');          // admin only (netlify/lib/access.js): an analyst lists, never uploads / deletes
 
     const { action } = body;
 

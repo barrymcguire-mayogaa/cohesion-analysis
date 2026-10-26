@@ -201,18 +201,18 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 
 <header>
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
-  <div class="admin-badge">Admin</div>
+  <div class="admin-badge" id="roleBadge">Admin</div>
   <div class="hdr-s"></div>
   <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
   <!-- Visual Sync hidden: superseded by Code Room's Sync Mode. Page kept until
        Code Room sync is field-proven and legacy visualSync games are handled. -->
   <a href="visual-sync-upload.html" class="hdr-btn" style="display:none;">Visual Sync</a>
   <a href="batch-upload.html" class="hdr-btn">Batch Upload</a>
-  <a href="xp-refit.html" class="hdr-btn" title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">📈 Expected Points</a>
-  <a href="crests-admin.html" class="hdr-btn" title="Upload club and county crests used on the stats image, PDF, maps image and infographic">🛡 Crests</a>
-  <a href="player-photos-admin.html" class="hdr-btn" title="Upload player photos — shown to signed-in users only, on the Players tab and the team sheets">👤 Player Photos</a>
-  <a href="player-names-admin.html" class="hdr-btn" title="Find every spelling of a team's players across all its games and merge the wrong ones into the right one">🔤 Player Names</a>
-  <a href="shot-45-line-admin.html" class="hdr-btn" title="Move every saved '45 onto the 45 m line, in every game at once — preview first, with a log of every change">📍 ’45s on the line</a>
+  <a href="xp-refit.html" class="hdr-btn" data-admin-only title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">📈 Expected Points</a>
+  <a href="crests-admin.html" class="hdr-btn" data-admin-only title="Upload club and county crests used on the stats image, PDF, maps image and infographic">🛡 Crests</a>
+  <a href="player-photos-admin.html" class="hdr-btn" data-admin-only title="Upload player photos — shown to signed-in users only, on the Players tab and the team sheets">👤 Player Photos</a>
+  <a href="player-names-admin.html" class="hdr-btn" data-admin-only title="Find every spelling of a team's players across all its games and merge the wrong ones into the right one">🔤 Player Names</a>
+  <a href="shot-45-line-admin.html" class="hdr-btn" data-admin-only title="Move every saved '45 onto the 45 m line, in every game at once — preview first, with a log of every change">📍 ’45s on the line</a>
   <a href="library.html" class="hdr-btn">← Library</a>
   <div class="hdr-btn" onclick="logout()">Sign Out</div>
 </header>
@@ -230,7 +230,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <button class="mode-btn on" id="modeNew"     onclick="setMode('new')">🆕 New Game</button>
     <button class="mode-btn"    id="modeReparse" onclick="setMode('reparse')">🔄 Re-parse Existing Game</button>
     <button class="mode-btn"    id="modeManage"  onclick="setMode('manage')">👥 Manage Players</button>
-    <button class="mode-btn"    id="modeDelete"  onclick="setMode('delete')" style="color:var(--red);border-color:var(--red);">🗑️ Delete Game</button>
+    <button class="mode-btn"    id="modeDelete"  data-admin-only onclick="setMode('delete')" style="color:var(--red);border-color:var(--red);">🗑️ Delete Game</button>
   </div>
 
   <!-- RE-PARSE: GAME SELECTOR (hidden in new-game mode) -->
@@ -253,6 +253,9 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       </div>
     </div>
     <input type="hidden" id="reparseGame" value="">
+    <div id="reparseOwnNote" style="display:none;margin:6px 0 4px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--t2);">
+      You did not upload this game, so as an analyst you cannot re-parse it (an admin can). Restore, Repair missing events and the iGaelicCoach merge below still work.
+    </div>
     <!-- Restore the label values the old import dropped — WITHOUT replacing events -->
     <div class="field" id="scRestoreBox" style="margin-top:14px;padding:12px;border:1px dashed var(--border);border-radius:8px;">
       <label>Restore missing label values <span style="font-weight:400;color:var(--t3);">— keeps every edit</span></label>
@@ -647,8 +650,9 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
       <select id="uploadSection" style="background:var(--card,#1c1c26);border:1px solid var(--border,#333);border-radius:8px;color:var(--t1,#eee);font-size:0.85rem;padding:8px 10px;">
         <option value="county">County (default)</option>
         <option value="club">Club</option>
+        <option value="u20">U20s</option>
       </select>
-      <span style="font-size:0.68rem;color:var(--t3,#888);">Club games are only visible to users with the CLUB role.</span>
+      <span style="font-size:0.68rem;color:var(--t3,#888);">Club games are only visible to users with the CLUB role; U20s games only to users with the U20 role (never in county lists or stats). Re-parse: the game's own section is selected — change it to move the game.</span>
     </div>
       <button class="process-btn" id="processBtn" onclick="processGame()" disabled>
         ⚙ Generate Game Files
@@ -789,7 +793,19 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 // ── Auth ──────────────────────────────────────────────────────
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth) window.location.href = 'index.html';
-if(auth !== 'admin') window.location.href = 'library.html';
+// admin, or analyst (uploads new games, re-parses his own, Repair / Restore / Merge, Manage Players). Deleting games
+// and the management pages (xP, crests, photos, player names, '45s) are admin-only — hidden here, refused by the server.
+const CAN_UPLOAD = typeof cohesionCan === 'function' && cohesionCan('upload');
+const IS_ADMIN_PAGE = auth === 'admin';
+if(!CAN_UPLOAD) window.location.href = 'library.html';
+const ME = (()=>{ try{ return String(sessionStorage.getItem('cohesion_user') || (cohesionLiveUser() || {}).email || '').toLowerCase(); }catch(_){ return ''; } })();
+document.addEventListener('DOMContentLoaded', ()=>{
+  if(IS_ADMIN_PAGE) return;
+  document.querySelectorAll('[data-admin-only]').forEach(el => { el.style.display = 'none'; });
+  const b = document.getElementById('roleBadge'); if(b) b.textContent = 'Analyst';
+  // only the sections this analyst can see
+  document.querySelectorAll('#uploadSection option').forEach(o => { if(!cohesionSections().includes(o.value)) o.remove(); });
+});
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href = 'index.html'; }
 
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
@@ -1362,6 +1378,13 @@ function selectReparseGame(idx){
     dropZone.style.opacity = '1';
     dropZone.style.pointerEvents = 'auto';
   }
+
+  // Its section: a re-parse keeps it unless the select is changed (to move a game, e.g. to U20s)
+  { const us = document.getElementById('uploadSection'), sec = cohSectionOf(g);
+    if(us){ if(![...us.options].some(o => o.value === sec)){ const o = document.createElement('option'); o.value = sec; o.textContent = cohSectionLabel(sec); us.appendChild(o); } us.value = sec; } }
+  // An analyst re-parses only a game he uploaded (the server refuses the rest); Repair / Restore / Merge are open to him
+  if(!IS_ADMIN_PAGE){ const mine = ME && String(g.uploadedBy || '').toLowerCase() === ME;
+    const m = document.getElementById('reparseOwnNote'); if(m) m.style.display = mine ? 'none' : ''; }
 
   // Pre-fill game details
   document.getElementById('homeTeam').value = g.homeTeam || '';
@@ -1946,6 +1969,10 @@ async function processGame(){
 
   const skipXml = document.getElementById('skipXmlCheck').checked;
   if(!xmlFile && !skipXml){ showError('Please select a match data file.'); return; }
+  if(isReparse && !IS_ADMIN_PAGE){
+    const rg = reparseGames[parseInt(document.getElementById('reparseGame').value)];
+    if(rg && !(ME && String(rg.uploadedBy || '').toLowerCase() === ME)){ showError('As an analyst you can re-parse only a game you uploaded — ask an admin to re-parse this one.'); return; }
+  }
 
   const ytId = extractYtId(ytUrl);
   if(!ytId){ showError('Could not read YouTube video ID from that URL. Please use a standard YouTube or youtu.be link.'); return; }
@@ -2957,6 +2984,7 @@ let selectedDeleteGameTitle = null;
 let currentMode = 'new';
 
 function setModeOverride(m){
+  if(m === 'delete' && !IS_ADMIN_PAGE) return;            // deleting a game is an admin's (the server refuses it too)
   currentMode = m;
   const modes = ['new','reparse','manage','delete'];
 
@@ -4057,7 +4085,8 @@ async function startBatchUpload() {
 }
 
 function buildGameMetaFromExcel(row) {
-  const _section = cohesionUploadSection();
+  // the sheet's optional "section" column (county / club / U20s) wins over the page's SECTION select
+  const _section = cohesionSectionCell(row['section'] || row['Section'] || row['SECTION']) || cohesionUploadSection();
   const gameId = row['game_id'] || row['Game ID'] || '';
   const homeTeam = row['home_team'] || row['Home Team'] || '';
   const awayTeam = row['away_team'] || row['Away Team'] || '';

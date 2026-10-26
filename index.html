@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COHESION — Team Analysis</title>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-edit.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 [data-theme="dark"]{
@@ -193,6 +194,16 @@ function cohesionAfterLogin(){
   return next || 'library.html';
 }
 
+// The session markers the pages draw from: cohesion_auth 'admin' | 'analyst' | 'viewer', the roles, and the first
+// section the roles can see (county, else club, else U20s) — cohesionSessionMarkers in cohesion-edit.js, the same
+// rules as the server (netlify/lib/access.js).
+function cohesionSignInMarkers(roles){
+  const m = cohesionSessionMarkers({ app_metadata: { roles: roles } });
+  sessionStorage.setItem('cohesion_auth', m.auth);
+  sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
+  sessionStorage.setItem('cohesion_section', m.section);
+}
+
 async function doLogin(){
   const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('passcode').value;
@@ -212,13 +223,7 @@ async function doLogin(){
     // Fetch full user object to get roles
     const fullUser = await netlifyIdentity.gotrue.currentUser();
     const roles = fullUser?.app_metadata?.roles || user?.app_metadata?.roles || [];
-    const lower = roles.map(r => String(r).toLowerCase());
-    const role  = lower.includes('admin') ? 'admin' : 'viewer';
-
-    sessionStorage.setItem('cohesion_auth', role);
-    sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
-    sessionStorage.setItem('cohesion_section',
-      (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
+    cohesionSignInMarkers(roles);
     sessionStorage.setItem('cohesion_user', email);
     window.location.href = cohesionAfterLogin();
 
@@ -231,13 +236,7 @@ async function doLogin(){
 
 netlifyIdentity.on('init', user => {
   if(user){
-    const roles = user.app_metadata?.roles || [];
-    const lower = roles.map(r => String(r).toLowerCase());
-    const role  = lower.includes('admin') ? 'admin' : 'viewer';
-    sessionStorage.setItem('cohesion_auth', role);
-    sessionStorage.setItem('cohesion_roles', JSON.stringify(roles));
-    sessionStorage.setItem('cohesion_section',
-      (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county');
+    cohesionSignInMarkers(user.app_metadata?.roles || []);
     window.location.href = cohesionAfterLogin();
   }
 });

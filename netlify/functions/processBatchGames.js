@@ -12,13 +12,15 @@
  * Security:
  * - Uses Supabase service role key (protected on server, never exposed to browser)
  * - Validates Netlify Identity auth token ONCE for all games
- * - Checks for 'admin' role
+ * - Checks the role (netlify/lib/access.js): admin, or analyst — an analyst uploads new games and re-uploads
+ *   only a game he uploaded himself, only in a section he can see (checked per game)
  * - Bypasses RLS policies (service key privilege)
  *
  * CRITICAL: Validation happens BEFORE any database writes to prevent orphaned records
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
 const { replaceEvents } = require('../lib/replaceEvents');
+const { rolesOf, allowedSections, sectionOf, can, isAdmin, uploaderOf, metaObj } = require('../lib/access');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -82,23 +84,23 @@ exports.handler = async (event, context) => {
     if (!decodedToken) return UNAUTH;
 
     // ========================================================================
-    // STEP 4: Validate admin role (ONCE for all games)
+    // STEP 4: Validate the role (ONCE for all games; the analyst's per-game rules are checked below)
     // ========================================================================
-    const userRole = ((decodedToken.app_metadata && decodedToken.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin') ? 'admin' : (decodedToken.app_metadata?.roles?.[0] || 'none');
-
-    if (userRole !== 'admin') {
-      console.error('Admin role validation failed:', {
-        roles: decodedToken.app_metadata?.roles,
-        userRole: userRole
+    const roles = rolesOf(decodedToken);
+    if (!can(roles, 'upload')) {
+      console.error('Upload role validation failed:', {
+        roles: decodedToken.app_metadata?.roles
       });
       return {
         statusCode: 403,
         body: JSON.stringify({
-          error: 'Forbidden: admin role required',
-          userRole: userRole || 'none'
+          error: 'Forbidden: admin or analyst role required',
+          userRole: (decodedToken.app_metadata?.roles?.[0]) || 'none'
         })
       };
     }
+    const admin = isAdmin(roles), allowed = allowedSections(roles);
+    const email = String(decodedToken.email || '').toLowerCase();
 
     // ========================================================================
     // STEP 5: Process each game sequentially
@@ -162,6 +164,17 @@ exports.handler = async (event, context) => {
         const { data: prevRows, error: prevErr } = await supabase.from('games').select('id, meta').eq('id', gameId).limit(1);
         if (prevErr) throw new Error(`Could not read the stored game: ${prevErr.message}`);
         const prev = (prevRows && prevRows[0]) || null;
+
+        // An analyst: only in a section he can see, and only a game that is new or that he uploaded himself.
+        if (!admin) {
+          if (!allowed.includes(sectionOf(gameMeta))) throw new Error(`${gameId}: Forbidden — you cannot file a game in the ${sectionOf(gameMeta)} section`);
+          if (prev && !allowed.includes(sectionOf(prev.meta))) throw new Error(`${gameId}: Forbidden — no access to this game`);
+          if (prev && (!email || uploaderOf(prev.meta) !== email)) throw new Error(`${gameId}: Forbidden — the game already exists and an analyst can replace only a game he uploaded (ask an admin)`);
+        }
+        // Who uploaded it: kept from the stored game; a new game takes the caller.
+        if (prev && uploaderOf(prev.meta)) gameMeta.uploadedBy = metaObj(prev.meta).uploadedBy;
+        else if (prev) delete gameMeta.uploadedBy;
+        else if (email) gameMeta.uploadedBy = email;
 
         // UPSERT game metadata (required first: events reference the game)
         const { error: upsertErr } = await supabase

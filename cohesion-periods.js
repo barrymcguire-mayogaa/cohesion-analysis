@@ -8,6 +8,11 @@
  *   cohGameLevel(meta)   'club' | 'county'. A game of the club section is a
  *                        club game; otherwise it is a county game when both
  *                        teams are counties, else a club game.
+ *                        A game of the U20s section times as 'club': inter-county
+ *                        U20 football has 30-minute halves (2 × 30, extra time
+ *                        2 × 10), and 30-minute halves are the club level's. So a
+ *                        U20 game gets 30-minute halves, per-60 rates, 10-minute
+ *                        intervals and the 30-minute unmarked-ET rule.
  *   COH_HALF_MIN         the length of a half: club 30, county 35 minutes.
  *   cohTotalMinutes(meta, tag, secs)   minutes of the whole game at a period clock (the scoreboards' small total).
  *   cohPeriodOf(half)    which period an event's half label means:
@@ -48,7 +53,8 @@
   const COH_HALF_MIN={county:35, club:30};
   const uc=s=>String(s||'').toUpperCase().trim();
   function cohGameLevel(meta){
-    if(String((meta&&meta.section)||'').toLowerCase()==='club') return 'club';
+    const sec=String((meta&&meta.section)||'').toLowerCase();
+    if(sec==='club'||sec==='u20') return 'club';      // U20s: 30-minute halves (see above)
     return [meta&&meta.homeTeam, meta&&meta.awayTeam].every(t=>COH_COUNTIES.has(uc(t)))?'county':'club';
   }
   function cohPeriodOf(half){

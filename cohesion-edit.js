@@ -181,11 +181,43 @@
   // The markers only decide what the UI shows. Every read and write goes
   // through a Netlify function that verifies the JWT and its roles, so a
   // marker that is wrong (or forged) gets no data.
+  // ── SECTIONS and ROLES — the same rules as netlify/lib/access.js (the server decides; this only draws the UI) ──
+  //   capability roles: admin (everything, every section) · analyst (tag, upload, edit; no deletes / management)
+  //   section roles:    club → club · u20 → u20 · any other role → county · none / analyst only → county
+  //   admin → county + club + u20; combinations → the union (club + anything else → county + club, as before)
+  const COH_SECTIONS = ['county', 'club', 'u20'];
+  const COH_CAP_ROLES = ['admin', 'analyst'];
+  const COH_CAN = {
+    admin:   ['view', 'upload', 'edit', 'playlists', 'templatesPersonal', 'templatesClub', 'deleteGame', 'manage', 'notes'],
+    analyst: ['view', 'upload', 'edit', 'playlists', 'templatesPersonal'],
+  };
+  const lowerRoles = roles => (Array.isArray(roles) ? roles : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
+  window.cohesionSectionsOf = function(roles){
+    const lower = lowerRoles(roles);
+    if (lower.includes('admin')) return COH_SECTIONS.slice();
+    const s = new Set();
+    lower.forEach(r => { if (r === 'club' || r === 'u20') s.add(r); else if (!COH_CAP_ROLES.includes(r)) s.add('county'); });
+    if (!s.size) s.add('county');
+    return COH_SECTIONS.filter(x => s.has(x));
+  };
+  window.cohesionCanRoles = function(roles, cap){
+    if (cap === 'view') return true;
+    const lower = lowerRoles(roles);
+    return Object.keys(COH_CAN).some(r => lower.includes(r) && COH_CAN[r].includes(cap));
+  };
+  // a stored section ('club' | 'u20', anything else county) and its label
+  window.cohSectionOf = function(meta){
+    const s = String((meta && meta.section) || '').toLowerCase();
+    return s === 'club' ? 'club' : s === 'u20' ? 'u20' : 'county';
+  };
+  window.cohSectionLabel = function(s){ return s === 'club' ? 'Club' : s === 'u20' ? 'U20s' : 'County'; };
+  // cohesion_auth: 'admin' | 'analyst' | 'viewer'. Every check written as === 'admin' therefore stays admin-only for an
+  // analyst; the places an analyst may use ask cohesionCan(<capability>) instead.
   window.cohesionSessionMarkers = function(user){   // = index.html at sign-in
     const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
-    const lower = roles.map(r => String(r).toLowerCase());
-    return { auth: lower.includes('admin') ? 'admin' : 'viewer', roles: roles,
-      section: (lower.includes('club') && !lower.includes('admin') && !lower.some(r => r !== 'club')) ? 'club' : 'county' };
+    const lower = lowerRoles(roles);
+    return { auth: lower.includes('admin') ? 'admin' : lower.includes('analyst') ? 'analyst' : 'viewer', roles: roles,
+      section: window.cohesionSectionsOf(roles)[0] };
   };
   // The signed-in Identity user, synchronously: from the widget when it has
   // already started, else from the session it keeps in localStorage (the
@@ -234,14 +266,13 @@
   window.cohesionRoles = function(){
     try { return JSON.parse(sessionStorage.getItem('cohesion_roles')) || []; } catch (_) { return []; }
   };
-  window.cohesionSections = function(){
-    const roles = window.cohesionRoles().map(r => String(r).toLowerCase());
-    if (roles.includes('admin')) return ['county', 'club'];
-    const hasClub = roles.includes('club');
-    const hasOther = roles.some(r => r !== 'club');
-    if (hasClub && !hasOther) return ['club'];
-    if (hasClub) return ['county', 'club'];
-    return ['county'];
+  window.cohesionSections = function(){ return window.cohesionSectionsOf(window.cohesionRoles()); };
+  // may the signed-in user do this? (capabilities above; the server checks again on every call)
+  window.cohesionCan = function(cap){
+    let a = ''; try { a = sessionStorage.getItem('cohesion_auth') || ''; } catch (_) {}
+    if (cap === 'view') return !!a;
+    if (a !== 'admin' && a !== 'analyst') return false;      // the marker and the roles must agree
+    return window.cohesionCanRoles(window.cohesionRoles(), cap);
   };
   window.cohesionSection = function(){
     const allowed = window.cohesionSections();
@@ -252,10 +283,43 @@
   window.cohesionSetSection = function(s){
     if (window.cohesionSections().includes(s)) sessionStorage.setItem('cohesion_section', s);
   };
-  // Upload pages: which section a new game is filed under (admin toggle).
+  // Upload pages: which section a new game is filed under (the SECTION select): 'county' | 'club' | 'u20'.
   window.cohesionUploadSection = function(){
     const el = document.getElementById('uploadSection');
-    return (el && el.value === 'club') ? 'club' : 'county';
+    const v = el ? String(el.value || '').toLowerCase() : '';
+    return v === 'club' ? 'club' : v === 'u20' ? 'u20' : 'county';
+  };
+  // a batch sheet's "section" cell → 'county' | 'club' | 'u20', or null (blank / unknown: the page's select decides)
+  window.cohesionSectionCell = function(v){
+    const t = String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!t) return null;
+    if (t === 'county' || t === 'intercounty' || t === 'senior') return 'county';
+    if (t === 'club') return 'club';
+    if (t === 'u20' || t === 'u20s' || t === 'under20' || t === 'under20s') return 'u20';
+    return null;
+  };
+  // The section switcher (library, playlists …): one button per section the user can see, hidden with only one.
+  //   box: the container; ids: {county:'btnId', club:'btnId', u20:'btnId'}; a missing button is created next to the last.
+  window.cohesionPaintSectionSwitch = function(box, ids, onPick){
+    if (!box) return;
+    const secs = window.cohesionSections(), cur = window.cohesionSection();
+    if (secs.length < 2) { box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    COH_SECTIONS.forEach(s => {
+      let b = ids[s] && document.getElementById(ids[s]);
+      if (!b && ids[s]) {
+        const tpl = Object.keys(ids).map(k => document.getElementById(ids[k])).filter(Boolean)[0];
+        b = document.createElement('button'); b.id = ids[s];
+        if (tpl) b.style.cssText = tpl.style.cssText;
+        b.textContent = window.cohSectionLabel(s).toUpperCase();
+        if (onPick) b.onclick = () => onPick(s);
+        box.appendChild(b);
+      }
+      if (!b) return;
+      b.style.display = secs.includes(s) ? '' : 'none';
+      b.style.background = s === cur ? 'var(--accent,#4fc3f7)' : 'transparent';
+      b.style.color = s === cur ? '#fff' : 'var(--t2,#999)';
+    });
   };
 
   // Searchable playlist picker — EVERY playlist listed (no cap), with a

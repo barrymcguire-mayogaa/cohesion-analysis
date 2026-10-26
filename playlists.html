@@ -207,6 +207,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
       <span id="plSecSwitch" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;vertical-align:middle;margin-right:8px;">
         <button id="plSecCounty" onclick="plSwitchSection('county')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">COUNTY</button>
         <button id="plSecClub" onclick="plSwitchSection('club')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">CLUB</button>
+        <button id="plSecU20" onclick="plSwitchSection('u20')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">U20s</button>
       </span>
       <input type="text" id="plSearch" class="plsearch" placeholder="Search playlists — name, clip, player, game…" oninput="renderPlRows()">
       <button class="newbtn" id="newBtn" style="display:none;" onclick="newPlaylist()">＋ New playlist</button>
@@ -229,7 +230,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
       <span class="savebar" id="saveBar" style="display:none;padding:0;gap:8px;">
         <button class="savebtn" id="saveBtn" onclick="savePlaylist()">💾 Save</button>
         <span class="status" id="plStatus"></span>
-        <button class="delbtn" onclick="deletePlaylist()" style="margin-left:0;" title="Delete this entire PLAYLIST (not a drawing)">🗑 Playlist</button>
+        <button class="delbtn" id="plDelBtn" onclick="deletePlaylist()" style="margin-left:0;" title="Delete this entire PLAYLIST (not a drawing)">🗑 Playlist</button>
       </span>
     </div>
 
@@ -344,7 +345,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 <script src="cohesion-player.js"></script>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
-const isAdmin = sessionStorage.getItem('cohesion_auth')==='admin';
+// isAdmin here = may EDIT playlists: an admin or an analyst (cohesion-edit.js cohesionCan('playlists')).
+// IS_REAL_ADMIN: only an admin edits / deletes other people's comments and deletes a club-wide playlist (the server agrees).
+const IS_REAL_ADMIN = sessionStorage.getItem('cohesion_auth')==='admin';
+const isAdmin = typeof cohesionCan==='function' ? cohesionCan('playlists') : IS_REAL_ADMIN;
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL='https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -459,6 +463,7 @@ function markDirty(){ dirty=true; renderSaveBar(); }
 function renderSaveBar(){
   const sb=document.getElementById('saveBar'); if(!sb) return;
   sb.style.display=isAdmin&&CUR?'':'none';
+  const db=document.getElementById('plDelBtn'); if(db) db.style.display=(IS_REAL_ADMIN||(CUR&&CUR.scope==='personal'))?'':'none';
   const st=document.getElementById('plStatus'); if(st&&dirty){ st.textContent='Unsaved changes'; st.style.color='var(--orange)'; } else if(st){ st.textContent=''; }
 }
 function sideEditing(){ const el=document.activeElement; return !!(el && el.tagName==='INPUT' && el.closest && el.closest('#sideRows')); }
@@ -1002,7 +1007,7 @@ function renderComments(idx){
     const mine=cm.email===me;
     const ops='<span class="cmops">'
       +'<span class="cmop" onclick="replyTo(\''+esc(cm.author).replace(/'/g,'&#39;')+'\')">Reply</span>'
-      +((mine||isAdmin)?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span><span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">Delete</span>':'')
+      +((mine||IS_REAL_ADMIN)?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span><span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">Delete</span>':'')
       +'</span>';
     const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
     const at=(cm.t!=null)?'<span class="cmjump" onclick="cmSeek('+cm.t+',\''+esc(cm.vid||'')+'\')" title="Jump the video to this comment\'s moment">⏱ '+cmFmt(cm.t-(it.start||0))+'</span>':'';
@@ -1337,16 +1342,9 @@ cohesionSetGuard(()=>dirty, savePlaylist);
 function plGo(t){ cohesionGuardedGo(t); return false; }
 
 function paintPlSectionSwitch(){
-  const secs=cohesionSections(), box=document.getElementById('plSecSwitch');
-  if(!box) return;
-  if(secs.length<2){ box.style.display='none'; return; }
-  box.style.display='inline-flex';
-  const cur=cohesionSection();
-  [['plSecCounty','county'],['plSecClub','club']].forEach(([id,s])=>{
-    const b=document.getElementById(id); if(!b) return;
-    b.style.background=(cur===s)?'var(--accent)':'transparent';
-    b.style.color=(cur===s)?'#fff':'var(--t2)';
-  });
+  const box=document.getElementById('plSecSwitch');
+  cohesionPaintSectionSwitch(box, {county:'plSecCounty', club:'plSecClub', u20:'plSecU20'});
+  if(box&&box.style.display==='flex') box.style.display='inline-flex';
 }
 function plSwitchSection(s){ cohesionSetSection(s); paintPlSectionSwitch(); loadPlaylists(); }
 netlifyIdentity.on('init',()=>loadPlaylists());

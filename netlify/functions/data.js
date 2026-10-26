@@ -5,14 +5,16 @@
  * anon key's direct SELECT on games/events is revoked in Supabase
  * (LOCKDOWN.sql), so this function is the only door.
  *
- * Section access from app_metadata.roles (case-insensitive):
- *   admin                → county + club (+ section:'all')
- *   CLUB as the only role→ club only
- *   CLUB + anything else → county + club
- *   anything else / none → county   (no-roles users stay county viewers)
+ * Section access from app_metadata.roles — netlify/lib/access.js (allowedSections):
+ *   admin                → county + club + u20 (+ section:'all')
+ *   club                 → club        u20 → u20
+ *   any other role       → county      (analyst is a capability, not a section)
+ *   none / analyst only  → county      (no-roles users stay county viewers)
+ *   combinations         → the union, e.g. CLUB + anything else → county + club (as before)
  *
- * A game's section = meta.section === 'club' ? 'club' : 'county'
- * (everything uploaded before sections existed is county by default).
+ * A game's section = meta.section 'club' → club, 'u20' → u20, else county
+ * (everything uploaded before sections existed is county by default). A U20
+ * game is in NO county list, bundle or gamesMeta — it lives only in U20s.
  *
  *   POST /.netlify/functions/data
  *   { action:'listGames',  section? }          -> { games:[{id, meta}] }
@@ -25,6 +27,7 @@
  *        exist yet, so cohesion-xp.js keeps its bundled v1.
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, allowedSections, sectionOf } = require('../lib/access');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -35,22 +38,6 @@ const supabase = createClient(
 );
 
 const EVENTS_PAGE = 1000;   // Supabase's (PostgREST's) default row cap per request
-
-function rolesOf(decoded) {
-  const raw = (decoded.app_metadata && decoded.app_metadata.roles) || [];
-  return raw.map(r => String(r).toLowerCase());
-}
-function allowedSections(roles) {
-  if (roles.includes('admin')) return ['county', 'club'];
-  const hasClub = roles.includes('club');
-  const hasOther = roles.some(r => r !== 'club');
-  if (hasClub && !hasOther) return ['club'];
-  if (hasClub) return ['county', 'club'];
-  return ['county'];
-}
-function sectionOf(meta) {
-  return (meta && meta.section) === 'club' ? 'club' : 'county';
-}
 
 exports.handler = async (event, context) => {
   try {
@@ -68,14 +55,13 @@ exports.handler = async (event, context) => {
     if (!decoded) return UNAUTH;
 
     const roles = rolesOf(decoded);
-    const isAdmin = roles.includes('admin');
     const allowed = allowedSections(roles);
     const { action } = body;
 
     if (action === 'listGames') {
-      let want = body.section || null;                    // null → every allowed section
+      let want = body.section ? String(body.section).toLowerCase() : null;   // null → every allowed section
       if (want === 'all') {
-        if (!isAdmin) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden' }) };
+        // every section the caller can see (an admin: all three). The upload pages ask for 'all'; an analyst uses them.
         want = null;
       } else if (want && !allowed.includes(want)) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };

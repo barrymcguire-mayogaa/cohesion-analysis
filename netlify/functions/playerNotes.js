@@ -16,6 +16,7 @@
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (the existing ones).
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, can } = require('../lib/access');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -66,8 +67,9 @@ exports.handler = async (event, context) => {
     if (!token) return json(401, { error: 'Authentication required' });
     const claims = verifiedClaims(context);
     if (!claims) return UNAUTH;
-    const roles = ((claims.app_metadata && claims.app_metadata.roles) || []).map(r => String(r).toLowerCase());
-    if (!roles.includes('admin')) return json(403, { error: 'Forbidden: admin role required — staff notes are for analysts only' });
+    const roles = rolesOf(claims);
+    // 'notes' = admin only (netlify/lib/access.js). An ANALYST role does not open them — to confirm with Barry.
+    if (!can(roles, 'notes')) return json(403, { error: 'Forbidden: admin role required — staff notes are for analysts only' });
     const who = String(claims.email || claims.sub || '').slice(0, 200);
 
     const { action } = body;

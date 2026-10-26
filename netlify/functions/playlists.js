@@ -16,8 +16,13 @@
  *                                                          (admin only, same owner / section rules as an update)
  *
  * scope: 'club' (any admin can use/edit) | 'personal' (owner = caller email).
+ *
+ * ROLES (netlify/lib/access.js): admin — everything, as before. analyst — list, save, append (club-wide or personal,
+ * as an admin) but delete only his OWN personal playlists; a club-wide playlist is deleted by an admin. Everyone else:
+ * list + comments. SECTION (county / club / u20) as the read gateway: a playlist lives in the section it was made in.
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, allowedSections: sectionsFor, sectionOf, normSection, can, isAdmin: isAdminRole } = require('../lib/access');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -70,24 +75,19 @@ exports.handler = async (event, context) => {
     let decoded;
     decoded = verifiedClaims(context);
     if (!decoded) return UNAUTH;
-    const roles = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase());
-    const isAdmin = roles.includes('admin');
-    // County/Club SECTION access (distinct from a playlist's club-wide/personal
-    // "scope"): admin → both; CLUB as only role → club; CLUB+other → both; else county.
-    const hasClubRole = roles.includes('club');
-    const hasOther = roles.some(r => r !== 'club');
-    const allowedSections = isAdmin ? ['county','club']
-      : (hasClubRole && !hasOther) ? ['club']
-      : hasClubRole ? ['county','club'] : ['county'];
-    const sectionOf = d => (d && d.section) === 'club' ? 'club' : 'county';
+    const roles = rolesOf(decoded);
+    const isAdmin = isAdminRole(roles);
+    const canWrite = can(roles, 'playlists');            // admin or analyst
+    // County / Club / U20s SECTION access (distinct from a playlist's club-wide/personal "scope") — netlify/lib/access.js
+    const allowedSections = sectionsFor(roles);
     const email = (decoded.email || '').toLowerCase();
     const author = (decoded.user_metadata && decoded.user_metadata.full_name) || email.split('@')[0] || 'user';
 
     const { action } = body;
     const COMMENT_ACTIONS = ['comment', 'commentEdit', 'commentDelete'];
     const MEMBER_ACTIONS = ['list', ...COMMENT_ACTIONS];   // any signed-in member
-    if (!isAdmin && !MEMBER_ACTIONS.includes(action)) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
+    if (!canWrite && !MEMBER_ACTIONS.includes(action)) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin or analyst role required' }) };
     }
 
     // ── comments: any signed-in club member; authorship enforced here ──
@@ -136,7 +136,7 @@ exports.handler = async (event, context) => {
     }
 
     if (action === 'list') {
-      let want = body.section || null;
+      let want = body.section ? String(body.section).toLowerCase() : null;
       if (want && !allowedSections.includes(want)) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };
       }
@@ -157,7 +157,7 @@ exports.handler = async (event, context) => {
       if (!data || typeof data !== 'object') return { statusCode: 400, body: JSON.stringify({ error: 'data object is required' }) };
       // SECTION: stamped at creation from the caller's context; updates keep
       // the stored section so a playlist can never drift across the wall.
-      const reqSection = (body.section === 'club') ? 'club' : 'county';
+      const reqSection = normSection(body.section);
       if (!allowedSections.includes(reqSection)) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };
       }
@@ -220,10 +220,14 @@ exports.handler = async (event, context) => {
     if (action === 'delete') {
       const { id } = body;
       if (!id) return { statusCode: 400, body: JSON.stringify({ error: 'id is required' }) };
-      const { data: existing, error: exErr } = await supabase.from('playlists').select('scope, owner').eq('id', id).single();
+      const { data: existing, error: exErr } = await supabase.from('playlists').select('scope, owner, data').eq('id', id).single();
       if (exErr) throw new Error(exErr.message);
       if (existing.scope === 'personal' && existing.owner !== email) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Not your template' }) };
+      }
+      if (!isAdmin) {
+        if (existing.scope !== 'personal') return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: a club-wide playlist is deleted by an admin' }) };
+        if (!allowedSections.includes(sectionOf(existing.data))) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to this section' }) };
       }
       const { error } = await supabase.from('playlists').delete().eq('id', id);
       if (error) throw new Error(error.message);

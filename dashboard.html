@@ -247,7 +247,8 @@ canvas#tlC{display:block;width:100%;cursor:crosshair;}
 <main id="MA"><div class="load-st"><div class="spin"></div>Loading match data…</div></main>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
-const isAdmin = sessionStorage.getItem('cohesion_auth') === 'admin';
+// isAdmin here = may TAG / EDIT this game and add clips to playlists: an admin or an analyst (cohesion-edit.js cohesionCan).
+const isAdmin = typeof cohesionCan === 'function' ? cohesionCan('edit') : sessionStorage.getItem('cohesion_auth') === 'admin';
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL = 'https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -991,7 +992,7 @@ function dashTeamNames(side){
 function dashTeamSheetEdit(){
   if(!isAdmin||!window.cohTS) return;
   cohTS.openEditor({ game:GAME, known:{home:dashTeamNames('home'), away:dashTeamNames('away')},
-    loadKnown:side=>cohTS.loadKnown(side==='home'?GAME.homeTeam:GAME.awayTeam, {exceptId:GAME.id}),
+    loadKnown:side=>cohTS.loadKnown(side==='home'?GAME.homeTeam:GAME.awayTeam, {exceptId:GAME.id, section:cohSectionOf(GAME)}),
     onSaved:merged=>{ GAME.rosters=merged.rosters; renderP(); const ev=ALL.find(e=>e.id===activeId); if(ev) renderCustomTags(ev); } });
 }
 // Assign Player with a team sheet: a pick list (sheet first, "no. name"),
