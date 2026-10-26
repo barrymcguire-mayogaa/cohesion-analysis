@@ -453,8 +453,7 @@
   // New playlist: a name, then who can see it. Resolves {name, share} or null.
   window.cohesionAskNewPlaylist = async function(opts){
     opts = opts || {};
-    const ask = typeof window.cohPrompt === 'function' ? window.cohPrompt : (m, d) => Promise.resolve(window.prompt(m, d));
-    const name = String((await ask(opts.message || 'New playlist name:', '')) || '').trim().slice(0, 80);
+    const name = String((await window.cohPrompt(opts.message || 'New playlist name:', '')) || '').trim().slice(0, 80);   // the themed box (Electron has no prompt())
     if (!name) return null;
     const share = await window.cohesionShareDialog({ section: opts.section, title: 'Who can see “' + name + '”?', ok: opts.ok || 'Create', fetch: opts.fetch, level: opts.level || 'private' });
     return share ? { name, share } : null;
