@@ -444,6 +444,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 <script src="cohesion-periods.js"></script>
 <script src="cohesion-xp.js"></script>
 <script src="crests/index.js"></script>
+<script src="crests/counties.js"></script>
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
 <script src="cohesion-xml.js"></script>
@@ -3931,11 +3932,11 @@ function buildCodePanel(){
 // primary and a left edge in the secondary; a "● TAGGING <TEAM>" chip sits under the buttons. Only Code mode's team
 // toggle / event buttons / chip change — Edit, Save, Play and the timeline keep COHESION blue; Edit mode is untouched.
 // COLOURS = the GAME's own (GAME.homeColor / awayColor, what Code Room draws the teams in everywhere), so a change kit
-// chosen for the game wins. A game stores one colour per team; the SECOND colour comes from the club palette Code Room
-// already ships (crests/index.js COHESION_TEAM_COLOURS — as the setup form's colour pre-fill), and only when the game is
-// in that club's colours: the palette primary matches the game colour (→ its secondary), or the palette SECONDARY does
-// (a reversed / change kit → its primary). Anything else (county games, a kit not in the palette): no second colour.
-// (crests/counties.js is the Analysis views' list and is deliberately not read here.)
+// chosen for the game wins. A game stores one colour per team; the SECOND colour comes from the county list
+// (crests/counties.js COHESION_COUNTY_COLOURS — loaded here for THIS lookup only; nothing else in Code Room reads it) or
+// the club palette Code Room already ships (crests/index.js COHESION_TEAM_COLOURS), and only when the game is in that
+// team's colours: its primary matches the game colour (→ its secondary), or its SECONDARY does (a reversed kit → its
+// primary). A change kit matching neither: no second colour.
 // CLASH RULE — colours "too alike" = CIEDE2000 ΔE00 < CR_TC_CLASH (20). Measured on the GAA kits: Mayo #00843d v Kerry
 // #00703c 7.5, Down v Derry red 0, red v maroon 18.6, blue v navy 15.8, amber v orange 15.9 (all too alike at a glance);
 // red v orange 28.9, green v lime 20.3, sky v navy 43.8 (distinct). If the primaries are too alike, the secondaries
@@ -3967,9 +3968,11 @@ function crDE2000(A,B){
 function crColourDist(a,b){ const A=crLab(a), B=crLab(b); return A&&B?crDE2000(A,B):Infinity; }
 function crTeamSecondary(name, pri){
   const sl=String(name||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
-  const P=(window.COHESION_TEAM_COLOURS||{})[sl]; if(!P||!crHexRgb(P.primary)) return null;
-  if(crColourDist(P.primary,pri)<CR_TC_CLASH&&crHexRgb(P.secondary)) return P.secondary;
-  if(crHexRgb(P.secondary)&&crColourDist(P.secondary,pri)<CR_TC_CLASH) return P.primary;   // the game wears the reversed / change kit
+  for(const P of [(window.COHESION_COUNTY_COLOURS||{})[sl], (window.COHESION_TEAM_COLOURS||{})[sl]]){
+    if(!P||!crHexRgb(P.primary)) continue;
+    if(crColourDist(P.primary,pri)<CR_TC_CLASH&&crHexRgb(P.secondary)) return P.secondary;
+    if(crHexRgb(P.secondary)&&crColourDist(P.secondary,pri)<CR_TC_CLASH) return P.primary;   // the game wears the reversed kit
+  }
   return null;
 }
 // → {mode:'primary'|'secondary'|'fallback', dP, dS, home:{pri,sec}, away:{pri,sec}}  (sec null = none known)
