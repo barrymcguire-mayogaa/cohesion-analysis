@@ -205,6 +205,26 @@ function rpKoCompute(T, g, ctx){
     wonByT:wonBy('T'), wonByO:wonBy('O'), halves, follow, opts, srcFrom:K?K.srcFrom:null, oppKos:all.filter(k=>k.team!==T).length};
 }
 
+// ═════ the KICKOUT model over SEVERAL games: the single-game models, summed ═════
+// Each game is rpKoCompute's own model (so a game's figures are exactly its single-game report's); the totals are their
+// sums. Timing bands and the next kickout after a loss: the Team Trends engine (tkCompute → tkTimingCompute) over the games.
+function rpKoMultiCompute(T, sel, ctx){
+  const bo=ctx.bundleOf, games=sel.slice().sort(rpOrd).filter(g=>bo(g.id)), per=games.map(g=>rpKoCompute(T, g, ctx)).filter(Boolean);
+  const kos=[].concat(...per.map((K,gi)=>K.kos.map(k=>Object.assign({}, k, {gi}))));
+  const sum=f=>per.reduce((a,K)=>a+f(K),0), L=tkByLen(kos), types={};
+  Object.keys(RP_KO_TYPE).forEach(t=>{ types[t]={n:sum(K=>K.types[t].n), won:sum(K=>K.types[t].won)}; });
+  const depth=per[0]?per[0].depth.map((d,i)=>({label:d.label, n:sum(K=>K.depth[i].n), won:sum(K=>K.depth[i].won)})):[];
+  const side=per[0]?per[0].side.map((d,i)=>({label:d.label, n:sum(K=>K.side[i].n), won:sum(K=>K.side[i].won)})):[];
+  const merge=k=>{ const m=new Map(); let none=0; per.forEach(K=>{ none+=K[k].none; K[k].rows.forEach(r=>{ const key=pyKey(r.name); let q=m.get(key); if(!q){ q={names:{}, n:0, clean:0, brk:0, lens:{S:0,M:0,L:0,X:0}}; m.set(key, q); }
+      q.names[r.name]=(q.names[r.name]||0)+r.n; q.n+=r.n; q.clean+=r.clean; q.brk+=r.brk; ['S','M','L','X'].forEach(l=>{ q.lens[l]+=r.lens[l]; }); }); });
+    return {rows:[...m.values()].map(r=>({name:pyBestName(r.names), n:r.n, clean:r.clean, brk:r.brk, lens:r.lens})).sort((a,b)=>b.n-a.n||(a.name<b.name?-1:1)), none}; };
+  const fg=per.filter(K=>K.follow), follow=fg.length?{sc:fg.reduce((a,K)=>a+K.follow.sc,0), co:fg.reduce((a,K)=>a+K.follow.co,0), games:fg.length, n:fg.reduce((a,K)=>a+K.n,0)}:null;
+  const R=tkCompute(T, games, 'all', bo, games), TM=tkTimingCompute(R, bo), targets=tkTargetRows(TM.own.filter(k=>k.tgt));
+  const rows=per.map(K=>({g:K.g, opp:K.oppName, date:K.g.date||'', n:K.n, won:K.won, L:K.L, brk:K.types.break, follow:K.follow, located:K.located}));
+  return {multi:true, T, name:rpTeamName(T, games), games, per, rows, kos, n:kos.length, won:kos.filter(k=>k.won).length, L, types, located:sum(K=>K.located), depth, side,
+    wonByT:merge('wonByT'), wonByO:merge('wonByO'), follow, opts:RP_KO_OPT.filter(([key])=>kos.some(k=>k.opt[key])), R, TM, targets};
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  RENDERING — strings only, every interpolated value escaped. A4 portrait pages (210 × 297 mm), white paper.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -466,11 +486,84 @@ function rpKoReport(K, M){
   return [p1, p2].concat(logs).join('');
 }
 
+// ═════ KICKOUT REPORT over several games ═════
+function rpKoMultiMap(K){ const L=K.kos.filter(k=>k.x!=null&&k.dist!=null); if(!L.length) return '<div class="rp-nomap">n/a — no kickout landing locations in these games</div>';
+  const many=L.length>40, s=many?1.15:2.1;
+  const mk=k=>{ const x=tkPX(k.x), y=tkPY(k.dist), c=k.won?'#1f9d55':'#c0392b', w=many?.2:.35;
+    const shp=k.len==='S'?`<circle cx="${x}" cy="${y}" r="${s}" fill="${c}" stroke="#fff" stroke-width="${w}"/>`:k.len==='M'?`<path d="M${x} ${(y-s*1.25).toFixed(2)}L${(x+s*1.25).toFixed(2)} ${y}L${x} ${(y+s*1.25).toFixed(2)}L${(x-s*1.25).toFixed(2)} ${y}Z" fill="${c}" stroke="#fff" stroke-width="${w}"/>`:`<rect x="${(x-s).toFixed(2)}" y="${(y-s).toFixed(2)}" width="${2*s}" height="${2*s}" fill="${c}" stroke="#fff" stroke-width="${w}"/>`;
+    return shp+(many?'':`<text x="${x}" y="${(y+1.05).toFixed(2)}" text-anchor="middle" class="rp-kn">${k.no}</text>`); };
+  const lab=(d,t)=>`<text x="97.6" y="${(tkPY(d)-0.8).toFixed(2)}" text-anchor="end" class="rp-kl">${t}</text>`;
+  return tkPitchOpen('rp-kmap','Kickout landings from the kicking team’s 20m line (top), every selected game')+lab(45,'45m')+lab(65,'65m')+'<g>'+L.map(mk).join('')+'</g></svg>'; }
+function rpKoStripRow(K){ const byH=K.halves.map(h=>K.kos.filter(k=>k.half===h));
+  return `<div class="rp-shalf rp-sgame"><div class="rp-shl">${rpE('v '+K.oppName)}<br><span>${rpE(ovShortDate(K.g.date)||rpRoundShort(K.g))}</span></div><div class="rp-strip">`
+    +byH.map((l,i)=>(i?'<div class="rp-hsep" title="half-time"></div>':'')+l.map(k=>`<div class="rp-kb ${k.won?'kept':'lost'}"><b>${rpE(k.len||'–')}</b><i>${rpE(RP_KO_TYPE[k.type])}</i><span>${k.no}</span></div>`).join('')).join('')+'</div></div>'; }
+function rpKoMultiReport(K, M, o){ o=o||{};
+  const L=K.L, ty=K.types, lenN=l=>TK_LENS.find(x=>x[0]===l)[1];
+  const lenT=l=>L[l].n?rpTile(rpP(L[l].pct), (lenN(l)+' kept').toUpperCase(), L[l].won+'/'+L[l].n):rpTile('–', (lenN(l)+' kept').toUpperCase(), 'none taken');
+  const dead=ty.sideline.n-ty.sideline.won+ty.free.n-ty.free.won;
+  const tiles=rpTile(String(K.n), 'KICKOUTS', rpGl(K.games.length)+' · '+(K.games.length?(K.n/K.games.length).toFixed(1):'0')+' a game')+rpTile(rpP(rpPct(K.won, K.n)), 'KEPT', K.won+'/'+K.n)+lenT('S')+lenT('M')+lenT('L')
+    +rpTile(ty.clean.n?rpP(rpPct(ty.clean.won, ty.clean.n)):'–', 'CLEAN CATCH KEPT', ty.clean.n?ty.clean.won+'/'+ty.clean.n:'none')+rpTile(ty.break.n?rpP(rpPct(ty.break.won, ty.break.n)):'–', 'BREAKS WON', ty.break.n?ty.break.won+'/'+ty.break.n:'none')
+    +rpTile(String(dead), 'LOST TO SIDELINE / FREE', 'dead-ball concessions');
+  const kept=x=>x.n?rpP(x.pct)+' ('+x.won+'/'+x.n+')':'–';
+  const gt=rpTable(['Opponent','Date','Kickouts','Kept','Short kept','Medium kept','Long kept','Breaks won','Net per KO'], K.rows.map(r=>['v '+r.opp, ovShortDate(r.date)||rpRoundShort(r.g), r.n, rpP(rpPct(r.won, r.n)), kept(r.L.S), kept(r.L.M), kept(r.L.L), r.brk.n?r.brk.won+'/'+r.brk.n:'–', r.follow&&r.n?rpSg((r.follow.sc-r.follow.co)/r.n, 2):null])
+    .concat([{cls:'tot', cells:['All', '', K.n, rpP(rpPct(K.won, K.n)), kept(L.S), kept(L.M), kept(L.L), ty.break.n?ty.break.won+'/'+ty.break.n:'–', K.follow&&K.follow.n?rpSg((K.follow.sc-K.follow.co)/K.follow.n, 2):null]}]), {cls:'num'});
+  const F=K.follow, fol=F?`<h3 class="rp-h3">What followed</h3><div class="rp-tiles c4">${rpTile(String(F.sc),'POINTS SCORED','off kickouts '+K.name+' kept')}${rpTile(String(F.co),'POINTS CONCEDED','off kickouts '+K.name+' lost')}${rpTile(rpSg(F.sc-F.co,0),'NET')}${rpTile(F.n?rpSg((F.sc-F.co)/F.n,2):'n/a','NET PER KICKOUT')}</div>`
+      +rpNote('From the tagged score sources (Own KO / Opp KO) up to the next kickout; '+rpCov(F.games, K.games.length, 'score sources')+(F.games<K.games.length?' ('+F.n+' of '+K.n+' kickouts)':'')+'. n/a in the table = no score sources in that game.')
+    :rpNote('Points after the kickouts: n/a — no score sources in these games.');
+  const cap=K.name+' kept '+K.won+' of their '+K.n+' kickouts ('+rpP(rpPct(K.won, K.n))+') over '+rpGl(K.games.length)+'.';
+  const optNote=K.opts.length===RP_KO_OPT.length?'':'Contested by (us v them), numbers at the drop and the opposition press shape: '+(K.opts.length?'only '+K.opts.map(o=>o[1]).join(', ')+' tagged':'not tagged')+' — add the labels '+RP_KO_OPT.filter(o=>!K.opts.includes(o)).map(o=>'‘'+o[1]+'’').join(', ')+' in Code Room to include them.';
+  const p1=rpPage(M, `<div class="rp-tiles c4">${tiles}</div><h3 class="rp-h3">Game by game</h3>${gt}${rpNote('Kept = won by the kicking team. Lengths as tagged. Net per KO = points scored off kept kickouts − points conceded off lost ones, per kickout (games with score sources).')}${fol}${rpNote(optNote)}`, {sec:'SECTION 01', h:'The headline', cap});
+  const strips=rpPage(M, `<div class="rp-flowc">${K.per.map(rpKoStripRow).join('')}</div>`+rpNote('One row per game. Green = kept, red = lost. Big letter = Short / Medium / Long (as tagged); small = how it was won (C clean, B break, SL sideline, F free, – not tagged). The grey bar = half-time. Numbers = the kickout’s number in that game’s log.'),
+    {sec:'SECTION 02', h:'Kickout by kickout', cap:'Every '+K.name+' kickout, game by game.'});
+  const bars=list=>rpHBars(list.map(d=>({label:d.label, bars:[{v:d.n?rpPct(d.won,d.n):null, txt:d.n?rpP(rpPct(d.won,d.n))+' ('+d.won+'/'+d.n+')':'none', col:M.col.a}]})), {w:84, max:100, axis:25, pct:true, label:'Kept'});
+  const many=K.located>40;
+  const p2=rpPage(M, `<div class="rp-two kmap"><div><div class="rp-kmapw">${rpKoMultiMap(K)}</div><div class="rp-key"><span><i style="background:#1f9d55"></i>Kept</span><span><i style="background:#c0392b"></i>Lost</span><span><i class="o"></i>Short (circle)</span><span>◇ Medium</span><span><i class="sq"></i>Long (square)</span><span>dashed line = half-way</span></div></div>`
+    +`<div><h4 class="rp-h4">Kept by depth (from ${rpE(K.name)}’s goal)</h4>${K.located?bars(K.depth):rpNote('n/a — no landing locations')}<h4 class="rp-h4">Kept by side (facing out)</h4>${K.located?bars(K.side):rpNote('n/a — no landing locations')}`
+    +rpNote('Landing from '+K.located+' of '+K.n+' kickouts (located), '+K.per.filter(x=>x.located).length+' of '+rpGl(K.games.length)+'. '+(many?'Small markers, not numbered (more than 40 kickouts). ':'Numbers = the kickout’s number in its game’s log (they repeat across games). ')+'Depth: up to the 45m line, 45–65m, 65m to half-way (70m), the opposition half. Side: the kicker’s left / centre / right third.')+`</div></div>`
+    +`<h3 class="rp-h3">Length × how the ball was won (kept / kickouts)</h3>${rpKoGrid(K.kos, false)}`+rpNote('Totals across the '+rpGl(K.games.length)+'. Clean catch / Break / Sideline / Free = the kickout outcome tag.'),
+    {sec:'SECTION 03', h:'Where and how they were won', cap:'Every located kickout of the '+rpGl(K.games.length)+', kept v lost.'});
+  const wb=(W, who)=>W.rows.length||W.none?rpTable(['Won by — '+who,'Kickouts','Clean','Breaks','Lengths'], W.rows.map(r=>[r.name, r.n, r.clean, r.brk, ['S','M','L','X'].filter(l=>r.lens[l]).map(l=>r.lens[l]+' '+(l==='X'?'no length':lenN(l).toLowerCase())).join(', ')])
+    .concat(W.none?[{cls:'tot', cells:['(no player tagged)', W.none, '', '', '']}]:[]), {cls:'num rp-split'}):rpNote('None.');
+  const TM=K.TM, tg=K.targets;
+  const tgt=tg.length?rpTable(['Intended target','Uses','Won','Retention'], tg.map(r=>[r.name, r.uses, r.won, rpP(r.pct)]).concat(TM.own.length-TM.tagged?[{cls:'tot', cells:['(target not tagged)', TM.own.length-TM.tagged, TM.own.filter(k=>!k.tgt&&k.won).length, rpP(rpPct(TM.own.filter(k=>!k.tgt&&k.won).length, TM.own.length-TM.tagged))]}]:[]), {cls:'num rp-split'})
+      +rpNote('Intended target = the Kickout Target tag, else Kickout Won By on a kept kickout (Team Trends’ rule); '+TM.tagged+' of '+TM.own.length+' kickouts, '+rpCov(TM.tagGames, K.games.length, 'targets')+'.')
+    :rpNote('Intended targets: n/a — no Kickout Target / Won By tags in these games.');
+  const p3=rpPage(M, `<div class="rp-two"><div>${wb(K.wonByT, K.name)}</div><div>${wb(K.wonByO, K.games.length>1?'opponents':K.per[0].oppName)}</div></div>`+rpNote('Won by = the ‘Kickout Won By’ player of each kickout, under the team that won it.')
+    +`<h3 class="rp-h3">Intended targets</h3>${tgt}`, {sec:'SECTION 04', h:'Who won them', cap:'Who came away with '+K.name+'’s kickouts, and who they were aimed at.'});
+  const bandRows=TM.bands.map(b=>[b.label, b.n, b.all.won, rpP(b.all.pct), b.rows.length?b.rows.slice(0,3).map(r=>r.name+' '+r.won+'/'+r.uses).join(', '):'–']);
+  const Bt=TM.B, nxt=Bt.rows.map(r=>[r.name, r.uses, r.won, rpP(r.pct), r.avg==null?'–':r.avg.toFixed(1)+' s']).concat(Bt.other?[['Other targets ('+Bt.other.names+')', Bt.other.uses, Bt.other.won, rpP(Bt.other.pct), Bt.other.avg==null?'–':Bt.other.avg.toFixed(1)+' s']]:[])
+    .concat(Bt.notTagged.n?[['(target not tagged)', Bt.notTagged.n, Bt.notTagged.won, rpP(Bt.notTagged.pct), '–']]:[]).concat([{cls:'tot', cells:['All next kickouts', Bt.all.n, Bt.all.won, rpP(Bt.all.pct), Bt.allAvg==null?'–':Bt.allAvg.toFixed(1)+' s']}]);
+  const un=TM.untimed, unTxt=['noshot','over','neg','noend'].filter(k=>un[k]).map(k=>un[k]+' '+({noshot:'with no shot before them in the half', over:'more than '+TK_TIME_MAX+' s after the shot', neg:'tagged before the shot ended', noend:'after a shot with no end time'})[k]).join(', ');
+  const p4=rpPage(M, `<h3 class="rp-h3">Time from ball dead to kick</h3>`+rpTable(['Band','Kickouts','Kept','Retention','Top targets (kept / uses)'], bandRows.concat([{cls:'tot', cells:['All timed', TM.timed, TM.bands.reduce((a,b)=>a+b.all.won,0), rpP(rpPct(TM.bands.reduce((a,b)=>a+b.all.won,0), TM.timed)), '']}]), {cls:'num'})
+    +rpNote('Timing = from the end of the previous shot (a score or a wide, either team) to the kickout, as tagged — the Team Trends rule and bands; '+TM.timed+' of '+TM.own.length+' kickouts timed'+(unTxt?' (untimed: '+unTxt+')':'')+'. '+(TM.bands[0].under7?TM.bands[0].under7+' kickouts under 7 s are counted in 7–13 s.':''))
+    +`<h3 class="rp-h3">The next kickout after a lost one</h3>`+rpTable(['Next intended target','Uses','Kept','Retention','Avg time'], nxt, {cls:'num'})
+    +rpNote(Bt.lost+' kickouts lost; the next '+K.name+' kickout of the same game and half followed '+Bt.all.n+' of them'+(Bt.noNext?' ('+Bt.noNext+' had none)':'')+'.'),
+    {sec:'SECTION 05', h:'Timing and the next kickout', cap:'Retention by the time from the ball going dead to the kick, and after a lost kickout.'});
+  const pages=[p1, strips, p2, p3, p4];
+  if(o.log!==false){
+    const hasT=K.kos.some(k=>k.target), head=['#','Half','Video','Clock','Length','How won','Kept'].concat(hasT?['Target']:[]).concat(['Won by','Where']).concat(K.opts.map(x=>x[1]));
+    const row=k=>`<tr><td class="l">${k.no}</td>`+[k.half||'–', k.video, k.clock.replace(/^(1H|2H|ET1|ET2)\s*/,'')||'n/a', k.len?lenN(k.len):'n/a', RP_KO_TYPE_NAME[k.type], k.won?'Yes':'No'].concat(hasT?[k.target||'–']:[]).concat([k.who?k.who.name:(k.type==='sideline'?'(sideline ball)':'–'), k.depth?k.depth+' · '+k.side:'n/a']).concat(K.opts.map(x=>k.opt[x[0]]||'–')).map(c=>`<td>${rpE(c)}</td>`).join('')+'</tr>';
+    const body=K.per.map(G=>`<tr class="rp-grp"><td class="l" colspan="${head.length}">${rpE('v '+G.oppName+' · '+(ovShortDate(G.g.date)||'date n/a')+' · '+[G.g.competition, G.g.round].filter(Boolean).join(' ')+' · '+G.n+' kickouts, '+G.won+' kept')}</td></tr>`+G.kos.map(row).join('')).join('');
+    pages.push(rpPage(M, `<table class="rp-t num sm rp-split"><thead><tr>${head.map((h,i)=>`<th${i===0?' class="l"':''}>${rpE(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`
+      +rpNote((hasT?'Target = the intended receiver (‘Kickout Target’; a won kickout with none: its winner). ':'')+'Video = time on the game video (m:ss); Clock = the game clock of the half; # = the kickout’s number in its game. '+optNote),
+      {sec:'APPENDIX', h:'Kickout log', cap:'All '+K.n+' '+K.name+' kickouts, game by game.'}));
+  }
+  return pages.join('');
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  WIRING — the REPORTS tab: report type, team, season / competition, the games (all ticked), Build report → the pages on
 //  screen, Download PDF → the browser's print-to-PDF (A4, @page), file name <Team>_<Report>_<range>.pdf
 // ═════════════════════════════════════════════════════════════════════════════
-const RP_O={kind:'team', team:'', season:'', comp:'', off:new Set(), ko:'', built:null};
+const RP_O={kind:'team', team:'', season:'', comp:'', off:new Set(), ko:'', koLog:true, built:null};
+// the games, most recent first: by date; a game with no date takes the date of the game before it in the list (the round
+// order), and comes after it — so an undated Semi-Final sits between the dated Quarter-Final and the Final
+function rpRecent(games){ let last=''; return (games||[]).map((g,i)=>{ const d=ssIsoDate(g.date)||''; if(d) last=d; return {g, i, d:d||last}; })
+  .sort((a,b)=>a.d===b.d?b.i-a.i:(a.d<b.d?1:-1)).map(x=>x.g); }
+// quick select: 'all' | 'none' | N (the N most recent ticked, the rest unticked)
+function rpQuick(q){ const games=rpTeamGames(GAMES, RP_O.team, RP_O.season, RP_O.comp); RP_O.off.clear();
+  if(q==='none') games.forEach(g=>RP_O.off.add(g.id));
+  else if(q!=='all'){ const keep=new Set(rpRecent(games).slice(0, +q).map(g=>g.id)); games.forEach(g=>{ if(!keep.has(g.id)) RP_O.off.add(g.id); }); } }
 let RP_TIMER=null, RP_TOKEN=0;
 function rpBundleOf(id){ return BUNDLES.get(id); }
 function rpSchedule(){ if(typeof TAB==='undefined'||TAB!=='reports'||!GAMES_READY) return; clearTimeout(RP_TIMER); RP_TIMER=setTimeout(rpRenderCtl, 30); }
@@ -492,21 +585,21 @@ function rpCtlHTML(){
   const teams=rpTeams(), list=ovTeamGames(GAMES, RP_O.team), seasons=pdSeasons(list), comps=pdComps(list, RP_O.season), games=rpTeamGames(GAMES, RP_O.team, RP_O.season, RP_O.comp);
   const opt=(v,l,on)=>`<option value="${rpE(v)}"${on?' selected':''}>${rpE(l)}</option>`, nm=rpTeamName(RP_O.team, list);
   const gl=g=>(ovShortDate(g.date)||'date n/a')+' · '+(g.round?g.round+' · ':'')+'v '+rpOpp(g, RP_O.team);
-  const pick=RP_O.kind==='ko'
-    ?`<div class="fg rp-fg"><label for="rpKo">GAME</label><select id="rpKo">${games.map(g=>opt(g.id, gl(g), g.id===RP_O.ko)).join('')}</select></div>`
-    :`<div class="fg rp-fg rp-gfg"><label>GAMES <span class="fnote">(${games.filter(g=>!RP_O.off.has(g.id)).length} of ${games.length})</span></label><div class="rp-glist" id="rpGames">`
+  const nOn=games.filter(g=>!RP_O.off.has(g.id)).length;
+  const pick=`<div class="fg rp-fg rp-gfg"><label>GAMES <span class="fnote">(${nOn} of ${games.length})</span></label>`
+      +`<div class="msbar rp-quick">${[['3','Last 3'],['5','Last 5'],['10','Last 10'],['all','All'],['none','None']].map(([q,l])=>`<button type="button" class="mini" data-rpq="${q}">${l}</button>`).join('')}</div><div class="rp-glist" id="rpGames">`
       +games.map(g=>`<label class="gitem"><input type="checkbox" data-rpg="${rpE(g.id)}"${RP_O.off.has(g.id)?'':' checked'}> ${rpE(gl(g))}</label>`).join('')+`</div>`
-      +`<div class="msbar"><button type="button" class="mini" data-rpall="1">All</button><button type="button" class="mini" data-rpall="0">None</button></div></div>`;
+      +(RP_O.kind==='ko'?`<label class="gitem rp-logopt"><input type="checkbox" id="rpKoLog"${RP_O.koLog?' checked':''}> Include full kickout log <span class="fnote">(several games)</span></label>`:'')+`</div>`;
   return `<div class="filters rp-ctl"><div class="fg rp-fg"><label for="rpKind">REPORT</label><select id="rpKind">${RP_KINDS.map(([k,l])=>opt(k, l, k===RP_O.kind)).join('')}</select></div>`
     +`<div class="fg rp-fg"><label for="rpTeam">TEAM</label><select id="rpTeam">${teams.map(t=>opt(t, rpTeamName(t, ovTeamGames(GAMES, t)), t===RP_O.team)).join('')}</select></div>`
     +`<div class="fg rp-fg"><label for="rpSeason">SEASON</label><select id="rpSeason">${seasons.map(s=>opt(s, s, s===RP_O.season)).join('')||opt('','—',true)}</select></div>`
     +`<div class="fg rp-fg"><label for="rpComp">COMPETITION</label><select id="rpComp">${comps.map(c=>opt(c, c, c===RP_O.comp)).join('')||opt('','—',true)}</select></div>${pick}`
     +`<div class="fg rp-fg rp-acts"><label>&nbsp;</label><div><button type="button" class="act primary" id="rpBuild">Build report</button> <button type="button" class="act" id="rpPdf"${RP_O.built?'':' disabled'}>⬇ Download PDF</button></div></div></div>`
-    +`<p class="fnote rp-what">${rpE(RP_O.kind==='ko'?'One game: '+nm+'’s own kickouts.':RP_O.kind==='opp'?'The same figures as the Team Report, framed as the opponent: '+nm+'’s kickout, turnovers, shooting, key players, how teams scored against them, their defeats.':nm+' over the ticked games.')} Ranks compare every team with games of the same competition and season uploaded. Stats only — no notes.</p>`;
+    +`<p class="fnote rp-what">${rpE(RP_O.kind==='ko'?nm+'’s own kickouts: one game ticked = that game’s report; several = all of them together (no ranks).':RP_O.kind==='opp'?'The same figures as the Team Report, framed as the opponent: '+nm+'’s kickout, turnovers, shooting, key players, how teams scored against them, their defeats.':nm+' over the ticked games.')} ${RP_O.kind==='ko'?'':'Ranks compare every team with games of the same competition and season uploaded. '}Stats only — no notes.</p>`;
 }
 function rpRenderCtl(){ const c=ssEl('rpCtlWrap'); if(!c) return; if(!rpEnsure()){ c.innerHTML='<div class="tt-empty">No games uploaded.</div>'; return; } c.innerHTML=rpCtlHTML(); }
 function rpFileName(M){ const clean=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[’']/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
-  const range=M.kind==='ko'?'v_'+M.oppName+'_'+(ssIsoDate(M.g.date)||M.g.round||''):M.season+'_'+M.comp+'_'+rpGl(M.n);
+  const range=M.kind==='ko'&&!M.K.multi?'v_'+M.oppName+'_'+(ssIsoDate(M.g.date)||M.g.round||''):M.season+'_'+M.comp+'_'+rpGl(M.n);
   return [M.name, M.kindName, range].map(clean).filter(Boolean).join('_'); }
 // fetch the games a report needs (the team's, and every game of the competition for the ranks), four at a time
 async function rpLoad(ids, st){ const need=ids.filter(id=>!BUNDLES.has(id)); for(let i=0;i<need.length;i+=4){ if(st) st.textContent='Loading games… '+Math.min(i+4, need.length)+'/'+need.length; await Promise.all(need.slice(i,i+4).map(id=>fetchBundle(id).catch(()=>null))); } }
@@ -516,12 +609,18 @@ async function rpBuild(){
   const T=RP_O.team, kind=RP_O.kind; out.innerHTML=''; RP_O.built=null; const pdf=ssEl('rpPdf'); if(pdf) pdf.disabled=true;
   try{
     let html='', M;
-    if(kind==='ko'){
-      const g=GAMES.find(x=>x.id===RP_O.ko); if(!g){ st.textContent='Pick a game.'; return; }
+    if(kind==='ko'&&rpSel().length===1){
+      const g=rpSel()[0];
       await rpLoad([g.id], st); if(tok!==RP_TOKEN) return;
       const K=rpKoCompute(T, g, {bundleOf:rpBundleOf}); if(!K){ st.textContent='This game could not be loaded.'; return; }
       M=rpModelBase(T, 'ko', {name:K.name, oppName:K.oppName, g, subTxt:'v '+K.oppName+' · '+[g.competition, g.round].filter(Boolean).join(' ')+' · '+(ovShortDate(g.date)||'date n/a'), n:1, K});
       html=K.n?rpKoReport(K, M):rpPage(M, rpNote(M.name+' have no kickouts with an outcome in this game.'), {h:'Kickout Report'});
+    } else if(kind==='ko'){
+      const sel=rpSel(); if(!sel.length){ st.textContent='Tick at least one game.'; return; }
+      await rpLoad(sel.map(g=>g.id), st); if(tok!==RP_TOKEN) return;
+      const K=rpKoMultiCompute(T, sel, {bundleOf:rpBundleOf});
+      M=rpModelBase(T, 'ko', {name:K.name, season:RP_O.season, comp:RP_O.comp, n:K.games.length, K, subTxt:RP_O.comp+' '+RP_O.season+' · '+rpGl(K.games.length)});
+      html=K.n?rpKoMultiReport(K, M, {log:RP_O.koLog}):rpPage(M, rpNote(M.name+' have no kickouts with an outcome in these games.'), {h:'Kickout Report'});
     } else {
       const sel=rpSel(); if(!sel.length){ st.textContent='Tick at least one game.'; return; }
       const compG=rpCompGames(GAMES, RP_O.season, RP_O.comp);
@@ -538,23 +637,32 @@ async function rpBuild(){
     const pages=out.querySelectorAll('.rp-page'); pages.forEach((p,i)=>{ const n=p.querySelector('.rp-pn'); if(n) n.textContent=(i+1)+' / '+pages.length; });
     RP_O.built={M, file:rpFileName(M), pages:pages.length, ms:Date.now()-t0};
     rpFit(); if(pdf) pdf.disabled=false;
-    st.textContent=pages.length+' pages · built in '+((Date.now()-t0)/1000).toFixed(1)+' s · '+(kind==='ko'?'1 game':rpGl(M.n)+(M.RK?' · '+M.rkNote:''));
+    st.textContent=pages.length+' pages · built in '+((Date.now()-t0)/1000).toFixed(1)+' s · '+rpGl(M.n)+(M.RK?' · '+M.rkNote:'');
   }catch(e){ st.textContent='Could not build the report: '+e.message; if(typeof console!=='undefined') console.error(e); }
 }
 // A long table (the shooters, the kickout log) that does not fit its page: the rows that do not fit go to a continuation page
 // (the same frame, the table's heading row repeated) — measured on the page itself, so a wrapped name never runs off the paper
 function rpPaginate(root){
   const over=b=>b.scrollHeight>b.clientHeight+1;
-  for(let guard=0; guard<200; guard++){
-    const page=[...root.querySelectorAll('.rp-page')].find(p=>{ const b=p.querySelector('.rp-body'); return b&&over(b)&&b.querySelector('table.rp-split tbody tr'); }); if(!page) return;
-    const body=page.querySelector('.rp-body'), tabs=body.querySelectorAll('table.rp-split'), t=tabs[tabs.length-1], tb=t.querySelector('tbody'), moved=[];
-    const after=[]; let n=t.nextSibling; while(n){ after.push(n); n=n.nextSibling; }          // the notes under the table go with the last rows
-    after.forEach(x=>x.remove());
-    while(over(body)&&tb.rows.length>1) moved.unshift(tb.removeChild(tb.rows[tb.rows.length-1]));
+  // the splittable block of a page: the last long table's rows, or a .rp-flowc block's children (the kickout strips)
+  const unit=b=>{ const l=[...b.querySelectorAll('table.rp-split, .rp-flowc')].filter(x=>x.matches('.rp-flowc')?x.children.length>1:x.querySelector('tbody')&&x.querySelector('tbody').rows.length>1); return l[l.length-1]||null; };
+  for(let guard=0; guard<300; guard++){
+    const page=[...root.querySelectorAll('.rp-page')].find(p=>{ const b=p.querySelector('.rp-body'); return b&&over(b)&&unit(b); }); if(!page) return;
+    const body=page.querySelector('.rp-body'), t=unit(body), flow=t.matches('.rp-flowc'), box=flow?t:t.querySelector('tbody'), moved=[];
+    // everything after the block (its notes, later blocks) goes with the last part
+    let top=t; while(top.parentNode!==body) top=top.parentNode;
+    const after=[]; let n=top.nextSibling; while(n){ after.push(n); n=n.nextSibling; } after.forEach(x=>x.remove());
+    const kids=()=>flow?box.children:box.rows;
+    while(over(body)&&kids().length>1) moved.unshift(box.removeChild(kids()[kids().length-1]));
+    // a group heading row never ends a page on its own
+    if(!flow){ while(kids().length>1&&kids()[kids().length-1].classList.contains('rp-grp')) moved.unshift(box.removeChild(kids()[kids().length-1])); }
     if(!moved.length){ after.forEach(x=>body.appendChild(x)); return; }
     const np=page.cloneNode(true), nb=np.querySelector('.rp-body'); nb.innerHTML='';
     const h=page.querySelector('.rp-h'); if(h){ const h2=document.createElement('h2'); h2.className='rp-h'; h2.textContent=h.textContent.replace(/ \(continued\)$/,'')+' (continued)'; nb.appendChild(h2); }
-    const nt=t.cloneNode(false); nt.appendChild(t.querySelector('thead').cloneNode(true)); const ntb=document.createElement('tbody'); moved.forEach(r=>ntb.appendChild(r)); nt.appendChild(ntb); nb.appendChild(nt);
+    let nt;
+    if(flow){ nt=t.cloneNode(false); moved.forEach(r=>nt.appendChild(r)); }
+    else { nt=t.cloneNode(false); nt.appendChild(t.querySelector('thead').cloneNode(true)); const ntb=document.createElement('tbody'); moved.forEach(r=>ntb.appendChild(r)); nt.appendChild(ntb); }
+    if(top!==t){ const wrap=top.cloneNode(false); wrap.appendChild(nt); nb.appendChild(wrap); } else nb.appendChild(nt);
     after.forEach(x=>nb.appendChild(x)); np.dataset.sec=''; page.after(np);
   }
 }
@@ -576,10 +684,12 @@ function rpInit(){
     if(t.id==='rpSeason'){ RP_O.season=t.value; RP_O.comp=''; RP_O.off.clear(); inval(); rpRenderCtl(); return; }
     if(t.id==='rpComp'){ RP_O.comp=t.value; RP_O.off.clear(); inval(); rpRenderCtl(); return; }
     if(t.id==='rpKo'){ RP_O.ko=t.value; inval(); rpRenderCtl(); return; }
+    if(t.id==='rpKoLog'){ RP_O.koLog=!!t.checked; inval(); return; }
     if(t.dataset&&t.dataset.rpg){ if(t.checked) RP_O.off.delete(t.dataset.rpg); else RP_O.off.add(t.dataset.rpg); inval(); rpRenderCtl(); } });
   pane.addEventListener('click', e=>{ const t=e.target, c=s=>t&&t.closest?t.closest(s):null; let x;
     if((x=c('#rpBuild'))){ rpBuild(); return; }
     if((x=c('#rpPdf'))){ if(!x.disabled) rpPrint(); return; }
+    if((x=c('[data-rpq]'))){ rpQuick(x.dataset.rpq); RP_O.built=null; rpRenderCtl(); return; }
     if((x=c('[data-rpall]'))){ const on=x.dataset.rpall==='1'; rpTeamGames(GAMES, RP_O.team, RP_O.season, RP_O.comp).forEach(g=>{ if(on) RP_O.off.delete(g.id); else RP_O.off.add(g.id); }); RP_O.built=null; rpRenderCtl(); } });
   if(typeof window!=='undefined'&&window.addEventListener){ window.addEventListener('resize', rpFit); window.addEventListener('afterprint', rpPrintDone); }
   const s=document.createElement('style'); s.id='rpCss'; s.textContent=RP_CSS; document.head.appendChild(s);
@@ -588,6 +698,9 @@ const RP_CSS=`
 #pane-reports .rp-ctl{align-items:flex-start;flex-wrap:wrap;}
 .rp-fg select{min-width:150px;} .rp-gfg{min-width:260px;flex:1 1 300px;} .rp-glist{max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px 8px;background:var(--card);}
 .rp-glist .gitem{display:block;font-size:13px;padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rp-quick{margin:0 0 4px;flex-wrap:wrap;} .rp-logopt{display:block;margin-top:6px;font-size:13px;}
+.rp-sgame{border-bottom:1px solid #e3e6e8;padding-bottom:1.2mm;} .rp-sgame .rp-shl{flex:0 0 22mm;font:700 7pt/1.2 'Barlow',sans-serif;color:#2b2f33;letter-spacing:0;padding-top:1mm;} .rp-sgame .rp-shl span{font-weight:600;color:#5b6067;}
+.rp-hsep{width:.8mm;align-self:stretch;background:#9aa0a6;border-radius:.4mm;margin:0 .6mm;} .rp-t tr.rp-grp td{background:#e9ecee !important;font-weight:700;text-align:left;}
 .rp-acts > div{display:flex;gap:8px;flex-wrap:wrap;} .rp-what{margin:4px 2px 10px;}
 #rpStatus{margin:6px 2px 10px;color:var(--t2);font-size:13px;min-height:1.2em;}
 #rpPages{--rpz:1;display:flex;flex-direction:column;align-items:center;gap:14px;overflow:hidden;padding:0 0 30px;}
