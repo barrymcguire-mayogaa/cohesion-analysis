@@ -29,6 +29,7 @@
  *        Moves the photo to another name (and/or team). 409 if the target already has one.
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, allowedSections, sectionOf, can } = require('../lib/access');
 const { cohPhotoKey } = require('../../cohesion-photos.js');
 
 const { createClient } = require('@supabase/supabase-js');
@@ -124,15 +125,7 @@ async function signOne(path) {
   return data.signedUrl;
 }
 
-// ── county / club wall: the team keys a non-admin may see photos for ─────
-function allowedSections(roles) {            // = netlify/functions/data.js
-  if (roles.includes('admin')) return ['county', 'club'];
-  const hasClub = roles.includes('club');
-  const hasOther = roles.some(r => r !== 'club');
-  if (hasClub && !hasOther) return ['club'];
-  if (hasClub) return ['county', 'club'];
-  return ['county'];
-}
+// ── county / club / U20s wall: the team keys a non-admin may see photos for (netlify/lib/access.js) ─────
 async function visibleTeamKeys(roles) {
   const allowed = allowedSections(roles);
   const { data, error } = await supabase.from('games').select('meta');
@@ -141,7 +134,7 @@ async function visibleTeamKeys(roles) {
   for (const r of data || []) {
     let m = r && r.meta;
     if (typeof m === 'string') { try { m = JSON.parse(m); } catch (_e) { m = null; } }
-    if (!m || !allowed.includes(m.section === 'club' ? 'club' : 'county')) continue;
+    if (!m || !allowed.includes(sectionOf(m))) continue;
     for (const n of [m.homeTeam, m.awayTeam]) { const k = cohPhotoKey(n); if (k) keys.add(k); }
   }
   return keys;
@@ -293,8 +286,8 @@ exports.handler = async (event, context) => {
     if (!token) return json(401, { error: 'Authentication required' });
     const decoded = verifiedClaims(context);
     if (!decoded) return json(UNAUTH.statusCode, JSON.parse(UNAUTH.body));
-    const roles = ((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase());
-    const isAdmin = roles.includes('admin');
+    const roles = rolesOf(decoded);
+    const isAdmin = can(roles, 'manage');          // admin only: an analyst sees photos like any viewer, uploads none
 
     let body;
     try { body = JSON.parse(event.body); }

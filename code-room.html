@@ -678,7 +678,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
-if(sessionStorage.getItem('cohesion_auth') !== 'admin'){ document.body.innerHTML='<div style="padding:60px;text-align:center;font-family:Barlow,sans-serif;">Code Room is for admins/analysts only.</div>'; }
+if(!(typeof cohesionCan==='function' ? cohesionCan('edit') : sessionStorage.getItem('cohesion_auth')==='admin')){ document.body.innerHTML='<div style="padding:60px;text-align:center;font-family:Barlow,sans-serif;">Code Room is for admins/analysts only.</div>'; }
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL='https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -1126,7 +1126,8 @@ function crSwitchAngle(i){
 const CR_AA_P=[{k:'half1Start',n:'1st half'},{k:'half2Start',n:'2nd half'},{k:'et1Start',n:'ET1'},{k:'et2Start',n:'ET2'}];
 const CR_AA_MAINTIP="Main is the reference. Use Sync Mode to move events, or fix the game's start times in Admin";
 let crAA={open:false, base:null, prop:null, status:'', timer:null};
-function crAAIsAdmin(){ try{ return sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ return false; } }
+// an admin or an analyst (cohesion-edit.js cohesionCan('edit')) may align the other camera angles' start times
+function crAAIsAdmin(){ try{ return typeof cohesionCan==='function' ? cohesionCan('edit') : sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ return false; } }
 // The control exists only for an admin on a game with 2+ camera angles.
 function crAAAvailable(){ return !!GAME && !GAME._local && crAAIsAdmin() && Array.isArray(GAME.angles) && GAME.angles.filter(a=>a&&a.youtubeId).length>=2; }
 function crAASnap(a){ const o={}; CR_AA_P.forEach(p=>{ o[p.k]=a?a[p.k]:undefined; }); return o; }
@@ -3649,9 +3650,11 @@ function crTplCapture(){
 async function saveTemplate(){
   const name=((await cohPrompt('Template name (e.g. NFL 2026, U-14 Championship):'))||'').trim();
   if(!name) return;
-  const scope=await cohesionModal({ title:'Who can use this template?',
+  // club-wide templates are managed by an admin; an analyst saves personal ones (cohesionCan, = netlify/functions/templates.js)
+  const canClubTpl = typeof cohesionCan!=='function' || cohesionCan('templatesClub');
+  const scope = canClubTpl ? await cohesionModal({ title:'Who can use this template?',
     message:'Club-wide templates are shared with every analyst; personal templates are only visible to you.',
-    buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}] });
+    buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}] }) : 'personal';
   if(scope==='cancel') return;
   const existing=crTemplates.find(t=>t.name.toLowerCase()===name.toLowerCase()&&t.scope===scope);
   try{
@@ -3689,6 +3692,7 @@ function crTplApply(t, o){
 async function deleteTemplate(){
   const sel=document.getElementById('tplSelect'); if(!sel||!sel.value) return;
   const t=crTemplates.find(x=>String(x.id)===String(sel.value)); if(!t) return;
+  if(t.scope==='club' && typeof cohesionCan==='function' && !cohesionCan('templatesClub')){ alert('Club-wide templates are deleted by an admin — you can delete your own (mine) templates.'); return; }
   if(!confirm('Delete template "'+t.name+'"'+(t.scope==='club'?' (club-wide)':'')+'?')) return;
   try{ await crAuthFetch('templates',{action:'delete', id:t.id}); const L=crTplLastGet(); if(L&&String(L.id)===String(t.id)) crTplLastSet(null); await loadTemplates(); }
   catch(e){ alert('Could not delete template: '+e.message); }

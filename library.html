@@ -322,9 +322,10 @@ select option{background:var(--card);}
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
   <div class="logo-sub">Team Analysis</div>
   <div class="hdr-spacer"></div>
-  <div id="sectionSwitch" style="display:none;gap:0;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;margin-right:10px;">
+  <div id="sectionSwitch" style="display:none;flex:none;gap:0;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;margin-right:10px;">
     <button id="secBtnCounty" onclick="switchSection('county')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">COUNTY</button>
     <button id="secBtnClub" onclick="switchSection('club')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">CLUB</button>
+    <button id="secBtnU20" onclick="switchSection('u20')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">U20s</button>
   </div>
   <a href="admin.html" class="hdr-btn hdr-btn-admin" id="adminBtn" style="display:none">
     + Add Game
@@ -495,6 +496,11 @@ select option{background:var(--card);}
       <label>Date</label>
       <input type="date" id="eDate">
     </div>
+    <div class="edit-field" id="eSectionField">
+      <label>Section</label>
+      <select id="eSection"></select>
+      <span id="eSectionNote" style="font-size:11px;color:var(--t3);">Moving a game changes who can see it: U20s games only show for the U20 role, never in county lists or stats.</span>
+    </div>
     <div class="edit-field">
       <label>Main video (YouTube link)</label>
       <input type="text" id="eMainVideo" placeholder="https://youtu.be/… or the 11-character video ID" autocomplete="off" spellcheck="false">
@@ -531,10 +537,16 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 if(typeof cohesionAuthGate==='function') cohesionAuthGate();   // restores a signed-in tab's marker, or goes to index.html?next=library.html (cohesion-edit.js)
 const auth = sessionStorage.getItem('cohesion_auth');
 if(!auth && typeof cohesionAuthGate!=='function') window.location.href = 'index.html';
-if(auth === 'admin') {
+// admin: everything. analyst (cohesion-edit.js cohesionCan): upload, batch, Code Room and game details — no delete,
+// no xP / photos / player-names admin pages (the server refuses those for him as well).
+const CAN_EDIT = typeof cohesionCan === 'function' ? cohesionCan('edit') : auth === 'admin';
+const CAN_DELETE = typeof cohesionCan === 'function' ? cohesionCan('deleteGame') : auth === 'admin';
+if(CAN_EDIT) {
   document.getElementById('adminBtn').style.display = 'flex';
   document.getElementById('batchBtn').style.display = 'flex';
   document.getElementById('codeRoomBtn').style.display = 'flex';
+}
+if(auth === 'admin') {
   document.getElementById('xpBtn').style.display = 'flex';
   document.getElementById('photosBtn').style.display = 'flex';
   document.getElementById('namesBtn').style.display = 'flex';
@@ -625,8 +637,8 @@ const libraryTiles = [
 
 function renderLibraryTiles(){
   const grid = document.getElementById('libraryTileGrid');
-  // The division / championship cards are county competitions: hidden in the club section.
-  const club = typeof cohesionSection === 'function' && cohesionSection() === 'club';
+  // The division / championship cards are senior county competitions: hidden in the club and U20s sections.
+  const club = typeof cohesionSection === 'function' && cohesionSection() !== 'county';
   grid.style.display = club ? 'none' : '';
   if (club) { grid.innerHTML = ''; return; }
   grid.innerHTML = libraryTiles.map(tile => `
@@ -895,8 +907,8 @@ function renderGames(games){
               <div class="card-competition">${comp}</div>
               ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
             </div>
-            ${auth==='admin'?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
-            ${auth==='admin'?`<button class="card-del" title="Remove game" onclick="startDelete('${g.id}',event)">✕</button>`:''}
+            ${CAN_EDIT?`<button class="card-edit" title="Edit game details" onclick="startEdit('${g.id}',event)">⋯</button>`:''}
+            ${CAN_DELETE?`<button class="card-del" title="Remove game" onclick="startDelete('${g.id}',event)">✕</button>`:''}
           </div>
           <div class="card-body">
             <div class="card-teams">
@@ -1086,6 +1098,10 @@ function startEdit(id, e){
   document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  // its section (county / club / U20s) — only the sections this user can see are offered; the server checks again
+  { const secs = cohesionSections(), cur = cohSectionOf(g), sel = document.getElementById('eSection');
+    sel.innerHTML = ['county','club','u20'].filter(x => secs.includes(x) || x === cur).map(x => '<option value="'+x+'"'+(x===cur?' selected':'')+'>'+cohSectionLabel(x)+'</option>').join('');
+    document.getElementById('eSectionField').style.display = sel.options.length > 1 ? '' : 'none'; }
   libMainVideoFill(g);
   // Show/hide division field based on competition
   toggleEditDivisionField();
@@ -1108,7 +1124,7 @@ function libTeamSheetNote(){
 function libTeamSheetEdit(){
   const g=allGames.find(x=>x.id===pendingEditId); if(!g||!window.cohTS) return;
   cohTS.openEditor({ game:g, known:{home:[], away:[]},
-    loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam),
+    loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam, {section:cohSectionOf(g)}),
     onSaved:merged=>{ g.rosters=merged.rosters; libTeamSheetNote(); showToast('Team sheets saved.'); } });
 }
 // ── Main video link ──────────────────────────────────────────
@@ -1155,6 +1171,8 @@ async function confirmEdit(){
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
   g.title       = `${homeTeam} v ${awayTeam}`;
+  const secWas = cohSectionOf(g), secNow = document.getElementById('eSection').value || secWas;
+  if(secNow !== secWas) g.section = secNow;      // a game never moved keeps its meta exactly as it was
   const validAlts = editAngles.filter(a=>a.youtubeId&&a.youtubeId.trim());
   if(validAlts.length>0){
     const mainAngle = g.angles&&g.angles.length>0
@@ -1183,7 +1201,8 @@ async function confirmEdit(){
     buildTeamFilter(allGames);
     buildYearFilter(allGames);
     applyFilters();
-    showToast('Game updated. '+migMsg);
+    showToast((secNow !== secWas ? 'Game moved to '+cohSectionLabel(secNow)+'. ' : 'Game updated. ')+migMsg);
+    if(secNow !== secWas) loadGames();             // it leaves this section's list
   } catch(e){
     showToast('Error saving changes: ' + e.message);
   }
@@ -1321,27 +1340,15 @@ loadGames();
 renderLibraryTiles();
 </script>
 <script>
-// ── County/Club section switcher (visible only with access to both) ──
+// ── County / Club / U20s section switcher (a button per section the user can see; hidden with only one) ──
 function paintSectionSwitch(){
-  const secs = cohesionSections();
-  const box = document.getElementById('sectionSwitch');
-  if (!box) return;
-  if (secs.length < 2) { box.style.display = 'none'; return; }
-  box.style.display = 'flex';
-  const cur = cohesionSection();
-  const paint = (id, on) => {
-    const b = document.getElementById(id); if (!b) return;
-    b.style.background = on ? 'var(--accent,#4fc3f7)' : 'transparent';
-    b.style.color = on ? '#fff' : 'var(--t2,#999)';
-  };
-  paint('secBtnCounty', cur === 'county');
-  paint('secBtnClub', cur === 'club');
+  cohesionPaintSectionSwitch(document.getElementById('sectionSwitch'), { county:'secBtnCounty', club:'secBtnClub', u20:'secBtnU20' });
 }
 function switchSection(s){
   cohesionSetSection(s);
   paintSectionSwitch();
-  // a county card's filter must not carry into the club section, where the cards are hidden
-  if (s === 'club' && activeTileKey && typeof resetLibraryFilters === 'function') resetLibraryFilters();
+  // a county card's filter must not carry into the club / U20s sections, where the cards are hidden
+  if (s !== 'county' && activeTileKey && typeof resetLibraryFilters === 'function') resetLibraryFilters();
   else if (typeof renderLibraryTiles === 'function') renderLibraryTiles();
   if (typeof loadGames === 'function') loadGames();
 }

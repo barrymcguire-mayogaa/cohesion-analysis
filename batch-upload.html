@@ -271,8 +271,9 @@ header{
       <select id="uploadSection" style="background:#1c1c26;border:1px solid #333;border-radius:8px;color:#eee;font-size:0.85rem;padding:8px 10px;">
         <option value="county">County (default)</option>
         <option value="club">Club</option>
+        <option value="u20">U20s</option>
       </select>
-      <span style="font-size:0.68rem;color:#888;">Club games are only visible to users with the CLUB role.</span>
+      <span style="font-size:0.68rem;color:#888;">Club games are only visible to users with the CLUB role, U20s games only to users with the U20 role. A sheet's <b>section</b> column (county / club / U20s) wins for its row.</span>
     </div>
     <button class="btn btn-primary" onclick="uploadReadyGames()">⬆ Upload Ready Games</button>
     <button class="btn btn-secondary" onclick="resetForm()">⟲ Start New Batch</button>
@@ -327,10 +328,15 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // Auth check - admin only
 const auth = sessionStorage.getItem('cohesion_auth');
 if (!auth) window.location.href = 'index.html';
-if (auth !== 'admin') {
-  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h2>Access Denied</h2><p>Batch upload is admin-only.</p><a href="library.html">Return to Library</a></div>';
+// admin or analyst (cohesion-edit.js cohesionCan('upload')); the server (processBatchGames) checks again: an analyst
+// adds new games, replaces only games he uploaded, and only in the sections he can see
+if (!(typeof cohesionCan === 'function' && cohesionCan('upload'))) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h2>Access Denied</h2><p>Batch upload is for admins and analysts.</p><a href="library.html">Return to Library</a></div>';
   throw new Error('Not admin');
 }
+if (auth !== 'admin') document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#uploadSection option').forEach(o => { if (!cohesionSections().includes(o.value)) o.remove(); });
+});
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
@@ -453,6 +459,7 @@ function normalizeHeaders(headers) {
     'angle_5_et1_start': ['angle_5_et1_start', 'angle5_et1_start'],
     'angle_5_et2_start': ['angle_5_et2_start', 'angle5_et2_start'],
     'ta_team': ['ta_team', 'tateam', 'ta', 'ta_is'],
+    'section': ['section', 'sec'],
     'notes': ['notes']
   };
 
@@ -521,6 +528,8 @@ async function handleExcelFile(file) {
         et2StartText: String(row[normalized['et2_start']] || ''),
         // iGaelicCoach files name their teams only TA / TB: which one TA is ('home' / 'away' or a team name; default home)
         taIs: igcTaFrom(row[normalized['ta_team']], row[normalized['away_team']]),
+        // the row's own section (county / club / U20s), or null: the page's SECTION select decides
+        section: cohesionSectionCell(row[normalized['section']]),
         angles,
         xmlFile: null,
         xmlText: '',
@@ -1277,7 +1286,7 @@ async function validateAndParseAll() {
 // BUILD METADATA & UPLOAD
 // ═══════════════════════════════════════════════════════════════
 function buildBatchGameMeta(game) {
-  const _section = cohesionUploadSection();
+  const _section = game.section || cohesionUploadSection();
   const youtubeId = extractYtId(game.youtubeUrl);
   const half1Start = parseTime(game.half1StartText);
   const half2Start = parseTime(game.half2StartText);

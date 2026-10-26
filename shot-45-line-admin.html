@@ -203,7 +203,7 @@ const fmtClock = s => { s = Math.max(0, Math.round(+s||0)); return Math.floor(s/
 const num = v => { const n = +v; return isFinite(n) ? String(Math.round(n*10)/10) : String(v); };
 
 let allGames = [];                          // listGames: [{id, meta}] — every game the admin can see
-let section = 'all';                        // 'county' | 'club' | 'all'
+let section = 'all';                        // 'county' | 'club' | 'u20' | 'all'
 const cache = new Map();                    // game id -> {meta, events:[{id, data}]} (memory only)
 let failedLoads = [];                       // [{id, title, error}] games that could not be read
 let plans = [];                             // cohShot45.planGame of every game read, oldest first (only games with a ’45)
@@ -213,7 +213,7 @@ let busy = false, scanTok = 0, scanned = false;
 
 function showErr(id, msg){ const el=$(id); el.textContent = msg||''; el.classList.toggle('show', !!msg); }
 const metaOf = g => { let m=(g&&g.meta)||{}; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ m={}; } } return (m.id==null&&g&&g.id!=null) ? Object.assign({}, m, {id:g.id}) : m; };
-const secOf = m => (m&&m.section)==='club' ? 'club' : 'county';       // = netlify/functions/data.js
+const secOf = m => (m&&m.section)==='club' ? 'club' : (m&&m.section)==='u20' ? 'u20' : 'county';       // = netlify/lib/access.js sectionOf
 const titleOf = m => m.title || ((m.homeTeam||'')+' v '+(m.awayTeam||''));
 function gamesInSection(){ return allGames.filter(g => section==='all' || secOf(metaOf(g))===section); }
 
@@ -459,8 +459,8 @@ function renderResult(){
 if(gated && auth==='admin'){
   const secs = (typeof cohesionSections==='function' ? cohesionSections() : ['county','club']);
   try{ section = localStorage.getItem('coh_shot45_section') || 'all'; }catch(_){}
-  if(!['county','club','all'].includes(section) || (section!=='all' && !secs.includes(section))) section = 'all';
-  $('secSel').innerHTML = [['all','County + club'],['county','County games'],['club','Club games']].filter(o=>o[0]==='all'?secs.length>1:secs.includes(o[0]))
+  if(!['county','club','u20','all'].includes(section) || (section!=='all' && !secs.includes(section))) section = 'all';
+  $('secSel').innerHTML = [['all','Every section'],['county','County games'],['club','Club games'],['u20','U20s games']].filter(o=>o[0]==='all'?secs.length>1:secs.includes(o[0]))
     .map(o=>'<option value="'+o[0]+'"'+(o[0]===section?' selected':'')+'>'+o[1]+'</option>').join('');
   if(!$('secSel').value) section = $('secSel').options.length ? $('secSel').options[0].value : 'all'; else section = $('secSel').value;
   renderHist(); scan(false);

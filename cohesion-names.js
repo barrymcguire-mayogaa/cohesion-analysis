@@ -247,7 +247,7 @@
   function teamNames(games, team){
     const by=new Map(), list=[];
     (games||[]).forEach(g=>{ const sc=g&&g.meta?scanGame(g.meta, g.events||[], team):null; if(!sc) return;
-      const m=g.meta, opp=sc.side==='home'?m.awayTeam:m.homeTeam, info={id:m.id, date:m.date||'', title:m.title||'', opp:opp||'', side:sc.side, section:m.section==='club'?'club':'county'};
+      const m=g.meta, opp=sc.side==='home'?m.awayTeam:m.homeTeam, info={id:m.id, date:m.date||'', title:m.title||'', opp:opp||'', side:sc.side, section:m.section==='club'?'club':m.section==='u20'?'u20':'county'};
       list.push(info);
       sc.names.forEach(r=>{ let s=by.get(r.name); if(!s){ s={name:r.name, key:pkey(r.name), fold:fkey(r.name), n:ZERO(), uses:0, nos:[], games:[]}; by.set(r.name, s); }
         Object.keys(r.n).forEach(k=>{ s.n[k]+=r.n[k]; }); s.uses+=r.uses; r.nos.forEach(x=>{ if(!s.nos.includes(x)) s.nos.push(x); });

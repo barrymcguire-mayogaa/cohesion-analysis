@@ -13,8 +13,13 @@
  *   { action:'delete', id }                             -> delete a club or own personal template
  *
  * scope: 'club' (any admin can use/edit) | 'personal' (owner = caller email).
+ *
+ * ROLES (netlify/lib/access.js): admin — everything, as before. analyst — lists the club + his own personal templates
+ * and saves / deletes PERSONAL ones only (managing club-wide templates is an admin's). A non-admin must ask for a
+ * section he can see. Template SETS are county and club: the U20s section uses the county set (same coding).
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
+const { rolesOf, allowedSections, normSection, can, isAdmin } = require('../lib/access');
 
 
 const { createClient } = require('@supabase/supabase-js');
@@ -40,21 +45,28 @@ exports.handler = async (event, context) => {
     let decoded;
     decoded = verifiedClaims(context);
     if (!decoded) return UNAUTH;
-    if (!((decoded.app_metadata && decoded.app_metadata.roles) || []).map(r => String(r).toLowerCase()).includes('admin')) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin role required' }) };
+    const roles = rolesOf(decoded);
+    if (!can(roles, 'templatesPersonal')) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: admin or analyst role required' }) };
     }
+    const canClub = can(roles, 'templatesClub');
     const email = (decoded.email || '').toLowerCase();
 
     const { action } = body;
+    // the section asked for must be one the caller can see (an admin sees all); the template set it maps to
+    if (!isAdmin(roles) && (action === 'list' || action === 'save') && !allowedSections(roles).includes(normSection(body.section))) {
+      return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: no access to that section' }) };
+    }
+    const setOf = sec => normSection(sec) === 'club' ? 'club' : 'county';
 
     if (action === 'list') {
-      const want = (body.section === 'club') ? 'club' : 'county';
+      const want = setOf(body.section);
       const { data, error } = await supabase.from('templates')
         .select('id, scope, owner, name, data, created_at')
         .or(`scope.eq.club,and(scope.eq.personal,owner.eq.${email})`)
         .order('name');
       if (error) throw new Error(error.message);
-      const secOf = d => (d && d.section) === 'club' ? 'club' : 'county';
+      const secOf = d => setOf(d && d.section);
       return { statusCode: 200, body: JSON.stringify({ ok: true, templates: (data || []).filter(t => secOf(t.data) === want) }) };
     }
 
@@ -63,8 +75,9 @@ exports.handler = async (event, context) => {
       if (!name || typeof name !== 'string') return { statusCode: 400, body: JSON.stringify({ error: 'name is required' }) };
       if (scope !== 'club' && scope !== 'personal') return { statusCode: 400, body: JSON.stringify({ error: "scope must be 'club' or 'personal'" }) };
       if (!data || typeof data !== 'object') return { statusCode: 400, body: JSON.stringify({ error: 'data object is required' }) };
+      if (scope === 'club' && !canClub) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: club-wide templates are managed by an admin — save it as a personal template' }) };
       const row = { name: name.trim().slice(0, 80), scope, owner: scope === 'personal' ? email : '', data };
-      row.data.section = (body.section === 'club') ? 'club' : 'county';   // stamped per save (admin tooling)
+      row.data.section = setOf(body.section);   // stamped per save (admin tooling)
       if (id) {
         // Only the owner may update a personal template; club is open to admins.
         const { data: existing, error: exErr } = await supabase.from('templates').select('scope, owner').eq('id', id).single();
@@ -72,6 +85,7 @@ exports.handler = async (event, context) => {
         if (existing.scope === 'personal' && existing.owner !== email) {
           return { statusCode: 403, body: JSON.stringify({ error: 'Not your template' }) };
         }
+        if (existing.scope === 'club' && !canClub) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: club-wide templates are managed by an admin' }) };
         const { error } = await supabase.from('templates').update(row).eq('id', id);
         if (error) throw new Error(error.message);
         return { statusCode: 200, body: JSON.stringify({ ok: true, id }) };
@@ -89,6 +103,7 @@ exports.handler = async (event, context) => {
       if (existing.scope === 'personal' && existing.owner !== email) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Not your template' }) };
       }
+      if (existing.scope === 'club' && !canClub) return { statusCode: 403, body: JSON.stringify({ error: 'Forbidden: club-wide templates are managed by an admin' }) };
       const { error } = await supabase.from('templates').delete().eq('id', id);
       if (error) throw new Error(error.message);
       return { statusCode: 200, body: JSON.stringify({ ok: true }) };

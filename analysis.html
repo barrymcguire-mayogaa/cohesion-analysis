@@ -2064,7 +2064,7 @@ function anSetTab(tab, sub){
 }
 let GAMES_READY=false;
 let GAMES=[], BUNDLES=new Map();
-let MODE='teams', IS_ADMIN=false;
+let MODE='teams', IS_ADMIN=false, IS_EDITOR=false;   // IS_ADMIN: the Panel Print-out / XML (admin only); IS_EDITOR: saving a game's type (admin or analyst)
 const TYPE_OFF=new Set(), COMP_OFF=new Set(), EXCLUDED=new Set();
 const SESSION_TYPES={};   // non-admin (or failed-save) overrides, this tab only
 const SETS=[{types:new Set(['league']), off:new Set()}, {types:new Set(['championship']), off:new Set()}];
@@ -2075,6 +2075,7 @@ function metaOf(r){ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m);
 async function boot(){
   try{
     try{ IS_ADMIN=(cohesionRoles()||[]).map(r=>String(r).toLowerCase()).includes('admin'); }catch(_){ IS_ADMIN=false; }
+    IS_EDITOR=IS_ADMIN||anIsAnalyst();   // an admin exactly as before, or an analyst (marker AND role)
     const xpReady=(typeof window.cohesionXpReady==='function'?window.cohesionXpReady():Promise.resolve()).catch(()=>{});
     const j=await cohesionRead({action:'listGames', section:cohesionSection()});
     await xpReady;
@@ -2085,7 +2086,7 @@ async function boot(){
     GAMES_READY=true;
     renderTypeChips(); renderComps();
     applyFilters();
-    ssEl('status').textContent=GAMES.length+' games available in this section.'+(IS_ADMIN?'':' Game-type changes you make here last for this session only (admins can save them).');
+    ssEl('status').textContent=GAMES.length+' games available in this section.'+(IS_EDITOR?'':' Game-type changes you make here last for this session only (admins can save them).');
   }catch(e){
     ssEl('status').textContent='Could not load games: '+e.message;
   }
@@ -2127,7 +2128,7 @@ function setMode(m){
 }
 function typeSelectHTML(g){
   const src=ssTypeSource(g, SESSION_TYPES), cur=src==='auto'?'':typeOfG(g);
-  return `<select class="tsel" data-id="${ssEsc(g.id)}" onchange="setGameType(this)" title="${IS_ADMIN?'Change and save this game\'s type':'Change this game\'s type for this session'}">`
+  return `<select class="tsel" data-id="${ssEsc(g.id)}" onchange="setGameType(this)" title="${IS_EDITOR?'Change and save this game\'s type':'Change this game\'s type for this session'}">`
     +`<option value="" ${cur?'':'selected'}>Auto: ${ssEsc(ssTypeLabel(ssAutoType(g)))}</option>`
     +SS_TYPES.map(t=>`<option value="${t.k}" ${cur===t.k?'selected':''}>${ssEsc(t.label)}</option>`).join('')+'</select>';
 }
@@ -2150,7 +2151,7 @@ async function setGameType(el){
   const id=el.dataset.id, key=ssNormType(el.value)||'';
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   const st=ssEl('status');
-  if(!IS_ADMIN){
+  if(!IS_EDITOR){
     if(key) SESSION_TYPES[id]=key; else delete SESSION_TYPES[id];
     st.textContent='Type for '+(g.title||id)+' changed for this session only — ask an admin to save it.';
     applyFilters(); return;
@@ -3946,7 +3947,8 @@ function tkFollowNote(S){
 // the out-of-range landings of the selected games, BOTH sides: by game (oldest first), then in time order
 // "Landings to check" (the list, the dashed ring, the card's Check tag line) is for admins only: only they can
 // re-place a landing in Code Room, so for anyone else it would only confuse (Oct 2026).
-function tkShowChecks(){ return typeof mrIsAdmin==='function'&&mrIsAdmin(); }
+// An analyst re-places landings in Code Room as well (anIsAnalyst: the analyst marker AND role).
+function tkShowChecks(){ return (typeof mrIsAdmin==='function'&&mrIsAdmin())||anIsAnalyst(); }
 function tkCheckList(R){
   const ord=new Map(); let i=0; R.gameOf.forEach((m,id)=>ord.set(id, i++));
   return R.own.kos.concat(R.opp.kos).filter(k=>k.check).sort((a,b)=>(ord.get(a.gid)-ord.get(b.gid))||(a.t-b.t)||(a.i-b.i));
@@ -5040,7 +5042,7 @@ function ttPlJob(){   // the shots the open card is about
 }
 async function ttPlOpen(){
   const job=ttPlJob(); if(!job) return;
-  if(!mrIsAdmin()){ ttPlDraw({phase:'error', msg:'No permission: only analysts (admin sign-in) can add clips to playlists.'}); return; }
+  if(!(mrIsAdmin()||anIsAnalyst())){ ttPlDraw({phase:'error', msg:'No permission: only admins and analysts can add clips to playlists.'}); return; }
   const C=ttClipsOf(job.shots, id=>BUNDLES.get(id)); job.clips=C.clips; job.noVideo=C.noVideo;
   if(!C.clips.length){ ttPlDraw({phase:'error', msg:job.bulk?'None of these games has a video link.':'This game has no video link.'}); return; }
   ttPlDraw({phase:'loading'});
@@ -6052,9 +6054,10 @@ function mrCardHTML(c, deco){
 let MR_ROWS=[], MR_LIMIT=MR_PAGE, MR_SEL=null, MR_TOKEN=0, MR_TIMER=null, MR_TEAM='', MR_POOLKEY='';
 const MR_F={q:'', res:'ALL', venue:'all'};
 const MR_XML=new Set();
-// XML is for admins only: the sign-in role (cohesion_auth) and the roles the
-// identity token carried (cohesion_roles → IS_ADMIN, set in boot) must agree.
-function mrIsAdmin(){ let a=false; try{ a=sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ } return a&&IS_ADMIN; }
+// STAFF: the XML and the Panel Print-out (cohesion-playerdash.js pdIsStaff) are for admins AND analysts (Barry, Oct 2026):
+// the sign-in role (cohesion_auth) and the roles the identity token carried must agree (admin marker + IS_ADMIN, or anIsAnalyst).
+function anIsAnalyst(){ try{ return sessionStorage.getItem('cohesion_auth')==='analyst'&&typeof cohesionCan==='function'&&cohesionCan('edit'); }catch(_){ return false; } }
+function mrIsAdmin(){ let a=false; try{ a=sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ } return (a&&IS_ADMIN)||anIsAnalyst(); }
 function mrSchedule(){ if(TAB!=='match-reports'||!GAMES_READY) return; clearTimeout(MR_TIMER); MR_TIMER=setTimeout(mrRun, 40); }
 function mrView(){ const f=mrFilter(MR_ROWS, MR_F); return {f, vis:f.slice(0, MR_LIMIT)}; }
 async function mrRun(){

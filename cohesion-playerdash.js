@@ -625,7 +625,7 @@ function pdInfoToggle(b){ const p=ssEl(b.getAttribute('aria-controls')); if(!p) 
 // the shot-map hover / pinned cards on this tab read this view (analysis.html pyTipState)
 function pdTipState(){ return PD_V&&PD_V.map?{R:PD_V.S.R, V:PD_V.map.V}:{R:null, V:null}; }
 // STAFF ONLY (Barry, Oct 2026): the PANEL PRINT-OUT — its tab, the squad picker, the notes, clubs and position labels — is for
-// admins: Analysis' own check (mrIsAdmin: an admin sign-in marker AND the admin role). For anyone else the tab is taken OUT
+// admins and analysts: Analysis' own check (mrIsAdmin: an admin / analyst sign-in marker AND that role). For anyone else the tab is taken OUT
 // of the page and nothing of the print-out is built, so no note is ever read into their page. The notes store
 // (netlify/functions/playerNotes.js) checks the admin role again server-side on every call.
 function pdIsStaff(){ try{ return typeof mrIsAdmin==='function'&&!!mrIsAdmin(); }catch(_){ return false; } }

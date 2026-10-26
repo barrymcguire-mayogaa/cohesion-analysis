@@ -117,7 +117,7 @@
   // ── jersey number limits (warnings only) ──────────────────────
   // The highest number a game's sheet should carry: inter-county league / championship 26; pre-season (FBD League,
   // O'Byrne Cup, McGrath Cup, McKenna Cup) 30; challenge games, friendlies and club games 40. The game's type is read
-  // from its meta: section 'club' → club; the competition (and round) text → challenge / friendly / pre-season /
+  // from its meta: section 'club' → club; section 'u20' → a U20 inter-county game (30); the competition (and round) text → challenge / friendly / pre-season /
   // club competition; teams that are not both counties (cohesion-periods.js cohGameLevel, when loaded) → club;
   // otherwise an inter-county game — league when the competition says league / NFL, else championship.
   function gameKind(meta){
@@ -125,6 +125,8 @@
     const comp=String(meta.competition||'').replace(/\s+/g,' ').trim(), c=(comp+' '+String(meta.round||'')).toLowerCase();
     const K=(kind, limit, label)=>({kind, limit, label});
     if(String(meta.section||'').toLowerCase()==='club') return K('club', 40, 'a club game');
+    // U20s section: an inter-county U20 game — 30 (Barry, Oct 2026)
+    if(String(meta.section||'').toLowerCase()==='u20') return K('u20', 30, 'a U20 inter-county game');
     if(/\bfriendl/.test(c)) return K('friendly', 40, 'a friendly');
     if(/\bchallenge\b/.test(c)) return K('challenge', 40, 'a challenge game');
     const pre=/\bfbd\b/.test(c)?'FBD League':/\bo[’'‘`]?\s*byrne\b/.test(c)?"O'Byrne Cup":/\bmc\s*grath\b/.test(c)?'McGrath Cup':/\bmc\s*kenna\b/.test(c)?'McKenna Cup':/\bpre[\s-]?season\b/.test(c)?'pre-season':'';
@@ -894,15 +896,20 @@
   T.loadKnown=function(team, o){
     o=o||{}; const U=up(team); if(!U) return Promise.resolve([]);
     const read=o.read||root.cohesionRead; if(typeof read!=='function') return Promise.resolve([]);
-    if(mem[U]) return mem[U];
-    const key='coh_ts_known_'+U;
+    // U20s games are a separate squad: a U20 game's sheet learns only from U20 games, every other game never from them
+    // (o.section = the game's section; else the section the page shows). County / club work exactly as before.
+    const u20=String(o.section||(typeof root.cohesionSection==='function'?root.cohesionSection():'')||'').toLowerCase()==='u20';
+    const isU20=g=>String((g&&g.section)||'').toLowerCase()==='u20';
+    const MK=U+(u20?'|u20':'');
+    if(mem[MK]) return mem[MK];
+    const key='coh_ts_known_'+U+(u20?'_u20':'');
     try{ const c=JSON.parse(root.localStorage.getItem(key)||'null'); if(c&&Array.isArray(c.names)&&Date.now()-(+c.ts||0)<TTL) return (mem[U]=Promise.resolve(c.names)); }catch(_){}
     const all=[], add=n=>{ if(T.nameKey(n)) all.push(String(n).replace(/\s+/g,' ').trim()); };
-    return (mem[U]=(async()=>{
+    return (mem[MK]=(async()=>{
       let ok=0;
       try{
         const j=await read({action:'listGames'});
-        const games=((j&&j.games)||[]).map(g=>{ const m=Object.assign({}, (g&&g.meta)||g); if(m.id==null&&g&&g.id!=null) m.id=g.id; return m; }).filter(g=>g&&g.id&&(up(g.homeTeam)===U||up(g.awayTeam)===U));
+        const games=((j&&j.games)||[]).map(g=>{ const m=Object.assign({}, (g&&g.meta)||g); if(m.id==null&&g&&g.id!=null) m.id=g.id; return m; }).filter(g=>g&&g.id&&(up(g.homeTeam)===U||up(g.awayTeam)===U)&&isU20(g)===u20);
         games.forEach(g=>T.sheet(g, up(g.homeTeam)===U?'home':'away').forEach(r=>add(r.name)));
         const recent=games.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,o.max||15);
         let next=0;
@@ -912,7 +919,7 @@
       }catch(_){}
       const keys=new Set(), names=[]; all.forEach(n=>{ const k=T.nameKey(n); if(!keys.has(k)){ keys.add(k); names.push(T.matchKnown(n, all)); } });
       names.sort((a,b)=>a.localeCompare(b));
-      if(ok){ try{ root.localStorage.setItem(key, JSON.stringify({ts:Date.now(), names})); }catch(_){} } else delete mem[U];
+      if(ok){ try{ root.localStorage.setItem(key, JSON.stringify({ts:Date.now(), names})); }catch(_){} } else delete mem[MK];
       return names;
     })());
   };
