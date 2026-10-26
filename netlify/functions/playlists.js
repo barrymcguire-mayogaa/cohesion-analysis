@@ -215,8 +215,9 @@ function unreadMap(rows, u, tbl, since, seen) {
   (tbl || []).forEach(c => {
     if (String(c.author_email || '').toLowerCase() === u.email) return;
     const pid = String(c.playlist_id), s = seen.get(pid);
-    const after = [since, s].filter(Boolean).sort().pop() || '';
-    if (String(c.created_at || '') > after) m.set(pid, (m.get(pid) || 0) + 1);
+    // compare as instants: Postgres hands timestamps back as '…+00:00' with microseconds, a fresh row has '…Z'
+    const after = Math.max(Date.parse(since || 0) || 0, Date.parse(s || 0) || 0);
+    if ((Date.parse(c.created_at || 0) || 0) > after) m.set(pid, (m.get(pid) || 0) + 1);
   });
   const vis = new Set(rows.map(r => String(r.id))); let total = 0; const byPlaylist = {};
   m.forEach((n, pid) => { if (vis.has(pid)) { byPlaylist[pid] = n; total += n; } });
