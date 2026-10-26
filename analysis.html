@@ -94,13 +94,15 @@ html,body{max-width:100%;overflow-x:hidden;}
 .tabs{display:flex;justify-content:center;gap:6px 30px;flex-wrap:wrap;padding:14px 16px 0;border-bottom:1px solid var(--border);}
 .tabs a{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:.05em;color:var(--t1);text-decoration:none;padding:6px 2px 14px;position:relative;white-space:nowrap;opacity:.82;}
 .tabs a:hover{opacity:1;}
+@media (min-width:641px) and (max-width:1400px){ .tabs{gap:6px 20px;} .tabs a{font-size:23px;} }   /* eight tabs on one line at 1280 px (REPORTS added) */
 .tabs a.on{opacity:1;}
 .tabs a.on::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);}
 .pane{display:none;}
 body[data-tab=overview] #pane-overview,body[data-tab=match-reports] #pane-match-reports,body[data-tab=team-trends] #pane-team-trends,
-body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=player-dash] #pane-player-dash,body[data-tab=compare] #pane-compare{display:block;}
+body[data-tab=momentum] #pane-momentum,body[data-tab=players] #pane-players,body[data-tab=player-dash] #pane-player-dash,body[data-tab=reports] #pane-reports,body[data-tab=compare] #pane-compare{display:block;}
 /* PLAYER DASHBOARD: its own range picker — the shared filter bar and the games list do not apply */
 body[data-tab=player-dash] #sharedBar{display:none;}
+body[data-tab=reports] #sharedBar{display:none;}
 body:not([data-tab=compare]) .only-compare{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=team-trends]):not([data-tab=momentum]) .only-basis{display:none !important;}
 body:not([data-tab=overview]):not([data-tab=match-reports]):not([data-tab=team-trends]):not([data-tab=momentum]):not([data-tab=players]) .only-team{display:none !important;}
@@ -112,7 +114,7 @@ body:not([data-tab=overview]):not([data-tab=compare]):not([data-tab=match-report
 .soon p{margin:0 auto;max-width:520px;color:var(--t2);font-size:.9rem;line-height:1.55;}
 @media (max-width:640px){ header{padding:12px 16px;gap:10px;flex-wrap:wrap;} .tabs{justify-content:flex-start;gap:2px 18px;} .tabs a{font-size:19px;padding-bottom:10px;} .hdr-btn{padding:7px 10px;} }
 /* ── OVERVIEW ── */
-body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap,body[data-tab=players] .wrap,body[data-tab=player-dash] .wrap{max-width:1320px;}
+body[data-tab=overview] .wrap,body[data-tab=match-reports] .wrap,body[data-tab=team-trends] .wrap,body[data-tab=momentum] .wrap,body[data-tab=players] .wrap,body[data-tab=player-dash] .wrap,body[data-tab=reports] .wrap{max-width:1320px;}
 .ov-basisnote{justify-content:flex-end;align-self:center;padding-top:14px;}
 #ovStatus{font-size:.8rem;color:var(--t3);min-height:0;margin:0 2px;}
 #ovStatus:not(:empty){margin:4px 2px 12px;}
@@ -949,6 +951,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   <a href="#momentum" data-tab="momentum">MOMENTUM</a>
   <a href="#players" data-tab="players">PLAYERS</a>
   <a href="#player-dash" data-tab="player-dash">PLAYER DASHBOARD</a>
+  <a href="#reports" data-tab="reports">REPORTS</a>
   <a href="#compare" data-tab="compare">COMPARE</a>
 </nav>
 <div class="wrap">
@@ -1030,6 +1033,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
     <nav class="pd-views"><div class="seg" id="pdViews" role="group" aria-label="Player Dashboard view"><button type="button" data-pdview="dash" class="on" aria-pressed="true">DASHBOARD</button><button type="button" data-pdview="print" aria-pressed="false">PANEL PRINT-OUT</button></div></nav>
     <div id="pdStatus" role="status"></div><div id="pdBody"></div><div id="ppWrap" hidden></div>
   </div>
+  <div class="pane" id="pane-reports"><div id="rpCtlWrap"></div><div id="rpStatus" role="status"></div><div id="rpPages"></div></div>
   <div class="pane" id="pane-compare">
   <div class="board" id="board">
     <div class="head2">
@@ -1064,6 +1068,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 <script src="cohesion-teamsheet.js"></script>
 <script src="cohesion-playerdash.js"></script>
 <script src="cohesion-scoringimg.js"></script>
+<script src="cohesion-reports.js"></script>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
 
@@ -2023,7 +2028,7 @@ function ssEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</
 //  PAGE — filters, gateway fetching, mirrored bars
 // ═══════════════════════════════════════════════════════════════
 // ── tabs: the hash selects the tab (#overview … #compare); pure helper ──
-const AN_TABS=['overview','match-reports','team-trends','momentum','players','player-dash','compare'];
+const AN_TABS=['overview','match-reports','team-trends','momentum','players','player-dash','reports','compare'];
 // Team Trends has sub-tabs: #team-trends/attacking … (#team-trends alone keeps the last one)
 const TT_SUBS=['attacking','defending','kickouts','turnover'];
 function anTabFromHash(h){
@@ -2187,7 +2192,7 @@ function refreshTeams(){
   if(teams.includes(ps)) s.value=ps; else if(teams.includes('MAYO')) s.value='MAYO';
   refreshSets();
   ovFillTeams(teams, selectedGames());
-  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); if(typeof pdSchedule==='function') pdSchedule();
+  ovSchedule(); mrSchedule(); ttSchedule(); mmSchedule(); pySchedule(); if(typeof pdSchedule==='function') pdSchedule(); if(typeof rpSchedule==='function') rpSchedule();
 }
 // ── same team, two game sets ──
 function refreshSets(){
@@ -7813,7 +7818,7 @@ function pyInit(){
     if((e.key==='Enter'||e.key===' ')&&t.dataset&&t.dataset.pyrow!=null){ e.preventDefault(); const k=t.dataset.pyrow, box=t.closest&&t.closest('#pyInvSec')?'#pyInvSec ':'#pyTableSec '; pySelect(k===PY_SEL?null:k);
       const row=pane.querySelector?[...pane.querySelectorAll(box+'[data-pyrow]')].find(r=>r.dataset.pyrow===k):null; if(row){ try{ row.focus({preventScroll:true}); }catch(_){ } } } });
 }
-ovInit(); mrInit(); ttInit(); pyInit(); if(typeof pdInit==='function') pdInit();
+ovInit(); mrInit(); ttInit(); pyInit(); if(typeof pdInit==='function') pdInit(); if(typeof rpInit==='function') rpInit();
 anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
