@@ -1,9 +1,10 @@
 /**
- * Netlify Function: playerNotes — the Panel Print-out's staff notes and squad picks (service role, ADMIN ONLY).
+ * Netlify Function: playerNotes — the Panel Print-out's staff notes and squad picks (service role, ADMINS AND ANALYSTS).
  *
  * Tables: public.player_notes and public.panel_squads (supabase/player_notes.sql). Both have RLS on with no policies
- * and no grants for anon / authenticated, so this function is the only way in — and every action checks the ADMIN
- * role first (as editEvent.js / gameAdmin.js do): a non-admin gets 403 and never receives a note.
+ * and no grants for anon / authenticated, so this function is the only way in — and every action checks the role
+ * first (netlify/lib/access.js 'notes'): an ADMIN, or an ANALYST for a team that plays in a game of a section he can
+ * see (Barry, Oct 2026). Anyone else gets 403 and never receives a note.
  *
  *   POST /.netlify/functions/playerNotes
  *   { action:'getNotes', team }                                  -> { notes:[{player_key, player_name, club, notes, updated_at, updated_by}] }
@@ -16,7 +17,7 @@
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (the existing ones).
  */
 const { verifiedClaims, UNAUTH } = require('../lib/identity');
-const { rolesOf, can } = require('../lib/access');
+const { rolesOf, can, isAdmin, allowedSections, sectionOf, metaObj } = require('../lib/access');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -31,6 +32,11 @@ const SETUP = 'notes table not set up — run supabase/player_notes.sql';
 function teamKey(t) { return String(t == null ? '' : t).replace(/\s+/g, ' ').trim().toUpperCase(); }
 // the player key the page sends (cohPlayerKey): lower case letters and digits
 function playerKey(k) { return String(k == null ? '' : k).trim(); }
+async function teamInSections(team, allowed) {
+  const { data, error } = await supabase.from('games').select('meta');
+  if (error) throw error;
+  return (data || []).some(r => { const m = metaObj(r && r.meta); return m && allowed.includes(sectionOf(m)) && [m.homeTeam, m.awayTeam].some(t => teamKey(t) === team); });
+}
 function missingTable(e) {
   const m = String((e && e.message) || '');
   return !!e && (e.code === '42P01' || e.code === 'PGRST205' || (/player_notes|panel_squads/.test(m) && /does not exist|could not find the table|schema cache/i.test(m)));
@@ -68,8 +74,8 @@ exports.handler = async (event, context) => {
     const claims = verifiedClaims(context);
     if (!claims) return UNAUTH;
     const roles = rolesOf(claims);
-    // 'notes' = admin only (netlify/lib/access.js). An ANALYST role does not open them — to confirm with Barry.
-    if (!can(roles, 'notes')) return json(403, { error: 'Forbidden: admin role required — staff notes are for analysts only' });
+    // 'notes' = admin or analyst (netlify/lib/access.js); anyone else 403 before the database is touched
+    if (!can(roles, 'notes')) return json(403, { error: 'Forbidden: admin or analyst role required — staff notes are for staff only' });
     const who = String(claims.email || claims.sub || '').slice(0, 200);
 
     const { action } = body;
@@ -77,6 +83,8 @@ exports.handler = async (event, context) => {
     if (!['getNotes', 'saveNote', 'getSquads', 'saveSquad'].includes(action)) return bad('action must be getNotes, saveNote, getSquads or saveSquad');
     if (!team) return bad('team is required');
     if (team.length > MAX_TEAM) return bad('team is too long (at most ' + MAX_TEAM + ' characters)');
+    // an analyst: only a team that plays in a game of a section he can see (a U20s-only analyst never reads senior notes)
+    if (!isAdmin(roles) && !(await teamInSections(team, allowedSections(roles)))) return json(403, { error: 'Forbidden: no access to that team\'s notes' });
 
     if (action === 'getNotes') {
       const { data, error } = await supabase.from('player_notes').select('player_key, player_name, club, notes, updated_at, updated_by').eq('team', team);

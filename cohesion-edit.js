@@ -189,7 +189,7 @@
   const COH_CAP_ROLES = ['admin', 'analyst'];
   const COH_CAN = {
     admin:   ['view', 'upload', 'edit', 'playlists', 'templatesPersonal', 'templatesClub', 'deleteGame', 'manage', 'notes'],
-    analyst: ['view', 'upload', 'edit', 'playlists', 'templatesPersonal'],
+    analyst: ['view', 'upload', 'edit', 'playlists', 'templatesPersonal', 'notes'],
   };
   const lowerRoles = roles => (Array.isArray(roles) ? roles : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
   window.cohesionSectionsOf = function(roles){

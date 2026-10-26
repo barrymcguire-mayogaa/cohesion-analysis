@@ -6049,10 +6049,10 @@ function mrCardHTML(c, deco){
 let MR_ROWS=[], MR_LIMIT=MR_PAGE, MR_SEL=null, MR_TOKEN=0, MR_TIMER=null, MR_TEAM='', MR_POOLKEY='';
 const MR_F={q:'', res:'ALL', venue:'all'};
 const MR_XML=new Set();
-// XML (and the Panel Print-out, cohesion-playerdash.js pdIsStaff) is for ADMINS only — not analysts (to confirm with
-// Barry): the sign-in role (cohesion_auth) and the roles the identity token carried (cohesion_roles → IS_ADMIN) must agree.
+// STAFF: the XML and the Panel Print-out (cohesion-playerdash.js pdIsStaff) are for admins AND analysts (Barry, Oct 2026):
+// the sign-in role (cohesion_auth) and the roles the identity token carried must agree (admin marker + IS_ADMIN, or anIsAnalyst).
 function anIsAnalyst(){ try{ return sessionStorage.getItem('cohesion_auth')==='analyst'&&typeof cohesionCan==='function'&&cohesionCan('edit'); }catch(_){ return false; } }
-function mrIsAdmin(){ let a=false; try{ a=sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ } return a&&IS_ADMIN; }
+function mrIsAdmin(){ let a=false; try{ a=sessionStorage.getItem('cohesion_auth')==='admin'; }catch(_){ } return (a&&IS_ADMIN)||anIsAnalyst(); }
 function mrSchedule(){ if(TAB!=='match-reports'||!GAMES_READY) return; clearTimeout(MR_TIMER); MR_TIMER=setTimeout(mrRun, 40); }
 function mrView(){ const f=mrFilter(MR_ROWS, MR_F); return {f, vis:f.slice(0, MR_LIMIT)}; }
 async function mrRun(){

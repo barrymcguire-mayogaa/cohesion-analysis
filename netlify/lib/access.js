@@ -70,10 +70,10 @@ function normSection(s) {
 //   templatesClub      club-wide coding templates
 //   deleteGame    delete a game
 //   manage        crests, player photos, player names, the xP refit / publish, every other admin page
-//   notes         the Panel Print-out staff notes (admin only for now — to confirm with Barry)
+//   notes         the Panel Print-out staff notes (admin; analyst for teams that play in his sections — Barry, Oct 2026)
 const CAN = {
   admin:   ['view', 'upload', 'edit', 'playlists', 'templatesPersonal', 'templatesClub', 'deleteGame', 'manage', 'notes'],
-  analyst: ['view', 'upload', 'edit', 'playlists', 'templatesPersonal'],
+  analyst: ['view', 'upload', 'edit', 'playlists', 'templatesPersonal', 'notes'],
 };
 function can(roles, cap) {
   roles = roles || [];

@@ -117,7 +117,7 @@
   // ── jersey number limits (warnings only) ──────────────────────
   // The highest number a game's sheet should carry: inter-county league / championship 26; pre-season (FBD League,
   // O'Byrne Cup, McGrath Cup, McKenna Cup) 30; challenge games, friendlies and club games 40. The game's type is read
-  // from its meta: section 'club' → club; section 'u20' → a U20 inter-county game (26); the competition (and round) text → challenge / friendly / pre-season /
+  // from its meta: section 'club' → club; section 'u20' → a U20 inter-county game (30); the competition (and round) text → challenge / friendly / pre-season /
   // club competition; teams that are not both counties (cohesion-periods.js cohGameLevel, when loaded) → club;
   // otherwise an inter-county game — league when the competition says league / NFL, else championship.
   function gameKind(meta){
@@ -125,8 +125,8 @@
     const comp=String(meta.competition||'').replace(/\s+/g,' ').trim(), c=(comp+' '+String(meta.round||'')).toLowerCase();
     const K=(kind, limit, label)=>({kind, limit, label});
     if(String(meta.section||'').toLowerCase()==='club') return K('club', 40, 'a club game');
-    // U20s section: an inter-county U20 game — the inter-county limit (to confirm: U20 panels may carry higher numbers)
-    if(String(meta.section||'').toLowerCase()==='u20') return K('u20', 26, 'a U20 inter-county game');
+    // U20s section: an inter-county U20 game — 30 (Barry, Oct 2026)
+    if(String(meta.section||'').toLowerCase()==='u20') return K('u20', 30, 'a U20 inter-county game');
     if(/\bfriendl/.test(c)) return K('friendly', 40, 'a friendly');
     if(/\bchallenge\b/.test(c)) return K('challenge', 40, 'a challenge game');
     const pre=/\bfbd\b/.test(c)?'FBD League':/\bo[’'‘`]?\s*byrne\b/.test(c)?"O'Byrne Cup":/\bmc\s*grath\b/.test(c)?'McGrath Cup':/\bmc\s*kenna\b/.test(c)?'McKenna Cup':/\bpre[\s-]?season\b/.test(c)?'pre-season':'';
