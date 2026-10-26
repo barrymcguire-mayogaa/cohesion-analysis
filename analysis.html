@@ -509,7 +509,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tt-pll button{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-height:36px;padding:7px 10px;border-radius:8px;border:1px solid #2c2c38;background:#171821;color:var(--t1);font:600 13px 'Barlow',sans-serif;text-align:left;cursor:pointer;}
 .tt-pll button:hover,.tt-pll button:focus-visible{border-color:var(--accent);outline:none;}
 .tt-pll button small{color:var(--t3);font-weight:400;white-space:nowrap;} .tt-pll button.new{color:var(--accent);border-style:dashed;}
-.tt-plnew{display:flex;flex-wrap:wrap;gap:6px;} .tt-plnew input,.tt-plnew select{flex:1 1 120px;min-width:0;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid #4a4a5c;background:#171821;color:var(--t1);font:400 14px 'Barlow',sans-serif;}
+.tt-plnew{display:flex;flex-wrap:wrap;gap:6px;} .tt-plnote{flex:1 1 100%;font-size:11px;color:#ffb74d;} .tt-plnew input,.tt-plnew select{flex:1 1 120px;min-width:0;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid #4a4a5c;background:#171821;color:var(--t1);font:400 14px 'Barlow',sans-serif;}
 .tt-plmsg{font-size:.8rem;color:var(--t2);padding:4px 0;line-height:1.4;} .tt-plmsg.ok{color:var(--green);font-weight:700;} .tt-plmsg.err{color:var(--red);}
 .tt-ct{font:700 16px 'Barlow',sans-serif;color:var(--t1);}
 .tt-cs{font-size:.74rem;color:var(--t3);margin:2px 0 7px;}
@@ -5007,7 +5007,7 @@ function ttClipsOf(shots, bundleOf){
 // the caller's playlists in this section, fetched once and cached (a failed fetch is retried next time)
 function ttPlLists(){
   if(!TT_PL) TT_PL=cohesionAuthFetch('playlists', {action:'list', section:cohesionSection()})
-    .then(j=>(j.playlists||[]).map(p=>({id:p.id, name:p.name, scope:p.scope, n:((p.data&&p.data.items)||[]).length})))
+    .then(j=>(typeof cohesionAddableLists==='function'?cohesionAddableLists(j.playlists):(j.playlists||[])).map(p=>({id:p.id, name:p.name, scope:p.scope, visibility:p.visibility, n:((p.data&&p.data.items)||[]).length})))   // only the ones he may add to
     .catch(e=>{ TT_PL=null; throw e; });
   return TT_PL;
 }
@@ -5026,10 +5026,11 @@ function ttPlMenuHTML(st){
   if(st.phase==='error') return msg(st.msg, 'err');
   if(st.phase==='done') return msg(st.msg, 'ok');
   if(st.phase==='new') return '<div class="tt-plh">New playlist</div><div class="tt-plnew"><input id="ttPlName" type="text" maxlength="80" placeholder="Playlist name" aria-label="Playlist name" autocomplete="off">'
-    +'<select id="ttPlScope" aria-label="Who can see it"><option value="club">Club-wide</option><option value="personal">Just me</option></select>'
+    +'<select id="ttPlScope" aria-label="Who can see it"><option value="personal">Only me</option><option value="people">Named people…</option><option value="groups">Groups…</option><option value="club">Whole section</option></select>'
+    +'<div class="tt-plnote">Admins can see all playlists.</div>'
     +'<button type="button" class="tt-btn pri" data-act="pl-create">Create and add</button><button type="button" class="tt-btn" data-act="pl">Back</button></div>'+(st.msg?msg(st.msg,'err'):'');
   return `<div class="tt-plh">${ssEsc(st.title||'Add to…')}</div><div class="tt-pll" role="menu">`
-    +(st.lists||[]).map(p=>`<button type="button" role="menuitem" data-act="pl-pick" data-id="${ssEsc(p.id)}"><span>${ssEsc(p.name)}</span><small>${p.n} clip${p.n===1?'':'s'}${p.scope==='personal'?' · just me':''}</small></button>`).join('')
+    +(st.lists||[]).map(p=>`<button type="button" role="menuitem" data-act="pl-pick" data-id="${ssEsc(p.id)}"><span>${ssEsc(p.name)}</span><small>${p.n} clip${p.n===1?'':'s'}${p.visibility==='people'||p.visibility==='groups'?' · shared':p.scope==='personal'?' · just me':''}</small></button>`).join('')
     +((st.lists||[]).length?'':'<div class="tt-plmsg">No playlists yet.</div>')
     +'<button type="button" role="menuitem" class="new" data-act="pl-new">New playlist…</button></div>';
 }
@@ -5042,7 +5043,7 @@ function ttPlJob(){   // the shots the open card is about
 }
 async function ttPlOpen(){
   const job=ttPlJob(); if(!job) return;
-  if(!(mrIsAdmin()||anIsAnalyst())){ ttPlDraw({phase:'error', msg:'No permission: only admins and analysts can add clips to playlists.'}); return; }
+  // every signed-in user adds clips to his own playlists (Barry, Oct 2026); the playlists function decides which
   const C=ttClipsOf(job.shots, id=>BUNDLES.get(id)); job.clips=C.clips; job.noVideo=C.noVideo;
   if(!C.clips.length){ ttPlDraw({phase:'error', msg:job.bulk?'None of these games has a video link.':'This game has no video link.'}); return; }
   ttPlDraw({phase:'loading'});
@@ -5058,17 +5059,24 @@ async function ttPlSend(payload, name){
   try{
     const r=await cohesionAuthFetch('playlists', payload), lists=TT_PL?await TT_PL.catch(()=>null):null;
     const res=payload.action==='append'?r:{added:job.clips.length, skipped:0, total:job.clips.length};
-    if(lists){ const p=lists.find(x=>String(x.id)===String(r.id)); if(p) p.n=res.total; else lists.push({id:r.id, name, scope:payload.scope, n:res.total}); }
+    if(lists){ const p=lists.find(x=>String(x.id)===String(r.id)); if(p) p.n=res.total; else lists.push({id:r.id, name, scope:payload.scope, visibility:payload.visibility, n:res.total}); }
     job.busy=false;
     if(TT_JOB===job) ttPlDraw({phase:'done', msg:ttPlResultTxt(r.name||name, res, job.bulk, job.noVideo)});
   }catch(e){ job.busy=false; if(TT_JOB===job) ttPlDraw({phase:'error', msg:ttPlErrTxt(e)}); }
 }
 function ttPlPick(id){ const job=TT_JOB, p=job&&(job.lists||[]).find(x=>String(x.id)===String(id)); if(!p||!job.clips) return; return ttPlSend({action:'append', id:p.id, items:job.clips}, p.name); }
-function ttPlCreate(){
+async function ttPlCreate(){
   const job=TT_JOB, n=ssEl('ttPlName'), sc=ssEl('ttPlScope'); if(!job||!job.clips) return;
-  const name=String((n&&n.value)||'').trim().slice(0,80), scope=sc&&sc.value==='personal'?'personal':'club';
+  const name=String((n&&n.value)||'').trim().slice(0,80), v=sc&&sc.value;
   if(!name){ ttPlDraw({phase:'new', msg:'Give the playlist a name.'}); return; }
-  return ttPlSend({action:'save', name, scope, section:cohesionSection(), data:{items:job.clips}}, name);
+  // Only me / Whole section straight away; Named people / Groups open the sharing picker (cohesion-edit.js)
+  let share={scope:v==='club'?'club':'personal', visibility:v==='club'?'section':'private'};
+  if((v==='people'||v==='groups')&&typeof cohesionShareDialog==='function'){
+    const sh=await cohesionShareDialog({section:cohesionSection(), level:v, current:{visibility:v}, title:'Who can see “'+name+'”?', ok:'Create'});
+    if(!sh||TT_JOB!==job) return;
+    share=sh;
+  }
+  return ttPlSend(Object.assign({action:'save', name, scope:share.scope, section:cohesionSection(), data:{items:job.clips}}, share.visibility?{visibility:share.visibility, people:share.people||[], groups:share.groups||[]}:{}), name);
 }
 // "Add all shown (n)": every shot on the map goes to one playlist in ONE request
 const TT_PL_CONFIRM=40, TT_PL_MAX=500;   // ask first above 40; 500 = the function's cap per request

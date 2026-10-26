@@ -113,6 +113,21 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .plcard .nm{font:800 15px 'Barlow Condensed',sans-serif;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .plcard .mt{font-size:11px;color:var(--t3);margin-top:2px;display:flex;gap:6px;align-items:center;}
 .scopebadge{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:.5px;border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--t2);}
+.scopebadge.adm{border-color:var(--orange);color:var(--orange);}
+.unreadpill{display:inline-block;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e53935;color:#fff;font:800 11px/18px 'Barlow',sans-serif;text-align:center;}
+.plcard{position:relative;}
+.plcard .unreadpill{position:absolute;top:8px;right:8px;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+.plcard .own{font-size:10.5px;color:var(--t3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plfilters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-6px 0 14px;}
+.plfilters select{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 9px;color:var(--t1);font:600 12px 'Barlow',sans-serif;}
+.plfilters label{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3);text-transform:uppercase;}
+.logwrap{margin-top:14px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.logwrap table{width:100%;border-collapse:collapse;font-size:12px;}
+.logwrap th{text-align:left;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.6px;color:var(--t3);text-transform:uppercase;padding:6px;border-bottom:1px solid var(--border);}
+.logwrap td{padding:6px;border-bottom:1px solid var(--border);vertical-align:top;}
+.logwrap .lk{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;}
+.logwrap .lk.rm{color:var(--red);}
+.sharebtn .lv{color:var(--accent);}
 .pl-empty{padding:40px 12px;color:var(--t3);font-size:13px;text-align:center;line-height:1.7;grid-column:1/-1;}
 
 /* player view: sidebar left, video right */
@@ -201,8 +216,8 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
   <!-- BROWSE -->
   <div id="browse">
-    <div class="title">Playlists</div>
-    <div class="sub">Clips from one game or many, played back-to-back. Pick a playlist to open the player.</div>
+    <div class="title">Playlists <span class="unreadpill" id="plTotalBadge" style="display:none;" title="New comments on playlists you can see"></span></div>
+    <div class="sub">Clips from one game or many, played back-to-back. Make your own with “Add to playlist” on any clip, share it with the people you choose, and comment on any playlist you can see.</div>
     <div class="pltools">
       <span id="plSecSwitch" style="display:none;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;vertical-align:middle;margin-right:8px;">
         <button id="plSecCounty" onclick="plSwitchSection('county')" style="border:none;padding:8px 13px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2);">COUNTY</button>
@@ -211,7 +226,18 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
       </span>
       <input type="text" id="plSearch" class="plsearch" placeholder="Search playlists — name, clip, player, game…" oninput="renderPlRows()">
       <button class="newbtn" id="newBtn" style="display:none;" onclick="newPlaylist()">＋ New playlist</button>
+      <button class="backbtn" id="mailBtn" style="display:none;" onclick="toggleMail()" title="An email when someone comments on your playlist or shares one with you (a short digest, never one per comment)">✉ Email me: on</button>
+      <button class="backbtn" id="logBtn" style="display:none;" onclick="openLog()" title="Admins: every playlist action — who, when, what">📜 Activity log</button>
     </div>
+    <div class="plfilters" id="plFilters">
+      <label for="fView">Show</label><select id="fView" onchange="renderPlRows()"><option value="all">All</option><option value="mine">Mine</option><option value="shared">Shared with me</option></select>
+      <label for="fLevel">Sharing</label><select id="fLevel" onchange="renderPlRows()"><option value="">Any</option><option value="private">Only me</option><option value="people">Named people</option><option value="groups">Groups</option><option value="section">Whole section</option></select>
+      <span id="fAdmin" style="display:none;gap:8px;align-items:center;">
+        <label for="fOwner">Owner</label><select id="fOwner" onchange="renderPlRows()"><option value="">Anyone</option></select>
+        <label for="fSection">Section</label><select id="fSection" onchange="renderPlRows()"><option value="">All sections</option><option value="county">County</option><option value="club">Club</option><option value="u20">U20s</option></select>
+      </span>
+    </div>
+    <div class="logwrap" id="logWrap" style="display:none;"></div>
     <div class="plgrid" id="plRows"><div class="pl-empty">Loading…</div></div>
   </div>
 
@@ -223,7 +249,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
       <span class="pname" id="plName"></span>
       <span style="font-size:11px;color:var(--t3);" id="plMeta"></span>
       <span style="flex:1;"></span>
-      <button id="shareBtn" class="backbtn" title="Copy a link that opens this exact playlist" onclick="sharePlaylist()">🔗 Share</button>
+      <button id="sharingBtn" class="backbtn sharebtn" title="Who can see this playlist" onclick="editSharing()">👥 <span class="lv" id="sharingLv"></span></button>
+      <button id="plLogBtn" class="backbtn" style="display:none;" title="Admins: this playlist's activity" onclick="openLog(CUR&&CUR.id)">📜</button>
+      <button id="shareBtn" class="backbtn" title="Copy a link that opens this exact playlist (only people who can see it can open it)" onclick="sharePlaylist()">🔗 Link</button>
       <button id="coverBtn" class="backbtn" style="display:none;" title="Set a square cover image" onclick="document.getElementById('coverFile').click()">📷</button>
       <button id="coverRm" class="backbtn" style="display:none;" title="Remove cover image" onclick="plRemoveCover()">✕</button>
       <input type="file" id="coverFile" accept="image/*" style="display:none;" onchange="plPickCover(this)">
@@ -334,6 +362,15 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
             <button class="vbtn" onclick="postComment()">Post</button>
           </div>
         </div>
+        <div class="cmwrap" id="pcWrap" style="display:none;">
+          <div class="cmhd" id="pcHd">Comments on the whole playlist</div>
+          <div id="pcList"></div>
+          <div class="cmrow">
+            <input id="pcInput" placeholder="Comment on the whole playlist…" onkeydown="if(event.key==='Enter')postPlComment()">
+            <button class="vbtn" onclick="postPlComment()">Post</button>
+          </div>
+        </div>
+        <div class="logwrap" id="plLogWrap" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -345,10 +382,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 <script src="cohesion-player.js"></script>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
-// isAdmin here = may EDIT playlists: an admin or an analyst (cohesion-edit.js cohesionCan('playlists')).
-// IS_REAL_ADMIN: only an admin edits / deletes other people's comments and deletes a club-wide playlist (the server agrees).
+// EVERY signed-in user makes playlists (Barry, Oct 2026). What he may do with the OPEN one comes from the playlists
+// function (netlify/lib/playlistRules.js) on each playlist: canEdit (rename / re-order / clips / notes / drawings /
+// trims / cover), canShare, canDelete, canModerate; and on each comment canEdit / canDelete. CAN_EDIT follows CUR.
+// IS_REAL_ADMIN only draws the admin's extras (every playlist, the filters by owner / section, the activity log).
 const IS_REAL_ADMIN = sessionStorage.getItem('cohesion_auth')==='admin';
-const isAdmin = typeof cohesionCan==='function' ? cohesionCan('playlists') : IS_REAL_ADMIN;
+let CAN_EDIT = false;
 function logout(){ netlifyIdentity.logout(); sessionStorage.clear(); window.location.href='index.html'; }
 const SUPABASE_URL='https://uycptgjngtoxuawnsdzi.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5Y3B0Z2puZ3RveHVhd25zZHppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNjk5NDAsImV4cCI6MjA5MjY0NTk0MH0.PLmf6zZ1Aa_v98agzKO_Sje3Aak6n2uZOX9rQsfSV0E';
@@ -360,7 +399,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0'); }
 
 // ── state ─────────────────────────────────────────────────────
-let PLAYLISTS=[], CUR=null, ITEMS=[], COVER=null, dirty=false;
+let PLAYLISTS=[], CUR=null, ITEMS=[], COVER=null, dirty=false, ME=null, UNREAD_TOTAL=0;
 let YTP=null, playIdx=-1, playAll=false, loop=false, curVideoId=null;
 
 // ── auth'd writes (admin JWT → playlists function) ────────────
@@ -380,9 +419,11 @@ async function plAuthFetch(payload){
 function myEmail(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return ((u&&u.email)||'').toLowerCase(); }catch(_){ return ''; } }
 async function loadPlaylists(){
   try{
-    const j=await plAuthFetch({action:'list', section: cohesionSection()});
-    PLAYLISTS=j.playlists||[];
+    // an admin sees every playlist in every section (the Section filter narrows it); everyone else his section's
+    const j=await plAuthFetch(IS_REAL_ADMIN?{action:'list', all:true}:{action:'list', section: cohesionSection()});
+    PLAYLISTS=j.playlists||[]; ME=j.me||null; UNREAD_TOTAL=j.unreadTotal||0;
     paintPlSectionSwitch();
+    paintPlChrome();
     renderPlRows();
     applyDeepLink();
   }catch(e){
@@ -395,30 +436,60 @@ function plSearchText(p){
   const items=(p.data&&p.data.items)||[];
   return (p.name+' '+items.map(it=>[it.label,it.code,it.player,it.gameTitle,it.note].filter(Boolean).join(' ')).join(' ')).toLowerCase();
 }
+const LV_LABEL={private:'ONLY ME', people:'NAMED', groups:'GROUPS', section:'SECTION'};
+function plLevel(p){ return p.visibility||(p.scope==='personal'?'private':'section'); }
+// the toolbar around the grid: the badge, the email toggle, the admin's filters and log
+function paintPlChrome(){
+  const b=document.getElementById('plTotalBadge');
+  if(b){ b.textContent=UNREAD_TOTAL>99?'99+':String(UNREAD_TOTAL); b.style.display=UNREAD_TOTAL?'inline-block':'none'; }
+  const m=document.getElementById('mailBtn'); if(m&&ME){ m.style.display=''; m.textContent='✉ Email me: '+(ME.emailOptOut?'off':'on'); }
+  const lb=document.getElementById('logBtn'); if(lb) lb.style.display=IS_REAL_ADMIN?'':'none';
+  const fa=document.getElementById('fAdmin'); if(fa) fa.style.display=IS_REAL_ADMIN?'inline-flex':'none';
+  const fo=document.getElementById('fOwner');
+  if(fo&&IS_REAL_ADMIN){
+    const cur=fo.value, owners=[...new Map(PLAYLISTS.map(p=>[p.ownerEmail||p.owner||'', p.ownerName||'Staff'])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+    fo.innerHTML='<option value="">Anyone</option>'+owners.map(([k,n])=>'<option value="'+esc(k)+'">'+esc(k?n:'Staff (no owner)')+'</option>').join('');
+    fo.value=owners.some(o=>o[0]===cur)?cur:'';
+  }
+  const fs=document.getElementById('fSection');
+  if(fs&&IS_REAL_ADMIN&&!fs.dataset.init){ fs.dataset.init='1'; fs.value=cohesionSection(); }
+}
+function plFiltered(){
+  const q=((document.getElementById('plSearch')||{}).value||'').toLowerCase().trim();
+  const v=(document.getElementById('fView')||{}).value||'all', lv=(document.getElementById('fLevel')||{}).value||'';
+  const ow=IS_REAL_ADMIN?((document.getElementById('fOwner')||{}).value||''):'', sec=IS_REAL_ADMIN?((document.getElementById('fSection')||{}).value||''):'';
+  return PLAYLISTS.filter(p=>(!q||plSearchText(p).includes(q))
+    &&(v==='all'||(v==='mine'&&p.mine)||(v==='shared'&&p.sharedWithMe))
+    &&(!lv||plLevel(p)===lv)
+    &&(!IS_REAL_ADMIN||!document.getElementById('fOwner')||!ow||(p.ownerEmail||p.owner||'')===ow)
+    &&(!sec||p.section===sec));
+}
 function renderPlRows(){
   const w=document.getElementById('plRows'); if(!w) return;
-  document.getElementById('newBtn').style.display=isAdmin?'':'none';
+  document.getElementById('newBtn').style.display='';
   const q=((document.getElementById('plSearch')||{}).value||'').toLowerCase().trim();
-  const list=q?PLAYLISTS.filter(p=>plSearchText(p).includes(q)):PLAYLISTS;
-  if(!PLAYLISTS.length){ w.innerHTML='<div class="pl-empty">No playlists yet.'+(isAdmin?' Create one with ＋ New playlist, or select events in Code Room and “Add to playlist”.':'')+'</div>'; return; }
-  if(!list.length){ w.innerHTML='<div class="pl-empty">No playlists match “'+esc(q)+'”.</div>'; return; }
+  const list=plFiltered();
+  if(!PLAYLISTS.length){ w.innerHTML='<div class="pl-empty">No playlists yet. Create one with ＋ New playlist, or use “Add to playlist” on a clip in the Dashboard or Analysis.</div>'; return; }
+  if(!list.length){ w.innerHTML='<div class="pl-empty">'+(q?'No playlists match “'+esc(q)+'”.':'No playlists match these filters.')+'</div>'; return; }
   w.innerHTML=list.map(p=>{
     const cov=(CUR&&String(CUR.id)===String(p.id))?COVER:((p.data&&p.data.cover)||null);
     const art=cov?`<img class="art" src="${cov}" alt="">`
       :`<div class="art ph" style="background:hsl(${plHue(p.name)} 45% 38%)">${esc(plInitials(p.name))}</div>`;
     const n=((p.data&&p.data.items)||[]).length;
-    return `<div class="plcard" onclick="openPlaylist(${p.id})">${art}
+    const lv=plLevel(p), secTag=IS_REAL_ADMIN&&p.section?' · '+cohSectionLabel(p.section):'';
+    const who=p.mine?'Yours':(p.official&&!p.ownerName?'Staff':(p.ownerName||'Staff'))+(p.sharedWithMe?' · shared with you':'');
+    return `<div class="plcard" data-id="${esc(p.id)}" onclick="openPlaylist(${p.id})">${art}
+      ${p.unread?`<span class="unreadpill" title="${p.unread} new comment${p.unread===1?'':'s'}">${p.unread>99?'99+':p.unread}</span>`:''}
       <div class="bd"><div class="nm">${esc(p.name)}</div>
-      <div class="mt">${n} clip${n===1?'':'s'} <span class="scopebadge">${p.scope==='personal'?'MINE':'CLUB'}</span></div></div>
+      <div class="mt">${n} clip${n===1?'':'s'} <span class="scopebadge">${LV_LABEL[lv]}</span>${p.official?' <span class="scopebadge">OFFICIAL</span>':''}${p.adminView?' <span class="scopebadge adm" title="You see it because admins see every playlist">ADMIN VIEW</span>':''}</div>
+      <div class="own">${esc(who+secTag)}</div></div>
     </div>`;}).join('');
 }
 async function newPlaylist(){
-  const name=(prompt('Playlist name (e.g. Kickout wins v Kerry, Best scores 2026):')||'').trim();
-  if(!name) return;
-  const scope=await cohesionModal({title:'Who can see this playlist?',message:'Club-wide playlists are visible to every analyst, coach and player; personal playlists are only visible to you.',buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
-  if(scope==='cancel') return;
+  const n=await cohesionAskNewPlaylist({section: cohesionSection(), message:'Playlist name (e.g. Kickout wins v Kerry, Best scores 2026):', fetch:(fn,p)=>plAuthFetch(p)});
+  if(!n) return;
   try{
-    const j=await plAuthFetch({action:'save', name, scope, section: cohesionSection(), data:{items:[]}});
+    const j=await plAuthFetch(Object.assign({action:'save', name:n.name, section: cohesionSection(), data:{items:[]}}, n.share));
     await loadPlaylists();
     openPlaylist(j.id);
   }catch(e){ alert('Could not create playlist: '+e.message); }
@@ -428,18 +499,22 @@ function openPlaylist(id, startClip){
   CUR=PLAYLISTS.find(p=>String(p.id)===String(id)); if(!CUR) return;
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
   COVER=(CUR.data&&CUR.data.cover)||null;
+  CAN_EDIT=!!CUR.canEdit;
   dirty=false; playIdx=-1; playAll=false;
+  plMarkSeen(CUR);
+  const lw=document.getElementById('plLogWrap'); if(lw){ lw.style.display='none'; lw.innerHTML=''; }
   try{ history.replaceState(null,'',location.pathname+'?pl='+CUR.id+'&n='+plSlug(CUR.name)); }catch(_){}
   document.getElementById('browse').style.display='none';
   document.getElementById('player').style.display='';
   plInitVH();
-  const db=document.getElementById('drawBtn'); if(db) db.style.display=isAdmin?'':'none';
-  const tb=document.getElementById('trimBtn'); if(tb) tb.style.display=isAdmin?'':'none';
+  const db=document.getElementById('drawBtn'); if(db) db.style.display=CAN_EDIT?'':'none';
+  const tb=document.getElementById('trimBtn'); if(tb) tb.style.display=CAN_EDIT?'':'none';
   document.getElementById('nowPlaying').textContent='Select a clip on the left to start.';
   const nn=document.getElementById('npNote'); if(nn) nn.textContent='';
   cmIdx=null; const cw=document.getElementById('cmWrap'); if(cw) cw.style.display='none';
   const ci=document.getElementById('cmInput'); if(ci) ci.value='';
   renderClips();
+  renderPlComments();
   // start playing straight away (Play-all engaged so it flows through the list)
   const si=(typeof startClip==='number'&&ITEMS[startClip])?startClip:(ITEMS.length?0:-1);
   if(si>=0){
@@ -462,8 +537,8 @@ function closePlayer(){
 function markDirty(){ dirty=true; renderSaveBar(); }
 function renderSaveBar(){
   const sb=document.getElementById('saveBar'); if(!sb) return;
-  sb.style.display=isAdmin&&CUR?'':'none';
-  const db=document.getElementById('plDelBtn'); if(db) db.style.display=(IS_REAL_ADMIN||(CUR&&CUR.scope==='personal'))?'':'none';
+  sb.style.display=CAN_EDIT&&CUR?'':'none';
+  const db=document.getElementById('plDelBtn'); if(db) db.style.display=(CUR&&CUR.canDelete)?'':'none';
   const st=document.getElementById('plStatus'); if(st&&dirty){ st.textContent='Unsaved changes'; st.style.color='var(--orange)'; } else if(st){ st.textContent=''; }
 }
 function sideEditing(){ const el=document.activeElement; return !!(el && el.tagName==='INPUT' && el.closest && el.closest('#sideRows')); }
@@ -474,30 +549,33 @@ function renderClips(){
   }
   const w=document.getElementById('sideRows');
   document.getElementById('plName').textContent=CUR.name;
-  document.getElementById('plName').className='pname'+(isAdmin?' rn':'');
-  document.getElementById('plName').title=isAdmin?'Click to rename the playlist':'';
-  document.getElementById('plName').onclick=isAdmin?renamePlaylist:null;
-  document.getElementById('plMeta').textContent=ITEMS.length+' clips'+(CUR.scope==='personal'?' · personal':' · club-wide');
+  document.getElementById('plName').className='pname'+(CAN_EDIT?' rn':'');
+  document.getElementById('plName').title=CAN_EDIT?'Click to rename the playlist':'';
+  document.getElementById('plName').onclick=CAN_EDIT?renamePlaylist:null;
+  document.getElementById('plMeta').textContent=ITEMS.length+' clips · '+(CUR.mine?'yours':'by '+(CUR.ownerName||'Staff'))+(CUR.adminView?' · admin view':'')+(CAN_EDIT?'':' · view and comment');
+  const sl=document.getElementById('sharingLv'); if(sl) sl.textContent=cohesionShareLabel(CUR)+(CUR.visibility==='people'&&CUR.sharePeople?' ('+CUR.sharePeople.length+')':CUR.visibility==='groups'&&CUR.shareGroups?': '+CUR.shareGroups.map(g=>g.name).join(', '):'');
+  const sbn=document.getElementById('sharingBtn'); if(sbn){ sbn.disabled=!CUR.canShare; sbn.style.cursor=CUR.canShare?'pointer':'default'; sbn.title=CUR.canShare?'Change who can see this playlist':'Who can see this playlist (only its owner or an admin changes it)'; }
+  const plb=document.getElementById('plLogBtn'); if(plb) plb.style.display=IS_REAL_ADMIN?'':'none';
   const cv=document.getElementById('plCover'); if(cv){ if(COVER){ cv.src=COVER; cv.style.display=''; } else cv.style.display='none'; }
-  const cb=document.getElementById('coverBtn'); if(cb) cb.style.display=isAdmin?'':'none';
-  const cx=document.getElementById('coverRm'); if(cx) cx.style.display=(isAdmin&&COVER)?'':'none';
-  if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them from Code Room: select events on the timeline, then “Add to playlist”.</div>'; renderSaveBar(); return; }
+  const cb=document.getElementById('coverBtn'); if(cb) cb.style.display=CAN_EDIT?'':'none';
+  const cx=document.getElementById('coverRm'); if(cx) cx.style.display=(CAN_EDIT&&COVER)?'':'none';
+  if(!ITEMS.length){ w.innerHTML='<div class="pl-empty">No clips yet. Add them with “Add to playlist” on a clip in the Dashboard or Analysis'+(IS_REAL_ADMIN||sessionStorage.getItem('cohesion_auth')==='analyst'?', or select events in Code Room':'')+'.</div>'; renderSaveBar(); return; }
   w.innerHTML=ITEMS.map((it,i)=>{
     const noteLine = it.note
-      ? `<div class="nt" id="nt${i}" ${isAdmin?`onclick="event.stopPropagation();editNote(${i})" title="Click to edit the note"`:''}>${esc(it.note)}</div>`
-      : (isAdmin?`<div class="nt ghost" id="nt${i}" onclick="event.stopPropagation();editNote(${i})">add note…</div>`:'');
+      ? `<div class="nt" id="nt${i}" ${CAN_EDIT?`onclick="event.stopPropagation();editNote(${i})" title="Click to edit the note"`:''}>${esc(it.note)}</div>`
+      : (CAN_EDIT?`<div class="nt ghost" id="nt${i}" onclick="event.stopPropagation();editNote(${i})">add note…</div>`:'');
     return `
-    <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${isAdmin?'draggable="true"':''} onclick="playClip(${i})" title="Click to play this clip">
+    <div class="clip ${i===playIdx?'on':''}" data-i="${i}" ${CAN_EDIT?'draggable="true"':''} onclick="playClip(${i})" title="Click to play this clip">
       <span class="idx">${i+1}</span>
-      ${isAdmin?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
+      ${CAN_EDIT?'<span class="grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>':''}
       <span class="lblwrap">
-        <span class="lbl" id="lbl${i}" ${isAdmin?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
+        <span class="lbl" id="lbl${i}" ${CAN_EDIT?`onclick="event.stopPropagation();renameClip(${i})" title="Click to rename"`:''}>${esc(it.label||it.code||'Clip '+(i+1))}</span>
         <div class="smeta">${esc(it.gameTitle||'')}${it.angle?' · 🎥 '+esc(it.angle):''} · ${fmt(it.start)}–${fmt(it.end)}${(it.comments&&it.comments.length)?' · '+it.comments.length+' comment'+(it.comments.length===1?'':'s'):''}${(()=>{const nd=Array.isArray(it.draws)?it.draws.length:(it.draw?1:0);return nd?' · ✏'+(nd>1?'×'+nd:''):'';})()}</div>
         ${noteLine}
       </span>
-      ${isAdmin?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
+      ${CAN_EDIT?`<button class="cbt x" onclick="event.stopPropagation();removeClip(${i})" title="Remove from playlist">✕</button>`:''}
     </div>`;}).join('');
-  if(isAdmin) initDrag();
+  if(CAN_EDIT) initDrag();
   renderSaveBar();
 }
 function renameClip(i){
@@ -609,8 +687,9 @@ async function savePlaylist(){
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='Saving…';
   try{
     const payload={items:ITEMS}; if(COVER) payload.cover=COVER;
-    await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, scope:CUR.scope, section: cohesionSection(), data:payload});
-    CUR.data={items:ITEMS.map(x=>({...x}))}; if(COVER) CUR.data.cover=COVER; dirty=false;
+    const j=await plAuthFetch({action:'save', id:CUR.id, name:CUR.name, section: cohesionSection(), data:payload});
+    if(j&&Array.isArray(j.items)&&j.items.length===ITEMS.length) j.items.forEach((x,i)=>{ if(x&&x.cid) ITEMS[i].cid=x.cid; });   // the clip ids comments hang on
+    CUR.data=Object.assign({}, CUR.data, {items:ITEMS.map(x=>({...x}))}); if(COVER) CUR.data.cover=COVER; else delete CUR.data.cover; dirty=false;
     const st=document.getElementById('plStatus'); st.textContent='Saved ✓'; st.style.color='var(--green)';
     renderPlRows();
   }catch(e){ alert('Could not save: '+e.message); }
@@ -620,7 +699,7 @@ async function savePlaylist(){
 async function deletePlaylist(){
   if(!CUR) return;
   const ch=await cohesionModal({ title:'Delete this PLAYLIST?',
-    message:'This permanently deletes <b>“'+esc(CUR.name)+'”</b> — all '+ITEMS.length+' clips, drawings and comments — for everyone in the club. It cannot be undone.<br><br>(To delete a drawing or a shape, use ✏ Draw on the clip instead.)',
+    message:'This permanently deletes <b>“'+esc(CUR.name)+'”</b> — all '+ITEMS.length+' clips, drawings and comments — for everyone it is shared with. It cannot be undone.<br><br>(To delete a drawing or a shape, use ✏ Draw on the clip instead.)',
     buttons:[{label:'Cancel',value:'cancel',primary:true},{label:'🗑 Delete playlist',value:'del',danger:true}] });
   if(ch!=='del') return;
   try{
@@ -815,7 +894,7 @@ function toggleLoop(){ loop=!loop; document.getElementById('loopBtn').classList.
 let trimMode=false, trimW0=0, trimW1=0, trimS=0, trimE=0, trimAct=null, trimSeekAt=0;
 const TRIM_MIN=1;
 function startTrim(){
-  if(!isAdmin||playIdx<0||!ITEMS[playIdx]) return;
+  if(!CAN_EDIT||playIdx<0||!ITEMS[playIdx]) return;
   if(drawMode) cancelDraw();
   hideSavedDrawing(); hideCmStop();
   trimInit();
@@ -1004,10 +1083,11 @@ function renderComments(idx){
   document.getElementById('cmHd').textContent='Comments — '+(it.label||it.code||'Clip '+(idx+1))+(cms.length?' ('+cms.length+')':'');
   const me=myEmail();
   document.getElementById('cmList').innerHTML=cms.length?cms.map(cm=>{
-    const mine=cm.email===me;
+    const mine=!!cm.mine;
     const ops='<span class="cmops">'
       +'<span class="cmop" onclick="replyTo(\''+esc(cm.author).replace(/'/g,'&#39;')+'\')">Reply</span>'
-      +((mine||IS_REAL_ADMIN)?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span><span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">Delete</span>':'')
+      +(cm.canEdit?'<span class="cmop" onclick="editComment(\''+cm.id+'\')">Edit</span>':'')
+      +(cm.canDelete?'<span class="cmop del" onclick="deleteComment(\''+cm.id+'\')">'+(mine?'Delete':'Remove')+'</span>':'')
       +'</span>';
     const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
     const at=(cm.t!=null)?'<span class="cmjump" onclick="cmSeek('+cm.t+',\''+esc(cm.vid||'')+'\')" title="Jump the video to this comment\'s moment">⏱ '+cmFmt(cm.t-(it.start||0))+'</span>':'';
@@ -1028,11 +1108,13 @@ async function postComment(){
   inp.disabled=true;
   try{
     const pay={action:'comment', id:CUR.id, clipIdx:cmIdx, text};
+    if(ITEMS[cmIdx]&&ITEMS[cmIdx].cid) pay.clipId=ITEMS[cmIdx].cid;   // the clip itself, wherever it now sits
     if(cmAnchor){ pay.t=cmAnchor.t; pay.vid=cmAnchor.vid; }
     const j=await plAuthFetch(pay);
     inp.value=''; cmDisarm();
-    const last=(j.comments||[])[(j.comments||[]).length-1];
-    if(last&&last.t!=null) shownCms.add(last.id);   // author already read it — no instant re-pause
+    const last=(j.comments||[]).find(c=>c.id===j.commentId)||(j.comments||[])[(j.comments||[]).length-1];
+    if(last&&last.t!=null) shownCms.add(last.id);
+    if(j.clipId&&ITEMS[cmIdx]&&!ITEMS[cmIdx].cid) ITEMS[cmIdx].cid=j.clipId;   // an old clip got its id with its first comment   // author already read it — no instant re-pause
     cmSync(j.comments);
   }catch(e){ alert('Could not post: '+e.message); }
   inp.disabled=false; inp.focus();
@@ -1052,14 +1134,127 @@ function editComment(cid){
     if(inp.dataset.cancel){ renderComments(cmIdx); return; }
     const nv=(inp.value||'').trim();
     if(!nv||nv===cm.text){ renderComments(cmIdx); return; }
-    try{ const j=await plAuthFetch({action:'commentEdit', id:CUR.id, clipIdx:cmIdx, commentId:cid, text:nv}); cmSync(j.comments); }
+    try{ const j=await plAuthFetch(Object.assign({action:'commentEdit', id:CUR.id, clipIdx:cmIdx, commentId:cid, text:nv}, plClipRef(cmIdx))); cmSync(j.comments); }
     catch(e){ alert('Could not edit: '+e.message); renderComments(cmIdx); }
   };
 }
 async function deleteComment(cid){
-  if(!confirm('Delete this comment?')) return;
-  try{ const j=await plAuthFetch({action:'commentDelete', id:CUR.id, clipIdx:cmIdx, commentId:cid}); cmSync(j.comments); }
+  const cm=((ITEMS[cmIdx]||{}).comments||[]).find(x=>x.id===cid);
+  if(!confirm(cm&&!cm.mine?'Remove '+(cm.author||'this person')+'\'s comment? (It is kept in the admins\' activity log.)':'Delete this comment?')) return;
+  try{ const j=await plAuthFetch(Object.assign({action:'commentDelete', id:CUR.id, clipIdx:cmIdx, commentId:cid}, plClipRef(cmIdx))); cmSync(j.comments); }
   catch(e){ alert('Could not delete: '+e.message); }
+}
+
+// the clip a comment call is about: its id when it has one (re-orders never move a comment to another clip)
+function plClipRef(i){ const it=ITEMS[i]; return it&&it.cid?{clipId:it.cid}:{}; }
+// ── the "new comments" badge: opening a playlist marks its comments read ──
+function plMarkSeen(p){
+  if(!p) return;
+  const had=p.unread||0; p.unread=0;
+  if(had){ UNREAD_TOTAL=Math.max(0,UNREAD_TOTAL-had); paintPlChrome(); }
+  plAuthFetch({action:'seen', id:p.id}).catch(()=>{});
+}
+// ── comments on the whole playlist ──
+function renderPlComments(){
+  const w=document.getElementById('pcWrap'); if(!w) return;
+  if(!CUR){ w.style.display='none'; return; }
+  w.style.display='';
+  const cms=(CUR.data&&CUR.data.comments)||[];
+  document.getElementById('pcHd').textContent='Comments on the whole playlist'+(cms.length?' ('+cms.length+')':'');
+  document.getElementById('pcList').innerHTML=cms.length?cms.map(cm=>{
+    const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
+    return '<div class="cmitem"><span class="cma">'+esc(cm.author||'user')+'</span><span class="cmts">'+when+(cm.edited?' · edited':'')+'</span><span class="cmops">'
+      +(cm.canEdit?'<span class="cmop" onclick="editPlComment(\''+esc(cm.id)+'\')">Edit</span>':'')
+      +(cm.canDelete?'<span class="cmop del" onclick="deletePlComment(\''+esc(cm.id)+'\')">'+(cm.mine?'Delete':'Remove')+'</span>':'')
+      +'</span><div class="cmt" id="pct-'+esc(cm.id)+'">'+esc(cm.text)+'</div></div>';
+  }).join(''):'<div style="font-size:12px;color:var(--t3);">No comments on the playlist yet.</div>';
+}
+function plSetPlComments(list){ if(!CUR) return; CUR.data=Object.assign({}, CUR.data, {comments:list||[]}); renderPlComments(); }
+async function postPlComment(){
+  const inp=document.getElementById('pcInput'); const text=(inp.value||'').trim(); if(!text||!CUR) return;
+  inp.disabled=true;
+  try{ const j=await plAuthFetch({action:'comment', id:CUR.id, target:'playlist', text}); inp.value=''; plSetPlComments(j.comments); }
+  catch(e){ alert('Could not post: '+e.message); }
+  inp.disabled=false; inp.focus();
+}
+function editPlComment(cid){
+  const el=document.getElementById('pct-'+cid), cm=((CUR&&CUR.data&&CUR.data.comments)||[]).find(x=>x.id===cid); if(!el||!cm||el.querySelector('input')) return;
+  el.innerHTML='<input value="'+esc(cm.text)+'" onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.dataset.cancel=1;this.blur();}">';
+  const inp=el.querySelector('input'); inp.focus(); inp.select();
+  inp.onblur=async()=>{
+    const nv=(inp.value||'').trim();
+    if(inp.dataset.cancel||!nv||nv===cm.text){ renderPlComments(); return; }
+    try{ const j=await plAuthFetch({action:'commentEdit', id:CUR.id, target:'playlist', commentId:cid, text:nv}); plSetPlComments(j.comments); }
+    catch(e){ alert('Could not edit: '+e.message); renderPlComments(); }
+  };
+}
+async function deletePlComment(cid){
+  const cm=((CUR&&CUR.data&&CUR.data.comments)||[]).find(x=>x.id===cid); if(!cm) return;
+  if(!confirm(!cm.mine?'Remove '+(cm.author||'this person')+'\'s comment? (It is kept in the admins\' activity log.)':'Delete this comment?')) return;
+  try{ const j=await plAuthFetch({action:'commentDelete', id:CUR.id, target:'playlist', commentId:cid}); plSetPlComments(j.comments); }
+  catch(e){ alert('Could not delete: '+e.message); }
+}
+// ── sharing: Only me · Named people · Groups · Whole section (owner / admin) ──
+async function editSharing(){
+  if(!CUR||!CUR.canShare) return;
+  const sh=await cohesionShareDialog({section:CUR.section, current:CUR, title:'Who can see “'+CUR.name+'”?', fetch:(fn,p)=>plAuthFetch(p)});
+  if(!sh||!CUR) return;
+  try{
+    const j=await plAuthFetch(Object.assign({action:'share', id:CUR.id}, sh));
+    const np=j.playlist||{}; ['visibility','scope','sharePeople','shareGroups','sharedWithMe','adminView','canEdit','canShare','canDelete','canModerate','official'].forEach(k=>{ if(k in np) CUR[k]=np[k]; });
+    const st=document.getElementById('plStatus'); if(st){ st.textContent='Sharing saved ✓'+(j.notified?' · '+j.notified+' to be emailed':''); st.style.color='var(--green)'; }
+    renderClips(); renderPlRows();
+  }catch(e){ alert('Could not change sharing: '+e.message); }
+}
+// ── email notifications on / off (per user) ──
+async function toggleMail(){
+  if(!ME) return;
+  try{ const j=await plAuthFetch({action:'prefs', emailOptOut:!ME.emailOptOut}); ME.emailOptOut=!!j.emailOptOut; paintPlChrome(); }
+  catch(e){ alert('Could not change the email setting: '+e.message); }
+}
+// ── the activity log (admins; the server refuses everyone else) ──
+const LOG_KIND={create:'Created', rename:'Renamed', edit:'Edited', reorder:'Re-ordered', clips_added:'Clips added', clips_removed:'Clips removed',
+  share:'Sharing changed', comment_add:'Comment', comment_edit:'Comment edited', comment_remove:'Comment removed', delete:'Deleted'};
+function logDetail(e){
+  const d=e.details||{}, sh=x=>x?(LV_LABEL[x.level]||x.level)+((x.people&&x.people.length)?': '+x.people.join(', '):'')+((x.groups&&x.groups.length)?': '+x.groups.map(g=>String(g).replace(/^group:/,'')).join(', '):''):'';
+  switch(e.action){
+    case 'create': return sh(d.share)+' · '+(d.clips||0)+' clips';
+    case 'rename': return '“'+(d.from||'')+'” → “'+(d.to||'')+'”';
+    case 'clips_added': case 'clips_removed': return (d.count||0)+' · '+(d.clips||[]).join(', ');
+    case 'edit': return (d.count?d.count+' clip(s): '+(d.clips||[]).join(', '):'')+(d.cover?' cover':'');
+    case 'reorder': return (d.clips||0)+' clips';
+    case 'share': return sh(d.from)+' → '+sh(d.to);
+    case 'comment_add': return (d.on==='playlist'?'on the playlist':'on '+d.on)+': “'+(d.text||'')+'”';
+    case 'comment_edit': return (d.author||'')+': “'+(d.from||'')+'” → “'+(d.to||'')+'”';
+    case 'comment_remove': return (d.author||'')+'’s comment “'+(d.text||'')+'” removed by '+(d.removedBy||e.actor_name)+(d.on&&d.on!=='playlist'?' (on '+d.on+')':'');
+    case 'delete': return '“'+(d.name||e.playlist_name)+'” · '+(d.clips||0)+' clips, '+(d.comments||0)+' comments · '+sh(d.share);
+  }
+  return JSON.stringify(d);
+}
+let LOG_PL=null;
+async function openLog(pid, filters){
+  if(!IS_REAL_ADMIN) return;
+  LOG_PL=pid||null;
+  const w=document.getElementById(pid?'plLogWrap':'logWrap'); if(!w) return;
+  if(w.style.display!=='none'&&!filters){ w.style.display='none'; return; }
+  w.style.display=''; w.innerHTML='<div class="cmhd">Activity log</div><div class="status">Loading…</div>';
+  const f=filters||{};
+  try{
+    const j=await plAuthFetch(Object.assign({action:'log', limit:500}, pid?{playlistId:pid}:{}, f));
+    const rows=j.entries||[];
+    const kinds=Object.keys(LOG_KIND), who=[...new Map(rows.map(e=>[e.actor_email, e.actor_name||e.actor_email])).entries()];
+    w.innerHTML='<div class="cmhd">'+(pid?'Activity — this playlist':'Activity log — every playlist')+' <span style="text-transform:none;letter-spacing:0;font-weight:400;">(admins only; kept after a playlist or comment is deleted)</span></div>'
+      +'<div class="plfilters" style="margin:6px 0 8px;">'
+      +'<label>Action</label><select id="lgKind"><option value="">Any</option>'+kinds.map(k=>'<option value="'+k+'"'+(f.kind===k?' selected':'')+'>'+LOG_KIND[k]+'</option>').join('')+'</select>'
+      +'<label>Who</label><select id="lgWho"><option value="">Anyone</option>'+who.map(([e,n])=>'<option value="'+esc(e)+'"'+(f.actor===e?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>'
+      +(pid?'':'<label>Section</label><select id="lgSec"><option value="">Any</option><option value="county"'+(f.section==='county'?' selected':'')+'>County</option><option value="club"'+(f.section==='club'?' selected':'')+'>Club</option><option value="u20"'+(f.section==='u20'?' selected':'')+'>U20s</option></select>')
+      +'</div>'
+      +(rows.length?'<table><thead><tr><th>When</th><th>Who</th><th>Playlist</th><th>What</th><th>Details</th></tr></thead><tbody>'
+        +rows.map(e=>'<tr><td style="white-space:nowrap;">'+esc(new Date(e.created_at).toLocaleString('en-IE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}))+'</td><td>'+esc(e.actor_name||e.actor_email)+'<div class="cmts">'+esc(e.actor_email)+'</div></td><td>'+esc(e.playlist_name)+'<div class="cmts">'+esc(cohSectionLabel(e.section))+'</div></td><td class="lk'+(/remove|delete/.test(e.action)?' rm':'')+'">'+esc(LOG_KIND[e.action]||e.action)+'</td><td>'+esc(logDetail(e))+'</td></tr>').join('')+'</tbody></table>'
+        :'<div class="status">Nothing logged'+(Object.keys(f).length?' for these filters':' yet')+'.</div>');
+    const re=()=>{ const o={}; const k=w.querySelector('#lgKind').value, a=w.querySelector('#lgWho').value, sEl=w.querySelector('#lgSec'); if(k) o.kind=k; if(a) o.actor=a; if(sEl&&sEl.value) o.section=sEl.value; openLog(pid, o); };
+    w.querySelectorAll('select').forEach(x=>x.onchange=re);
+  }catch(e){ w.innerHTML='<div class="cmhd">Activity log</div><div class="status" style="color:var(--red);">'+esc(e.message)+'</div>'; }
 }
 
 // ── Telestration (P2): draw, select/move/resize, fill+alpha, captions,
@@ -1281,7 +1476,7 @@ function dDelSel(){ if(drawMode&&dSel!=null&&dShapes[dSel]){ dShapes.splice(dSel
 function startDraw(){
   if(trimMode) endTrim();
   if(playIdx<0||!ITEMS[playIdx]){ alert('Play or select a clip first, then pause where you want to draw.'); return; }
-  if(!isAdmin) return;
+  if(!CAN_EDIT) return;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
   const it=ITEMS[playIdx], draws=getDraws(it);
   const cur=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():(it.start||0);
@@ -1346,7 +1541,7 @@ function paintPlSectionSwitch(){
   cohesionPaintSectionSwitch(box, {county:'plSecCounty', club:'plSecClub', u20:'plSecU20'});
   if(box&&box.style.display==='flex') box.style.display='inline-flex';
 }
-function plSwitchSection(s){ cohesionSetSection(s); paintPlSectionSwitch(); loadPlaylists(); }
+function plSwitchSection(s){ cohesionSetSection(s); paintPlSectionSwitch(); const fs=document.getElementById('fSection'); if(fs&&IS_REAL_ADMIN) fs.value=s; loadPlaylists(); }
 netlifyIdentity.on('init',()=>loadPlaylists());
 netlifyIdentity.init();
 setTimeout(()=>{ if(!PLAYLISTS.length) loadPlaylists(); },1500);

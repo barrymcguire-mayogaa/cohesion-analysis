@@ -348,7 +348,7 @@ select option{background:var(--card);}
   <a href="player-names-admin.html" class="hdr-btn hdr-btn-admin" id="namesBtn" style="display:none" title="Player names — find every spelling of a team's players across all its games and merge the wrong ones">
     🔤 Player Names
   </a>
-  <a href="playlists.html" class="hdr-btn">
+  <a href="playlists.html" class="hdr-btn" id="plNavBtn">
     🎞 Playlists
   </a>
   <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
@@ -1353,6 +1353,8 @@ function switchSection(s){
   if (typeof loadGames === 'function') loadGames();
 }
 paintSectionSwitch();
+// the "new comments" badge on 🎞 Playlists (comments on playlists he can see, since he last opened each one)
+if (typeof cohesionPlaylistBadge === 'function') setTimeout(() => cohesionPlaylistBadge(document.getElementById('plNavBtn')), 600);
 </script>
 <script src="cohesion-theme.js"></script>
 </body>

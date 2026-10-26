@@ -109,6 +109,21 @@ These are critical for Netlify Functions to work:
    SUPABASE_SERVICE_ROLE_KEY = eyJhbGci... (the SECRET key, not public!)
    ```
 
+#### Playlist sharing: groups, names, emails
+- **Run `supabase/playlists_share.sql`** once in the Supabase SQL editor (safe to re-run). Until then playlists work as
+  before; Named people / Groups sharing, the badge, emails and the activity log ask for it.
+- **Groups** are Identity roles named `group:<name>` (lower case, letters / digits / `-` / `_`), set in
+  **Identity → user → Edit roles**: e.g. `group:coaches`, `group:players`, `group:forwards`, `group:backs`. The label is the
+  name title-cased (`group:half-backs` → "Half Backs"). A group appears in the sharing picker as soon as one person in that
+  section holds it. Group roles never change which sections (county / club / U20s) someone sees.
+- **Names** in "Named people" come from each user's **full name** (Identity user metadata); set it, or the picker falls
+  back to the part of the email before the @. Emails are never shown to players or coaches.
+- **Email notifications** (a digest, at most one email per person per 15 minutes) start once these environment variables
+  are set (scope: Functions): `EMAIL_API_KEY` (the provider's key), `EMAIL_FROM` (e.g. `COHESION <playlists@mail.your-domain>`,
+  on a domain verified with the provider), optional `EMAIL_PROVIDER` (`resend` default, `postmark`, `sendgrid`),
+  `EMAIL_REPLY_TO`, `PLAYLIST_DIGEST_MINUTES` (default 15) and `SITE_URL` (links in the email; Netlify's own `URL` otherwise).
+  Without the key nothing is sent and the digest logs one line.
+
 ### 3. GitHub & Git
 
 #### First-Time Setup

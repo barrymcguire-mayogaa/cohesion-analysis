@@ -184,6 +184,7 @@
   // ── SECTIONS and ROLES — the same rules as netlify/lib/access.js (the server decides; this only draws the UI) ──
   //   capability roles: admin (everything, every section) · analyst (tag, upload, edit; no deletes / management)
   //   section roles:    club → club · u20 → u20 · any other role → county · none / analyst only → county
+  //   group roles:      group:<name> (playlist sharing groups: group:coaches, group:forwards …) — never a section
   //   admin → county + club + u20; combinations → the union (club + anything else → county + club, as before)
   const COH_SECTIONS = ['county', 'club', 'u20'];
   const COH_CAP_ROLES = ['admin', 'analyst'];
@@ -196,7 +197,7 @@
     const lower = lowerRoles(roles);
     if (lower.includes('admin')) return COH_SECTIONS.slice();
     const s = new Set();
-    lower.forEach(r => { if (r === 'club' || r === 'u20') s.add(r); else if (!COH_CAP_ROLES.includes(r)) s.add('county'); });
+    lower.forEach(r => { if (r === 'club' || r === 'u20') s.add(r); else if (/^group:[a-z0-9][a-z0-9_-]{0,39}$/.test(r)) return; else if (!COH_CAP_ROLES.includes(r)) s.add('county'); });   // group:<name> = a playlist-sharing group, never a section
     if (!s.size) s.add('county');
     return COH_SECTIONS.filter(x => s.has(x));
   };
@@ -323,11 +324,12 @@
     });
   };
 
-  // Searchable playlist picker — EVERY playlist listed (no cap), with a
-  // filter box for a growing library. Shared by the dashboard and Code Room.
-  // Resolves 'pl-<id>' | 'new' | 'cancel'.
+  // Searchable playlist picker — every playlist the user may ADD CLIPS TO (his own, the ones he may edit; never one an
+  // admin only sees because admins see everything), with a filter box for a growing library. Shared by the dashboard
+  // and Code Room. Resolves 'pl-<id>' | 'new' | 'cancel'.
   window.cohesionPlaylistPicker = function(lists, opts){
     opts = opts || {};
+    lists = window.cohesionAddableLists(lists);
     const escp = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
     return new Promise(resolve=>{
       const ov=document.createElement('div');
@@ -353,7 +355,7 @@
           return '<div class="pprow" data-i="'+i+'" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border,#333);">'
             +'<span style="flex:1;font:700 13px Barlow,sans-serif;">'+escp(p.name)+'</span>'
             +'<span style="font-size:11px;color:var(--t2,#999);white-space:nowrap;">'+n+' clip'+(n===1?'':'s')+'</span>'
-            +'<span style="font:700 9.5px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;padding:2px 7px;border-radius:6px;border:1px solid var(--border,#333);color:var(--t2,#999);">'+(p.scope==='personal'?'PERSONAL':'CLUB')+'</span></div>';
+            +'<span style="font:700 9.5px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;padding:2px 7px;border-radius:6px;border:1px solid var(--border,#333);color:var(--t2,#999);">'+escp(window.cohesionShareLabel(p).toUpperCase())+'</span></div>';
         }).join('')
         :'<div style="padding:14px 12px;font-size:12.5px;color:var(--t2,#999);">'+(lists.length?'No playlist matches \u201c'+escp(inp.value.trim())+'\u201d.':'No playlists yet — create the first below.')+'</div>';
         list.querySelectorAll('.pprow').forEach(r=>{
@@ -369,6 +371,104 @@
       ov.onclick=ev=>{ if(ev.target===ov) done('cancel'); };
       draw(); setTimeout(()=>inp.focus(),0);
     });
+  };
+
+  // ── PLAYLIST SHARING (netlify/lib/playlistRules.js decides; this only draws) ──
+  // Every signed-in user creates playlists and picks one of four levels: Only me · Named people · Groups (Identity
+  // roles group:<name>) · Whole section. The function answers each playlist with canEdit / canShare / adminView …
+  window.cohesionAddableLists = function(lists){
+    return (lists || []).filter(p => p && p.canEdit !== false && !p.adminView);
+  };
+  window.cohesionShareLabel = function(p){
+    const v = (p && p.visibility) || (p && p.scope === 'personal' ? 'private' : 'section');
+    return v === 'private' ? 'Only me' : v === 'people' ? 'Named people' : v === 'groups' ? 'Groups' : 'Whole section';
+  };
+  window.COH_ADMIN_NOTE = 'Admins can see all playlists.';
+  // The sharing picker. opts: {section, current:{visibility, sharePeople:[{id,name}], shareGroups:[{id,name}]}, title, ok}.
+  // Resolves {visibility, scope, people:[id], groups:[id]} or null (cancel). The directory (names only, never emails)
+  // comes from the playlists function; "Only me" says plainly that admins can see every playlist.
+  window.cohesionShareDialog = function(opts){
+    opts = opts || {};
+    const esc2 = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    const cur = opts.current || {};
+    let level = cur.visibility || (cur.scope === 'personal' ? 'private' : cur.scope === 'club' ? 'section' : (opts.level || 'private'));
+    const pickedP = new Set((cur.sharePeople || []).map(x => String(x.id || x)));
+    const pickedG = new Set((cur.shareGroups || []).map(x => String(x.id || x)));
+    const secLab = typeof window.cohSectionLabel === 'function' ? window.cohSectionLabel(opts.section) : 'this';
+    let dir = null, dirErr = '';
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.className = 'coh-share';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10020;';
+      const card = document.createElement('div');
+      card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', opts.title || 'Who can see this playlist?');
+      card.style.cssText = "background:var(--panel,#1e1e28);color:var(--t1,#eee);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:470px;width:calc(100% - 32px);box-shadow:0 24px 64px rgba(0,0,0,.55);font-family:Barlow,sans-serif;display:flex;flex-direction:column;max-height:min(640px,90vh);";
+      ov.appendChild(card); document.body.appendChild(ov);
+      const done = v => { if (ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); };
+      const opt = (v, t, d, extra) => '<label class="coh-sh-opt" style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid '+(level===v?'var(--accent,#4fc3f7)':'var(--border,#333)')+';border-radius:9px;margin-bottom:7px;cursor:pointer;">'
+        + '<input type="radio" name="cohShLevel" value="'+v+'"'+(level===v?' checked':'')+' style="margin-top:3px;">'
+        + '<span style="flex:1;"><b style="font:700 14px \'Barlow Condensed\',sans-serif;letter-spacing:.4px;">'+t+'</b><span style="display:block;font-size:12px;color:var(--t2,#999);line-height:1.45;">'+d+'</span>'+(extra||'')+'</span></label>';
+      const pickList = (items, set, kind) => {
+        if (!dir) return '<div style="font-size:12px;color:var(--t2,#999);padding:6px 0;">'+(dirErr?esc2(dirErr):'Loading…')+'</div>';
+        if (!items.length) return '<div style="font-size:12px;color:var(--t2,#999);padding:6px 0;">'+(kind==='g'?'No groups set up yet. An admin adds them as Netlify Identity roles such as group:forwards.':(dir.available===false?'The people list is not available right now.':'Nobody else in this section yet.'))+'</div>';
+        return (kind==='p'?'<input class="coh-sh-q" placeholder="Search names…" autocomplete="off" style="width:100%;box-sizing:border-box;margin:6px 0;padding:7px 10px;border-radius:7px;border:1px solid var(--border,#333);background:var(--card,#252530);color:var(--t1,#eee);font:13px Barlow,sans-serif;">':'')
+          + '<div class="coh-sh-list" style="max-height:180px;overflow-y:auto;border:1px solid var(--border,#333);border-radius:8px;">'
+          + items.map(x => '<label data-n="'+esc2(String(x.name).toLowerCase())+'" style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border,#333);font-size:13px;cursor:pointer;"><input type="checkbox" data-kind="'+kind+'" value="'+esc2(x.id)+'"'+(set.has(String(x.id))?' checked':'')+'>'+esc2(x.name)+(kind==='g'&&x.members!=null?' <span style="color:var(--t3,#777);font-size:11px;">('+x.members+')</span>':'')+'</label>').join('')
+          + '</div>';
+      };
+      const draw = () => {
+        card.innerHTML = '<div style="font:800 18px \'Barlow Condensed\',sans-serif;letter-spacing:.5px;margin-bottom:6px;">'+esc2(opts.title||'Who can see this playlist?')+'</div>'
+          + '<div style="font-size:12.5px;color:var(--t2,#999);line-height:1.5;margin-bottom:12px;">Only people who can see the '+esc2(secLab)+' section can ever see it. Everyone who can see it can comment.</div>'
+          + '<div style="overflow-y:auto;flex:1;">'
+          + opt('private', 'Only me', 'Just you.', '<span class="coh-admin-note" style="display:block;margin-top:3px;font-size:11px;color:var(--orange,#ff9800);">'+esc2(window.COH_ADMIN_NOTE)+'</span>')
+          + opt('people', 'Named people', 'You and the people you pick.', level==='people'?pickList((dir&&dir.people)||[], pickedP, 'p'):'')
+          + opt('groups', 'Groups', 'You and everyone in the groups you pick (e.g. Forwards, Coaches).', level==='groups'?pickList((dir&&dir.groups)||[], pickedG, 'g'):'')
+          + opt('section', 'Whole section', 'Everyone in the '+esc2(secLab)+' section.')
+          + '</div><div class="coh-sh-err" role="alert" style="font-size:12px;color:var(--red,#f44336);min-height:16px;margin:6px 0;"></div>'
+          + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="coh-sh-cancel" style="padding:8px 16px;border-radius:8px;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;border:1px solid var(--border,#333);background:var(--card,#252530);color:var(--t1,#eee);">Cancel</button>'
+          + '<button type="button" class="coh-sh-ok" style="padding:8px 16px;border-radius:8px;font:700 12px \'Barlow Condensed\',sans-serif;cursor:pointer;border:1px solid var(--accent,#4fc3f7);background:var(--accent,#4fc3f7);color:#fff;">'+esc2(opts.ok||'Save')+'</button></div>';
+        card.querySelectorAll('input[name="cohShLevel"]').forEach(r => r.onchange = () => { level = r.value; if ((level === 'people' || level === 'groups') && !dir) loadDir(); draw(); });
+        card.querySelectorAll('input[type="checkbox"]').forEach(c => c.onchange = () => { const set = c.dataset.kind === 'p' ? pickedP : pickedG; if (c.checked) set.add(c.value); else set.delete(c.value); });
+        const q = card.querySelector('.coh-sh-q'); if (q) q.oninput = () => { const t = q.value.trim().toLowerCase(); card.querySelectorAll('.coh-sh-list label').forEach(l => l.style.display = !t || l.dataset.n.includes(t) ? '' : 'none'); };
+        card.querySelector('.coh-sh-cancel').onclick = () => done(null);
+        card.querySelector('.coh-sh-ok').onclick = () => {
+          const err = card.querySelector('.coh-sh-err');
+          if (level === 'people' && !pickedP.size) { err.textContent = 'Pick at least one person.'; return; }
+          if (level === 'groups' && !pickedG.size) { err.textContent = 'Pick at least one group.'; return; }
+          done({ visibility: level, scope: level === 'section' ? 'club' : 'personal', people: level === 'people' ? [...pickedP] : [], groups: level === 'groups' ? [...pickedG] : [] });
+        };
+      };
+      const loadDir = () => {
+        const f = opts.fetch || window.cohesionAuthFetch;
+        Promise.resolve().then(() => f('playlists', { action: 'directory', section: opts.section }))
+          .then(j => { dir = j || { people: [], groups: [] }; draw(); })
+          .catch(e => { dirErr = 'Could not load the list: ' + ((e && e.message) || e); dir = null; draw(); });
+      };
+      card.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); done(null); } });
+      ov.onclick = ev => { if (ev.target === ov) done(null); };
+      if (level === 'people' || level === 'groups') loadDir();
+      draw();
+    });
+  };
+  // New playlist: a name, then who can see it. Resolves {name, share} or null.
+  window.cohesionAskNewPlaylist = async function(opts){
+    opts = opts || {};
+    const name = String((await window.cohPrompt(opts.message || 'New playlist name:', '')) || '').trim().slice(0, 80);   // the themed box (Electron has no prompt())
+    if (!name) return null;
+    const share = await window.cohesionShareDialog({ section: opts.section, title: 'Who can see “' + name + '”?', ok: opts.ok || 'Create', fetch: opts.fetch, level: opts.level || 'private' });
+    return share ? { name, share } : null;
+  };
+  // the "new comments" badge on a Playlists link / title: el gets a small count pill (hidden at 0)
+  window.cohesionPlaylistBadge = async function(el, opts){
+    if (!el) return 0;
+    let n = 0;
+    try { const f = (opts && opts.fetch) || window.cohesionAuthFetch; const j = await f('playlists', { action: 'unread' }); n = (j && j.total) || 0; } catch (_) { return 0; }
+    let b = el.querySelector('.coh-pl-badge');
+    if (!b) { b = document.createElement('span'); b.className = 'coh-pl-badge'; b.setAttribute('aria-live', 'polite');
+      b.style.cssText = 'display:none;margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e53935;color:#fff;font:800 11px/18px Barlow,sans-serif;text-align:center;'; el.appendChild(b); }
+    b.textContent = n > 99 ? '99+' : String(n); b.title = n + ' new comment' + (n === 1 ? '' : 's') + ' on your playlists';
+    b.style.display = n ? 'inline-block' : 'none';
+    return n;
   };
 
   // Leave-guard. Pages register hasPending() and saveAll(). In-app navigation

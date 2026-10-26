@@ -2865,6 +2865,7 @@ function crClipOf(e){
   const clip={ videoId:ang.youtubeId||GAME.youtubeId, gameId:GAME.id, gameTitle:GAME.title||'', driveT:e.driveT||0,
            start:s, end:s+dur,
            label:(e.code||'Clip')+(e.player?' · '+e.player:''), code:e.code||'', player:e.player||'' };
+  if(e.id!=null&&e.id!=='') clip.eventId=String(e.id);   // a playlist recognises the same event twice (append skips it), as the dashboard's clips
   if(idx>0) clip.angle=ang.label||('Cam '+(idx+1));
   return clip;
 }
@@ -2878,18 +2879,18 @@ async function crAddToPlaylist(ids){
   catch(e){ alert('Could not load playlists: '+e.message); return; }
   const c=await cohesionPlaylistPicker(lists, {title:'Add '+evs.length+' clip'+(evs.length>1?'s':'')+' to…', message:'Clips keep the event name — rename or reorder them any time on the Playlists page.'});
   if(c==='cancel'||c==null) return;
-  let target=null, name='', scope='club';
-  if(c==='new'){
-    name=((await cohPrompt('New playlist name:'))||'').trim(); if(!name) return;
-    const sc=await cohesionModal({title:'Who can see this playlist?', message:'Club-wide is visible to every analyst, coach and player; personal is only you.', buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
-    if(sc==='cancel') return; scope=sc;
-  } else {
-    target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
-    name=target.name; scope=target.scope;
-  }
-  const items=((target&&target.data&&target.data.items)||[]).concat(evs.map(crClipOf));
+  const clips=evs.map(crClipOf);
   try{
-    await crAuthFetch('playlists',{action:'save', id:target?target.id:undefined, name, scope, section: cohesionSection(), data:{items}});
+    let name;
+    if(c==='new'){
+      const n=await cohesionAskNewPlaylist({section: cohesionSection(), fetch: crAuthFetch}); if(!n) return;
+      name=n.name;
+      await crAuthFetch('playlists', Object.assign({action:'save', name, section: cohesionSection(), data:{items:clips}}, n.share));
+    } else {
+      const target=lists.find(p=>'pl-'+p.id===c); if(!target) return;
+      name=target.name;
+      for(let i=0;i<clips.length;i+=500) await crAuthFetch('playlists',{action:'append', id:target.id, items:clips.slice(i,i+500)});   // clips already there are skipped
+    }
     const f=document.getElementById('bulkStatus')||document.getElementById('epStatus');
     if(f){ f.className='status ok'; f.textContent='✓ Added to "'+name+'" — view on the Playlists page.'; }
   }catch(e){ alert('Could not add to playlist: '+e.message); }
