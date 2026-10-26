@@ -113,7 +113,7 @@ These are critical for Netlify Functions to work:
 - **Run `supabase/playlists_share.sql`** once in the Supabase SQL editor (safe to re-run). Until then playlists work as
   before; Named people / Groups sharing, the badge, emails and the activity log ask for it.
 - **Groups** are Identity roles named `group:<name>` (lower case, letters / digits / `-` / `_`), set in
-  **Identity → user → Edit roles**: e.g. `group:coaches`, `group:players`, `group:forwards`, `group:backs`. The label is the
+  **Identity → user → Edit roles**: e.g. `group:coach`, `group:player`, `group:forwards`, `group:backs`. The label is the
   name title-cased (`group:half-backs` → "Half Backs"). A group appears in the sharing picker as soon as one person in that
   section holds it. Group roles never change which sections (county / club / U20s) someone sees.
 - **Names** in "Named people" come from each user's **full name** (Identity user metadata); set it, or the picker falls

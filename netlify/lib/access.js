@@ -8,7 +8,7 @@
  *                     analyst  tag, upload and edit games (no deletes, no management, no admin settings)
  *   section roles     club     the club section
  *                     u20      the U20s section
- *   group roles       group:<name>  a PLAYLIST SHARING group only (group:coaches, group:forwards …): never a section and
+ *   group roles       group:<name>  a PLAYLIST SHARING group only (group:coach, group:forwards …): never a section and
  *                                   never a capability, so adding one changes nothing else a user sees or may do
  *   any other role (or none)   the county section — exactly as before sections had a third value
  *
@@ -36,7 +36,7 @@ function rolesOf(claims) {
   return (Array.isArray(raw) ? raw : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
 }
 // Playlist-sharing GROUPS: any Identity role written 'group:<name>' (lower case letters, digits, - or _; up to 40).
-// The group's label is <name> in title case with - / _ as spaces: group:coaches → Coaches, group:half-backs → Half Backs.
+// The group's label is <name> in title case with - / _ as spaces: group:coach → Coach, group:half-backs → Half Backs.
 const GROUP_PREFIX = 'group:';
 function isGroupRole(r) { return /^group:[a-z0-9][a-z0-9_-]{0,39}$/.test(String(r || '').toLowerCase().trim()); }
 function groupsOf(roles) { return (roles || []).map(r => String(r).toLowerCase().trim()).filter(isGroupRole); }
