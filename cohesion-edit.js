@@ -51,6 +51,62 @@
     });
   };
 
+  // Themed promise-based text input — use instead of window.prompt(), which the desktop app (Electron) does not
+  // support (it returns nothing, so the button seemed to do nothing). Resolves the text as typed (untrimmed, like
+  // prompt()) on OK / Enter, or null on Cancel / Esc. Focus goes into the box; Tab stays inside the dialog; the
+  // page's keyboard shortcuts never see the typing; focus goes back where it was afterwards.
+  //   const v = await cohPrompt('Player name:', '');      opts: {title, ok:'Add'}
+  let _cohPromptN = 0;
+  window.cohPrompt = function(message, def, opts){
+    opts = opts || {};
+    return new Promise(resolve=>{
+      const prev = document.activeElement, uid = 'cohPrompt' + (++_cohPromptN);
+      const ov = document.createElement('div');
+      ov.className = 'coh-prompt';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:10010;';
+      const card = document.createElement('div');
+      card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-labelledby', uid + '-l');
+      card.style.cssText = "background:var(--panel,#1e1e28);color:var(--t1,#eee);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:430px;width:calc(100% - 40px);box-shadow:0 24px 64px rgba(0,0,0,.55);font-family:Barlow,sans-serif;";
+      if (opts.title) { const h = document.createElement('div'); h.style.cssText = "font:800 18px 'Barlow Condensed',sans-serif;letter-spacing:.5px;margin-bottom:8px;"; h.textContent = opts.title; card.appendChild(h); }
+      const lab = document.createElement('label');
+      lab.id = uid + '-l'; lab.htmlFor = uid + '-i';
+      lab.style.cssText = 'display:block;font-size:13px;color:var(--t2,#bbb);line-height:1.5;margin-bottom:10px;white-space:pre-line;';
+      lab.textContent = String(message == null ? '' : message);   // plain text, as prompt() showed it
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.id = uid + '-i'; inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.value = def == null ? '' : String(def);
+      inp.style.cssText = 'display:block;width:100%;box-sizing:border-box;padding:9px 11px;border-radius:8px;border:1px solid var(--border,#444);background:var(--card,#252530);color:var(--t1,#eee);font:500 14px Barlow,sans-serif;margin-bottom:16px;';
+      const bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+      const mk = (label, primary) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+        b.style.cssText = "padding:8px 16px;border-radius:8px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border,#333);" + (primary ? 'background:var(--accent,#4fc3f7);border-color:var(--accent,#4fc3f7);color:#fff;' : 'background:var(--card,#252530);color:var(--t1,#eee);');
+        bar.appendChild(b); return b; };
+      const bCancel = mk('Cancel', false), bOk = mk(opts.ok || 'OK', true);
+      let done = false;
+      const finish = v => {
+        if (done) return; done = true;
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        try { if (prev && prev.focus && document.contains(prev)) prev.focus(); } catch (_) {}
+        resolve(v);
+      };
+      bOk.onclick = () => finish(inp.value);
+      bCancel.onclick = () => finish(null);
+      card.addEventListener('keydown', e => {
+        e.stopPropagation();                                  // never a page shortcut while the box is up
+        if (e.isComposing) return;
+        if (e.key === 'Escape') { e.preventDefault(); finish(null); return; }
+        if (e.key === 'Enter' && e.target === inp) { e.preventDefault(); finish(inp.value); return; }
+        if (e.key === 'Tab') {                                // keep Tab inside the dialog
+          const f = [inp, bCancel, bOk], i = f.indexOf(document.activeElement);
+          e.preventDefault(); f[(i < 0 ? 0 : i + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+        }
+      });
+      ['keyup', 'keypress'].forEach(t => card.addEventListener(t, e => e.stopPropagation()));
+      card.appendChild(lab); card.appendChild(inp); card.appendChild(bar); ov.appendChild(card); document.body.appendChild(ov);
+      inp.focus(); try { inp.select(); } catch (_) {}
+    });
+  };
+
   // ── READ GATEWAY (hard county/club separation) ────────────────────
   // All game/event reads go through /.netlify/functions/data with the
   // signed-in user's JWT; direct anon SELECT on games/events is revoked.

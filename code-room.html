@@ -1631,8 +1631,8 @@ function crRowsKey(){ return 'coh_crrows_'+(GAME&&GAME.id); }
 function crRowsSave(){ try{ localStorage.setItem(crRowsKey(), JSON.stringify({order:crRowOrder, extra:crExtraRows})); }catch(_){} }
 function crRowsLoad(){ try{ const j=JSON.parse(localStorage.getItem(crRowsKey())||'null'); crRowOrder=(j&&Array.isArray(j.order))?j.order:[]; crExtraRows=(j&&Array.isArray(j.extra))?j.extra:[]; }catch(_){ crRowOrder=[]; crExtraRows=[]; } }
 // Add an empty row above (dir<0) or below (dir>0) the selected row.
-function crAddRow(dir){
-  const code=(prompt('New row — event code (e.g. '+((GAME.homeTeam||'TEAM').toUpperCase())+' SHORT):')||'').trim();
+async function crAddRow(dir){
+  const code=((await cohPrompt('New row — event code (e.g. '+((GAME.homeTeam||'TEAM').toUpperCase())+' SHORT):'))||'').trim();
   if(!code) return;
   const rows=crRows(crFiltered());
   if(rows.includes(code)){ crActiveRow=code; crDrawTL(); return; }   // already a row → just select it
@@ -2870,7 +2870,7 @@ async function crAddToPlaylist(ids){
   if(c==='cancel'||c==null) return;
   let target=null, name='', scope='club';
   if(c==='new'){
-    name=(prompt('New playlist name:')||'').trim(); if(!name) return;
+    name=((await cohPrompt('New playlist name:'))||'').trim(); if(!name) return;
     const sc=await cohesionModal({title:'Who can see this playlist?', message:'Club-wide is visible to every analyst, coach and player; personal is only you.', buttons:[{label:'Club-wide',value:'club',primary:true},{label:'Just me',value:'personal'},{label:'Cancel',value:'cancel'}]});
     if(sc==='cancel') return; scope=sc;
   } else {
@@ -3264,7 +3264,7 @@ function setDefinedLabel(name,value){
   refreshSave(); renderPanel();
 }
 function removeLabelIdx(i){ if(draft){ draft.groups.splice(i,1); renderPanel(); } }
-function addLabelGroup(){ const name=(prompt('Label group name (e.g. Shooting Leg):')||'').trim(); if(!name||!draft)return; draft.groups.push({g:name,v:''}); renderPanel(); }
+async function addLabelGroup(){ const name=((await cohPrompt('Label group name (e.g. Shooting Leg):'))||'').trim(); if(!name||!draft)return; draft.groups.push({g:name,v:''}); renderPanel(); }
 function refreshSave(){ const b=document.getElementById('saveBtn'); if(b) b.disabled=!isDirty(); }
 
 // Builds the persistable data for the ACTIVE event from its draft.
@@ -3576,9 +3576,54 @@ async function crAuthFetch(fn,payload){
   return j;
 }
 async function loadTemplates(){
+  // at page load the Identity widget restores the sign-in asynchronously: wait for it (as cohesionRead does), or the
+  // first list call finds no user and the Template list stays empty until something reloads it
+  try{ if(typeof cohesionIdentityReady==='function') await cohesionIdentityReady(); }catch(_){}
   try{ const j=await crAuthFetch('templates',{action:'list', section: cohesionSection()}); crTemplates=j.templates||[]; }
   catch(_){ crTemplates=[]; }   // table not created yet / offline — templates just unavailable
   fillTplSelect();
+  crTplAuto();
+}
+// ── Starting from a template ──
+// Code Mode's setup (event buttons, shortcuts, durations, clip windows, colours) lives in this browser's storage, so a
+// new browser — or the desktop app, which has its own storage — starts bare. When this computer has NO Code Mode setup
+// of its own yet, the default template is applied by itself: one named "default" (personal first), else the newest
+// personal template, else the newest club template. The last template applied (here or by Apply) is remembered, and its
+// event buttons come back on every page load. A coder's own setup is never overwritten automatically.
+const CR_TPL_LAST='cr_tplLast';
+function crHasOwnCodeSetup(){
+  try{
+    const j=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(_){ return null; } };
+    if(localStorage.getItem(CR_TPL_LAST)) return true;
+    const keys=j('cr_codeKeys'); if(Array.isArray(keys)&&keys.length) return true;
+    for(const k of ['cr_codeDur','cr_codeClip','cr_codeColors','cr_codeNeutral']){ const o=j(k); if(o&&typeof o==='object'&&Object.keys(o).length) return true; }
+    if(localStorage.getItem('cr_codeLead')!=null||localStorage.getItem('cr_codeLag')!=null) return true;
+    const hk=j('cr_codeHotkeys');   // T → TOs is put there by itself (buildCodePanel), so it is not a setup of the coder's own
+    if(hk&&typeof hk==='object'&&Object.keys(hk).some(k=>!(k==='t'&&/^TOS$/i.test(String(hk[k]))))) return true;
+    return false;
+  }catch(_){ return true; }   // storage unreadable: never overwrite anything
+}
+function crDefaultTemplate(list){
+  const newest=L=>L.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))||((Number(b.id)||0)-(Number(a.id)||0)))[0]||null;
+  const mine=list.filter(t=>t.scope==='personal'), club=list.filter(t=>t.scope!=='personal');
+  const named=L=>L.find(t=>/\bdefault\b/i.test(t.name||''))||null;
+  return named(mine)||named(club)||newest(mine)||newest(club);
+}
+// the remembered template: {id, name} (an offline-saved template gets a new id when it reaches the website — the name finds it)
+function crTplLastGet(){ try{ const v=localStorage.getItem(CR_TPL_LAST); if(!v) return null; try{ const o=JSON.parse(v); if(o&&typeof o==='object') return o; }catch(_){} return {id:v}; }catch(_){ return null; } }
+function crTplLastSet(t){ try{ if(t) localStorage.setItem(CR_TPL_LAST, JSON.stringify({id:t.id, name:t.name||''})); else localStorage.removeItem(CR_TPL_LAST); }catch(_){} }
+function crTplFind(ref){ if(!ref) return null; return crTemplates.find(x=>String(x.id)===String(ref.id))||(ref.name?crTemplates.find(x=>String(x.name||'').toLowerCase()===String(ref.name).toLowerCase()):null)||null; }
+const crTplCodesOf=t=>{ const d=(t&&t.data)||{}; return Array.isArray(d.codes)?d.codes.filter(c=>typeof c==='string'):[]; };
+function crTplAuto(){
+  const last=crTplLastGet();
+  let t=null, applied=false;
+  if(last){ t=crTplFind(last); if(t&&!crTplCodes.length) crTplCodes=crTplCodesOf(t); }
+  else if(!crHasOwnCodeSetup()){ t=crDefaultTemplate(crTemplates); if(t){ crTplApply(t,{auto:true}); applied=true; } }
+  if(!t) return;
+  const sel=document.getElementById('tplSelect'); if(sel) sel.value=String(t.id);
+  if(typeof GAME!=='undefined'&&GAME&&codeMode.on){ buildCodePanel(); if(crView==='tl') crDrawTL(); }
+  const f=document.getElementById('codeFlash');
+  if(applied&&f) f.textContent='✓ Started from template "'+t.name+'" — this computer had no Code Mode setup yet. Pick another under Template any time.';
 }
 function fillTplSelect(){
   const sel=document.getElementById('tplSelect'); if(!sel) return;
@@ -3593,7 +3638,7 @@ function crTplCapture(){
            rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
 }
 async function saveTemplate(){
-  const name=(prompt('Template name (e.g. NFL 2026, U-14 Championship):')||'').trim();
+  const name=((await cohPrompt('Template name (e.g. NFL 2026, U-14 Championship):'))||'').trim();
   if(!name) return;
   const scope=await cohesionModal({ title:'Who can use this template?',
     message:'Club-wide templates are shared with every analyst; personal templates are only visible to you.',
@@ -3601,7 +3646,8 @@ async function saveTemplate(){
   if(scope==='cancel') return;
   const existing=crTemplates.find(t=>t.name.toLowerCase()===name.toLowerCase()&&t.scope===scope);
   try{
-    await crAuthFetch('templates',{action:'save', id:existing?existing.id:undefined, name, scope, section: cohesionSection(), data:crTplCapture()});
+    const r=await crAuthFetch('templates',{action:'save', id:existing?existing.id:undefined, name, scope, section: cohesionSection(), data:crTplCapture()});
+    crTplLastSet({id:existing?existing.id:(r&&r.id), name});   // the setup just saved is the one in use
     await loadTemplates();
     const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Template "'+name+'" saved ('+(scope==='club'?'club-wide':'personal')+')';
   }catch(e){ alert('Could not save template: '+e.message); }
@@ -3609,26 +3655,33 @@ async function saveTemplate(){
 function applyTemplate(){
   const sel=document.getElementById('tplSelect'); if(!sel||!sel.value) return;
   const t=crTemplates.find(x=>String(x.id)===String(sel.value)); if(!t) return;
-  const d=t.data||{};
-  crTplCodes=Array.isArray(d.codes)?d.codes.filter(c=>typeof c==='string'):[];
+  crTplApply(t);
+  buildCodePanel();
+  if(crView==='tl') crDrawTL();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Applied template "'+t.name+'"';
+}
+// Put a template's setup in place (and in this browser's storage). o.auto (crTplAuto): no game may be open yet, so
+// the per-game timeline row layout is left alone.
+function crTplApply(t, o){
+  o=o||{}; const d=t.data||{};
+  crTplCodes=crTplCodesOf(t);
   if(Array.isArray(d.keys)){ codeKeyPref=d.keys.slice(); saveCodeKeys(); }
   if(d.colors&&typeof d.colors==='object'){ codeColorPref={...d.colors}; saveCodeColors(); }
   if(d.dur&&typeof d.dur==='object'){ codeDurPref={...d.dur}; saveCodeDur(); }
   if(d.neutral&&typeof d.neutral==='object'){ codeNeutralPref={...d.neutral}; saveCodeNeutral(); }
   if(d.clip&&typeof d.clip==='object'){ codeClipPref={...d.clip}; saveCodeClip(); }
   if(d.hotkeys&&typeof d.hotkeys==='object'){ codeHotkeys={...d.hotkeys}; saveCodeHotkeys(); }
-  if(d.rows){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
+  if(d.rows&&!o.auto){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
   if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
   if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
-  buildCodePanel();
-  if(crView==='tl') crDrawTL();
-  const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Applied template "'+t.name+'"';
+  try{ localStorage.setItem('cr_codeLead',codeMode.lead); localStorage.setItem('cr_codeLag',codeMode.lag); }catch(_){}
+  crTplLastSet(t);
 }
 async function deleteTemplate(){
   const sel=document.getElementById('tplSelect'); if(!sel||!sel.value) return;
   const t=crTemplates.find(x=>String(x.id)===String(sel.value)); if(!t) return;
   if(!confirm('Delete template "'+t.name+'"'+(t.scope==='club'?' (club-wide)':'')+'?')) return;
-  try{ await crAuthFetch('templates',{action:'delete', id:t.id}); await loadTemplates(); }
+  try{ await crAuthFetch('templates',{action:'delete', id:t.id}); const L=crTplLastGet(); if(L&&String(L.id)===String(t.id)) crTplLastSet(null); await loadTemplates(); }
   catch(e){ alert('Could not delete template: '+e.message); }
 }
 function saveCodeColors(){ try{ localStorage.setItem('cr_codeColors', JSON.stringify(codeColorPref)); }catch(_){} }
@@ -3686,8 +3739,8 @@ function codeRenameBase(oldBase,newBase){
   return true;
 }
 // Full-code rename (double-click a timeline row name): that exact code only.
-function crRenameFullCode(oldFull){
-  const v=(prompt('Rename event "'+oldFull+'" to:',oldFull)||'').replace(/\s+/g,' ').trim();   // kept as typed (no forced capitals)
+async function crRenameFullCode(oldFull){
+  const v=((await cohPrompt('Rename event "'+oldFull+'" to:',oldFull))||'').replace(/\s+/g,' ').trim();   // kept as typed (no forced capitals)
   if(!v||v===oldFull) return;
   if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; }   // never overwrite a saved row order we haven't read
   const evs=EVENTS.filter(e=>e.code===oldFull);
@@ -5122,7 +5175,7 @@ window.addEventListener('keydown', e=>{
   codePlayerKey(e);
 }, true);
 async function codeAddCode(){
-  const n=(prompt('New event code (e.g. SCORE SOURCE, ATTACKS):')||'').trim().toUpperCase();
+  const n=((await cohPrompt('New event code (e.g. SCORE SOURCE, ATTACKS):'))||'').trim().toUpperCase();
   if(!n) return;
   const kind=await cohesionModal({ title:'How is '+n+' tagged?',
     message:'<b>Instant</b> captures a clip around the moment you press (current lead/lag window).<br><b>Duration</b> records like a stopwatch: first press STARTS the event — play or scrub freely — pressing again STOPS it at that exact point.',
@@ -5147,7 +5200,7 @@ function codeSwitchTeam(){
   if(f) f.textContent='⇄ Tagging for '+codeTeamName(codeMode.team);
 }
 function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
-function codeAddPlayer(){ const n=(prompt('Player name:')||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
+async function codeAddPlayer(){ const n=((await cohPrompt('Player name:'))||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
 
 // R = replay the clip just tagged, then jump back to where you were.
 let crLastTag=null, crReplay=null;
