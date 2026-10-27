@@ -51,6 +51,21 @@ header{
 .hdr-btn-admin{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
 .hdr-btn-admin:hover{background:var(--accent);color:#fff;}
 .theme-btn{width:36px;height:36px;border-radius:50%;justify-content:center;font-size:16px;padding:0;}
+.hdr-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;min-width:0;}
+.hdr-nav #sectionSwitch{margin-right:6px;}
+.hdr-tools{display:flex;align-items:center;gap:10px;flex:none;}
+.hdr-btn{white-space:nowrap;}
+/* a narrower window: the buttons go to their own row under the logo, and wrap again if they must (no sideways scroll) */
+@media (max-width:1240px){
+  header{height:auto;min-height:56px;flex-wrap:wrap;padding:8px 14px;gap:8px 12px;}
+  .hdr-nav{order:3;flex:1 1 100%;justify-content:flex-start;gap:6px;padding-bottom:2px;}
+}
+@media (max-width:480px){
+  header{padding:8px 10px;}
+  .logo-sub{display:none;}
+  .hdr-nav .hdr-btn{padding:6px 9px;}
+  .hdr-nav #sectionSwitch button{padding:7px 10px !important;}
+}
 
 /* FILTERS */
 .filter-bar{
@@ -141,6 +156,14 @@ select option{background:var(--card);}
   color:var(--t3);
 }
 .card-events b{color:var(--t2);}
+/* team-sheet status beside "N coded events" — admins and analysts only (libTSLine); shown on hover, always on touch */
+.card-ts{margin-left:8px;padding:0 0 0 8px;border:none;border-left:1px solid var(--border);background:none;cursor:pointer;
+  font:inherit;letter-spacing:inherit;color:#f5a623;opacity:0;transition:opacity .15s;}
+.card-ts.ok{color:#4caf50;}
+.card-ts.none{color:var(--t2);}
+.card-ts:hover{text-decoration:underline;}
+.game-card:hover .card-ts,.card-ts:focus-visible{opacity:1;}
+@media (hover:none){ .card-ts{opacity:1;} }
 
 /* DELETE BUTTON */
 .card-del{
@@ -297,15 +320,21 @@ select option{background:var(--card);}
 }
 .library-reset:hover{color:var(--accent);}
 
+.library-tile-label{display:none;}
+/* the cards scale with the screen: 5 a row on a tablet; on a phone 2 a row as short bars (the badge small on the left,
+   the competition's name beside it) instead of half-screen squares */
 @media (max-width:1200px){
-  .library-tile-grid{grid-template-columns:repeat(4,1fr);}
+  .library-tile-grid{grid-template-columns:repeat(5,1fr);gap:12px;}
 }
 @media (max-width:640px){
-  .library-tile-wrap{padding:0 10px;margin-top:20px;margin-bottom:28px;}
-  .library-tile-grid{grid-template-columns:repeat(4,1fr);gap:8px;}
-}
-@media (max-width:420px){
-  .library-tile-grid{grid-template-columns:repeat(2,1fr);}
+  .library-tile-wrap{padding:0 10px;margin-top:14px;margin-bottom:20px;}
+  .library-tile-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+  .library-tile{aspect-ratio:auto;height:52px;display:flex;align-items:center;gap:10px;}
+  .library-tile:hover{transform:none;}
+  .library-tile img{width:52px;height:52px;flex:none;}
+  .library-tile-label{display:block;min-width:0;padding-right:8px;font:700 13px 'Barlow Condensed',sans-serif;letter-spacing:.4px;
+    text-transform:uppercase;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .library-reset{margin-top:10px;font-size:11px;}
 }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -322,43 +351,29 @@ select option{background:var(--card);}
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
   <div class="logo-sub">Team Analysis</div>
   <div class="hdr-spacer"></div>
-  <div id="sectionSwitch" style="display:none;flex:none;gap:0;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;margin-right:10px;">
-    <button id="secBtnCounty" onclick="switchSection('county')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">COUNTY</button>
-    <button id="secBtnClub" onclick="switchSection('club')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">CLUB</button>
-    <button id="secBtnU20" onclick="switchSection('u20')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">U20s</button>
+  <!-- the main buttons (nav-admin): + Add Game / Code Room for admins and analysts, Analysis / Playlists for everyone,
+       Admin (the Admin hub, admin-hub.html) for admins. Batch Upload, Expected Points, Player Photos, Player Names and
+       Team live in the Admin hub now. On a phone this row wraps under the logo. -->
+  <nav class="hdr-nav" id="hdrNav">
+    <div id="sectionSwitch" style="display:none;flex:none;gap:0;border:1px solid var(--border,#333);border-radius:8px;overflow:hidden;">
+      <button id="secBtnCounty" onclick="switchSection('county')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">COUNTY</button>
+      <button id="secBtnClub" onclick="switchSection('club')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">CLUB</button>
+      <button id="secBtnU20" onclick="switchSection('u20')" style="border:none;padding:7px 14px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;background:transparent;color:var(--t2,#999);">U20s</button>
+    </div>
+    <a href="admin.html" class="hdr-btn hdr-btn-admin" id="adminBtn" style="display:none">+ Add Game</a>
+    <a href="code-room.html" class="hdr-btn hdr-btn-admin" id="codeRoomBtn" style="display:none">Code Room</a>
+    <a href="analysis.html" class="hdr-btn hdr-btn-admin" id="analysisBtn">Analysis</a>
+    <a href="playlists.html" class="hdr-btn hdr-btn-admin" id="plNavBtn">Playlists</a>
+    <a href="admin-hub.html" class="hdr-btn hdr-btn-admin" id="adminHubBtn" style="display:none" title="Admin hub — batch upload, team sheets, crests, player photos and names, expected points, team management">Admin</a>
+    <a href="my.html" class="hdr-btn" id="myBtn" style="display:none" title="Your own Player Dashboard, clips and playlists">
+      ⭐ My stats
+    </a>
+  </nav>
+  <div class="hdr-tools">
+    <span id="cohBellSlot"></span>
+    <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
+    <div class="hdr-btn" onclick="logout()">Sign Out</div>
   </div>
-  <a href="admin.html" class="hdr-btn hdr-btn-admin" id="adminBtn" style="display:none">
-    + Add Game
-  </a>
-  <a href="batch-upload.html" class="hdr-btn hdr-btn-admin" id="batchBtn" style="display:none">
-    Batch Upload
-  </a>
-  <a href="code-room.html" class="hdr-btn hdr-btn-admin" id="codeRoomBtn" style="display:none">
-    🎬 Code Room
-  </a>
-  <a href="analysis.html" class="hdr-btn">
-    📊 Analysis
-  </a>
-  <a href="xp-refit.html" class="hdr-btn hdr-btn-admin" id="xpBtn" style="display:none" title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">
-    📈 Expected Points
-  </a>
-  <a href="player-photos-admin.html" class="hdr-btn hdr-btn-admin" id="photosBtn" style="display:none" title="Player photos — upload a photo for any player; shown to signed-in users only">
-    👤 Player Photos
-  </a>
-  <a href="player-names-admin.html" class="hdr-btn hdr-btn-admin" id="namesBtn" style="display:none" title="Player names — find every spelling of a team's players across all its games and merge the wrong ones">
-    🔤 Player Names
-  </a>
-  <a href="team-admin.html" class="hdr-btn hdr-btn-admin" id="teamBtn" style="display:none" title="Team — invite people, set their roles and details, link a player to his name in the stats">
-    👥 Team
-  </a>
-  <a href="playlists.html" class="hdr-btn" id="plNavBtn">
-    🎞 Playlists
-  </a>
-  <a href="my.html" class="hdr-btn" id="myBtn" style="display:none" title="Your own Player Dashboard, clips and playlists">
-    ⭐ My stats
-  </a>
-  <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle">☀️</div>
-  <div class="hdr-btn" onclick="logout()">Sign Out</div>
 </header>
 
 <div class="filter-bar">
@@ -547,16 +562,15 @@ if(!auth && typeof cohesionAuthGate!=='function') window.location.href = 'index.
 // no xP / photos / player-names admin pages (the server refuses those for him as well).
 const CAN_EDIT = typeof cohesionCan === 'function' ? cohesionCan('edit') : auth === 'admin';
 const CAN_DELETE = typeof cohesionCan === 'function' ? cohesionCan('deleteGame') : auth === 'admin';
+// The top bar: + Add Game and Code Room for admins and analysts (upload / edit), the Admin hub for admins only.
+// Analysis and Playlists are always shown. Batch Upload, xP, photos, names and Team are reached from the Admin hub
+// (an analyst reaches Batch Upload and Re-parse from the Add Game page's own buttons).
 if(CAN_EDIT) {
   document.getElementById('adminBtn').style.display = 'flex';
-  document.getElementById('batchBtn').style.display = 'flex';
   document.getElementById('codeRoomBtn').style.display = 'flex';
 }
 if(auth === 'admin') {
-  document.getElementById('xpBtn').style.display = 'flex';
-  document.getElementById('photosBtn').style.display = 'flex';
-  document.getElementById('namesBtn').style.display = 'flex';
-  document.getElementById('teamBtn').style.display = 'flex';
+  document.getElementById('adminHubBtn').style.display = 'flex';
 }
 // MY STATS: shown when the signed-in person is linked to a player (Admin › Team). Quietly absent when the Team tables or
 // the function are not there.
@@ -657,6 +671,7 @@ function renderLibraryTiles(){
          onclick="applyLibraryTileFilter('${tile.key}')"
          title="${tile.label}">
       <img src="${tile.image}" alt="${tile.label}" loading="lazy">
+      <span class="library-tile-label">${tile.division ? 'Division ' + tile.division : String(tile.competition).replace(/ SFC$/, '')}</span>
     </div>
   `).join('');
 }
@@ -929,7 +944,7 @@ function renderGames(games){
               <div class="card-date">${formatDate(g.date)}</div>
               ${g.round?`<div class="card-round">${g.round}</div>`:''}
             </div>
-            <div class="card-events"><b>${g.eventCount||'—'}</b> coded events</div>
+            <div class="card-events"><b>${g.eventCount||'—'}</b> coded events${CAN_EDIT?libTSLine(g):''}</div>
           </div>
         </a>`;
       }).join('');
@@ -1133,10 +1148,31 @@ function libTeamSheetNote(){
   el.textContent=(h||a)?((g.homeTeam||'Home')+' '+h+' · '+(g.awayTeam||'Away')+' '+a):'No team sheet added';
 }
 function libTeamSheetEdit(){
-  const g=allGames.find(x=>x.id===pendingEditId); if(!g||!window.cohTS) return;
+  const g=allGames.find(x=>x.id===pendingEditId); if(!g) return;
+  libOpenTeamSheet(g, ()=>libTeamSheetNote());
+}
+// the shared editor for one game (this modal, and the status line on a card)
+function libOpenTeamSheet(g, after){
+  if(!g||!window.cohTS) return;
   cohTS.openEditor({ game:g, known:{home:[], away:[]},
     loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam, {section:cohSectionOf(g)}),
-    onSaved:merged=>{ g.rosters=merged.rosters; libTeamSheetNote(); showToast('Team sheets saved.'); } });
+    onSaved:merged=>{ g.rosters=merged.rosters; if(after) after(); libTSRefresh(g); showToast('Team sheets saved.'); } });
+}
+// The card's footer: "Team sheet ✓" (both teams) · "Team sheet: 1 of 2" · "No team sheet" (cohTS.sheetStatus — a team
+// counts when its sheet has at least 15 names with jersey numbers). A click opens the editor, not the game.
+function libTSLine(g){
+  if(!window.cohTS||!cohTS.sheetStatus) return '';
+  const st=cohTS.sheetStatus(g), cls=st.n===2?'ok':st.n===1?'part':'none';
+  const txt=st.n===2?'Team sheet ✓':st.n===1?'Team sheet: 1 of 2':'No team sheet';
+  const tip=(g.homeTeam||'Home')+': '+(st.home?'done':st.homeN+' numbered')+' · '+(g.awayTeam||'Away')+': '+(st.away?'done':st.awayN+' numbered')+' — click to edit the team sheets';
+  return `<button type="button" class="card-ts ${cls}" data-ts="${g.id}" title="${tip.replace(/"/g,'&quot;')}" onclick="libTSClick('${g.id}',event)">${txt}</button>`;
+}
+function libTSClick(id, e){
+  e.preventDefault(); e.stopPropagation();
+  libOpenTeamSheet(allGames.find(x=>x.id===id));
+}
+function libTSRefresh(g){
+  document.querySelectorAll('.card-ts[data-ts="'+g.id+'"]').forEach(b=>{ const t=document.createElement('div'); t.innerHTML=libTSLine(g); if(t.firstChild) b.replaceWith(t.firstChild); });
 }
 // ── Main video link ──────────────────────────────────────────
 // For a game uploaded without its video yet ("Add later" in the COHESION Code Room desktop app), or a wrong
