@@ -86,7 +86,7 @@
   // ── state ──
   let ITEMS = [], STORED = true, OPEN = false, LAST = 0, BUSY = false, WRAP = null, BTN = null, DOT = null, POP = null, ever = false;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const ICON = { game: '🎬', comment: '💬', share: '🔗', invite: '✅' };
+  const ICON = { game: '🎬', comment: '💬', mention: '📣', share: '🔗', invite: '✅' };
   function ago(ts) {
     const s = Math.max(0, (Date.now() - (Date.parse(ts) || 0)) / 1000);
     if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s / 60) + 'm ago'; if (s < 86400) return Math.floor(s / 3600) + 'h ago';

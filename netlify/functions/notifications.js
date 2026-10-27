@@ -7,6 +7,9 @@
  *   comment   NEW COMMENTS by other people on a playlist he OWNS, or on one he can see and has COMMENTED ON himself
  *             (only the comments after his first one), grouped per playlist (playlist_comments)
  *             → 'New comment on playlist "Kickouts"' / '3 new comments on playlist "Kickouts"' → playlists.html?pl=<id>
+ *   mention   someone @MENTIONED HIM in a comment (playlist_comments.mentions, supabase/telestration.sql), on a playlist
+ *             he can still see, while the comment still exists (read from the same recent-comments query: no extra query) → 'Colm Coach mentioned you on “Kickouts”'
+ *             → playlists.html?pl=<id>&cid=<clip id>&cm=<comment id> (that clip, that comment, the reply box focused)
  *   share     a playlist SHARED WITH HIM — by name (Named people) or with one of his groups (Groups); never a whole-
  *             section share (playlist_log 'create' / 'share' entries; only people / groups ADDED by that entry; the
  *             playlist must still be shared with him now) → playlists.html?pl=<id>
@@ -45,7 +48,7 @@ const supabase = createClient(
 
 const J = (code, obj) => ({ statusCode: code, body: JSON.stringify(obj) });
 const DAY = 24 * 3600 * 1000, WINDOW = 30 * DAY, MAX_ITEMS = 60, MAX_KEYS = 200;
-const KEY_RE = /^[gcsi]:[A-Za-z0-9_.:-]{1,120}$/;
+const KEY_RE = /^[gcsim]:[A-Za-z0-9_.:-]{1,120}$/;
 const missingTable = e => !!e && (e.code === '42P01' || e.code === 'PGRST205' || /relation .* does not exist|could not find the table/i.test(e.message || ''));
 const missingColumn = e => !!e && (e.code === '42703' || e.code === 'PGRST204' || /column .* does not exist|could not find the '.*' column/i.test(e.message || ''));
 async function safe(p) { try { const r = await p; return r || { data: null, error: null }; } catch (e) { return { data: null, error: { message: e.message } }; } }
@@ -100,7 +103,8 @@ async function gameItems(u, floor) {
 
 // ── 2. comments on his playlists / threads he is in ──────────────────────
 async function commentItems(u, floor, rowsOf, st) {
-  const recent = await safe(supabase.from('playlist_comments').select('id, playlist_id, author_email, author_name, created_at').gt('created_at', iso(floor)).order('created_at', { ascending: true }));
+  // '*': the mentions column (supabase/telestration.sql) comes with it when it exists — one query for comments AND mentions
+  const recent = await safe(supabase.from('playlist_comments').select('*').gt('created_at', iso(floor)).order('created_at', { ascending: true }));
   if (recent.error || !(recent.data || []).filter(c => String(c.author_email || '').toLowerCase() !== u.email).length) return [];
   const rows = await rowsOf();
   const mine = await safe(supabase.from('playlist_comments').select('playlist_id, created_at').eq('author_email', u.email));
@@ -129,6 +133,16 @@ async function commentItems(u, floor, rowsOf, st) {
     const by = [...new Set((unread.length ? unread : g.list).map(x => x.by))];
     out.push({ key, type: 'comment', ts, text, sub: by.slice(0, 3).join(', ') + (by.length > 3 ? ' +' + (by.length - 3) : ''), count: n,
       url: 'playlists.html?pl=' + encodeURIComponent(pid), section: sectionOf(g.p.data), unreadOverride: unread.length > 0 });
+  });
+  // @mentions of him: one item per comment, straight to that clip and comment
+  recent.data.forEach(c => {
+    if (!u.id || String(c.author_email || '').toLowerCase() === u.email) return;
+    if (!R.arr(c.mentions).some(m => m && String(m.id) === u.id)) return;
+    const p = byId.get(String(c.playlist_id)); if (!p) return;
+    if (!R.canView(p, u) || !u.sections.includes(sectionOf(p.data))) return;   // no longer his to see
+    const ts = ms(c.created_at); if (ts <= floor) return;
+    out.push({ key: 'm:' + c.id, type: 'mention', ts, text: (str(c.author_name, 60) || 'Someone') + ' mentioned you on ' + quote(p.name || 'Playlist'),
+      url: 'playlists.html?pl=' + encodeURIComponent(p.id) + (c.clip_id ? '&cid=' + encodeURIComponent(c.clip_id) : '') + '&cm=db-' + encodeURIComponent(c.id), section: sectionOf(p.data) });
   });
   return out;
 }

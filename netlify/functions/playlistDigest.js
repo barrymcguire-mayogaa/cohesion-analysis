@@ -3,7 +3,7 @@
  * Scheduled in netlify.toml (every 5 minutes). It is never called by a page.
  *
  * playlists.js queues one row in playlist_notify per recipient per event (a comment on your playlist; a playlist
- * shared with you). This function batches them so a burst of comments never spams anyone:
+ * shared with you; an @mention of you in a comment — kind 'mention'). This function batches them so a burst of comments never spams anyone:
  *   · at most ONE email per recipient per PLAYLIST_DIGEST_MINUTES (default 15), covering every playlist;
  *   · a recipient's batch waits until it has been quiet for 2 minutes (a burst lands in one email), or until its
  *     oldest item is PLAYLIST_DIGEST_MINUTES old, whichever comes first;
@@ -29,19 +29,19 @@ function compose(recipient, rows) {
   rows.forEach(r => { const k = String(r.playlist_id); if (!byPl.has(k)) byPl.set(k, { id: r.playlist_id, name: r.playlist_name, items: [] }); byPl.get(k).items.push(r); });
   const pls = [...byPl.values()], base = siteUrl();
   const link = p => (base ? base : '') + '/playlists.html?pl=' + encodeURIComponent(p.id);
-  const nComments = rows.filter(r => r.kind === 'comment').length, nShares = rows.filter(r => r.kind === 'share').length;
-  const subject = 'COHESION playlists — ' + [nComments ? nComments + ' new comment' + (nComments === 1 ? '' : 's') : '', nShares ? nShares + ' shared with you' : ''].filter(Boolean).join(', ');
+  const nComments = rows.filter(r => r.kind === 'comment').length, nShares = rows.filter(r => r.kind === 'share').length, nMentions = rows.filter(r => r.kind === 'mention').length;
+  const subject = 'COHESION playlists — ' + [nMentions ? nMentions + ' mention' + (nMentions === 1 ? '' : 's') + ' of you' : '', nComments ? nComments + ' new comment' + (nComments === 1 ? '' : 's') : '', nShares ? nShares + ' shared with you' : ''].filter(Boolean).join(', ');
   const lines = [], html = [];
   pls.forEach(p => {
     lines.push(p.name + '  ' + link(p));
     html.push('<h3 style="font-family:sans-serif;margin:16px 0 4px;"><a href="' + esc(link(p)) + '">' + esc(p.name) + '</a></h3><ul style="font-family:sans-serif;">');
     p.items.forEach(r => {
-      const t = r.kind === 'share' ? r.actor_name + ' shared this playlist with you' : r.actor_name + ': "' + r.excerpt + '"';
+      const t = r.kind === 'share' ? r.actor_name + ' shared this playlist with you' : r.kind === 'mention' ? r.actor_name + ' mentioned you: "' + r.excerpt + '"' : r.actor_name + ': "' + r.excerpt + '"';
       lines.push('  - ' + t); html.push('<li>' + esc(t) + '</li>');
     });
     html.push('</ul>');
   });
-  const foot = 'You get these because a playlist of yours was commented on or shared with you. Turn them off on the Playlists page (Email me: off).';
+  const foot = 'You get these because a playlist of yours was commented on or shared with you, or someone mentioned you. Turn them off on the Playlists page (Email me: off).';
   return { to: recipient, subject, text: lines.join('\n') + '\n\n' + foot, html: html.join('') + '<p style="font-family:sans-serif;color:#777;font-size:12px;">' + esc(foot) + '</p>' };
 }
 
