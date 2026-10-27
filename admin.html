@@ -156,7 +156,9 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
 .angle-empty{font-size:12px;color:var(--t3);padding:4px 0 10px;}
 
 /* MODE TOGGLE */
-.mode-toggle{display:flex;gap:8px;margin-bottom:24px;}
+.mode-toggle{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
+a.mode-btn{text-align:center;text-decoration:none;}
+@media(max-width:640px){ .mode-btn{flex:1 1 calc(50% - 8px);} header{gap:8px;padding:0 10px;} }
 .mode-btn{flex:1;padding:10px;border-radius:9px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);transition:all .15s;}
 .mode-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .mode-btn:hover:not(.on){border-color:var(--accent);color:var(--accent);}
@@ -203,18 +205,12 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
   <a href="library.html" class="logo">CO<span>HE</span>SION</a>
   <div class="admin-badge" id="roleBadge">Admin</div>
   <div class="hdr-s"></div>
-  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
-  <!-- Visual Sync hidden: superseded by Code Room's Sync Mode. Page kept until
-       Code Room sync is field-proven and legacy visualSync games are handled. -->
-  <a href="visual-sync-upload.html" class="hdr-btn" style="display:none;">Visual Sync</a>
-  <a href="batch-upload.html" class="hdr-btn">Batch Upload</a>
-  <a href="xp-refit.html" class="hdr-btn" data-admin-only title="Expected points (xP) model — see the current model, refit it on every game in COHESION and publish">📈 Expected Points</a>
-  <a href="crests-admin.html" class="hdr-btn" data-admin-only title="Upload club and county crests used on the stats image, PDF, maps image and infographic">🛡 Crests</a>
-  <a href="player-photos-admin.html" class="hdr-btn" data-admin-only title="Upload player photos — shown to signed-in users only, on the Players tab and the team sheets">👤 Player Photos</a>
-  <a href="player-names-admin.html" class="hdr-btn" data-admin-only title="Find every spelling of a team's players across all its games and merge the wrong ones into the right one">🔤 Player Names</a>
-  <a href="team-admin.html" class="hdr-btn" data-admin-only title="Team — invite people, set their roles and details (Netlify Identity), link a player to his name in the stats">👥 Team</a>
-  <a href="shot-45-line-admin.html" class="hdr-btn" data-admin-only title="Move every saved '45 onto the 45 m line, in every game at once — preview first, with a log of every change">📍 ’45s on the line</a>
+  <!-- The admin pages (xP, crests, photos, names, Team, '45s, Team Sheets, Visual Sync) are reached from the Admin hub
+       now (admin-hub.html, admins only). This page stays the Add Game page an analyst uses too. -->
+  <a href="admin-hub.html" class="hdr-btn" id="hubLink" data-admin-only title="Admin hub — every admin page in one place">Admin hub</a>
   <a href="library.html" class="hdr-btn">← Library</a>
+  <span id="cohBellSlot"></span>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
   <div class="hdr-btn" onclick="logout()">Sign Out</div>
 </header>
 
@@ -232,6 +228,7 @@ code{background:var(--card);border:1px solid var(--border);border-radius:4px;pad
     <button class="mode-btn"    id="modeReparse" onclick="setMode('reparse')">🔄 Re-parse Existing Game</button>
     <button class="mode-btn"    id="modeManage"  onclick="setMode('manage')">👥 Manage Players</button>
     <button class="mode-btn"    id="modeDelete"  data-admin-only onclick="setMode('delete')" style="color:var(--red);border-color:var(--red);">🗑️ Delete Game</button>
+    <a class="mode-btn" id="modeBatch" href="batch-upload.html" title="Upload several games at once from a spreadsheet">📦 Batch Upload</a>
   </div>
 
   <!-- RE-PARSE: GAME SELECTOR (hidden in new-game mode) -->
@@ -3035,6 +3032,14 @@ function setModeOverride(m){
 // Override the original setMode to handle manage and delete modes
 const originalSetMode = setMode;
 setMode = function(m){ return (m==='manage' || m==='delete') ? setModeOverride(m) : originalSetMode(m); };
+// admin.html?mode=reparse | manage | delete opens that mode (the Admin hub's tiles). Delete is an admin's only:
+// setModeOverride refuses it for anyone else, so an analyst given ?mode=delete stays on New Game.
+(function(){
+  let m=''; try{ m=new URLSearchParams(location.search).get('mode')||''; }catch(_){}
+  if(!/^(reparse|manage|delete)$/.test(m)) return;
+  const go=()=>setMode(m);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 
 async function loadGamesForManage(){
   const listDiv = document.getElementById('manageGameDropdownList');

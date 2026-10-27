@@ -101,6 +101,17 @@
     if(side) return sheet(game, side).length>0;
     return sheet(game,'home').length>0||sheet(game,'away').length>0;
   }
+  // A team HAS A TEAM SHEET (Library card line, Admin › Team Sheets) when its sheet lists at least SHEET_MIN players
+  // with a name AND a jersey number — a full starting fifteen. Names without numbers do not count: jersey numbers
+  // come only from the sheet, never from the order of the names. → {home, away, homeN, awayN, n}
+  //   home / away: that side is done · homeN / awayN: numbered names on it · n: how many sides are done (0–2)
+  const SHEET_MIN=15;
+  function numbered(game, side){ return sheet(game, side).filter(r=>r.no!=='').length; }
+  function sheetDone(game, side){ return numbered(game, side)>=SHEET_MIN; }
+  function sheetStatus(game){
+    const homeN=numbered(game,'home'), awayN=numbered(game,'away'), home=homeN>=SHEET_MIN, away=awayN>=SHEET_MIN;
+    return {home, away, homeN, awayN, n:(home?1:0)+(away?1:0)};
+  }
   // starters (number order, blanks last), then subs, then role-not-set
   function sortRows(rows){
     const rk=r=>r.role==='start'?0:r.role==='sub'?1:2, nk=r=>r.no===''?1e6:+r.no;
@@ -298,7 +309,7 @@
     return root.cohTS._reader().then(R=>R.read(file, opts));
   }
 
-  const API={ tidyName, nameKey, matchKnown, splitNumberName, normEntry, toStored, sideOf, sheet, hasSheet, sortRows, groups,
+  const API={ tidyName, nameKey, matchKnown, splitNumberName, normEntry, toStored, sideOf, sheet, hasSheet, SHEET_MIN, sheetDone, sheetStatus, sortRows, groups,
     validate, gameKind, numberLimit, posOf, pitchLayout, pitchScore, parsePaste, mergeMeta, label, orderedNames, sheetFirst, nameForNo, subDetail, subDetailFor, fromFile };
   root.cohTS=API;
   root.cohTeamSheetFromFile=fromFile;

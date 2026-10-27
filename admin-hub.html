@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--logo-color:#ffffff;--tile:#20202a;--tile-t:#ffffff;
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--logo-color:#1a1a28;--tile:#ffffff;--tile-t:#1a1a28;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{min-height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.hub{max-width:830px;margin:0 auto;padding:34px 20px 60px;}
+.hub-title{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:4px;}
+.hub-sub{font-size:13px;color:var(--t2);margin-bottom:24px;}
+/* the main buttons: the Library's top-bar style (blue outline, bold condensed caps), larger */
+.hub-btn{display:flex;align-items:center;justify-content:center;text-align:center;min-height:52px;padding:10px 12px;border-radius:10px;
+  font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;text-decoration:none;
+  background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);transition:all .15s;}
+.hub-btn:hover,.hub-btn:focus-visible{background:var(--accent);color:#fff;outline:none;}
+.hub-row{display:grid;gap:14px;margin-bottom:14px;}
+.hub-row.four{grid-template-columns:repeat(4,1fr);}
+.hub-row.two{grid-template-columns:repeat(2,1fr);margin-bottom:28px;}
+.hub-row.two .hub-btn{min-height:58px;}
+/* the admin pages: large square tiles, 4 a row */
+.hub-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.hub-tile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;text-align:center;
+  background:var(--tile);border:1px solid var(--border2);border-radius:12px;text-decoration:none;color:var(--tile-t);
+  font:700 21px/1.15 'Barlow Condensed',sans-serif;letter-spacing:.5px;transition:border-color .15s,background .15s,transform .15s;}
+.hub-tile:hover,.hub-tile:focus-visible{border-color:var(--accent);background:var(--hover);transform:translateY(-2px);outline:none;}
+.hub-tile small{font:600 11px/1.3 'Barlow',sans-serif;letter-spacing:0;color:var(--t2);}
+@media (max-width:640px){
+  header{flex-wrap:wrap;padding:8px 10px;gap:8px;}
+  .hub{padding:22px 14px 40px;}
+  .hub-row.four{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;}
+  .hub-row.two{grid-template-columns:1fr;gap:10px;margin-bottom:20px;}
+  .hub-btn{min-height:46px;font-size:14px;}
+  .hub-tiles{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .hub-tile{font-size:18px;}
+}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-edit.js"></script>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <a href="library.html" class="hdr-btn">← Library</a>
+  <span id="cohBellSlot"></span>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<main class="hub" id="hub" style="display:none">
+  <div class="hub-title">Admin</div>
+  <div class="hub-sub">Every admin page in one place.</div>
+  <div class="hub-row four">
+    <a class="hub-btn" href="admin.html">+ Add Game</a>
+    <a class="hub-btn" href="code-room.html">Code Room</a>
+    <a class="hub-btn" href="analysis.html">Analysis</a>
+    <a class="hub-btn" href="playlists.html">Playlists</a>
+  </div>
+  <div class="hub-row two">
+    <a class="hub-btn" href="analysis.html#reports" title="Analysis › Reports: build a report for a team or a game">Report Creator</a>
+    <a class="hub-btn" href="team-admin.html" title="Invite people, set their roles and details, link a player to his name in the stats">Team Management</a>
+  </div>
+  <div class="hub-tiles" id="hubTiles">
+    <a class="hub-tile" href="batch-upload.html" title="Upload several games at once from a spreadsheet">Batch Upload</a>
+    <a class="hub-tile" href="admin.html?mode=reparse" title="Upload a corrected file for a game already in COHESION">Re-parse Existing Game</a>
+    <a class="hub-tile" href="team-sheets.html" title="Every game's team sheets: which are missing, and edit them">Team Sheets</a>
+    <a class="hub-tile" href="crests-admin.html" title="Club and county crests used on the stats image, PDF, maps image and infographic">Crests Upload</a>
+    <a class="hub-tile" href="player-photos-admin.html" title="Upload player photos — shown to signed-in users only">Player Photos</a>
+    <a class="hub-tile" href="player-names-admin.html" title="Find every spelling of a team's players across all its games and merge the wrong ones">Player Names</a>
+    <a class="hub-tile" href="xp-refit.html" title="The expected points (xP) model: see it, refit it on every game and publish">Expected Points</a>
+    <a class="hub-tile" href="admin.html?mode=delete" title="Permanently remove a game and all its events">Delete Game</a>
+    <a class="hub-tile" href="shot-45-line-admin.html" title="Move every saved '45 onto the 45 m line, in every game at once — preview first">’45s on the line</a>
+    <a class="hub-tile" href="visual-sync-upload.html" title="The old Visual Sync page (superseded by Code Room's Sync Mode). It reads the games table directly with the public key, which the database no longer allows, so its game list does not load.">Visual Sync<small>Old page · game list does not load</small></a>
+  </div>
+</main>
+
+<script>
+// Admins only — the same gate as the other admin pages (team-admin.html, player-names-admin.html …): the sign-in gate
+// first (cohesion-edit.js), then anyone who is not an admin goes back to the Library. The pages it links to check again.
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+const auth = sessionStorage.getItem('cohesion_auth');
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
+else document.getElementById('hub').style.display = '';
+
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  localStorage.setItem('cohesion_theme', n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+</script>
+<script src="cohesion-theme.js"></script>
+</body>
+</html>
