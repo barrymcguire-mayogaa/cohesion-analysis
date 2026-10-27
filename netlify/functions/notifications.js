@@ -62,12 +62,14 @@ const plural = (n, one, many) => n === 1 ? one : n + ' ' + many;
 const quote = s => '“' + str(s, 80) + '”';
 
 // ── the caller's read state (playlist_prefs) ─────────────────────────────
+// a new user's bell looks back 7 days on his first visit, so recent games and shares are there (Barry, 27 Oct)
+const LOOKBACK_MS = 7 * 24 * 3600 * 1000;
 async function stateOf(email, now) {
   const r = await safe(supabase.from('playlist_prefs').select('*').eq('email', email));
   if (r.error) return { stored: false, since: 0 };   // SQL not run: the last 30 days; the page keeps its own start point
   let row = (Array.isArray(r.data) ? r.data[0] : r.data) || null;
   if (!row) {
-    row = { email, email_opt_out: false, badge_since: iso(now), notify_since: iso(now), notify_read: {} };
+    row = { email, email_opt_out: false, badge_since: iso(now), notify_since: iso(now - LOOKBACK_MS), notify_read: {} };
     const w = await safe(supabase.from('playlist_prefs').insert(row));
     if (w.error) return { stored: false, since: 0 };
   }

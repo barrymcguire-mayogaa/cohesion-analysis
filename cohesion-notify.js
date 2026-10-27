@@ -44,7 +44,7 @@
   const LKEY = () => 'cohesion_notify_' + who();
   function local() {
     let s = null; try { s = JSON.parse(localStorage.getItem(LKEY()) || 'null'); } catch (_) {}
-    if (!s || typeof s !== 'object' || !s.since) { s = { since: new Date().toISOString(), readAll: null, read: {} }; saveLocal(s); }
+    if (!s || typeof s !== 'object' || !s.since) { s = { since: new Date(Date.now() - 7 * 864e5).toISOString(), readAll: null, read: {} }; saveLocal(s); }   // 7-day look-back
     if (!s.read || typeof s.read !== 'object') s.read = {};
     return s;
   }

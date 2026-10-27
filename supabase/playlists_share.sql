@@ -66,7 +66,7 @@ create unique index if not exists playlist_prefs_email_uq on public.playlist_pre
 -- user's READ STATE is kept here. notify_since = when the bell started for him (no flood of old items at launch: an
 -- existing row gets the moment this script runs, a new row the moment it is made); notify_read_at = his last
 -- "Mark all read"; notify_read = {item key: when he read it} for single items (entries older than 30 days are pruned).
-alter table public.playlist_prefs add column if not exists notify_since   timestamptz not null default now();
+alter table public.playlist_prefs add column if not exists notify_since   timestamptz not null default (now() - interval '7 days');
 alter table public.playlist_prefs add column if not exists notify_read_at timestamptz;
 alter table public.playlist_prefs add column if not exists notify_read    jsonb       not null default '{}'::jsonb;
 
@@ -129,3 +129,4 @@ grant usage, select on sequence public.playlist_prefs_id_seq    to service_role;
 grant usage, select on sequence public.playlist_notify_id_seq   to service_role;
 grant usage, select on sequence public.playlist_log_id_seq      to service_role;
 -- playlists itself keeps its existing grants (service role; anon / authenticated SELECT already revoked by LOCKDOWN.sql)
+
