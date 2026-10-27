@@ -541,7 +541,9 @@ exports.handler = async (event, context) => {
           newId = 'db-' + ((ins.data && ins.data.id) != null ? ins.data.id : '');
         }
         await logAction(row, u, 'comment_add', { on: where, clipId: it ? it.cid : null, text: str(text, 300), t });
-        await enqueue(row, u, 'comment', [row.owner], text);
+        // the owner and everyone it is shared with (named people / group members); whole-section shares email nobody
+        const sharees = await shareRecipients({ level: 'private', people: [], groups: [] }, shareOf(row), sectionOf(row.data), context);
+        await enqueue(row, u, 'comment', [row.owner, ...sharees], text);
         return answer({ commentId: newId, clipId: it ? it.cid : null });
       }
 

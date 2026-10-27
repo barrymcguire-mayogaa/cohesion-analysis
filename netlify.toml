@@ -44,4 +44,4 @@
 # Playlist notification emails go out as a digest (netlify/functions/playlistDigest.js). Nothing is sent until
 # EMAIL_API_KEY and EMAIL_FROM are set in Netlify's environment variables.
 [functions."playlistDigest"]
-  schedule = "*/5 * * * *"
+  schedule = "*/15 * * * *"

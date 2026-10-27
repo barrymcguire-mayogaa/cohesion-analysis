@@ -15,8 +15,8 @@
  *
  * WHO MAY DO WHAT
  *   view / comment    admin: every playlist, every level, every section. Others: within their sections, by the level.
- *   edit              admin · the owner · an analyst on an OFFICIAL whole-section playlist (as before: analysts edit
- *                     club-wide playlists). Edit = rename, re-order, add / remove clips, notes, drawings, trims, cover.
+ *   edit              admin · the owner · an analyst on any playlist he can see (staff ones, and players' playlists
+ *                     shared with him or the section; never someone's "Only me"). Edit = rename, re-order, add / remove clips, notes, drawings, trims, cover.
  *   share             admin · the owner (a legacy club-wide playlist has no owner: admin only)
  *   delete            admin · the owner of a playlist that is not OFFICIAL (official ones are deleted by an admin)
  *   moderate          admin · the owner — remove anyone's comment on it. Everyone edits / deletes their OWN comments.
@@ -76,7 +76,7 @@ function canEdit(row, u) {
   if (u.admin) return true;
   if (!inWall(row, u)) return false;
   if (isOwner(row, u)) return true;
-  return u.analyst && isOfficial(row) && levelOf(row) === 'section';
+  return u.analyst && seesAsMember(row, u);   // analysts edit any playlist they can see (staff ones and players' shared ones)
 }
 function canShare(row, u) { return u.admin || (inWall(row, u) && isOwner(row, u)); }
 function canDelete(row, u) { return u.admin || (inWall(row, u) && isOwner(row, u) && !isOfficial(row)); }
