@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COHESION — Team Sheets</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+[data-theme="dark"]{
+  --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
+  --border:rgba(255,255,255,0.08);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--logo-color:#ffffff;--ok:#4caf50;--miss:#f5a623;
+}
+[data-theme="light"]{
+  --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
+  --border:rgba(0,0,0,0.1);--t1:#1a1a28;--t2:#555572;--t3:#888899;
+  --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--logo-color:#1a1a28;--ok:#15803d;--miss:#b45309;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
+header{min-height:54px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:var(--logo-color);text-decoration:none;}
+.logo span{color:var(--logo-color);}
+.admin-badge{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent);padding:3px 8px;border-radius:5px;}
+.hdr-s{flex:1;}
+.hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.page{max-width:1100px;margin:0 auto;padding:28px 20px 60px;}
+.page-title{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--t2);margin-bottom:18px;line-height:1.55;}
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;}
+select,.search-inp{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
+select{cursor:pointer;}
+select:focus,.search-inp:focus{border-color:var(--accent);}
+.search-inp{min-width:180px;}
+.search-inp::placeholder{color:var(--t3);}
+.miss-tog{display:flex;align-items:center;gap:6px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);cursor:pointer;user-select:none;}
+.miss-tog input{accent-color:var(--miss);cursor:pointer;}
+.count{margin-left:auto;font:600 12px 'Barlow Condensed',sans-serif;color:var(--t3);letter-spacing:.5px;}
+.ts-list{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.ts-row{display:grid;grid-template-columns:96px minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.6fr);gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border);}
+.ts-row:last-child{border-bottom:none;}
+.ts-row:hover{background:var(--hover);}
+.ts-date{font:600 12px 'Barlow Condensed',sans-serif;color:var(--t2);letter-spacing:.3px;}
+.ts-teams{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ts-teams .vs{color:var(--t3);font-weight:400;font-size:13px;margin:0 4px;}
+.ts-comp{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ts-comp b{font:600 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--accent);text-transform:uppercase;margin-left:6px;}
+.ts-sec{font:700 9px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;margin-left:6px;}
+.ts-status{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font:600 13px 'Barlow Condensed',sans-serif;letter-spacing:.3px;}
+.ts-status .dot{color:var(--t3);}
+.ts-team{border:none;background:none;padding:2px 4px;border-radius:5px;cursor:pointer;font:inherit;letter-spacing:inherit;color:var(--t1);text-align:left;}
+.ts-team:hover,.ts-team:focus-visible{background:var(--accent-bg);outline:none;}
+.ts-team .mk{font-weight:800;margin-right:3px;}
+.ts-team.ok .mk{color:var(--ok);}
+.ts-team.miss .mk{color:var(--miss);}
+.ts-team small{color:var(--t3);font-size:11px;margin-left:3px;}
+.empty{padding:40px 20px;text-align:center;color:var(--t3);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 18px;font:600 12px 'Barlow Condensed',sans-serif;color:var(--t1);box-shadow:0 8px 24px rgba(0,0,0,.35);opacity:0;transition:opacity .2s;pointer-events:none;z-index:300;}
+.toast.show{opacity:1;}
+@media (max-width:760px){
+  header{flex-wrap:wrap;padding:8px 10px;gap:8px;}
+  .page{padding:20px 12px 40px;}
+  .ts-row{grid-template-columns:1fr;gap:4px;}
+  .search-inp{min-width:0;flex:1 1 100%;}
+  .count{margin-left:0;}
+}
+</style>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script src="cohesion-labels.js"></script>
+<script src="cohesion-edit.js"></script>
+<script src="cohesion-photos.js"></script>
+<script src="cohesion-teamsheet.js"></script>
+</head>
+<body>
+<header>
+  <a href="library.html" class="logo">CO<span>HE</span>SION</a>
+  <div class="admin-badge">Admin</div>
+  <div class="hdr-s"></div>
+  <a href="admin-hub.html" class="hdr-btn">Admin hub</a>
+  <a href="library.html" class="hdr-btn">← Library</a>
+  <span id="cohBellSlot"></span>
+  <div class="hdr-btn" onclick="toggleTheme()" id="themeToggle" style="width:36px;height:36px;justify-content:center;border-radius:50%;padding:0;">☀️</div>
+  <div class="hdr-btn" onclick="logout()">Sign Out</div>
+</header>
+
+<div class="page" id="page" style="display:none">
+  <div class="page-title">Team Sheets</div>
+  <div class="page-sub">Every game, newest first, with each team's sheet. <b style="color:var(--ok)">✓</b> the team has a sheet (at least 15 players with a name and a jersey number);
+    <b style="color:var(--miss)">✗</b> it has not, or it is short. Click a team to open that game's team sheets.</div>
+  <div class="filter-bar">
+    <select id="fSection" onchange="tsApply()"><option value="">All sections</option></select>
+    <select id="fComp" onchange="tsApply()"><option value="">All Competitions</option></select>
+    <select id="fTeam" onchange="tsApply()"><option value="">All Teams</option></select>
+    <select id="fYear" onchange="tsApply()"><option value="">All Years</option></select>
+    <input class="search-inp" id="fSearch" type="text" placeholder="Search games…" oninput="tsApply()">
+    <label class="miss-tog"><input type="checkbox" id="fMissing" onchange="tsApply()"> Missing only</label>
+    <div class="count" id="tsCount"></div>
+  </div>
+  <div class="ts-list" id="tsList"><div class="empty">Loading games…</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// Admins only (analysts edit a game's sheets from its card in the Library). Same gate as the other admin pages.
+const gated = typeof cohesionAuthGate==='function' ? cohesionAuthGate() : !!sessionStorage.getItem('cohesion_auth');
+const auth = sessionStorage.getItem('cohesion_auth');
+const TS_OK = gated && auth === 'admin';
+if(!gated){ if(typeof cohesionAuthGate!=='function') window.location.href = 'index.html'; }
+else if(auth !== 'admin') window.location.href = 'library.html';
+else document.getElementById('page').style.display = '';
+
+function logout(){ try{ netlifyIdentity.logout(); }catch(_){} sessionStorage.clear(); window.location.href = 'index.html'; }
+function initTheme(){
+  const t = localStorage.getItem('cohesion_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeToggle').textContent = t==='dark'?'☀️':'🌙';
+}
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  localStorage.setItem('cohesion_theme', n);
+  document.getElementById('themeToggle').textContent = n==='dark'?'☀️':'🌙';
+}
+initTheme();
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3500); }
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+// ── data: every game in the sections this admin can see (data.js listGames, section 'all') ──
+let tsGames = [];
+// the Library's helpers (library.html getYearFromDate / formatDate), as there
+function tsYear(d){ if(!d) return ''; if(typeof d==='string'){ const m=d.match(/^(\d{4})/); return m?m[1]:''; } if(typeof d==='number'){ try{ return String(new Date((d-25569)*864e5).getFullYear()); }catch(_){ return ''; } } return ''; }
+function tsDate(d){ if(!d) return '—'; const dt=new Date(d); return isNaN(dt)?String(d):dt.toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'numeric'}); }
+function tsFill(id, values, label){
+  const sel=document.getElementById(id), keep=sel.value;
+  sel.innerHTML='<option value="">'+label+'</option>'+values.map(v=>'<option value="'+esc(v[0])+'">'+esc(v[1])+'</option>').join('');
+  if(values.some(v=>v[0]===keep)) sel.value=keep;
+}
+function tsFilters(){
+  const uniq=a=>[...new Set(a.filter(Boolean))];
+  const secs=uniq(tsGames.map(g=>cohSectionOf(g)));
+  tsFill('fSection', ['county','club','u20'].filter(s=>secs.includes(s)).map(s=>[s, cohSectionLabel(s)]), 'All sections');
+  document.getElementById('fSection').style.display = secs.length>1 ? '' : 'none';
+  tsFill('fComp', uniq(tsGames.map(g=>g.competition)).sort().map(c=>[c,c]), 'All Competitions');
+  tsFill('fTeam', uniq(tsGames.flatMap(g=>[g.homeTeam, g.awayTeam])).sort().map(t=>[t,t]), 'All Teams');
+  tsFill('fYear', uniq(tsGames.map(g=>tsYear(g.date))).sort().reverse().map(y=>[y,y]), 'All Years');
+}
+async function tsLoad(){
+  try{
+    const j=await cohesionRead({ action:'listGames', section:'all' });
+    tsGames=(j.games||[]).map(r=>{ let m=r.meta; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ m=null; } }
+      if(m&&typeof m==='object'&&m.id==null) m.id=r.id; return m; }).filter(g=>g&&typeof g==='object'&&g.id);
+    tsGames.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    tsFilters(); tsApply();
+  }catch(e){
+    document.getElementById('tsList').innerHTML='<div class="empty">Could not load the games: '+esc(e.message)+'</div>';
+  }
+}
+function tsFiltered(){
+  const v=id=>document.getElementById(id).value;
+  const sec=v('fSection'), comp=v('fComp'), team=v('fTeam'), year=v('fYear'), q=v('fSearch').trim().toLowerCase(), missing=document.getElementById('fMissing').checked;
+  return tsGames.filter(g=>{
+    if(sec && cohSectionOf(g)!==sec) return false;
+    if(comp && g.competition!==comp) return false;
+    if(team && g.homeTeam!==team && g.awayTeam!==team) return false;
+    if(year && tsYear(g.date)!==year) return false;
+    if(q && ![g.title,g.competition,g.homeTeam,g.awayTeam,g.round].map(x=>x||'').join(' ').toLowerCase().includes(q)) return false;
+    if(missing && cohTS.sheetStatus(g).n===2) return false;
+    return true;
+  });
+}
+function tsTeamBtn(g, side){
+  const st=cohTS.sheetStatus(g), done=st[side], n=side==='home'?st.homeN:st.awayN, name=(side==='home'?g.homeTeam:g.awayTeam)||side;
+  const tip=done?name+': team sheet done ('+n+' numbered players)':name+': '+(n?'only '+n+' numbered player'+(n===1?'':'s')+' on the sheet':'no team sheet')+' — click to add it';
+  return '<button type="button" class="ts-team '+(done?'ok':'miss')+'" data-game="'+esc(g.id)+'" data-side="'+side+'" title="'+esc(tip)+'" onclick="tsOpen(this.dataset.game)">'
+    +'<span class="mk">'+(done?'✓':'✗')+'</span>'+esc(name)+(!done&&n?'<small>'+n+'/15</small>':'')+'</button>';
+}
+function tsRowHtml(g){
+  const secs=cohesionSections();
+  return '<div class="ts-row" data-id="'+esc(g.id)+'">'
+    +'<div class="ts-date">'+esc(tsDate(g.date))+'</div>'
+    +'<div class="ts-teams">'+esc(g.homeTeam||'Home')+'<span class="vs">v</span>'+esc(g.awayTeam||'Away')+'</div>'
+    +'<div class="ts-comp">'+esc(g.competition||'—')+(g.round?'<b>'+esc(g.round)+'</b>':'')+(secs.length>1?'<span class="ts-sec">'+esc(cohSectionLabel(cohSectionOf(g)))+'</span>':'')+'</div>'
+    +'<div class="ts-status">'+tsTeamBtn(g,'home')+'<span class="dot">·</span>'+tsTeamBtn(g,'away')+'</div>'
+    +'</div>';
+}
+function tsApply(){
+  const list=tsFiltered();
+  const missingN=list.filter(g=>cohTS.sheetStatus(g).n<2).length;
+  document.getElementById('tsCount').textContent=list.length+' game'+(list.length===1?'':'s')+(missingN?' · '+missingN+' missing a sheet':'');
+  document.getElementById('tsList').innerHTML=list.length?list.map(tsRowHtml).join(''):'<div class="empty">No games found — try adjusting the filters.</div>';
+}
+// the shared team-sheet editor (cohesion-teamsheet.js) — the same one the Library card and the Dashboard open
+function tsOpen(id){
+  const g=tsGames.find(x=>String(x.id)===String(id)); if(!g||!window.cohTS) return;
+  cohTS.openEditor({ game:g, known:{home:[], away:[]},
+    loadKnown:side=>cohTS.loadKnown(side==='home'?g.homeTeam:g.awayTeam, {section:cohSectionOf(g)}),
+    onSaved:merged=>{ g.rosters=merged.rosters; tsApply(); showToast('Team sheets saved.'); } });
+}
+if(TS_OK) tsLoad();
+</script>
+<script src="cohesion-theme.js"></script>
+</body>
+</html>
