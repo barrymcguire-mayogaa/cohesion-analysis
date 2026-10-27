@@ -1,5 +1,5 @@
 -- COHESION — playlists open to players and coaches: sharing levels, comments, the "new comments" badge, email
--- notifications and the admins' activity log (Barry, Oct 2026).
+-- notifications, the admins' activity log and the 🔔 notification bell's read state (Barry, Oct 2026).
 --
 -- Run once in the Supabase SQL editor (safe to run again: every statement is idempotent). Nothing here changes or
 -- removes an existing row: every playlist keeps working exactly as before —
@@ -7,6 +7,7 @@
 --   scope 'personal' → Only me         (visibility NULL → 'private')
 -- Until it is run the site still works: 'Only me' / 'Whole section' playlists and clip comments are written the old
 -- way; Named people / Groups sharing, the badge, emails and the log answer "run supabase/playlists_share.sql".
+-- The 🔔 bell then shows new games only, with its read state kept in each browser.
 --
 -- Access: RLS on with NO policies, and no grants for anon / authenticated — like player_notes.sql. Only the service
 -- role (the Netlify functions playlists.js and playlistDigest.js, which check the user's Identity JWT and roles on
@@ -40,6 +41,8 @@ create table if not exists public.playlist_comments (
   edited_at     timestamptz
 );
 create index if not exists playlist_comments_playlist_idx on public.playlist_comments (playlist_id, created_at);
+create index if not exists playlist_comments_created_idx  on public.playlist_comments (created_at desc);   -- the bell: recent comments
+create index if not exists playlist_comments_author_idx   on public.playlist_comments (author_email);       -- the bell: threads he is in
 
 -- ── the badge: when each user last read each playlist's comments ──
 create table if not exists public.playlist_seen (
@@ -58,6 +61,14 @@ create table if not exists public.playlist_prefs (
   badge_since    timestamptz not null default now()
 );
 create unique index if not exists playlist_prefs_email_uq on public.playlist_prefs (email);
+-- the 🔔 notification bell (netlify/functions/notifications.js): nothing is written per event — the items are worked out
+-- on each call from games.created_at, playlist_comments, playlist_log ('create' / 'share') and Identity; only each
+-- user's READ STATE is kept here. notify_since = when the bell started for him (no flood of old items at launch: an
+-- existing row gets the moment this script runs, a new row the moment it is made); notify_read_at = his last
+-- "Mark all read"; notify_read = {item key: when he read it} for single items (entries older than 30 days are pruned).
+alter table public.playlist_prefs add column if not exists notify_since   timestamptz not null default now();
+alter table public.playlist_prefs add column if not exists notify_read_at timestamptz;
+alter table public.playlist_prefs add column if not exists notify_read    jsonb       not null default '{}'::jsonb;
 
 -- ── the email queue (sent as a digest by playlistDigest.js) ──
 create table if not exists public.playlist_notify (

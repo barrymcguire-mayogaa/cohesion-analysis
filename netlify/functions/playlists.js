@@ -260,7 +260,9 @@ async function shareRecipients(before, after, section, context) {
   return [];
 }
 const shareOf = row => ({ level: R.levelOf(row), people: R.peopleOf(row), groups: R.groupsOfRow(row) });
-const shareSummary = s => ({ level: s.level, people: s.people.map(p => p.name || p.id), groups: s.groups });
+// peopleIds: the sharees' Identity ids, so the 🔔 bell (notifications.js) can tell a person a playlist was shared with him
+// (names alone are not unique; an email never goes in the log's details)
+const shareSummary = s => ({ level: s.level, people: s.people.map(p => p.name || p.id), peopleIds: s.people.map(p => String(p.id || '')).filter(Boolean), groups: s.groups });
 
 // write a playlists row; before the SQL is run the new columns do not exist — fall back to the old ones when the
 // level can be said with scope alone (Only me / Whole section)

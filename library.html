@@ -1364,9 +1364,9 @@ function switchSection(s){
   if (typeof loadGames === 'function') loadGames();
 }
 paintSectionSwitch();
-// the "new comments" badge on 🎞 Playlists (comments on playlists he can see, since he last opened each one)
-if (typeof cohesionPlaylistBadge === 'function') setTimeout(() => cohesionPlaylistBadge(document.getElementById('plNavBtn')), 600);
+// (the 🎞 Playlists button no longer carries its own "new comments" number: the 🔔 bell — cohesion-notify.js — has it)
 </script>
+<script src="cohesion-notify.js"></script>
 <script src="cohesion-theme.js"></script>
 </body>
 </html>
