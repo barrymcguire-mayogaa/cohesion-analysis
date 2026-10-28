@@ -279,6 +279,9 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cmjump:hover{text-decoration:underline;}
 .cmdrawbtn{flex:none;}
 .cmrow{position:relative;flex-wrap:wrap;}
+.offbar{display:none;align-items:center;gap:10px;margin:0 0 12px;padding:10px 14px;border-radius:10px;border:1px solid var(--orange);background:rgba(255,152,0,.1);color:var(--t1);font:600 12.5px 'Barlow',sans-serif;}
+.offbar b{color:var(--orange);font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;}
+body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl-offline #drawBtn,body.pl-offline #trimBtn,body.pl-offline #newBtn,body.pl-offline #saveBar,body.pl-offline #mailBtn{display:none !important;}
 .atpick{position:fixed;z-index:100001;min-width:220px;max-width:300px;max-height:250px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 32px var(--shadow);padding:4px;display:none;}
 .atpick .aphd{font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--t3);text-transform:uppercase;padding:6px 9px 4px;}
 .atpick .ap{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;font:600 13px 'Barlow',sans-serif;color:var(--t1);}
@@ -307,6 +310,7 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 </header>
 
 <div class="page">
+  <div class="offbar" id="offBar"><b>Offline</b><span id="offTx">You are looking at the copy kept on this computer. Comments, drawings and @mentions are available online.</span></div>
 
   <!-- BROWSE -->
   <div id="browse">
@@ -496,6 +500,7 @@ async function loadPlaylists(){
     // an admin sees every playlist in every section (the Section filter narrows it); everyone else his section's
     const j=await plAuthFetch(IS_REAL_ADMIN?{action:'list', all:true}:{action:'list', section: cohesionSection()});
     PLAYLISTS=j.playlists||[]; ME=j.me||null; UNREAD_TOTAL=j.unreadTotal||0;
+    paintOffline(!!j.offline, j.cachedAt);   // the desktop app without a connection: the last copy, read-only
     paintPlSectionSwitch();
     paintPlChrome();
     renderPlRows();
@@ -506,6 +511,12 @@ async function loadPlaylists(){
 }
 // Search matches the playlist name AND its contents (clip names, players,
 // games, notes) — typing a player finds every playlist containing him.
+let OFFLINE=false;
+function paintOffline(on, at){
+  OFFLINE=on; document.body.classList.toggle('pl-offline',on);
+  const b=document.getElementById('offBar'); if(b) b.style.display=on?'flex':'none';
+  const t=document.getElementById('offTx'); if(t&&on) t.textContent=(at?'The copy kept on this computer ('+new Date(at).toLocaleString('en-IE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'). ':'No copy on this computer yet — open Playlists once while online. ')+'Comments, drawings and @mentions are available online.';
+}
 function plSearchText(p){
   const items=(p.data&&p.data.items)||[];
   return (p.name+' '+items.map(it=>[it.label,it.code,it.player,it.gameTitle,it.note].filter(Boolean).join(' ')).join(' ')).toLowerCase();
@@ -573,7 +584,7 @@ function openPlaylist(id, startClip){
   CUR=PLAYLISTS.find(p=>String(p.id)===String(id)); if(!CUR) return;
   ITEMS=((CUR.data&&CUR.data.items)||[]).map(x=>({...x}));
   COVER=(CUR.data&&CUR.data.cover)||null;
-  CAN_EDIT=!!CUR.canEdit;
+  CAN_EDIT=!!CUR.canEdit&&!OFFLINE;
   dirty=false; playIdx=-1; playAll=false;
   plMarkSeen(CUR);
   const lw=document.getElementById('plLogWrap'); if(lw){ lw.style.display='none'; lw.innerHTML=''; }
