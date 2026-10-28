@@ -163,7 +163,22 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cmop:hover{color:var(--accent);border-color:var(--accent);}
 .cmop.del:hover{color:var(--red);border-color:var(--red);}
 .cmts{font-size:10px;color:var(--t3);}
-.cmrow{display:flex;gap:8px;margin-top:10px;}
+.cmrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.cmrow input{min-width:180px;}
+.cmnew{margin-top:10px;background:var(--panel);border:1.5px solid var(--accent);border-radius:12px;padding:12px 14px;box-shadow:0 0 0 3px var(--accent-bg);}
+.cmnew-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;}
+.cmnew-hd b{font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--accent);}
+.cmnew-hd span{font-size:12px;color:var(--t2);}
+.cmnew .cmrow{margin-top:8px;}
+.cmpost{background:var(--accent);border-color:var(--accent);color:#fff;}
+.cmreply{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px;border-left:3px solid var(--c,var(--accent));background:var(--card);border-radius:6px;font-size:12px;color:var(--t2);}
+.cmreply span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cmreply b{color:var(--t1);}
+.cmreply i{font-style:normal;cursor:pointer;opacity:.75;}
+.cmmv{display:inline-flex;gap:2px;margin-left:4px;vertical-align:middle;}
+.cmmv span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--border);border-radius:5px;background:var(--card);color:var(--t2);font-size:10px;cursor:pointer;}
+.cmmv span:hover{color:var(--accent);border-color:var(--accent);}
+.cmmv span.off{opacity:.3;pointer-events:none;}
 .cmrow input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
 .cmrow input:focus{border-color:var(--accent);}
 /* telestration (cohesion-tele.js) — broadcast-style drawing on the video's 16:9 picture */
@@ -427,16 +442,20 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
           <span id="plAngleGrp" style="display:none;gap:4px;align-items:center;"></span>
           <div class="npn" id="npNote"></div>
         </div>
-        <div class="cmwrap" id="cmWrap" style="display:none;">
-          <div class="cmhd"><span id="cmHd">Comments</span><button class="cmall" id="cmAllBtn" onclick="toggleShowAll()" title="Clicking a comment shows only its drawing. Turn this on to see every drawing at that moment together.">◎ All drawings at a moment</button></div>
-          <div id="cmList"></div>
+        <div class="cmnew" id="cmNew" style="display:none;">
+          <div class="cmnew-hd"><b>＋ New comment on this clip</b><span>Pause where you want it — your comment and drawing pin to that moment</span></div>
+          <div class="cmreply" id="cmReply" style="display:none;"><span></span><i onclick="cmReplyClear()" title="Not a reply">✕</i></div>
           <div class="cmrow">
             <span class="cmchip" id="cmAt" title="This comment is pinned to this moment — playback will pause here so everyone reads it. Press ✕ to post without a timestamp."><b></b><i onclick="cmDisarm()">✕</i></span>
             <span class="cmchip dr" id="cmDrawChip" title="Your drawing goes with this comment, at its moment"><b></b><i onclick="cmDrawEditDraft()" title="Change the drawing">✎</i><i onclick="cmDrawDiscard()" title="Remove the drawing">✕</i></span>
-            <input id="cmInput" placeholder="Add a comment… (@ to mention someone)" autocomplete="off" onfocus="cmArm()" onkeydown="cmKey(event,postComment)">
-            <button class="vbtn cmdrawbtn" id="cmDrawBtn" style="display:none;" onclick="cmDrawStart()" title="Pause here and draw on this moment — your drawing goes with your comment, in your comment's colour">✏ Draw</button>
-            <button class="vbtn" onclick="postComment()">Post</button>
+            <input id="cmInput" placeholder="Write your comment… (@ to mention someone)" autocomplete="off" onfocus="cmArm()" onkeydown="cmKey(event,postComment)">
+            <button class="vbtn cmdrawbtn" id="cmDrawBtn" style="display:none;" onclick="cmDrawStart()" title="Draw on the moment the video is paused on — your drawing goes with your comment, in your comment's colour">✏ Draw</button>
+            <button class="vbtn cmpost" onclick="postComment()">Post comment</button>
           </div>
+        </div>
+        <div class="cmwrap" id="cmWrap" style="display:none;">
+          <div class="cmhd"><span id="cmHd">Comments</span><button class="cmall" id="cmAllBtn" onclick="toggleShowAll()" title="Clicking a comment shows only its drawing. Turn this on to see every drawing at that moment together.">◎ All drawings at a moment</button></div>
+          <div id="cmList"></div>
         </div>
         <div class="cmwrap" id="pcWrap" style="display:none;">
           <div class="cmhd" id="pcHd">Comments on the whole playlist</div>
@@ -905,6 +924,7 @@ function plInitVH(){
 function onState(e){
   if(e.data===1){                                   // playback resumed by ANY means
     if(drawMode){ if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); return; }  // hold the authoring frame
+    { const inp=document.getElementById('cmInput'); if(cmAnchor&&!CM_DRAFT&&!(inp&&inp.value.trim())){ cmAnchor=null; CM_STILL=null; cmShowAnchor(); } }   // an unused pin lets go when the video moves on
     // a moment just shown is HELD on its frame (a video still loading would otherwise start under it)
     if(MOMENT&&Date.now()<MOMENT.holdUntil){ if(YTP&&YTP.pauseVideo) YTP.pauseVideo(); if(YTP&&YTP.seekTo&&MOMENT.t!=null) YTP.seekTo(MOMENT.t,true); return; }
     if(MOMENT) hideMoment();                        // pressing play dismisses the drawing / comment stop
@@ -1184,15 +1204,32 @@ function cmTextHtml(cm){
   return out+esc(t.slice(last));
 }
 function cmPlain(cm){ const M=(cm&&cm.mentions)||[]; return String(cm&&cm.text||'').replace(AT_TOKEN,(_,id)=>{ const p=M.find(x=>x.id===id); return '@'+(p?p.name:'someone'); }); }
-function cmItemHtml(cm, it, isClip){
+// the order the comments are listed in: the playlist editors' order (it.cmOrder, saved with 💾 Save), else by moment
+function cmOrdered(it){
+  const L=(Array.isArray(it&&it.comments)?it.comments:[]).slice();
+  const ord=Array.isArray(it&&it.cmOrder)?it.cmOrder:null;
+  if(!ord||!ord.length) return L;
+  const pos=new Map(ord.map((id,i)=>[String(id),i]));
+  return L.map((c,i)=>[c,i]).sort((a,b)=>{ const pa=pos.has(String(a[0].id))?pos.get(String(a[0].id)):1e6+a[1], pb=pos.has(String(b[0].id))?pos.get(String(b[0].id)):1e6+b[1]; return pa-pb; }).map(x=>x[0]);
+}
+function cmMove(id, d){
+  const it=ITEMS[cmIdx]; if(!it||!CAN_EDIT) return;
+  const ids=cmOrdered(it).map(c=>String(c.id)), i=ids.indexOf(String(id)), j=i+d;
+  if(i<0||j<0||j>=ids.length) return;
+  [ids[i],ids[j]]=[ids[j],ids[i]]; it.cmOrder=ids;
+  markDirty(); renderComments(cmIdx);
+  const st=document.getElementById('plStatus'); if(st){ st.textContent='Comment order changed — remember 💾 Save'; st.style.color='var(--orange)'; }
+}
+function cmItemHtml(cm, it, isClip, k, n){
   const mine=!!cm.mine, col=cm.color||'#4fc3f7';
   const canDrawOps=isClip&&teleOn()&&cm.t!=null;
   const ops='<span class="cmops">'
-    +(isClip?'<span class="cmop" onclick="event.stopPropagation();replyTo(\''+esc(cm.author).replace(/'/g,'&#39;')+'\')">Reply</span>':'')
+    +(isClip?'<span class="cmop" onclick="event.stopPropagation();replyTo(\''+esc(cm.author).replace(/'/g,'&#39;')+'\',\''+esc(cm.id)+'\')">Reply</span>':'')
     +(cm.canEdit?'<span class="cmop" onclick="event.stopPropagation();'+(isClip?'editComment':'editPlComment')+'(\''+esc(cm.id)+'\')">Edit</span>':'')
     +(canDrawOps&&cm.canEdit?'<span class="cmop" onclick="event.stopPropagation();cmDrawEdit(\''+esc(cm.id)+'\')">'+(cm.drawing?'✏ Redraw':'✏ Add drawing')+'</span>':'')
     +(canDrawOps&&cm.drawing&&cm.canDelete&&!cm.canEdit?'<span class="cmop del" onclick="event.stopPropagation();cmDrawRemove(\''+esc(cm.id)+'\')">Remove drawing</span>':'')
     +(cm.canDelete?'<span class="cmop del" onclick="event.stopPropagation();'+(isClip?'deleteComment':'deletePlComment')+'(\''+esc(cm.id)+'\')">'+(mine?'Delete':'Remove')+'</span>':'')
+    +(isClip&&CAN_EDIT&&n>1?'<span class="cmmv" title="Move this comment up or down the list (💾 Save to keep the order)"><span class="'+(k===0?'off':'')+'" onclick="event.stopPropagation();cmMove(\''+esc(cm.id)+'\',-1)">▲</span><span class="'+(k===n-1?'off':'')+'" onclick="event.stopPropagation();cmMove(\''+esc(cm.id)+'\',1)">▼</span></span>':'')
     +'</span>';
   const when=cm.ts?new Date(cm.ts).toLocaleDateString('en-IE',{day:'numeric',month:'short'}):'';
   const at=(isClip&&cm.t!=null)?'<span class="cmjump" title="Show this comment\'s moment">⏱ '+cmFmt(cm.t-(it.start||0))+'</span>':'';
@@ -1205,12 +1242,13 @@ function cmClick(ev, id){ if(ev.target.closest('input,.cmops')) return; if(drawM
 let PENDING_CM=null;   // a 🔔 mention link: open this comment once its clip is showing
 function renderComments(idx){
   const w=document.getElementById('cmWrap'); if(!w) return;
-  if(idx==null||!ITEMS[idx]){ w.style.display='none'; cmIdx=null; cmDisarm(); return; }
-  if(idx!==cmIdx) cmDisarm();   // rebinding to another clip drops a stale pin
-  cmIdx=idx; w.style.display='';
-  const it=ITEMS[idx], cms=Array.isArray(it.comments)?it.comments:[];
-  document.getElementById('cmHd').textContent='Comments — '+(it.label||it.code||'Clip '+(idx+1))+(cms.length?' ('+cms.length+')':'');
-  document.getElementById('cmList').innerHTML=cms.length?cms.map(cm=>cmItemHtml(cm,it,true)).join(''):'<div style="font-size:12px;color:var(--t3);">No comments yet — be the first.</div>';
+  const nw=document.getElementById('cmNew');
+  if(idx==null||!ITEMS[idx]){ w.style.display='none'; if(nw) nw.style.display='none'; cmIdx=null; cmDisarm(); cmReplyClear(); return; }
+  if(idx!==cmIdx){ cmDisarm(); cmReplyClear(); }   // rebinding to another clip drops a stale pin
+  cmIdx=idx; w.style.display=''; if(nw) nw.style.display=OFFLINE?'none':'';
+  const it=ITEMS[idx], cms=cmOrdered(it);
+  document.getElementById('cmHd').textContent='Comments on this clip'+(cms.length?' ('+cms.length+')':'');
+  document.getElementById('cmList').innerHTML=cms.length?cms.map((cm,k)=>cmItemHtml(cm,it,true,k,cms.length)).join(''):'<div style="font-size:12px;color:var(--t3);">No comments yet — write the first one above.</div>';
   if(MOMENT&&MOMENT.cmIds) document.querySelectorAll('#cmList .cmitem').forEach(x=>x.classList.toggle('focus', MOMENT.cmIds.includes(x.dataset.id)));
   paintCmDraft(); paintShowAll(); paintTimeline();
   if(PENDING_CM&&it.cid===PENDING_CM.cid){
@@ -1226,6 +1264,7 @@ function cmSync(comments){
 }
 async function postComment(){
   const inp=document.getElementById('cmInput');
+  if(drawMode&&dCtx&&dCtx.kind==='comment'&&!dCtx.editing){ const sh=ED?ED.shapes():[]; await saveCommentDraw(dCtx, sh); }   // Post while still drawing = attach it, then post
   const raw=(inp.value||'').trim();
   if((!raw&&!CM_DRAFT)||cmIdx==null||!CUR) return;
   inp.disabled=true;
@@ -1245,12 +1284,24 @@ async function postComment(){
     if(j.clipId&&ITEMS[cmIdx]&&!ITEMS[cmIdx].cid) ITEMS[cmIdx].cid=j.clipId;   // an old clip got its id with its first comment
     if(still&&j.commentId&&last){ const up=await teleUploadStill(still,{commentId:j.commentId}); if(up) last.stillUrl=up.url; }
     if(draft&&j.drawingStored===false) alert('Your comment was posted, but drawings on comments are not switched on yet on the server (supabase/telestration.sql).');
+    CM_REPLY=null; const rb=document.getElementById('cmReply'); if(rb) rb.style.display='none';
     cmSync(cms);
-  }catch(e){ alert('Could not post: '+e.message); }
-  inp.disabled=false; inp.focus();
+  }catch(e){ alert('Could not post: '+e.message); inp.disabled=false; inp.focus(); return; }
+  inp.disabled=false; inp.blur();   // posted: the next comment pins wherever the video is THEN (a kept focus re-pinned this moment)
 }
-function replyTo(name){
+let CM_REPLY=null;
+function cmReplyClear(){
+  const inp=document.getElementById('cmInput');
+  if(CM_REPLY&&inp&&inp.value.startsWith('@'+CM_REPLY.name+' ')) inp.value=inp.value.slice(CM_REPLY.name.length+2);
+  CM_REPLY=null; const r=document.getElementById('cmReply'); if(r) r.style.display='none';
+}
+function replyTo(name, cid){
   const inp=document.getElementById('cmInput'); if(!inp) return;
+  const it=ITEMS[cmIdx], cm=it&&(it.comments||[]).find(x=>x.id===cid);
+  CM_REPLY={name, id:cid||null};
+  const r=document.getElementById('cmReply');
+  if(r){ r.style.setProperty('--c',(cm&&cm.color)||'var(--accent)'); r.querySelector('span').innerHTML='Replying to <b>'+esc(name)+'</b>'+(cm&&cm.text?' — “'+esc(cmPlain(cm).slice(0,90))+'”':''); r.style.display='flex'; }
+  const nw=document.getElementById('cmNew'); if(nw&&nw.scrollIntoView) nw.scrollIntoView({block:'nearest',behavior:'smooth'});
   const p=(AT_PEOPLE||[]).find(x=>x.name===name);
   const tag='@'+name+' ';
   if(!inp.value.startsWith(tag)) inp.value=tag+inp.value;
@@ -1882,6 +1933,7 @@ async function cmDrawStart(){
   if(cmIdx!==playIdx){ const inp=document.getElementById('cmInput'); if(inp&&inp.value.trim()&&!confirm('Your unposted comment is for another clip. Start a new one on the clip playing now?')) return; if(inp) inp.value=''; renderComments(playIdx); }
   if(cmIdx!==playIdx||!ITEMS[cmIdx]) return;
   if(trimMode) endTrim();
+  { const inp=document.getElementById('cmInput'); if(cmAnchor&&!CM_DRAFT&&!(inp&&inp.value.trim())){ cmAnchor=null; CM_STILL=null; } }   // nothing written yet: the moment on screen now
   cmArm(); if(!cmAnchor) return;
   if(YTP&&YTP.seekTo) YTP.seekTo(cmAnchor.t,true);
   const still=CM_STILL||await teleCapture(); CM_STILL=still;

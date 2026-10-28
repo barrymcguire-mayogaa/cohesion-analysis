@@ -84,7 +84,7 @@ function cleanClip(c) {
   return out;
 }
 // A saved playlist's clip: the clip fields plus what the Playlists page edits (note, drawings, trims) and its id.
-const ITEM_KEYS = ['videoId', 'gameId', 'gameTitle', 'driveT', 'start', 'end', 'label', 'code', 'player', 'eventId', 'angle', 'note', 'draws', 'draw', 'cid'];
+const ITEM_KEYS = ['videoId', 'gameId', 'gameTitle', 'driveT', 'start', 'end', 'label', 'code', 'player', 'eventId', 'angle', 'note', 'draws', 'draw', 'cid', 'cmOrder'];   // cmOrder: the editors' order of the clip's comments (ids)
 // the stored items (comments of old copies, legacy single 'draw') keep what they had; NEW drawing data is whitelisted
 const STR_CAP = { videoId: 40, gameId: 80, gameTitle: 200, label: 200, code: 120, player: 120, eventId: 80, angle: 40, note: 1000, cid: 16 };
 function cleanItem(it, pid) {
@@ -95,6 +95,7 @@ function cleanItem(it, pid) {
     if (STR_CAP[k]) o[k] = str(it[k], STR_CAP[k]);
     else if (k === 'start' || k === 'end' || k === 'driveT') { const n = Number(it[k]); if (Number.isFinite(n)) o[k] = n; }
     else if (k === 'draws') { const d = T.cleanStops(it[k], pid); if (d) o.draws = d; }      // staff drawings: shapes whitelisted (telestration.js)
+    else if (k === 'cmOrder') { if (Array.isArray(it[k])) { const ids = it[k].slice(0, 300).map(x => str(x, 40)).filter(Boolean); if (ids.length) o.cmOrder = ids; } }
     else if (k === 'draw') { const d = T.cleanStops([it[k]], pid); if (d) o.draw = d[0]; }   // the oldest single-drawing form
   });
   return o;
