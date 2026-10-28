@@ -9,12 +9,14 @@
 [data-theme="dark"]{
   --bg:#181820;--panel:#1e1e28;--card:#252530;--hover:#2c2c3a;
   --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.16);--t1:#f0f0f5;--t2:#8888a0;--t3:#52526a;
-  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--logo-color:#ffffff;--tile:#20202a;--tile-t:#ffffff;
+  --accent:#4fc3f7;--accent-bg:rgba(79,195,247,0.12);--logo-color:#ffffff;--tile:#1b1d27;--tile-t:#ffffff;
+  --btn-bg:rgba(79,195,247,0.04);--glow:rgba(79,195,247,0.35);--shadow:rgba(0,0,0,0.45);--green:#4caf50;--green-bg:rgba(76,175,80,0.12);--red:#f44336;--red-bg:rgba(244,67,54,0.08);
 }
 [data-theme="light"]{
   --bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--hover:#ebe9e5;
   --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--t1:#1a1a28;--t2:#555572;--t3:#888899;
   --accent:#0369a1;--accent-bg:rgba(3,105,161,0.08);--logo-color:#1a1a28;--tile:#ffffff;--tile-t:#1a1a28;
+  --btn-bg:#ffffff;--glow:rgba(3,105,161,0.22);--shadow:rgba(0,0,0,0.12);--green:#15803d;--green-bg:rgba(21,128,61,0.1);--red:#b91c1c;--red-bg:rgba(185,28,28,0.06);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;transition:background .2s,color .2s;}
@@ -26,33 +28,63 @@ header{min-height:54px;background:var(--panel);border-bottom:1px solid var(--bor
 .hdr-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--t2);border:1px solid var(--border);background:var(--card);text-decoration:none;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .hdr-btn:hover{border-color:var(--accent);color:var(--accent);}
 
-.hub{max-width:830px;margin:0 auto;padding:34px 20px 60px;}
-.hub-title{font:800 26px 'Barlow Condensed',sans-serif;letter-spacing:1px;margin-bottom:4px;}
-.hub-sub{font-size:13px;color:var(--t2);margin-bottom:24px;}
-/* the main buttons: the Library's top-bar style (blue outline, bold condensed caps), larger */
-.hub-btn{display:flex;align-items:center;justify-content:center;text-align:center;min-height:52px;padding:10px 12px;border-radius:10px;
-  font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;text-decoration:none;
-  background:var(--accent-bg);border:1px solid var(--accent);color:var(--accent);transition:all .15s;}
-.hub-btn:hover,.hub-btn:focus-visible{background:var(--accent);color:#fff;outline:none;}
-.hub-row{display:grid;gap:14px;margin-bottom:14px;}
-.hub-row.four{grid-template-columns:repeat(4,1fr);}
-.hub-row.two{grid-template-columns:repeat(2,1fr);margin-bottom:28px;}
-.hub-row.two .hub-btn{min-height:58px;}
-/* the admin pages: large square tiles, 4 a row */
-.hub-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
-.hub-tile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;text-align:center;
-  background:var(--tile);border:1px solid var(--border2);border-radius:12px;text-decoration:none;color:var(--tile-t);
-  font:700 21px/1.15 'Barlow Condensed',sans-serif;letter-spacing:.5px;transition:border-color .15s,background .15s,transform .15s;}
-.hub-tile:hover,.hub-tile:focus-visible{border-color:var(--accent);background:var(--hover);transform:translateY(-2px);outline:none;}
-.hub-tile small{font:600 11px/1.3 'Barlow',sans-serif;letter-spacing:0;color:var(--t2);}
+.hub{max-width:1180px;margin:0 auto;padding:34px 24px 60px;}
+/* the main buttons: outlined, an icon then bold condensed caps (the Library's top-bar style, larger) */
+.hub-row{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-bottom:16px;}
+.hub-row.two{margin-bottom:34px;}
+.hub-btn{display:flex;align-items:center;justify-content:center;gap:14px;min-width:220px;min-height:58px;padding:10px 28px;border-radius:10px;
+  font:800 22px 'Barlow Condensed',sans-serif;letter-spacing:1px;text-transform:uppercase;text-decoration:none;
+  background:var(--btn-bg);border:2px solid var(--accent);color:var(--accent);box-shadow:0 0 0 0 transparent;transition:background .15s,color .15s,box-shadow .15s,transform .15s;}
+.hub-btn svg{width:26px;height:26px;flex:none;}
+.hub-row.two .hub-btn{min-width:340px;}
+.hub-btn:hover,.hub-btn:focus-visible{background:var(--accent-bg);box-shadow:0 0 18px var(--glow);transform:translateY(-1px);outline:none;}
+/* the admin pages: large tiles, 4 a row — line art top-right, round icon, title, a line of what it does, a round arrow */
+.hub-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.ht{--c:var(--accent);--cbg:var(--accent-bg);position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:270px;padding:20px 22px 20px;
+  overflow:hidden;isolation:isolate;border-radius:14px;border:1.5px solid color-mix(in srgb,var(--c) 70%,transparent);text-decoration:none;color:var(--tile-t);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--c) 16%,var(--tile)) 0%,var(--tile) 55%);
+  transition:transform .18s,box-shadow .18s,border-color .18s;}
+.ht.green{--c:var(--green);--cbg:var(--green-bg);}
+.ht:hover,.ht:focus-visible{transform:translateY(-3px);border-color:var(--c);box-shadow:0 10px 30px var(--shadow),0 0 22px color-mix(in srgb,var(--c) 35%,transparent);outline:none;}
+.ht .art{position:absolute;z-index:-1;top:0;right:0;width:100%;height:62%;color:var(--c);opacity:.55;
+  -webkit-mask-image:linear-gradient(to bottom,#000 30%,transparent 100%);mask-image:linear-gradient(to bottom,#000 30%,transparent 100%);transition:opacity .18s;}
+.ht:hover .art{opacity:.8;}
+.ht .ic{display:flex;align-items:center;justify-content:center;width:62px;height:62px;border-radius:50%;margin-bottom:14px;
+  background:var(--tile);border:2px solid var(--c);color:var(--c);box-shadow:0 0 16px color-mix(in srgb,var(--c) 35%,transparent);}
+.ht .ic svg{width:28px;height:28px;}
+.ht .nm{font:800 27px/1.02 'Barlow Condensed',sans-serif;letter-spacing:.2px;text-transform:uppercase;margin-bottom:8px;}
+.ht small{display:block;font:500 15px/1.3 'Barlow',sans-serif;color:var(--t2);padding-right:50px;}
+.ht .go{position:absolute;right:20px;bottom:20px;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;
+  border:2px solid var(--c);color:var(--tile-t);transition:background .15s,color .15s;}
+.ht .go svg{width:16px;height:16px;}
+.ht:hover .go{background:var(--c);color:#0b1220;}
+/* Delete Game: kept apart and in red — it is the one tile that destroys something */
+.hub-danger{display:flex;align-items:center;gap:14px;margin-top:22px;padding:14px 20px;border-radius:12px;border:1.5px solid color-mix(in srgb,var(--red) 55%,transparent);
+  background:var(--red-bg);color:var(--tile-t);text-decoration:none;transition:border-color .15s,box-shadow .15s;}
+.hub-danger:hover,.hub-danger:focus-visible{border-color:var(--red);box-shadow:0 0 18px color-mix(in srgb,var(--red) 30%,transparent);outline:none;}
+.hub-danger .ic{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;border:2px solid var(--red);color:var(--red);flex:none;}
+.hub-danger .ic svg{width:19px;height:19px;}
+.hub-danger b{font:800 20px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;}
+.hub-danger small{flex:1;font:500 13.5px 'Barlow',sans-serif;color:var(--t2);}
+@media (max-width:1100px){ .hub-tiles{grid-template-columns:repeat(3,1fr);} }
+@media (max-width:820px){
+  .hub-tiles{grid-template-columns:repeat(2,1fr);gap:14px;}
+  .hub-btn{min-width:0;flex:1 1 40%;font-size:18px;padding:10px 14px;gap:10px;}
+  .hub-row.two .hub-btn{min-width:0;}
+}
 @media (max-width:640px){
   header{flex-wrap:wrap;padding:8px 10px;gap:8px;}
-  .hub{padding:22px 14px 40px;}
-  .hub-row.four{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;}
-  .hub-row.two{grid-template-columns:1fr;gap:10px;margin-bottom:20px;}
-  .hub-btn{min-height:46px;font-size:14px;}
-  .hub-tiles{grid-template-columns:repeat(2,1fr);gap:10px;}
-  .hub-tile{font-size:18px;}
+  .hub{padding:20px 14px 40px;}
+  .hub-row{gap:10px;margin-bottom:10px;} .hub-row.two{margin-bottom:22px;}
+  .hub-btn{min-height:50px;font-size:16px;} .hub-btn svg{width:20px;height:20px;}
+  .hub-row.two .hub-btn{flex-basis:100%;}
+  .hub-tiles{gap:10px;}
+  .ht{min-height:200px;padding:14px;}
+  .ht .ic{width:44px;height:44px;margin-bottom:10px;} .ht .ic svg{width:21px;height:21px;}
+  .ht .nm{font-size:21px;padding-right:0;}
+  .ht small{font-size:12.5px;padding-right:0;}
+  .ht .go{display:none;}
+  .hub-danger small{display:none;}
 }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
@@ -70,29 +102,107 @@ header{min-height:54px;background:var(--panel);border-bottom:1px solid var(--bor
 </header>
 
 <main class="hub" id="hub" style="display:none">
-  <div class="hub-title">Admin</div>
-  <div class="hub-sub">Every admin page in one place.</div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-go" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    </defs>
+  </svg>
   <div class="hub-row four">
-    <a class="hub-btn" href="admin.html">+ Add Game</a>
-    <a class="hub-btn" href="code-room.html">Code Room</a>
-    <a class="hub-btn" href="analysis.html">Analysis</a>
-    <a class="hub-btn" href="playlists.html">Playlists</a>
+    <a class="hub-btn" href="admin.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>Add Game</a>
+    <a class="hub-btn" href="code-room.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 3l-4 18"/></svg>Code Room</a>
+    <a class="hub-btn" href="analysis.html"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>Analysis</a>
+    <a class="hub-btn" href="playlists.html"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3.5v17a1 1 0 0 0 1.5.86l14-8.5a1 1 0 0 0 0-1.72l-14-8.5A1 1 0 0 0 6 3.5z"/></svg>Playlists</a>
   </div>
   <div class="hub-row two">
-    <a class="hub-btn" href="analysis.html#reports" title="Analysis › Reports: build a report for a team or a game">Report Creator</a>
-    <a class="hub-btn" href="team-admin.html" title="Invite people, set their roles and details, link a player to his name in the stats">Team Management</a>
+    <a class="hub-btn" href="analysis.html#reports" title="Analysis › Reports: build a report for a team or a game"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 2h8l6 6v13a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm7 1.5V9h5.5M8 13h8v1.6H8zm0 3.5h8v1.6H8z" fill-rule="evenodd"/></svg>Report Creator</a>
+    <a class="hub-btn" href="team-admin.html" title="Invite people, set their roles and details, link a player to their name in the stats"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="7.5" r="3.6"/><circle cx="4.8" cy="9" r="2.6"/><circle cx="19.2" cy="9" r="2.6"/><path d="M5.5 21c0-4 2.9-7 6.5-7s6.5 3 6.5 7zM0 20c0-3 1.8-5.4 4.6-5.4 1 0 1.8.3 2.5.7C5.6 16.8 4.6 18.3 4.3 20zM24 20c0-3-1.8-5.4-4.6-5.4-1 0-1.8.3-2.5.7 1.5 1.5 2.5 3 2.8 4.7z"/></svg>Team Management</a>
   </div>
+
   <div class="hub-tiles" id="hubTiles">
-    <a class="hub-tile" href="batch-upload.html" title="Upload several games at once from a spreadsheet">Batch Upload</a>
-    <a class="hub-tile" href="admin.html?mode=reparse" title="Upload a corrected file for a game already in COHESION">Re-parse Existing Game</a>
-    <a class="hub-tile" href="team-sheets.html" title="Every game's team sheets: which are missing, and edit them">Team Sheets</a>
-    <a class="hub-tile" href="crests-admin.html" title="Club and county crests used on the stats image, PDF, maps image and infographic">Crests Upload</a>
-    <a class="hub-tile" href="player-photos-admin.html" title="Upload player photos — shown to signed-in users only">Player Photos</a>
-    <a class="hub-tile" href="player-names-admin.html" title="Find every spelling of a team's players across all its games and merge the wrong ones">Player Names</a>
-    <a class="hub-tile" href="xp-refit.html" title="The expected points (xP) model: see it, refit it on every game and publish">Expected Points</a>
-    <a class="hub-tile" href="admin.html?mode=delete" title="Permanently remove a game and all its events">Delete Game</a>
-    <a class="hub-tile" href="shot-45-line-admin.html" title="Move every saved '45 onto the 45 m line, in every game at once — preview first">’45s on the line</a>
+    <a class="ht green" href="batch-upload.html" title="Upload several games at once from a spreadsheet">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="150" y="40" width="80" height="100" rx="8"/><rect x="170" y="25" width="80" height="100" rx="8" opacity=".7"/><rect x="190" y="10" width="80" height="100" rx="8" opacity=".45"/>
+        <path d="M165 70h50M165 85h50M165 100h34"/><path d="M110 120V60M92 78l18-18 18 18" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M60 140V100M48 112l12-12 12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 18H6.5A4.5 4.5 0 0 1 5.6 9.1 6 6 0 0 1 17.2 8 5 5 0 0 1 19 18zM12 9l-4 4h3v4h2v-4h3z"/></svg></span>
+      <span class="nm">Batch<br>Upload</span><small>Add several games at once</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="admin.html?mode=reparse" title="Upload a corrected file for a game already in COHESION">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="110" y="14" width="176" height="112" rx="8"/><path d="M90 140h216" stroke-width="3" stroke-linecap="round"/>
+        <rect x="124" y="28" width="86" height="56" rx="3"/><path d="M167 28v56M124 42h12v28h-12M210 42h-12v28h12"/><circle cx="167" cy="56" r="8"/>
+        <path d="M222 80V64M236 80V50M250 80V58M264 80V40" stroke-width="5" stroke-linecap="round"/>
+        <path d="M124 100l18-8 16 6 20-12 18 10 20-14 24 6 30-10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 3v5h5M4 13a8 8 0 0 0 14.6 4.5L20 16M20 21v-5h-5"/></svg></span>
+      <span class="nm">Re-parse<br>Existing Game</span><small>Upload a corrected file for a game</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="team-sheets.html" title="Every game's team sheets: which are missing, and edit them">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <rect x="70" y="10" width="220" height="140" rx="8"/><path d="M180 10v140"/><circle cx="180" cy="80" r="18"/><path d="M70 50h26v60H70M290 50h-26v60h26"/>
+        <g fill="currentColor" stroke="none"><circle cx="104" cy="80" r="5"/><circle cx="130" cy="44" r="5"/><circle cx="130" cy="80" r="5"/><circle cx="130" cy="116" r="5"/><circle cx="158" cy="56" r="5"/><circle cx="158" cy="104" r="5"/></g>
+        <g stroke-width="3"><circle cx="206" cy="56" r="5"/><circle cx="206" cy="104" r="5"/><circle cx="232" cy="40" r="5"/><circle cx="232" cy="80" r="5"/><circle cx="232" cy="120" r="5"/><circle cx="258" cy="80" r="5"/></g>
+        <path d="M158 56c14-14 30-14 44-4" stroke-dasharray="5 5" stroke-linecap="round"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1zm0 2v2h6V4zm-1 7v2h8v-2zm0 4v2h6v-2z"/></svg></span>
+      <span class="nm">Team<br>Sheets</span><small>See which are missing and edit them</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="crests-admin.html" title="Club and county crests used on the stats image, PDF, maps image and infographic">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M200 6l70 22v46c0 46-34 74-70 90-36-16-70-44-70-90V28z" stroke-width="3"/>
+        <path d="M200 22l56 18v34c0 36-27 60-56 74-29-14-56-38-56-74V40z"/>
+        <path d="M144 74h112M200 22v126" opacity=".7"/><path d="M152 46l96 86M248 46l-96 86" opacity=".25"/>
+        <path d="M110 40l-20 6v14c0 14 10 22 20 27 10-5 20-13 20-27V46z" opacity=".5"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.5l8.5 3v6.3c0 5.6-3.7 9.7-8.5 11.7-4.8-2-8.5-6.1-8.5-11.7V4.5zM12 4v16c3.4-1.7 6-4.8 6-9.2V6.3z" fill-rule="evenodd"/></svg></span>
+      <span class="nm">Crests<br>Upload</span><small>Club and county crests</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="player-photos-admin.html" title="Upload player photos — shown to signed-in users only">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M110 14h-22v22M268 14h22v22M110 156H88v-22M268 156h22v-22" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="189" cy="62" r="26" stroke-width="3"/><path d="M134 156c0-34 25-56 55-56s55 22 55 56" stroke-width="3"/>
+        <circle cx="189" cy="62" r="40" opacity=".25"/><circle cx="268" cy="14" r="3" fill="currentColor"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.5 4l1.5-2h4l1.5 2H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0-2.2a2.8 2.8 0 1 1 0-5.6 2.8 2.8 0 0 1 0 5.6z" fill-rule="evenodd"/></svg></span>
+      <span class="nm">Player<br>Photos</span><small>Upload and manage player images</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="player-names-admin.html" title="Find every spelling of a team's players across all its games and merge the wrong ones">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+        <path d="M150 10l-46 22 12 34 22-8v106h108V58l22 8 12-34-46-22c-6 14-20 22-43 22s-37-8-43-22z" stroke-linejoin="round"/>
+        <path d="M150 10c6 12 20 18 43 18s37-6 43-18" opacity=".6"/>
+        <text x="193" y="128" text-anchor="middle" fill="currentColor" stroke="none" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="74" opacity=".9">14</text></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 21.5c0-5 4-8.5 9-8.5s9 3.5 9 8.5z"/></svg></span>
+      <span class="nm">Player<br>Names</span><small>Merge misspelt names across games</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht" href="xp-refit.html" title="The expected points (xP) model: see it, refit it on every game and publish">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="currentColor" aria-hidden="true">
+        <g opacity=".85"><rect x="96" y="104" width="14" height="56" rx="2"/><rect x="118" y="86" width="14" height="74" rx="2"/><rect x="140" y="112" width="14" height="48" rx="2"/>
+        <rect x="162" y="64" width="14" height="96" rx="2"/><rect x="184" y="80" width="14" height="80" rx="2"/><rect x="206" y="44" width="14" height="116" rx="2"/>
+        <rect x="228" y="70" width="14" height="90" rx="2"/><rect x="250" y="26" width="14" height="134" rx="2"/><rect x="272" y="50" width="14" height="110" rx="2"/></g>
+        <path d="M90 120L140 96 170 64 214 52 256 22 296 14" fill="none" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg></span>
+      <span class="nm">Expected<br>Points</span><small>See, refit and publish the xP model</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
+
+    <a class="ht green" href="shot-45-line-admin.html" title="Move every saved '45 onto the 45 m line, in every game at once — preview first">
+      <svg class="art" viewBox="0 0 300 170" preserveAspectRatio="xMaxYMin slice" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M70 10h220v150H70z"/><path d="M290 60h-14v50h14M262 55v60" opacity=".7"/><path d="M290 70v30" stroke-width="5"/>
+        <path d="M236 10v150M200 10v150" opacity=".45"/><path d="M128 10v150" stroke-width="3.5" stroke-dasharray="8 6"/>
+        <text x="140" y="34" fill="currentColor" stroke="none" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="24">45</text>
+        <g fill="currentColor" stroke="none"><circle cx="128" cy="58" r="6"/><circle cx="128" cy="96" r="6"/><circle cx="128" cy="132" r="6"/></g>
+        <g opacity=".5"><circle cx="112" cy="70" r="5"/><circle cx="142" cy="116" r="5"/></g>
+        <path d="M112 70l12-9M142 116l-10-15" stroke-linecap="round" opacity=".6"/></svg>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l4.3 3.1-1.6 5H9.3l-1.6-5z" fill="currentColor"/><path d="M12 7.2V2.6M16.3 10.3l4.4-1.4M14.7 15.3l2.7 3.8M9.3 15.3l-2.7 3.8M7.7 10.3L3.3 8.9"/></svg></span>
+      <span class="nm">’45s on<br>the line</span><small>Line up every saved ’45, preview first</small>
+      <span class="go"><svg><use href="#i-go"/></svg></span></a>
   </div>
+
+  <a class="hub-danger" href="admin.html?mode=delete" title="Permanently remove a game and all its events">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6"/></svg></span>
+    <b>Delete Game</b><small>Permanently removes a game and all its events</small>
+    <span class="go" style="position:static;display:flex;width:34px;height:34px;border-radius:50%;border:2px solid var(--red);align-items:center;justify-content:center;"><svg style="width:14px;height:14px"><use href="#i-go"/></svg></span></a>
 </main>
 
 <script>

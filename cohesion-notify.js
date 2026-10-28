@@ -59,8 +59,9 @@
   const css = `
 .coh-bell-wrap{position:relative;display:inline-flex;align-items:center;flex:none;}
 .coh-bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;margin:0 6px 0 0;border-radius:50%;
-  border:1px solid var(--border,rgba(255,255,255,.12));background:var(--card,#252530);color:var(--t1,#f0f0f5);font-size:17px;line-height:1;cursor:pointer;flex:none;}
-.coh-bell:hover,.coh-bell[aria-expanded="true"]{background:var(--hover,#2c2c3a);}
+  border:1px solid var(--accent,#4fc3f7);background:var(--accent-bg,rgba(79,195,247,.12));color:var(--accent,#4fc3f7);line-height:1;cursor:pointer;flex:none;transition:background .15s,color .15s;}
+.coh-bell svg{width:18px;height:18px;display:block;}
+.coh-bell:hover,.coh-bell[aria-expanded="true"]{background:var(--accent,#4fc3f7);color:#fff;}
 .coh-bell:focus-visible{outline:2px solid var(--accent,#4fc3f7);outline-offset:2px;}
 .coh-bell-dot{position:absolute;top:-4px;right:-5px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#e53935;color:#fff;
   font:800 10.5px/18px Barlow,'Barlow Condensed',system-ui,sans-serif;text-align:center;border:2px solid var(--panel,#1e1e28);pointer-events:none;}
@@ -105,7 +106,7 @@
       else return false;
     }
     WRAP = document.createElement('span'); WRAP.className = 'coh-bell-wrap'; WRAP.style.display = 'none';
-    WRAP.innerHTML = '<button type="button" class="coh-bell" id="cohBell" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" title="Notifications">🔔<span class="coh-bell-dot" style="display:none"></span></button>';
+    WRAP.innerHTML = '<button type="button" class="coh-bell" id="cohBell" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" title="Notifications"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a1.5 1.5 0 0 1 1.5 1.5v.7A6.5 6.5 0 0 1 18.5 10.5v4.2l1.8 2.6a.8.8 0 0 1-.7 1.2H4.4a.8.8 0 0 1-.7-1.2l1.8-2.6v-4.2A6.5 6.5 0 0 1 10.5 4.2v-.7A1.5 1.5 0 0 1 12 2zM9.5 20h5a2.5 2.5 0 0 1-5 0z"/></svg><span class="coh-bell-dot" style="display:none"></span></button>';
     slot.appendChild(WRAP);
     BTN = WRAP.querySelector('.coh-bell'); DOT = WRAP.querySelector('.coh-bell-dot');
     BTN.addEventListener('click', e => { e.stopPropagation(); OPEN ? close() : open(); });
