@@ -231,6 +231,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .vid.narrow .lt-tx{font-size:12.5px;}
 .vid.narrow .lt-row{padding:6px 9px;}
 .drawbar.rail .dgrp.sw .dalpha{grid-column:1/-1;}
+.drawbar.alt:not(.rail){top:auto;bottom:66px;}
+.drawbar.rail.alt{left:auto;right:8px;}
+.drawact.alt{bottom:auto;top:12px;}
+.dmini{position:absolute;top:10px;left:10px;z-index:8;display:none;align-items:center;gap:6px;padding:6px 11px;border-radius:9px;border:1px solid rgba(79,195,247,.6);background:rgba(10,12,18,.9);color:#4fc3f7;font:800 12px 'Barlow Condensed',sans-serif;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);}
+.dmini:hover{background:#4fc3f7;color:#06121a;}
+.dmini.alt{left:auto;right:10px;}
 .drawact{position:absolute;left:0;right:0;margin:0 auto;width:max-content;bottom:12px;z-index:8;display:none;align-items:center;gap:8px;background:rgba(10,12,18,.95);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:7px 10px;box-shadow:0 12px 34px rgba(0,0,0,.55);max-width:calc(100% - 20px);}
 .drawact .da-who{display:flex;align-items:center;gap:6px;font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.8px;color:#fff;text-transform:uppercase;white-space:nowrap;}
 .drawact .da-who i{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor;}
@@ -383,6 +389,7 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
             <div class="freeze" id="freeze"><img class="fz-still" id="fzStill" alt=""><canvas class="fz-still" id="fzCanvas"></canvas><div class="fz-top" id="fzTop"></div><div class="fz-bot" id="fzBot"></div><div class="fz-edge" id="fzEdge"></div><span class="fz-tag"><i></i>FREEZE</span></div>
             <svg id="drawSvg" xmlns="http://www.w3.org/2000/svg"></svg>
             <div class="drawbar" id="drawBar" role="toolbar" aria-label="Drawing tools"></div>
+            <button type="button" class="dmini" id="drawMini" onclick="dPanel({min:false})" title="Show the drawing tools">✏ Tools</button>
             <div class="drawact" id="drawAct">
               <span class="da-who" id="daWho"></span>
               <input type="text" id="dCap" placeholder="Caption (optional)…" maxlength="200">
@@ -1710,6 +1717,8 @@ const IC={
   redo:'<path d="M15 5l5 5-5 5"/><path d="M20 10H9.5a5.5 5.5 0 0 0 0 11H13"/>',
   del:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   clear:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
+  hide:'<path d="M5 12h14"/><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/>',
+  side:'<path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/>',
   fillnone:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M4.5 19.5l15-15" opacity=".6"/>',
   fillsolid:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><rect x="7.5" y="7.5" width="9" height="9" rx="1" fill="currentColor" stroke="none"/>',
   fillhatch:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M7 13l6-6M7 17l10-10M11 17l6-6"/>',
@@ -1723,10 +1732,27 @@ const TOOLS=[
   {g:'players', items:[['spot','Player spotlight','click a player (drag to size); ✦ adds the light beam'],['tag','Name tag','click a player, pick the name'],['link','Link players','click each player; click the first to close an area']]},
   {g:'text', items:[['text','Text label','click to place; double-click to edit']]}
 ];
+// the tool panel: hidden (✏ Tools brings it back) and which side of the picture — remembered on this device
+let DPANEL=(()=>{ try{ const j=JSON.parse(localStorage.getItem('coh_tele_panel')||'{}'); return {min:!!j.min, side:j.side==='b'?'b':'a'}; }catch(_){ return {min:false, side:'a'}; } })();
+function dPanel(ch){
+  if(ch) Object.assign(DPANEL, ch);
+  try{ localStorage.setItem('coh_tele_panel', JSON.stringify(DPANEL)); }catch(_){}
+  const bar=document.getElementById('drawBar'), mini=document.getElementById('drawMini'), act=document.getElementById('drawAct'); if(!bar||!mini) return;
+  bar.classList.toggle('alt', DPANEL.side==='b'); mini.classList.toggle('alt', DPANEL.side==='b'); if(act) act.classList.toggle('alt', DPANEL.side==='b'&&!bar.classList.contains('rail'));
+  bar.style.display=drawMode&&!DPANEL.min?'flex':'none';
+  mini.style.display=drawMode&&DPANEL.min?'flex':'none';
+  const tip=document.getElementById('dTip'); if(tip) tip.style.display='none';
+}
+document.addEventListener('keydown',e=>{
+  if(!drawMode||e.metaKey||e.ctrlKey||e.altKey||String(e.key).toLowerCase()!=='h') return;
+  const t=e.target, tag=(t&&t.tagName)||''; if(tag==='INPUT'||tag==='TEXTAREA'||(t&&t.isContentEditable)) return;
+  const te=document.getElementById('txtEdit'); if(te&&te.style.display==='block') return;
+  e.preventDefault(); dPanel({min:!DPANEL.min});
+});
 function buildDrawBar(){
   const bar=document.getElementById('drawBar'); if(!bar) return;
   const b=(attrs,inner,tip,kbd)=>'<button type="button" class="dtool" '+attrs+' data-tip="'+esc(tip)+'"'+(kbd?' data-kbd="'+esc(kbd)+'"':'')+' aria-label="'+esc(tip)+'">'+inner+'</button>';
-  let h='';
+  let h='<div class="dgrp" data-g="panel">'+b('onclick="dPanel({min:true})"',ico('hide'),'Hide the tools — see the whole picture (✏ Tools brings them back)','H')+b('onclick="dPanel({side:DPANEL.side===\'b\'?\'a\':\'b\'})"',ico('side'),'Move the tools to the other side')+'</div>';
   TOOLS.forEach(G=>{ h+='<div class="dgrp" data-g="'+G.g+'">'+G.items.map(([t,n,hint])=>b('data-tool="'+t+'" onclick="dSetTool(\''+t+'\')"',ico(t),n+(hint?' — '+hint:''))).join('')
     +(G.g==='text'?['plain','dark','box'].map(ts=>b('data-ts="'+ts+'" onclick="dSetTextStyle(\''+ts+'\')"','<span class="ts" style="'+(ts==='plain'?'color:#fff;text-shadow:0 1px 3px #000;':ts==='dark'?'background:#0a0c12;color:#fff;border:1px solid #444;':'background:#4fc3f7;color:#06121a;')+'">Aa</span>',{plain:'Text: plain with shadow',dark:'Text: dark box',box:'Text: colour box'}[ts])).join(''):'')
     +(G.g==='players'?b('id="dBeamBtn" onclick="dToggleBeam()"',ico('beam'),'Spotlight light beam on / off'):'')+'</div>'; });
@@ -1745,7 +1771,7 @@ function buildDrawBar(){
   bar.querySelectorAll('[data-tip]').forEach(el=>{
     el.addEventListener('mouseenter',()=>{ const r=el.getBoundingClientRect(), rail=bar.classList.contains('rail');
       tip.innerHTML=esc(el.dataset.tip)+(el.dataset.kbd?'<b>'+esc(el.dataset.kbd)+'</b>':''); tip.style.display='block';
-      const tw=tip.offsetWidth; tip.style.left=Math.max(6,Math.min(innerWidth-tw-6, rail?r.right+8:r.left+r.width/2-tw/2))+'px'; tip.style.top=(rail?r.top+r.height/2-tip.offsetHeight/2:r.bottom+8)+'px'; });
+      const tw=tip.offsetWidth; tip.style.left=Math.max(6,Math.min(innerWidth-tw-6, rail?(bar.classList.contains('alt')?r.left-tw-8:r.right+8):r.left+r.width/2-tw/2))+'px'; tip.style.top=(rail?r.top+r.height/2-tip.offsetHeight/2:r.bottom+8)+'px'; });
     el.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
   });
   dPaintBar();
@@ -1855,7 +1881,7 @@ function enterDraw(ctx, shapes){
     photo:photoOf, pickPlayer:tagPick, editText:teleEditText, onChange:()=>dPaintBar(), onSelect:sh=>dSyncToolbar(sh) });
   ED.setTool(dTool);
   loadTagPhotos([{shapes:shapes||[]}]);
-  document.getElementById('drawBar').style.display='flex'; document.getElementById('drawBar').scrollTop=0;
+  teleRail(); dPanel(); document.getElementById('drawBar').scrollTop=0;
   document.getElementById('drawAct').style.display='flex';
   { const st=document.getElementById('stage'), r=st.getBoundingClientRect(); if(r.top<60||r.top>innerHeight*0.4) window.scrollBy(0, r.top-64); }   // (below the sticky header)   // a phone: the composer is far below the video
   const who=document.getElementById('daWho');
@@ -1872,6 +1898,7 @@ function exitDraw(){
   const s=document.getElementById('drawSvg'); s.classList.remove('author'); s.style.pointerEvents='none'; s.innerHTML='';
   if(!dispLayers) s.style.display='none';
   document.getElementById('drawBar').style.display='none';
+  { const m=document.getElementById('drawMini'); if(m) m.style.display='none'; }
   document.getElementById('drawAct').style.display='none';
   const tip=document.getElementById('dTip'); if(tip) tip.style.display='none';
   freezeHide(); dCtx=null;
