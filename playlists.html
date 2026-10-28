@@ -2009,6 +2009,9 @@ async function cmDrawRemove(id){
   catch(e){ alert('Could not remove the drawing: '+e.message); }
 }
 window.addEventListener('resize',()=>sizeDrawSvg());
+// the video box itself changes size too (S / M / L / XL, the drag handle, the side list wrapping): keep the drawing layer on it
+(()=>{ const v=document.querySelector('.stage .vid'); if(!v||typeof ResizeObserver!=='function') return; let q=0;
+  new ResizeObserver(()=>{ clearTimeout(q); q=setTimeout(sizeDrawSvg,40); }).observe(v); })();
 document.addEventListener('fullscreenchange',()=>setTimeout(sizeDrawSvg,80));
 
 // ── leave guard (unsaved playlist edits) ──────────────────────
