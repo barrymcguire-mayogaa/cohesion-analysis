@@ -158,10 +158,10 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 .cma{font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;color:var(--accent);margin-right:6px;}
 .cmt{font-size:13px;color:var(--t1);line-height:1.55;margin-top:2px;white-space:pre-wrap;}
 .cmt input{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:6px;padding:6px 9px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
-.cmops{display:inline-flex;gap:8px;margin-left:8px;}
-.cmop{font-size:10px;color:var(--t3);cursor:pointer;}
-.cmop:hover{color:var(--accent);}
-.cmop.del:hover{color:var(--red);}
+.cmops{display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:8px;vertical-align:middle;}
+.cmop{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;color:var(--t2);cursor:pointer;padding:2px 8px;border:1px solid var(--border);border-radius:5px;background:var(--card);}
+.cmop:hover{color:var(--accent);border-color:var(--accent);}
+.cmop.del:hover{color:var(--red);border-color:var(--red);}
 .cmts{font-size:10px;color:var(--t3);}
 .cmrow{display:flex;gap:8px;margin-top:10px;}
 .cmrow input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--t1);font:13px 'Barlow',sans-serif;outline:none;}
@@ -915,6 +915,12 @@ function onState(e){
     else { playAll=false; document.getElementById('playAllBtn').classList.remove('on'); document.getElementById('playAllBtn').textContent='▶ Play all'; }
   }
 }
+// a comment or a drawing in progress: Play all stops here (the clip end then just pauses, it never jumps clips mid-comment)
+function stopPlayAll(){
+  if(!playAll) return;
+  playAll=false; const b=document.getElementById('playAllBtn'); if(b){ b.classList.remove('on'); b.textContent='▶ Play all'; }
+}
+function cmFollowPlaying(){ if(playIdx>=0&&ITEMS[playIdx]&&cmIdx!==playIdx) renderComments(playIdx); }
 function togglePlayAll(){
   playAll=!playAll;
   const b=document.getElementById('playAllBtn');
@@ -1137,7 +1143,9 @@ function cmFmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+('0'
 // exact moment — on playback the clip pauses there so everyone reads it.
 function cmArm(){
   if(cmAnchor) return;
+  const inp=document.getElementById('cmInput'); if(!(inp&&inp.value.trim())) cmFollowPlaying();   // an empty box follows the clip on screen
   if(cmIdx==null||cmIdx!==playIdx||!YTP||!YTP.getCurrentTime) return;
+  stopPlayAll();
   const it=ITEMS[cmIdx]; if(!it) return;
   if(YTP.pauseVideo) YTP.pauseVideo();
   const t=Math.max(it.start||0, Math.min(YTP.getCurrentTime()||0, it.end!=null?it.end:1e9));
@@ -1162,7 +1170,7 @@ function cmSeek(t,vid){
 function myName(){ try{ const u=netlifyIdentity.gotrue&&netlifyIdentity.gotrue.currentUser(); return (u&&u.user_metadata&&u.user_metadata.full_name)||((u&&u.email)||'').split('@')[0]||''; }catch(_){ return ''; } }
 function cmBusy(){
   const inp=document.getElementById('cmInput');
-  if(inp && (inp.value.trim()!=='' || document.activeElement===inp)) return true;
+  if(inp && (inp.value.trim()!=='' || (document.activeElement===inp&&cmAnchor))) return true;
   if(CM_DRAFT||drawMode) return true;
   const list=document.getElementById('cmList');
   return !!(list && list.querySelector('input'));
@@ -1822,6 +1830,7 @@ async function startDraw(){
   if(trimMode) endTrim();
   if(playIdx<0||!ITEMS[playIdx]){ alert('Play or select a clip first, then pause where you want to draw.'); return; }
   if(!CAN_EDIT) return;
+  stopPlayAll();
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
   const it=ITEMS[playIdx], draws=getDraws(it);
   const cur=(YTP&&YTP.getCurrentTime)?YTP.getCurrentTime():(it.start||0);
@@ -1868,7 +1877,10 @@ function nextCmColor(){
   const p=palette(); return p[(mx+1)%p.length];
 }
 async function cmDrawStart(){
-  if(!teleOn()||cmIdx==null||cmIdx!==playIdx||!ITEMS[cmIdx]) return;
+  if(!teleOn()) return;
+  if(playIdx<0||!ITEMS[playIdx]){ alert('Play a clip first, then pause where you want to draw.'); return; }
+  if(cmIdx!==playIdx){ const inp=document.getElementById('cmInput'); if(inp&&inp.value.trim()&&!confirm('Your unposted comment is for another clip. Start a new one on the clip playing now?')) return; if(inp) inp.value=''; renderComments(playIdx); }
+  if(cmIdx!==playIdx||!ITEMS[cmIdx]) return;
   if(trimMode) endTrim();
   cmArm(); if(!cmAnchor) return;
   if(YTP&&YTP.seekTo) YTP.seekTo(cmAnchor.t,true);
@@ -1902,7 +1914,9 @@ async function saveCommentDraw(ctx, shapes){
 }
 async function cmDrawEdit(id){
   const it=ITEMS[cmIdx]; const cm=it&&(it.comments||[]).find(x=>x.id===id); if(!cm||cm.t==null) return;
-  if(playIdx!==cmIdx||!YTP) return;
+  stopPlayAll();
+  if(playIdx!==cmIdx){ const ci=cmIdx; playClip(ci); await new Promise(r=>setTimeout(r,700)); if(playIdx!==ci) return; renderComments(ci); }   // Redraw on a clip not on screen: bring it up first
+  if(!YTP) return;
   if(YTP.pauseVideo) YTP.pauseVideo(); if(YTP.seekTo) YTP.seekTo(cm.t,true);
   hideMoment();
   CM_STILL=await teleCapture();
