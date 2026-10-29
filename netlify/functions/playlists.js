@@ -237,6 +237,8 @@ function teleFields(o, c, urls) {
   const m = R.arr(c.mentions).filter(x => x && x.id).map(x => ({ id: String(x.id), name: str(x.name || 'Member', 80) }));
   if (m.length) o.mentions = m;
   if (c.still) { o.hasStill = true; const url = urls && urls.get(c.still); if (url) o.stillUrl = url; }
+  if (c.parent_id != null && c.parent_id !== '') o.parent = 'db-' + c.parent_id;   // a reply (indented under its comment)
+  else if (typeof c.parent === 'string' && c.parent) o.parent = c.parent;           // (a reply kept inside the playlist)
   return o;
 }
 function cmTable(c, u, mod, urls) {
@@ -724,9 +726,21 @@ exports.handler = async (event, context) => {
         const mm = await mentionsIn(text); text = mm.text;
         const cidsNew = it ? ensureCids(items) : false;
         const tbl0 = await commentsFor([row.id]);
-        const colorIdx = colorIdxOf(rawOfTarget(row, tbl0.rows, it)), color = T.colorOf(colorIdx);
+        const raw0 = rawOfTarget(row, tbl0.rows, it);
+        const colorIdx = colorIdxOf(raw0), color = T.colorOf(colorIdx);
+        // a reply: the comment it answers must be on this same clip (or the whole playlist); a reply to a reply joins
+        // the first comment's thread (one level of indent)
+        let parentDb = null, parentLegacy = null;
+        if (body.parentId != null && body.parentId !== '') {
+          const pid = String(body.parentId);
+          const hit = raw0.find(x => x.legacy ? String(x.c.id) === pid : 'db-' + x.c.id === pid);
+          if (!hit) return J(400, { error: 'The comment you are replying to is not on this clip' });
+          const top = hit.legacy ? (hit.c.parent || null) : (hit.c.parent_id != null ? 'db-' + hit.c.parent_id : null);
+          const rootId = top || pid;
+          if (/^db-\d+$/.test(rootId)) parentDb = Number(rootId.slice(3)); else parentLegacy = rootId;
+        }
         const base = { playlist_id: Number(row.id), clip_id: it ? it.cid : null, t, vid, author_email: u.email, author_name: u.name, text, created_at: nowISO() };
-        const tele = { color, color_idx: colorIdx, mentions: mm.mentions, drawing: dr.drawing };
+        const tele = Object.assign({ color, color_idx: colorIdx, mentions: mm.mentions, drawing: dr.drawing }, parentDb != null ? { parent_id: parentDb } : {});
         let ins = await safe(supabase.from('playlist_comments').insert(Object.assign({}, base, tele)).select('id').single());
         let drawingStored = true;
         if (ins.error && missingColumn(ins.error)) {           // supabase/telestration.sql not run yet: the comment without its drawing
@@ -741,6 +755,7 @@ exports.handler = async (event, context) => {
           if (t != null) { cmObj.t = t; if (vid) cmObj.vid = vid; }
           if (dr.drawing) cmObj.drawing = dr.drawing;
           if (mm.mentions.length) cmObj.mentions = mm.mentions;
+          if (parentLegacy || parentDb != null) cmObj.parent = parentLegacy || 'db-' + parentDb;
           if (it) { it.comments = Array.isArray(it.comments) ? it.comments : []; it.comments.push(cmObj); }
           else { data.comments = Array.isArray(data.comments) ? data.comments : []; data.comments.push(cmObj); }
           await saveData(); newId = cmObj.id; drawingStored = true;

@@ -18,6 +18,7 @@ alter table public.playlist_comments add column if not exists color     text;   
 alter table public.playlist_comments add column if not exists color_idx integer;                                -- its place in the palette (max on the clip + 1: deleting never recolours)
 alter table public.playlist_comments add column if not exists mentions  jsonb       not null default '[]'::jsonb; -- [{id, name}] Identity user ids @mentioned (names only; never an email)
 alter table public.playlist_comments add column if not exists still     text;                                   -- object path in the playlist-stills bucket (the frame under the drawing)
+alter table public.playlist_comments add column if not exists parent_id bigint references public.playlist_comments(id) on delete set null;   -- a reply: the comment it answers (one level; NULL = a comment of its own)
 
 -- (the 🔔 bell, notifications.js, finds a person's mentions in these rows — no separate table)
 
