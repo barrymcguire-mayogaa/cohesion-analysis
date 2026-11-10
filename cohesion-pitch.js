@@ -186,7 +186,31 @@
       + dots + '</svg>';
   }
 
-  const API = { DEF_LEN, DEF_WID, FW, FH, keypoints, homography, model, toFrame, toGround, groundDist, groundEllipse, markings, linesSvg, diagramSvg };
+  // ── COHESION's tagged locations → pitch metres ──
+  // Shots: the shot chart (cohesion-graphics.js shotPitchArt) — x across, 0.878 m a unit from the goal's centre (50);
+  // y = % down a 75-high chart whose lines sit at these heights: [metres from the goal line, chart y].
+  // Kickouts: the kickout chart — y stored as metres from the kicking goal × 100 / 137 (KO_UNIT_M); x across an 84 m
+  // chart, 1.2 units of margin each side (koMX). Both charts are drawn as if standing facing that goal.
+  const SHOT_LINES = [[0, 1.2], [13, 15.5], [20, 22.9], [45, 52]], SHOT_M_PER_X = 0.878;
+  const KO_PM = 1.2, KO_UNIT_M = 137, KO_WIDTH_M = 84, KO_KX = (100 - 2 * KO_PM) / KO_WIDTH_M;
+  function shotChartToMetres(x, y) { const v = y * 0.75, A = SHOT_LINES; let i = 0; while (i < A.length - 2 && v > A[i + 1][1]) i++;
+    const d = A[i][0] + (v - A[i][1]) * (A[i + 1][0] - A[i][0]) / (A[i + 1][1] - A[i][1]); return { depth: Math.max(0, d), lat: (x - 50) * SHOT_M_PER_X }; }
+  function koChartToMetres(x, y) { return { depth: Math.max(0, y * KO_UNIT_M / 100), across: clamp((x - KO_PM) / KO_KX, 0, KO_WIDTH_M) }; }
+  // a tagged location (kind 'shot' | 'ko', its chart x / y 0–100) → pitch metres [X, Y], at end 'A' | 'B'.
+  // Facing the goal at end A (towards X = 0) your left is the near sideline (Y = 0); at end B it is the far one.
+  // mirror swaps left and right (a game tagged the other way round).
+  function chartToPitch(len, wid, kind, x, y, end, mirror) {
+    const m = wid / 2; let depth, off;
+    if (kind === 'shot') { const s = shotChartToMetres(x, y); depth = s.depth; off = s.lat; }
+    else { const k = koChartToMetres(x, y); depth = k.depth; off = k.across / KO_WIDTH_M * wid - m; }
+    let sg = end === 'B' ? -1 : 1; if (mirror) sg = -sg;
+    return [end === 'B' ? len - depth : depth, clamp(m + sg * off, 0, wid)];
+  }
+  // the end the line-up was made on: the end most of its points belong to
+  function seenEnd(p) { let a = 0, b = 0; ((p && p.pts) || []).forEach(q => { if (/^A/.test(q.k)) a++; else if (/^B/.test(q.k)) b++; }); return b > a ? 'B' : 'A'; }
+
+  const API = { DEF_LEN, DEF_WID, FW, FH, keypoints, homography, model, toFrame, toGround, groundDist, groundEllipse, markings, linesSvg, diagramSvg,
+    shotChartToMetres, koChartToMetres, chartToPitch, seenEnd };
   root.CohPitch = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

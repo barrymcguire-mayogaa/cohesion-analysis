@@ -683,6 +683,8 @@
       getPitch() { const p = st.shapes.find(x => x.type === 'pitch'); return p ? JSON.parse(JSON.stringify(p)) : null; },
       setPitch(p) { push(); st.shapes = st.shapes.filter(x => x.type !== 'pitch'); if (p) st.shapes.unshift(Object.assign(JSON.parse(JSON.stringify(p)), { type: 'pitch' })); select(null); renderNow(); changed(); },
       pitchModel: () => PM(),
+      // several shapes in one undo step (📍 a tagged spot: its ring, label and distance)
+      addShapes(list) { if (!Array.isArray(list) || !list.length) return 0; push(); list.forEach(x => st.shapes.push(JSON.parse(JSON.stringify(x)))); select(null); renderNow(); changed(); return list.length; },
       load(list) { st.shapes = JSON.parse(JSON.stringify(list || [])); st.hist = []; st.redo = []; select(null); renderNow(); changed(); },
       cancelCurrent, finishCurrent, hasCurrent: () => !!st.cur,
       selected: () => sel(), deselect() { select(null); renderNow(); },

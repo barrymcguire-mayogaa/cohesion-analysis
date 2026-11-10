@@ -352,6 +352,8 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 .pp-btns button{padding:6px 10px;border-radius:8px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;} .pp-btns button:disabled{opacity:.4;cursor:default;}
 .pp-btns button.pri{background:#22c55e;border-color:#22c55e;color:#04130a;}
 .pp-tip{color:#6f7588;font-size:11px;}
+.spotbar{position:fixed;z-index:10029;display:none;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#12141c;border:1px solid #2c3040;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;}
+.spotbar button{padding:5px 9px;border-radius:7px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:inherit;cursor:pointer;} .spotbar button.pri{background:#22c55e;border-color:#22c55e;color:#04130a;}
 </style>
 </head>
 <body>
@@ -1800,6 +1802,7 @@ const IC={
   ring:'<ellipse cx="12" cy="15" rx="9" ry="4.2"/><path d="M6.6 15.9a5.4 2.3 0 0 0 4.2 1.4M13.2 17.3a5.4 2.3 0 0 0 4.2-1.4M17.4 14.1a5.4 2.3 0 0 0-4.2-1.4M10.8 12.7a5.4 2.3 0 0 0-4.2 1.4"/>',
   mark:'<path d="M12 13.5L7 5h10z"/><circle cx="12" cy="19" r="2.4"/>',
   styles:'<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+  spotpin:'<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
   pitch:'<path d="M2.5 18.5L6.5 6h11l4 12.5z"/><path d="M12 6v12.5M4.6 12.2h14.8"/><circle cx="12" cy="12.2" r="2"/>',
   dist:'<path d="M4 16l12-12 4 4-12 12z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>'
 };
@@ -1837,6 +1840,7 @@ function buildDrawBar(){
   TOOLS.forEach(G=>{ h+='<div class="dgrp" data-g="'+G.g+'">'+G.items.map(([t,n,hint])=>b('data-tool="'+t+'" onclick="dSetTool(\''+t+'\')"',ico(t),n+(hint?' — '+hint:''))).join('')
     +(G.g==='text'?['plain','dark','box'].map(ts=>b('data-ts="'+ts+'" onclick="dSetTextStyle(\''+ts+'\')"','<span class="ts" style="'+(ts==='plain'?'color:#fff;text-shadow:0 1px 3px #000;':ts==='dark'?'background:#0a0c12;color:#fff;border:1px solid #444;':'background:#4fc3f7;color:#06121a;')+'">Aa</span>',{plain:'Text: plain with shadow',dark:'Text: dark box',box:'Text: colour box'}[ts])).join(''):'')
     +(G.g==='players'?b('id="dBeamBtn" onclick="dToggleBeam()"',ico('beam'),'Spotlight light beam on / off'):'')
+    +(G.g==='pitch'?b('id="dSpotBtn" onclick="dSpotAdd()"',ico('spotpin'),'📍 Tagged spot — put this clip’s shot or kickout location from Code Room on the frame (needs 📐 the pitch lined up)'):'')
     +(G.g==='pitch'?b('id="dPitchBtn" onclick="dPitchOpen()"',ico('pitch'),'📐 Line up the pitch — click 4 or more known points (line ends, rectangle corners…); then pitch lines, rings flat on the grass and distances in metres'):'')+'</div>'; });
   const cols=(dCtx&&dCtx.kind==='comment'?[null]:[]).concat(['#ffd600','#ff5252','#4fc3f7','#69f0ae','#ff9100','#b388ff','#ffffff','#0b0d12']);
   h+='<div class="dgrp sw" data-g="style">'+cols.map(c=>c?'<button type="button" class="dsw" data-c="'+c+'" style="background:'+c+'" onclick="dSetColor(\''+c+'\',this)" data-tip="Colour" aria-label="Colour '+c+'"></button>'
@@ -1876,6 +1880,8 @@ function dPaintBar(){
   if(u) u.disabled=!(st&&st.canUndo); if(rd) rd.disabled=!(st&&st.canRedo); if(dl) dl.disabled=!(st&&st.sel);
   const s=document.getElementById('drawSvg'); if(s) s.classList.toggle('t-select',dTool==='select');
   const pb=document.getElementById('dPitchBtn'); if(pb) pb.classList.toggle('on', !!(ED&&ED.pitchModel&&ED.pitchModel()));
+  const sb2=document.getElementById('dSpotBtn'); if(sb2){ const it=ITEMS[playIdx], ok=!!(ED&&ED.pitchModel&&ED.pitchModel()&&it&&it.gameId&&it.eventId); sb2.disabled=!ok; sb2.classList.toggle('off',!ok);
+    sb2.dataset.tip=ok?'📍 Tagged spot — put this clip’s shot or kickout location from Code Room on the frame':(ED&&ED.pitchModel&&ED.pitchModel()?'📍 Tagged spot — this clip is not linked to a tagged event':'📍 Tagged spot — line up the pitch first (📐)'); }
   const mg=bar.querySelector('.dtool[data-tool="mag"]'); if(mg){ const ok=!!teleFrame(); mg.disabled=!ok; mg.classList.toggle('off',!ok);
     mg.title=ok?'Magnifier — click the spot to enlarge, drag to place the lens':'Magnifier — needs a still of the frame (the desktop app, or a video file on this device); not available over a YouTube picture'; }
 }
@@ -1955,6 +1961,62 @@ function pcRender(fast){
     +'<label class="pp-chk"><input type="checkbox"'+(PC.show?' checked':'')+' onchange="PC.show=this.checked"> Show the lines</label></div>'
     +'<div class="pp-row pp-btns"><button type="button" onclick="pcUndoPoint()"'+(n?'':' disabled')+'>↶ Last point</button><button type="button" onclick="pcReset()"'+(n?'':' disabled')+'>Reset</button><span style="flex:1"></span><button type="button" class="pri" onclick="dPitchClose(true)">✓ Done</button></div>'
     +'<div class="pp-tip">Tip: points spread across the picture give the best fit — e.g. both ends of the 20 m line and of the 45. Only the end you can see matters: use End A for the end nearest the camera’s view.</div>';
+}
+// ── 📍 THE CLIP'S TAGGED SPOT (Nov 2026) ───────────────────────────────────────────────────────────────────────────
+// With the pitch lined up (📐), the clip's own event — a shot's location or a kickout's landing, as tagged in Code
+// Room — goes on the frame: a ring on the grass at that spot, a label (what it was, its outcome, the player) and, for a
+// shot, 📏 its distance to the goal. Read through the data gateway (staff with access to the game; viewers just see the
+// shapes). The end is the one the line-up was made on; "⇄ Other end" / "⇋ Mirror" redo it if the game was tagged the
+// other way round. One Undo takes the lot out.
+const SPOT_GAMES=new Map();
+let SPOT=null;   // the last spot added: {n, end, mirror, kind, c, e}
+function spotLoadLibs(){
+  const need=[['cohesionXpDetectConv','cohesion-xp.js'],['cohesionGraphics','cohesion-graphics.js']].filter(([g])=>typeof window[g]!=='function');
+  return need.reduce((p,[,src])=>p.then(()=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('could not load '+src)); document.head.appendChild(s); })), Promise.resolve());
+}
+function spotGame(id){
+  if(!SPOT_GAMES.has(id)) SPOT_GAMES.set(id, cohesionRead({action:'gameBundle', id}).then(j=>{
+    const meta=typeof j.meta==='string'?JSON.parse(j.meta):(j.meta||{}), events=(j.events||[]).map(r=>Object.assign({}, r.data||{}, {_rowId:r.id}));
+    return {meta, events, G:cohesionGraphics({game:meta, events})}; }).catch(e=>{ SPOT_GAMES.delete(id); throw e; }));
+  return SPOT_GAMES.get(id);
+}
+function spotMsg(t, bad){ const st=document.getElementById('plStatus'); if(st){ st.textContent=t; st.style.color=bad?'var(--orange)':''; } let b=document.getElementById('spotBar'); if(b&&bad) b.style.display='none'; }
+async function dSpotAdd(redo){
+  if(!ED) return; const M=ED.pitchModel(), P=ED.getPitch(), it=ITEMS[playIdx];
+  if(!M||!P){ spotMsg('Line up the pitch first (📐), then add the tagged spot.', true); return; }
+  if(!it||!it.gameId||!it.eventId){ spotMsg('This clip is not linked to a tagged event, so there is no spot to show.', true); return; }
+  let g; try{ await spotLoadLibs(); g=await spotGame(it.gameId); }catch(e){ spotMsg('Could not read the game’s events: '+(e.message||e), true); return; }
+  const e=g.events.find(x=>String(x.id)===String(it.eventId))||g.events.find(x=>String(x._rowId)===String(it.eventId));
+  if(!e){ spotMsg('The clip’s event is no longer in the game.', true); return; }
+  const code=String(e.code||''), kind=/\bKO\b|KICKOUT/i.test(code)?'ko':(/SHOT/i.test(code)&&!/SOURCE|ASSIST/i.test(code))?'shot':null;
+  if(!kind){ spotMsg('This clip is a '+code+' — only shots and kickouts have a pitch location.', true); return; }
+  const c=g.G.dashCoordOf(e);
+  if(!c){ spotMsg('This '+(kind==='ko'?'kickout':'shot')+' has no location tagged yet (📍 Locate in Code Room).', true); return; }
+  const o=redo||{end:CohPitch.seenEnd(P), mirror:false};
+  if(redo&&SPOT&&SPOT.n){ const cur=ED.shapes(); if(JSON.stringify(cur.slice(-SPOT.n))===SPOT.json) ED.undo(); }   // only when the spot's own shapes are still the last thing added
+  const [X,Y]=CohPitch.chartToPitch(M.len, M.wid, kind, c.x, c.y, o.end, o.mirror), at=CohPitch.toFrame(M, X, Y);
+  if(!at){ spotMsg('That spot is out of the camera’s view on this line-up — try ⇄ Other end.', true); SPOT={n:0, end:o.end, mirror:o.mirror}; spotBar(); return; }
+  const L=e.labels||{}, out=String(L[kind==='ko'?'Kickout Outcomes':'Shot Outcomes']||e.outcome||'').trim(), who=String(e.player||'').trim();
+  const ell=CohPitch.groundEllipse(M, at[0], at[1], 2);
+  const col=dColor||(dCtx&&dCtx.color)||'#ffd600';
+  const list=[];
+  if(ell) list.push(Object.assign({type:'ring', color:col, w:dW, cx:ell.cx, cy:ell.cy, rx:ell.rx, ry:ell.ry}, CohTele.ringStyleOf('broadcast'), ell.rot?{rot:ell.rot}:{}));
+  const goal=CohPitch.toFrame(M, o.end==='B'?M.len:0, M.wid/2);
+  if(kind==='shot'&&goal&&goal[0]>-0.05&&goal[0]<1.05&&goal[1]>-0.05&&goal[1]<1.05) list.push({type:'dist', color:col, w:Math.max(2,dW-1), x1:at[0], y1:at[1], x2:Math.max(0,Math.min(1,goal[0])), y2:Math.max(0,Math.min(1,goal[1]))});
+  const depth=Math.round((kind==='ko'?CohPitch.koChartToMetres(c.x,c.y).depth:CohPitch.shotChartToMetres(c.x,c.y).depth));
+  const txt=(kind==='ko'?'Kickout lands ~'+depth+' m out':'Shot')+(out?' · '+out:'')+(who?' · '+who:'');
+  list.push({type:'text', color:col, w:dW, style:'dark', size:16, text:txt.slice(0,80), x:Math.max(0,Math.min(0.75, at[0]+0.02)), y:Math.max(0,Math.min(0.92, at[1]-((ell?ell.ry:0.02)+0.09)))});
+  SPOT={n:ED.addShapes(list), end:o.end, mirror:o.mirror, kind}; SPOT.json=JSON.stringify(ED.shapes().slice(-SPOT.n));
+  spotMsg('📍 '+(kind==='ko'?'Kickout landing':'Shot location')+' from Code Room added — wrong side? use ⇄ Other end or ⇋ Mirror');
+  spotBar(); dPaintBar();
+}
+function spotBar(){
+  let b=document.getElementById('spotBar');
+  if(!b){ b=document.createElement('div'); b.id='spotBar'; b.className='spotbar'; document.body.appendChild(b); }
+  if(!SPOT||!drawMode){ b.style.display='none'; return; }
+  b.innerHTML='<span>📍 Tagged spot · end '+esc(SPOT.end)+(SPOT.mirror?' · mirrored':'')+'</span><button type="button" onclick="dSpotAdd({end:SPOT.end===\'A\'?\'B\':\'A\', mirror:SPOT.mirror})">⇄ Other end</button><button type="button" onclick="dSpotAdd({end:SPOT.end, mirror:!SPOT.mirror})">⇋ Mirror</button><button type="button" class="pri" onclick="SPOT=null;spotBar()">✓</button>';
+  const v=document.querySelector('.stage .vid'), r=v?v.getBoundingClientRect():null;
+  b.style.display='flex'; if(r){ b.style.left=(r.left+12)+'px'; b.style.top=(r.top+r.height-110)+'px'; }
 }
 function dPitchClose(save){
   if(!PC) return;
@@ -2139,6 +2201,7 @@ function enterDraw(ctx, shapes){
 }
 function exitDraw(){
   if(PC) dPitchClose(false);
+  SPOT=null; { const sb=document.getElementById('spotBar'); if(sb) sb.style.display='none'; }
   drawMode=false; tagPickClose(null);
   const te=document.getElementById('txtEdit'); if(te&&te.style.display==='block'){ te.blur(); te.style.display='none'; }
   if(ED){ ED.destroy(); ED=null; }
