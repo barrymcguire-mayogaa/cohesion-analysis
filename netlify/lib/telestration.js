@@ -42,7 +42,7 @@ function nextColorIdx(existing) {
 }
 
 const MAX_SHAPES = 80, MAX_POINTS = 600, MAX_TOTAL_POINTS = 5000, MAX_NODES = 200, MAX_TEXT = 160, MAX_CAPTION = 200, MAX_STOPS = 40;
-const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen'];
+const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'mag'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n * 10000) / 10000)) : null; };
 const frac = v => num(v, 0, 1);
@@ -81,6 +81,9 @@ function cleanShape(s, budget) {
     case 'poly': case 'link': { const p = pts(s.pts, budget); if (!p || p.length < (s.type === 'link' ? 1 : 2)) return null; o.pts = p;
       if (s.closed === true && p.length >= 3) { o.closed = true; fill(); } break; }
     case 'spot': { if (!XY(['cx', 'cy'])) return null; o.rx = num(s.rx, 0.004, 0.5) || 0.05; o.ry = num(s.ry, 0.002, 0.5) || 0.02; if (s.beam === true) o.beam = true; break; }
+    case 'focus': { if (!XY(['cx', 'cy'])) return null; o.rx = num(s.rx, 0.01, 0.6) || 0.1; o.ry = num(s.ry, 0.01, 0.6) || 0.12;
+      const d = num(s.dim, 0.2, 0.85); if (d != null) o.dim = d; break; }                          // a bright area; the rest of the picture darkened
+    case 'mag': { if (!XY(['cx', 'cy', 'lx', 'ly'])) return null; o.r = num(s.r, 0.02, 0.25) || 0.06; o.z = num(s.z, 1.5, 4) || 2.2; break; }   // source spot → lens
     case 'tag': { if (!XY(['x', 'y'])) return null; const px = frac(s.px), py = frac(s.py); if (px != null && py != null) { o.px = px; o.py = py; }
       o.name = cleanText(s.name, 60); if (!o.name) return null; const team = cleanText(s.team, 60); if (team) o.team = team;
       const no = cleanText(s.no, 3); if (/^\d{1,2}$/.test(no)) o.no = no; break; }
