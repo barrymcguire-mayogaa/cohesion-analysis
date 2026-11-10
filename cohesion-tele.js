@@ -11,6 +11,9 @@
  *       r = radius as a share of the ring, segs 0 = a full ring else that many segments, gap = the share of each left open,
  *       t = thickness 1–16; c absent = the shape's colour; ry/rx = how far it is tilted onto the grass)
  *   mark{x,y,kind:'tri'|'chev'|'dot'|'num',text?} (a marker over a player's head — x,y = its tip; w sets its size)
+ *   pitch{len,wid,pts:[{k,x,y}],show?} (📐 the drawing's line-up with the pitch — cohesion-pitch.js; at most one, never
+ *       selected; its lines are drawn under everything when show is not false) · dist{x1,y1,x2,y2} (📏 a distance on the
+ *       grass, measured with the drawing's line-up) · ring rot? (degrees: the ring's long axis, from the line-up)
  *   mag{cx,cy,r,lx,ly,z} (a magnifier: the spot cx,cy of radius r (fraction of the height) shown z× in a lens at lx,ly;
  *       it needs a picture of the frame — opts.frame — and shows an empty lens without one)
  *   every shape: color? (#rrggbb — absent = the layer's colour, e.g. its comment's), w (1–16), alpha?
@@ -31,6 +34,8 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lum = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
   const kOf = H => clamp(H / 480, 0.6, 2.4);
+  const CP = () => (typeof window !== 'undefined' && window.CohPitch) || (typeof globalThis !== 'undefined' && globalThis.CohPitch) || null;
+  const pitchModel = shapes => { const p = (shapes || []).find(x => x && x.type === 'pitch'), C = CP(); return p && C ? C.model(p) : null; };
   // the built-in ring styles (✨ Styles): layers outer → inner
   const RING_STYLES = {
     broadcast: { name: 'Broadcast', rings: [{ c: '#ffffff', r: 1, segs: 0, t: 5 }, { r: 0.72, segs: 5, gap: 0.28, t: 6 }], glow: true },
@@ -178,6 +183,7 @@
       case 'ring': {
         const cx = s.cx * W, cy = s.cy * H, rx = Math.max(3, (s.rx || 0.05) * W), ry = Math.max(2, (s.ry || 0.02) * H), spin = (+s.spin || 0) * Math.PI / 180;
         if (s.glow) { const g = 1.18 * ringMax(s); o += '<ellipse cx="' + f1(cx) + '" cy="' + f1(cy) + '" rx="' + f1(rx * g) + '" ry="' + f1(ry * g) + '" fill="url(#' + id + 'r' + col.slice(1) + ')"/>'; }
+        const ringStart = o.length;
         ringLayers(s).forEach(L => {
           const lc = typeof L.c === 'string' && HEX.test(L.c) ? L.c : col, R = clamp(+L.r || 1, 0.3, 1.6), a = rx * R, b = ry * R, t = clamp(+L.t || 4, 1, 16) * k * 0.85;
           const n = Math.round(clamp(+L.segs || 0, 0, 12)), gap = clamp(+L.gap || 0, 0, 0.6);
@@ -190,6 +196,24 @@
           o += '<path d="' + d + '" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="' + f1(t + 3 * k) + '" stroke-linecap="' + cap + '"/>'
             + '<path d="' + d + '" fill="none" stroke="' + lc + '" stroke-width="' + f1(t) + '" stroke-linecap="' + cap + '" filter="url(#' + id + 'g)"/>';
         });
+        if (s.rot) o = '<g transform="rotate(' + f1(clamp(+s.rot, -90, 90)) + ' ' + f1(cx) + ' ' + f1(cy) + ')">' + o + '</g>';
+        void ringStart;
+        break;
+      }
+      case 'pitch': {                                          // 📐 the lined-up pitch markings (drawn first, under everything)
+        const C = CP(), M = opts.pitchM; if (!C || !M || s.show === false) break;
+        o = C.linesSvg(M, W, H);
+        break;
+      }
+      case 'dist': {                                           // 📏 a distance on the grass
+        const x1 = s.x1 * W, y1 = s.y1 * H, x2 = s.x2 * W, y2 = s.y2 * H, a = Math.atan2(y2 - y1, x2 - x1), nx = -Math.sin(a) * 6 * k, ny = Math.cos(a) * 6 * k;
+        const C = CP(), M = opts.pitchM, m = C && M ? C.groundDist(M, [s.x1, s.y1], [s.x2, s.y2]) : null;
+        o = stroke('M' + f1(x1) + ' ' + f1(y1) + 'L' + f1(x2) + ' ' + f1(y2), col, sw, k, id, ' stroke-dasharray="' + f1(sw * 2.2) + ' ' + f1(sw * 1.6) + '"')
+          + stroke('M' + f1(x1 - nx) + ' ' + f1(y1 - ny) + 'L' + f1(x1 + nx) + ' ' + f1(y1 + ny) + 'M' + f1(x2 - nx) + ' ' + f1(y2 - ny) + 'L' + f1(x2 + nx) + ' ' + f1(y2 + ny), col, sw, k, id);
+        const txt = m != null ? (m < 100 ? m.toFixed(1) : Math.round(m)) + ' m' : '📐 ? m', fs = 15 * k, tw = textW(txt, fs, 800) + 14 * k, bh = fs * 1.5;
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2 - 14 * k;
+        o += '<g filter="url(#' + id + 's)"><rect x="' + f1(mx - tw / 2) + '" y="' + f1(my - bh / 2) + '" width="' + f1(tw) + '" height="' + f1(bh) + '" rx="' + f1(4 * k) + '" fill="#090b10" fill-opacity="0.88" stroke="' + col + '" stroke-width="' + f1(1.4 * k) + '"/>'
+          + '<text x="' + f1(mx) + '" y="' + f1(my + fs * 0.36) + '" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="800" font-size="' + f1(fs) + '" fill="#fff">' + esc(txt) + '</text></g>';
         break;
       }
       case 'mark': {
@@ -285,7 +309,8 @@
     layers = (layers || []).filter(L => L && Array.isArray(L.shapes));
     const k = kOf(H);
     return defs(opts.id, colorsUsed(layers.concat(opts.extra ? [opts.extra] : [])), k) + focusDim(layers, W, H, opts.id, k)
-      + layers.map(L => L.shapes.map(s => shapeSvg(s, W, H, L.color, opts.id, opts)).join('')).join('');
+      + layers.map(L => { const M = pitchModel(L.shapes), lo = Object.assign({}, opts, { pitchM: M });
+        const r = L.shapes.filter(s => s && s.type === 'pitch').concat(L.shapes.filter(s => s && s.type !== 'pitch')).map(s => shapeSvg(s, W, H, L.color, opts.id, lo)).join(''); opts.n = lo.n; return r; }).join('');
   }
   // every focus area of the drawing cut out of ONE darkened layer (soft edges), so two areas never darken each other
   function focusDim(layers, W, H, id, k) {
@@ -301,7 +326,8 @@
   function hit(s, x, y, W, H, tol) {
     const px = x * W, py = y * H;
     switch (s.type) {
-      case 'line': case 'arrow': case 'darrow': return segDist(px, py, s.x1 * W, s.y1 * H, s.x2 * W, s.y2 * H) <= tol;
+      case 'line': case 'arrow': case 'darrow': case 'dist': return segDist(px, py, s.x1 * W, s.y1 * H, s.x2 * W, s.y2 * H) <= tol;
+      case 'pitch': return false;
       case 'carrow': { const a = [s.x1 * W, s.y1 * H], c = [s.cx * W, s.cy * H], b = [s.x2 * W, s.y2 * H], pts = []; for (let t = 0; t <= 1.0001; t += 1 / 24) pts.push(qPoint(a, c, b, t)); return polyDist(px, py, pts, false) <= tol; }
       case 'rect': { const x1 = Math.min(s.x1, s.x2) * W, x2 = Math.max(s.x1, s.x2) * W, y1 = Math.min(s.y1, s.y2) * H, y2 = Math.max(s.y1, s.y2) * H;
         if (fillOf(s) && px >= x1 && px <= x2 && py >= y1 && py <= y2) return true; return polyDist(px, py, [[x1, y1], [x2, y1], [x2, y2], [x1, y2]], true) <= tol; }
@@ -327,7 +353,7 @@
   }
   function handles(s, W, H) {
     switch (s.type) {
-      case 'line': case 'arrow': case 'darrow': return [{ id: 'p1', x: s.x1, y: s.y1 }, { id: 'p2', x: s.x2, y: s.y2 }];
+      case 'line': case 'arrow': case 'darrow': case 'dist': return [{ id: 'p1', x: s.x1, y: s.y1 }, { id: 'p2', x: s.x2, y: s.y2 }];
       case 'carrow': return [{ id: 'p1', x: s.x1, y: s.y1 }, { id: 'p2', x: s.x2, y: s.y2 }, { id: 'c', x: s.cx, y: s.cy, round: true }];
       case 'rect': case 'ellipse': return [{ id: 'c11', x: s.x1, y: s.y1 }, { id: 'c21', x: s.x2, y: s.y1 }, { id: 'c12', x: s.x1, y: s.y2 }, { id: 'c22', x: s.x2, y: s.y2 }];
       case 'poly': case 'link': return (s.pts || []).map((p, i) => ({ id: 'v' + i, x: p[0], y: p[1] }));
@@ -366,6 +392,7 @@
   function move(s, dx, dy) {
     const m = p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)];
     switch (s.type) {
+      case 'pitch': break;
       case 'free': case 'poly': case 'link': s.pts = (s.pts || []).map(m); break;
       case 'spot': case 'focus': case 'ring': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
       case 'mark': s.x = clamp(s.x + dx, 0, 1); s.y = clamp(s.y + dy, 0, 1); break;
@@ -385,6 +412,7 @@
       case 'spot': case 'focus': pts = [[(s.cx - s.rx) * W, (s.cy - s.ry) * H], [(s.cx + s.rx) * W, (s.cy + s.ry) * H]]; break;
       case 'ring': { const m = ringMax(s); pts = [[(s.cx - s.rx * m) * W, (s.cy - s.ry * m) * H], [(s.cx + s.rx * m) * W, (s.cy + s.ry * m) * H]]; break; }
       case 'mark': { const b = markBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
+      case 'pitch': return null;
       case 'mag': { const m = magGeo(s, W, H); pts = [[m.cx - m.r, m.cy - m.r], [m.cx + m.r, m.cy + m.r], [m.lx - m.R, m.ly - m.R], [m.lx + m.R, m.ly + m.R]]; break; }
       case 'text': { const b = textBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
       case 'tag': { const b = tagBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; if (s.px != null) pts.push([s.px * W, s.py * H]); break; }
@@ -416,6 +444,7 @@
     const push = (before) => { st.hist.push(before == null ? snap() : before); if (st.hist.length > 200) st.hist.shift(); st.redo = []; };
     const changed = () => { try { o.onChange && o.onChange(api.state()); } catch (_) {} };
     const sel = () => st.sel != null ? st.shapes[st.sel] : null;
+    const PM = () => pitchModel(st.shapes);
     const newShape = extra => { const s = Object.assign({ w: st.w }, extra); if (st.color) s.color = st.color; if (st.alpha < 1) s.alpha = st.alpha; return s; };
     function pos(e) { const r = svg.getBoundingClientRect(); return [clamp((e.clientX - r.left) / (r.width || 1), 0, 1), clamp((e.clientY - r.top) / (r.height || 1), 0, 1)]; }
     function hitIndex(x, y) { const [W, H] = WH(); for (let i = st.shapes.length - 1; i >= 0; i--) if (hit(st.shapes[i], x, y, W, H, 9)) return i; return null; }
@@ -529,8 +558,13 @@
         });
         return;
       }
-      if (t === 'spot') { st.cur = newShape({ type: 'spot', cx: x, cy: y, rx: 0.045, ry: 0.045 * W / H * 0.3 }); if (st.beam) st.cur.beam = true; st.drag = { mode: 'spot', sx: x, sy: y }; renderNow(); return; }
-      if (t === 'ring') { const R = ringStyleOf(st.ringStyle); st.cur = newShape(Object.assign({ type: 'ring', cx: x, cy: y, rx: 0.04, ry: 0.04 * W / H * st.tilt }, R)); if (!R.glow) delete st.cur.glow; st.drag = { mode: 'ring', sx: x, sy: y }; renderNow(); return; }
+      if (t === 'spot') { st.cur = newShape({ type: 'spot', cx: x, cy: y, rx: 0.045, ry: 0.045 * W / H * 0.3 }); if (st.beam) st.cur.beam = true;
+        const M = PM(), C = CP(), e = M && C ? C.groundEllipse(M, x, y, 1.6) : null; if (e) Object.assign(st.cur, { cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry });   // 📐 a 1.6 m pool of light on the grass
+        st.drag = { mode: 'spot', sx: x, sy: y, ground: !!e }; renderNow(); return; }
+      if (t === 'ring') { const R = ringStyleOf(st.ringStyle); st.cur = newShape(Object.assign({ type: 'ring', cx: x, cy: y, rx: 0.04, ry: 0.04 * W / H * st.tilt }, R)); if (!R.glow) delete st.cur.glow;
+        const M = PM(), C = CP(), e = M && C ? C.groundEllipse(M, x, y, 2) : null;            // 📐 lined up: a 2 m circle on the grass at that spot
+        if (e) { Object.assign(st.cur, { cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry }); if (e.rot) st.cur.rot = e.rot; }
+        st.drag = { mode: 'ring', sx: x, sy: y, ground: !!e }; renderNow(); return; }
       if (t === 'mark') { const s = newShape({ type: 'mark', x, y, kind: st.markKind }); if (st.markKind === 'num') s.text = String(st.markNo++);
         push(); st.shapes.push(s); renderNow(); changed(); return; }
       if (t === 'focus') { st.cur = newShape({ type: 'focus', cx: x, cy: y, rx: 0.01, ry: 0.01 }); st.drag = { mode: 'focus', sx: x, sy: y }; renderNow(); return; }
@@ -557,7 +591,12 @@
       if (c.type === 'poly' || c.type === 'link' || c.type === 'pen') { st.hover = [x, y]; renderNow(); return; }
       if (d && d.mode === 'focus') { c.rx = Math.max(0.01, Math.abs(x - d.sx)); c.ry = Math.max(0.01, Math.abs(y - d.sy)); renderNow(); return; }
       if (d && d.mode === 'mag') { c.lx = x; c.ly = y; renderNow(); return; }
-      if (d && d.mode === 'ring') { c.rx = Math.max(0.012, Math.abs(x - d.sx)); c.ry = Math.max(0.004, c.rx * W / H * st.tilt); renderNow(); return; }
+      if (d && d.mode === 'ring') {
+        if (d.ground) { const M = PM(), C = CP(), r = M && C ? C.groundDist(M, [d.sx, d.sy], [x, y]) : null, e = r != null ? C.groundEllipse(M, d.sx, d.sy, clamp(r, 0.6, 12)) : null;
+          if (e) { Object.assign(c, { cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry }); if (e.rot) c.rot = e.rot; else delete c.rot; } renderNow(); return; }
+        c.rx = Math.max(0.012, Math.abs(x - d.sx)); c.ry = Math.max(0.004, c.rx * W / H * st.tilt); renderNow(); return; }
+      if (d && d.mode === 'spot' && d.ground) { const M = PM(), C = CP(), r = M && C ? C.groundDist(M, [d.sx, d.sy], [x, y]) : null, e = r != null ? C.groundEllipse(M, d.sx, d.sy, clamp(r, 0.6, 10)) : null;
+        if (e) Object.assign(c, { cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry }); renderNow(); return; }
       if (d && d.mode === 'spot') { const rx = Math.max(0.012, Math.abs(x - d.sx)); c.rx = rx; c.ry = Math.max(0.006, rx * W / H * 0.3 + Math.abs(y - d.sy) * 0.6); renderNow(); return; }
       if (c.type === 'free') { const l = c.pts[c.pts.length - 1]; if (Math.hypot((x - l[0]) * W, (y - l[1]) * H) >= 2) c.pts.push([x, y]); }
       else { c.x2 = x; c.y2 = y; if (c.type === 'carrow') { const q = autoCtrl(c.x1, c.y1, c.x2, c.y2, W, H); c.cx = q[0]; c.cy = q[1]; } }
@@ -637,9 +676,13 @@
         if (st.sel != null && st.sel >= st.shapes.length) select(null); renderNow(); changed(); return true;
       },
       redo() { if (!st.redo.length) return false; st.hist.push(snap()); st.shapes = JSON.parse(st.redo.pop()); st.styleRun = null; if (st.sel != null && st.sel >= st.shapes.length) select(null); renderNow(); changed(); return true; },
-      del() { if (st.sel == null || !st.shapes[st.sel]) return false; push(); st.shapes.splice(st.sel, 1); select(null); renderNow(); changed(); return true; },
+      del() { if (st.sel == null || !st.shapes[st.sel] || st.shapes[st.sel].type === 'pitch') return false; push(); st.shapes.splice(st.sel, 1); select(null); renderNow(); changed(); return true; },
       clear() { if (!st.shapes.length) return false; push(); st.shapes = []; select(null); renderNow(); changed(); return true; },
       shapes: () => JSON.parse(snap()),
+      // 📐 the drawing's line-up with the pitch: read / set (one undo step) / its fitted model
+      getPitch() { const p = st.shapes.find(x => x.type === 'pitch'); return p ? JSON.parse(JSON.stringify(p)) : null; },
+      setPitch(p) { push(); st.shapes = st.shapes.filter(x => x.type !== 'pitch'); if (p) st.shapes.unshift(Object.assign(JSON.parse(JSON.stringify(p)), { type: 'pitch' })); select(null); renderNow(); changed(); },
+      pitchModel: () => PM(),
       load(list) { st.shapes = JSON.parse(JSON.stringify(list || [])); st.hist = []; st.redo = []; select(null); renderNow(); changed(); },
       cancelCurrent, finishCurrent, hasCurrent: () => !!st.cur,
       selected: () => sel(), deselect() { select(null); renderNow(); },

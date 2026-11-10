@@ -339,6 +339,19 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 @keyframes ctFade{from{opacity:0}to{opacity:1}}
 #drawSvg.ct-fade{animation:ctFade .35s ease-out;}
 @media (prefers-reduced-motion:reduce){#drawSvg.ct-fade{animation:none;}}
+#pitchSvg{position:absolute;z-index:7;overflow:visible;touch-action:none;cursor:crosshair;}
+.pitchpanel{position:fixed;z-index:10031;display:none;width:324px;background:#12141c;border:1px solid #2c3040;border-radius:12px;box-shadow:0 16px 44px rgba(0,0,0,.6);padding:10px 12px 12px;color:#e6e7ee;font:12.5px/1.4 Barlow,sans-serif;}
+.pp-h{display:flex;align-items:center;gap:8px;cursor:move;margin-bottom:6px;user-select:none;} .pp-h b{font:800 14px 'Barlow Condensed',sans-serif;letter-spacing:.6px;} .pp-h span{flex:1;color:#6f7588;font-size:11px;}
+.pp-x{border:none;background:none;color:#9aa0b4;font-size:15px;cursor:pointer;}
+.pp-step{margin:0 0 6px;color:#cfd3e0;} .pp-step b{color:#ffd600;}
+.cp-diag{display:block;margin:0 auto 6px;} .cp-kp{fill:#0b0d12;stroke:#fff;stroke-width:1.3;cursor:pointer;} .cp-kp:hover{fill:#4fc3f7;} .cp-kp.set{fill:#22c55e;stroke:#22c55e;} .cp-kp.sel{fill:#ffd600;stroke:#fff;stroke-width:2;}
+.pp-msg{color:#ff9100;margin:0 0 4px;}
+.pp-q{padding:5px 8px;border-radius:7px;background:#1a1d27;margin:2px 0 8px;} .pp-q.ok{background:rgba(34,197,94,.14);} .pp-q.bad{background:rgba(255,82,82,.16);}
+.pp-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;} .pp-row input[type=number]{width:58px;background:#0b0d12;border:1px solid #2c3040;border-radius:6px;color:#e6e7ee;padding:3px 5px;font:12px Barlow,sans-serif;}
+.pp-chk{display:flex;align-items:center;gap:5px;}
+.pp-btns button{padding:6px 10px;border-radius:8px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;} .pp-btns button:disabled{opacity:.4;cursor:default;}
+.pp-btns button.pri{background:#22c55e;border-color:#22c55e;color:#04130a;}
+.pp-tip{color:#6f7588;font-size:11px;}
 </style>
 </head>
 <body>
@@ -409,6 +422,7 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
           <div class="vid"><div id="ytMount"></div>
             <div class="freeze" id="freeze"><img class="fz-still" id="fzStill" alt=""><canvas class="fz-still" id="fzCanvas"></canvas><div class="fz-top" id="fzTop"></div><div class="fz-bot" id="fzBot"></div><div class="fz-edge" id="fzEdge"></div><span class="fz-tag"><i></i>FREEZE</span></div>
             <svg id="drawSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+            <svg id="pitchSvg" xmlns="http://www.w3.org/2000/svg" style="display:none;"></svg>
             <div class="drawbar" id="drawBar" role="toolbar" aria-label="Drawing tools"></div>
             <button type="button" class="dmini" id="drawMini" onclick="dPanel({min:false})" title="Show the drawing tools">✏ Tools</button>
             <div class="drawact" id="drawAct">
@@ -504,6 +518,7 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 <script src="cohesion-edit.js"></script>
 <script src="cohesion-player.js"></script>
 <script src="cohesion-photos.js"></script>
+<script src="cohesion-pitch.js"></script>
 <script src="cohesion-tele.js"></script>
 <script>
 if(typeof cohesionAuthGate==='function') cohesionAuthGate(); else if(!sessionStorage.getItem('cohesion_auth')) window.location.href='index.html';   // the gate restores a signed-in tab's marker, or goes to index.html?next=<this page> (cohesion-edit.js)
@@ -1586,6 +1601,7 @@ function sizeDrawSvg(){
   s.style.left=r.x+'px'; s.style.top=r.y+'px';
   s.setAttribute('width',r.w); s.setAttribute('height',r.h); s.setAttribute('viewBox','0 0 '+r.w+' '+r.h);
   sizeFreeze(); teleRail();
+  if(PC) pcRender(true);
   if(s.style.display==='none') return;
   if(drawMode&&ED) ED.render(); else dRender();
 }
@@ -1783,7 +1799,9 @@ const IC={
   beam:'<path d="M8 18.5L10 4h4l2 14.5"/><ellipse cx="12" cy="18.5" rx="5.2" ry="1.9"/>',
   ring:'<ellipse cx="12" cy="15" rx="9" ry="4.2"/><path d="M6.6 15.9a5.4 2.3 0 0 0 4.2 1.4M13.2 17.3a5.4 2.3 0 0 0 4.2-1.4M17.4 14.1a5.4 2.3 0 0 0-4.2-1.4M10.8 12.7a5.4 2.3 0 0 0-4.2 1.4"/>',
   mark:'<path d="M12 13.5L7 5h10z"/><circle cx="12" cy="19" r="2.4"/>',
-  styles:'<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'
+  styles:'<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
+  pitch:'<path d="M2.5 18.5L6.5 6h11l4 12.5z"/><path d="M12 6v12.5M4.6 12.2h14.8"/><circle cx="12" cy="12.2" r="2"/>',
+  dist:'<path d="M4 16l12-12 4 4-12 12z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>'
 };
 const ico=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>';
 const TOOLS=[
@@ -1792,7 +1810,8 @@ const TOOLS=[
   {g:'shapes', items:[['rect','Rectangle',''],['ellipse','Ellipse',''],['poly','Polygon','click each corner; click the first point to close'],['pen','Pen','click = corner, click-and-drag = curve; click the first point to close']]},
   {g:'players', items:[['spot','Player spotlight','click a player (drag to size); ✦ adds the light beam'],['ring','Ring','click a player (drag to size) — broadcast-style; ✨ Styles to choose the look'],['mark','Marker','click over each player — a triangle, chevron, dot or number (✨ Styles to choose)'],['tag','Name tag','click a player, pick the name'],['link','Link players','click each player; click the first to close an area']]},
   {g:'focus', items:[['focus','Focus','drag around the area to keep bright; the rest of the picture darkens'],['mag','Magnifier','click the spot to enlarge, drag to place the lens (needs a still of the frame)']]},
-  {g:'text', items:[['text','Text label','click to place; double-click to edit']]}
+  {g:'text', items:[['text','Text label','click to place; double-click to edit']]},
+  {g:'pitch', items:[['dist','Distance','drag between two spots on the grass — shows the metres once the pitch is lined up (📐)']]}
 ];
 // the tool panel: hidden (✏ Tools brings it back) and which side of the picture — remembered on this device
 let DPANEL=(()=>{ try{ const j=JSON.parse(localStorage.getItem('coh_tele_panel')||'{}'); return {min:!!j.min, side:j.side==='b'?'b':'a'}; }catch(_){ return {min:false, side:'a'}; } })();
@@ -1817,7 +1836,8 @@ function buildDrawBar(){
   let h='<div class="dgrp" data-g="panel">'+b('onclick="dPanel({min:true})"',ico('hide'),'Hide the tools — see the whole picture (✏ Tools brings them back)','H')+b('onclick="dPanel({side:DPANEL.side===\'b\'?\'a\':\'b\'})"',ico('side'),'Move the tools to the other side')+'</div>';
   TOOLS.forEach(G=>{ h+='<div class="dgrp" data-g="'+G.g+'">'+G.items.map(([t,n,hint])=>b('data-tool="'+t+'" onclick="dSetTool(\''+t+'\')"',ico(t),n+(hint?' — '+hint:''))).join('')
     +(G.g==='text'?['plain','dark','box'].map(ts=>b('data-ts="'+ts+'" onclick="dSetTextStyle(\''+ts+'\')"','<span class="ts" style="'+(ts==='plain'?'color:#fff;text-shadow:0 1px 3px #000;':ts==='dark'?'background:#0a0c12;color:#fff;border:1px solid #444;':'background:#4fc3f7;color:#06121a;')+'">Aa</span>',{plain:'Text: plain with shadow',dark:'Text: dark box',box:'Text: colour box'}[ts])).join(''):'')
-    +(G.g==='players'?b('id="dBeamBtn" onclick="dToggleBeam()"',ico('beam'),'Spotlight light beam on / off'):'')+'</div>'; });
+    +(G.g==='players'?b('id="dBeamBtn" onclick="dToggleBeam()"',ico('beam'),'Spotlight light beam on / off'):'')
+    +(G.g==='pitch'?b('id="dPitchBtn" onclick="dPitchOpen()"',ico('pitch'),'📐 Line up the pitch — click 4 or more known points (line ends, rectangle corners…); then pitch lines, rings flat on the grass and distances in metres'):'')+'</div>'; });
   const cols=(dCtx&&dCtx.kind==='comment'?[null]:[]).concat(['#ffd600','#ff5252','#4fc3f7','#69f0ae','#ff9100','#b388ff','#ffffff','#0b0d12']);
   h+='<div class="dgrp sw" data-g="style">'+cols.map(c=>c?'<button type="button" class="dsw" data-c="'+c+'" style="background:'+c+'" onclick="dSetColor(\''+c+'\',this)" data-tip="Colour" aria-label="Colour '+c+'"></button>'
       :'<button type="button" class="dsw auto" data-c="" style="background:'+esc(dCtx.color)+'" onclick="dSetColor(null,this)" data-tip="Your comment\'s colour" aria-label="Your comment\'s colour"></button>').join('')
@@ -1855,6 +1875,7 @@ function dPaintBar(){
   const u=document.getElementById('dUndoBtn'), rd=document.getElementById('dRedoBtn'), dl=document.getElementById('dDelBtn');
   if(u) u.disabled=!(st&&st.canUndo); if(rd) rd.disabled=!(st&&st.canRedo); if(dl) dl.disabled=!(st&&st.sel);
   const s=document.getElementById('drawSvg'); if(s) s.classList.toggle('t-select',dTool==='select');
+  const pb=document.getElementById('dPitchBtn'); if(pb) pb.classList.toggle('on', !!(ED&&ED.pitchModel&&ED.pitchModel()));
   const mg=bar.querySelector('.dtool[data-tool="mag"]'); if(mg){ const ok=!!teleFrame(); mg.disabled=!ok; mg.classList.toggle('off',!ok);
     mg.title=ok?'Magnifier — click the spot to enlarge, drag to place the lens':'Magnifier — needs a still of the frame (the desktop app, or a video file on this device); not available over a YouTube picture'; }
 }
@@ -1869,6 +1890,84 @@ function dAlphaDone(){ if(ED) ED.endStyleRun(); }
 function dSetTextStyle(ts){ dTextStyle=ts; if(ED) ED.set('textStyle',ts); if(dTool!=='text'&&!(ED&&ED.selected()&&ED.selected().type==='text')) dSetTool('text'); dPaintBar(); }
 function dToggleBeam(){ dBeam=!dBeam; if(ED) ED.set('beam',dBeam); dPaintBar(); }
 function dSetTilt(f){ dTilt=f; if(ED) ED.set('tilt',f); }
+// ── 📐 LINE UP THE PITCH (Nov 2026) ─────────────────────────────────────────────────────────────────────────────────
+// Pick a known point on the little pitch (it turns yellow), then click the same spot on the frame; 4 or more, spread
+// over the picture. Placed points can be dragged on the frame to fine-tune. With 4+ the lines are drawn in perspective
+// as you go, and the fit is shown (how far the points sit from the fitted lines). ✓ Done saves the line-up into the
+// drawing (cohesion-pitch.js; one Undo). Then rings / spotlights lie on the grass at the right size and angle, and 📏
+// Distance shows metres. The pitch size is set here (GAA pitches are 130–145 × 80–90 m).
+let PC=null;
+function pcModel(){ return PC&&window.CohPitch?CohPitch.model({len:PC.len, wid:PC.wid, pts:PC.pts}):null; }
+function dPitchOpen(){
+  if(!ED||!window.CohPitch) return;
+  if(ED.hasCurrent()) ED.finishCurrent();
+  const p=ED.getPitch();
+  PC={len:(p&&p.len)||CohPitch.DEF_LEN, wid:(p&&p.wid)||CohPitch.DEF_WID, pts:p?p.pts.map(q=>Object.assign({},q)):[], show:p?p.show!==false:true, sel:p?null:'A20a', drag:null, msg:''};
+  let pn=document.getElementById('pitchPanel');
+  if(!pn){ pn=document.createElement('div'); pn.id='pitchPanel'; pn.className='pitchpanel'; document.body.appendChild(pn);
+    pn.addEventListener('click',e=>{ const k=e.target.closest&&e.target.closest('.cp-kp'); if(k&&PC){ PC.sel=k.getAttribute('data-k'); PC.msg=''; pcRender(); } });
+    let dg=null; pn.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pp-h')||e.target.closest('button')) return; dg={x:e.clientX-pn.offsetLeft, y:e.clientY-pn.offsetTop}; pn.setPointerCapture(e.pointerId); });
+    pn.addEventListener('pointermove',e=>{ if(dg){ pn.style.left=Math.max(4,Math.min(innerWidth-60,e.clientX-dg.x))+'px'; pn.style.top=Math.max(4,Math.min(innerHeight-40,e.clientY-dg.y))+'px'; } });
+    pn.addEventListener('pointerup',()=>{ dg=null; });
+    const ov=document.getElementById('pitchSvg');
+    const fr=e=>{ const r=ov.getBoundingClientRect(); return [(e.clientX-r.left)/(r.width||1), (e.clientY-r.top)/(r.height||1)]; };
+    ov.addEventListener('pointerdown',e=>{ if(!PC) return; e.preventDefault(); const [x,y]=fr(e), r=ov.getBoundingClientRect();
+      const near=PC.pts.find(q=>Math.hypot((q.x-x)*r.width,(q.y-y)*r.height)<=12);
+      if(near){ PC.sel=near.k; PC.drag=near.k; try{ ov.setPointerCapture(e.pointerId); }catch(_){} pcRender(); return; }
+      if(!PC.sel){ PC.msg='Pick a point on the little pitch first, then click the same spot here.'; pcRender(); return; }
+      const q=PC.pts.find(t=>t.k===PC.sel); if(q){ q.x=x; q.y=y; } else PC.pts.push({k:PC.sel, x, y});
+      PC.drag=PC.sel; try{ ov.setPointerCapture(e.pointerId); }catch(_){} PC.msg=''; pcRender(); });
+    ov.addEventListener('pointermove',e=>{ if(!PC||!PC.drag) return; const [x,y]=fr(e), q=PC.pts.find(t=>t.k===PC.drag); if(q){ q.x=Math.max(-0.5,Math.min(1.5,x)); q.y=Math.max(-0.5,Math.min(1.5,y)); pcRender(true); } });
+    ov.addEventListener('pointerup',()=>{ if(PC&&PC.drag){ PC.drag=null; PC.sel=null; pcRender(); } });
+    document.addEventListener('keydown',e=>{ if(PC&&e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); dPitchClose(false); } }, true);
+  }
+  pn.style.display='block';
+  const v=document.querySelector('.stage .vid'), vr=v?v.getBoundingClientRect():{left:20, bottom:400};
+  if(!pn.style.left){ const beside=vr.left>=340;   // beside the video (over the clip list) when there is room, so it never hides the points
+    pn.style.left=(beside?Math.max(8, vr.left-336):Math.max(8,Math.min(innerWidth-340, vr.left+12)))+'px'; pn.style.top=Math.max(70,Math.min(innerHeight-470, beside?vr.top:vr.top+60))+'px'; }
+  const ds=document.getElementById('drawSvg'); if(ds) ds.style.pointerEvents='none';
+  pcRender();
+}
+function pcSize(k,v){ if(!PC) return; const n=+v; if(!Number.isFinite(n)) return; PC[k]=Math.max(k==='len'?100:60, Math.min(k==='len'?160:100, n)); pcRender(); }
+function pcUndoPoint(){ if(PC&&PC.pts.length){ PC.pts.pop(); pcRender(); } }
+function pcReset(){ if(PC){ PC.pts=[]; PC.sel='A20a'; pcRender(); } }
+function pcRender(fast){
+  const pn=document.getElementById('pitchPanel'), ov=document.getElementById('pitchSvg'), ds=document.getElementById('drawSvg'); if(!PC||!pn||!ov||!ds) return;
+  const W=+ds.getAttribute('width')||1, H=+ds.getAttribute('height')||1;
+  ov.style.left=ds.style.left; ov.style.top=ds.style.top; ov.setAttribute('width',W); ov.setAttribute('height',H); ov.setAttribute('viewBox','0 0 '+W+' '+H); ov.style.display='block';
+  const M=pcModel(), kp=CohPitch.keypoints(PC.len, PC.wid);
+  let o=M?CohPitch.linesSvg(M,W,H,{color:'#7fe9ff', opacity:.9}):'';
+  PC.pts.forEach(q=>{ const x=q.x*W, y=q.y*H, on=q.k===PC.sel, e=M&&M.errs?M.errs[PC.pts.indexOf(q)]:0;
+    o+='<g class="pc-pt"><circle cx="'+x+'" cy="'+y+'" r="'+(on?9:7)+'" fill="'+(on?'#ffd600':'#22c55e')+'" fill-opacity=".35" stroke="'+(on?'#ffd600':'#22c55e')+'" stroke-width="2.4"/><circle cx="'+x+'" cy="'+y+'" r="1.8" fill="#fff"/>'
+      +'<text x="'+(x+11)+'" y="'+(y-9)+'" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="12" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">'+esc((kp[q.k]||{label:q.k}).label.replace(/^End ([AB]) · /,'$1 · ').replace(' line, near sideline',' near').replace(' line, far sideline',' far').replace('Halfway line, ','Halfway '))+(e>12?' ⚠':'')+'</text></g>'; });
+  ov.innerHTML=o;
+  if(fast) return;
+  const n=PC.pts.length, need=Math.max(0,4-n);
+  const q=M?(n===4?'4 points fit exactly — add a 5th or 6th to check the line-up':M.err<5?'✓ Good fit — the points sit '+M.err.toFixed(1)+' px from the lines':M.err<12?'Fair fit ('+M.err.toFixed(1)+' px) — check the points marked ⚠':'⚠ Poor fit ('+M.err.toFixed(0)+' px) — a point may be on the wrong mark, or the pitch size is off'):
+    (n>=4?'⚠ These points can’t pin the view down — spread them out (not all on one line)':'Place '+need+' more point'+(need===1?'':'s'));
+  const sel=PC.sel&&kp[PC.sel];
+  pn.innerHTML='<div class="pp-h"><b>📐 Line up the pitch</b><span>drag here to move</span><button type="button" class="pp-x" onclick="dPitchClose(false)" title="Close without changing (Esc)">✕</button></div>'
+    +'<div class="pp-step">'+(sel?'<b>Now click: '+esc(sel.label)+'</b> on the picture':'1. Pick a point on the pitch below · 2. click the same spot on the picture · drag a placed point to adjust')+'</div>'
+    +CohPitch.diagramSvg(PC.len, PC.wid, 300, {sel:PC.sel, placed:PC.pts.map(t=>t.k)})
+    +(PC.msg?'<div class="pp-msg">'+esc(PC.msg)+'</div>':'')
+    +'<div class="pp-q'+(M&&M.err>=12?' bad':M?' ok':'')+'">'+esc(n+' point'+(n===1?'':'s')+' · '+q)+'</div>'
+    +'<div class="pp-row"><label>Pitch <input type="number" min="100" max="160" step="0.5" value="'+PC.len+'" onchange="pcSize(\'len\',this.value)"> × <input type="number" min="60" max="100" step="0.5" value="'+PC.wid+'" onchange="pcSize(\'wid\',this.value)"> m</label>'
+    +'<label class="pp-chk"><input type="checkbox"'+(PC.show?' checked':'')+' onchange="PC.show=this.checked"> Show the lines</label></div>'
+    +'<div class="pp-row pp-btns"><button type="button" onclick="pcUndoPoint()"'+(n?'':' disabled')+'>↶ Last point</button><button type="button" onclick="pcReset()"'+(n?'':' disabled')+'>Reset</button><span style="flex:1"></span><button type="button" class="pri" onclick="dPitchClose(true)">✓ Done</button></div>'
+    +'<div class="pp-tip">Tip: points spread across the picture give the best fit — e.g. both ends of the 20 m line and of the 45. Only the end you can see matters: use End A for the end nearest the camera’s view.</div>';
+}
+function dPitchClose(save){
+  if(!PC) return;
+  if(save&&ED){ const keep=PC.pts.length?{len:PC.len, wid:PC.wid, pts:PC.pts.map(q=>({k:q.k, x:Math.round(q.x*10000)/10000, y:Math.round(q.y*10000)/10000}))}:null;
+    if(keep&&!PC.show) keep.show=false;
+    const was=JSON.stringify(ED.getPitch()), now=keep?JSON.stringify(Object.assign({}, keep, {type:'pitch'})):'null';
+    if(was!==now) ED.setPitch(keep); }
+  PC=null;
+  const pn=document.getElementById('pitchPanel'); if(pn) pn.style.display='none';
+  const ov=document.getElementById('pitchSvg'); if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+  const ds=document.getElementById('drawSvg'); if(ds&&drawMode) ds.style.pointerEvents='auto';
+  dPaintBar();
+}
 // ── ✨ STYLES (Nov 2026): the ring looks, the markers, and your own saved styles ──────────────────────────────────
 // A saved style is a shape's LOOK (tool, colour, width, transparency, fill, ring layers, marker kind, tilt, beam, text
 // style) without its position; it is kept in this browser (coh_tele_styles). Picking one sets the tool and the look for
@@ -2039,6 +2138,7 @@ function enterDraw(ctx, shapes){
   dPaintBar();
 }
 function exitDraw(){
+  if(PC) dPitchClose(false);
   drawMode=false; tagPickClose(null);
   const te=document.getElementById('txtEdit'); if(te&&te.style.display==='block'){ te.blur(); te.style.display='none'; }
   if(ED){ ED.destroy(); ED=null; }

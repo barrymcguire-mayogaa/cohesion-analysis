@@ -42,7 +42,7 @@ function nextColorIdx(existing) {
 }
 
 const MAX_SHAPES = 80, MAX_POINTS = 600, MAX_TOTAL_POINTS = 5000, MAX_NODES = 200, MAX_TEXT = 160, MAX_CAPTION = 200, MAX_STOPS = 40;
-const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'mag', 'ring', 'mark'];
+const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'mag', 'ring', 'mark', 'pitch', 'dist'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n * 10000) / 10000)) : null; };
 const frac = v => num(v, 0, 1);
@@ -74,7 +74,13 @@ function cleanShape(s, budget) {
   const fill = () => { const f = fillOf(s.fill); if (f) { o.fill = f; const fc = color(s.fillColor); if (fc) o.fillColor = fc; } };
   switch (s.type) {
     case 'free': { const p = pts(s.pts, budget); if (!p || p.length < 2) return null; o.pts = p; break; }
-    case 'line': case 'arrow': case 'darrow': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; break;
+    case 'line': case 'arrow': case 'darrow': case 'dist': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; break;
+    case 'pitch': {                                             // 📐 the line-up with the pitch: its size and up to 16 matched points
+      o.len = num(s.len, 100, 160) || 140; o.wid = num(s.wid, 60, 100) || 85; delete o.w;
+      if (!Array.isArray(s.pts)) return null; const P = [], seen = new Set();
+      for (const q of s.pts) { if (P.length >= 16 || budget.n <= 0) break; if (!q || typeof q !== 'object' || typeof q.k !== 'string' || !/^[ABH][a-z0-9]{1,6}$/.test(q.k) || seen.has(q.k)) continue;
+        const x = handle(q.x), y = handle(q.y); if (x == null || y == null) continue; seen.add(q.k); P.push({ k: q.k, x, y }); budget.n--; }
+      if (!P.length) return null; o.pts = P; if (s.show === false) o.show = false; delete o.color; delete o.alpha; break; }
     case 'carrow': { if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; const cx = handle(s.cx), cy = handle(s.cy);
       o.cx = cx == null ? (o.x1 + o.x2) / 2 : cx; o.cy = cy == null ? (o.y1 + o.y2) / 2 : cy; break; }
     case 'rect': case 'ellipse': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; fill(); break;
@@ -89,7 +95,7 @@ function cleanShape(s, budget) {
           const q = {}; const rc = color(r.c); if (rc) q.c = rc; q.r = num(r.r, 0.3, 1.6) || 1; q.segs = Math.round(num(r.segs, 0, 12) || 0);
           const g = num(r.gap, 0, 0.6); if (g) q.gap = g; q.t = num(r.t, 1, 16) || 4; L.push(q); }
         if (L.length) o.rings = L; }
-      if (s.glow === true) o.glow = true; const sp = num(s.spin, 0, 360); if (sp) o.spin = sp; break; }
+      if (s.glow === true) o.glow = true; const sp = num(s.spin, 0, 360); if (sp) o.spin = sp; const rt = num(s.rot, -90, 90); if (rt) o.rot = rt; break; }
     case 'mark': { if (!XY(['x', 'y'])) return null; o.kind = ['tri', 'chev', 'dot', 'num'].includes(s.kind) ? s.kind : 'tri';   // a marker over a player
       if (o.kind === 'num') { const t = cleanText(s.text, 2); o.text = /^[A-Za-z0-9]{1,2}$/.test(t) ? t : '1'; } break; }
     case 'mag': { if (!XY(['cx', 'cy', 'lx', 'ly'])) return null; o.r = num(s.r, 0.02, 0.25) || 0.06; o.z = num(s.z, 1.5, 4) || 2.2; break; }   // source spot → lens
