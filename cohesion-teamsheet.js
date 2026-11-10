@@ -743,6 +743,7 @@
   //                              (cohesion-graphics.js dashPlayerDetails, the match report's "Player Details")
   //      playerCall:'fn', canPick(side, name)   a click on a jersey → fn(side, name) (the Dashboard's player filter)
   //      pickTitle(name)       the jersey's tooltip when it can be picked (default "Show <name>’s events")
+  //      benchLabel(name)      pitchHtml only: the text under a substitute's shirt (default the full name) — e.g. his surname in a narrow panel
   //      layout                pitchHtml only: a pitchLayout-shaped layout to draw instead of the sheet's own (a row's _cls joins its classes)}
   T.panelHtml=function(game, o){
     o=o||{}; T._css(); game=game||{};
@@ -766,7 +767,7 @@
   const drop='<svg class="cohps-drop" viewBox="0 0 10 12" aria-hidden="true"><path d="M5 0.5 C5 0.5 1 5.4 1 7.8 A4 4 0 0 0 9 7.8 C9 5.4 5 0.5 5 0.5 Z" fill="#ef4444"/></svg>';
   function lum(hex){ const h=String(hex||'').trim().replace(/^#/,''); const x=/^[0-9a-f]{3}$/i.test(h)?h.replace(/./g,c=>c+c):h; if(!/^[0-9a-f]{6}$/i.test(x)) return .5;
     const c=[0,2,4].map(i=>{ const v=parseInt(x.slice(i,i+2),16)/255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
-  function jersey(r, side, game, D, o, cls){
+  function jersey(r, side, game, D, o, cls, bench){
     const fill=(side==='home'?game.homeColor:game.awayColor)||(side==='home'?'#2563eb':'#22c55e'), L=lum(fill);
     const ink=window.cohInkOn?window.cohInkOn(fill):(L>.4?'#111':'#fff');
     // the outline: dark on a pale shirt, light on a black one, and white on a shirt that would melt into the green pitch
@@ -779,7 +780,7 @@
     const tag=pick?'button':'div', act=pick?` onclick="${esc(o.playerCall+'('+JSON.stringify(side)+','+JSON.stringify(r.name)+')')}" title="${esc(typeof o.pickTitle==='function'?o.pickTitle(r.name):'Show '+r.name+'’s events')}"`:'';
     return `<${tag} class="cohps-pl${cls?' '+cls:''}${r._cls?' '+esc(r._cls):''}${pick?' pick':''}"${act} data-name="${esc(r.name)}"${r.pos?` data-pos="${r.pos}"`:''}>
       <span class="cohps-shirt"><svg viewBox="0 0 64 58" aria-hidden="true"><path d="${SHIRT}" fill="${esc(fill)}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/><path d="M26 1 Q32 8 38 1" fill="none" stroke="${edge}" stroke-width="1.2"/></svg><b style="color:${esc(ink)}">${esc(r.no)}</b>${cardHtml}${markHtml}</span>
-      <span class="cohps-nm">${esc(r.name)}</span>${score?`<span class="cohps-sc">${esc(score)}</span>`:''}</${tag}>`;
+      <span class="cohps-nm"${bench&&typeof o.benchLabel==='function'?` title="${esc(r.name)}"`:''}>${esc(bench&&typeof o.benchLabel==='function'?o.benchLabel(r.name):r.name)}</span>${score?`<span class="cohps-sc">${esc(score)}</span>`:''}</${tag}>`;
   }
   function pitchScoreUi(d){ return T.pitchScore(d); }
   // the decorations of a side's players by name key: {stats:{g,pts,cards}, marks:[cohSubMarks …]}
@@ -807,7 +808,7 @@
     const P=o.layout||T.pitchLayout(game, side), D=decorations(game, side, o);   // o.layout: a layout worked out by the caller (Code Room: as it stands at a moment, subs made)
     const lines=P.lines.slice().reverse();   // full-forwards at the top (attacking the top goal), the keeper at the bottom
     const rowHtml=(l,i)=>`<div class="cohps-row" data-line="${['ff','hf','mf','hb','fb','gk'][i]}">${l.map(r=>jersey(r, side, game, D, o)).join('')}</div>`;
-    const bench=P.bench.length?`<div class="cohps-bench"><div class="cohps-bh">Substitutes</div><div class="cohps-bgrid">${P.bench.map(r=>jersey(r, side, game, D, o, P.extra.includes(r)?'xs':'')).join('')}</div></div>`:'';
+    const bench=P.bench.length?`<div class="cohps-bench"><div class="cohps-bh">Substitutes</div><div class="cohps-bgrid">${P.bench.map(r=>jersey(r, side, game, D, o, P.extra.includes(r)?'xs':'', true)).join('')}</div></div>`:'';
     return `<div class="cohps-team" data-side="${side}">
       <div class="cohps-pitch">${PITCH_SVG}<div class="cohps-rows">${lines.map(rowHtml).join('')}</div></div>
       ${bench}${P.notes.length?`<div class="cohps-note">${P.notes.map(esc).join(' ')}</div>`:''}</div>`;

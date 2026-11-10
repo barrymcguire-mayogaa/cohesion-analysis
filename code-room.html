@@ -475,15 +475,15 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crst-none{font-size:12px;color:var(--t2);margin-bottom:8px;}
 .crst-names{display:flex;flex-wrap:wrap;gap:6px;}
 /* the formation across the card: keeper on the left, full-forwards on the right */
-.crst-form .cohps-lines{display:none;}
-.crst-form .cohps-pitch{background:repeating-linear-gradient(90deg,var(--pitch) 0 8.33%,var(--pitch2) 8.33% 16.66%);padding:12px 6px;}
-.crst-form .cohps-rows{grid-template-rows:none;grid-template-columns:repeat(6,1fr);grid-auto-flow:column;min-height:0;column-gap:4px;row-gap:0;}
-.crst-form .cohps-row{flex-direction:column;justify-content:space-evenly;align-items:center;min-height:0;gap:10px;}
-.crst-form .cohps-row[data-line=gk]{order:1;} .crst-form .cohps-row[data-line=fb]{order:2;} .crst-form .cohps-row[data-line=hb]{order:3;}
-.crst-form .cohps-row[data-line=mf]{order:4;} .crst-form .cohps-row[data-line=hf]{order:5;} .crst-form .cohps-row[data-line=ff]{order:6;}
-.crst-form .cohps-pl{width:100%;max-width:112px;}
-.crst-form .cohps-bench{margin-top:8px;}
-.crst-form .cohps-bgrid{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));}
+.crst.big .crst-form .cohps-lines{display:none;}
+.crst.big .crst-form .cohps-pitch{background:repeating-linear-gradient(90deg,var(--pitch) 0 8.33%,var(--pitch2) 8.33% 16.66%);padding:12px 6px;}
+.crst.big .crst-form .cohps-rows{grid-template-rows:none;grid-template-columns:repeat(6,1fr);grid-auto-flow:column;min-height:0;column-gap:4px;row-gap:0;}
+.crst.big .crst-form .cohps-row{flex-direction:column;justify-content:space-evenly;align-items:center;min-height:0;gap:10px;}
+.crst.big .crst-form .cohps-row[data-line=gk]{order:1;} .crst.big .crst-form .cohps-row[data-line=fb]{order:2;} .crst.big .crst-form .cohps-row[data-line=hb]{order:3;}
+.crst.big .crst-form .cohps-row[data-line=mf]{order:4;} .crst.big .crst-form .cohps-row[data-line=hf]{order:5;} .crst.big .crst-form .cohps-row[data-line=ff]{order:6;}
+.crst.big .crst-form .cohps-pl{width:100%;max-width:112px;}
+.crst.big .crst-form .cohps-bench{margin-top:8px;}
+.crst.big .crst-form .cohps-bgrid{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));}
 .crst-form .cohps-pl.off{opacity:.42;}
 .crst-form .cohps-pl.cameon .cohps-nm{box-shadow:0 0 0 2px #16a34a;}
 .crst-form .cohps-pl.cur .cohps-nm{outline:2px solid #facc15;outline-offset:1px;}
@@ -519,6 +519,37 @@ body.crfit .crsv{flex:1;min-height:0;}
 .crvs-th{position:absolute;left:1px;right:1px;top:0;border-radius:5px;background:var(--t3);touch-action:none;cursor:grab;}
 .crvs-th:hover,.crvs-th.act{background:var(--accent);}
 @media (pointer:coarse){ .crvs{width:20px;right:2px;} .crvs-on{margin-right:24px;} }
+
+/* the card over the tagging panel (default): upright formation, compact */
+.crst.side{padding:10px 10px 12px;}
+.crst.side .crst-top{flex-wrap:wrap;row-gap:6px;}
+.crst.side .crst-q{font-size:17px;margin-bottom:8px;}
+.crst.side .crst-pitch svg{max-width:100%;}
+.crst.side .crst-third{padding:13px 12px;font-size:14.5px;}
+.crst.side .crst-third small{display:block;margin:3px 0 0 30px;}
+.crst.side .crst-form .cohps-pitch{padding:10px 4px;}
+.crst.side .crst-form .cohps-rows{min-height:300px;row-gap:4px;}
+.crst.side .crst-form .cohps-row{min-height:54px;}
+.crst.side .crst-form .cohps-pl{width:32%;}
+.crst.side .crst-form .cohps-shirt{width:34px;height:31px;}
+.crst.side .crst-form .cohps-shirt b{top:9px;font-size:13.5px;}
+.crst.side .crst-form .cohps-nm{font-size:10px;padding:1px 5px;}
+.crst.side .crst-form .cohps-subs{display:none;}
+.crst.side .crst-form .cohps-bench{margin-top:6px;padding:6px 4px 8px;}
+.crst.side .crst-form .cohps-bh{margin-bottom:5px;}
+.crst.side .crst-form .cohps-bgrid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));row-gap:6px;column-gap:3px;}
+.crst.side .crst-form .cohps-bench .cohps-pl{width:100%;}
+.crst.side .crst-form .cohps-bench .cohps-nm{padding:1px 4px;}
+.crst.side .crst-sub{margin-top:6px;}
+@media (max-height:820px){
+  .crst.side .crst-q{font-size:15.5px;margin:0 0 5px;} .crst.side .crst-top{margin-bottom:3px;}
+  .crst.side .crst-form .cohps-rows{min-height:196px;row-gap:1px;}
+  .crst.side .crst-form .cohps-pitch{padding:6px 4px;} .crst.side .crst-sub{margin-top:4px;}
+  .crst.side .crst-form .cohps-row{min-height:44px;}
+  .crst.side .crst-form .cohps-shirt{width:30px;height:27px;} .crst.side .crst-form .cohps-shirt b{top:8px;font-size:12px;}
+  .crst.side .crst-form .cohps-bgrid{grid-template-columns:repeat(auto-fill,minmax(62px,1fr));row-gap:4px;}
+  .crst.side .crst-form .cohps-nm{font-size:9.5px;}
+}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -5925,8 +5956,8 @@ function crApplyLocToRow(row, kind, px, py){
 // (the player chosen before tagging, a third already set) is not asked. Typing a jersey number picks him (Enter
 // when the number could still be longer, e.g. "1" with a #10 on the sheet). The same formation opens from
 // "👕 Pitch" beside Player Select, for the player who stays chosen.
-let crStepPref={loc:false, player:false};
-try{ const s=JSON.parse(localStorage.getItem('cr_tagSteps')||'null'); if(s&&typeof s==='object') crStepPref={loc:!!s.loc, player:!!s.player}; }catch(_){}
+let crStepPref={loc:false, player:false, big:false};   // big: the card over the video (⤢) instead of over the tagging panel
+try{ const s=JSON.parse(localStorage.getItem('cr_tagSteps')||'null'); if(s&&typeof s==='object') crStepPref={loc:!!s.loc, player:!!s.player, big:!!s.big}; }catch(_){}
 function crStepPrefSet(k, v){ crStepPref[k]=!!v; try{ localStorage.setItem('cr_tagSteps', JSON.stringify(crStepPref)); }catch(_){} crStepPrefSync(); }
 function crStepPrefSync(){
   const b=document.getElementById('codeSteps'); if(!b) return;
@@ -6018,6 +6049,8 @@ function crStepPick(side, name){
   }
   crStepNext();
 }
+// a substitute's label in the narrow card: his surname ("Peadar Ó Cofaigh Byrne" → "Ó Cofaigh Byrne"); the full name is saved
+function crSurname(n){ const w=String(n||'').trim().split(/\s+/); return w.length>1?w.slice(1).join(' '):String(n||''); }
 function crStepSideOf(team){ return String(team||'').toUpperCase()===crTeamOf('home')?'home':'away'; }
 // the formation as it stands at video time t: starters in their slots, each sub made by then in the slot of the
 // player he replaced (a returned blood sub swaps back), the players taken off on the bench, faded
@@ -6058,19 +6091,32 @@ function crFormHtml(side, t, cur){
     const L=crFormNow(side, t);
     const mark=r=>Object.assign({}, r, {_cls:[r._cls, cur&&T.nameKey(r.name)===T.nameKey(cur)?'cur':'', hit&&String(r.no)===hit?'hit':''].filter(Boolean).join(' ')});
     L.lines=L.lines.map(l=>l.map(mark)); L.bench=L.bench.map(mark);
-    return '<div class="crst-form">'+T.pitchHtml(GAME, side, {events:EVENTS, layout:L, playerCall:'crStepPick', pickTitle:n=>'Pick '+n})+'</div>';
+    return '<div class="crst-form">'+T.pitchHtml(GAME, side, {events:EVENTS, layout:L, playerCall:'crStepPick', pickTitle:n=>'Pick '+n, benchLabel:crStepBigNow()?null:crSurname})+'</div>';
   }
   const names=codePlayerList(side);
   return '<div class="crst-none">No team sheet for '+esc(crTeamOf(side))+' — add one with 👕 Team sheets for the formation. Players tagged so far:</div>'
     +'<div class="crst-names">'+(names.length?names.map(n=>`<button class="cbtn mini${cur===n?' on':''}" onclick="crStepPick('${side}','${_cq(n)}')">${esc(crTSLabel(n, side))}</button>`).join(''):'<span style="color:var(--t3);">none yet</span>')+'</div>';
 }
+// WHERE THE CARD SITS: over the tagging panel on the right (the default — the video, its controls and the timeline
+// stay in view, so you can step, scrub or press R to look at the frame again while you answer), or over the video
+// (⤢ — bigger targets, e.g. on a tablet). A narrow window (panel under the video) always uses the bigger card.
+function crStepBigNow(){ return !!crStepPref.big||(window.innerWidth||1400)<900; }
 function crStepPos(box){
+  const big=crStepBigNow(), vh=window.innerHeight||900;
+  box.classList.toggle('big', big); box.classList.toggle('side', !big);
+  if(!big){
+    const c=document.querySelector('.editcol'), r=c&&c.getBoundingClientRect?c.getBoundingClientRect():null;
+    if(r&&r.width){ const top=Math.max(8, r.top), bot=Math.min(vh-8, r.bottom>top+260?r.bottom:vh-8);
+      box.style.left=r.left+'px'; box.style.top=top+'px'; box.style.width=r.width+'px'; box.style.maxHeight=Math.max(260, bot-top)+'px'; return; }
+  }
   const v=document.getElementById('vwrap'), r=v&&v.getBoundingClientRect?v.getBoundingClientRect():null;
   if(!r||!r.width) return;
   const W=Math.max(r.width, 520), left=Math.max(8, Math.min(r.left, (window.innerWidth||1400)-W-8));
   box.style.left=left+'px'; box.style.top=Math.max(8, r.top)+'px'; box.style.width=W+'px';
-  box.style.maxHeight=Math.max(260, (window.innerHeight||900)-Math.max(8, r.top)-12)+'px';
+  box.style.maxHeight=Math.max(260, vh-Math.max(8, r.top)-12)+'px';
 }
+function crStepBig(){ crStepPrefSet('big', !crStepPref.big); crStepRender(); }
+window.addEventListener('resize', ()=>{ const b=document.getElementById('crStep'); if(crStep&&b) crStepPos(b); });
 function crStepRender(){
   const box=document.getElementById('crStep'); if(!box) return;
   if(!crStep){ box.style.display='none'; box.innerHTML=''; return; }
@@ -6099,10 +6145,12 @@ function crStepRender(){
   const head=sticky?'👕 Player Select':(esc(row.code)+' <span class="crst-at">@ '+fmt(row.driveT||0)+'</span>');
   const btns=(!sticky&&crStep.i>0?'<button class="cbtn mini" onclick="crStepBack()" title="Back a step">◀ Back</button>':'')
     +(sticky?'<button class="cbtn mini" onclick="crStepPick(null,\'\')" title="No player for the next tags">No player</button>':'<button class="cbtn mini" onclick="crStepPick(null,\'\')" title="Skip this step (Esc)">Skip <span class="hk">Esc</span></button>')
+    +((window.innerWidth||1400)>=900?`<button class="cbtn mini" onclick="crStepBig()" title="${crStepPref.big?'Smaller — back over the tagging panel, so the video stays in view':'Bigger — over the video, for bigger targets (it remembers)'}">${crStepPref.big?'⤡':'⤢'}</button>`:'')
     +'<button class="cbtn mini" onclick="crStepClose()" title="Close — the tag keeps what has been filled in">✕</button>';
   box.innerHTML=`<div class="crst-top"><div class="crst-ev">${head}</div>${dots}<div class="crst-btns">${btns}</div></div><div class="crst-q">${q}</div>${body}`;
   box.style.display='';
   crStepPos(box);
+  box.scrollTop=0;
 }
 // the formation for the player who stays chosen (beside Player Select)
 function crFormOpenSticky(){ if(!codeMode.on) return; crStepArmed=null; crStep={mode:'sticky', side:codeMode.team, typed:'', steps:[], i:0}; crStepRender(); }
