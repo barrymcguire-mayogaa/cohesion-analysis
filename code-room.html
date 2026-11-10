@@ -78,12 +78,12 @@ header{height:54px;background:var(--panel);border-bottom:1px solid var(--border)
 
 .list{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;max-height:48vh;margin-top:14px;}
 .lfilter{padding:8px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-.lfilter input{flex:1;min-width:140px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
+.lfilter input{flex:1;min-width:96px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--t1);font:12px 'Barlow',sans-serif;outline:none;}
 .lfilter select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px;color:var(--t1);font:12px 'Barlow',sans-serif;}
 .levents{overflow-y:auto;flex:1;}
 .list.tlon{max-height:66vh;}
 .viewtog{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;flex:none;}
-.viewtog button{background:var(--card);border:none;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;padding:7px 10px;cursor:pointer;}
+.viewtog button{background:var(--card);border:none;color:var(--t2);font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.5px;padding:7px 8px;cursor:pointer;}
 .viewtog button.on{background:var(--accent);color:#fff;}
 .tlzwrap{display:flex;gap:3px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;}
 .tlzb{width:24px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;font:700 14px 'Barlow Condensed',sans-serif;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t2);overflow:hidden;line-height:1;}
@@ -488,6 +488,37 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crst-form .cohps-pl.cameon .cohps-nm{box-shadow:0 0 0 2px #16a34a;}
 .crst-form .cohps-pl.cur .cohps-nm{outline:2px solid #facc15;outline-offset:1px;}
 .crst-form .cohps-pl.hit .cohps-nm{background:var(--accent);color:#fff;}
+
+/* 📊 Stats view */
+.crsv{overflow:auto;padding:8px 12px 10px;flex:1;min-height:0;}
+body.crfit .crsv{flex:1;min-height:0;}
+.crsv-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.crsv-per button{padding:5px 9px;}
+.crsv-live{font:800 10.5px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#22c55e;}
+.crsv-msg{padding:14px;color:var(--t3);font-size:12px;}
+.crsv-score{flex:1;display:flex;align-items:baseline;justify-content:center;gap:8px;font:800 21px 'Barlow Condensed',sans-serif;color:var(--t1);white-space:nowrap;}
+.crsv-score small{font-size:13px;color:var(--t3);font-weight:700;}
+.crsv-tm{font-size:14px;letter-spacing:1.2px;padding:2px 8px;border-radius:6px;border-left:4px solid var(--c);background:var(--card);}
+.crsv-vs{font-size:13px;color:var(--t3);}
+.crsv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;align-items:start;}
+.crsv-t{width:100%;border-collapse:separate;border-spacing:0 1px;}
+.crsv-sec td{padding:2px 0 1px;text-align:center;font:800 10.5px 'Barlow Condensed',sans-serif;letter-spacing:1.4px;color:var(--t3);}
+.crsv-l{text-align:center;font:600 11px 'Barlow',sans-serif;color:var(--t2);padding:0 10px;white-space:nowrap;width:1%;}
+.crsv-v{position:relative;width:30%;padding:2px 6px 5px;cursor:pointer;border-radius:6px;}
+.crsv-v:hover{background:var(--card);}
+.crsv-v .crsv-n{position:relative;z-index:1;font:800 13px 'Barlow Condensed',sans-serif;color:var(--t1);}
+.crsv-v.h{text-align:right;} .crsv-v.a{text-align:left;}
+.crsv-bar{position:absolute;bottom:1px;height:3px;border-radius:2px;opacity:.85;}
+.crsv-v.h .crsv-bar{right:6px;max-width:calc(100% - 12px);} .crsv-v.a .crsv-bar{left:6px;max-width:calc(100% - 12px);}
+.crsv-foot{margin-top:4px;font-size:11px;color:var(--t3);text-align:center;}
+/* a scroll handle you can grab on the right of the List and the Timeline (iPad Safari hides scroll bars) */
+.list{position:relative;}
+.crvs-on{margin-right:16px;scrollbar-width:none;}
+.crvs-on::-webkit-scrollbar{display:none;}
+.crvs{position:absolute;right:3px;width:11px;border-radius:6px;background:var(--card);border:1px solid var(--border);box-sizing:border-box;touch-action:none;z-index:6;cursor:pointer;}
+.crvs-th{position:absolute;left:1px;right:1px;top:0;border-radius:5px;background:var(--t3);touch-action:none;cursor:grab;}
+.crvs-th:hover,.crvs-th.act{background:var(--accent);}
+@media (pointer:coarse){ .crvs{width:20px;right:2px;} .crvs-on{margin-right:24px;} }
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -619,6 +650,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
               <button id="vwList" class="on" onclick="setView('list')">☰ List</button>
               <button id="vwTL" onclick="setView('tl')">⁞⁞ Timeline</button>
               <button id="vwMX" onclick="setView('mx')" title="Code matrix — live counts of every event by team; click a number to open those clips">▦ Matrix</button>
+              <button id="vwST" onclick="setView('st')" title="Live stats — the Match Dashboard’s figures as you tag (unsaved tags count); click a figure for its clips; ⧉ Pop out for a second screen">📊 Stats</button>
             </div>
             <div class="tlrb ur off" id="crUndoBtn" role="button" aria-disabled="true" onmousedown="event.preventDefault()" onclick="crUndoClick()" title="Nothing to undo">↶ Undo</div>
             <div class="tlrb ur off" id="crRedoBtn" role="button" aria-disabled="true" onmousedown="event.preventDefault()" onclick="crRedoClick()" title="Nothing to redo">↷ Redo</div>
@@ -666,6 +698,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           </div>
           <div class="levents" id="levents"></div>
           <div class="crmx" id="crMatrix" style="display:none;"></div>
+          <div class="crsv" id="crStats" style="display:none;"></div>
           <div class="tlscroll" id="tlscroll" style="display:none;">
             <div class="tlinner" id="tlinner">
               <canvas id="crTLRuler" style="position:sticky;top:0;z-index:5;display:block;margin-bottom:-22px;"></canvas>
@@ -805,6 +838,7 @@ function filterGames(){
 }
 
 async function openGame(id){
+  try{ crLiveCh(); crVScrollInit('levents'); crVScrollInit('tlscroll'); crVScrollInit('crStats'); }catch(_){}
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
   crDeleted=[]; undoStack=[]; crRedo=[]; crRedoMark=null; crTmpCounter=0; activeId=null; draft=null; crAutoAtt={}; crLocClick={}; crAttNote={id:null,text:''};
@@ -1487,7 +1521,7 @@ function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `
 
 // ── event list ────────────────────────────────────────────────
 function renderList(){
-  try{ crReplaySync(); crLinkedSync(); crStepCheck(); }catch(_){}   // the ↻ Replay button and 🔗 strip: an undo / delete / edit can change the last tag
+  try{ crReplaySync(); crLinkedSync(); crStepCheck(); crLiveSoon(); crVScrollSync(); }catch(_){}   // the ↻ Replay button and 🔗 strip: an undo / delete / edit can change the last tag
   const q=document.getElementById('efilter').value.toLowerCase().trim();
   const per=document.getElementById('eperiod').value;
   const wrap=document.getElementById('levents');
@@ -1518,6 +1552,7 @@ function renderList(){
   crLCAfterRender();
   if(crView==='tl') crDrawTL();
   else if(crView==='mx') crBuildMatrix();   // live counts while coding
+  else if(crView==='st') crStatsSoon();     // live stats while coding
 }
 
 // ── TIMELINE VIEW (Phase 1: read + navigate) ──────────────────
@@ -1570,6 +1605,7 @@ function crToggleFlag(row){
 }
 function crFlagToggleFilter(){ crFlagOnly=!crFlagOnly; renderList(); }
 function crMxPass(e){
+  if(crStDrill) return crStDrill.ids.has(String(e._rowId));   // a 📊 Stats figure's clips
   if(!crMxDrill) return true;
   return (baseCodeOf(e.code)||'—')===crMxDrill.base && (crMxDrill.bucket==='all'||crTeamBucket(e)===crMxDrill.bucket);
 }
@@ -1613,10 +1649,163 @@ function crMatrixDrill(base, bucket){
   setView('list'); renderList(); crAfterSelect();
 }
 function crMatrixClear(){
-  crMxDrill=null; crSel=[];
+  crMxDrill=null; crStDrill=null; crSel=[];
   const c=document.getElementById('mxChip'); if(c){ c.style.display='none'; c.innerHTML=''; }
   renderList(); crAfterSelect();
 }
+// ── 📊 STATS VIEW (Nov 2026): the Match Dashboard's own figures, live while you tag ────────────────────────────
+// The fourth view beside List / Timeline / Matrix. The numbers come from the dashboard's own code
+// (cohesion-graphics.js dashComputeStats — the Stats tab's stats card), run over Code Room's events in memory, so
+// unsaved tags count and the two pages can never disagree. Plus TURNOVERS LOST by third (the agreed definition:
+// a <TEAM> TOs row is that team losing the ball). Period chips: the game, each period tagged, the last 10 minutes
+// of video before now. A click on a figure shows those clips in the List (selected, chip to clear), as the Matrix
+// does. "⧉ Pop out" opens the Match Dashboard itself on its Stats view in its own window, following Code Room
+// live (cohesion-livedash.js; the desktop app opens its own live stats window instead).
+let crSv={per:'all', G:null, S:null, loading:null, t:null};
+let crStDrill=null;   // {ids:Set, label} — a Stats figure's clips in the List
+function crStatsLoad(){
+  if(window.cohesionGraphics) return Promise.resolve(true);
+  if(crSv.loading) return crSv.loading;
+  crSv.loading=new Promise(res=>{ const s=document.createElement('script'); s.src='cohesion-graphics.js'; s.onload=()=>res(true); s.onerror=()=>{ crSv.loading=null; res(false); }; document.head.appendChild(s); });
+  return crSv.loading;
+}
+const CR_SV_PERIODS=['1st Half','2nd Half','ET 1st Half','ET 2nd Half'];
+function crStatsPeriods(){ const have=new Set(EVENTS.map(e=>e.half).filter(Boolean)); return CR_SV_PERIODS.filter(p=>have.has(p)).concat([...have].filter(p=>!CR_SV_PERIODS.includes(p))); }
+function crStatsInPer(e){
+  if(crSv.per==='all') return true;
+  if(crSv.per==='last10'){ const t=vNow(), d=(e.driveT??e.start)??0; return d>t-600&&d<=t; }
+  return e.half===crSv.per;
+}
+function crStatsEvents(){ return EVENTS.filter(crStatsInPer).map(e=>Object.assign({}, e)); }
+function crStatsSideOf(e){ const t=String((e&&e.team)||'').toUpperCase(); return t&&t===crTeamOf('home')?'h':t&&t===crTeamOf('away')?'a':null; }
+function crStatsCompute(){
+  if(!window.cohesionGraphics) return null;
+  if(!crSv.G) crSv.G=cohesionGraphics({game:GAME, events:[], host:{}});
+  const evs=crStatsEvents(); crSv.G.setContext({game:GAME, events:evs});
+  const S=crSv.G.dashComputeStats(), sup=e=>crSv.G.giSup(e);
+  // turnovers lost, by third (the third is from the losing team's view)
+  if(typeof cohIsToRow==='function'){
+    const to=evs.filter(e=>!sup(e)&&cohIsToRow(e)), lost=(s,z)=>to.filter(e=>{ const T=cohToTeams(e, GAME).loser; if(!T||(T===crTeamOf('home')?'h':T===crTeamOf('away')?'a':null)!==s) return false;
+      return !z||String(cohLabelVal(e,'Turnover Locations')||'').toUpperCase().includes(z); }).length;
+    const r=(label,z)=>{ const nH=lost('h',z), nA=lost('a',z), t=nH+nA; return {label, dH:String(nH), dA:String(nA), wH:t?Math.round(nH/t*100):0, wA:t?Math.round(nA/t*100):0, basis:t, _to:z||''}; };
+    const rows=[r('Def Third','DEF'), r('Mid Third','MID'), r('Att Third','ATT'), r('Total Lost','')].filter(x=>x.basis>0);
+    if(rows.length) S.sections.splice(Math.min(3, S.sections.length), 0, ['TURNOVERS LOST', rows]);
+  }
+  crSv.S=S; return S;
+}
+function crStatsSoon(){ clearTimeout(crSv.t); crSv.t=setTimeout(crStatsRender, 120); }
+function crStatsRender(){
+  const box=document.getElementById('crStats'); if(!box) return;
+  if(!window.cohesionGraphics){ box.innerHTML='<div class="crsv-msg">Loading the dashboard’s figures…</div>'; crStatsLoad().then(ok=>{ if(ok) crStatsRender(); else box.innerHTML='<div class="crsv-msg">The figures could not be loaded — check the connection and open 📊 Stats again.</div>'; }); return; }
+  const S=crStatsCompute(); if(!S){ box.innerHTML=''; return; }
+  const H=crTeamOf('home')||'HOME', A=crTeamOf('away')||'AWAY';
+  const ink=c=>window.cohTeamInk?cohTeamInk(c):c, cH=ink(crSideColour('home')), cA=ink(crSideColour('away'));
+  const chips=[['all','Game']].concat(crStatsPeriods().map(p=>[p, p.replace(/^ET /,'ET ').replace(' Half','')])).concat([['last10','Last 10′']])
+    .map(([k,l])=>`<button class="${crSv.per===k?'on':''}" onclick="crStatsPer('${_cq(k)}')"${k==='last10'?' title="The 10 minutes of video before where you are now"':''}>${esc(l)}</button>`).join('');
+  const pts=s=>s.g*3+s.p;
+  const cell=(si,ri,side,txt,w,col)=>`<td class="crsv-v ${side}" onclick="crStatsDrill(${si},${ri},'${side}')" title="Show these clips in the List"><span class="crsv-n">${esc(txt)}</span><i class="crsv-bar" style="width:${Math.max(0,Math.min(100,w))}%;background:${col}"></i></td>`;
+  const secs=S.sections.map(([title, rows],si)=>`<table class="crsv-t"><tr class="crsv-sec"><td colspan="3">${esc(title)}</td></tr>`+rows.map((r,ri)=>`<tr>${cell(si,ri,'h',r.dH,r.wH,cH)}<td class="crsv-l">${esc(r.label)}</td>${cell(si,ri,'a',r.dA,r.wA,cA)}</tr>`).join('')+'</table>').join('');
+  const any=S.sections.length||S.shotsH||S.shotsA;
+  box.innerHTML=`<div class="crsv-top"><div class="viewtog crsv-per">${chips}</div>`
+    +`<div class="crsv-score"><span class="crsv-tm" style="--c:${cH}">${esc(H)}</span><b>${esc(S.scH.str)}</b><small>(${pts(S.scH)})</small><span class="crsv-vs">v</span><small>(${pts(S.scA)})</small><b>${esc(S.scA.str)}</b><span class="crsv-tm" style="--c:${cA}">${esc(A)}</span></div>`
+    +`<span class="crsv-live" title="Follows your tags, edits and deletes before you save">● Live</span>`
+    +`<button class="tlrb" onclick="crLiveOpen()" title="Open the Match Dashboard’s Stats in its own window, following Code Room as you tag — for a second screen">⧉ Pop out</button></div>`
+    +(any?`<div class="crsv-grid">${secs}</div>`:'<div class="crsv-msg">Nothing tagged in this period yet.</div>')
+    +`<div class="crsv-foot">The Match Dashboard’s own figures, from the events here (unsaved ones included). Click a figure for its clips · ⧉ Pop out for the full dashboard.</div>`;
+  try{ crVScrollSync(); }catch(_){}
+}
+function crStatsPer(k){ crSv.per=k; crStatsRender(); }
+
+// the events behind one figure: the same tests dashComputeStats uses (cohesion-graphics.js), for the side clicked
+function crStatsRowEvents(label, side, toZone){
+  const G=crSv.G, sup=e=>G.giSup(e), up=s=>String(s||'').toUpperCase(), L=e=>e.labels||{};
+  const other=side==='h'?'a':'h', evs=EVENTS.filter(crStatsInPer), of=(s,re)=>evs.filter(e=>crStatsSideOf(e)===s&&re.test(e.code||''));
+  const shotOut=e=>up(L(e)['Shot Outcomes']||L(e)['ShotOutcome']||L(e)['Outcome']||e.outcome);
+  const scored=e=>{ const k=shotOut(e); return (k.includes('POINT')||k.includes('GOAL'))&&!k.includes('DISALLOWED')&&!k.includes('ATTEMPT'); };
+  const koOut=e=>up(L(e)['Kickout Outcomes']||L(e)['KickoutOutcome']||L(e)['PO_Result']||e.outcome);
+  const ko=s=>of(s,/KICKOUT|\bKO\b/i).filter(e=>koOut(e)&&!sup(e));
+  const koWon=(out,s)=>{ const K=up(out).trim(), own=crTeamOf(s==='h'?'home':'away'), opp=crTeamOf(s==='h'?'away':'home');
+    if(opp&&(K===opp||K.startsWith(opp+' '))) return false; if(own&&(K===own||K.startsWith(own+' '))) return true;
+    return K.includes('RT ')?false:K.includes('KT ')?true:(K.includes('WON')&&!K.includes('LOST')); };
+  const fouls=(s,z)=>of(s,/\bFOUL\b/i).filter(e=>!sup(e)&&(!z||up(L(e)['Foul Areas']).includes(z)));
+  const cards=(s,t)=>of(s,/\bCARD\b/i).filter(e=>up(L(e)['Card Outcomes']).includes(t));
+  const SHOT=/SHOT (OPEN|DEAD)/i;
+  if(toZone!=null) return evs.filter(e=>!sup(e)&&typeof cohIsToRow==='function'&&cohIsToRow(e)&&cohToTeams(e, GAME).loser===crTeamOf(side==='h'?'home':'away')&&(!toZone||up(cohLabelVal(e,'Turnover Locations')).includes(toZone)));
+  switch(label){
+    case 'Shots (scored/total)': case 'Shooting %': return of(side,SHOT);
+    case 'Shots Open Play': return of(side,/SHOT OPEN/i);
+    case 'Shots Dead Ball': return of(side,/SHOT DEAD/i);
+    case 'Goal Attempts': { const st=of(side,/GOAL (ATTEMPT|CHANCE)/i); return st.length?st:of(side,SHOT).filter(e=>/GOAL/i.test(L(e)['Shot Attempts']||'')); }
+    case 'Possessions': return of(side,/TEAM POSSESSION/i);
+    case 'Attacks': return of(side,/\bATTACKS?\b/i);
+    case 'KO Won': return ko(side).filter(e=>koWon(koOut(e),side));
+    case 'KO Lost': return ko(side).filter(e=>!koWon(koOut(e),side));
+    case 'Breaks Won (Own KO)': return ko(side).filter(e=>koOut(e).includes('BREAK WON'));
+    case 'Breaks Lost (Own KO)': return ko(side).filter(e=>koOut(e).includes('BREAK LOST'));
+    case 'Breaks Won (Opp KO)': return ko(other).filter(e=>koOut(e).includes('BREAK LOST'));
+    case 'Breaks Lost (Opp KO)': return ko(other).filter(e=>koOut(e).includes('BREAK WON'));
+    case 'Def Third': return fouls(side,'DEF'); case 'Mid Third': return fouls(side,'MID'); case 'Att Third': return fouls(side,'ATT');
+    case 'Total Fouls': return fouls(side);
+    case 'Yellow': return cards(side,'YELLOW'); case 'Black': return cards(side,'BLACK'); case 'Red': return cards(side,'RED');
+  }
+  return [];
+}
+function crStatsDrill(si, ri, side){
+  const sec=crSv.S&&crSv.S.sections[si], r=sec&&sec[1][ri]; if(!r) return;
+  const evs=crStatsRowEvents(r.label, side, r._to!=null?r._to:null);
+  if(!evs.length){ const c=document.getElementById('mxChip'); if(c){ c.style.display='inline-flex'; c.textContent='📊 No clips behind that figure'; setTimeout(()=>{ if(!crStDrill&&!crMxDrill){ c.style.display='none'; c.textContent=''; } },2200); } return; }
+  const team=crTeamOf(side==='h'?'home':'away'), what=(sec[0]==='TURNOVERS LOST'?'Turnovers lost · ':sec[0]==='FOULS CONCEDED'?'Fouls · ':'')+r.label;
+  crMxDrill=null; crStDrill={ids:new Set(evs.map(e=>String(e._rowId))), label:what+' · '+team};
+  const c=document.getElementById('mxChip');
+  if(c){ c.style.display='inline-flex'; c.innerHTML='📊 '+esc(crStDrill.label)+' ('+evs.length+') <b style="margin-left:6px;cursor:pointer;" title="Clear — back to all events">✕</b>'; c.querySelector('b').onclick=crMatrixClear; }
+  crSel=evs.map(e=>e._rowId);
+  setView('list'); renderList(); crAfterSelect();
+}
+// ── ⧉ Pop out: the Match Dashboard (dashboard.html?game=…&live=1) in its own window, fed over a BroadcastChannel ──
+let crLive={ch:null, on:false, last:'', t:null, poll:null};
+function crLiveCh(){
+  if(crLive.ch||typeof BroadcastChannel!=='function') return crLive.ch;
+  crLive.ch=new BroadcastChannel('cohesion-live');
+  crLive.ch.onmessage=m=>{ const d=(m&&m.data)||{}; if(!GAME||d.game!==GAME.id) return;
+    if(d.t==='want'){ crLiveStart(); crLivePush(true); } };
+  return crLive.ch;
+}
+function crLiveJson(){ return JSON.stringify(EVENTS.map(e=>{ const o={}; for(const k in e){ if(k==='_rowId'||k.charAt(0)!=='_') o[k]=e[k]; } return o; })); }
+function crLivePush(force){ if(!crLive.on||!crLive.ch||!GAME) return; let js; try{ js=crLiveJson(); }catch(_){ return; } if(!force&&js===crLive.last) return; crLive.last=js; crLive.ch.postMessage({t:'events', game:GAME.id, json:js}); }
+function crLiveSoon(){ if(!crLive.on) return; clearTimeout(crLive.t); crLive.t=setTimeout(()=>crLivePush(false), 150); }
+function crLiveStart(){ if(crLive.on) return; crLive.on=true; clearInterval(crLive.poll); crLive.poll=setInterval(()=>crLivePush(false), 1000); }
+function crLiveOpen(){
+  if(!GAME||!GAME.id) return;
+  if(window.cohDesktop&&cohDesktop.live&&typeof cohDesktop.live.open==='function'){ cohDesktop.live.open(); return; }   // the desktop app's own live stats window
+  if(GAME._local){ alert('This game is only on this device so far — save it first, then the pop-out can open it.'); return; }
+  if(!crLiveCh()){ alert('This browser cannot link two windows (BroadcastChannel) — use 📊 Stats here instead.'); return; }
+  crLiveStart(); crLive.last='';
+  const w=window.open('dashboard.html?game='+encodeURIComponent(GAME.id)+'&live=1', 'cohLive_'+GAME.id, 'width=960,height=1000');
+  if(!w) alert('The pop-out was blocked — allow pop-ups for this site, then press ⧉ Pop out again.');
+}
+// ── a scroll handle you can grab on the right of the List and the Timeline (iPad Safari hides scroll bars) ──
+function crVScrollInit(id){
+  const el=document.getElementById(id); if(!el||el._vs) return;
+  const tr=document.createElement('div'); tr.className='crvs'; tr.innerHTML='<div class="crvs-th"></div>'; el.parentNode.appendChild(tr); el._vs=tr; el.classList.add('crvs-on');
+  const th=tr.firstChild;
+  const sync=()=>{ const show=el.offsetParent!==null&&el.scrollHeight>el.clientHeight+2; tr.style.display=show?'':'none'; if(!show) return;
+    tr.style.top=el.offsetTop+'px'; tr.style.height=el.clientHeight+'px';
+    const h=Math.max(36, el.clientHeight*el.clientHeight/el.scrollHeight), room=el.clientHeight-h;
+    th.style.height=h+'px'; th.style.transform='translateY('+(room*(el.scrollTop/Math.max(1, el.scrollHeight-el.clientHeight)))+'px)'; };
+  el._vsSync=sync;
+  el.addEventListener('scroll', sync, {passive:true});
+  let drag=null;
+  const to=y=>{ const r=tr.getBoundingClientRect(), h=th.offsetHeight, room=Math.max(1, r.height-h); el.scrollTop=Math.max(0, Math.min(1, (y-r.top-drag)/room))*(el.scrollHeight-el.clientHeight); };
+  th.addEventListener('pointerdown', ev=>{ ev.preventDefault(); ev.stopPropagation(); drag=ev.clientY-th.getBoundingClientRect().top; th.classList.add('act'); try{ th.setPointerCapture(ev.pointerId); }catch(_){} });
+  th.addEventListener('pointermove', ev=>{ if(drag==null) return; ev.preventDefault(); to(ev.clientY); });
+  const up=()=>{ drag=null; th.classList.remove('act'); };
+  th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up);
+  tr.addEventListener('pointerdown', ev=>{ if(ev.target!==tr) return; ev.preventDefault(); drag=th.offsetHeight/2; to(ev.clientY); drag=null; });   // a tap on the track jumps there
+  if(typeof ResizeObserver==='function'){ const ro=new ResizeObserver(sync); ro.observe(el); if(el.firstElementChild) ro.observe(el.firstElementChild); }
+  window.addEventListener('resize', sync);
+  sync();
+}
+function crVScrollSync(){ ['levents','tlscroll','crStats'].forEach(id=>{ const el=document.getElementById(id); if(el&&el._vsSync) el._vsSync(); }); }
 // Rows = codes present in the (filtered) events plus any manually-added empty
 // rows, ordered by the user's saved order first, then the rest in the
 // canonical match order: THROW-IN, then the home team's rows, then the away
@@ -1732,6 +1921,8 @@ function setView(v){
   document.getElementById('vwList').classList.toggle('on',v==='list');
   document.getElementById('vwTL').classList.toggle('on',v==='tl');
   document.getElementById('vwMX').classList.toggle('on',v==='mx');
+  document.getElementById('vwST').classList.toggle('on',v==='st');
+  document.getElementById('crStats').style.display=v==='st'?'':'none';
   document.getElementById('levents').style.display=v==='list'?'':'none';
   document.getElementById('crMatrix').style.display=v==='mx'?'':'none';
   document.getElementById('tlscroll').style.display=v==='tl'?'':'none';
@@ -1741,6 +1932,8 @@ function setView(v){
   document.getElementById('listWrap').classList.toggle('tlon',v==='tl');
   if(v==='tl'){ if(!crRowsLoaded){ crRowsLoad(); crRowsLoaded=true; } crInitTL(); crInitSB(); crDrawTL(); }
   if(v==='mx') crBuildMatrix();
+  if(v==='st') crStatsRender();
+  try{ crVScrollSync(); }catch(_){}
 }
 function crZoom(d){
   const dur=crDur(), vD=dur/crTLZ, center=crTLO+vD/2;
