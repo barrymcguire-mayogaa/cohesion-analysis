@@ -671,11 +671,12 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <label class="clipwin">Lag <input id="codeLag" type="number" min="0" max="60" step="1" value="3" oninput="codeSetWindow()"> s</label>
             <span id="codeWinReadout" style="font-size:11px;color:var(--t3);"></span>
           </div>
+          <div class="codebtns" style="margin-top:10px;"><button id="codeReplay" class="cbtn" onclick="crReplayLast(event.shiftKey)" disabled>↻ Replay last tag <span class="hk">R</span></button></div>
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
           <div id="codeRecs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           <div id="codeLink" class="codelink" style="display:none;"></div>
           <div id="codePitch" class="codelink" style="display:none;"></div>
-          <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--t3);">Space = play/pause · R = replay the last tag (Shift+R at half speed) · tagging pauses the video so you can adjust · refine labels/timing anytime in ✎ Edit.</div>
         </div>
       </div>
     </div>
@@ -1434,6 +1435,7 @@ function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `
 
 // ── event list ────────────────────────────────────────────────
 function renderList(){
+  try{ crReplaySync(); }catch(_){}                 // the ↻ Replay button: an undo / delete / edit can change the last tag
   const q=document.getElementById('efilter').value.toLowerCase().trim();
   const per=document.getElementById('eperiod').value;
   const wrap=document.getElementById('levents');
@@ -5385,25 +5387,60 @@ function codeSwitchTeam(){
 function codeSetPlayer(p){ codeMode.player=p; buildCodePlayers(); }
 async function codeAddPlayer(){ const n=((await cohPrompt('Player name:'))||'').trim(); if(n){ codeMode.player=n; buildCodePlayers(); } }
 
-// R = replay the clip just tagged, then jump back to where you were.
-let crLastTag=null, crReplay=null;
-function crReplayLast(){
+// R = replay the clip just tagged, then jump back to where you were; Shift+R = the same at half speed (the speed you
+// were watching at comes back afterwards). R again during a replay = stop and go back now. The ↻ button under the
+// event grid does the same and names the tag it will play.
+// The replay follows the ROW, not the times it was tagged with: a trim / nudge in Edit is honoured, the row is still
+// found after Save (which swaps its tmp id for the saved one — the same object, so it is matched by identity), and once
+// the last tag is undone or deleted R falls back to the tag before it (crTagHist, the last CR_TAG_HIST tags).
+// crLastTag {start,end,rowId} stays as it was (the id the row was tagged with) for the callers that read it.
+let crLastTag=null, crReplay=null, crTagHist=[];
+const CR_TAG_HIST=30;
+function crNoteTag(row){
+  crLastTag={start:row.start, end:row.end, rowId:row._rowId};
+  crTagHist.push({row, id:row._rowId}); if(crTagHist.length>CR_TAG_HIST) crTagHist.shift();
+  crReplaySync();
+}
+function crLastTagRow(){
+  for(let i=crTagHist.length-1;i>=0;i--){
+    const h=crTagHist[i], r=EVENTS.includes(h.row)?h.row:EVENTS.find(x=>String(x._rowId)===String(h.id));
+    if(r){ h.row=r; h.id=r._rowId; return r; }
+    crTagHist.splice(i,1);                               // gone (undone / deleted): never comes back as "last"
+  }
+  return null;
+}
+function crReplayLast(slow){
   const f=document.getElementById('codeFlash');
   if(crReplay){ crReplayStop(); return; }               // R again = stop + return now
-  if(!crLastTag){ if(f) f.textContent='Nothing tagged yet to replay.'; return; }
-  crReplay={resume:vNow(), end:crLastTag.end, timer:null};
-  vSeekDrive(crLastTag.start);
+  const row=crLastTagRow();
+  if(!row){ if(f) f.textContent='Nothing tagged yet to replay.'; crReplaySync(); return; }
+  const s=row.driveT!=null?row.driveT:(row.start||0), end=s+crBarD(row);
+  crReplay={resume:vNow(), end, timer:null, rate:slow?crRate:null};
+  if(slow) vrate(0.5);
+  vSeekDrive(s);
   if(YTP&&YTP.playVideo) YTP.playVideo();
-  if(f) f.textContent='▶ Replaying last tag ('+fmt(crLastTag.start)+'–'+fmt(crLastTag.end)+') — R returns you to '+fmt(crReplay.resume)+'.';
+  if(f) f.textContent='▶ Replaying '+(row.code||'last tag')+(slow?' at ½ speed':'')+' ('+fmt(s)+'–'+fmt(end)+') — R returns you to '+fmt(crReplay.resume)+'.';
   crReplay.timer=setInterval(()=>{ if(crReplay&&vNow()>=crReplay.end-0.05) crReplayStop(); },100);
+  crReplaySync();
 }
 function crReplayStop(){
   if(!crReplay) return;
   clearInterval(crReplay.timer);
   const r=crReplay; crReplay=null;
   if(YTP&&YTP.pauseVideo) YTP.pauseVideo();
+  if(r.rate!=null) vrate(r.rate);
   vSeekDrive(r.resume);
   const f=document.getElementById('codeFlash'); if(f) f.textContent='✓ Back at '+fmt(r.resume)+' — press Space to resume.';
+  crReplaySync();
+}
+// the ↻ button: what R will play, or (mid-replay) where it goes back to
+function crReplaySync(){
+  const b=document.getElementById('codeReplay'); if(!b) return;
+  if(crReplay){ b.disabled=false; b.classList.add('on'); b.innerHTML='⏹ Back to '+fmt(crReplay.resume)+' <span class="hk">R</span>'; b.title='Stop the replay and go back (R)'; return; }
+  const row=crLastTagRow();
+  b.classList.remove('on'); b.disabled=!row;
+  b.innerHTML='↻ Replay '+(row?esc(row.code||'last tag'):'last tag')+' <span class="hk">R</span>';
+  b.title=row?'Play the last tag again, then come back here (R) — Shift+click or Shift+R plays it at half speed':'Nothing tagged yet';
 }
 function codeTag(baseCode, opts){
   if(crReplay){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Replay running — press R to return first.'; return; }
@@ -5447,8 +5484,7 @@ function codeTag(baseCode, opts){
   crKprAutoFill(row);                                              // a kickout: Kickout Taken By = the keeper in goal now
   if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];   // template/keys-editor default colour
   else if(!teamName) row.color='#9ca3af';                          // team-neutral: grey, not a team colour
-  crLastTag={start:clipStart, end:clipEnd, rowId:tmpId};           // for R = replay · ? = flag
-  EVENTS.push(row);
+  EVENTS.push(row); crNoteTag(row);                               // for R = replay · ? = flag
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
   refreshDatalists(); crBackup(); crUpdatePending(); renderList();
@@ -5499,8 +5535,7 @@ function crDurToggle(baseCode){
     crKprAutoFill(row);
     if(codeColorPref[baseCode]) row.color=codeColorPref[baseCode];
     else if(!teamName) row.color='#9ca3af';                        // team-neutral: grey, not a team colour
-    crLastTag={start, end, rowId:tmpId};                           // for R = replay · ? = flag
-    EVENTS.push(row);
+    EVENTS.push(row); crNoteTag(row);                             // for R = replay · ? = flag
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
     refreshDatalists(); crBackup(); crUpdatePending(); renderList();
@@ -5917,7 +5952,7 @@ document.addEventListener('keydown', e=>{
   const tag=(e.target&&e.target.tagName)||'';
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
   let row=null;
-  if(codeMode.on) row=crLastTag&&EVENTS.find(x=>String(x._rowId)===String(crLastTag.rowId));
+  if(codeMode.on) row=crLastTagRow();
   else if(activeId) row=EVENTS.find(x=>String(x._rowId)===String(activeId));
   if(!row){ if(codeMode.on){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Nothing tagged yet to flag.'; } return; }
   e.preventDefault();
@@ -5968,7 +6003,7 @@ document.addEventListener('keydown', e=>{
   if(e.key===']'){ e.preventDefault(); e.stopPropagation(); codeSwitchTeam(); return; }
   if(crQualKbKey(e)) return;                       // the card after a tag: 1–9 / ↑ ↓ / Tab / Enter (crQualKbKey)
   if(e.code==='Space'){ e.preventDefault(); vtoggle(); return; }
-  if(e.key==='r'||e.key==='R'){ e.preventDefault(); crReplayLast(); return; }   // works mid-prompt: watch it again before answering
+  if(e.key==='r'||e.key==='R'){ e.preventDefault(); if(!e.repeat) crReplayLast(e.shiftKey); return; }   // works mid-prompt: watch it again before answering
   // While an outcome prompt is up, 1–N pick the outcome and Esc skips it;
   // number keys are captured here so they don't tag a new event mid-qualify.
   if(codeMode.pendingLink){
