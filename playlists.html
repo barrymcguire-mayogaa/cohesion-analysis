@@ -321,6 +321,24 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 .trimbar .thandle span{width:2px;height:14px;background:rgba(0,0,0,.55);border-radius:1px;}
 .trimbar .tends{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);padding:0 8px;}
 @media(max-width:900px){.pview{grid-template-columns:1fr;}.side{order:2;position:static;max-height:50vh;}.pmain{order:1;}}
+.dtilt-ic{display:flex;width:18px;height:18px;color:#9aa0b4;flex:none;margin-left:4px;} .dtilt-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;}
+.drawbar.rail .dtilt-ic{display:none;}
+.dstyles{position:fixed;z-index:10030;display:none;width:330px;max-height:70vh;overflow:auto;background:#12141c;border:1px solid #2c3040;border-radius:12px;box-shadow:0 16px 44px rgba(0,0,0,.6);padding:10px 12px 12px;color:#e6e7ee;font:13px Barlow,sans-serif;}
+.dst-h{font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:#9aa0b4;margin:6px 0 6px;}
+.dst-h small{font:500 11px Barlow,sans-serif;letter-spacing:0;text-transform:none;color:#6f7588;}
+.dst-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.dst,.dst-use{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px 5px;border-radius:9px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;}
+.dst svg{background:#2f6b3a;border-radius:6px;}
+.dst.on,.dst:hover,.dst-use:hover{border-color:#4fc3f7;}
+.dst.mine{position:relative;padding:0;border:none;background:none;}
+.dst.mine .dst-use{width:100%;}
+.dst-x{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;border:1px solid #2c3040;background:#0b0d12;color:#e6e7ee;cursor:pointer;font:700 12px/1 Barlow,sans-serif;padding:0;}
+.dst-none{color:#6f7588;font-size:12px;margin:2px 0 6px;}
+.dst-save{margin-top:10px;width:100%;padding:8px;border-radius:9px;border:1px solid #4fc3f7;background:rgba(79,195,247,.12);color:#e6e7ee;font:700 12.5px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.dst-save:disabled{opacity:.45;cursor:default;border-color:#2c3040;}
+@keyframes ctFade{from{opacity:0}to{opacity:1}}
+#drawSvg.ct-fade{animation:ctFade .35s ease-out;}
+@media (prefers-reduced-motion:reduce){#drawSvg.ct-fade{animation:none;}}
 </style>
 </head>
 <body>
@@ -1543,7 +1561,7 @@ async function openLog(pid, filters){
 // overlays (a dark frame edge + the drawing layer catching the pointer). When a STILL exists (captured by the desktop
 // app, or from a local video file) it is shown under the drawing. ▶ Continue hides it all and plays at once.
 let drawMode=false, ED=null, dCtx=null;
-let dTool='arrow', dColor='#ffd700', dW=4, dFill='none', dAlpha=1, dTextStyle='dark', dBeam=true;
+let dTool='arrow', dColor='#ffd700', dW=4, dFill='none', dAlpha=1, dTextStyle='dark', dBeam=true, dRingStyle='broadcast', dTilt=0.32, dMarkKind='tri';
 let dShapes=null, dT=0, dVid=null, editIdx=null, dStill=null, dCur=null;
 let dispShapes=null, dispLayers=null, MOMENT=null, shownDraws=new Set(), SHOW_ALL=false;
 let CM_DRAFT=null, CM_STILL=null, LAST_LOAD=0;
@@ -1575,6 +1593,7 @@ function dRender(){
   const s=document.getElementById('drawSvg'); if(!s||drawMode) return;
   const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
   s.innerHTML=CohTele.render(dispLayers||[],W,H,{id:'cv',photo:photoOf,frame:teleFrame});
+  if(s._shown!==dispLayers){ s._shown=dispLayers; if(dispLayers&&dispLayers.length){ s.classList.remove('ct-fade'); void s.getBoundingClientRect(); s.classList.add('ct-fade'); } }   // a drawing appearing fades in
 }
 // the picture of the frame under the drawing, for magnifiers: the still being drawn on, the moment's saved still, or a
 // local video's frame on the freeze cover. None over a live YouTube picture (its pixels can't be read) → an empty lens.
@@ -1761,14 +1780,17 @@ const IC={
   fillnone:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M4.5 19.5l15-15" opacity=".6"/>',
   fillsolid:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><rect x="7.5" y="7.5" width="9" height="9" rx="1" fill="currentColor" stroke="none"/>',
   fillhatch:'<rect x="4.5" y="4.5" width="15" height="15" rx="2"/><path d="M7 13l6-6M7 17l10-10M11 17l6-6"/>',
-  beam:'<path d="M8 18.5L10 4h4l2 14.5"/><ellipse cx="12" cy="18.5" rx="5.2" ry="1.9"/>'
+  beam:'<path d="M8 18.5L10 4h4l2 14.5"/><ellipse cx="12" cy="18.5" rx="5.2" ry="1.9"/>',
+  ring:'<ellipse cx="12" cy="15" rx="9" ry="4.2"/><path d="M6.6 15.9a5.4 2.3 0 0 0 4.2 1.4M13.2 17.3a5.4 2.3 0 0 0 4.2-1.4M17.4 14.1a5.4 2.3 0 0 0-4.2-1.4M10.8 12.7a5.4 2.3 0 0 0-4.2 1.4"/>',
+  mark:'<path d="M12 13.5L7 5h10z"/><circle cx="12" cy="19" r="2.4"/>',
+  styles:'<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'
 };
 const ico=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>';
 const TOOLS=[
   {g:'select', items:[['select','Select / move','V — click a shape, drag it or its handles; double-click a text to edit']]},
   {g:'draw', items:[['free','Freehand','draw freely'],['line','Line',''],['arrow','Arrow','a run or a pass'],['darrow','Dashed arrow','a pass'],['carrow','Curved arrow','a run — drag its round handle to bend it']]},
   {g:'shapes', items:[['rect','Rectangle',''],['ellipse','Ellipse',''],['poly','Polygon','click each corner; click the first point to close'],['pen','Pen','click = corner, click-and-drag = curve; click the first point to close']]},
-  {g:'players', items:[['spot','Player spotlight','click a player (drag to size); ✦ adds the light beam'],['tag','Name tag','click a player, pick the name'],['link','Link players','click each player; click the first to close an area']]},
+  {g:'players', items:[['spot','Player spotlight','click a player (drag to size); ✦ adds the light beam'],['ring','Ring','click a player (drag to size) — broadcast-style; ✨ Styles to choose the look'],['mark','Marker','click over each player — a triangle, chevron, dot or number (✨ Styles to choose)'],['tag','Name tag','click a player, pick the name'],['link','Link players','click each player; click the first to close an area']]},
   {g:'focus', items:[['focus','Focus','drag around the area to keep bright; the rest of the picture darkens'],['mag','Magnifier','click the spot to enlarge, drag to place the lens (needs a still of the frame)']]},
   {g:'text', items:[['text','Text label','click to place; double-click to edit']]}
 ];
@@ -1803,6 +1825,9 @@ function buildDrawBar(){
     +'</div><div class="dgrp" data-g="width">'+[2,4,7].map(w=>b('data-w="'+w+'" onclick="dSetW('+w+')"','<span class="wl" style="height:'+w*0.7+'px"></span>',{2:'Thin',4:'Medium',7:'Thick'}[w])).join('')
     +b('id="dFillBtn" onclick="dToggleFill()"',ico('fillnone'),'Fill: none / solid / striped (closed shapes, link-players areas, pen shapes)')
     +'<input type="range" class="dalpha" id="dAlphaR" min="20" max="100" value="100" oninput="dSetAlpha(this.value/100)" onchange="dAlphaDone()" title="Transparency" aria-label="Transparency">'
+    +'<span class="dtilt-ic" title="Tilt onto the grass" aria-hidden="true">'+ico('ring')+'</span>'
+    +'<input type="range" class="dalpha dtilt" id="dTiltR" min="12" max="100" value="32" oninput="dSetTilt(this.value/100)" onchange="dAlphaDone()" title="Tilt — lay a ring, spotlight, focus area or ellipse flat on the grass (left) or face-on (right)" aria-label="Tilt onto the grass">'
+    +b('id="dStylesBtn" onclick="dStylesOpen(this)"',ico('styles'),'Styles — ring looks, markers, and your saved styles')
     +'</div><div class="dgrp" data-g="history">'+b('id="dUndoBtn" onclick="dUndo()"',ico('undo'),'Undo','⌘Z')+b('id="dRedoBtn" onclick="dRedo()"',ico('redo'),'Redo','⇧⌘Z')
     +'</div><div class="dgrp" data-g="delete">'+b('id="dDelBtn" onclick="dDelSel()"',ico('del'),'Delete the selected shape','⌫')+b('onclick="dClear()"',ico('clear'),'Clear the whole drawing')+'</div>';
   bar.innerHTML=h;
@@ -1825,6 +1850,7 @@ function dPaintBar(){
   const fb=document.getElementById('dFillBtn'); if(fb){ fb.innerHTML=ico(dFill==='solid'?'fillsolid':dFill==='hatch'?'fillhatch':'fillnone'); fb.classList.toggle('on',dFill!=='none'); }
   const bb=document.getElementById('dBeamBtn'); if(bb) bb.classList.toggle('on',dBeam);
   const r=document.getElementById('dAlphaR'); if(r) r.value=Math.round(dAlpha*100);
+  const tr=document.getElementById('dTiltR'); if(tr) tr.value=Math.round(dTilt*100);
   const st=ED?ED.state():null;
   const u=document.getElementById('dUndoBtn'), rd=document.getElementById('dRedoBtn'), dl=document.getElementById('dDelBtn');
   if(u) u.disabled=!(st&&st.canUndo); if(rd) rd.disabled=!(st&&st.canRedo); if(dl) dl.disabled=!(st&&st.sel);
@@ -1842,12 +1868,90 @@ function dSetAlpha(a){ dAlpha=a; if(ED) ED.set('alpha',a); }
 function dAlphaDone(){ if(ED) ED.endStyleRun(); }
 function dSetTextStyle(ts){ dTextStyle=ts; if(ED) ED.set('textStyle',ts); if(dTool!=='text'&&!(ED&&ED.selected()&&ED.selected().type==='text')) dSetTool('text'); dPaintBar(); }
 function dToggleBeam(){ dBeam=!dBeam; if(ED) ED.set('beam',dBeam); dPaintBar(); }
+function dSetTilt(f){ dTilt=f; if(ED) ED.set('tilt',f); }
+// ── ✨ STYLES (Nov 2026): the ring looks, the markers, and your own saved styles ──────────────────────────────────
+// A saved style is a shape's LOOK (tool, colour, width, transparency, fill, ring layers, marker kind, tilt, beam, text
+// style) without its position; it is kept in this browser (coh_tele_styles). Picking one sets the tool and the look for
+// the next shapes, and restyles the selected shape when it is the same kind.
+const D_STYLES_KEY='coh_tele_styles';
+function dStylesLoad(){ try{ const a=JSON.parse(localStorage.getItem(D_STYLES_KEY)||'[]'); return Array.isArray(a)?a.filter(x=>x&&x.name&&x.tool).slice(0,40):[]; }catch(_){ return []; } }
+function dStylesSave(a){ try{ localStorage.setItem(D_STYLES_KEY, JSON.stringify(a.slice(0,40))); }catch(_){} }
+function dStylePreview(shape){ const W=70,H=40; return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" aria-hidden="true">'+CohTele.render([{shapes:[shape], color:'#ffd600'}],W,H,{id:'sp'+(dStylePreview.n=(dStylePreview.n||0)+1)})+'</svg>'; }
+function dStylesOpen(btn){
+  let p=document.getElementById('dStyles');
+  if(p&&p.style.display==='block'){ p.style.display='none'; return; }
+  if(!p){ p=document.createElement('div'); p.id='dStyles'; p.className='dstyles'; document.body.appendChild(p);
+    document.addEventListener('pointerdown',e=>{ const q=document.getElementById('dStyles'); if(q&&q.style.display==='block'&&!q.contains(e.target)&&!(e.target.closest&&e.target.closest('#dStylesBtn'))) q.style.display='none'; }, true); }
+  dStylesPaint();
+  const tp=document.getElementById('dTip'); if(tp) tp.style.display='none';
+  p.style.display='block';
+  const r=btn.getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
+  p.style.left=Math.max(6,Math.min(innerWidth-pw-6, r.left+r.width/2-pw/2))+'px';
+  p.style.top=Math.max(6, r.bottom+8+ph>innerHeight?r.top-ph-8:r.bottom+8)+'px';
+}
+function dStylesPaint(){
+  const p=document.getElementById('dStyles'); if(!p) return;
+  const col=dColor||(dCtx&&dCtx.color)||'#ffd600';
+  const rings=Object.keys(CohTele.RING_STYLES).map(k=>{ const R=CohTele.ringStyleOf(k);
+    return '<button type="button" class="dst'+(dTool==='ring'&&dRingStyle===k?' on':'')+'" onclick="dPickRing(\''+k+'\')">'+dStylePreview(Object.assign({type:'ring', cx:.5, cy:.55, rx:.36, ry:.25, color:col}, R))+'<span>'+esc(CohTele.RING_STYLES[k].name)+'</span></button>'; }).join('');
+  const marks=Object.keys(CohTele.MARK_KINDS).map(k=>'<button type="button" class="dst'+(dTool==='mark'&&dMarkKind===k?' on':'')+'" onclick="dPickMark(\''+k+'\')">'+dStylePreview({type:'mark', x:.5, y:.9, kind:k, text:'7', color:col, w:6})+'<span>'+esc(CohTele.MARK_KINDS[k])+'</span></button>').join('');
+  const mine=dStylesLoad();
+  const sel=ED&&ED.selected();
+  p.innerHTML='<div class="dst-h">Ring styles</div><div class="dst-g">'+rings+'</div>'
+    +'<div class="dst-h">Markers <small>— click over each player; Number counts 1, 2, 3…</small></div><div class="dst-g">'+marks+'</div>'
+    +'<div class="dst-h">Your styles <small>— kept in this browser</small></div>'
+    +(mine.length?'<div class="dst-g">'+mine.map((m,i)=>'<span class="dst mine"><button type="button" class="dst-use" onclick="dPickMine('+i+')">'+dStylePreview(dStyleShape(m))+'<span>'+esc(m.name)+'</span></button><button type="button" class="dst-x" onclick="dDelMine('+i+')" title="Delete this style" aria-label="Delete '+esc(m.name)+'">×</button></span>').join('')+'</div>'
+      :'<div class="dst-none">None yet — style a shape, select it, then save its look here.</div>')
+    +'<button type="button" class="dst-save" onclick="dSaveMine()"'+(sel?'':' disabled')+'>★ Save the selected shape’s look'+(sel?'':' (select a shape first)')+'</button>';
+}
+// a saved style drawn as a preview shape
+function dStyleShape(m){ const c=m.color||'#ffd600', base={color:c, w:m.w||4};
+  if(m.tool==='ring') return Object.assign({type:'ring', cx:.5, cy:.55, rx:.36, ry:.25}, base, CohTele.ringStyleOf(m.ringStyle||'broadcast'));
+  if(m.tool==='mark') return Object.assign({type:'mark', x:.5, y:.9, kind:m.markKind||'tri', text:'7'}, base, {w:6});
+  if(m.tool==='spot') return Object.assign({type:'spot', cx:.5, cy:.7, rx:.32, ry:.16, beam:!!m.beam}, base);
+  if(m.tool==='text') return Object.assign({type:'text', x:.08, y:.22, text:'Text', style:m.textStyle||'dark', size:16}, base);
+  if(['rect','ellipse'].includes(m.tool)) return Object.assign({type:m.tool, x1:.15, y1:.2, x2:.85, y2:.8}, base, m.fill&&m.fill!=='none'?{fill:m.fill}:{});
+  return Object.assign({type:['line','arrow','darrow'].includes(m.tool)?m.tool:'arrow', x1:.12, y1:.78, x2:.88, y2:.22}, base);
+}
+function dPickRing(k){ dRingStyle=k; dSetTool('ring'); if(ED) ED.set('ringStyle',k); dStylesPaint(); }
+function dPickMark(k){ dMarkKind=k; dSetTool('mark'); if(ED) ED.set('markKind',k); dStylesPaint(); }
+function dPickMine(i){
+  const m=dStylesLoad()[i]; if(!m) return;
+  dSetTool(m.tool);
+  if(m.color) dSetColor(m.color,null); if(m.w) dSetW(m.w); dSetAlpha(m.alpha||1); if(ED) ED.endStyleRun();
+  if(m.fill&&['rect','ellipse','poly','link','pen'].includes(m.tool)){ dFill=m.fill; if(ED) ED.set('fill',dFill); }
+  if(m.tool==='ring'&&m.ringStyle){ dRingStyle=m.ringStyle; if(ED) ED.set('ringStyle',m.ringStyle); }
+  if(m.tool==='mark'&&m.markKind){ dMarkKind=m.markKind; if(ED) ED.set('markKind',m.markKind); }
+  if(m.tilt){ dTilt=m.tilt; if(ED){ ED.set('tilt',m.tilt); ED.endStyleRun(); } }
+  if(m.tool==='spot'&&m.beam!=null){ dBeam=!!m.beam; if(ED) ED.set('beam',dBeam); }
+  if(m.tool==='text'&&m.textStyle){ dTextStyle=m.textStyle; if(ED) ED.set('textStyle',dTextStyle); }
+  dPaintBar(); dStylesPaint();
+}
+function dDelMine(i){ const a=dStylesLoad(); a.splice(i,1); dStylesSave(a); dStylesPaint(); }
+async function dSaveMine(){
+  const s=ED&&ED.selected(); if(!s) return;
+  const W=+(document.getElementById('drawSvg')||{}).getAttribute?.('width')||1, H=+(document.getElementById('drawSvg')||{}).getAttribute?.('height')||1;
+  const m={tool:s.type, color:s.color||null, w:s.w||4, alpha:s.alpha||1};
+  if(s.fill) m.fill=s.fill===true?'solid':s.fill;
+  if(s.type==='ring'){ m.ringStyle={rings:s.rings||[], glow:!!s.glow}; }
+  if(s.type==='mark') m.markKind=s.kind||'tri';
+  if(s.type==='spot') m.beam=!!s.beam;
+  if(s.type==='text') m.textStyle=s.style||'dark';
+  if(['ring','spot','focus'].includes(s.type)&&s.rx) m.tilt=Math.max(0.12,Math.min(1, s.ry*H/(s.rx*W)));
+  const def={ring:'My ring', mark:'My marker', spot:'My spotlight', text:'My text', arrow:'My arrow'}[s.type]||'My style';
+  let name=null; try{ name=typeof cohPrompt==='function'?await cohPrompt('Name this style:', def):prompt('Name this style:', def); }catch(_){ name=null; }
+  name=String(name==null?'':name).trim().slice(0,30); if(!name) return;
+  const a=dStylesLoad().filter(x=>x.name!==name); a.unshift(Object.assign({name}, m)); dStylesSave(a); dStylesPaint();
+}
 function dSyncToolbar(s){
   if(!s){ dPaintBar(); return; }
   dColor=s.color||(dCtx&&dCtx.kind==='comment'?null:dColor); dW=s.w||dW; dAlpha=s.alpha!=null?s.alpha:1;
   if(s.type==='text') dTextStyle=s.style||dTextStyle;
   if(s.type==='spot') dBeam=!!s.beam;
   if(['rect','ellipse','poly','link','pen'].includes(s.type)) dFill=s.fill===true?'solid':(s.fill||'none');
+  if(s.type==='mark') dMarkKind=s.kind||'tri';
+  if(['ring','spot','focus'].includes(s.type)&&s.rx){ const sv=document.getElementById('drawSvg'), W=+sv.getAttribute('width')||1, H=+sv.getAttribute('height')||1; dTilt=Math.max(0.12,Math.min(1, s.ry*H/(s.rx*W))); }
+  const pq=document.getElementById('dStyles'); if(pq&&pq.style.display==='block') dStylesPaint();
   dPaintBar();
 }
 function dUndo(){ if(drawMode&&ED){ ED.undo(); dPaintBar(); } }
@@ -1920,7 +2024,7 @@ function enterDraw(ctx, shapes){
   buildDrawBar();
   const s=document.getElementById('drawSvg'); s.style.display='block'; s.classList.add('author'); s.style.pointerEvents='auto';
   sizeDrawSvg();
-  ED=CohTele.editor(s,{ color:dColor, layerColor:ctx.kind==='comment'?ctx.color:STAFF_DEF, w:dW, fill:dFill, alpha:dAlpha, textStyle:dTextStyle, beam:dBeam, shapes:shapes||[],
+  ED=CohTele.editor(s,{ color:dColor, layerColor:ctx.kind==='comment'?ctx.color:STAFF_DEF, w:dW, fill:dFill, alpha:dAlpha, textStyle:dTextStyle, beam:dBeam, ringStyle:dRingStyle, tilt:dTilt, markKind:dMarkKind, shapes:shapes||[],
     photo:photoOf, frame:teleFrame, pickPlayer:tagPick, editText:teleEditText, onChange:()=>dPaintBar(), onSelect:sh=>dSyncToolbar(sh) });
   ED.setTool(dTool);
   loadTagPhotos([{shapes:shapes||[]}]);

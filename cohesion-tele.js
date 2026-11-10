@@ -7,6 +7,10 @@
  *   poly{pts,closed,fill}  spot{cx,cy,rx,ry,beam}  tag{x,y,px,py,name,team,no}  link{pts,closed,fill}
  *   text{x,y,text,style:'plain'|'dark'|'box',size}  pen{nodes:[{x,y,ix?,iy?,ox?,oy?}],closed,fill}
  *   focus{cx,cy,rx,ry,dim?} (an area kept bright, the rest of the picture darkened — all focus areas share ONE dim layer)
+ *   ring{cx,cy,rx,ry,rings:[{c?,r,segs,gap?,t}≤3],glow?,spin?} (a broadcast ring flat on the grass — layers outer→inner:
+ *       r = radius as a share of the ring, segs 0 = a full ring else that many segments, gap = the share of each left open,
+ *       t = thickness 1–16; c absent = the shape's colour; ry/rx = how far it is tilted onto the grass)
+ *   mark{x,y,kind:'tri'|'chev'|'dot'|'num',text?} (a marker over a player's head — x,y = its tip; w sets its size)
  *   mag{cx,cy,r,lx,ly,z} (a magnifier: the spot cx,cy of radius r (fraction of the height) shown z× in a lens at lx,ly;
  *       it needs a picture of the frame — opts.frame — and shows an empty lens without one)
  *   every shape: color? (#rrggbb — absent = the layer's colour, e.g. its comment's), w (1–16), alpha?
@@ -27,6 +31,23 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lum = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
   const kOf = H => clamp(H / 480, 0.6, 2.4);
+  // the built-in ring styles (✨ Styles): layers outer → inner
+  const RING_STYLES = {
+    broadcast: { name: 'Broadcast', rings: [{ c: '#ffffff', r: 1, segs: 0, t: 5 }, { r: 0.72, segs: 5, gap: 0.28, t: 6 }], glow: true },
+    double: { name: 'Double', rings: [{ r: 1, segs: 0, t: 4 }, { r: 0.7, segs: 0, t: 3 }] },
+    segmented: { name: 'Segmented', rings: [{ r: 1, segs: 6, gap: 0.3, t: 5 }] },
+    glow: { name: 'Glow', rings: [{ r: 1, segs: 0, t: 4 }], glow: true },
+    target: { name: 'Target', rings: [{ r: 1, segs: 12, gap: 0.45, t: 4 }, { c: '#ffffff', r: 0.62, segs: 0, t: 2 }, { r: 0.3, segs: 0, t: 3 }] },
+    simple: { name: 'Simple', rings: [{ r: 1, segs: 0, t: 4 }] }
+  };
+  const MARK_KINDS = { tri: 'Triangle', chev: 'Chevron', dot: 'Dot', num: 'Number' };
+  // a style for a new / restyled ring: a built-in key or {rings, glow} (a saved style) → a fresh copy
+  function ringStyleOf(v) { const S = typeof v === 'string' ? RING_STYLES[v] : v; const R = S && Array.isArray(S.rings) && S.rings.length ? S : RING_STYLES.broadcast;
+    return { rings: JSON.parse(JSON.stringify(R.rings.slice(0, 3))), glow: !!R.glow }; }
+  const ringLayers = s => (Array.isArray(s.rings) && s.rings.length ? s.rings : [{ r: 1, segs: 0, t: +s.w || 4 }]).slice(0, 3);
+  const ringMax = s => Math.max.apply(null, ringLayers(s).map(L => clamp(+L.r || 1, 0.3, 1.6)));
+  const markK = (s, k) => k * clamp((+s.w || 4) / 4, 0.5, 2);
+  const markBox = (s, W, H) => { const q = markK(s, kOf(H)), x = s.x * W, y = s.y * H, r = (s.kind === 'num' ? 12 : 10) * q; return { x: x - r - 2, y: y - (s.kind === 'dot' || s.kind === 'num' ? r * 2 + 4 * q : 18 * q) - 2, w: 2 * r + 4, h: (s.kind === 'dot' || s.kind === 'num' ? r * 2 + 4 * q : 18 * q) + 4 }; };
   // a magnifier in pixels: the spot (cx,cy,r) and its lens (lx,ly,R = r × z)
   const magGeo = (s, W, H) => { const r = clamp(+s.r || 0.06, 0.02, 0.25) * H, z = clamp(+s.z || 2.2, 1.5, 4); return { cx: s.cx * W, cy: s.cy * H, r, z, R: r * z, lx: s.lx * W, ly: s.ly * H }; };
   const frameUrl = opts => { let u = opts && opts.frame; try { if (typeof u === 'function') u = u(); } catch (_) { u = null; } return typeof u === 'string' && /^(https?:|blob:|data:image\/)/i.test(u) ? u : null; };
@@ -154,6 +175,36 @@
           + '<path d="' + ring(rx * 0.6, ry * 0.6) + '" fill="none" stroke="' + col + '" stroke-opacity="0.85" stroke-width="' + f1(Math.max(1, sw * 0.55)) + '"/>';
         break;
       }
+      case 'ring': {
+        const cx = s.cx * W, cy = s.cy * H, rx = Math.max(3, (s.rx || 0.05) * W), ry = Math.max(2, (s.ry || 0.02) * H), spin = (+s.spin || 0) * Math.PI / 180;
+        if (s.glow) { const g = 1.18 * ringMax(s); o += '<ellipse cx="' + f1(cx) + '" cy="' + f1(cy) + '" rx="' + f1(rx * g) + '" ry="' + f1(ry * g) + '" fill="url(#' + id + 'r' + col.slice(1) + ')"/>'; }
+        ringLayers(s).forEach(L => {
+          const lc = typeof L.c === 'string' && HEX.test(L.c) ? L.c : col, R = clamp(+L.r || 1, 0.3, 1.6), a = rx * R, b = ry * R, t = clamp(+L.t || 4, 1, 16) * k * 0.85;
+          const n = Math.round(clamp(+L.segs || 0, 0, 12)), gap = clamp(+L.gap || 0, 0, 0.6);
+          let d = '';
+          if (!n) d = 'M' + f1(cx - a) + ' ' + f1(cy) + 'a' + f1(a) + ' ' + f1(b) + ' 0 1 0 ' + f1(2 * a) + ' 0a' + f1(a) + ' ' + f1(b) + ' 0 1 0 ' + f1(-2 * a) + ' 0Z';
+          else { const step = 2 * Math.PI / n, span = step * (1 - gap);
+            for (let i = 0; i < n; i++) { const a0 = spin + i * step + (step - span) / 2, a1 = a0 + span;
+              d += 'M' + f1(cx + a * Math.cos(a0)) + ' ' + f1(cy + b * Math.sin(a0)) + 'A' + f1(a) + ' ' + f1(b) + ' 0 ' + (span > Math.PI ? 1 : 0) + ' 1 ' + f1(cx + a * Math.cos(a1)) + ' ' + f1(cy + b * Math.sin(a1)); } }
+          const cap = n ? 'butt' : 'round';
+          o += '<path d="' + d + '" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="' + f1(t + 3 * k) + '" stroke-linecap="' + cap + '"/>'
+            + '<path d="' + d + '" fill="none" stroke="' + lc + '" stroke-width="' + f1(t) + '" stroke-linecap="' + cap + '" filter="url(#' + id + 'g)"/>';
+        });
+        break;
+      }
+      case 'mark': {
+        const q = markK(s, k), x = s.x * W, y = s.y * H, kind = MARK_KINDS[s.kind] ? s.kind : 'tri', edge = 'stroke="#000" stroke-opacity="0.6" stroke-width="' + f1(1.6 * q) + '" stroke-linejoin="round"';
+        let g = '';
+        if (kind === 'tri') g = '<polygon points="' + [[x, y], [x - 9 * q, y - 16 * q], [x + 9 * q, y - 16 * q]].map(p => f1(p[0]) + ',' + f1(p[1])).join(' ') + '" fill="' + col + '" ' + edge + '/>';
+        else if (kind === 'chev') g = '<path d="M' + f1(x - 9 * q) + ' ' + f1(y - 15 * q) + 'L' + f1(x) + ' ' + f1(y - 4 * q) + 'L' + f1(x + 9 * q) + ' ' + f1(y - 15 * q) + '" fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="' + f1(7.5 * q) + '" stroke-linecap="round" stroke-linejoin="round"/>'
+          + '<path d="M' + f1(x - 9 * q) + ' ' + f1(y - 15 * q) + 'L' + f1(x) + ' ' + f1(y - 4 * q) + 'L' + f1(x + 9 * q) + ' ' + f1(y - 15 * q) + '" fill="none" stroke="' + col + '" stroke-width="' + f1(4.5 * q) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+        else if (kind === 'dot') g = '<circle cx="' + f1(x) + '" cy="' + f1(y - 8 * q) + '" r="' + f1(7 * q) + '" fill="' + col + '" stroke="#fff" stroke-width="' + f1(2 * q) + '"/>';
+        else { const r = 11 * q, ink = lum(col) > 0.55 ? '#0b0d12' : '#ffffff';
+          g = '<circle cx="' + f1(x) + '" cy="' + f1(y - r - 3 * q) + '" r="' + f1(r) + '" fill="' + col + '" stroke="#fff" stroke-width="' + f1(1.8 * q) + '"/>'
+            + '<text x="' + f1(x) + '" y="' + f1(y - r - 3 * q + 4.6 * q) + '" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="800" font-size="' + f1(14 * q) + '" fill="' + ink + '">' + esc(String(s.text || '1').slice(0, 2)) + '</text>'; }
+        o = '<g filter="url(#' + id + 's)">' + g + '</g>';
+        break;
+      }
       case 'link': {
         const pts = (s.pts || []).map(p => P(p[0], p[1], W, H)); if (!pts.length) break;
         const rx = 13 * k, ry = 4.6 * k;                       // a ring flat on the grass under each player
@@ -261,6 +312,8 @@
         if ((s.type === 'spot' || fillOf(s)) && v <= 1) return true; return Math.abs(Math.sqrt(v) - 1) * Math.min(rx, ry) <= tol;
       }
       case 'focus': { const v = Math.pow((px - s.cx * W) / Math.max(1, s.rx * W), 2) + Math.pow((py - s.cy * H) / Math.max(1, s.ry * H), 2); return v <= 1; }
+      case 'ring': { const m = ringMax(s), v = Math.pow((px - s.cx * W) / Math.max(1, s.rx * W * m), 2) + Math.pow((py - s.cy * H) / Math.max(1, s.ry * H * m), 2); return v <= 1.15; }
+      case 'mark': { const b = markBox(s, W, H); return px >= b.x - tol && px <= b.x + b.w + tol && py >= b.y - tol && py <= b.y + b.h + tol; }
       case 'mag': { const m = magGeo(s, W, H); return Math.hypot(px - m.lx, py - m.ly) <= m.R + tol || Math.hypot(px - m.cx, py - m.cy) <= m.r + tol || segDist(px, py, m.cx, m.cy, m.lx, m.ly) <= tol; }
       case 'free': return polyDist(px, py, (s.pts || []).map(p => [p[0] * W, p[1] * H]), false) <= tol;
       case 'poly': case 'link': { const pts = (s.pts || []).map(p => [p[0] * W, p[1] * H]); if (pts.length === 1) return Math.hypot(px - pts[0][0], py - pts[0][1]) <= tol + 6;
@@ -278,7 +331,7 @@
       case 'carrow': return [{ id: 'p1', x: s.x1, y: s.y1 }, { id: 'p2', x: s.x2, y: s.y2 }, { id: 'c', x: s.cx, y: s.cy, round: true }];
       case 'rect': case 'ellipse': return [{ id: 'c11', x: s.x1, y: s.y1 }, { id: 'c21', x: s.x2, y: s.y1 }, { id: 'c12', x: s.x1, y: s.y2 }, { id: 'c22', x: s.x2, y: s.y2 }];
       case 'poly': case 'link': return (s.pts || []).map((p, i) => ({ id: 'v' + i, x: p[0], y: p[1] }));
-      case 'spot': case 'focus': return [{ id: 'rx', x: s.cx + s.rx, y: s.cy }, { id: 'ry', x: s.cx, y: s.cy + s.ry }];
+      case 'spot': case 'focus': case 'ring': return [{ id: 'rx', x: s.cx + s.rx, y: s.cy }, { id: 'ry', x: s.cx, y: s.cy + s.ry }];
       case 'mag': { const m = magGeo(s, W || 1, H || 1); return [{ id: 'mr', x: (m.cx + m.r) / (W || 1), y: s.cy }, { id: 'ml', x: s.lx, y: s.ly, round: true }, { id: 'mz', x: (m.lx + m.R) / (W || 1), y: s.ly }]; }
       case 'tag': return s.px != null ? [{ id: 'pt', x: s.px, y: s.py, round: true }] : [];
       case 'text': { const b = textBox(s, W || 1, H || 1); return [{ id: 'sz', x: (b.x + b.w) / (W || 1), y: (b.y + b.h) / (H || 1) }]; }
@@ -314,7 +367,8 @@
     const m = p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)];
     switch (s.type) {
       case 'free': case 'poly': case 'link': s.pts = (s.pts || []).map(m); break;
-      case 'spot': case 'focus': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
+      case 'spot': case 'focus': case 'ring': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
+      case 'mark': s.x = clamp(s.x + dx, 0, 1); s.y = clamp(s.y + dy, 0, 1); break;
       case 'mag': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); s.lx = clamp(s.lx + dx, 0, 1); s.ly = clamp(s.ly + dy, 0, 1); break;
       case 'text': s.x = clamp(s.x + dx, 0, 0.98); s.y = clamp(s.y + dy, 0, 0.98); break;
       case 'tag': s.x = clamp(s.x + dx, 0, 0.98); s.y = clamp(s.y + dy, 0, 0.98); break;   // the box moves; its pointer stays on the player
@@ -329,6 +383,8 @@
       case 'free': case 'poly': case 'link': pts = (s.pts || []).map(p => [p[0] * W, p[1] * H]); break;
       case 'pen': pts = penSamples(s.nodes || [], !!s.closed, W, H); break;
       case 'spot': case 'focus': pts = [[(s.cx - s.rx) * W, (s.cy - s.ry) * H], [(s.cx + s.rx) * W, (s.cy + s.ry) * H]]; break;
+      case 'ring': { const m = ringMax(s); pts = [[(s.cx - s.rx * m) * W, (s.cy - s.ry * m) * H], [(s.cx + s.rx * m) * W, (s.cy + s.ry * m) * H]]; break; }
+      case 'mark': { const b = markBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
       case 'mag': { const m = magGeo(s, W, H); pts = [[m.cx - m.r, m.cy - m.r], [m.cx + m.r, m.cy + m.r], [m.lx - m.R, m.ly - m.R], [m.lx + m.R, m.ly + m.R]]; break; }
       case 'text': { const b = textBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
       case 'tag': { const b = tagBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; if (s.px != null) pts.push([s.px * W, s.py * H]); break; }
@@ -354,7 +410,7 @@
   function editor(svg, o) {
     o = o || {};
     const st = { tool: 'arrow', color: o.color === undefined ? '#ffd600' : o.color, layerColor: o.layerColor || '#4fc3f7', w: o.w || 4, fill: o.fill || 'none', alpha: o.alpha || 1,
-      textStyle: o.textStyle || 'dark', beam: o.beam !== false, shapes: JSON.parse(JSON.stringify(o.shapes || [])), cur: null, sel: null, drag: null, hover: null, hist: [], redo: [], dead: false, styleRun: null };
+      textStyle: o.textStyle || 'dark', beam: o.beam !== false, ringStyle: o.ringStyle || 'broadcast', tilt: o.tilt || 0.32, markKind: o.markKind || 'tri', markNo: 1, shapes: JSON.parse(JSON.stringify(o.shapes || [])), cur: null, sel: null, drag: null, hover: null, hist: [], redo: [], dead: false, styleRun: null };
     const WH = () => [+svg.getAttribute('width') || svg.clientWidth || 1, +svg.getAttribute('height') || svg.clientHeight || 1];
     const snap = () => JSON.stringify(st.shapes);
     const push = (before) => { st.hist.push(before == null ? snap() : before); if (st.hist.length > 200) st.hist.shift(); st.redo = []; };
@@ -474,6 +530,9 @@
         return;
       }
       if (t === 'spot') { st.cur = newShape({ type: 'spot', cx: x, cy: y, rx: 0.045, ry: 0.045 * W / H * 0.3 }); if (st.beam) st.cur.beam = true; st.drag = { mode: 'spot', sx: x, sy: y }; renderNow(); return; }
+      if (t === 'ring') { const R = ringStyleOf(st.ringStyle); st.cur = newShape(Object.assign({ type: 'ring', cx: x, cy: y, rx: 0.04, ry: 0.04 * W / H * st.tilt }, R)); if (!R.glow) delete st.cur.glow; st.drag = { mode: 'ring', sx: x, sy: y }; renderNow(); return; }
+      if (t === 'mark') { const s = newShape({ type: 'mark', x, y, kind: st.markKind }); if (st.markKind === 'num') s.text = String(st.markNo++);
+        push(); st.shapes.push(s); renderNow(); changed(); return; }
       if (t === 'focus') { st.cur = newShape({ type: 'focus', cx: x, cy: y, rx: 0.01, ry: 0.01 }); st.drag = { mode: 'focus', sx: x, sy: y }; renderNow(); return; }
       if (t === 'mag') { st.cur = newShape({ type: 'mag', cx: x, cy: y, lx: x, ly: y, r: 0.06, z: 2.2 }); st.drag = { mode: 'mag' }; renderNow(); return; }
       if (t === 'free') { st.cur = newShape({ type: 'free', pts: [[x, y]] }); renderNow(); return; }
@@ -498,6 +557,7 @@
       if (c.type === 'poly' || c.type === 'link' || c.type === 'pen') { st.hover = [x, y]; renderNow(); return; }
       if (d && d.mode === 'focus') { c.rx = Math.max(0.01, Math.abs(x - d.sx)); c.ry = Math.max(0.01, Math.abs(y - d.sy)); renderNow(); return; }
       if (d && d.mode === 'mag') { c.lx = x; c.ly = y; renderNow(); return; }
+      if (d && d.mode === 'ring') { c.rx = Math.max(0.012, Math.abs(x - d.sx)); c.ry = Math.max(0.004, c.rx * W / H * st.tilt); renderNow(); return; }
       if (d && d.mode === 'spot') { const rx = Math.max(0.012, Math.abs(x - d.sx)); c.rx = rx; c.ry = Math.max(0.006, rx * W / H * 0.3 + Math.abs(y - d.sy) * 0.6); renderNow(); return; }
       if (c.type === 'free') { const l = c.pts[c.pts.length - 1]; if (Math.hypot((x - l[0]) * W, (y - l[1]) * H) >= 2) c.pts.push([x, y]); }
       else { c.x2 = x; c.y2 = y; if (c.type === 'carrow') { const q = autoCtrl(c.x1, c.y1, c.x2, c.y2, W, H); c.cx = q[0]; c.cy = q[1]; } }
@@ -513,7 +573,7 @@
       const [W, H] = WH();
       let tiny = false;
       if (c.type === 'free') tiny = c.pts.length < 3;
-      else if (c.type === 'spot') tiny = false;
+      else if (c.type === 'spot' || c.type === 'ring') tiny = false;
       else if (c.type === 'focus') { tiny = false; if (c.rx < 0.03 && c.ry < 0.03) { c.rx = 0.09; c.ry = 0.16; } }   // a click: a player-sized area
       else if (c.type === 'mag') { tiny = false; const m = magGeo(c, W, H); if (Math.hypot(m.lx - m.cx, m.ly - m.cy) < m.r + m.R) {   // a click: the lens up and to the side
         const sx = c.cx < 0.6 ? 1 : -1; c.lx = clamp(c.cx + sx * (m.r + m.R + 14) / W, 0.02, 0.98); c.ly = clamp(c.cy - (m.R + 10) / H, 0.02, 0.98); } }
@@ -542,16 +602,22 @@
       const s = sel();
       if (key === 'color') st.color = v; else if (key === 'w') st.w = v; else if (key === 'fill') st.fill = v; else if (key === 'alpha') st.alpha = v;
       else if (key === 'textStyle') st.textStyle = v; else if (key === 'beam') st.beam = !!v; else if (key === 'layerColor') { st.layerColor = v; renderNow(); return; }
+      else if (key === 'ringStyle') st.ringStyle = v; else if (key === 'tilt') st.tilt = clamp(+v || 0.32, 0.12, 1); else if (key === 'markKind') { st.markKind = MARK_KINDS[v] ? v : 'tri'; st.markNo = 1; }
       if (!s) return;
       const run = key + ':' + st.sel;
-      if (!(key === 'alpha' && st.styleRun === run)) push();     // one slider drag = one undo step
-      st.styleRun = key === 'alpha' ? run : null;
+      const slider = key === 'alpha' || key === 'tilt';
+      if (!(slider && st.styleRun === run)) push();     // one slider drag = one undo step
+      st.styleRun = slider ? run : null;
       if (key === 'color') { if (v) s.color = v; else delete s.color; if (s.fillColor) { if (v) s.fillColor = v; else delete s.fillColor; } }
       else if (key === 'w') s.w = v;
       else if (key === 'alpha') { if (v < 1) s.alpha = v; else delete s.alpha; }
       else if (key === 'fill' && ['rect', 'ellipse', 'poly', 'link', 'pen'].includes(s.type) && (s.closed || s.type === 'rect' || s.type === 'ellipse')) { if (v === 'none') { delete s.fill; delete s.fillColor; } else s.fill = v; }
       else if (key === 'textStyle' && s.type === 'text') s.style = v;
       else if (key === 'beam' && s.type === 'spot') { if (v) s.beam = true; else delete s.beam; }
+      else if (key === 'ringStyle' && s.type === 'ring') { const R = ringStyleOf(v); s.rings = R.rings; if (R.glow) s.glow = true; else delete s.glow; }
+      else if (key === 'tilt' && (s.type === 'ring' || s.type === 'spot' || s.type === 'focus')) { const [W, H] = WH(); s.ry = clamp(s.rx * W / H * st.tilt, 0.002, 0.5); }
+      else if (key === 'tilt' && s.type === 'ellipse') { const [W, H] = WH(), cy = (s.y1 + s.y2) / 2, hh = Math.abs(s.x2 - s.x1) / 2 * W / H * st.tilt; s.y1 = clamp(cy - hh, 0, 1); s.y2 = clamp(cy + hh, 0, 1); }
+      else if (key === 'markKind' && s.type === 'mark') { s.kind = st.markKind; if (s.kind === 'num' && !s.text) s.text = '1'; if (s.kind !== 'num') delete s.text; }
       else { st.hist.pop(); }                                        // nothing changed on this shape
       renderNow(); changed();
     }
@@ -587,7 +653,7 @@
     return api;
   }
 
-  const CohTele = { render, editor, hit, handles, applyHandle, move, bbox, esc, colOf, initials, kOf, textBox, tagBox };
+  const CohTele = { render, editor, hit, handles, applyHandle, move, bbox, esc, colOf, initials, kOf, textBox, tagBox, RING_STYLES, MARK_KINDS, ringStyleOf };
   if (typeof window !== 'undefined') window.CohTele = CohTele;
   if (typeof module !== 'undefined' && module.exports) module.exports = CohTele;
 })();
