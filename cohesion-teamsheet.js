@@ -741,7 +741,9 @@
   //      stateCall:'fn'        fn('view'|'side', value) — the page keeps the choice and redraws
   //      players(side)         → {name: {g, pts, cards:['Y'|'B'|'R'…]}} — the Dashboard's own player figures
   //                              (cohesion-graphics.js dashPlayerDetails, the match report's "Player Details")
-  //      playerCall:'fn', canPick(side, name)   a click on a jersey → fn(side, name) (the Dashboard's player filter)}
+  //      playerCall:'fn', canPick(side, name)   a click on a jersey → fn(side, name) (the Dashboard's player filter)
+  //      pickTitle(name)       the jersey's tooltip when it can be picked (default "Show <name>’s events")
+  //      layout                pitchHtml only: a pitchLayout-shaped layout to draw instead of the sheet's own (a row's _cls joins its classes)}
   T.panelHtml=function(game, o){
     o=o||{}; T._css(); game=game||{};
     const btn=l=>(o.canEdit&&o.editCall)?`<button class="cohts-btn" onclick="${esc(o.editCall)}">${l}</button>`:'';
@@ -774,8 +776,8 @@
     const cardHtml=cards.length?`<span class="cohps-cards" title="${esc(cards.map(c=>({Y:'Yellow',B:'Black',R:'Red'})[c]||'Card').join(', ')+' card'+(cards.length>1?'s':''))}">${cards.map(c=>`<i class="c${/^[YBR]$/.test(c)?c:'X'}"></i>`).join('')}</span>`:'';
     const markHtml=marks.length?`<span class="cohps-subs">${marks.map(m=>`<span class="cohps-sb ${m.type}${m.blood?' blood':''}" title="${esc(m.text+(m.blood?' (blood sub)':''))}">${m.blood?drop:''}${arrow(m.type)}${m.min!==''?esc(m.min)+'\'':''}</span>`).join('')}</span>`:'';
     const pick=!!(o.playerCall&&(typeof o.canPick!=='function'||o.canPick(side, r.name)));
-    const tag=pick?'button':'div', act=pick?` onclick="${esc(o.playerCall+'('+JSON.stringify(side)+','+JSON.stringify(r.name)+')')}" title="${esc('Show '+r.name+'’s events')}"`:'';
-    return `<${tag} class="cohps-pl${cls?' '+cls:''}${pick?' pick':''}"${act} data-name="${esc(r.name)}"${r.pos?` data-pos="${r.pos}"`:''}>
+    const tag=pick?'button':'div', act=pick?` onclick="${esc(o.playerCall+'('+JSON.stringify(side)+','+JSON.stringify(r.name)+')')}" title="${esc(typeof o.pickTitle==='function'?o.pickTitle(r.name):'Show '+r.name+'’s events')}"`:'';
+    return `<${tag} class="cohps-pl${cls?' '+cls:''}${r._cls?' '+esc(r._cls):''}${pick?' pick':''}"${act} data-name="${esc(r.name)}"${r.pos?` data-pos="${r.pos}"`:''}>
       <span class="cohps-shirt"><svg viewBox="0 0 64 58" aria-hidden="true"><path d="${SHIRT}" fill="${esc(fill)}" stroke="${edge}" stroke-width="1.6" stroke-linejoin="round"/><path d="M26 1 Q32 8 38 1" fill="none" stroke="${edge}" stroke-width="1.2"/></svg><b style="color:${esc(ink)}">${esc(r.no)}</b>${cardHtml}${markHtml}</span>
       <span class="cohps-nm">${esc(r.name)}</span>${score?`<span class="cohps-sc">${esc(score)}</span>`:''}</${tag}>`;
   }
@@ -802,7 +804,7 @@
     o=o||{}; game=game||{}; T._css();
     const nm=(side==='home'?game.homeTeam:game.awayTeam)||side;
     if(!T.hasSheet(game, side)) return `<div class="cohps-team" data-side="${side}"><div class="cohts-pnone">No team sheet added for ${esc(nm)}</div></div>`;
-    const P=T.pitchLayout(game, side), D=decorations(game, side, o);
+    const P=o.layout||T.pitchLayout(game, side), D=decorations(game, side, o);   // o.layout: a layout worked out by the caller (Code Room: as it stands at a moment, subs made)
     const lines=P.lines.slice().reverse();   // full-forwards at the top (attacking the top goal), the keeper at the bottom
     const rowHtml=(l,i)=>`<div class="cohps-row" data-line="${['ff','hf','mf','hb','fb','gk'][i]}">${l.map(r=>jersey(r, side, game, D, o)).join('')}</div>`;
     const bench=P.bench.length?`<div class="cohps-bench"><div class="cohps-bh">Substitutes</div><div class="cohps-bgrid">${P.bench.map(r=>jersey(r, side, game, D, o, P.extra.includes(r)?'xs':'')).join('')}</div></div>`:'';
