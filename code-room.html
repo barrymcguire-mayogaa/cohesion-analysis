@@ -264,6 +264,20 @@ body.crfit .editcol{position:static;height:100%;max-height:none;min-height:0;ove
 .clipwin input{width:52px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:6px;font:600 12px 'Barlow',sans-serif;text-align:center;}
 #codeKeysEditor{margin:4px 0 8px;padding:10px;border:1px dashed var(--border);border-radius:9px;}
 .keyhelp{font-size:11px;color:var(--t3);margin-bottom:8px;}
+.crlk-ed{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0 10px;font-size:12px;}
+.crlk-h{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--t2);margin:10px 0 4px;}
+.crlk-h span{font:400 11px sans-serif;letter-spacing:0;text-transform:none;color:var(--t3);}
+.crlk-rule{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0;border-bottom:1px solid var(--border);color:var(--t1);}
+.crlk-rule.auto{color:var(--t2);}.crlk-rule .cbtn{margin-left:auto;}
+.crlk-rule.bad{opacity:.75;}.crlk-why{flex-basis:100%;color:#f59e0b;font-size:11px;margin-top:4px;}
+.crlk-none{color:var(--t3);padding:4px 0;}
+.crlk-add{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.crlk-add select,.crlk-add input{background:var(--bg);color:var(--t1);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:12px;max-width:190px;}
+.crlk-strip{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.crlk-lbl{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.8px;color:var(--t3);text-transform:uppercase;}
+.crlk-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(79,195,247,.12);border:1px solid rgba(79,195,247,.45);color:var(--t1);border-radius:7px;padding:3px 4px 3px 9px;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;}
+.crlk-chip i{font-style:normal;font-weight:400;color:var(--t3);}
+.crlk-chip .x{background:none;border:0;color:var(--t3);cursor:pointer;font-size:12px;padding:0 4px;}.crlk-chip .x:hover{color:#f87171;}
 .keyrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .keynum{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--accent);color:#fff;font:700 12px 'Barlow Condensed',sans-serif;flex:none;}
 .keyrow select{flex:1;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:7px;font:600 12px 'Barlow',sans-serif;}
@@ -655,8 +669,9 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           <div id="codePeriods" class="codebtns"></div>
           <div class="ep-lbl">Team</div>
           <div id="codeTeams" class="codebtns"></div>
-          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button></div>
+          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeLinks()" title="Linked tags: rows added automatically with a tag — see them and add your own rules">🔗 Links</button></div>
           <div id="codeKeysEditor" style="display:none;"></div>
+          <div id="codeLinksEditor" class="crlk-ed" style="display:none;"></div>
           <div id="codeEvents" class="codebtns"></div>
           <div id="codeTeamChip" class="crtc-row" aria-live="polite"></div>
           <div class="ep-lbl">Player <span style="color:var(--t3);font-weight:400;">— optional, stays selected</span></div>
@@ -673,6 +688,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
           </div>
           <div class="codebtns" style="margin-top:10px;"><button id="codeReplay" class="cbtn" onclick="crReplayLast(event.shiftKey)" disabled>↻ Replay last tag <span class="hk">R</span></button></div>
           <div id="codeFlash" style="margin-top:10px;font:700 12px 'Barlow Condensed',sans-serif;color:var(--green);min-height:16px;"></div>
+          <div id="codeLinked" class="crlk-strip" style="display:none;" aria-live="polite"></div>
           <div id="codeRecs" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
           <div id="codeLink" class="codelink" style="display:none;"></div>
           <div id="codePitch" class="codelink" style="display:none;"></div>
@@ -1435,7 +1451,7 @@ function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `
 
 // ── event list ────────────────────────────────────────────────
 function renderList(){
-  try{ crReplaySync(); }catch(_){}                 // the ↻ Replay button: an undo / delete / edit can change the last tag
+  try{ crReplaySync(); crLinkedSync(); }catch(_){}   // the ↻ Replay button and 🔗 strip: an undo / delete / edit can change the last tag
   const q=document.getElementById('efilter').value.toLowerCase().trim();
   const per=document.getElementById('eperiod').value;
   const wrap=document.getElementById('levents');
@@ -3732,7 +3748,7 @@ function fillTplSelect(){
 // Capture the current Code Mode setup as a template payload.
 function crTplCapture(){
   return { codes:codeEvtList.slice(), keys:codeKeyPref.slice(), colors:{...codeColorPref}, dur:{...codeDurPref}, neutral:{...codeNeutralPref},
-           clip:{...codeClipPref}, hotkeys:{...codeHotkeys},
+           clip:{...codeClipPref}, hotkeys:{...codeHotkeys}, links:codeLinkRules.map(r=>({...r})),
            rows:{order:crRowOrder.slice(), extra:crExtraRows.slice()}, lead:codeMode.lead, lag:codeMode.lag };
 }
 async function saveTemplate(){
@@ -3771,6 +3787,7 @@ function crTplApply(t, o){
   if(d.neutral&&typeof d.neutral==='object'){ codeNeutralPref={...d.neutral}; saveCodeNeutral(); }
   if(d.clip&&typeof d.clip==='object'){ codeClipPref={...d.clip}; saveCodeClip(); }
   if(d.hotkeys&&typeof d.hotkeys==='object'){ codeHotkeys={...d.hotkeys}; saveCodeHotkeys(); }
+  if(Array.isArray(d.links)){ codeLinkRules=d.links.filter(r=>r&&r.when&&r.add).map(r=>({...r})); saveCodeLinks(); }
   if(d.rows&&!o.auto){ crRowOrder=Array.isArray(d.rows.order)?d.rows.order.slice():[]; crExtraRows=Array.isArray(d.rows.extra)?d.rows.extra.slice():[]; crRowsSave(); }
   if(d.lead===0||d.lead>0) codeMode.lead=d.lead;
   if(d.lag===0||d.lag>0) codeMode.lag=d.lag;
@@ -3828,6 +3845,7 @@ function codeRenameBase(oldBase,newBase){
   if(oldBase in codeNeutralPref){ codeNeutralPref[newBase]=codeNeutralPref[oldBase]; delete codeNeutralPref[oldBase]; saveCodeNeutral(); }
   mv(codeClipPref); saveCodeClip();
   Object.keys(codeHotkeys).forEach(k=>{ if(codeHotkeys[k]===oldBase) codeHotkeys[k]=newBase; }); saveCodeHotkeys();
+  codeLinkRules.forEach(r=>{ if(r.when===oldBase) r.when=newBase; if(r.add===oldBase) r.add=newBase; }); saveCodeLinks();
   codeKeyPref=codeKeyPref.map(c=>c===oldBase?newBase:c); saveCodeKeys();
   crSessionCodes=crSessionCodes.map(c=>c===oldBase?newBase:c); crCodesSave();
   crTplCodes=crTplCodes.map(c=>c===oldBase?newBase:c);
@@ -4014,6 +4032,8 @@ function buildCodePanel(){
   buildCodePlayers();
   buildCodeLabels();
   buildCodeKeysEditor();
+  buildCodeLinksEditor();
+  crLinkedSync();
   codeSyncWindow();
   crTeamColApply();
 }
@@ -5398,7 +5418,7 @@ let crLastTag=null, crReplay=null, crTagHist=[];
 const CR_TAG_HIST=30;
 function crNoteTag(row){
   crLastTag={start:row.start, end:row.end, rowId:row._rowId};
-  crTagHist.push({row, id:row._rowId}); if(crTagHist.length>CR_TAG_HIST) crTagHist.shift();
+  crTagHist.push({row, id:row._rowId, tmp:row._rowId}); if(crTagHist.length>CR_TAG_HIST) crTagHist.shift();
   crReplaySync();
 }
 function crLastTagRow(){
@@ -5487,6 +5507,7 @@ function codeTag(baseCode, opts){
   EVENTS.push(row); crNoteTag(row);                               // for R = replay · ? = flag
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   undoStack.push({type:'add', rowId:tmpId});
+  crLinkRulesAtTag(row);                                          // your linked-tag rules (🔗 Links)
   refreshDatalists(); crBackup(); crUpdatePending(); renderList();
   codePitchArm(tmpId, code);
   const f=document.getElementById('codeFlash');
@@ -5538,6 +5559,7 @@ function crDurToggle(baseCode){
     EVENTS.push(row); crNoteTag(row);                             // for R = replay · ? = flag
     EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
     undoStack.push({type:'add', rowId:tmpId});
+    crLinkRulesAtTag(row);                                        // your linked-tag rules (🔗 Links)
     refreshDatalists(); crBackup(); crUpdatePending(); renderList();
     codePitchArm(tmpId, code);
     const f=document.getElementById('codeFlash');
@@ -5920,6 +5942,7 @@ function codeApplyOutcome(value){
     crShotCompanion(row, value);
     crKoCompanions(row, value);
     crToCompanions(row, value);
+    if(!pl.link.noOutcome) crLinkRulesFire(row, value);   // your linked-tag rules for this outcome
     crScoreSourceSweep(row);                    // scoring shot fills covering SCORE SOURCEs
     crScoreSourceAutoScore(row);                // SCORE SOURCE answered after its shot
     crSrcStepCode(row, prev);                   // the shot's source label ↔ its source row
@@ -8232,6 +8255,134 @@ function crPushCompanion(row, base, labels, team){
   undoStack.push({type:'add', rowId:tmpId});
   return comp;
 }
+// ── LINKED TAGS: your own rules (Nov 2026) ───────────────────
+// "When I tag X (or X with outcome Y), also add Z for the same team / the other team." A rule adds one row on the
+// tagged event's clip window, tied to it like the built-in companions (_shotComp: deleted with it), and marked with
+// its rule (_linkRule) so the built-in companions still go in (they skip a row that already has one of THEIR rows).
+// A linked row never sets off more links. Rules with no outcome fire as you tag (one Undo with the tag); rules with an
+// outcome fire when that outcome is picked on the card. Saved in this browser and with templates (data.links).
+// Refused (crLinkRuleProblem): rules that would count something twice under the agreed definitions, or duplicate a
+// link COHESION already makes — e.g. a TOs row already IS the other side's turnover won.
+let codeLinkRules=[];
+try{ const s=JSON.parse(localStorage.getItem('cr_codeLinks')||'null'); if(Array.isArray(s)) codeLinkRules=s.filter(r=>r&&r.when&&r.add); }catch(_){}
+function saveCodeLinks(){ try{ localStorage.setItem('cr_codeLinks', JSON.stringify(codeLinkRules)); }catch(_){} }
+// the links COHESION always makes (shown read-only in the 🔗 Links editor)
+const CR_BUILTIN_LINKS=[
+  ['Shot + its outcome', 'the outcome row for the same team (1 POINT, 2 POINT, GOAL, WIDE, SHORT, SAVE, BLOCKED, WOODWORK; a \'45 adds WIDE)'],
+  ['Kickout + a break outcome', 'BREAK WON for the team that won it and BREAK LOST for the other'],
+  ['Kickout lost (clean, break, free, sideline)', 'the kicking team\'s TOs row (Kickout Lost), with its third'],
+  ['Kickout + KO FREE WON / LOST', 'a FOUL for the team that fouled, with its third'],
+  ['Turnover + FREE AGAINST', 'a FOUL for the team that lost the ball, with the turnover\'s third'],
+  ['A TOs row itself', 'counts as the OTHER team\'s turnover won — nothing extra is added'],
+];
+const crIsTOBase=b=>/\bTOS?\b|TURNOVER/i.test(b)&&!/(\bKO\b|KICKOUT)/i.test(b);
+const crIsKOBase=b=>/(\bKO\b|KICKOUT)/i.test(b)&&!/\bTOS?\b|TURNOVER/i.test(b);
+const crIsShotBase=b=>/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(b);
+function crLinkRuleProblem(r){
+  const w=String(r.when||'').trim().toUpperCase(), a=String(r.add||'').trim().toUpperCase(), other=r.side==='other';
+  if(!w||!a) return 'Pick the event and the row to add.';
+  if(w===a&&!other) return 'A tag can\'t add a copy of itself.';
+  if(crIsTOBase(w)&&other&&/TURNOVER WON|\bTOS? WON\b|^TOS?$|TURNOVER/.test(a)) return 'Not needed: a '+w+' row already counts as the other team\'s turnover won. Adding a row would count it twice.';
+  if(crIsTOBase(w)&&!other&&/\bTOS?\b|TURNOVER/.test(a)) return 'That would count the same turnover twice.';
+  if(/TURNOVER WON/.test(a)&&!crIsTOBase(w)) return 'Turnovers are tagged as the team that LOST the ball (TOs). A "Turnover Won" row would be counted on top of it — tag TOs for the other team instead (Option + its key).';
+  if(crIsShotBase(w)&&/^(1 POINT|2 POINT|GOAL|WIDE|SHORT|SAVE|BLOCKED|WOODWORK)$/.test(a)&&!other) return 'Already automatic: the shot\'s outcome adds its '+a+' row.';
+  if(crIsKOBase(w)&&/^BREAK (WON|LOST)$/.test(a)) return 'Already automatic: a break outcome adds BREAK WON / BREAK LOST for both teams.';
+  if(crIsKOBase(w)&&/^FOUL$/.test(a)&&/FREE/.test(String(r.out||'').toUpperCase())) return 'Already automatic: a free at the kickout adds the FOUL.';
+  if(crIsKOBase(w)&&crIsTOBase(a)) return 'Already automatic: a lost kickout adds the kicking team\'s TOs row.';
+  if(crIsTOBase(w)&&/^FOUL$/.test(a)&&String(r.out||'').toUpperCase()==='FREE AGAINST') return 'Already automatic: FREE AGAINST adds the FOUL.';
+  if(isDurCode(a)) return a+' is recorded start-to-stop (⏱). A linked row can\'t know how long it lasted — record it as you do now.';
+  if(crIsShotBase(a)||crIsKOBase(a)) return 'A linked row has no outcome, so a '+a+' row would count as a shot / kickout with nothing recorded. Tag it yourself.';
+  if(codeLinkRules.some(x=>x!==r&&x.when===w&&x.add===a&&(x.side||'same')===(r.side||'same')&&String(x.out||'')===String(r.out||''))) return 'You already have this rule.';
+  return '';
+}
+// Fire the rules for `row`: outcome==null → the at-tag-time rules; else the rules for that outcome. Returns the rows added.
+function crLinkRulesFire(row, outcome){
+  if(!row||row._shotComp||!codeLinkRules.length) return [];
+  const base=baseCodeOf(row.code), out=outcome==null?null:String(outcome).toUpperCase(), made=[];
+  codeLinkRules.forEach(r=>{
+    if(r.when!==base||crLinkRuleProblem(r)) return;
+    if(out==null ? !!r.out : String(r.out||'').toUpperCase()!==out) return;
+    if(EVENTS.some(x=>x._linkRule===r.id&&String(x._shotComp)===String(row._rowId))) return;   // once per tag
+    const tm=r.side==='other'?String(crOppTeamOf(row.team)||'').toUpperCase():(row.team||'');   // in capitals, as Code mode tags a team
+    if(r.side==='other'&&!tm) return;                                 // a team-neutral tag has no "other team"
+    const c=crPushCompanion(row, r.add, null, tm);
+    if(!tm){ c.code=r.add; c.team=''; c.color='#9ca3af'; }
+    c._linkRule=r.id;
+    made.push(c);
+  });
+  if(made.length){ EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0)); refreshDatalists(); }
+  return made;
+}
+// At tag time the rows a rule added join the tag's own Undo step (one Cmd+Z takes the tag and its linked rows).
+function crLinkRulesAtTag(row){
+  const made=crLinkRulesFire(row, null); if(!made.length) return made;
+  const ids=new Set(made.map(m=>String(m._rowId)));
+  for(let i=undoStack.length-1;i>=0;i--) if(undoStack[i].type==='add'&&ids.has(String(undoStack[i].rowId))) undoStack.splice(i,1);
+  const j=undoStack.map(o=>o.type==='add'&&String(o.rowId)===String(row._rowId)).lastIndexOf(true);
+  const op={type:'addmany', rowIds:[row._rowId,...made.map(m=>m._rowId)], label:'add '+(row.code||'event')+' (+'+made.length+' linked)'};
+  if(j>=0) undoStack[j]=op; else undoStack.push(op);
+  return made;
+}
+// The rows tied to the last tag — the "🔗 Also added" strip under the Code panel's message, each with ✕ to take it out.
+function crLinkedOfLast(){
+  const row=crLastTagRow(); if(!row) return [];
+  const h=crTagHist[crTagHist.length-1], ids=new Set([String(row._rowId)]); if(h&&h.tmp) ids.add(String(h.tmp));
+  return EVENTS.filter(x=>x._shotComp&&ids.has(String(x._shotComp)));
+}
+function crLinkedSync(){
+  const el=document.getElementById('codeLinked'); if(!el) return;
+  const L=codeMode&&codeMode.on?crLinkedOfLast():[];
+  if(!L.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  el.innerHTML='<span class="crlk-lbl">🔗 Also added</span>'+L.map(x=>'<span class="crlk-chip" title="'+(x._linkRule?'Added by your link rule':'Added automatically')+' — on the same clip, deleted with the tag">'
+    +esc(x.code||'')+(x._linkRule?'':' <i>auto</i>')+'<button class="x" onclick="crLinkedRemove(\''+_cq(String(x._rowId))+'\')" title="Take this linked row out (Cmd+Z puts it back)">✕</button></span>').join('');
+}
+function crLinkedRemove(id){
+  const x=EVENTS.find(e=>String(e._rowId)===String(id)); if(!x) return;
+  undoStack.push({type:'delete', snapshot:crClone(x), wasNew:!!x._new});
+  if(!x._new) crDeleted.push({id:x._rowId});
+  EVENTS=EVENTS.filter(e=>e!==x);
+  refreshDatalists(); crBackup(); crUpdatePending(); renderList();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='✕ '+(x.code||'')+' taken out — Cmd+Z puts it back';
+}
+// ── the 🔗 Links editor (beside ⚙ Keys) ──
+let codeLinksOpen=false, codeLinkDraft={when:'', out:'', add:'', side:'other'};
+function toggleCodeLinks(){ codeLinksOpen=!codeLinksOpen; buildCodeLinksEditor(); }
+function crLinkOutOpts(when){ const l=when?crAutoLinkFor(when):null; return (l&&!l.noOutcome&&l.options)||[]; }
+function crLinkDesc(r){
+  return '<b>'+esc(r.when)+'</b>'+(r.out?' → <b>'+esc(r.out)+'</b>':'')+' &nbsp;adds&nbsp; <b>'+esc(r.add)+'</b> for '+(r.side==='other'?'the other team':'the same team');
+}
+function buildCodeLinksEditor(){
+  const box=document.getElementById('codeLinksEditor'); if(!box) return;
+  if(!codeLinksOpen){ box.style.display='none'; box.innerHTML=''; return; }
+  const d=codeLinkDraft, codes=codeEvtList.slice();
+  if(!d.when||!codes.includes(d.when)) d.when=codes[0]||'';
+  const outs=crLinkOutOpts(d.when); if(d.out&&!outs.includes(d.out)) d.out='';
+  const opt=(v,cur,lab)=>'<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+esc(lab==null?v:lab)+'</option>';
+  const prob=d.add?crLinkRuleProblem(Object.assign({},d,{add:String(d.add).trim().toUpperCase()})):'';
+  const mine=codeLinkRules.map((r,i)=>{ const p=crLinkRuleProblem(r);
+    return '<div class="crlk-rule'+(p?' bad':'')+'">'+crLinkDesc(r)+(p?'<div class="crlk-why">⚠ '+esc(p)+' — this rule is switched off.</div>':'')
+      +'<button class="cbtn mini" onclick="crLinkDel('+i+')" title="Delete this rule">✕</button></div>'; }).join('')
+    ||'<div class="crlk-none">No rules of your own yet.</div>';
+  box.style.display='';
+  box.innerHTML='<div class="keyhelp">Linked tags: when you tag one event, COHESION adds the rows that go with it on the same clip. The extra rows are deleted with the tag, and each shows under the message as you tag, with ✕ to take it out.</div>'
+    +'<div class="crlk-h">Always on</div>'+CR_BUILTIN_LINKS.map(b=>'<div class="crlk-rule auto"><b>'+esc(b[0])+'</b> &nbsp;→&nbsp; '+esc(b[1])+'</div>').join('')
+    +'<div class="crlk-h">Your rules <span>— saved in this browser and with templates (💾 Save template to share them)</span></div>'+mine
+    +'<div class="crlk-add">When I tag <select id="lkWhen" onchange="codeLinkDraft.when=this.value;codeLinkDraft.out=\'\';buildCodeLinksEditor()">'+codes.map(c=>opt(c,d.when)).join('')+'</select>'
+    +'<select id="lkOut" onchange="codeLinkDraft.out=this.value;buildCodeLinksEditor()">'+opt('',d.out,'(any outcome — as I tag)')+outs.map(o=>opt(o,d.out,'with outcome '+o)).join('')+'</select>'
+    +' also add <input id="lkAdd" list="lkAddList" placeholder="e.g. FREE WON" value="'+esc(d.add)+'" oninput="codeLinkDraft.add=this.value" onchange="buildCodeLinksEditor()" autocomplete="off">'
+    +'<datalist id="lkAddList">'+codes.map(c=>'<option value="'+esc(c)+'">').join('')+'</datalist>'
+    +' for <select id="lkSide" onchange="codeLinkDraft.side=this.value;buildCodeLinksEditor()">'+opt('other',d.side,'the other team')+opt('same',d.side,'the same team')+'</select>'
+    +' <button class="cbtn mini" onclick="crLinkAdd()"'+(prob||!String(d.add).trim()?' disabled':'')+'>＋ Add rule</button>'
+    +(prob?'<div class="crlk-why">⚠ '+esc(prob)+'</div>':'')+'</div>';
+}
+function crLinkAdd(){
+  const d=codeLinkDraft, r={id:'lk'+Date.now().toString(36)+Math.floor(Math.random()*1e4), when:d.when, out:d.out||'', add:String(d.add||'').trim().toUpperCase(), side:d.side==='same'?'same':'other'};
+  const p=crLinkRuleProblem(r); if(p){ buildCodeLinksEditor(); return; }
+  codeLinkRules.push(r); saveCodeLinks(); codeLinkDraft.add=''; buildCodeLinksEditor();
+  const f=document.getElementById('codeFlash'); if(f) f.innerHTML='🔗 Rule added: '+crLinkDesc(r);
+}
+function crLinkDel(i){ codeLinkRules.splice(i,1); saveCodeLinks(); buildCodeLinksEditor(); }
 // The other team's name (for companions credited to the opposition).
 function crOppTeamOf(team){
   const t=String(team||'').toUpperCase();
@@ -8250,7 +8401,7 @@ function crKoCompanions(row, value){
   if(!row||!row.team) return;
   if(!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
   const v=String(value||'').toUpperCase();
-  if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
+  if(EVENTS.some(x=>x._shotComp&&!x._linkRule&&String(x._shotComp)===String(row._rowId))) return;
   // a break ball is logged for BOTH teams: the winner's BREAK WON and the loser's BREAK LOST
   crKoBreakPair(row, v).forEach(([tm,base])=>crPushCompanion(row,base,null,tm));
   // KO FREE WON: the opposition fouled the kicking team — their foul.
@@ -8292,7 +8443,7 @@ function crKoBreakPair(row, value){
 // match. A kickout with no tied rows that was saved in an earlier session is left alone.
 function crSyncKoBreaks(row){
   if(!row||!row.team||!/(\bKO\b|KICKOUT)/i.test(row.code||'')||/\bTOS?\b|TURNOVER/i.test(row.code||'')) return;
-  const tied=EVENTS.filter(x=>x._shotComp&&String(x._shotComp)===String(row._rowId));
+  const tied=EVENTS.filter(x=>x._shotComp&&!x._linkRule&&String(x._shotComp)===String(row._rowId));
   if(!row._new&&!tied.length) return;
   const have=tied.filter(x=>/\sBREAK (WON|LOST)\s*$/i.test(x.code||''));
   const want=crKoBreakPair(row, (row.labels||{})['Kickout Outcomes']||row.outcome);
@@ -8343,7 +8494,7 @@ function crToCompanions(row, value){
   if(!row||!row.team) return;
   if(!/\bTOS?\b|TURNOVER/i.test(row.code||'')||/(\bKO\b|KICKOUT)/i.test(row.code||'')) return;
   if(String(value||'').toUpperCase()!=='FREE AGAINST') return;
-  if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
+  if(EVENTS.some(x=>x._shotComp&&!x._linkRule&&String(x._shotComp)===String(row._rowId))) return;
   const fl={}; const loc=cohLabelVal(row,'Turnover Locations');
   if(loc) fl['Foul Areas']=loc;
   crPushCompanion(row,'FOUL',fl);
@@ -8453,7 +8604,7 @@ function crShotCompanion(row, value){
   if(!row||!row.team) return;
   if(!/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i.test(row.code||'')) return;
   const base=SHOT_OUTCOME_COMPANIONS[value]; if(!base) return;
-  if(EVENTS.some(x=>x._shotComp&&String(x._shotComp)===String(row._rowId))) return;
+  if(EVENTS.some(x=>x._shotComp&&!x._linkRule&&String(x._shotComp)===String(row._rowId))) return;
   crPushCompanion(row, base);
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
   refreshDatalists();
