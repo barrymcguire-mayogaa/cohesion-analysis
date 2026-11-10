@@ -6,11 +6,15 @@
  *   free{pts}  line / arrow / darrow{x1,y1,x2,y2}  carrow{x1,y1,x2,y2,cx,cy}  rect / ellipse{x1,y1,x2,y2,fill}
  *   poly{pts,closed,fill}  spot{cx,cy,rx,ry,beam}  tag{x,y,px,py,name,team,no}  link{pts,closed,fill}
  *   text{x,y,text,style:'plain'|'dark'|'box',size}  pen{nodes:[{x,y,ix?,iy?,ox?,oy?}],closed,fill}
+ *   focus{cx,cy,rx,ry,dim?} (an area kept bright, the rest of the picture darkened — all focus areas share ONE dim layer)
+ *   mag{cx,cy,r,lx,ly,z} (a magnifier: the spot cx,cy of radius r (fraction of the height) shown z× in a lens at lx,ly;
+ *       it needs a picture of the frame — opts.frame — and shows an empty lens without one)
  *   every shape: color? (#rrggbb — absent = the layer's colour, e.g. its comment's), w (1–16), alpha?
  *   fill: 'solid' | 'hatch' (true = solid, from the first version)
  * All text is rendered ESCAPED (esc below); colours are re-checked as #rrggbb before they reach the SVG.
  *
- *   CohTele.render(layers, W, H, opts) → SVG markup for [{shapes, color}] (opts.photo(team, name) → image URL or null)
+ *   CohTele.render(layers, W, H, opts) → SVG markup for [{shapes, color}] (opts.photo(team, name) → image URL or null;
+ *       opts.frame → the frame's image URL (or a function returning it) for magnifiers)
  *   CohTele.editor(svg, opts) → the drawing editor on an <svg> (see EDITOR below)
  */
 (function () {
@@ -23,6 +27,9 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lum = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
   const kOf = H => clamp(H / 480, 0.6, 2.4);
+  // a magnifier in pixels: the spot (cx,cy,r) and its lens (lx,ly,R = r × z)
+  const magGeo = (s, W, H) => { const r = clamp(+s.r || 0.06, 0.02, 0.25) * H, z = clamp(+s.z || 2.2, 1.5, 4); return { cx: s.cx * W, cy: s.cy * H, r, z, R: r * z, lx: s.lx * W, ly: s.ly * H }; };
+  const frameUrl = opts => { let u = opts && opts.frame; try { if (typeof u === 'function') u = u(); } catch (_) { u = null; } return typeof u === 'string' && /^(https?:|blob:|data:image\/)/i.test(u) ? u : null; };
   const initials = n => { const w = String(n || '').trim().split(/\s+/).filter(Boolean); return ((w[0] || '?')[0] + (w.length > 1 ? (w[w.length - 1].replace(/^[^A-Za-zÀ-ÿ]+/, '')[0] || '') : '')).toUpperCase(); };
 
   // text width (Barlow Condensed) — measured when a canvas is there, estimated otherwise
@@ -149,12 +156,33 @@
       }
       case 'link': {
         const pts = (s.pts || []).map(p => P(p[0], p[1], W, H)); if (!pts.length) break;
-        const d = 'M' + pts.map(p => f1(p[0]) + ' ' + f1(p[1])).join('L') + (s.closed ? 'Z' : '');
-        if (s.closed) o += '<path d="' + d + '" fill="' + fillAttr(s, col, id) + '"' + fillOpacity(s) + '/>';
-        if (pts.length > 1) o += stroke(d, col, sw, k, id);
-        pts.forEach(p => { o += '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="' + f1(7.5 * k) + '" fill="#000" fill-opacity="0.4" stroke="#000" stroke-opacity="0.5" stroke-width="' + f1(2 * k + 3 * k) + '"/>'
-          + '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="' + f1(7.5 * k) + '" fill="none" stroke="' + col + '" stroke-width="' + f1(2.4 * k) + '" filter="url(#' + id + 'g)"/>'
-          + '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="' + f1(2.2 * k) + '" fill="' + col + '"/>'; });
+        const rx = 13 * k, ry = 4.6 * k;                       // a ring flat on the grass under each player
+        const edge = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = 1 / (Math.sqrt(Math.pow(dx / rx, 2) + Math.pow(dy / ry, 2)) || 1); return [a[0] + dx * Math.min(t, 0.5), a[1] + dy * Math.min(t, 0.5)]; };
+        if (s.closed) o += '<path d="M' + pts.map(p => f1(p[0]) + ' ' + f1(p[1])).join('L') + 'Z" fill="' + fillAttr(s, col, id) + '"' + fillOpacity(s) + '/>';
+        const segs = []; for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]); if (s.closed && pts.length > 2) segs.push([pts[pts.length - 1], pts[0]]);
+        segs.forEach(([a, b]) => { const p = edge(a, b), q = edge(b, a); o += stroke('M' + f1(p[0]) + ' ' + f1(p[1]) + 'L' + f1(q[0]) + ' ' + f1(q[1]), col, sw, k, id); });
+        pts.forEach(p => { o += '<ellipse cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" rx="' + f1(rx) + '" ry="' + f1(ry) + '" fill="' + col + '" fill-opacity="0.16" stroke="#000" stroke-opacity="0.5" stroke-width="' + f1(sw + 3 * k) + '"/>'
+          + '<ellipse cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" rx="' + f1(rx) + '" ry="' + f1(ry) + '" fill="none" stroke="' + col + '" stroke-width="' + f1(Math.max(2.2 * k, sw * 0.9)) + '" filter="url(#' + id + 'g)"/>'; });
+        break;
+      }
+      case 'focus': {                                          // its ring; the darkening is ONE layer for all focus areas (render)
+        const cx = s.cx * W, cy = s.cy * H, rx = Math.max(4, s.rx * W), ry = Math.max(4, s.ry * H);
+        o = '<ellipse cx="' + f1(cx) + '" cy="' + f1(cy) + '" rx="' + f1(rx) + '" ry="' + f1(ry) + '" fill="none" stroke="' + col + '" stroke-opacity="0.85" stroke-width="' + f1(Math.max(1.4 * k, sw * 0.45)) + '" filter="url(#' + id + 'g)"/>';
+        break;
+      }
+      case 'mag': {
+        const m = magGeo(s, W, H), url = frameUrl(opts), cid = id + 'm' + (opts.n = (opts.n || 0) + 1), ang = Math.atan2(m.ly - m.cy, m.lx - m.cx);
+        const a = [m.cx + Math.cos(ang) * m.r, m.cy + Math.sin(ang) * m.r], b = [m.lx - Math.cos(ang) * m.R, m.ly - Math.sin(ang) * m.R];
+        if (Math.hypot(m.lx - m.cx, m.ly - m.cy) > m.r + m.R) o += stroke('M' + f1(a[0]) + ' ' + f1(a[1]) + 'L' + f1(b[0]) + ' ' + f1(b[1]), col, Math.max(1.6 * k, sw * 0.5), k, id);
+        o += '<circle cx="' + f1(m.cx) + '" cy="' + f1(m.cy) + '" r="' + f1(m.r) + '" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="' + f1(4 * k) + '"/>'
+          + '<circle cx="' + f1(m.cx) + '" cy="' + f1(m.cy) + '" r="' + f1(m.r) + '" fill="none" stroke="' + col + '" stroke-width="' + f1(1.8 * k) + '"/>';
+        let g = '<circle cx="' + f1(m.lx) + '" cy="' + f1(m.ly) + '" r="' + f1(m.R) + '" fill="#0b0e14" fill-opacity="' + (url ? '1' : '0.45') + '"/>';
+        if (url) g += '<clipPath id="' + cid + '"><circle cx="' + f1(m.lx) + '" cy="' + f1(m.ly) + '" r="' + f1(m.R) + '"/></clipPath>'
+          + '<image href="' + esc(url) + '" x="' + f1(m.lx - m.cx * m.z) + '" y="' + f1(m.ly - m.cy * m.z) + '" width="' + f1(W * m.z) + '" height="' + f1(H * m.z) + '" preserveAspectRatio="none" clip-path="url(#' + cid + ')"/>';
+        else g += '<text x="' + f1(m.lx) + '" y="' + f1(m.ly + 5 * k) + '" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="700" font-size="' + f1(13 * k) + '" fill="#fff" fill-opacity="0.75">no still</text>';
+        g += '<circle cx="' + f1(m.lx) + '" cy="' + f1(m.ly) + '" r="' + f1(m.R) + '" fill="none" stroke="#fff" stroke-width="' + f1(3 * k) + '"/>'
+          + '<circle cx="' + f1(m.lx) + '" cy="' + f1(m.ly) + '" r="' + f1(m.R + 2.6 * k) + '" fill="none" stroke="' + col + '" stroke-width="' + f1(2.4 * k) + '"/>';
+        o += '<g filter="url(#' + id + 's)">' + g + '</g>';
         break;
       }
       case 'pen': {
@@ -205,7 +233,17 @@
     opts = Object.assign({ id: 'ct' }, opts || {}); opts.n = 0;
     layers = (layers || []).filter(L => L && Array.isArray(L.shapes));
     const k = kOf(H);
-    return defs(opts.id, colorsUsed(layers.concat(opts.extra ? [opts.extra] : [])), k) + layers.map(L => L.shapes.map(s => shapeSvg(s, W, H, L.color, opts.id, opts)).join('')).join('');
+    return defs(opts.id, colorsUsed(layers.concat(opts.extra ? [opts.extra] : [])), k) + focusDim(layers, W, H, opts.id, k)
+      + layers.map(L => L.shapes.map(s => shapeSvg(s, W, H, L.color, opts.id, opts)).join('')).join('');
+  }
+  // every focus area of the drawing cut out of ONE darkened layer (soft edges), so two areas never darken each other
+  function focusDim(layers, W, H, id, k) {
+    const F = []; layers.forEach(L => L.shapes.forEach(s => { if (s && s.type === 'focus') F.push(s); })); if (!F.length) return '';
+    const dim = Math.max.apply(null, F.map(s => clamp(+s.dim || 0.62, 0.2, 0.85)));
+    return '<filter id="' + id + 'fb" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="' + f1(7 * k) + '"/></filter>'
+      + '<mask id="' + id + 'fm" maskUnits="userSpaceOnUse" x="0" y="0" width="' + f1(W) + '" height="' + f1(H) + '"><rect width="' + f1(W) + '" height="' + f1(H) + '" fill="#fff"/>'
+      + F.map(s => '<ellipse cx="' + f1(s.cx * W) + '" cy="' + f1(s.cy * H) + '" rx="' + f1(Math.max(4, s.rx * W)) + '" ry="' + f1(Math.max(4, s.ry * H)) + '" fill="#000" filter="url(#' + id + 'fb)"/>').join('')
+      + '</mask><rect width="' + f1(W) + '" height="' + f1(H) + '" fill="#05070b" fill-opacity="' + dim + '" mask="url(#' + id + 'fm)"/>';
   }
 
   // ── hit-testing, handles, moving (pixels; tol in px) ──
@@ -222,6 +260,8 @@
         const v = Math.pow((px - cx) / rx, 2) + Math.pow((py - cy) / ry, 2);
         if ((s.type === 'spot' || fillOf(s)) && v <= 1) return true; return Math.abs(Math.sqrt(v) - 1) * Math.min(rx, ry) <= tol;
       }
+      case 'focus': { const v = Math.pow((px - s.cx * W) / Math.max(1, s.rx * W), 2) + Math.pow((py - s.cy * H) / Math.max(1, s.ry * H), 2); return v <= 1; }
+      case 'mag': { const m = magGeo(s, W, H); return Math.hypot(px - m.lx, py - m.ly) <= m.R + tol || Math.hypot(px - m.cx, py - m.cy) <= m.r + tol || segDist(px, py, m.cx, m.cy, m.lx, m.ly) <= tol; }
       case 'free': return polyDist(px, py, (s.pts || []).map(p => [p[0] * W, p[1] * H]), false) <= tol;
       case 'poly': case 'link': { const pts = (s.pts || []).map(p => [p[0] * W, p[1] * H]); if (pts.length === 1) return Math.hypot(px - pts[0][0], py - pts[0][1]) <= tol + 6;
         if (s.closed && fillOf(s) && inside(px, py, pts)) return true; if (s.type === 'link' && pts.some(p => Math.hypot(px - p[0], py - p[1]) <= tol + 6)) return true; return polyDist(px, py, pts, !!s.closed) <= tol; }
@@ -238,7 +278,8 @@
       case 'carrow': return [{ id: 'p1', x: s.x1, y: s.y1 }, { id: 'p2', x: s.x2, y: s.y2 }, { id: 'c', x: s.cx, y: s.cy, round: true }];
       case 'rect': case 'ellipse': return [{ id: 'c11', x: s.x1, y: s.y1 }, { id: 'c21', x: s.x2, y: s.y1 }, { id: 'c12', x: s.x1, y: s.y2 }, { id: 'c22', x: s.x2, y: s.y2 }];
       case 'poly': case 'link': return (s.pts || []).map((p, i) => ({ id: 'v' + i, x: p[0], y: p[1] }));
-      case 'spot': return [{ id: 'rx', x: s.cx + s.rx, y: s.cy }, { id: 'ry', x: s.cx, y: s.cy + s.ry }];
+      case 'spot': case 'focus': return [{ id: 'rx', x: s.cx + s.rx, y: s.cy }, { id: 'ry', x: s.cx, y: s.cy + s.ry }];
+      case 'mag': { const m = magGeo(s, W || 1, H || 1); return [{ id: 'mr', x: (m.cx + m.r) / (W || 1), y: s.cy }, { id: 'ml', x: s.lx, y: s.ly, round: true }, { id: 'mz', x: (m.lx + m.R) / (W || 1), y: s.ly }]; }
       case 'tag': return s.px != null ? [{ id: 'pt', x: s.px, y: s.py, round: true }] : [];
       case 'text': { const b = textBox(s, W || 1, H || 1); return [{ id: 'sz', x: (b.x + b.w) / (W || 1), y: (b.y + b.h) / (H || 1) }]; }
       case 'pen': { const out = []; (s.nodes || []).forEach((n, i) => { out.push({ id: 'n' + i, x: n.x, y: n.y });
@@ -261,8 +302,11 @@
       case 'c': s.cx = c(x, -0.5, 1.5); s.cy = c(y, -0.5, 1.5); break;
       case 'c11': s.x1 = c(x); s.y1 = c(y); break; case 'c21': s.x2 = c(x); s.y1 = c(y); break;
       case 'c12': s.x1 = c(x); s.y2 = c(y); break; case 'c22': s.x2 = c(x); s.y2 = c(y); break;
-      case 'rx': s.rx = clamp(Math.abs(x - s.cx), 0.006, 0.5); break; case 'ry': s.ry = clamp(Math.abs(y - s.cy), 0.003, 0.5); break;
+      case 'rx': s.rx = clamp(Math.abs(x - s.cx), s.type === 'focus' ? 0.01 : 0.006, s.type === 'focus' ? 0.6 : 0.5); break; case 'ry': s.ry = clamp(Math.abs(y - s.cy), s.type === 'focus' ? 0.01 : 0.003, s.type === 'focus' ? 0.6 : 0.5); break;
       case 'pt': s.px = c(x); s.py = c(y); break;
+      case 'mr': s.r = clamp(Math.abs(x - s.cx) * (W || 1) / (H || 1), 0.02, 0.25); break;            // the spot's size
+      case 'ml': s.lx = c(x); s.ly = c(y); break;                                                     // where the lens sits
+      case 'mz': s.z = clamp(Math.abs(x - s.lx) * (W || 1) / ((+s.r || 0.06) * (H || 1)), 1.5, 4); break;   // the lens edge: how much it enlarges
       case 'sz': { const k = kOf(H || 480), hpx = (y - s.y) * (H || 480), padY = (s.style === 'plain' ? 2 : 6) * k; s.size = Math.round(clamp((hpx - 2 * padY) / (1.18 * 0.95 * k), 10, 48)); break; }
     }
   }
@@ -270,7 +314,8 @@
     const m = p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)];
     switch (s.type) {
       case 'free': case 'poly': case 'link': s.pts = (s.pts || []).map(m); break;
-      case 'spot': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
+      case 'spot': case 'focus': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
+      case 'mag': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); s.lx = clamp(s.lx + dx, 0, 1); s.ly = clamp(s.ly + dy, 0, 1); break;
       case 'text': s.x = clamp(s.x + dx, 0, 0.98); s.y = clamp(s.y + dy, 0, 0.98); break;
       case 'tag': s.x = clamp(s.x + dx, 0, 0.98); s.y = clamp(s.y + dy, 0, 0.98); break;   // the box moves; its pointer stays on the player
       case 'pen': (s.nodes || []).forEach(n => { n.x = clamp(n.x + dx, 0, 1); n.y = clamp(n.y + dy, 0, 1); if (n.ix != null) { n.ix += dx; n.iy += dy; n.ox += dx; n.oy += dy; } }); break;
@@ -283,7 +328,8 @@
     switch (s.type) {
       case 'free': case 'poly': case 'link': pts = (s.pts || []).map(p => [p[0] * W, p[1] * H]); break;
       case 'pen': pts = penSamples(s.nodes || [], !!s.closed, W, H); break;
-      case 'spot': pts = [[(s.cx - s.rx) * W, (s.cy - s.ry) * H], [(s.cx + s.rx) * W, (s.cy + s.ry) * H]]; break;
+      case 'spot': case 'focus': pts = [[(s.cx - s.rx) * W, (s.cy - s.ry) * H], [(s.cx + s.rx) * W, (s.cy + s.ry) * H]]; break;
+      case 'mag': { const m = magGeo(s, W, H); pts = [[m.cx - m.r, m.cy - m.r], [m.cx + m.r, m.cy + m.r], [m.lx - m.R, m.ly - m.R], [m.lx + m.R, m.ly + m.R]]; break; }
       case 'text': { const b = textBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
       case 'tag': { const b = tagBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; if (s.px != null) pts.push([s.px * W, s.py * H]); break; }
       case 'carrow': pts = [[s.x1 * W, s.y1 * H], [s.x2 * W, s.y2 * H], qPoint([s.x1 * W, s.y1 * H], [s.cx * W, s.cy * H], [s.x2 * W, s.y2 * H], 0.5)]; break;
@@ -324,7 +370,7 @@
       if (st.dead) return;
       const [W, H] = WH(), k = kOf(H);
       const list = st.shapes.concat(st.cur ? [st.cur] : []);
-      let out = render([{ shapes: list, color: st.layerColor }], W, H, { id: 'ce', photo: o.photo });
+      let out = render([{ shapes: list, color: st.layerColor }], W, H, { id: 'ce', photo: o.photo, frame: o.frame });
       const c = st.cur;
       // the shape in progress: the next segment to the cursor, the first point (click it to close)
       if (c && st.hover && (c.type === 'poly' || c.type === 'link' || c.type === 'pen')) {
@@ -428,6 +474,8 @@
         return;
       }
       if (t === 'spot') { st.cur = newShape({ type: 'spot', cx: x, cy: y, rx: 0.045, ry: 0.045 * W / H * 0.3 }); if (st.beam) st.cur.beam = true; st.drag = { mode: 'spot', sx: x, sy: y }; renderNow(); return; }
+      if (t === 'focus') { st.cur = newShape({ type: 'focus', cx: x, cy: y, rx: 0.01, ry: 0.01 }); st.drag = { mode: 'focus', sx: x, sy: y }; renderNow(); return; }
+      if (t === 'mag') { st.cur = newShape({ type: 'mag', cx: x, cy: y, lx: x, ly: y, r: 0.06, z: 2.2 }); st.drag = { mode: 'mag' }; renderNow(); return; }
       if (t === 'free') { st.cur = newShape({ type: 'free', pts: [[x, y]] }); renderNow(); return; }
       st.cur = newShape({ type: t, x1: x, y1: y, x2: x, y2: y });
       if (t === 'carrow') { st.cur.cx = x; st.cur.cy = y; }
@@ -448,6 +496,8 @@
         renderNow(); return;
       }
       if (c.type === 'poly' || c.type === 'link' || c.type === 'pen') { st.hover = [x, y]; renderNow(); return; }
+      if (d && d.mode === 'focus') { c.rx = Math.max(0.01, Math.abs(x - d.sx)); c.ry = Math.max(0.01, Math.abs(y - d.sy)); renderNow(); return; }
+      if (d && d.mode === 'mag') { c.lx = x; c.ly = y; renderNow(); return; }
       if (d && d.mode === 'spot') { const rx = Math.max(0.012, Math.abs(x - d.sx)); c.rx = rx; c.ry = Math.max(0.006, rx * W / H * 0.3 + Math.abs(y - d.sy) * 0.6); renderNow(); return; }
       if (c.type === 'free') { const l = c.pts[c.pts.length - 1]; if (Math.hypot((x - l[0]) * W, (y - l[1]) * H) >= 2) c.pts.push([x, y]); }
       else { c.x2 = x; c.y2 = y; if (c.type === 'carrow') { const q = autoCtrl(c.x1, c.y1, c.x2, c.y2, W, H); c.cx = q[0]; c.cy = q[1]; } }
@@ -464,6 +514,9 @@
       let tiny = false;
       if (c.type === 'free') tiny = c.pts.length < 3;
       else if (c.type === 'spot') tiny = false;
+      else if (c.type === 'focus') { tiny = false; if (c.rx < 0.03 && c.ry < 0.03) { c.rx = 0.09; c.ry = 0.16; } }   // a click: a player-sized area
+      else if (c.type === 'mag') { tiny = false; const m = magGeo(c, W, H); if (Math.hypot(m.lx - m.cx, m.ly - m.cy) < m.r + m.R) {   // a click: the lens up and to the side
+        const sx = c.cx < 0.6 ? 1 : -1; c.lx = clamp(c.cx + sx * (m.r + m.R + 14) / W, 0.02, 0.98); c.ly = clamp(c.cy - (m.R + 10) / H, 0.02, 0.98); } }
       else tiny = Math.hypot((c.x2 - c.x1) * W, (c.y2 - c.y1) * H) < 4;
       st.cur = null;
       if (!tiny) { push(); st.shapes.push(c); if (c.type === 'carrow') select(st.shapes.length - 1); changed(); }   // a new curve shows its bend handle

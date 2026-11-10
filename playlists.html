@@ -1202,7 +1202,7 @@ function cmArm(){
   const t=Math.max(it.start||0, Math.min(YTP.getCurrentTime()||0, it.end!=null?it.end:1e9));
   cmAnchor={t:Math.round(t*10)/10, vid:curVideoId||it.videoId};
   CM_STILL=null;
-  if(teleOn()&&window.cohDesktop&&typeof window.cohDesktop.captureStill==='function'){ const a=cmAnchor; teleCapture().then(u=>{ if(cmAnchor===a&&u) CM_STILL=u; }); }   // the app: a real still of this moment
+  if(teleOn()&&window.cohDesktop&&typeof window.cohDesktop.captureStill==='function'){ const a=cmAnchor; teleCapture().then(u=>{ if(cmAnchor===a&&u){ CM_STILL=u; if(drawMode) dPaintBar(); } }); }   // the app: a real still of this moment
   cmShowAnchor();
 }
 function cmShowAnchor(){
@@ -1574,7 +1574,16 @@ function sizeDrawSvg(){
 function dRender(){
   const s=document.getElementById('drawSvg'); if(!s||drawMode) return;
   const W=+s.getAttribute('width')||1, H=+s.getAttribute('height')||1;
-  s.innerHTML=CohTele.render(dispLayers||[],W,H,{id:'cv',photo:photoOf});
+  s.innerHTML=CohTele.render(dispLayers||[],W,H,{id:'cv',photo:photoOf,frame:teleFrame});
+}
+// the picture of the frame under the drawing, for magnifiers: the still being drawn on, the moment's saved still, or a
+// local video's frame on the freeze cover. None over a live YouTube picture (its pixels can't be read) → an empty lens.
+function teleFrame(){
+  if(drawMode&&(dStill||CM_STILL)) return dStill||CM_STILL;
+  const img=document.getElementById('fzStill'); if(img&&img.style.display==='block'&&img.getAttribute('src')) return img.src;
+  const cv=document.getElementById('fzCanvas');
+  if(cv&&cv.style.display==='block'){ if(!cv._url){ try{ cv._url=cv.toDataURL('image/jpeg',0.85); }catch(_){ cv._url=null; } } return cv._url||null; }
+  return null;
 }
 
 // ── the freeze cover ──
@@ -1594,7 +1603,7 @@ function freezeShow(stillUrl){
   img.style.display='none'; cv.style.display='none'; f.classList.remove('still');
   if(stillUrl){ img.onload=null; img.src=stillUrl; img.style.display='block'; f.classList.add('still'); }
   else if(YTP&&YTP._el&&YTP._el.tagName==='VIDEO'&&YTP._el.videoWidth){        // a local video file: a REAL still of the frame
-    try{ const v=YTP._el; cv.width=v.videoWidth; cv.height=v.videoHeight; cv.getContext('2d').drawImage(v,0,0); cv.style.display='block'; f.classList.add('still'); }catch(_){}
+    try{ const v=YTP._el; cv._url=null; cv.width=v.videoWidth; cv.height=v.videoHeight; cv.getContext('2d').drawImage(v,0,0); cv.style.display='block'; f.classList.add('still'); }catch(_){}
   }
   f.style.display='block'; sizeFreeze();
 }
@@ -1739,6 +1748,8 @@ const IC={
   pen:'<path d="M12 2.8l5.6 8.3L12 21.2 6.4 11.1z"/><circle cx="12" cy="11.6" r="1.4"/><path d="M12 13v8"/>',
   spot:'<ellipse cx="12" cy="18.2" rx="8.2" ry="2.9"/><ellipse cx="12" cy="18.2" rx="4.4" ry="1.4"/><path d="M5.5 16.6L8.2 4h7.6l2.7 12.6" opacity=".55"/>',
   tag:'<rect x="8.5" y="3" width="12.5" height="7.5" rx="3.75"/><circle cx="12.3" cy="6.75" r="1.6"/><path d="M11 10.5L5 19"/><circle cx="4.8" cy="19.3" r="1.7"/>',
+  focus:'<rect x="2.5" y="4" width="19" height="16" rx="2.5" opacity=".45"/><ellipse cx="12" cy="12" rx="5.2" ry="4.2"/>',
+  mag:'<circle cx="6.5" cy="16.5" r="2.6"/><circle cx="15.2" cy="8.8" r="5.6"/><path d="M8.4 14.6l2.7-2.4"/>',
   link:'<circle cx="5" cy="17" r="2.1"/><circle cx="11.5" cy="5.5" r="2.1"/><circle cx="19" cy="14.5" r="2.1"/><path d="M6.1 15.2l4.3-7.8M13.3 6.9l4.3 5.9M7 16.6l10-1.7"/>',
   text:'<path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/>',
   undo:'<path d="M9 5L4 10l5 5"/><path d="M4 10h10.5a5.5 5.5 0 0 1 0 11H11"/>',
@@ -1758,6 +1769,7 @@ const TOOLS=[
   {g:'draw', items:[['free','Freehand','draw freely'],['line','Line',''],['arrow','Arrow','a run or a pass'],['darrow','Dashed arrow','a pass'],['carrow','Curved arrow','a run — drag its round handle to bend it']]},
   {g:'shapes', items:[['rect','Rectangle',''],['ellipse','Ellipse',''],['poly','Polygon','click each corner; click the first point to close'],['pen','Pen','click = corner, click-and-drag = curve; click the first point to close']]},
   {g:'players', items:[['spot','Player spotlight','click a player (drag to size); ✦ adds the light beam'],['tag','Name tag','click a player, pick the name'],['link','Link players','click each player; click the first to close an area']]},
+  {g:'focus', items:[['focus','Focus','drag around the area to keep bright; the rest of the picture darkens'],['mag','Magnifier','click the spot to enlarge, drag to place the lens (needs a still of the frame)']]},
   {g:'text', items:[['text','Text label','click to place; double-click to edit']]}
 ];
 // the tool panel: hidden (✏ Tools brings it back) and which side of the picture — remembered on this device
@@ -1817,6 +1829,8 @@ function dPaintBar(){
   const u=document.getElementById('dUndoBtn'), rd=document.getElementById('dRedoBtn'), dl=document.getElementById('dDelBtn');
   if(u) u.disabled=!(st&&st.canUndo); if(rd) rd.disabled=!(st&&st.canRedo); if(dl) dl.disabled=!(st&&st.sel);
   const s=document.getElementById('drawSvg'); if(s) s.classList.toggle('t-select',dTool==='select');
+  const mg=bar.querySelector('.dtool[data-tool="mag"]'); if(mg){ const ok=!!teleFrame(); mg.disabled=!ok; mg.classList.toggle('off',!ok);
+    mg.title=ok?'Magnifier — click the spot to enlarge, drag to place the lens':'Magnifier — needs a still of the frame (the desktop app, or a video file on this device); not available over a YouTube picture'; }
 }
 // a vertical side rail when the video is narrow (phone, iPad)
 function teleRail(){ const v=document.querySelector('.stage .vid'), bar=document.getElementById('drawBar'); if(v&&bar){ bar.classList.toggle('rail', v.clientWidth<900); v.classList.toggle('narrow', v.clientWidth<560); } }
@@ -1907,7 +1921,7 @@ function enterDraw(ctx, shapes){
   const s=document.getElementById('drawSvg'); s.style.display='block'; s.classList.add('author'); s.style.pointerEvents='auto';
   sizeDrawSvg();
   ED=CohTele.editor(s,{ color:dColor, layerColor:ctx.kind==='comment'?ctx.color:STAFF_DEF, w:dW, fill:dFill, alpha:dAlpha, textStyle:dTextStyle, beam:dBeam, shapes:shapes||[],
-    photo:photoOf, pickPlayer:tagPick, editText:teleEditText, onChange:()=>dPaintBar(), onSelect:sh=>dSyncToolbar(sh) });
+    photo:photoOf, frame:teleFrame, pickPlayer:tagPick, editText:teleEditText, onChange:()=>dPaintBar(), onSelect:sh=>dSyncToolbar(sh) });
   ED.setTool(dTool);
   loadTagPhotos([{shapes:shapes||[]}]);
   teleRail(); dPanel(); document.getElementById('drawBar').scrollTop=0;
