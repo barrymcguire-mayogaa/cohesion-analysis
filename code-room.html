@@ -307,6 +307,11 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
 .crloc-loc{flex:1;min-width:0;font-size:11px;color:var(--t2);}
 .crloc-loc.ok{color:var(--green);}
 .crloc-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;border-radius:8px;}
+.crloc-tabs{display:flex;gap:4px;margin:2px 0 8px;}
+.crloc-tab{flex:1;text-align:center;padding:5px 4px;border:1px solid var(--border);border-radius:7px;cursor:pointer;font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.4px;color:var(--t2);}
+.crloc-tab b{color:var(--t1);}
+.crloc-tab.on{border-color:var(--accent);color:var(--accent);background:var(--accent-bg,rgba(79,195,247,.12));}
+.crloc-tab.none{opacity:.45;}
 .crloc-chips.need{box-shadow:0 0 0 1px var(--orange);padding:3px;}
 .crloc-chip{cursor:pointer;background:var(--card);color:var(--t2);border:1px solid var(--border);border-radius:12px;padding:3px 9px;font:600 11px 'Barlow',sans-serif;user-select:none;}
 .crloc-chip:hover{color:var(--t1);border-color:var(--t3);}
@@ -581,7 +586,7 @@ iframe#netlify-identity-widget{display:none !important;pointer-events:none !impo
             <div class="tlrb" id="koDupBtn" style="display:none;" onclick="crKoDupOpen()" title="Duplicate kickouts — this game has two kickouts by the same team in the same half within 20 seconds of each other: most likely the same kickout twice (until 11 Oct 2026 “Merge XML” could bring a kickout in a second time). Preview each pair with what would be kept, copied and removed; a row brought in by a merge is proposed, two of the game’s own rows are left for you to check on the video. Queued, one Undo; nothing is saved until you close the session">⚠</div>
             <div class="tlrb" id="autoSrcBtn" style="display:none;" onclick="crASToggle()" title="Auto-tag sources — every shot with no SCORE SOURCE / SHOT SOURCE row gets one from the shooting team&rsquo;s TEAM POSSESSION that contains it (where that possession came from, by the same rule as Analysis &rsaquo; Productivity by source). Clear ones are tagged in one go after a summary; the rest are listed for you to pick on the video. Rows already there are never changed. Queued, one Undo; nothing is saved until you close the session">⇢ Auto-tag sources</div>
             <div class="tlrb" id="mergeBtn" onclick="crMergeOpen()" title="Merge another XML — bring in a second file of this match (another analyst’s coding): its clock is lined up with the game’s, events in both keep the game’s version and gain what it lacks, events only in the file are added as COHESION rows. Preview first; one Undo; nothing saved until you close the session">⧉ Merge XML</div>
-            <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate shots — step through every shot with no location: place it on the pitch and tap attempt / side / leg / pressure (Alt+← → ↓ ↑)">📍 Locate</div>
+            <div class="tlrb" id="locBtn" style="display:none;" onclick="crLocToggle()" title="Locate — step through every shot or kickout with no pitch location, and every turnover with no third (Alt+← → ↓ ↑)">📍 Locate</div>
             <div class="tlrb" id="lcBtn" onclick="crLCToggle()" title="Label check — do all the events in a row have a label? Required-label rules (Cmd/Ctrl+Shift+L)">✓ Labels</div>
             <div class="tlzwrap" id="tlZoomWrap" style="display:none;">
               <div class="tlrb sync" id="syncToggle" onclick="crSyncToggle()" title="Sync Mode — shift event timing to match the video">⟲ Sync</div>
@@ -7937,45 +7942,66 @@ function crKoFixGo(){
     +(res.check.length?' — '+res.check.length+' still disagree with their tagged length / zone (see their KO Scale Fix label)':'')+' — saved when you press Save changes; Undo reverses it'; }
 }
 
-// ── Locate shots (step-through) ───────────────────────────────
-// Walks every SHOT OPEN PLAY / DEADBALL event with no X/Y (any game): selects
-// and cues it (pick), opens the existing shot pitch (crShotMap → Shot Zones +
-// X-Shot/Y-Shot, or X-Shot_away/Y-Shot_away for the away team, via
-// crSyncCoordGroups), and offers quick-tap rows for the shot detail labels.
-// Prev/Next commit the draft with saveEvent() — the normal dirty/undo/save
-// pipeline; Skip moves on without committing.
+// ── Locate (step-through queues) ──────────────────────────────
+// Three queues, one tab each: SHOTS with no X/Y, KICKOUTS with no landing X/Y, TURNOVERS with no 'Turnover Locations'
+// (a third — turnovers have no X/Y). Each walks its events in video order: selects and cues the event (pick), opens
+// the existing pitch (crShotMap → Shot Zones + X-Shot/Y-Shot …; crKoMap → Kickout Zones / Locations + X-KOs/Y-KOs)
+// and offers quick-tap rows for the labels. Turnovers have no pitch: their third is a quick-tap row.
+// Gaelic Insights originals that a COHESION row supersedes are skipped (crGiSupFn) — the row that counts is queued.
+// Prev/Next commit the draft with saveEvent() — the normal dirty/undo/save pipeline; Skip moves on without committing.
 const CR_LOC_RE=/SHOT (OPEN PLAY|DEADBALL|DEAD BALL)/i;
 const CR_LOC_GROUPS=['Shot Attempts','Deadball Shot Type','Shot Side','Shooting Leg','Shot Pressure','Assist'];
-let crLoc={open:false, ids:[], i:0, mapOv:null, msg:''};
-function crLocTargets(){
-  return EVENTS.filter(e=>CR_LOC_RE.test(e.code||'')&&!crCoordOf(e))
+const CR_LOC_Q={
+  shot:{ name:'Shots', one:'shot', re:CR_LOC_RE, map:'shot', groups:CR_LOC_GROUPS,
+    need:e=>!crCoordOf(e), hint:'Click the pitch where the shot was taken' },
+  ko:{ name:'Kickouts', one:'kickout', re:/(^|\s)(KO|KICKOUT)$/i, map:'ko', groups:null,
+    need:e=>!crCoordOf(e), hint:'Click the pitch where the kickout landed' },
+  to:{ name:'Turnovers', one:'turnover', re:/(^|\s)(TOS?|TURNOVER( WON)?)$/i, map:null, groups:['Turnover Locations'],
+    need:e=>!cohLabelVal(e,'Turnover Locations'), hint:'Tap the third where the ball was turned over' }
+};
+let crLoc={open:false, q:'shot', ids:[], i:0, mapOv:null, msg:''};
+function crLocTargets(q){
+  const Q=CR_LOC_Q[q||'shot'], sup=crGiSupFn();
+  return EVENTS.filter(e=>Q.re.test(String(e.code||'').trim())&&!sup(e)&&Q.need(e))
     .sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0)).map(e=>e._rowId);
 }
+function crLocCounts(){ const o={}; Object.keys(CR_LOC_Q).forEach(q=>{ o[q]=GAME?crLocTargets(q).length:0; }); return o; }
 function crLocBtnSync(){
   const b=document.getElementById('locBtn'); if(!b) return;
-  const n=GAME?EVENTS.filter(e=>CR_LOC_RE.test(e.code||'')&&!crCoordOf(e)).length:0;
+  const c=crLocCounts(), n=c.shot+c.ko+c.to;
   b.style.display=(n||crLoc.open)?'':'none';
   b.textContent='📍 Locate'+(n?' ('+n+')':'');
+  b.title='Locate — step through every shot or kickout with no pitch location, and every turnover with no third'
+    +(n?' ('+c.shot+' shot'+(c.shot===1?'':'s')+', '+c.ko+' kickout'+(c.ko===1?'':'s')+', '+c.to+' turnover'+(c.to===1?'':'s')+')':'')+' (Alt+← → ↓ ↑)';
   b.style.color=crLoc.open?'var(--accent)':''; b.style.borderColor=crLoc.open?'var(--accent)':'';
 }
 function crLocCur(){ return EVENTS.find(x=>String(x._rowId)===String(crLoc.ids[crLoc.i])); }
 function crLocToggle(){ if(crLoc.open) crLocClose(); else crLocOpen(); }
-function crLocOpen(){
+function crLocOpen(q){
   if(!GAME) return;
-  const ids=crLocTargets();
-  if(!ids.length){ cohesionModal({title:'Locate shots', message:'Every shot in this game already has a location.'}); return; }
-  crLoc={open:true, ids, i:0, mapOv:null, msg:''};
+  const c=crLocCounts();
+  if(!c.shot&&!c.ko&&!c.to){ cohesionModal({title:'Locate', message:'Every shot and kickout in this game has a location, and every turnover has its third.'}); return; }
+  q=q&&c[q]?q:(c[crLoc.q]?crLoc.q:['shot','ko','to'].find(k=>c[k]));
+  crLoc={open:true, q, ids:crLocTargets(q), i:0, mapOv:null, msg:''};
   const p=crLocBuild(); p.style.display='';
   crLocGo(0);
+}
+// another tab: keep this event's changes, then that queue from its first event
+function crLocTab(q){
+  if(!crLoc.open||q===crLoc.q) return;
+  crLocCommit(); crLocCloseMap();
+  const ids=crLocTargets(q);
+  if(!ids.length){ crLoc.msg='No '+CR_LOC_Q[q].name.toLowerCase()+' left to do.'; crLocRender(); return; }
+  crLoc.q=q; crLoc.ids=ids; crLoc.i=0; crLoc.msg=''; crLocGo(0);
 }
 function crLocBuild(){
   let p=document.getElementById('crLoc'); if(p) return p;
   p=document.createElement('div'); p.id='crLoc'; p.className='crfr crloc';
-  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Locate shots');
+  p.setAttribute('role','dialog'); p.setAttribute('aria-label','Locate');
   document.body.appendChild(p);
   return p;
 }
-// Commit the current shot's draft (location / labels) as a normal edit.
+// Commit the current event's draft (location / labels) as a normal edit.
 function crLocCommit(){
   const e=crLocCur();
   if(e&&draft&&String(activeId)===String(e._rowId)&&isDirty()) saveEvent();
@@ -7984,18 +8010,18 @@ function crLocCloseMap(){
   const ov=crLoc.mapOv; crLoc.mapOv=null;
   if(ov&&ov.parentNode) ov.parentNode.removeChild(ov);
 }
-// Open the existing shot pitch for the current shot; keep the clip playing
-// so the shot can be watched while placing it.
+// Open the existing pitch (shot or kickout landing) for the current event; keep the clip playing
+// so it can be watched while placing it. Turnovers have no pitch.
 function crLocMap(){
-  const e=crLocCur(); if(!e) return;
+  const e=crLocCur(), Q=CR_LOC_Q[crLoc.q]; if(!e||!Q.map) return;
   if(String(activeId)!==String(e._rowId)) pick(e._rowId);
   crLocCloseMap();
   const before=document.body.lastElementChild;
-  crShotMap();
+  if(Q.map==='ko') crKoMap(); else crShotMap();
   const ov=document.body.lastElementChild;
   if(!ov||ov===before) return;
   crLoc.mapOv=ov;
-  ['smGo','smClear','smX'].forEach(id=>{ const b=ov.querySelector('#'+id);
+  ['smGo','smClear','smX','koGo','koClear','koX'].forEach(id=>{ const b=ov.querySelector('#'+id);
     if(b) b.addEventListener('click',()=>setTimeout(()=>{ if(crLoc.mapOv===ov) crLoc.mapOv=null; crLocRender(); },0)); });
   if(YTP&&YTP.playVideo) YTP.playVideo();
 }
@@ -8005,20 +8031,21 @@ function crLocGo(i){
   crLoc.i=Math.max(0,Math.min(i,crLoc.ids.length-1));
   const e=crLocCur();
   pick(e._rowId);
+  if(!CR_LOC_Q[crLoc.q].map&&YTP&&YTP.playVideo) YTP.playVideo();   // a turnover: watch it, tap its third
   crLocRender();
   crLocMap();
 }
 function crLocStep(d){
   if(!crLoc.open) return;
   crLocCommit();
-  const j=crLoc.i+d;
-  if(j>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last shot reached — '+crLocDone()+' of '+crLoc.ids.length+' located. Close when done.'; crLocRender(); return; }
-  if(j<0){ crLoc.msg='This is the first shot.'; crLocRender(); return; }
+  const j=crLoc.i+d, one=CR_LOC_Q[crLoc.q].one;
+  if(j>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last '+one+' reached — '+crLocDone()+' of '+crLoc.ids.length+' done. Close, or pick another tab.'; crLocRender(); return; }
+  if(j<0){ crLoc.msg='This is the first '+one+'.'; crLocRender(); return; }
   crLoc.msg=''; crLocGo(j);
 }
 function crLocSkip(){
   if(!crLoc.open) return;
-  if(crLoc.i+1>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last shot reached — close when done.'; crLocRender(); return; }
+  if(crLoc.i+1>=crLoc.ids.length){ crLocCloseMap(); crLoc.msg='Last '+CR_LOC_Q[crLoc.q].one+' reached — close when done.'; crLocRender(); return; }
   crLoc.msg=''; crLocGo(crLoc.i+1);     // pick() rebuilds the draft: uncommitted changes are dropped
 }
 function crLocClose(){
@@ -8027,56 +8054,72 @@ function crLocClose(){
   const p=document.getElementById('crLoc'); if(p) p.style.display='none';
   renderList();
 }
-function crLocDone(){
-  return crLoc.ids.filter(id=>{ const e=EVENTS.find(x=>String(x._rowId)===String(id)); if(!e) return false;
-    if(draft&&String(activeId)===String(id)&&draft.x!=null) return true;
-    return !!crCoordOf(e); }).length;
+// done = has its location now (the draft counts for the event on screen)
+function crLocIsDone(id){
+  const e=EVENTS.find(x=>String(x._rowId)===String(id)); if(!e) return false;
+  const here=draft&&String(activeId)===String(id);
+  if(crLoc.q==='to') return here?!!crLocVal('Turnover Locations'):!!cohLabelVal(e,'Turnover Locations');
+  if(here&&draft.x!=null) return true;
+  return !!crCoordOf(e);
 }
+function crLocDone(){ return crLoc.ids.filter(crLocIsDone).length; }
 function crLocVal(g){
   const r=draft&&draft.groups.find(x=>x.g.toLowerCase()===g.toLowerCase());
   return r?r.v:'';
 }
+// the quick-tap rows for this event: the queue's own list, or (kickouts) the code's label groups that are not
+// players and not set by the pitch (zones / locations / coordinates)
+function crLocGroups(e){
+  const Q=CR_LOC_Q[crLoc.q], groups=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]);
+  if(Q.groups) return Q.groups.map(g=>groups.find(x=>x.name===g||x.baseName===g)).filter(Boolean);
+  return groups.filter(x=>!x.players&&!/zones?$|locations?$|^[xy][-_ ]|scale fix/i.test(x.baseName||x.name)).slice(0,6);
+}
 function crLocTag(gi,vi){
   const e=crLocCur(); if(!e||!draft) return;
-  const g=CR_LOC_GROUPS[gi];
-  const grp=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]).find(x=>x.name===g||x.baseName===g);
-  const v=grp&&grp.options[vi]; if(v==null) return;
+  const grp=crLocGroups(e)[gi]; if(!grp) return;
+  const g=grp.name, v=grp.options[vi]; if(v==null) return;
   setDefinedLabel(g, crLocVal(g)===v?'':v);      // tap again to clear
+  if(crLoc.q==='to'&&crLocVal(g)===v){ crLocRender(); setTimeout(()=>{ if(crLoc.open&&crLocCur()===e) crLocStep(1); },350); return; }   // a turnover's third is all it needs: on to the next
   crLocRender();
 }
 function crLocRender(){
   const p=document.getElementById('crLoc'); if(!p||!crLoc.open) return;
   const e=crLocCur();
   if(!e){ p.innerHTML=''; return; }
-  const n=crLoc.ids.length, done=crLocDone();
-  const hasLoc=draft&&String(activeId)===String(e._rowId)&&draft.x!=null;
+  const Q=CR_LOC_Q[crLoc.q], n=crLoc.ids.length, done=crLocDone(), c=crLocCounts();
+  const hasLoc=crLocIsDone(e._rowId);
   const L=e.labels||{};
-  const out=(draft&&crLocVal('Shot Outcomes'))||L['Shot Outcomes']||e.outcome||'';
-  const groups=(window.cohesionGroupsFor?window.cohesionGroupsFor(e.code):[]);
+  const out=crLoc.q==='shot'?((draft&&crLocVal('Shot Outcomes'))||L['Shot Outcomes']||e.outcome||''):'';
+  const tabs=Object.keys(CR_LOC_Q).map(q=>{ const k=q===crLoc.q?n:c[q];
+    return `<span class="crloc-tab${q===crLoc.q?' on':''}${!k&&q!==crLoc.q?' none':''}" onclick="crLocTab('${q}')" title="${esc(CR_LOC_Q[q].name)} to do">${esc(CR_LOC_Q[q].name)} <b>${k}</b></span>`; }).join('');
   let rows='';
-  CR_LOC_GROUPS.forEach((g,gi)=>{
-    const grp=groups.find(x=>x.name===g); if(!grp) return;
-    const cur=crLocVal(g);
-    const need=!cur;                               // every blank shot label is flagged
-    const head=`<div class="crfr-lbl">${esc(g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>`;
+  crLocGroups(e).forEach((grp,gi)=>{
+    const g=grp.name, cur=crLocVal(g);
+    const need=!cur;                               // every blank label is flagged
+    const head=`<div class="crfr-lbl">${esc(grp.baseName||g)}${need?' <span style="color:var(--orange);">· not set</span>':''}</div>`;
     if(grp.players){                               // Assist: type-to-search box (the chips row carries the amber outline)
       rows+=head+`<div class="crloc-chips${need?' need':''}">${crAssistBoxHtml('loc',g,e._rowId,crSideOf(e.team),cur,(draft&&draft.player)||e.player,false)}</div>`;
       return;
     }
     rows+=head+`<div class="crloc-chips${need?' need':''}">${grp.options.map((o,vi)=>`<span class="crloc-chip${cur===o?' on':''}" onclick="crLocTag(${gi},${vi})">${esc(o)}</span>`).join('')}</div>`;
   });
-  p.innerHTML=`<div class="crfr-h"><span>LOCATE SHOTS</span><span class="crfr-sub" id="locProg">${done} of ${n} located</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this shot's changes to the session)">✕</span></div>
+  if(!rows&&!Q.map) rows='<div class="crfr-status">This code has no Turnover Locations group in its template.</div>';
+  const locTxt=Q.map
+    ?(hasLoc?(Q.map==='ko'?'Landing set':'Location set')+(draft&&draft.x!=null?' ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':''):Q.hint)
+    :(hasLoc?'Third set: '+esc(crLocVal('Turnover Locations')||cohLabelVal(e,'Turnover Locations')):Q.hint);
+  p.innerHTML=`<div class="crfr-h"><span>LOCATE</span><span class="crfr-sub" id="locProg">${done} of ${n} done</span><span class="crfr-x" onclick="crLocClose()" title="Close (saves this event's changes to the session)">✕</span></div>
+    <div class="crloc-tabs">${tabs}</div>
     <div class="crloc-ev" title="${esc(e.code||'')}">${crLoc.i+1}/${n} · ${esc(e.code||'')} <span>${esc(e.gameTime||fmt(e.driveT||0))}${e.player?' · '+esc(e.player):''}${out?' · '+esc(out):''}</span></div>
-    <div class="crfr-row"><button class="cbtn" onclick="crLocMap()" title="Open the shot pitch (Alt+↑)">📍 Pitch</button>
-      <span class="crloc-loc${hasLoc?' ok':''}">${hasLoc?'Location set ('+Math.round(draft.x)+', '+Math.round(draft.y)+')':'Click the pitch where the shot was taken'}${crAttNote.id!=null&&String(crAttNote.id)===String(e._rowId)&&crAttNote.text?' · '+esc(crAttNote.text):''}</span></div>
+    <div class="crfr-row">${Q.map?`<button class="cbtn" onclick="crLocMap()" title="Open the pitch (Alt+↑)">📍 Pitch</button>`:''}
+      <span class="crloc-loc${hasLoc?' ok':''}">${locTxt}${crLoc.q==='shot'&&crAttNote.id!=null&&String(crAttNote.id)===String(e._rowId)&&crAttNote.text?' · '+esc(crAttNote.text):''}</span></div>
     ${rows}
     <div class="crfr-row crfr-btns" style="margin-top:4px;">
-      <button class="cbtn" onclick="crLocStep(-1)" ${crLoc.i===0?'disabled':''} title="Previous shot (Alt+←)">‹ Prev</button>
-      <button class="cbtn" onclick="crLocSkip()" title="Next shot without keeping this one's changes (Alt+↓)">Skip</button>
-      <button class="cbtn crfr-all" style="flex:1;" onclick="crLocStep(1)" title="Keep this shot's changes and go to the next (Alt+→)">Next ›</button>
+      <button class="cbtn" onclick="crLocStep(-1)" ${crLoc.i===0?'disabled':''} title="Previous (Alt+←)">‹ Prev</button>
+      <button class="cbtn" onclick="crLocSkip()" title="Next without keeping this one's changes (Alt+↓)">Skip</button>
+      <button class="cbtn crfr-all" style="flex:1;" onclick="crLocStep(1)" title="Keep this one's changes and go to the next (Alt+→)">Next ›</button>
     </div>
     <div class="crfr-status">${esc(crLoc.msg||'')}</div>
-    <div class="crloc-keys">Alt+← Prev · Alt+↓ Skip · Alt+→ Next · Alt+↑ Pitch — changes save with the session</div>`;
+    <div class="crloc-keys">Alt+← Prev · Alt+↓ Skip · Alt+→ Next${Q.map?' · Alt+↑ Pitch':''} — changes save with the session</div>`;
   crAssistWire(p);
   const pg=document.getElementById('locBtn'); if(pg) crLocBtnSync();
 }
