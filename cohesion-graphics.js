@@ -701,6 +701,38 @@ function dashComputeStats(){
     scoredH:scored('h').length, scoredA:scored('a').length,
     scoreEvts, hasWorm, h1len };
 }
+// ── 🎯 MATCH TARGETS (Nov 2026) ── a section's targets for its team, judged on this game (the figures of
+// dashComputeStats, so the Stats tab, the dashboard and the stats card agree; turnovers lost by the agreed rule: a
+// <TEAM> TOs row = that team lost the ball). t = {team, items:[{m, op:'>='|'<=', v}]} (netlify playlists teamTargets).
+const TARGET_METRICS={ score:{label:'Total score', op:'>=', unit:' pts'}, scores:{label:'Scores', op:'>='}, shootPct:{label:'Shooting %', op:'>=', unit:'%'},
+  twoPts:{label:'2-pointers', op:'>='}, koWonPct:{label:'Own kickouts won', op:'>=', unit:'%'}, toLost:{label:'Turnovers lost', op:'<='}, fouls:{label:'Fouls conceded', op:'<='} };
+function dashTargetsEval(t){
+  if(!t||!Array.isArray(t.items)||!t.items.length) return null;
+  const T=_tnorm(t.team), H=_tnorm(GAME.homeTeam), A=_tnorm(GAME.awayTeam), side=T&&T===H?'h':T&&T===A?'a':null;
+  if(!side) return {team:t.team, side:null, rows:[]};
+  const S=dashComputeStats(), sc=side==='h'?S.scH:S.scA, shots=side==='h'?S.shotsH:S.shotsA, scored=side==='h'?S.scoredH:S.scoredA;
+  const row=lab=>{ for(const sec of S.sections){ const r=sec[1].find(x=>x.label===lab); if(r) return r; } return null; };
+  const ko=row('KO Won'), fl=row('Total Fouls'), up=x=>String(x||'').toUpperCase();
+  const kos=ALL.filter(e=>statSide(e)===side&&/KICKOUT|\bKO\b/i.test(e.code||'')&&!giSup(e)&&up((e.labels||{})['Kickout Outcomes']||e.outcome)).length;
+  const val={ score:sc.g*3+sc.p, scores:scored, shootPct:shots?Math.round(scored/shots*100):null,
+    twoPts:ALL.filter(e=>statSide(e)===side&&/SHOT (OPEN|DEAD)/i.test(e.code||'')&&/2 POINT/.test(up((e.labels||{})['Shot Outcomes']||e.outcome))).length,
+    koWonPct:ko&&kos?(side==='h'?ko.wH:ko.wA):null, fouls:fl?(+(side==='h'?fl.dH:fl.dA)||0):0,
+    toLost:typeof cohIsToRow==='function'?ALL.filter(e=>!giSup(e)&&cohIsToRow(e)&&_tnorm(cohToTeams(e, GAME).loser)===(side==='h'?H:A)).length:null };
+  const rows=t.items.filter(it=>TARGET_METRICS[it.m]).map(it=>{ const M=TARGET_METRICS[it.m], v=val[it.m], op=it.op==='<='?'<=':'>=';
+    return {m:it.m, label:M.label, unit:M.unit||'', op, target:+it.v, value:v, ok:v==null?null:(op==='>='?v>=+it.v:v<=+it.v)}; });
+  return {team:side==='h'?GAME.homeTeam:GAME.awayTeam, side, rows};
+}
+// the targets as a strip of chips (✓ green / ✗ red / – no data)
+function dashTargetsHtml(t, o){
+  const R=dashTargetsEval(t); if(!R||!R.side||!R.rows.length) return '';
+  o=o||{}; const hit=R.rows.filter(r=>r.ok).length, judged=R.rows.filter(r=>r.ok!=null).length;
+  return '<div class="tg-strip" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 10px;font:600 12px Barlow,sans-serif;">'
+    +'<span style="font:800 12px \'Barlow Condensed\',sans-serif;letter-spacing:.8px;color:var(--t2);">🎯 '+esc(tc(R.team).toUpperCase())+' TARGETS '+hit+'/'+judged+'</span>'
+    +R.rows.map(r=>{ const c=r.ok==null?'var(--t3)':r.ok?'#22c55e':'#ef4444';
+      return '<span title="'+esc(r.label+' — target '+(r.op==='>='?'at least ':'at most ')+r.target+r.unit)+'" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;border:1px solid '+c+';background:color-mix(in srgb,'+c+' 14%,transparent);">'
+        +'<b style="color:'+c+'">'+(r.ok==null?'–':r.ok?'✓':'✗')+'</b>'+esc(r.label)+' <b>'+(r.value==null?'—':r.value+r.unit)+'</b><span style="color:var(--t3);">'+(r.op==='>='?'≥':'≤')+r.target+r.unit+'</span></span>'; }).join('')
+    +(o.edit?'<button type="button" onclick="'+esc(o.edit)+'" style="padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--t2);font:700 11px \'Barlow Condensed\',sans-serif;cursor:pointer;">Edit</button>':'')+'</div>';
+}
 async function dashBuildStatsCanvas(){
   try{ if(document.fonts&&document.fonts.load){
     await Promise.all(['500','700','800'].map(w=>w+' 20px "Barlow Condensed"').concat(['400','600'].map(w=>w+' 20px "Barlow"')).map(f=>document.fonts.load(f)));
@@ -2410,9 +2442,9 @@ function dashXpSectionHtml(){
 }
 // ═════════════ END — moved unchanged from dashboard.html ═════════════
 return { setContext, giSup, statPeriodNow, halfOf, etInferred,
-  esc, _tnorm, _statSideMap, statSide, statQOf, statPred, setStatPeriod, tallyOutcome, koWonCount, codeCount, statNav, statSection, statRows, pct, sumKeys, locPitchSvg, locShotGlyph, koPlotY, dashCoordOf, dashXpInvalidate, dashCoordConv, dashXpModel, dashXpLevel, dashShotPts, dashXpAll, dashXpOf, DASH_XP_CATS, dashXpSummary, dashXpF, dashXpSigned, dashXpScale, locEvents, openLocMap, closeLocMap, locSetTeam, renderLocMap, cohPacksLoad, cohPacksStore, cohPackTeam, cohTeamColourDefault, cohImportTeamPack, dashComputeStats, dashBuildStatsCanvas, dashShareStatsCard, dashMomentumData, dashBuildMomentumCanvas, dashBuildWormCanvas, dashBuildXpWormCanvas, dashMapData, dashMapSvg, dashSvgImg, dashGlyph, dashXpSizeKey, dashBuildMapCanvas, dashBuildShotMixCanvas, dashBuildPossDoughnut, dashBuildKoRetentionCanvas, dashBuildScoreSourceCanvas, dashExportPDF, dashPlayerDetails, dashDlBlob, dashTeamHexes, dashTeamSecondary, dashLoadImg, dashHexLum, dashHexMix, dashFileStem, dashBusy, dashBuildMapsImage, dashDownloadMapsImage, dashInfographicData, dashBuildInfographic, dashDownloadInfographic, dashXpChartSvg, dashXpSectionHtml };
+  esc, _tnorm, _statSideMap, statSide, statQOf, statPred, setStatPeriod, tallyOutcome, koWonCount, codeCount, statNav, statSection, statRows, pct, sumKeys, locPitchSvg, locShotGlyph, koPlotY, dashCoordOf, dashXpInvalidate, dashCoordConv, dashXpModel, dashXpLevel, dashShotPts, dashXpAll, dashXpOf, DASH_XP_CATS, dashXpSummary, dashXpF, dashXpSigned, dashXpScale, locEvents, openLocMap, closeLocMap, locSetTeam, renderLocMap, cohPacksLoad, cohPacksStore, cohPackTeam, cohTeamColourDefault, cohImportTeamPack, dashComputeStats, TARGET_METRICS, dashTargetsEval, dashTargetsHtml, dashBuildStatsCanvas, dashShareStatsCard, dashMomentumData, dashBuildMomentumCanvas, dashBuildWormCanvas, dashBuildXpWormCanvas, dashMapData, dashMapSvg, dashSvgImg, dashGlyph, dashXpSizeKey, dashBuildMapCanvas, dashBuildShotMixCanvas, dashBuildPossDoughnut, dashBuildKoRetentionCanvas, dashBuildScoreSourceCanvas, dashExportPDF, dashPlayerDetails, dashDlBlob, dashTeamHexes, dashTeamSecondary, dashLoadImg, dashHexLum, dashHexMix, dashFileStem, dashBusy, dashBuildMapsImage, dashDownloadMapsImage, dashInfographicData, dashBuildInfographic, dashDownloadInfographic, dashXpChartSvg, dashXpSectionHtml };
 }
 // the names the dashboard keeps as page globals (its inline handlers and its
 // Stats / Events views call them directly)
-cohesionGraphics.GLOBALS=["esc","_tnorm","_statSideMap","statSide","statQOf","statPred","setStatPeriod","tallyOutcome","koWonCount","codeCount","statNav","statSection","statRows","pct","sumKeys","locPitchSvg","locShotGlyph","koPlotY","dashCoordOf","dashXpInvalidate","dashCoordConv","dashXpModel","dashXpLevel","dashShotPts","dashXpAll","dashXpOf","DASH_XP_CATS","dashXpSummary","dashXpF","dashXpSigned","dashXpScale","locEvents","openLocMap","closeLocMap","locSetTeam","renderLocMap","cohPacksLoad","cohPacksStore","cohPackTeam","cohTeamColourDefault","cohImportTeamPack","dashComputeStats","dashBuildStatsCanvas","dashShareStatsCard","dashBuildMomentumCanvas","dashBuildWormCanvas","dashBuildXpWormCanvas","dashMapData","dashMapSvg","dashSvgImg","dashGlyph","dashXpSizeKey","dashBuildMapCanvas","dashBuildShotMixCanvas","dashBuildPossDoughnut","dashBuildKoRetentionCanvas","dashBuildScoreSourceCanvas","dashExportPDF","dashPlayerDetails","dashDlBlob","dashTeamHexes","dashTeamSecondary","dashLoadImg","dashHexLum","dashHexMix","dashFileStem","dashBusy","dashBuildMapsImage","dashDownloadMapsImage","dashInfographicData","dashBuildInfographic","dashDownloadInfographic","dashXpChartSvg","dashXpSectionHtml"];
+cohesionGraphics.GLOBALS=["esc","_tnorm","_statSideMap","statSide","statQOf","statPred","setStatPeriod","tallyOutcome","koWonCount","codeCount","statNav","statSection","statRows","pct","sumKeys","locPitchSvg","locShotGlyph","koPlotY","dashCoordOf","dashXpInvalidate","dashCoordConv","dashXpModel","dashXpLevel","dashShotPts","dashXpAll","dashXpOf","DASH_XP_CATS","dashXpSummary","dashXpF","dashXpSigned","dashXpScale","locEvents","openLocMap","closeLocMap","locSetTeam","renderLocMap","cohPacksLoad","cohPacksStore","cohPackTeam","cohTeamColourDefault","cohImportTeamPack","dashComputeStats","TARGET_METRICS","dashTargetsEval","dashTargetsHtml","dashBuildStatsCanvas","dashShareStatsCard","dashBuildMomentumCanvas","dashBuildWormCanvas","dashBuildXpWormCanvas","dashMapData","dashMapSvg","dashSvgImg","dashGlyph","dashXpSizeKey","dashBuildMapCanvas","dashBuildShotMixCanvas","dashBuildPossDoughnut","dashBuildKoRetentionCanvas","dashBuildScoreSourceCanvas","dashExportPDF","dashPlayerDetails","dashDlBlob","dashTeamHexes","dashTeamSecondary","dashLoadImg","dashHexLum","dashHexMix","dashFileStem","dashBusy","dashBuildMapsImage","dashDownloadMapsImage","dashInfographicData","dashBuildInfographic","dashDownloadInfographic","dashXpChartSvg","dashXpSectionHtml"];
 if(typeof module!=='undefined'&&module.exports) module.exports={cohesionGraphics, cohGfxPrepare, cohGfxApplyVisualSync, cohGfxSortEvents, cohGfxFillTeams, cohGfxTitleCase, cohGfxVisualSyncPeriod};

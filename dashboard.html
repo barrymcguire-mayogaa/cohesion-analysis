@@ -815,11 +815,20 @@ const DASH_GFX=cohesionGraphics({game:GAME, events:ALL, host:{renderSV:()=>rende
   unmarkedET:()=>{ const X=sbET(); return X.inferred?X:null; },
   playEvent:e=>dashPlayEvent(e)}});   // a dot on the shot / kickout map → its clip   // the scoreboard's unmarked extra time → the Stats period chips and the period filter
 cohesionGraphics.GLOBALS.forEach(k=>{ window[k]=DASH_GFX[k]; });
+// 🎯 MATCH TARGETS (set in Code Room's Stats tab; netlify playlists teamTargets): loaded once, then judged on each draw
+let DASH_TARGETS={t:null, state:''};
+function dashTargetsLoad(){
+  if(!DASH_TARGETS.state){ DASH_TARGETS.state='loading';
+    if(typeof cohesionAuthFetch==='function') cohesionAuthFetch('playlists',{action:'teamTargets', section:String(GAME.section||'county').toLowerCase()})
+      .then(j=>{ DASH_TARGETS.t=(j&&j.targets)||null; DASH_TARGETS.state='done'; if(DASH_TARGETS.t&&viewMode==='stats') renderSV(); }).catch(()=>{ DASH_TARGETS.state='done'; }); }
+  return DASH_TARGETS.t?dashTargetsHtml(DASH_TARGETS.t):'';
+}
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;
   const H=tc(GAME.homeTeam||'Home'), A=tc(GAME.awayTeam||'Away');
   const hC=dashInk(GAME.homeColor||'#2563eb'), aC=dashInk(GAME.awayColor||'#22c55e');
   let h=`<div class="stt-teams"><span style="color:${hC}">● ${H}</span><span style="color:${aC}">${A} ●</span></div>`;
+  h+=dashTargetsLoad()||'';   // 🎯 the section's match targets for its team, judged on this game (cohesion-graphics.js)
   h+=`<div style="display:flex;gap:6px;margin:2px 0 8px;">
     <button class="tl-pb" style="flex:2;padding:9px;font-size:11px;cursor:pointer;" onclick="dashShareStatsCard()">📤 Download stats image</button>
     <button class="tl-pb" style="flex:1;padding:9px;font-size:11px;cursor:pointer;" onclick="dashExportPDF()" title="Stats card + momentum chart as a PDF">📄 PDF</button>

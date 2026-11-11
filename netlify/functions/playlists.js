@@ -702,6 +702,33 @@ exports.handler = async (event, context) => {
       return J(200, { ok: true, styles, canShare: true });
     }
 
+    // ── 🎯 the section's match targets (one small JSON file in the stills bucket, like the team styles) ──
+    // {team, items:[{m, op, v}]} — read: anyone in the section · save: staff
+    if (action === 'teamTargets' || action === 'teamTargetsSave') {
+      const sec = String(body.section || u.sections[0] || '').toLowerCase();
+      if (!/^[a-z0-9-]{1,20}$/.test(sec) || !u.sections.includes(sec)) return forbid('no access to that section');
+      const store = stillStore(), path = 'settings/' + sec + '-targets.json';
+      const METRICS = ['score', 'scores', 'shootPct', 'twoPts', 'koWonPct', 'toLost', 'fouls'];
+      const clean = t => { t = t && typeof t === 'object' ? t : {}; const items = [];
+        (Array.isArray(t.items) ? t.items : []).slice(0, 12).forEach(it => { if (!it || !METRICS.includes(it.m)) return; const v = Number(it.v); if (!Number.isFinite(v)) return;
+          if (items.some(x => x.m === it.m)) return; items.push({ m: it.m, op: it.op === '<=' ? '<=' : '>=', v: Math.max(0, Math.min(999, Math.round(v * 10) / 10)) }); });
+        return { team: String(t.team || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 60).toUpperCase(), items }; };
+      if (action === 'teamTargets') {
+        if (!store) return J(200, { ok: true, targets: null, canEdit: !!u.staff });
+        const r = await safe(store.download(path));
+        if (r.error || !r.data) return J(200, { ok: true, targets: null, canEdit: !!u.staff });
+        let txt = ''; try { txt = typeof r.data.text === 'function' ? await r.data.text() : Buffer.isBuffer(r.data) ? r.data.toString('utf8') : String(r.data); } catch (_) { txt = ''; }
+        let t = null; try { t = clean(JSON.parse(txt)); } catch (_) { t = null; }
+        return J(200, { ok: true, targets: t, canEdit: !!u.staff });
+      }
+      if (!u.staff) return forbid('only staff (admins and analysts) set the targets');
+      if (!store) return J(500, { error: 'Storage is not set up' });
+      const t = clean(body.targets);
+      const up = await safe(store.upload(path, Buffer.from(JSON.stringify(t)), { contentType: 'application/json', upsert: true, cacheControl: '0' }));
+      if (up.error) return J(500, { error: 'The targets could not be saved: ' + up.error.message });
+      return J(200, { ok: true, targets: t, canEdit: true });
+    }
+
     // ── comments: anyone who can see the playlist; on the playlist or on one clip, optionally at a moment ──
     // A comment at a moment on a clip may carry a DRAWING (it belongs to the comment); its text may @mention people.
     if (['comment', 'commentEdit', 'commentDelete'].includes(action)) {
