@@ -569,6 +569,11 @@ body.crfit .crsv{flex:1;min-height:0;}
 .crsv-tgadd{margin:0 0 8px;}
 .crtg-row{display:grid;grid-template-columns:1fr auto 70px;gap:6px;align-items:center;margin-bottom:6px;font-size:12.5px;}
 .crtg-row select,.crtg-row input[type=number]{background:var(--card);color:var(--t1);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font:12px Barlow,sans-serif;}
+.cbtn.evt.offlane{opacity:.38;}
+.ev-by{display:inline-block;margin-left:4px;padding:0 5px;border-radius:5px;background:var(--card);border:1px solid var(--border);color:var(--t2);font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.5px;vertical-align:1px;}
+.crcol-chip{align-items:center;gap:4px;flex-wrap:wrap;padding:4px 9px;border-radius:999px;border:1px solid var(--green);background:rgba(34,197,94,.1);color:var(--t1);font:600 11.5px Barlow,sans-serif;cursor:pointer;max-width:100%;}
+.crcol-chip .ago{color:var(--t3);} .crcol-chip .warn{color:var(--orange);}
+.crcol-codes{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 10px;max-height:180px;overflow:auto;margin:4px 0 8px;font-size:12.5px;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -708,6 +713,7 @@ body.crfit .crsv{flex:1;min-height:0;}
             <input type="text" id="efilter" placeholder="Filter events…" oninput="renderList()">
             <select id="eperiod" onchange="renderList()"><option value="">All</option></select>
             <span id="mxChip"></span>
+            <span id="crColChip" class="crcol-chip" style="display:none;" onclick="crCollabOpen()"></span>
             <div class="tlrb" id="flagBtn" style="display:none;" onclick="crFlagToggleFilter()" title="Show only events flagged for review — press ? to flag/unflag">⚑ 0</div>
             <div class="tlrb" id="dupBtn" style="display:none;" onclick="crDupToggleFilter()" title="Show only possible duplicates — two events of the same code within 2 seconds">⚠ 0</div>
             <div class="tlrb" id="giBtn" style="display:none;" onclick="crGiConvertPrompt()" title="Convert Gaelic Insights / GIU shots, kickouts and turnovers into COHESION events (SHOT OPEN PLAY / DEADBALL + score events; KO + BREAK WON / BREAK LOST events; TOs events for the team that lost the ball) — the originals are kept">⇄ Convert shots</div>
@@ -788,7 +794,7 @@ body.crfit .crsv{flex:1;min-height:0;}
           <div id="codePeriods" class="codebtns"></div>
           <div class="ep-lbl">Team</div>
           <div id="codeTeams" class="codebtns"></div>
-          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeLinks()" title="Linked tags: rows added automatically with a tag — see them and add your own rules">🔗 Links</button></div>
+          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeLinks()" title="Linked tags: rows added automatically with a tag — see them and add your own rules">🔗 Links</button><button class="cbtn mini" style="padding:4px 8px;" onclick="crCollabOpen()" title="Tag together — two or more people tagging this game at once, each in their own lane">👥</button></div>
           <div id="codeKeysEditor" style="display:none;"></div>
           <div id="codeLinksEditor" class="crlk-ed" style="display:none;"></div>
           <div id="codeEvents" class="codebtns"></div>
@@ -889,6 +895,7 @@ function filterGames(){
 }
 
 async function openGame(id){
+  if(crCollab.on){ try{ await crCollabLeave(); }catch(_){} }
   setTimeout(()=>{ try{ crDirPaint(); }catch(_){} },0);
   try{ crLiveCh(); crVScrollInit('levents'); crVScrollInit('tlscroll'); crVScrollInit('crStats'); }catch(_){}
   const g=GAMES.find(x=>x.id===id); if(!g) return;
@@ -1589,7 +1596,7 @@ function fmt(s){ s=Math.max(0,Math.round(s)); const m=Math.floor(s/60); return `
 
 // ── event list ────────────────────────────────────────────────
 function renderList(){
-  try{ crReplaySync(); crLinkedSync(); crStepCheck(); crLiveSoon(); crVScrollSync(); crBtnCounts(); }catch(_){}   // the ↻ Replay button and 🔗 strip: an undo / delete / edit can change the last tag
+  try{ crReplaySync(); crLinkedSync(); crStepCheck(); crLiveSoon(); crVScrollSync(); crBtnCounts(); crCollabSoon(); }catch(_){}   // the ↻ Replay button and 🔗 strip: an undo / delete / edit can change the last tag
   const q=document.getElementById('efilter').value.toLowerCase().trim();
   const per=document.getElementById('eperiod').value;
   const wrap=document.getElementById('levents');
@@ -1614,7 +1621,7 @@ function renderList(){
     const cls=[String(e._rowId)===String(activeId)?'on':'', (e._new||e._dirty)?'edited':''].filter(Boolean).join(' ');
     return `<div class="ev ${cls}" onclick="pick('${_cq(e._rowId)}')">
       <span class="ev-t">${fmt(e.driveT||0)}</span>
-      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.derived==='break-pair'?' <span style="font:700 9px Barlow,sans-serif;letter-spacing:.4px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;" title="The opposition\'s break row — added by COHESION on import (the Sportscode file logs one break row per kickout, on the kicking team)">ADDED</span>':''}${crPlayersTxt(e)&&!(e.playerRow&&e.player===e.code)&&!(crIsSubCode(e.code)&&crSubNames(e))?` · <span class="ev-p">${esc(crPlayersTxt(e))}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Player going off → player coming on">${esc(crSubNames(e))}</span>`:''}</span>
+      <span class="ev-c">${crIsFlagged(e)?'<span style="color:#f59e0b;" title="Flagged for review">⚑</span> ':''}${crIsDup(e)?'<span style="color:#f59e0b;" title="Possible duplicate — same code within 2s">⚠</span> ':''}${esc(e.code||'—')} <span style="color:var(--t3);">#${crSeqOf(e)}</span>${e.by?` <span class="ev-by" title="Tagged by ${esc(e.by)}">${esc(e.by)}</span>`:''}${e.derived==='break-pair'?' <span style="font:700 9px Barlow,sans-serif;letter-spacing:.4px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;" title="The opposition\'s break row — added by COHESION on import (the Sportscode file logs one break row per kickout, on the kicking team)">ADDED</span>':''}${crPlayersTxt(e)&&!(e.playerRow&&e.player===e.code)&&!(crIsSubCode(e.code)&&crSubNames(e))?` · <span class="ev-p">${esc(crPlayersTxt(e))}</span>`:''}${crSubNames(e)?` · <span class="ev-p" title="Player going off → player coming on">${esc(crSubNames(e))}</span>`:''}</span>
     </div>`;
   }).join('')||(crLCFilterOn()?'<div style="padding:16px;color:var(--green);font-size:12px;">✓ Nothing missing — every event passes the label check.</div>':'<div style="padding:16px;color:var(--t3);font-size:12px;">No events match.</div>');
   crLCAfterRender();
@@ -3876,11 +3883,25 @@ async function crSaveAll(){
   await crKprSaveAll();                            // unsaved goalkeeper spells (gameAdmin updateMeta)
   await crEtMetaSaveAll();                         // "Mark extra time": the removed period rows go to the game's period rows (gameAdmin updateMeta)
   await crRowsMetaSaveAll();                       // renamed rows keep their place / colour in the file's row list (gameAdmin updateMeta)
+  await crSaveEvents();
+}
+// the EVENTS part of a save (inserts / updates / deletes, in chunks): used by crSaveAll and, tag by tag, by 👥 Tag
+// together. Returns what was saved, as {op:'ins'|'upd'|'del', id} (the partners' Code Rooms are told about them).
+// a tag saved mid-session gets its database id in place of its temporary one: Undo / R / the 🔗 strip still find it
+// through this map (tmp id → db id), and undoing a SAVED tag deletes it on the server too
+const crIdAlias=new Map();
+function crRid(id){ let k=String(id), n=0; while(crIdAlias.has(k)&&n++<5) k=String(crIdAlias.get(k)); return k; }
+function crGoneSaved(row){ if(row&&!row._new&&row._rowId!=null&&!crDeleted.some(d=>String(d.id)===String(row._rowId))) crDeleted.push({id:row._rowId}); }
+// a row put back by Undo whose deletion was already SAVED: it goes back in as a new row
+function crBackIn(row, wasNew){ if(!row) return row; if(!wasNew&&!crDeleted.some(d=>String(d.id)===String(row._rowId))&&crSavedDel.has(String(row._rowId))){ row._rowId='tmp-'+(++crTmpCounter); row._new=true; delete row._dirty; } return row; }
+const crSavedDel=new Set();
+async function crSaveEvents(){
+  const done=[];
   const ops=[];
   EVENTS.filter(e=>e._new).forEach(e=>ops.push({action:'insert', ref:String(e._rowId), game_id:GAME.id, data:crCleanData(e)}));
   EVENTS.filter(e=>e._dirty&&!e._new).forEach(e=>ops.push({action:'update', id:e._rowId, data:crCleanData(e)}));
   crDeleted.forEach(d=>ops.push({action:'delete', id:d.id, ref:'del-'+d.id}));
-  if(!ops.length){ crClearBackup(); return; }
+  if(!ops.length){ crClearBackup(); return done; }
   // Save in chunks: each request stays well inside the function timeout, and
   // every completed chunk is reconciled immediately - if a later chunk fails,
   // pressing save again only sends what is still unsaved.
@@ -3892,10 +3913,12 @@ async function crSaveAll(){
       if(!r.ok){ failed.push(r); return; }
       if(typeof r.ref==='string' && r.ref.indexOf('del-')===0){
         crDeleted=crDeleted.filter(d=>('del-'+d.id)!==r.ref);
+        crSavedDel.add(String(r.ref.slice(4)));
+        done.push({op:'del', id:Number(r.ref.slice(4))});
         return;
       }
       const e=EVENTS.find(x=>String(x._rowId)===String(r.ref));
-      if(e){ if(e._new){ e._rowId=r.id; e._new=false; } e._dirty=false; }
+      if(e){ if(e._new){ crIdAlias.set(String(e._rowId), r.id); e._rowId=r.id; e._new=false; done.push({op:'ins', id:Number(r.id)}); } else done.push({op:'upd', id:Number(e._rowId)}); e._dirty=false; }
     });
     crBackup(); crUpdatePending();
   };
@@ -3910,6 +3933,7 @@ async function crSaveAll(){
   }
   if(failed.length) throw new Error(failed.length+' change(s) failed: '+failed.map(f=>f.error).join('; '));
   crClearBackup();
+  return done;
 }
 async function saveAllAndClose(){
   const btn=document.getElementById('crSaveBtn');
@@ -4382,7 +4406,7 @@ function buildCodePanel(){
   document.getElementById('codeEvents').innerHTML=codeEvtList.map((b,i)=>{
     const hk=hkOf(b);
     const chip=hk?`<span class="hk" title="Keyboard shortcut">${esc(hk===' '?'Space':hk)}</span>`:(i<9?`<span class="hk">${i+1}</span>`:'');
-    return `<button class="cbtn evt${crRec[b]?' rec':''}" data-base="${esc(b)}" onclick="codeTag('${_cq(b)}',{otherTeam:event.shiftKey||event.altKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${_cq(b)}')">✏</span></button>`;
+    return `<button class="cbtn evt${crRec[b]?' rec':''}${crLaneOk(b, codeMode.team)?'':' offlane'}" data-base="${esc(b)}" onclick="codeTag('${_cq(b)}',{otherTeam:event.shiftKey||event.altKey})">${crRec[b]?'⏺ ':''}${esc(b)}${isNeutralCode(b)?' <span class="hk" title="Team-neutral — saved with no team">Ⓝ</span>':''}${isDurCode(b)&&!crRec[b]?' <span class="hk">⏱</span>':''}${chip}<span class="hk" style="cursor:pointer;" title="Edit this event — rename, lead/lag, shortcut" onclick="event.stopPropagation();codeBtnEdit('${_cq(b)}')">✏</span></button>`;
   }).join('')
     +`<button class="cbtn" onclick="codeAddCode()" title="Add a new event code to the grid — kept for this game and saved with templates">＋ Event…</button>`
     +`<button class="cbtn" onclick="codeTrackerPicker()" title="Add events from the tracker app's standard set — their outcome prompts and labels come built in">＋ Tracker events…</button>`;
@@ -5671,6 +5695,114 @@ function crKprClose(){
   crKprBtnSync();
 }
 function crKprToggle(){ if(crKpr.open) crKprClose(); else crKprOpen(); }
+// ── 👥 TAG TOGETHER (Nov 2026): two or more analysts tagging one game at the same time ─────────────────────────────
+// Each joins the game in Code Room and picks a LANE (both teams / one team / chosen codes); buttons outside it are
+// dimmed and need a second press. In a shared session every change is saved within a second or two (crSaveEvents) and
+// each tagger's small presence file says what he saved (netlify/functions/collab.js); every 3 s Code Room pulls in the
+// partners' new, changed and deleted rows (never into your Undo). Your tags carry your initials. A row you are editing
+// while a partner changes it keeps YOUR version (your save comes later) and you are told. Redo is cleared once changes
+// are saved (it would bring back rows already on the server). Not in a local session or the offline desktop app.
+let crCollab={on:false, gen:0, lane:{kind:'all'}, seen:{}, sinceId:0, peers:[], tPoll:null, tBeat:null, tSave:null, saving:false, again:false, warned:{}, note:'', err:''};
+function crCollabMe(){ try{ const u=window.netlifyIdentity&&netlifyIdentity.currentUser&&netlifyIdentity.currentUser(); const n=u&&u.user_metadata&&(u.user_metadata.full_name||u.user_metadata.name); if(n) return String(n); }catch(_){}
+  const e=(function(){ try{ return sessionStorage.getItem('cohesion_user')||''; }catch(_){ return ''; } })(); return e.split('@')[0]||'Me'; }
+function crInitials(n){ const w=String(n||'').trim().split(/\s+/).filter(Boolean); return ((w[0]||'?')[0]+(w.length>1?w[w.length-1][0]:'')).toUpperCase(); }
+function crCollabTpl(){ let h=0; const str=codeEvtList.join('|'); for(let i=0;i<str.length;i++) h=(h*31+str.charCodeAt(i))|0; return (h>>>0).toString(36); }
+function crLaneOk(base, side){
+  const L=crCollab.lane; if(!crCollab.on||!L||L.kind==='all') return true;
+  if(L.kind==='team') return isNeutralCode(base)||codeTeamName(side)===L.team;
+  return (L.codes||[]).includes(String(base).toUpperCase());
+}
+function crLaneText(L){ return !L||L.kind==='all'?'both teams':L.kind==='team'?L.team:(L.codes||[]).join(', ')||'—'; }
+function crCollabOpen(){
+  if(!GAME||GAME._local){ alert('Tagging together needs a saved game (not a local video session).'); return; }
+  let ov=document.getElementById('crCol'); if(!ov){ ov=document.createElement('div'); ov.id='crCol'; ov.className='crdir-ov'; document.body.appendChild(ov); ov.addEventListener('mousedown',e=>{ if(e.target===ov) ov.style.display='none'; }); }
+  crCollab.draft=JSON.parse(JSON.stringify(crCollab.lane)); ov.style.display='flex'; crCollabDlg();
+}
+function crCollabDlg(){
+  const ov=document.getElementById('crCol'), D=crCollab.draft; if(!ov||!D) return;
+  const H=codeTeamName('home'), A=codeTeamName('away'), seg=(on,js,l)=>`<button type="button" class="${on?'on':''}" onclick="${js};crCollabDlg()">${l}</button>`;
+  const codes=D.kind==='codes'?`<div class="crcol-codes">${codeEvtList.map(c=>`<label><input type="checkbox"${(D.codes||[]).includes(c.toUpperCase())?' checked':''} onchange="const L=crCollab.draft; L.codes=L.codes||[]; const k='${_cq(c.toUpperCase())}'; if(this.checked){ if(!L.codes.includes(k)) L.codes.push(k); } else L.codes=L.codes.filter(x=>x!==k)"> ${esc(c)}</label>`).join('')}</div>`:'';
+  const peers=crCollab.peers.filter(p=>p.live);
+  ov.innerHTML=`<div class="crdir" role="dialog" aria-label="Tag together"><div class="crdir-h">👥 Tag together <span>two or more people tagging this game at once</span></div>
+    <div class="crdir-n">Everyone opens this game in Code Room and joins. Each change is saved as you go and appears on the others’ screens within a few seconds, marked with your initials (${esc(crInitials(crCollabMe()))}).</div>
+    <div class="crdir-q"><b>Your lane</b> — what you tag (buttons outside it are dimmed; press twice to tag one anyway):</div>
+    <div class="crdir-seg">${seg(D.kind==='all',"crCollab.draft={kind:'all'}",'Both teams')}${seg(D.kind==='team'&&D.team===H,"crCollab.draft={kind:'team',team:'"+_cq(H)+"'}",esc(H)+' only')}${seg(D.kind==='team'&&D.team===A,"crCollab.draft={kind:'team',team:'"+_cq(A)+"'}",esc(A)+' only')}${seg(D.kind==='codes',"crCollab.draft={kind:'codes',codes:(crCollab.draft.codes||[])}",'Chosen events')}</div>
+    ${codes}
+    ${peers.length?`<div class="crdir-n">Tagging now: ${peers.map(p=>'<b>'+esc(p.name)+'</b> ('+esc(crLaneText(p.lane))+')').join(', ')}</div>`:''}
+    <div class="crdir-btns"><span id="crColMsg"></span>${crCollab.on?'<button type="button" onclick="crCollabLeave()">Leave</button>':''}<button type="button" onclick="document.getElementById(\'crCol\').style.display=\'none\'">Cancel</button><button type="button" class="pri" onclick="crCollabStart()">${crCollab.on?'Change lane':'Start tagging together'}</button></div></div>`;
+}
+async function crCollabStart(){
+  const D=crCollab.draft||{kind:'all'}; if(D.kind==='codes'&&!(D.codes||[]).length){ const m=document.getElementById('crColMsg'); if(m) m.textContent='Pick at least one event.'; return; }
+  crCollab.lane=D; const was=crCollab.on; crCollab.on=true;
+  const ov=document.getElementById('crCol'); if(ov) ov.style.display='none';
+  if(!was){
+    crCollab.sinceId=EVENTS.reduce((m,e)=>{ const n=Number(e._rowId); return Number.isFinite(n)&&n>m?n:m; }, 0);
+    crCollab.seen={}; crCollab.err='';
+    clearInterval(crCollab.tPoll); clearInterval(crCollab.tBeat);
+    crCollab.tPoll=setInterval(crCollabPoll, 3000); crCollab.tBeat=setInterval(()=>crCollabBeat([]), 10000);
+    await crCollabSave();                        // anything unsaved goes up now, so the partners see it
+  }
+  await crCollabBeat([]); await crCollabPoll(true);
+  buildCodePanel(); renderList(); crCollabBar();
+}
+async function crCollabLeave(){
+  clearInterval(crCollab.tPoll); clearInterval(crCollab.tBeat); clearTimeout(crCollab.tSave);
+  try{ await crCollabSave(); }catch(_){}
+  crCollab.on=false; crCollab.peers=[];
+  try{ await cohesionAuthFetch('collab',{action:'leave', gameId:GAME.id}); }catch(_){}
+  const ov=document.getElementById('crCol'); if(ov) ov.style.display='none';
+  buildCodePanel(); renderList(); crCollabBar();
+}
+function crCollabSoon(){
+  if(!crCollab.on) return;
+  const pend=EVENTS.some(e=>e._new||e._dirty)||crDeleted.length; if(!pend) return;
+  clearTimeout(crCollab.tSave); crCollab.tSave=setTimeout(crCollabSave, 1200);
+}
+async function crCollabSave(){
+  if(!crCollab.on||!GAME||GAME._local) return;
+  if(crCollab.saving){ crCollab.again=true; return; }
+  crCollab.saving=true;
+  crCollab.gen++;
+  try{ const done=await crSaveEvents(); crCollab.err='';
+    if(done&&done.length){ crRedo=[]; if(typeof crUndoUI==='function') crUndoUI(); await crCollabBeat(done); } }
+  catch(e){ crCollab.err='Not saved yet — '+(e.message||e)+' (it tries again)'; }
+  crCollab.saving=false; crCollab.gen++; crCollabBar();
+  if(crCollab.again){ crCollab.again=false; crCollabSoon(); }
+}
+async function crCollabBeat(changes){
+  if(!crCollab.on) return;
+  try{ await cohesionAuthFetch('collab',{action:'beat', gameId:GAME.id, lane:crCollab.lane, tpl:crCollabTpl(), changes:changes||[]}); }catch(e){ crCollab.err='Connection lost — '+(e.message||e); crCollabBar(); }
+}
+async function crCollabPoll(force){
+  if(!crCollab.on||(!force&&crCollab.saving)) return;
+  const gen=crCollab.gen;                              // a save during this request makes its answer stale
+  let j; try{ j=await cohesionAuthFetch('collab',{action:'poll', gameId:GAME.id, seen:crCollab.seen, sinceId:crCollab.sinceId}); }catch(e){ crCollab.err='Connection lost — '+(e.message||e); crCollabBar(); return; }
+  if(!crCollab.on||crCollab.saving||crCollab.gen!==gen) return;   // a save started (or finished) meanwhile: the next look is fresh
+  crCollab.peers=j.peers||[]; Object.assign(crCollab.seen, j.seqs||{});
+  let added=0, changed=0, removed=0; const clash=[];
+  (j.rows||[]).forEach(r=>{ const id=r.id; if(crDeleted.some(d=>String(d.id)===String(id))||crSavedDel.has(String(id))) return;   // never bring back a row you deleted
+    const e=EVENTS.find(x=>String(x._rowId)===String(id));
+    if(e){ if(e._dirty){ clash.push(e.code); return; }
+      const nd=JSON.stringify(r.data), od=JSON.stringify(crCleanData(e)); if(nd===od) return;
+      Object.keys(e).forEach(k=>{ if(k!=='_rowId') delete e[k]; }); Object.assign(e, r.data); e._rowId=id; changed++; }
+    else { EVENTS.push(Object.assign({}, r.data, {_rowId:id})); added++; } });
+  (j.deleted||[]).forEach(id=>{ const i=EVENTS.findIndex(x=>String(x._rowId)===String(id)); if(i>=0){ if(String(activeId)===String(id)){ activeId=null; draft=null; } EVENTS.splice(i,1); removed++; } });
+  crCollab.sinceId=Math.max(crCollab.sinceId, +j.maxId||0);
+  if(clash.length) crCollab.note='You and a partner both changed '+clash[0]+(clash.length>1?' (and '+(clash.length-1)+' more)':'')+' — yours is kept and saved.';
+  if(added||changed||removed){ EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0)); refreshDatalists(); crUpdatePending(); renderList(); if(activeId&&!draft) renderPanel(); }
+  crCollabBar();
+}
+function crCollabBar(){
+  const chip=document.getElementById('crColChip'); if(!chip) return;
+  if(!crCollab.on){ chip.style.display='none'; chip.innerHTML=''; return; }
+  const now=Date.now(), ago=t=>{ const s=Math.max(0,Math.round((now-t)/1000)); return s<60?s+' s':Math.round(s/60)+' min'; };
+  const live=crCollab.peers.filter(p=>p.live), tplBad=live.some(p=>p.tpl&&p.tpl!==crCollabTpl());
+  chip.style.display='inline-flex';
+  chip.innerHTML='👥 <b>You</b>: '+esc(crLaneText(crCollab.lane))+(live.length?live.map(p=>' · <b>'+esc(p.name)+'</b>: '+esc(crLaneText(p.lane))+(p.lastTag?' <span class="ago">(tagged '+ago(p.lastTag)+' ago)</span>':'')).join(''):' · <span class="ago">waiting for a partner…</span>')
+    +(tplBad?' · <span class="warn">⚠ different template</span>':'')+(crCollab.err?' · <span class="warn">'+esc(crCollab.err)+'</span>':'')+(crCollab.note?' · <span class="warn">'+esc(crCollab.note)+'</span>':'');
+  chip.title='Tagging together — click to change your lane or leave';
+}
+
 // ── ⇆ DIRECTION OF PLAY (Nov 2026) ──────────────────────────────────────────────────────────────────────────────────
 // Asked once per game, in the terms the analyst sees: "in the 1st half <team> attack the goal on the LEFT / RIGHT of
 // the main camera" (the other team the other goal; the 2nd half switches; extra time has its own 1st-half answer and
@@ -5826,6 +5958,7 @@ async function codeAddPlayer(){ const n=((await cohPrompt('Player name:'))||'').
 let crLastTag=null, crReplay=null, crTagHist=[];
 const CR_TAG_HIST=30;
 function crNoteTag(row){
+  if(crCollab.on&&row&&!row.by) row.by=crInitials(crCollabMe());   // 👥 who tagged it
   crLastTag={start:row.start, end:row.end, rowId:row._rowId};
   crTagHist.push({row, id:row._rowId, tmp:row._rowId}); if(crTagHist.length>CR_TAG_HIST) crTagHist.shift();
   crReplaySync();
@@ -5872,6 +6005,10 @@ function crReplaySync(){
   b.title=row?'Play the last tag again, then come back here (R) — Shift+click or Shift+R plays it at half speed':'Nothing tagged yet';
 }
 function codeTag(baseCode, opts){
+  if(crCollab.on){ const side=(opts&&opts.otherTeam)?(codeMode.team==='home'?'away':'home'):codeMode.team;
+    if(!crLaneOk(baseCode, side)){ const k=baseCode+'|'+side, t=crCollab.warned[k];
+      if(!t||Date.now()-t>4000){ crCollab.warned[k]=Date.now(); const f=document.getElementById('codeFlash'); if(f) f.textContent='👥 '+baseCode+' for '+codeTeamName(side)+' is outside your lane ('+crLaneText(crCollab.lane)+') — press again to tag it anyway.'; return; }
+      delete crCollab.warned[k]; } }
   if(crReplay){ const f=document.getElementById('codeFlash'); if(f) f.textContent='Replay running — press R to return first.'; return; }
   // Tagging a fresh event moves past any outcome prompt still awaiting an answer (and the tag pop-up).
   crStepClose();
@@ -9324,13 +9461,14 @@ function undo(){
   if(op.type==='state'){                          // a Redo, undone: the whole queued state as it was before it
     crUndoRestore(op.snap); if(activeId!=null&&!EVENTS.some(x=>String(x._rowId)===String(activeId))) activeId=null; draft=null;
   } else if(op.type==='edit'){
-    const e=EVENTS.find(x=>String(x._rowId)===String(op.snapshot._rowId));
-    if(e){ Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,op.snapshot); crSyncKoBreaks(e); }   // a kickout's break rows follow its restored outcome
-    activeId=op.snapshot._rowId; draft=null;
+    const e=EVENTS.find(x=>String(x._rowId)===crRid(op.snapshot._rowId));
+    if(e){ const id=e._rowId, saved=!e._new&&!e._dirty; Object.keys(e).forEach(k=>delete e[k]); Object.assign(e,op.snapshot); e._rowId=id; if(saved){ delete e._new; e._dirty=true; } crSyncKoBreaks(e); }   // a kickout's break rows follow its restored outcome; an edit SAVED since (👥 autosave) keeps its db id and is saved again
+    activeId=e?e._rowId:op.snapshot._rowId; draft=null;
   } else if(op.type==='add'){
-    EVENTS=EVENTS.filter(x=>String(x._rowId)!==String(op.rowId)); activeId=null; draft=null;
+    const rid=crRid(op.rowId); crGoneSaved(EVENTS.find(x=>String(x._rowId)===rid));
+    EVENTS=EVENTS.filter(x=>String(x._rowId)!==rid); activeId=null; draft=null;
   } else if(op.type==='delete'){
-    EVENTS.push(op.snapshot);
+    EVENTS.push(crBackIn(op.snapshot, op.wasNew));
     if(!op.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(op.snapshot._rowId));
     activeId=op.snapshot._rowId; draft=null;
   } else if(op.type==='syncshift'){
@@ -9343,7 +9481,8 @@ function undo(){
     if('fileRows' in op&&GAME){ if(op.fileRows) GAME.rows=op.fileRows; crRowPend.length=Math.min(crRowPend.length, op.rowPend||0); }   // a renamed row's place / colour in the file's row list
     draft=null;
   } else if(op.type==='addmany'){                 // e.g. Gaelic Insights conversion
-    const ids=new Set(op.rowIds.map(String));
+    const ids=new Set(op.rowIds.map(crRid));
+    EVENTS.filter(x=>ids.has(String(x._rowId))).forEach(crGoneSaved);
     EVENTS=EVENTS.filter(x=>!ids.has(String(x._rowId))); activeId=null; draft=null;
   } else if(op.type==='merge'){                   // Merge another XML: new rows out, changed rows back, removed rows back
     const ids=new Set(op.rowIds.map(String));
@@ -9354,7 +9493,7 @@ function undo(){
     activeId=null; draft=null;
     if(op.etfix){ if(GAME){ if(op.etfix.had) GAME.scPeriods=op.etfix.scPeriods; else delete GAME.scPeriods; } crEtPend=op.etfix.pend; crPeriodOpts(); }   // Mark extra time: the period rows too
   } else if(op.type==='bulkdelete'){
-    op.snaps.forEach(s=>{ EVENTS.push(s.data); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
+    op.snaps.forEach(s=>{ EVENTS.push(crBackIn(s.data, s.wasNew)); if(!s.wasNew) crDeleted=crDeleted.filter(d=>String(d.id)!==String(s.data._rowId)); });
     draft=null;
   }
   EVENTS.sort((a,b)=>(a.driveT??0)-(b.driveT??0)||(a.start??0)-(b.start??0));
