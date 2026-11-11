@@ -794,7 +794,7 @@ body.crfit .crsv{flex:1;min-height:0;}
           <div id="codePeriods" class="codebtns"></div>
           <div class="ep-lbl">Team</div>
           <div id="codeTeams" class="codebtns"></div>
-          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeLinks()" title="Linked tags: rows added automatically with a tag — see them and add your own rules">🔗 Links</button><button class="cbtn mini" style="padding:4px 8px;" onclick="crCollabOpen()" title="Tag together — two or more people tagging this game at once, each in their own lane">👥</button></div>
+          <div class="ep-lbl" style="display:flex;align-items:center;gap:8px;">Event <span style="color:var(--t3);font-weight:400;flex:1;">— click (or press 1–9) to tag at the current video moment</span><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeKeys()" title="Choose which code sits on each number key">⚙ Keys</button><button class="cbtn mini" style="padding:4px 8px;" onclick="toggleCodeLinks()" title="Linked tags: rows added automatically with a tag — see them and add your own rules">🔗 Links</button></div>
           <div id="codeKeysEditor" style="display:none;"></div>
           <div id="codeLinksEditor" class="crlk-ed" style="display:none;"></div>
           <div id="codeEvents" class="codebtns"></div>
@@ -5713,6 +5713,9 @@ function crLaneOk(base, side){
   return (L.codes||[]).includes(String(base).toUpperCase());
 }
 function crLaneText(L){ return !L||L.kind==='all'?'both teams':L.kind==='team'?L.team:(L.codes||[]).join(', ')||'—'; }
+// (Nov 2026) No 👥 button on the website: several taggers on one game run on the desktop app's 📡 Live session, over
+// the Mac's own network, so nothing goes through the website during a game. This code (and netlify/functions/collab.js)
+// stays for a possible remote-tagging option later.
 function crCollabOpen(){
   if(!GAME||GAME._local){ alert('Tagging together needs a saved game (not a local video session).'); return; }
   let ov=document.getElementById('crCol'); if(!ov){ ov=document.createElement('div'); ov.id='crCol'; ov.className='crdir-ov'; document.body.appendChild(ov); ov.addEventListener('mousedown',e=>{ if(e.target===ov) ov.style.display='none'; }); }
