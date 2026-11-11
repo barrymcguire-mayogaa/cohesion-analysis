@@ -6771,6 +6771,15 @@ document.addEventListener('keydown', e=>{
   const on=crToggleFlag(row);
   if(codeMode.on){ const f=document.getElementById('codeFlash'); if(f) f.textContent=on?('⚑ '+(row.code||'')+' flagged for review — sweep them later with the ⚑ filter'):((row.code||'')+' — review flag removed'); }
 });
+// Clicking the YouTube video puts the keyboard inside YouTube's own frame, and from then on every key goes to
+// YouTube instead of Code Room: YouTube's ← → also jump 5 s (so plain arrows still seemed to work) but it ignores
+// Shift+← → (1 s), its 0–9 jump the video to 0–90 %, F goes full screen and letters never tag. Take the keyboard
+// back as soon as it lands in the video — the click itself (play / pause / the seek bar) has already happened.
+window.addEventListener('blur', ()=>setTimeout(()=>{
+  const a=document.activeElement, w=document.getElementById('vwrap');
+  if(!(a&&a.tagName==='IFRAME'&&w&&w.contains(a))) return;
+  try{ a.blur(); }catch(_){} try{ window.focus(); }catch(_){}
+}, 0));
 // Arrow keys: ← → seek the video 5s (Shift+← → = 1s, both modes);
 // ↑ ↓ step through the event list in Edit mode (selects + cues the clip).
 document.addEventListener('keydown', e=>{
