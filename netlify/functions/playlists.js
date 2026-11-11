@@ -680,6 +680,28 @@ exports.handler = async (event, context) => {
       return J(200, { ok: true, stored: true, path, url: urls.get(path) || null });
     }
 
+    // ── ✨ the team's shared drawing styles: one small JSON file per section in the stills bucket (no table) ──
+    // read: anyone in the section · save: staff (admins / analysts) — the whole list, checked (T.cleanStyles)
+    if (action === 'teleStyles' || action === 'teleStylesSave') {
+      const sec = String(body.section || u.sections[0] || '').toLowerCase();
+      if (!/^[a-z0-9-]{1,20}$/.test(sec) || !u.sections.includes(sec)) return forbid('no access to that section');
+      const store = stillStore(), path = 'styles/' + sec + '.json';
+      if (action === 'teleStyles') {
+        if (!store) return J(200, { ok: true, styles: [], canShare: !!u.staff });
+        const r = await safe(store.download(path));
+        if (r.error || !r.data) return J(200, { ok: true, styles: [], canShare: !!u.staff });   // none shared yet
+        let txt = ''; try { txt = typeof r.data.text === 'function' ? await r.data.text() : Buffer.isBuffer(r.data) ? r.data.toString('utf8') : String(r.data); } catch (_) { txt = ''; }
+        let arr = []; try { arr = JSON.parse(txt); } catch (_) { arr = []; }
+        return J(200, { ok: true, styles: T.cleanStyles(arr), canShare: !!u.staff });
+      }
+      if (!u.staff) return forbid('only staff (admins and analysts) share drawing styles with the team');
+      const styles = T.cleanStyles(body.styles);
+      if (!store) return J(500, { error: 'Storage is not set up' });
+      const up = await safe(store.upload(path, Buffer.from(JSON.stringify(styles)), { contentType: 'application/json', upsert: true, cacheControl: '0' }));
+      if (up.error) return J(500, { error: 'The styles could not be saved: ' + up.error.message });
+      return J(200, { ok: true, styles, canShare: true });
+    }
+
     // ── comments: anyone who can see the playlist; on the playlist or on one clip, optionally at a moment ──
     // A comment at a moment on a clip may carry a DRAWING (it belongs to the comment); its text may @mention people.
     if (['comment', 'commentEdit', 'commentDelete'].includes(action)) {

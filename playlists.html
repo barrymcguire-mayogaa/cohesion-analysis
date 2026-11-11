@@ -354,6 +354,10 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 .pp-tip{color:#6f7588;font-size:11px;}
 .spotbar{position:fixed;z-index:10029;display:none;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#12141c;border:1px solid #2c3040;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;}
 .spotbar button{padding:5px 9px;border-radius:7px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:inherit;cursor:pointer;} .spotbar button.pri{background:#22c55e;border-color:#22c55e;color:#04130a;}
+.dst-up{right:auto;left:-5px;}
+.pp-cam{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.4);border-radius:8px;padding:6px 8px;margin:0 0 8px;} .pp-cam b{color:#ffd600;}
+.pp-seg{display:flex;gap:6px;margin-top:6px;} .pp-seg button{flex:1;padding:5px;border-radius:7px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;} .pp-seg button.on{background:#4fc3f7;border-color:#4fc3f7;color:#04202d;}
+.pp-rev{margin:0 0 8px;color:#9aa0b4;font-size:11.5px;}
 </style>
 </head>
 <body>
@@ -1908,7 +1912,8 @@ function dPitchOpen(){
   if(!ED||!window.CohPitch) return;
   if(ED.hasCurrent()) ED.finishCurrent();
   const p=ED.getPitch();
-  PC={len:(p&&p.len)||CohPitch.DEF_LEN, wid:(p&&p.wid)||CohPitch.DEF_WID, pts:p?p.pts.map(q=>Object.assign({},q)):[], show:p?p.show!==false:true, sel:p?null:'A20a', drag:null, msg:''};
+  const ang=(ITEMS[playIdx]&&ITEMS[playIdx].angle)||'';
+  PC={len:(p&&p.len)||CohPitch.DEF_LEN, wid:(p&&p.wid)||CohPitch.DEF_WID, pts:p?p.pts.map(q=>Object.assign({},q)):[], show:p?p.show!==false:true, rev:!!(p&&p.rev), ang, sel:p?null:'A20a', drag:null, msg:''};
   let pn=document.getElementById('pitchPanel');
   if(!pn){ pn=document.createElement('div'); pn.id='pitchPanel'; pn.className='pitchpanel'; document.body.appendChild(pn);
     pn.addEventListener('click',e=>{ const k=e.target.closest&&e.target.closest('.cp-kp'); if(k&&PC){ PC.sel=k.getAttribute('data-k'); PC.msg=''; pcRender(); } });
@@ -1957,6 +1962,8 @@ function pcRender(fast){
     +CohPitch.diagramSvg(PC.len, PC.wid, 300, {sel:PC.sel, placed:PC.pts.map(t=>t.k)})
     +(PC.msg?'<div class="pp-msg">'+esc(PC.msg)+'</div>':'')
     +'<div class="pp-q'+(M&&M.err>=12?' bad':M?' ok':'')+'">'+esc(n+' point'+(n===1?'':'s')+' · '+q)+'</div>'
+    +(PC.ang?'<div class="pp-cam"><b>This clip is from the '+esc(PC.ang)+' camera.</b> Does it see the pitch the same way as the main camera (left goal on the left)?<div class="pp-seg"><button type="button" class="'+(PC.rev?'':'on')+'" onclick="PC.rev=false;pcRender()">Same way</button><button type="button" class="'+(PC.rev?'on':'')+'" onclick="PC.rev=true;pcRender()">The other way round</button></div></div>'
+      :'<label class="pp-chk pp-rev"><input type="checkbox"'+(PC.rev?' checked':'')+' onchange="PC.rev=this.checked"> This camera sees the pitch the other way round from the main camera</label>')
     +'<div class="pp-row"><label>Pitch <input type="number" min="100" max="160" step="0.5" value="'+PC.len+'" onchange="pcSize(\'len\',this.value)"> × <input type="number" min="60" max="100" step="0.5" value="'+PC.wid+'" onchange="pcSize(\'wid\',this.value)"> m</label>'
     +'<label class="pp-chk"><input type="checkbox"'+(PC.show?' checked':'')+' onchange="PC.show=this.checked"> Show the lines</label></div>'
     +'<div class="pp-row pp-btns"><button type="button" onclick="pcUndoPoint()"'+(n?'':' disabled')+'>↶ Last point</button><button type="button" onclick="pcReset()"'+(n?'':' disabled')+'>Reset</button><span style="flex:1"></span><button type="button" class="pri" onclick="dPitchClose(true)">✓ Done</button></div>'
@@ -1993,9 +2000,9 @@ async function dSpotAdd(redo){
   const c=g.G.dashCoordOf(e);
   if(!c){ spotMsg('This '+(kind==='ko'?'kickout':'shot')+' has no location tagged yet (📍 Locate in Code Room).', true); return; }
   // which goal: from the game's direction of play (⇆ Direction in Code Room); asked here when the game has none
-  const dir=(g.meta&&g.meta.dirOfPlay)||null, auto=CohPitch.spotEnd(dir, e.team, e.half, kind);
+  const dir=(g.meta&&g.meta.dirOfPlay)||null, auto0=CohPitch.spotEnd(dir, e.team, e.half, kind), auto=auto0&&P.rev?(auto0==='A'?'B':'A'):auto0;   // 📐 marked this camera the other way round
   if(!redo&&!auto){ spotAsk(g, e, kind); return; }
-  const o=redo||{end:auto, mirror:false, flipped:false};
+  const o=redo||{end:auto, mirror:false, flipped:!!P.rev};
   if(redo&&SPOT&&SPOT.n){ const cur=ED.shapes(); if(JSON.stringify(cur.slice(-SPOT.n))===SPOT.json) ED.undo(); }   // only when the spot's own shapes are still the last thing added
   const [X,Y]=CohPitch.chartToPitch(M.len, M.wid, kind, c.x, c.y, o.end, o.mirror), at=CohPitch.toFrame(M, X, Y);
   if(!at){ spotMsg('That spot is out of this camera’s view on this line-up — if this camera sees the pitch the other way round, use ⇄.', false); SPOT={n:0, end:o.end, mirror:o.mirror, flipped:!!o.flipped, kind, team:String(e.team||'').toUpperCase(), half:e.half||''}; spotBar(); return; }
@@ -2053,6 +2060,7 @@ function dPitchClose(save){
   if(!PC) return;
   if(save&&ED){ const keep=PC.pts.length?{len:PC.len, wid:PC.wid, pts:PC.pts.map(q=>({k:q.k, x:Math.round(q.x*10000)/10000, y:Math.round(q.y*10000)/10000}))}:null;
     if(keep&&!PC.show) keep.show=false;
+    if(keep&&PC.rev) keep.rev=true;
     const was=JSON.stringify(ED.getPitch()), now=keep?JSON.stringify(Object.assign({}, keep, {type:'pitch'})):'null';
     if(was!==now) ED.setPitch(keep); }
   PC=null;
@@ -2069,12 +2077,30 @@ const D_STYLES_KEY='coh_tele_styles';
 function dStylesLoad(){ try{ const a=JSON.parse(localStorage.getItem(D_STYLES_KEY)||'[]'); return Array.isArray(a)?a.filter(x=>x&&x.name&&x.tool).slice(0,40):[]; }catch(_){ return []; } }
 function dStylesSave(a){ try{ localStorage.setItem(D_STYLES_KEY, JSON.stringify(a.slice(0,40))); }catch(_){} }
 function dStylePreview(shape){ const W=70,H=40; return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" aria-hidden="true">'+CohTele.render([{shapes:[shape], color:'#ffd600'}],W,H,{id:'sp'+(dStylePreview.n=(dStylePreview.n||0)+1)})+'</svg>'; }
+// the team's shared styles (the playlist's section; read by everyone, shared / removed by staff) — cached per page
+let TEAM_STYLES=null, TEAM_CAN=false, TEAM_LOADING=null;
+function teamSection(){ return (CUR&&CUR.section)||'county'; }
+function teamStylesLoad(force){
+  if(TEAM_LOADING&&!force) return TEAM_LOADING;
+  TEAM_LOADING=plAuthFetch({action:'teleStyles', section:teamSection()}).then(j=>{ TEAM_STYLES=(j&&j.styles)||[]; TEAM_CAN=!!(j&&j.canShare); dStylesPaint(); return TEAM_STYLES; })
+    .catch(()=>{ TEAM_STYLES=TEAM_STYLES||[]; dStylesPaint(); return TEAM_STYLES; });
+  return TEAM_LOADING;
+}
+async function teamStylesSave(mut){
+  try{ const cur=await plAuthFetch({action:'teleStyles', section:teamSection()}); const list=mut(((cur&&cur.styles)||[]).slice());
+    const j=await plAuthFetch({action:'teleStylesSave', section:teamSection(), styles:list}); TEAM_STYLES=(j&&j.styles)||list; dStylesPaint(); return true; }
+  catch(e){ alert('The team styles could not be saved: '+(e.message||e)); return false; }
+}
+function dShareMine(i){ const m=dStylesLoad()[i]; if(!m) return; const me=(typeof cohesionUser==='function'&&cohesionUser()&&cohesionUser().name)||'';
+  teamStylesSave(L=>[Object.assign({}, m, me?{by:me}:{})].concat(L.filter(x=>x.name.toLowerCase()!==m.name.toLowerCase()))); }
+function dDelTeam(i){ const m=(TEAM_STYLES||[])[i]; if(!m||!confirm('Remove “'+m.name+'” from the team’s styles? (Your own copies stay.)')) return; teamStylesSave(L=>L.filter(x=>x.name.toLowerCase()!==m.name.toLowerCase())); }
+function dPickTeam(i){ const m=(TEAM_STYLES||[])[i]; if(m) dApplyStyle(m); }
 function dStylesOpen(btn){
   let p=document.getElementById('dStyles');
   if(p&&p.style.display==='block'){ p.style.display='none'; return; }
   if(!p){ p=document.createElement('div'); p.id='dStyles'; p.className='dstyles'; document.body.appendChild(p);
     document.addEventListener('pointerdown',e=>{ const q=document.getElementById('dStyles'); if(q&&q.style.display==='block'&&!q.contains(e.target)&&!(e.target.closest&&e.target.closest('#dStylesBtn'))) q.style.display='none'; }, true); }
-  dStylesPaint();
+  dStylesPaint(); teamStylesLoad(true);
   const tp=document.getElementById('dTip'); if(tp) tp.style.display='none';
   p.style.display='block';
   const r=btn.getBoundingClientRect(), pw=p.offsetWidth, ph=p.offsetHeight;
@@ -2091,8 +2117,11 @@ function dStylesPaint(){
   const sel=ED&&ED.selected();
   p.innerHTML='<div class="dst-h">Ring styles</div><div class="dst-g">'+rings+'</div>'
     +'<div class="dst-h">Markers <small>— click over each player; Number counts 1, 2, 3…</small></div><div class="dst-g">'+marks+'</div>'
+    +'<div class="dst-h">Team styles <small>— shared with everyone in '+esc(teamSection())+(TEAM_CAN?'':' (staff add them)')+'</small></div>'
+    +(TEAM_STYLES==null?'<div class="dst-none">Loading…</div>':TEAM_STYLES.length?'<div class="dst-g">'+TEAM_STYLES.map((m,i)=>'<span class="dst mine"><button type="button" class="dst-use" onclick="dPickTeam('+i+')" title="'+esc(m.name+(m.by?' — shared by '+m.by:''))+'">'+dStylePreview(dStyleShape(m))+'<span>'+esc(m.name)+'</span></button>'+(TEAM_CAN?'<button type="button" class="dst-x" onclick="dDelTeam('+i+')" title="Remove from the team’s styles" aria-label="Remove '+esc(m.name)+'">×</button>':'')+'</span>').join('')+'</div>'
+      :'<div class="dst-none">None yet'+(TEAM_CAN?' — share one of your styles below with ⇪.':'.')+'</div>')
     +'<div class="dst-h">Your styles <small>— kept in this browser</small></div>'
-    +(mine.length?'<div class="dst-g">'+mine.map((m,i)=>'<span class="dst mine"><button type="button" class="dst-use" onclick="dPickMine('+i+')">'+dStylePreview(dStyleShape(m))+'<span>'+esc(m.name)+'</span></button><button type="button" class="dst-x" onclick="dDelMine('+i+')" title="Delete this style" aria-label="Delete '+esc(m.name)+'">×</button></span>').join('')+'</div>'
+    +(mine.length?'<div class="dst-g">'+mine.map((m,i)=>'<span class="dst mine"><button type="button" class="dst-use" onclick="dPickMine('+i+')">'+dStylePreview(dStyleShape(m))+'<span>'+esc(m.name)+'</span></button><button type="button" class="dst-x" onclick="dDelMine('+i+')" title="Delete this style" aria-label="Delete '+esc(m.name)+'">×</button>'+(TEAM_CAN?'<button type="button" class="dst-x dst-up" onclick="dShareMine('+i+')" title="Share with the team" aria-label="Share '+esc(m.name)+' with the team">⇪</button>':'')+'</span>').join('')+'</div>'
       :'<div class="dst-none">None yet — style a shape, select it, then save its look here.</div>')
     +'<button type="button" class="dst-save" onclick="dSaveMine()"'+(sel?'':' disabled')+'>★ Save the selected shape’s look'+(sel?'':' (select a shape first)')+'</button>';
 }
@@ -2107,8 +2136,8 @@ function dStyleShape(m){ const c=m.color||'#ffd600', base={color:c, w:m.w||4};
 }
 function dPickRing(k){ dRingStyle=k; dSetTool('ring'); if(ED) ED.set('ringStyle',k); dStylesPaint(); }
 function dPickMark(k){ dMarkKind=k; dSetTool('mark'); if(ED) ED.set('markKind',k); dStylesPaint(); }
-function dPickMine(i){
-  const m=dStylesLoad()[i]; if(!m) return;
+function dPickMine(i){ const m=dStylesLoad()[i]; if(m) dApplyStyle(m); }
+function dApplyStyle(m){
   dSetTool(m.tool);
   if(m.color) dSetColor(m.color,null); if(m.w) dSetW(m.w); dSetAlpha(m.alpha||1); if(ED) ED.endStyleRun();
   if(m.fill&&['rect','ellipse','poly','link','pen'].includes(m.tool)){ dFill=m.fill; if(ED) ED.set('fill',dFill); }

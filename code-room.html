@@ -1040,6 +1040,9 @@ function crFitUpdate(){
   document.body.classList.toggle('crfit', on);
   return on;
 }
+// the video's first size (no size picked yet on this device): M, or S on a touch screen (an iPad) so the List and
+// Timeline under it get room; S / M / L / Xl still change it, and the choice is remembered
+function crDefH(){ try{ if(window.matchMedia&&matchMedia('(pointer:coarse)').matches) return 340; }catch(_){} return 480; }
 function crVidMaxH(){
   if(document.body.classList.contains('crfit')){
     // the left column's height less the transport bar, the drag handle and the List / Timeline box's minimum
@@ -1065,13 +1068,13 @@ function initVH(){
   if(!vid) return;
   crFitUpdate();
   let saved=0; try{ saved=+localStorage.getItem('cr_vidH')||0; }catch(_){}
-  crSetH(saved>=180 ? saved : 480, true);
+  crSetH(saved>=180 ? saved : crDefH(), true);
   // the window (or, in fit mode, the left column — the toolbar wrapping, the sync bar) changes size: re-fit the video
   if(!window._crFitRs){ window._crFitRs=true;
     let rq=0;
     const again=()=>{ if(!GAME) return; crFitUpdate();
       let s=0; try{ s=+localStorage.getItem('cr_vidH')||0; }catch(_){}
-      crSetH(s>=180?s:480, true); };
+      crSetH(s>=180?s:crDefH(), true); };
     const soon=()=>{ cancelAnimationFrame(rq); rq=requestAnimationFrame(again); };
     window.addEventListener('resize', soon);
     const col=document.getElementById('vwrap').parentElement;   // fixed by the window in fit mode, so this never loops

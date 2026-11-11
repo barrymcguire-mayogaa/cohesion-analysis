@@ -75,12 +75,12 @@ function cleanShape(s, budget) {
   switch (s.type) {
     case 'free': { const p = pts(s.pts, budget); if (!p || p.length < 2) return null; o.pts = p; break; }
     case 'line': case 'arrow': case 'darrow': case 'dist': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; break;
-    case 'pitch': {                                             // 📐 the line-up with the pitch: its size and up to 16 matched points
+    case 'pitch': {                                             // 📐 the line-up with the pitch: its size and up to 16 matched points; rev = this camera sees the pitch the other way round from the main camera
       o.len = num(s.len, 100, 160) || 140; o.wid = num(s.wid, 60, 100) || 85; delete o.w;
       if (!Array.isArray(s.pts)) return null; const P = [], seen = new Set();
       for (const q of s.pts) { if (P.length >= 16 || budget.n <= 0) break; if (!q || typeof q !== 'object' || typeof q.k !== 'string' || !/^[ABH][a-z0-9]{1,6}$/.test(q.k) || seen.has(q.k)) continue;
         const x = handle(q.x), y = handle(q.y); if (x == null || y == null) continue; seen.add(q.k); P.push({ k: q.k, x, y }); budget.n--; }
-      if (!P.length) return null; o.pts = P; if (s.show === false) o.show = false; delete o.color; delete o.alpha; break; }
+      if (!P.length) return null; o.pts = P; if (s.show === false) o.show = false; if (s.rev === true) o.rev = true; delete o.color; delete o.alpha; break; }
     case 'carrow': { if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; const cx = handle(s.cx), cy = handle(s.cy);
       o.cx = cx == null ? (o.x1 + o.x2) / 2 : cx; o.cy = cy == null ? (o.y1 + o.y2) / 2 : cy; break; }
     case 'rect': case 'ellipse': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; fill(); break;
@@ -178,6 +178,29 @@ function resolveMentions(text, allowed, known) {
   return { text: out, mentions: keep };
 }
 
-module.exports = { PALETTE, colorOf, nextColorIdx, cleanShape, cleanDrawing, cleanStops, TYPES,
+// ✨ the team's shared drawing styles (a shape's LOOK, never a position): at most 40, every field checked
+const STYLE_TOOLS = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'ring', 'mark', 'dist'];
+function cleanStyles(list) {
+  const out = [], seen = new Set();
+  for (const m of Array.isArray(list) ? list : []) {
+    if (out.length >= 40) break;
+    if (!m || typeof m !== 'object' || Array.isArray(m)) continue;
+    const name = cleanText(m.name, 30); if (!name || seen.has(name.toLowerCase()) || !STYLE_TOOLS.includes(m.tool)) continue;
+    const o = { name, tool: m.tool }; seen.add(name.toLowerCase());
+    const c = color(m.color); if (c) o.color = c; const w = num(m.w, 1, 16); if (w != null) o.w = w; const a = num(m.alpha, 0.1, 1); if (a != null && a !== 1) o.alpha = a;
+    const f = fillOf(m.fill); if (f) o.fill = f;
+    if (m.tool === 'ring' && m.ringStyle && typeof m.ringStyle === 'object') { const r = cleanShape({ type: 'ring', cx: 0.5, cy: 0.5, rings: m.ringStyle.rings, glow: m.ringStyle.glow }, { n: 100 });
+      if (r && r.rings) o.ringStyle = { rings: r.rings, glow: !!r.glow }; }
+    if (m.tool === 'mark' && ['tri', 'chev', 'dot', 'num'].includes(m.markKind)) o.markKind = m.markKind;
+    const t = num(m.tilt, 0.12, 1); if (t != null && ['ring', 'spot', 'focus'].includes(m.tool)) o.tilt = t;
+    if (m.tool === 'spot' && typeof m.beam === 'boolean') o.beam = m.beam;
+    if (m.tool === 'text' && ['plain', 'dark', 'box'].includes(m.textStyle)) o.textStyle = m.textStyle;
+    const by = cleanText(m.by, 60); if (by) o.by = by;
+    out.push(o);
+  }
+  return out;
+}
+
+module.exports = { PALETTE, colorOf, nextColorIdx, cleanShape, cleanDrawing, cleanStops, TYPES, cleanStyles,
   MAX_SHAPES, MAX_POINTS, MAX_TOTAL_POINTS, MAX_NODES, STILL_BUCKET, MAX_STILL, STILL_RE, stillPathOk, isJpeg,
   TOKEN_RE, mentionIds, plainText, resolveMentions };
