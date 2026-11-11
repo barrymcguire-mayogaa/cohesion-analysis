@@ -507,6 +507,18 @@ a.mode-btn{text-align:center;text-decoration:none;}
         <label>Date</label>
         <input type="date" id="gameDate">
       </div>
+      <div class="field">
+        <label>Venue <span style="font-weight:400;opacity:.7;">(optional)</span></label>
+        <input type="text" id="gameVenue" maxlength="80" placeholder="e.g. MacHale Park, Castlebar">
+      </div>
+      <div class="field">
+        <label>Referee <span style="font-weight:400;opacity:.7;">(optional)</span></label>
+        <input type="text" id="gameReferee" maxlength="80" placeholder="e.g. Seán Hurson (Tyrone)">
+      </div>
+      <div class="field">
+        <label>Weather <span style="font-weight:400;opacity:.7;">(optional)</span></label>
+        <input type="text" id="gameWeather" maxlength="60" list="cohWeatherList" placeholder="e.g. Wet and windy"><datalist id="cohWeatherList"><option value="Dry"><option value="Wet"><option value="Windy"><option value="Wet and windy"><option value="Sunny"><option value="Cold"><option value="Heavy pitch"><option value="Floodlit"></datalist>
+      </div>
       <div class="field full">
         <label>YouTube Video URL</label>
         <input type="url" id="youtubeUrl" placeholder="https://youtu.be/XXXXXXXXXXX">
@@ -952,6 +964,8 @@ function toggleAdminDiv(){
   if(cust) cust.style.display = (comp === '__custom__') ? '' : 'none';
 }
 // The competition actually saved: the dropdown choice, or the custom text.
+// venue / referee / weather (optional, Nov 2026): only the ones filled in go into the game's meta
+function gameExtrasMeta(){ const o={}; [['venue','gameVenue',80],['referee','gameReferee',80],['weather','gameWeather',60]].forEach(([k,id,n])=>{ const el=document.getElementById(id), v=el?String(el.value||'').replace(/\s+/g,' ').trim().slice(0,n):''; if(v) o[k]=v; }); return o; }
 function getCompetitionValue(){
   const v = document.getElementById('competition').value;
   if(v !== '__custom__') return v;
@@ -2912,6 +2926,7 @@ async function processGame(){
       competition,
       ...(division ? {division} : {}),
       round,
+      ...gameExtrasMeta(),
       homeTeam,
       awayTeam,
       homeColor: document.getElementById('homeColor').value,
@@ -4138,6 +4153,8 @@ function buildGameMetaFromExcel(row) {
   const round = row['round'] || row['Round'] || '';
   const division = row['division'] || row['Division'] || '';
   const venue = row['venue'] || row['Venue'] || '';
+  const referee = String(row['referee'] || row['Referee'] || row['ref'] || '').trim().slice(0, 80);
+  const weather = String(row['weather'] || row['Weather'] || row['conditions'] || '').trim().slice(0, 60);
   const homeColor = row['home_color'] || row['Home Color'] || '#0B2447';
   const awayColor = row['away_color'] || row['Away Color'] || '#22C55E';
   const thumbnail = youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : '';
@@ -4192,6 +4209,8 @@ function buildGameMetaFromExcel(row) {
     round: round,
     division: division,
     venue: venue,
+    ...(referee ? { referee } : {}),
+    ...(weather ? { weather } : {}),
     homeColor: homeColor,
     awayColor: awayColor,
     youtubeId: youtubeId,

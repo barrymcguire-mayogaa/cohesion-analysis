@@ -2288,6 +2288,11 @@ function shotPitchArt(){
     +curve(20, 13, .9)                                                                                                                   // the D: 13 m from the middle of the 20 m line
     +curve(0, SHOT_ARC_M, 1)                                                                                                             // 40 m arc, centred on the goal, from the 20 m line
     +ln(45);
+  // the TWO-POINT AREA: beyond the 40 m arc (from the 20 m line out), lightly shaded (after the border, which stays exactly as it was) — the pitch from the 20 m line down
+  // with the arc's inside cut out (even-odd)
+  { const arcP=shotLocus(0, SHOT_ARC_M, 20), yb=f(y0+72.6), y20=f(shotMY(20));
+    s+='<path d="M'+x0+' '+y20+'H'+x1+'V'+yb+'H'+x0+'Z M'+arcP.map(p=>p[0]+' '+p[1]).join(' L ')+'Z" fill="#ffffff" fill-opacity=".09" fill-rule="evenodd"/>'
+      +'<text x="'+f(x0+1.6)+'" y="'+f(y0+70.6)+'" font-size="2.6" font-weight="700" fill="#ffffff" fill-opacity=".55" font-family="Barlow Condensed,sans-serif" letter-spacing=".2">2-POINT AREA</text>'; }
   return s;
 }
 // ── end shot map geometry ──

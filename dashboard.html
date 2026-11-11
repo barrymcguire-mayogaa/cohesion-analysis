@@ -504,7 +504,9 @@ function buildPTM(){ cohGfxFillTeams(ALL, PTM); }
 function init(){
   const H=tc(GAME.homeTeam)||'Home',A=tc(GAME.awayTeam)||'Away';
   normalizeAngles();
-  document.getElementById('GT').innerHTML=`<strong>${H} v ${A}</strong> · ${GAME.competition||''} ${GAME.round||''}`;
+  { const e=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+    const extra=[GAME.venue?'📍 '+e(GAME.venue):'', GAME.referee?'Ref: '+e(GAME.referee):'', GAME.weather?e(GAME.weather):''].filter(Boolean).join(' · ');
+    document.getElementById('GT').innerHTML=`<strong>${H} v ${A}</strong> · ${GAME.competition||''} ${GAME.round||''}`+(extra?`<span class="gt-extra"> · ${extra}</span>`:''); }
   document.title=`COHESION — ${H} v ${A}`;
   document.getElementById('MA').innerHTML=buildHTML(H,A);
   setupAngleBtns();
@@ -518,6 +520,18 @@ function init(){
 // ── Deep link: dashboard.html?game=<id>&ev=<event id> opens the game with that event selected
 // and the video cued at it (&t=<seconds on the main angle> cues a time instead). No parameter,
 // or an id this game does not have, is a normal load.
+// play one event's clip from elsewhere on the page (a dot on the shot / kickout map): select it in the Events list (its
+// group opened, the row scrolled into view) and cue the video there — the same as a deep link to it
+function dashPlayEvent(e){
+  if(!e) return;
+  if(e.id!=null&&ALL.some(x=>x.id===e.id)){
+    if(typeof setVM==='function'&&typeof viewMode!=='undefined'&&viewMode!=='events'){ try{ setVM('events'); }catch(_){} }
+    const codes=[]; filtered.forEach(x=>{ if(!codes.includes(x.code)) codes.push(x.code); });
+    const gi=codes.indexOf(e.code); if(gi>=0&&typeof EG!=='undefined'){ EG.add(gi); try{ renderP(); }catch(_){} }
+    pickI(e.id);
+    const row=document.querySelector('.ev-inst.on'); if(row&&row.scrollIntoView){ try{ row.scrollIntoView({block:'center'}); }catch(_){} }
+  } else if(e.driveT!=null) seekV(e.driveT);
+}
 function dashDeepLink(){
   const q=new URLSearchParams(window.location.search), evId=q.get('ev'), tRaw=q.get('t');
   const ev=evId?ALL.find(e=>e.id!=null&&String(e.id)===evId):null;
@@ -798,7 +812,8 @@ function renderP(){if(viewMode==='events')renderEV();else if(viewMode==='stats')
 // its functions stay page globals because the inline handlers and the Stats /
 // Events views call them by name. loadGame() hands it the game.
 const DASH_GFX=cohesionGraphics({game:GAME, events:ALL, host:{renderSV:()=>renderSV(), populatePl:()=>populatePl(), setVM:m=>setVM(m), filterLbl:(g,v)=>filterLbl(g,v),
-  unmarkedET:()=>{ const X=sbET(); return X.inferred?X:null; }}});   // the scoreboard's unmarked extra time → the Stats period chips and the period filter
+  unmarkedET:()=>{ const X=sbET(); return X.inferred?X:null; },
+  playEvent:e=>dashPlayEvent(e)}});   // a dot on the shot / kickout map → its clip   // the scoreboard's unmarked extra time → the Stats period chips and the period filter
 cohesionGraphics.GLOBALS.forEach(k=>{ window[k]=DASH_GFX[k]; });
 function renderSV(){
   const sc=document.getElementById('ES'); if(!sc)return;

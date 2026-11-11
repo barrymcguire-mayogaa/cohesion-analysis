@@ -108,6 +108,7 @@ const host=ctx.host||{};
 function renderSV(){ if(typeof host.renderSV==='function') return host.renderSV.apply(null, arguments); }
 function populatePl(){ if(typeof host.populatePl==='function') return host.populatePl.apply(null, arguments); }
 function setVM(){ if(typeof host.setVM==='function') return host.setVM.apply(null, arguments); }
+// host.playEvent(e): the page can play an event's clip (the dashboard) — a dot on the shot / kickout map then plays it
 function filterLbl(){ if(typeof host.filterLbl==='function') return host.filterLbl.apply(null, arguments); }
 const tc=cohGfxTitleCase;
 // Gaelic Insights shots converted to COHESION shots (cohesion-gi.js): the
@@ -367,6 +368,11 @@ function shotPitchArt(){
     +curve(20, 13, .9)                                                                                                                   // the D: 13 m from the middle of the 20 m line
     +curve(0, SHOT_ARC_M, 1)                                                                                                             // 40 m arc, centred on the goal, from the 20 m line
     +ln(45);
+  // the TWO-POINT AREA: beyond the 40 m arc (from the 20 m line out), lightly shaded (after the border, which stays exactly as it was) — the pitch from the 20 m line down
+  // with the arc's inside cut out (even-odd)
+  { const arcP=shotLocus(0, SHOT_ARC_M, 20), yb=f(y0+72.6), y20=f(shotMY(20));
+    s+='<path d="M'+x0+' '+y20+'H'+x1+'V'+yb+'H'+x0+'Z M'+arcP.map(p=>p[0]+' '+p[1]).join(' L ')+'Z" fill="#ffffff" fill-opacity=".09" fill-rule="evenodd"/>'
+      +'<text x="'+f(x0+1.6)+'" y="'+f(y0+70.6)+'" font-size="2.6" font-weight="700" fill="#ffffff" fill-opacity=".55" font-family="Barlow Condensed,sans-serif" letter-spacing=".2">2-POINT AREA</text>'; }
   return s;
 }
 // ── end shot map geometry ──
@@ -502,14 +508,23 @@ function locTipWire(marks){
   box.appendChild(tip);
   const show=ev=>{ const el=ev.target.closest&&ev.target.closest('[data-li]'); const e=el&&locMap&&locMap.evs?locMap.evs[+el.getAttribute('data-li')]:null;
     if(!e){ tip.style.display='none'; return; }
-    tip.innerHTML=locTipText(e); tip.style.display='block';
+    tip.innerHTML=locTipText(e)+(typeof host.playEvent==='function'?'<div style="margin-top:4px;color:var(--accent,#4fc3f7);font-weight:700;">▶ '+(ev.pointerType==='touch'?'Tap again':'Click')+' to watch</div>':''); tip.style.display='block';
     const b=box.getBoundingClientRect(), r=el.getBoundingClientRect();
     let x=r.left+r.width/2-b.left+10, y=r.top-b.top-tip.offsetHeight-6;
     if(x+tip.offsetWidth>box.clientWidth) x=r.left-b.left-tip.offsetWidth-10;
     if(y<0) y=r.bottom-b.top+6;
     tip.style.left=Math.max(0,x)+'px'; tip.style.top=y+'px'; };
   svg.addEventListener('pointerover', show);
-  svg.addEventListener('click', show);
+  // ▶ a dot plays its clip (the dashboard): a click with the mouse; on a touch screen the first tap shows its card and a
+  // second tap on the same dot plays it. The map closes and the event is selected in the list, the video cued at it.
+  let lastTap=null;
+  svg.addEventListener('pointerup', ev=>{ lastTap=ev.pointerType==='touch'?lastTap:null; svg.__ptype=ev.pointerType; });
+  svg.addEventListener('click', ev=>{
+    const el=ev.target.closest&&ev.target.closest('[data-li]'), i=el?+el.getAttribute('data-li'):null, e=i!=null&&locMap&&locMap.evs?locMap.evs[i]:null;
+    if(!e||typeof host.playEvent!=='function'){ show(ev); return; }
+    if(svg.__ptype==='touch'&&lastTap!==i){ lastTap=i; show(Object.assign({}, ev, {target:el, pointerType:'touch'})); return; }
+    lastTap=null; closeLocMap(); host.playEvent(e);
+  });
   svg.addEventListener('pointerleave', ()=>{ tip.style.display='none'; });
 }
 function closeLocMap(){ const ov=document.getElementById('locOv'); if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); }

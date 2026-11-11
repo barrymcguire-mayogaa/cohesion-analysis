@@ -517,6 +517,11 @@ select option{background:var(--card);}
       <label>Date</label>
       <input type="date" id="eDate">
     </div>
+    <div class="edit-row">
+      <div class="edit-field half"><label>Venue</label><input type="text" id="eVenue" maxlength="80" placeholder="e.g. MacHale Park"></div>
+      <div class="edit-field half"><label>Referee</label><input type="text" id="eReferee" maxlength="80" placeholder="e.g. Seán Hurson (Tyrone)"></div>
+    </div>
+    <div class="edit-field"><label>Weather</label><input type="text" id="eWeather" maxlength="60" list="cohWeatherList" placeholder="e.g. Wet and windy"><datalist id="cohWeatherList"><option value="Dry"><option value="Wet"><option value="Windy"><option value="Wet and windy"><option value="Sunny"><option value="Cold"><option value="Heavy pitch"><option value="Floodlit"></datalist></div>
     <div class="edit-field" id="eSectionField">
       <label>Section</label>
       <select id="eSection"></select>
@@ -1124,6 +1129,9 @@ function startEdit(id, e){
   document.getElementById('eDivision').value    = g.division    || '';
   document.getElementById('eRound').value       = g.round       || '';
   document.getElementById('eDate').value        = g.date        || '';
+  document.getElementById('eVenue').value       = g.venue       || '';
+  document.getElementById('eReferee').value     = g.referee     || '';
+  document.getElementById('eWeather').value     = g.weather     || '';
   // its section (county / club / U20s) — only the sections this user can see are offered; the server checks again
   { const secs = cohesionSections(), cur = cohSectionOf(g), sel = document.getElementById('eSection');
     sel.innerHTML = ['county','club','u20'].filter(x => secs.includes(x) || x === cur).map(x => '<option value="'+x+'"'+(x===cur?' selected':'')+'>'+cohSectionLabel(x)+'</option>').join('');
@@ -1217,6 +1225,7 @@ async function confirmEdit(){
   g.division    = document.getElementById('eDivision').value || undefined;
   g.round       = document.getElementById('eRound').value.trim();
   g.date        = document.getElementById('eDate').value;
+  [['venue','eVenue',80],['referee','eReferee',80],['weather','eWeather',60]].forEach(([k,id,n])=>{ const v=String(document.getElementById(id).value||'').replace(/\s+/g,' ').trim().slice(0,n); if(v) g[k]=v; else delete g[k]; });
   g.title       = `${homeTeam} v ${awayTeam}`;
   const secWas = cohSectionOf(g), secNow = document.getElementById('eSection').value || secWas;
   if(secNow !== secWas) g.section = secNow;      // a game never moved keeps its meta exactly as it was
@@ -1232,8 +1241,9 @@ async function confirmEdit(){
   try{
     // This page's copy of the game dates from when the Library opened. Team sheets and goalkeepers are edited
     // elsewhere (Code Room, Dashboard), so the stored ones are re-read and kept — never overwritten by an old copy.
+    // (⇆ Direction of play, set in Code Room, likewise.)
     try{ let fm=(await cohesionRead({ action:'gameBundle', id: pendingEditId })).meta; if(typeof fm==='string') fm=JSON.parse(fm);
-      if(fm&&typeof fm==='object') ['rosters','keepers'].forEach(k=>{ if(fm[k]!==undefined) g[k]=fm[k]; else delete g[k]; }); }catch(_){}
+      if(fm&&typeof fm==='object') ['rosters','keepers','dirOfPlay'].forEach(k=>{ if(fm[k]!==undefined) g[k]=fm[k]; else delete g[k]; }); }catch(_){}
     await libAdminFetch('gameAdmin', { action:'updateMeta', gameId: pendingEditId, meta: g });
     // Renaming a team migrates its events (team field, code prefixes, player
     // label groups) so stats keep working; also heals games renamed before
