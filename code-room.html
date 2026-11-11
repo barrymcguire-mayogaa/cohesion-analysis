@@ -550,6 +550,19 @@ body.crfit .crsv{flex:1;min-height:0;}
   .crst.side .crst-form .cohps-bgrid{grid-template-columns:repeat(auto-fill,minmax(62px,1fr));row-gap:4px;}
   .crst.side .crst-form .cohps-nm{font-size:9.5px;}
 }
+.crdir-ov{position:fixed;inset:0;z-index:10010;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);}
+.crdir{width:440px;max-width:calc(100vw - 24px);background:var(--panel);color:var(--t1);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.6);padding:14px 16px;font:13px/1.45 Barlow,sans-serif;}
+.crdir-h{font:800 16px 'Barlow Condensed',sans-serif;letter-spacing:.6px;margin-bottom:10px;} .crdir-h span{font:500 12px Barlow,sans-serif;color:var(--t3);letter-spacing:0;margin-left:6px;}
+.crdir-pitch{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:end;gap:4px;height:64px;border-radius:9px;background:#2f6b3a;padding:6px;margin-bottom:10px;color:#e8f5e9;font:800 11px 'Barlow Condensed',sans-serif;letter-spacing:.8px;}
+.crdir-pitch .g{align-self:center;padding:6px 4px;border-radius:6px;border:1px dashed rgba(255,255,255,.4);text-align:center;} .crdir-pitch .g.on{background:rgba(255,214,0,.25);border-color:#ffd600;}
+.crdir-pitch .mid{text-align:center;opacity:.85;}
+.crdir-q{margin:6px 0 6px;} .crdir-q select{background:var(--card);color:var(--t1);border:1px solid var(--border);border-radius:6px;padding:3px 6px;font:700 12px 'Barlow Condensed',sans-serif;}
+.crdir-opt{color:var(--t3);}
+.crdir-seg{display:flex;gap:6px;margin-bottom:6px;} .crdir-seg button{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:800 13px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.crdir-seg button.on{background:var(--accent);border-color:var(--accent);color:#04202d;}
+.crdir-n{color:var(--t2);font-size:12px;margin:2px 0 8px;}
+.crdir-btns{display:flex;align-items:center;gap:8px;margin-top:10px;} .crdir-btns span{flex:1;color:var(--orange);font-size:12px;}
+.crdir-btns button{padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--t1);font:700 12.5px 'Barlow Condensed',sans-serif;cursor:pointer;} .crdir-btns button.pri{background:var(--green);border-color:var(--green);color:#04130a;} .crdir-btns button:disabled{opacity:.45;}
 </style>
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -639,6 +652,7 @@ body.crfit .crsv{flex:1;min-height:0;}
       </select>
       <button onclick="crPlayersPopup()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Rename a player across every event in this game">👥 Players</button>
       <button onclick="crTeamSheetEdit()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="This game's team sheets — each team's 1–15 and subs, with jersey numbers">👕 Team sheets</button>
+      <button id="crDirBtn" onclick="crDirOpen()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Direction of play — which goal each team attacks in each half, as the main camera sees the pitch (used to put tagged shots and kickouts on the frame)">⇆ Direction</button>
       <button id="crKprBtn" onclick="crKprToggle()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Goalkeepers — who takes each team's kickouts in this game (fills Kickout Taken By)">🧤 Goalkeepers</button>
       <button id="crSubsBtn" onclick="crSubsToggle()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--t1);" title="Subs — type each team's substitutions from the match report (minute, off, on), check each against the video, and they become SUB rows (cohesion-subs.js)">🔁 Subs</button>
       <button onclick="crExportXmlManual()" style="border-radius:8px;padding:9px 14px;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;border:1px solid var(--accent);background:var(--accent-bg);color:var(--accent);">⬇ Export XML</button>
@@ -869,6 +883,7 @@ function filterGames(){
 }
 
 async function openGame(id){
+  setTimeout(()=>{ try{ crDirPaint(); }catch(_){} },0);
   try{ crLiveCh(); crVScrollInit('levents'); crVScrollInit('tlscroll'); crVScrollInit('crStats'); }catch(_){}
   const g=GAMES.find(x=>x.id===id); if(!g) return;
   GAME=g;
@@ -3719,6 +3734,7 @@ function crLocalExtras(){
   const R=(GAME.rosters&&typeof GAME.rosters==='object'&&!Array.isArray(GAME.rosters))?GAME.rosters:{};
   const L={ rosters:{home:Array.isArray(R.home)?R.home:[], away:Array.isArray(R.away)?R.away:[]}, keepers:crKprClean(GAME),
            homeColor:GAME.homeColor||'', awayColor:GAME.awayColor||'', competition:GAME.competition||'', date:GAME.date||'' };
+  if(GAME.dirOfPlay) L.dirOfPlay=GAME.dirOfPlay;
   if(GAME.youtubeId) L.youtubeId=GAME.youtubeId;   // a YouTube-link session: the video it is coded against (never keeps a backup alive on its own)
   return L;
 }
@@ -3767,6 +3783,7 @@ async function crRestoreBackup(){
     const arr=(o,s)=>(o&&Array.isArray(o[s]))?o[s]:[];
     GAME.rosters={home:arr(L.rosters,'home'), away:arr(L.rosters,'away')};
     GAME.keepers={home:arr(L.keepers,'home'), away:arr(L.keepers,'away')};
+    if(L.dirOfPlay&&typeof L.dirOfPlay==='object') GAME.dirOfPlay=L.dirOfPlay;
     if(GAME.youtubeId&&cohesionYtIdFromLink(L.youtubeId)) GAME.youtubeId=L.youtubeId;   // the events are on THAT video's clock
   }
   (bk.updates||[]).forEach(u=>{ const e=EVENTS.find(x=>String(x._rowId)===String(u.id)); if(e){ Object.keys(e).forEach(k=>{if(k!=='_rowId')delete e[k];}); Object.assign(e,u.data); e._dirty=true; } });
@@ -5573,6 +5590,55 @@ function crKprClose(){
   crKprBtnSync();
 }
 function crKprToggle(){ if(crKpr.open) crKprClose(); else crKprOpen(); }
+// ── ⇆ DIRECTION OF PLAY (Nov 2026) ──────────────────────────────────────────────────────────────────────────────────
+// Asked once per game, in the terms the analyst sees: "in the 1st half <team> attack the goal on the LEFT / RIGHT of
+// the main camera" (the other team the other goal; the 2nd half switches; extra time has its own 1st-half answer and
+// its 2nd half switches). Saved straight away into the game's meta.dirOfPlay = {team, h1, et1?} (re-read + merge +
+// gameAdmin updateMeta, as the team sheets); a local session keeps it in its backup. The camera can sit on either side
+// from game to game, which is why it is asked rather than guessed. Read by the Playlists drawing tools (📍 Tagged spot,
+// cohesion-pitch.js spotEnd) to know which goal a shot was at and which goal a kickout was taken from.
+function crDirOf(){ const d=GAME&&GAME.dirOfPlay; return d&&d.team&&(d.h1==='left'||d.h1==='right')?d:null; }
+function crDirPaint(){ const b=document.getElementById('crDirBtn'), d=crDirOf(); if(!b) return;
+  b.textContent=d?'⇆ '+String(d.team).toUpperCase()+' '+(d.h1==='left'?'◀':'▶')+' 1st half':'⇆ Direction';
+  b.style.borderColor=d?'var(--green)':''; }
+let crDirDraft=null;
+function crDirOpen(){
+  if(!GAME) return;
+  const d=crDirOf(), H=crTeamOf('home'), A=crTeamOf('away');
+  crDirDraft={team:d?String(d.team).toUpperCase():H, h1:d?d.h1:'', et1:d&&d.et1?d.et1:''};
+  let ov=document.getElementById('crDir'); if(!ov){ ov=document.createElement('div'); ov.id='crDir'; ov.className='crdir-ov'; document.body.appendChild(ov);
+    ov.addEventListener('mousedown',e=>{ if(e.target===ov) crDirClose(); }); }
+  ov.style.display='flex'; crDirRender();
+}
+function crDirClose(){ const ov=document.getElementById('crDir'); if(ov) ov.style.display='none'; crDirDraft=null; }
+function crDirRender(){
+  const ov=document.getElementById('crDir'), D=crDirDraft; if(!ov||!D) return;
+  const H=crTeamOf('home'), A=crTeamOf('away'), other=D.team===H?A:H, side=v=>v==='left'?'LEFT':v==='right'?'RIGHT':'…', flip=v=>v==='left'?'right':v==='right'?'left':'';
+  const seg=(k,v,l)=>`<button type="button" class="${D[k]===v?'on':''}" onclick="crDirDraft.${k}='${v}';crDirRender()">${l}</button>`;
+  ov.innerHTML=`<div class="crdir" role="dialog" aria-label="Direction of play"><div class="crdir-h">⇆ Direction of play <span>as the main camera sees the pitch</span></div>
+    <div class="crdir-pitch"><div class="g l${D.h1==='left'?' on':''}">◀ LEFT GOAL</div><div class="mid">📷 main camera here</div><div class="g r${D.h1==='right'?' on':''}">RIGHT GOAL ▶</div></div>
+    <div class="crdir-q">In the <b>1st half</b>, <select onchange="crDirDraft.team=this.value;crDirRender()">${[H,A].map(t=>`<option${t===D.team?' selected':''}>${esc(t)}</option>`).join('')}</select> attack the goal on the</div>
+    <div class="crdir-seg">${seg('h1','left','◀ Left')}${seg('h1','right','Right ▶')}</div>
+    <div class="crdir-n">${D.h1?`So in the 1st half <b>${esc(D.team)}</b> attack the <b>${side(D.h1)}</b> goal and <b>${esc(other)}</b> the <b>${side(flip(D.h1))}</b> goal; in the 2nd half they switch.`:'Pick the goal they attack in the first half.'}</div>
+    <div class="crdir-q">Extra time, <b>1st half</b> — ${esc(D.team)} attack the goal on the <span class="crdir-opt">(only if it was played)</span></div>
+    <div class="crdir-seg">${seg('et1','left','◀ Left')}${seg('et1','right','Right ▶')}${seg('et1','','Not played')}</div>
+    <div class="crdir-btns"><span id="crDirMsg"></span><button type="button" onclick="crDirClose()">Cancel</button><button type="button" class="pri" onclick="crDirSave()"${D.h1?'':' disabled'}>Save</button></div></div>`;
+}
+async function crDirSave(){
+  const D=crDirDraft; if(!D||!D.h1||!GAME) return;
+  const dir={team:D.team, h1:D.h1}; if(D.et1) dir.et1=D.et1;
+  const m=document.getElementById('crDirMsg'); if(m) m.textContent='Saving…';
+  if(!GAME._local){
+    try{
+      const j=await cohesionRead({action:'gameBundle', id:GAME.id}); let fresh=j&&j.meta; if(typeof fresh==='string') fresh=JSON.parse(fresh);
+      if(!fresh||typeof fresh!=='object') throw new Error('could not read the game');
+      await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:GAME.id, meta:Object.assign({}, fresh, {dirOfPlay:dir})});
+    }catch(e){ if(m) m.textContent='Not saved: '+(e.message||e); return; }
+  }
+  GAME.dirOfPlay=dir; if(GAME._local) crBackup();
+  crDirClose(); crDirPaint();
+  const f=document.getElementById('codeFlash'); if(f) f.textContent='⇆ Direction of play saved — '+dir.team+' attack the '+dir.h1.toUpperCase()+' goal in the 1st half.';
+}
 function crKprBtnSync(){ const b=document.getElementById('crKprBtn'); if(b) b.textContent='🧤 Goalkeepers'+(crKprPendingN()?' •':''); }   // • = unsaved
 // Window CAPTURE phase (like Find & Replace / Align this angle): keys pressed
 // with the focus inside the panel never reach the coding hotkeys.

@@ -7,8 +7,8 @@
  *   · size a ring or spotlight so it lies on the grass                  groundEllipse(model, x, y, metres)
  *   · measure a distance on the grass                                   groundDist(model, a, b)
  *
- * PITCH COORDINATES (metres): X along the pitch from end A's goal line (0) to end B's (len); Y across from one sideline
- * (0) to the other (wid). Markings follow COHESION's own true-scale pitch art (cohesion-graphics.js shotPitchArt):
+ * PITCH COORDINATES (metres): X along the pitch from the LEFT goal's line (0, end A) to the RIGHT goal's (len, end B), as the
+ * main camera sees them; Y across from the sideline nearest the camera (0) to the far one (wid). Markings follow COHESION's own true-scale pitch art (cohesion-graphics.js shotPitchArt):
  * 13, 20, 45, 65 m lines from each end; large rectangle 19 × 13 m; small rectangle 14 × 4.5 m; goal 6.5 m wide;
  * penalty spot 11 m; the D = 13 m from the middle of the 20 m line (beyond it); the 40 m two-point arc centred on the
  * goal, from the 20 m line out; halfway line. GAA pitches are 130–145 m × 80–90 m: the size is set per drawing.
@@ -31,23 +31,23 @@
     len = +len || DEF_LEN; wid = +wid || DEF_WID;
     const m = wid / 2, out = {};
     const end = (E, f) => {
-      const X = d => E === 'A' ? d : len - d, nm = E === 'A' ? 'End A' : 'End B';
+      const X = d => E === 'A' ? d : len - d, nm = E === 'A' ? 'Left goal' : 'Right goal';   // as the camera sees the pitch
       const add = (id, d, y, label) => { out[E + id] = { X: X(d), Y: y, label: nm + ' · ' + label, end: E }; };
-      add('c0', 0, 0, 'corner (near side)'); add('c1', 0, wid, 'corner (far side)');
-      [13, 20, 45, 65].forEach(d => { add(d + 'a', d, 0, d + ' m line, near sideline'); add(d + 'b', d, wid, d + ' m line, far sideline'); });
-      add('gp0', 0, m - 3.25, 'goalpost (near)'); add('gp1', 0, m + 3.25, 'goalpost (far)');
-      add('sr0', 0, m - 7, 'small rectangle, goal line (near)'); add('sr1', 0, m + 7, 'small rectangle, goal line (far)');
-      add('sf0', 4.5, m - 7, 'small rectangle, front (near)'); add('sf1', 4.5, m + 7, 'small rectangle, front (far)');
-      add('lr0', 0, m - 9.5, 'large rectangle, goal line (near)'); add('lr1', 0, m + 9.5, 'large rectangle, goal line (far)');
-      add('lf0', 13, m - 9.5, 'large rectangle, front (near)'); add('lf1', 13, m + 9.5, 'large rectangle, front (far)');
+      add('c0', 0, 0, 'corner (camera side)'); add('c1', 0, wid, 'corner (far side)');
+      [13, 20, 45, 65].forEach(d => { add(d + 'a', d, 0, d + ' m line, camera side'); add(d + 'b', d, wid, d + ' m line, far side'); });
+      add('gp0', 0, m - 3.25, 'goalpost (camera side)'); add('gp1', 0, m + 3.25, 'goalpost (far side)');
+      add('sr0', 0, m - 7, 'small rectangle, goal line (camera side)'); add('sr1', 0, m + 7, 'small rectangle, goal line (far side)');
+      add('sf0', 4.5, m - 7, 'small rectangle, front (camera side)'); add('sf1', 4.5, m + 7, 'small rectangle, front (far side)');
+      add('lr0', 0, m - 9.5, 'large rectangle, goal line (camera side)'); add('lr1', 0, m + 9.5, 'large rectangle, goal line (far side)');
+      add('lf0', 13, m - 9.5, 'large rectangle, front (camera side)'); add('lf1', 13, m + 9.5, 'large rectangle, front (far side)');
       add('pen', 11, m, 'penalty spot');
-      add('d0', 20, m - 13, 'D meets the 20 m line (near)'); add('d1', 20, m + 13, 'D meets the 20 m line (far)'); add('dt', 33, m, 'top of the D');
+      add('d0', 20, m - 13, 'D meets the 20 m line (camera side)'); add('d1', 20, m + 13, 'D meets the 20 m line (far side)'); add('dt', 33, m, 'top of the D');
       const a20 = Math.sqrt(40 * 40 - 20 * 20);
-      add('ar0', 20, m - a20, '2-pt arc meets the 20 m line (near)'); add('ar1', 20, m + a20, '2-pt arc meets the 20 m line (far)'); add('at', 40, m, 'top of the 2-pt arc');
+      add('ar0', 20, m - a20, '2-pt arc meets the 20 m line (camera side)'); add('ar1', 20, m + a20, '2-pt arc meets the 20 m line (far side)'); add('at', 40, m, 'top of the 2-pt arc');
     };
     end('A'); end('B');
-    out.Hh0 = { X: len / 2, Y: 0, label: 'Halfway line, near sideline', end: 'H' };
-    out.Hh1 = { X: len / 2, Y: wid, label: 'Halfway line, far sideline', end: 'H' };
+    out.Hh0 = { X: len / 2, Y: 0, label: 'Halfway line, camera side', end: 'H' };
+    out.Hh1 = { X: len / 2, Y: wid, label: 'Halfway line, far side', end: 'H' };
     out.Hc = { X: len / 2, Y: m, label: 'Centre of the pitch', end: 'H' };
     return out;
   }
@@ -175,14 +175,14 @@
   // the flat diagram used to pick points: an SVG of the pitch (len × wid scaled to w px wide) with every keypoint
   function diagramSvg(len, wid, w, o) {
     o = o || {}; len = +len || DEF_LEN; wid = +wid || DEF_WID;
-    const pad = 8, s = (w - 2 * pad) / len, h = wid * s + 2 * pad, X = v => pad + v * s, Y = v => pad + v * s;
-    let d = ''; markings(len, wid).forEach(poly => { d += 'M' + poly.map(p => f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('L'); });
+    const pad = 8, s = (w - 2 * pad) / len, h = wid * s + 2 * pad + 10, X = v => pad + v * s, Y = v => pad + (wid - v) * s;   // the camera side at the bottom, as on the picture
+    let d = ''; markings(len, wid).forEach(poly => { d += 'M' + poly.map(p => f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('L'); });   // (the markings are symmetrical, so the flip changes nothing but the labels)
     const kp = keypoints(len, wid), placed = new Set(o.placed || []);
     const dots = Object.keys(kp).map(id => { const p = kp[id], on = id === o.sel, pl = placed.has(id);
       return '<circle class="cp-kp' + (on ? ' sel' : '') + (pl ? ' set' : '') + '" data-k="' + id + '" cx="' + f1(X(p.X)) + '" cy="' + f1(Y(p.Y)) + '" r="' + (on ? 5.2 : 4.2) + '"><title>' + p.label + '</title></circle>'; }).join('');
     return '<svg class="cp-diag" viewBox="0 0 ' + w + ' ' + f1(h) + '" width="' + w + '" height="' + f1(h) + '"><rect x="' + pad + '" y="' + pad + '" width="' + f1(len * s) + '" height="' + f1(wid * s) + '" fill="#2f6b3a" rx="2"/>'
       + '<path d="' + d + '" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1"/>'
-      + '<text x="' + f1(X(2)) + '" y="' + f1(Y(wid) + 7) + '" font-size="7.5" fill="#9aa0b4" font-family="Barlow,sans-serif">END A</text><text x="' + f1(X(len) - 2) + '" y="' + f1(Y(wid) + 7) + '" text-anchor="end" font-size="7.5" fill="#9aa0b4" font-family="Barlow,sans-serif">END B</text>'
+      + '<text x="' + f1(X(0)) + '" y="' + f1(Y(0) + 9) + '" font-size="7.5" fill="#9aa0b4" font-family="Barlow,sans-serif">◀ LEFT GOAL</text><text x="' + f1(X(len / 2)) + '" y="' + f1(Y(0) + 9) + '" text-anchor="middle" font-size="7.5" fill="#9aa0b4" font-family="Barlow,sans-serif">📷 CAMERA SIDE</text><text x="' + f1(X(len)) + '" y="' + f1(Y(0) + 9) + '" text-anchor="end" font-size="7.5" fill="#9aa0b4" font-family="Barlow,sans-serif">RIGHT GOAL ▶</text>'
       + dots + '</svg>';
   }
 
@@ -206,11 +206,27 @@
     let sg = end === 'B' ? -1 : 1; if (mirror) sg = -sg;
     return [end === 'B' ? len - depth : depth, clamp(m + sg * off, 0, wid)];
   }
+  // ── DIRECTION OF PLAY (the game's meta.dirOfPlay, set once in Code Room ⇆ Direction) ──
+  // {team: 'MAYO', h1: 'left'|'right', et1?: 'left'|'right'} = in the 1st half `team` attacks the goal on the left / right
+  // of the main camera (so the other team attacks the other one). The 2nd half switches; extra time has its own 1st-half
+  // answer (ends can be decided again) and its 2nd half switches. → the period of a half label: 'h1' | 'h2' | 'et1' | 'et2'.
+  function periodOf(half) { const h = String(half || '').toUpperCase(); const et = /\bET\b|EXTRA/.test(h), two = /2ND|SECOND|\b2\b/.test(h), one = /1ST|FIRST|\b1\b/.test(h);
+    return et ? (two ? 'et2' : one ? 'et1' : null) : (two ? 'h2' : one ? 'h1' : null); }
+  // does `team` attack the LEFT goal in that period? true / false, or null when the direction is not known
+  function attacksLeft(dir, team, half) {
+    const p = periodOf(half); if (!dir || !p || !dir.team || !team) return null;
+    const base = p === 'h1' || p === 'h2' ? dir.h1 : dir.et1; if (base !== 'left' && base !== 'right') return null;
+    let left = base === 'left'; if (p === 'h2' || p === 'et2') left = !left;
+    if (String(team).trim().toUpperCase() !== String(dir.team).trim().toUpperCase()) left = !left;
+    return left;
+  }
+  // the end of a tagged spot: a shot is at the goal its team attacks; a kickout is taken from the goal its team defends
+  function spotEnd(dir, team, half, kind) { const l = attacksLeft(dir, team, half); if (l == null) return null; return (kind === 'ko' ? !l : l) ? 'A' : 'B'; }
   // the end the line-up was made on: the end most of its points belong to
   function seenEnd(p) { let a = 0, b = 0; ((p && p.pts) || []).forEach(q => { if (/^A/.test(q.k)) a++; else if (/^B/.test(q.k)) b++; }); return b > a ? 'B' : 'A'; }
 
   const API = { DEF_LEN, DEF_WID, FW, FH, keypoints, homography, model, toFrame, toGround, groundDist, groundEllipse, markings, linesSvg, diagramSvg,
-    shotChartToMetres, koChartToMetres, chartToPitch, seenEnd };
+    shotChartToMetres, koChartToMetres, chartToPitch, seenEnd, periodOf, attacksLeft, spotEnd };
   root.CohPitch = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

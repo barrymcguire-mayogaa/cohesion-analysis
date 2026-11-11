@@ -1945,7 +1945,7 @@ function pcRender(fast){
   let o=M?CohPitch.linesSvg(M,W,H,{color:'#7fe9ff', opacity:.9}):'';
   PC.pts.forEach(q=>{ const x=q.x*W, y=q.y*H, on=q.k===PC.sel, e=M&&M.errs?M.errs[PC.pts.indexOf(q)]:0;
     o+='<g class="pc-pt"><circle cx="'+x+'" cy="'+y+'" r="'+(on?9:7)+'" fill="'+(on?'#ffd600':'#22c55e')+'" fill-opacity=".35" stroke="'+(on?'#ffd600':'#22c55e')+'" stroke-width="2.4"/><circle cx="'+x+'" cy="'+y+'" r="1.8" fill="#fff"/>'
-      +'<text x="'+(x+11)+'" y="'+(y-9)+'" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="12" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">'+esc((kp[q.k]||{label:q.k}).label.replace(/^End ([AB]) · /,'$1 · ').replace(' line, near sideline',' near').replace(' line, far sideline',' far').replace('Halfway line, ','Halfway '))+(e>12?' ⚠':'')+'</text></g>'; });
+      +'<text x="'+(x+11)+'" y="'+(y-9)+'" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="12" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">'+esc((kp[q.k]||{label:q.k}).label.replace(/^Left goal · /,'L · ').replace(/^Right goal · /,'R · ').replace(' line, camera side',' cam side').replace(' line, far side',' far').replace('Halfway line, ','Halfway '))+(e>12?' ⚠':'')+'</text></g>'; });
   ov.innerHTML=o;
   if(fast) return;
   const n=PC.pts.length, need=Math.max(0,4-n);
@@ -1960,7 +1960,7 @@ function pcRender(fast){
     +'<div class="pp-row"><label>Pitch <input type="number" min="100" max="160" step="0.5" value="'+PC.len+'" onchange="pcSize(\'len\',this.value)"> × <input type="number" min="60" max="100" step="0.5" value="'+PC.wid+'" onchange="pcSize(\'wid\',this.value)"> m</label>'
     +'<label class="pp-chk"><input type="checkbox"'+(PC.show?' checked':'')+' onchange="PC.show=this.checked"> Show the lines</label></div>'
     +'<div class="pp-row pp-btns"><button type="button" onclick="pcUndoPoint()"'+(n?'':' disabled')+'>↶ Last point</button><button type="button" onclick="pcReset()"'+(n?'':' disabled')+'>Reset</button><span style="flex:1"></span><button type="button" class="pri" onclick="dPitchClose(true)">✓ Done</button></div>'
-    +'<div class="pp-tip">Tip: points spread across the picture give the best fit — e.g. both ends of the 20 m line and of the 45. Only the end you can see matters: use End A for the end nearest the camera’s view.</div>';
+    +'<div class="pp-tip">Left / right goal and “camera side” are as the camera sees the pitch. Points spread across the picture give the best fit — e.g. both ends of the 20 m line and of the 45.</div>';
 }
 // ── 📍 THE CLIP'S TAGGED SPOT (Nov 2026) ───────────────────────────────────────────────────────────────────────────
 // With the pitch lined up (📐), the clip's own event — a shot's location or a kickout's landing, as tagged in Code
@@ -1992,10 +1992,13 @@ async function dSpotAdd(redo){
   if(!kind){ spotMsg('This clip is a '+code+' — only shots and kickouts have a pitch location.', true); return; }
   const c=g.G.dashCoordOf(e);
   if(!c){ spotMsg('This '+(kind==='ko'?'kickout':'shot')+' has no location tagged yet (📍 Locate in Code Room).', true); return; }
-  const o=redo||{end:CohPitch.seenEnd(P), mirror:false};
+  // which goal: from the game's direction of play (⇆ Direction in Code Room); asked here when the game has none
+  const dir=(g.meta&&g.meta.dirOfPlay)||null, auto=CohPitch.spotEnd(dir, e.team, e.half, kind);
+  if(!redo&&!auto){ spotAsk(g, e, kind); return; }
+  const o=redo||{end:auto, mirror:false, flipped:false};
   if(redo&&SPOT&&SPOT.n){ const cur=ED.shapes(); if(JSON.stringify(cur.slice(-SPOT.n))===SPOT.json) ED.undo(); }   // only when the spot's own shapes are still the last thing added
   const [X,Y]=CohPitch.chartToPitch(M.len, M.wid, kind, c.x, c.y, o.end, o.mirror), at=CohPitch.toFrame(M, X, Y);
-  if(!at){ spotMsg('That spot is out of the camera’s view on this line-up — try ⇄ Other end.', true); SPOT={n:0, end:o.end, mirror:o.mirror}; spotBar(); return; }
+  if(!at){ spotMsg('That spot is out of this camera’s view on this line-up — if this camera sees the pitch the other way round, use ⇄.', false); SPOT={n:0, end:o.end, mirror:o.mirror, flipped:!!o.flipped, kind, team:String(e.team||'').toUpperCase(), half:e.half||''}; spotBar(); return; }
   const L=e.labels||{}, out=String(L[kind==='ko'?'Kickout Outcomes':'Shot Outcomes']||e.outcome||'').trim(), who=String(e.player||'').trim();
   const ell=CohPitch.groundEllipse(M, at[0], at[1], 2);
   const col=dColor||(dCtx&&dCtx.color)||'#ffd600';
@@ -2006,17 +2009,45 @@ async function dSpotAdd(redo){
   const depth=Math.round((kind==='ko'?CohPitch.koChartToMetres(c.x,c.y).depth:CohPitch.shotChartToMetres(c.x,c.y).depth));
   const txt=(kind==='ko'?'Kickout lands ~'+depth+' m out':'Shot')+(out?' · '+out:'')+(who?' · '+who:'');
   list.push({type:'text', color:col, w:dW, style:'dark', size:16, text:txt.slice(0,80), x:Math.max(0,Math.min(0.75, at[0]+0.02)), y:Math.max(0,Math.min(0.92, at[1]-((ell?ell.ry:0.02)+0.09)))});
-  SPOT={n:ED.addShapes(list), end:o.end, mirror:o.mirror, kind}; SPOT.json=JSON.stringify(ED.shapes().slice(-SPOT.n));
-  spotMsg('📍 '+(kind==='ko'?'Kickout landing':'Shot location')+' from Code Room added — wrong side? use ⇄ Other end or ⇋ Mirror');
+  SPOT={n:ED.addShapes(list), end:o.end, mirror:o.mirror, flipped:!!o.flipped, kind, team:String(e.team||'').toUpperCase(), half:e.half||''}; SPOT.json=JSON.stringify(ED.shapes().slice(-SPOT.n));
+  spotMsg('📍 '+(kind==='ko'?'Kickout landing':'Shot location')+' from Code Room added');
   spotBar(); dPaintBar();
 }
 function spotBar(){
   let b=document.getElementById('spotBar');
   if(!b){ b=document.createElement('div'); b.id='spotBar'; b.className='spotbar'; document.body.appendChild(b); }
   if(!SPOT||!drawMode){ b.style.display='none'; return; }
-  b.innerHTML='<span>📍 Tagged spot · end '+esc(SPOT.end)+(SPOT.mirror?' · mirrored':'')+'</span><button type="button" onclick="dSpotAdd({end:SPOT.end===\'A\'?\'B\':\'A\', mirror:SPOT.mirror})">⇄ Other end</button><button type="button" onclick="dSpotAdd({end:SPOT.end, mirror:!SPOT.mirror})">⇋ Mirror</button><button type="button" class="pri" onclick="SPOT=null;spotBar()">✓</button>';
+  if(SPOT.ask){ b.innerHTML=SPOT.ask; }
+  else { const goal=SPOT.end==='A'?'LEFT':'RIGHT', what=SPOT.kind==='ko'?SPOT.team+' kickout from the '+goal+' goal':SPOT.team+' shot at the '+goal+' goal';
+    b.innerHTML='<span>📍 '+esc(what)+(SPOT.half?' ('+esc(SPOT.half)+')':'')+(SPOT.flipped?' · this camera the other way round':'')+(SPOT.mirror?' · mirrored':'')+'</span>'
+      +'<button type="button" onclick="dSpotAdd({end:SPOT.end===\'A\'?\'B\':\'A\', mirror:SPOT.mirror, flipped:!SPOT.flipped})" title="For a camera that sees the pitch the other way round from the main camera (e.g. the far side or a reverse angle)">⇄ Camera the other way</button>'
+      +'<button type="button" onclick="dSpotAdd({end:SPOT.end, mirror:!SPOT.mirror, flipped:SPOT.flipped})" title="The spot is on the wrong side of the goal — the game was tagged the other way round">⇋ Mirror</button><button type="button" class="pri" onclick="SPOT=null;spotBar()">✓</button>'; }
   const v=document.querySelector('.stage .vid'), r=v?v.getBoundingClientRect():null;
   b.style.display='flex'; if(r){ b.style.left=(r.left+12)+'px'; b.style.top=(r.top+r.height-110)+'px'; }
+}
+// no direction of play for this game yet: ask about THIS clip's half, keep the answer as the game's (saved for everyone
+// when this user may edit the game — otherwise for this page only, and Code Room's ⇆ Direction keeps it for good)
+function spotAsk(g, e, kind){
+  const team=String(e.team||'').toUpperCase(), half=e.half||'';
+  SPOT={n:0, ask:'<span>⇆ In this clip'+(half?' ('+esc(half)+')':'')+', which goal is <b>'+esc(team)+'</b> attacking, as the camera sees it?</span>'
+    +'<button type="button" onclick="spotAnswer(\'left\')">◀ Left</button><button type="button" onclick="spotAnswer(\'right\')">Right ▶</button>', g, e, kind};
+  spotMsg('This game has no direction of play yet — answer once and it is kept for the game.');
+  spotBar();
+}
+async function spotAnswer(v){
+  if(!SPOT||!SPOT.g) return; const g=SPOT.g, e=SPOT.e, team=String(e.team||'').toUpperCase(), p=CohPitch.periodOf(e.half);
+  const flip=x=>x==='left'?'right':'left';
+  const dir=Object.assign({}, (g.meta&&g.meta.dirOfPlay)||{});
+  let base=(p==='h2'||p==='et2')?flip(v):v;
+  if(!dir.team) dir.team=team; else if(String(dir.team).toUpperCase()!==team) base=flip(base);
+  if(p==='et1'||p==='et2') dir.et1=base; else dir.h1=base;          // (no half on the event: taken as the 1st half)
+  g.meta=Object.assign({}, g.meta||{}, {dirOfPlay:dir});
+  SPOT=null; spotBar();
+  let kept='for this page';
+  try{ const j=await cohesionRead({action:'gameBundle', id:ITEMS[playIdx].gameId}); let fresh=j&&j.meta; if(typeof fresh==='string') fresh=JSON.parse(fresh);
+    if(fresh&&typeof fresh==='object'){ await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:ITEMS[playIdx].gameId, meta:Object.assign({}, fresh, {dirOfPlay:dir})}); kept='for the game'; } }catch(_){}
+  await dSpotAdd();
+  spotMsg('⇆ Direction of play kept '+kept+(kept==='for this page'?' — set ⇆ Direction in Code Room to keep it for the game':'')+'.');
 }
 function dPitchClose(save){
   if(!PC) return;
