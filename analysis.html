@@ -669,11 +669,24 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
 .tk-chk{margin-top:14px;} .tk-chk>summary{cursor:pointer;font:700 15px 'Barlow Condensed',sans-serif;letter-spacing:.06em;color:#ffd23f;}
 .tk-chk>.dnote{margin:8px 0 10px;}
 .tk-chkn{font:600 13px 'Barlow',sans-serif;letter-spacing:0;text-transform:none;color:#ffd23f;margin-left:8px;white-space:nowrap;}
-.tk-chkrow{display:grid;grid-template-columns:1.3fr 1.1fr .8fr 1.1fr 1.1fr .5fr 1.9fr 236px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tk-chkrow{display:grid;grid-template-columns:22px 1.3fr 1.1fr .8fr 1.1fr 1.1fr .5fr 1.7fr 330px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.tk-chksel input,.tk-fixall input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+.tk-fixbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;width:100%;} .tk-fixbtns .tt-btn{padding:4px 9px;font-size:.76rem;white-space:nowrap;}
+.tk-fixbtns .tt-btn[disabled]{opacity:.45;cursor:not-allowed;}
+.tk-fixbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:4px 0 10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);}
+.tk-fixall{display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;} .tk-fixbar .tt-btn[disabled]{opacity:.55;cursor:not-allowed;background:transparent;color:var(--t3);border-color:var(--border);}
+.tk-fixnote{font-size:.76rem;color:var(--t3);} .tk-fixmsg{font-size:.8rem;color:var(--green);} .tk-fixmsg.err{color:var(--red);}
+.tk-fixacts{margin-top:6px;} .tk-fixacts .tk-fixbtns{justify-content:flex-start;}
+.tk-fixcard{width:min(620px,100%);} .tk-fixbody{background:var(--panel);} .tk-fixmodal .mr-mft{display:flex;gap:8px;align-items:center;padding:10px 12px;border-top:1px solid var(--border);}
+.tk-fxlead{margin:0 0 10px;font-size:.85rem;color:var(--t2);line-height:1.4;}
+.tk-fxpbox svg{display:block;width:100%;max-width:440px;margin:0 auto;cursor:crosshair;border-radius:6px;} .tk-fxpbox svg:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.tk-fxread{margin-top:10px;font-size:.85rem;text-align:center;} .tk-fxread .ok{color:var(--green);font-weight:600;} .tk-fxread .no{color:var(--amber);}
+.tk-fxsum{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;} .tk-fxsum span{padding:3px 8px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;}
+.tk-fxlist{max-height:46vh;overflow:auto;border-top:1px solid var(--border);} .tk-fxlist>div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.8rem;} .tk-fxlist span{color:var(--t2);}
 .tk-chkhd{font:700 11px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--accent);}
 .tk-chkact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;} .tk-chkact .tt-btn{padding:5px 10px;white-space:nowrap;}
 @media (max-width:860px){
-  .tk-chkhd{display:none;} .tk-chkrow{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0;}
+  .tk-chkhd{display:none;} .tk-chkrow{grid-template-columns:1fr 1fr;gap:4px 10px;padding:10px 0;} .tk-chksel{grid-column:1/-1;} .tk-fixbtns{justify-content:flex-start;}
   .tk-chkrow .tt-c::before{content:attr(data-l);display:block;font:700 10px 'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t3);}
   .tk-chkact{grid-column:1/-1;justify-content:flex-start;min-width:0;} .tk-chkact::before{display:none!important;}
 }
@@ -2227,7 +2240,7 @@ async function ssSaveGameType(id, key){
   if(!fresh||typeof fresh!=='object') throw new Error('could not read the game\'s current metadata');
   const merged=ssMergeGameType(fresh, key);
   await cohesionAuthFetch('gameAdmin', {action:'updateMeta', gameId:id, meta:merged});
-  BUNDLES.set(id, {meta:merged, events:(j.events||[]).map(r=>r.data)});
+  BUNDLES.set(id, {meta:merged, events:anRows(j.events)});
   const g=GAMES.find(x=>x.id===id);
   if(g){ if(merged.gameType) g.gameType=merged.gameType; else delete g.gameType; }
   return merged;
@@ -2266,10 +2279,14 @@ function setGamesAll(i,on){
   cand.forEach(g=>{ if(on) SETS[i].off.delete(g.id); else SETS[i].off.add(g.id); });
   refreshSets();
 }
+// each event's database row id, kept beside it (never on it, so nothing that reads or exports an event sees it):
+// the Kickouts "Landings to check" fixes write a row back by it (tkFixSave)
+const EV_ROW=new WeakMap();
+function anRows(rows){ return (rows||[]).map(r=>{ if(r&&r.data&&typeof r.data==='object'&&r.id!=null) EV_ROW.set(r.data, r.id); return r&&r.data; }); }
 async function fetchBundle(id){
   if(BUNDLES.has(id)) return BUNDLES.get(id);
   const j=await cohesionRead({action:'gameBundle', id});
-  const b={meta:j.meta, events:(j.events||[]).map(r=>r.data)};
+  const b={meta:j.meta, events:anRows(j.events)};
   BUNDLES.set(id,b);
   return b;
 }
@@ -3862,7 +3879,7 @@ function tkGameKos(meta, events){
     const dist=co?tkDist(co.y):null, zoneRaw=co?tkZoneOf(co.x, co.y):null, zone=co?tkZoneFor(co.x, dist, won):null, checkWhy=co?tkCheckWhy(co.x, dist, zoneRaw, lab, tkZoneLabel(e)):[];
     const arcWhy=co?tkArcWhy(co.x, dist, won):''; if(arcWhy) checkWhy.push(arcWhy);
     kos.push({e, i, gid:meta.id, team, opp, won, out:String(out).trim(), type:tkType(out, team, opp),
-      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, zoneRaw, arcMoved:zoneRaw==='arc'&&zone!=='arc', far:dist!=null&&dist>TK_VIEW_M, check:tkShowChecks()&&checkWhy.length>0, checkWhy,
+      len:lab||(co?tkLenOfDist(dist):null), lenFrom:lab?'label':co?'loc':null, x:co?co.x:null, y:co?co.y:null, dist, zone, zoneRaw, arcMoved:zoneRaw==='arc'&&zone!=='arc', far:dist!=null&&dist>TK_VIEW_M, check:tkShowChecks()&&checkWhy.length>0&&!tkFixIsOk(e, co), checkOk:checkWhy.length>0&&tkFixIsOk(e, co), checkWhy,
       t:ssEvT(e), id:e.id!=null?e.id:null, follow:null});
   });
   kos.sort((a,b)=>a.t-b.t||a.i-b.i);
@@ -3882,6 +3899,92 @@ function tkGameKos(meta, events){
   const v={kos, srcTagged, srcUnmatched, conv, srcFrom:!srcTagged?null:possSrc?'poss':'tags', possSrc:possSrc?{shots:possSrc.shots, matched:possSrc.matched, unmatched:possSrc.unmatched, inside:possSrc.inside, before:possSrc.before}:null};
   TK_CACHE.set(events, {n:events.length, H:meta.homeTeam, A:meta.awayTeam, id:meta.id, v});
   return v;
+}
+// ── FIXING A LANDING TO CHECK (admins / analysts: the same people who see the list, tkShowChecks) ──
+// Three fixes, each one kickout EVENT rewritten through editEvent (the Code Room save), nothing else touched:
+//  · RETAG = the tags follow the landing: the length label and / or the 'Kickout Zones' label that disagree are rewritten
+//    to what the landing says, in the label's own vocabulary (Tracker "KO MEDIUM" / "Zone 6", GI "Mid-Range", GIU "MKO").
+//    Only a label the kickout already has is changed (none is added). Offered only when it clears the flag: an
+//    out-of-range landing or a won kickout inside the arc is a wrong POSITION, not a wrong tag.
+//  · MOVE = the landing follows the tags: a new position, written as Code Room writes one — the row's own x / y
+//    (canonical) and its X-KOs / Y-KOs label pair in the game's convention (whole numbers; '_away' for the away team).
+//  · FINE = the flag is dismissed: koCheckOk {sig, at} on the event (a field, not a label, so no export carries it).
+//    sig = the tags and position it was judged on, so a later change to either brings the flag back.
+// THE SAVE (tkFixSave) re-reads each game's events first, refuses a kickout whose labels / position changed since the
+// page loaded it (edited in Code Room meanwhile), and applies the change to the FRESH row. Undo writes the old fields back.
+const TK_LEN_GROUPS=['Kickout Locations','Kickout Location','KickoutLength','Kickout_Length','KODistance'], TK_ZONE_GROUPS=['Kickout Zones','Kickout Zone'];
+// the label KEY a kickout uses for one of the groups (exact names first, then any case — as ssLblCI reads it), or null
+function tkFixKey(e, names){
+  const L=(e&&e.labels)||{};
+  for(const n of names){ if(L[n]!=null&&String(L[n]).trim()) return n; }
+  const want=names.map(ssUC);
+  for(const k of Object.keys(L)){ if(want.includes(ssUC(k))&&String(L[k]||'').trim()) return k; }
+  return null;
+}
+// a length in the vocabulary of the label it replaces
+function tkFixLenVal(key, old, len){
+  const K=ssUC(key), O=ssUC(old);
+  if(K==='KODISTANCE') return {S:'SKO', M:'MKO', L:'LKO'}[len];
+  if(K==='KICKOUT_LENGTH'||K==='KICKOUTLENGTH') return {S:'Short', M:/MED/.test(O)?'Medium':'Mid-Range', L:'Long'}[len];
+  const w={S:'SHORT', M:'MEDIUM', L:'LONG'}[len], pre=/^KO\s/.test(O)||!O?'KO ':'';
+  return String(old||'')===O||!old?pre+w:pre+w.charAt(0)+w.slice(1).toLowerCase();
+}
+function tkFixZoneVal(old, z){ return /\d/.test(String(old||''))?String(old).replace(/\d+/, String(z)):'Zone '+z; }
+// the signature a "fine" mark is judged on: the tagged length / zone and the position, as read now
+function tkFixSig(e, co){
+  const L=(e&&e.labels)||{}, lk=tkFixKey(e, TK_LEN_GROUPS), zk=tkFixKey(e, TK_ZONE_GROUPS);
+  return [lk?String(L[lk]).trim():'', zk?String(L[zk]).trim():'', co?(+co.x).toFixed(1):'', co?(+co.y).toFixed(1):''].join('|');
+}
+function tkFixIsOk(e, co){ const o=e&&e.koCheckOk; return !!(o&&typeof o==='object'&&o.sig===tkFixSig(e, co)); }
+// RETAG: what the tags would become to agree with the landing, and whether that clears the flag
+//   {changes:[{key, from, to, what}], clears, left:[reasons still standing]}; changes = [] when there is nothing to retag
+function tkFixRetagPlan(k){
+  const e=k&&k.e; if(!e||k.x==null||k.dist==null) return {changes:[], clears:false, left:[]};
+  const L=e.labels||{}, lk=tkFixKey(e, TK_LEN_GROUPS), zk=tkFixKey(e, TK_ZONE_GROUPS), zN=tkZoneLabel(e), changes=[];
+  const raw=k.zoneRaw, len=tkLenOfDist(k.dist);
+  // the zone the landing says: its own zone; inside the arc a tagged Zone 1-3 already agrees, else the nearest of 1-3
+  const zone=raw!=='arc'?raw:(zN&&zN<=3?zN:tkArcNearest(k.x, k.dist));
+  const labNow=lk?tkLenLabel(e):null;
+  // only a label that is itself flagged changes (the tkCheckWhy tests): a tag inside the tolerance is left as coded
+  const lenOff=lk&&labNow&&labNow!==len&&tkRowGap('SML'.indexOf(labNow), k.dist)>TK_CHECK_TOL_M;
+  const zoneOff=zk&&zN&&zN!==zone&&!(raw==='arc'&&zN<=3)&&(tkRowGap(Math.floor((zN-1)/3), k.dist)>TK_CHECK_TOL_M||tkColGap((zN-1)%3, k.x)>TK_CHECK_TOL_X);
+  if(lenOff){ const to=tkFixLenVal(lk, L[lk], len); if(to&&to!==L[lk]) changes.push({key:lk, from:String(L[lk]), to, what:'length'}); }
+  if(zoneOff){ const to=tkFixZoneVal(L[zk], zone); if(to!==L[zk]) changes.push({key:zk, from:String(L[zk]), to, what:'zone'}); }
+  const after={}; changes.forEach(c=>{ after[c.what]=c.to; });
+  const lab2=after.length?tkLenLabel({labels:{[lk]:after.length}}):tkLenLabel(e), z2=after.zone?tkZoneLabel({labels:{[zk]:after.zone}}):zN;
+  const left=tkCheckWhy(k.x, k.dist, raw, lab2, z2); const arc=tkArcWhy(k.x, k.dist, k.won); if(arc) left.push(arc);
+  return {changes, clears:changes.length>0&&!left.length, left};
+}
+// the short text a retag button / preview shows: "Zone 9", "MEDIUM · Zone 6"
+function tkFixRetagTxt(P){ return P.changes.map(c=>c.what==='zone'?c.to:String(c.to).replace(/^KO\s+/i,'')).join(' · '); }
+// MOVE: a new landing (x % across, d metres from the kicking goal) — its reading and whether the tags then agree
+function tkFixMoveRead(k, x, d){
+  const e=k.e, zoneRaw=tkZoneOfM(x, d), why=tkCheckWhy(x, d, zoneRaw, tkLenLabel(e), tkZoneLabel(e)), arc=tkArcWhy(x, d, k.won);
+  if(arc) why.push(arc);
+  return {x, d, zoneRaw, zone:tkZoneFor(x, d, k.won), len:tkLenOfDist(d), why, clears:!why.length};
+}
+// the fields a fix may touch, compared and restored as a whole (sorted-key JSON, so key order never matters)
+function tkFixJSON(v){ return v==null?'null':Array.isArray(v)?'['+v.map(tkFixJSON).join(',')+']':typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+tkFixJSON(v[k])).join(',')+'}':JSON.stringify(v); }
+function tkFixFields(d){ d=d||{}; return {labels:d.labels||null, labelsAll:d.labelsAll||null, x:d.x==null?null:d.x, y:d.y==null?null:d.y, koCheckOk:d.koCheckOk||null}; }
+function tkFixSame(a, b){ return tkFixJSON(tkFixFields(a))===tkFixJSON(tkFixFields(b)); }
+function tkFixPut(d, F){ ['labels','labelsAll','x','y','koCheckOk'].forEach(k=>{ if(F[k]==null) delete d[k]; else d[k]=JSON.parse(JSON.stringify(F[k])); }); return d; }
+// apply one fix to a COPY of the event data. op = {kind:'retag', changes} | {kind:'move', x, d} | {kind:'ok'};
+// ctx = {conv, home} (the game's coordinate convention and home team). Returns the new data.
+function tkFixApply(data, op, ctx){
+  const d=JSON.parse(JSON.stringify(data||{})); d.labels=d.labels||{};
+  const dropAll=key=>{ if(d.labelsAll&&typeof d.labelsAll==='object'){ Object.keys(d.labelsAll).forEach(g=>{ if(ssUC(g)===ssUC(key)) delete d.labelsAll[g]; }); if(!Object.keys(d.labelsAll).length) delete d.labelsAll; } };
+  if(op.kind==='retag') op.changes.forEach(c=>{ d.labels[c.key]=c.to; dropAll(c.key); });
+  else if(op.kind==='move'){
+    const x=Math.max(0, Math.min(100, op.x)), y=Math.max(0, Math.min(100, op.d*100/TK_UNIT_M));
+    d.x=Math.round(x*10)/10; d.y=Math.round(y*10)/10;
+    const rot=ctx&&ctx.conv==='sportscode_rot', px=rot?100-y:x, py=rot?100-x:y, keys=Object.keys(d.labels);
+    let xk=keys.find(q=>/^x[-_ ]?kos?(_away)?$/i.test(q)), yk=xk?keys.find(q=>/^y/i.test(q)&&q.slice(1).toLowerCase()===xk.slice(1).toLowerCase()):null;
+    if(!xk||!yk){ const away=ctx&&ctx.home&&d.team&&ssUC(d.team)!==ssUC(ctx.home); xk='X-KOs'+(away?'_away':''); yk='Y-KOs'+(away?'_away':''); }
+    d.labels[xk]=String(Math.round(px)); d.labels[yk]=String(Math.round(py)); dropAll(xk); dropAll(yk);
+    if(d.koCheckOk) delete d.koCheckOk;
+  }
+  else if(op.kind==='ok'){ const co=ttCoordOf(d, ctx&&ctx.conv); d.koCheckOk={sig:tkFixSig(d, co), at:new Date().toISOString().slice(0,10)}; }
+  return d;
 }
 // win / lose tally of a list of kickouts; won = won by the KICKING team, or with `flip` by the RECEIVING team
 // (the selected team, on the opposition's kickouts)
@@ -4352,7 +4455,8 @@ function tkKoCardHTML(k, R, o){
     +(k.arcMoved?`<div class="tt-cn tk-arcmv">${ssEsc('Tagged '+(tkArcGap(k.x, k.dist).on?'inside the arc':'behind the 20m line')+'; counted in Zone '+k.zone+', the nearest zone outside it (a kickout must clear the arc).')}</div>`:'')
     +(k.check?`<div class="tt-cn tk-warn">Check tag:${k.checkWhy.map(w=>'<br>· '+ssEsc(w)).join('')}</div>`:'');
   if(!o.pinned) return h+'<div class="tt-cn tt-hint">Click, tap or press Enter to pin this card.</div>';
-  return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div><div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
+  return h+'<div class="tt-acts">'+ttShotActsHTML(k)+'<button type="button" class="tt-x" data-act="close" aria-label="Close">✕</button></div>'
+    +(k.check&&tkFixKeyOf(k)?'<div class="tt-acts tk-fixacts">'+tkFixBtnsHTML(k, 'data-pin="1"')+'</div>':'')+'<div class="tt-plm" id="ttPlMenu" aria-live="polite"></div>';
 }
 function tkInsightsHTML(I, nUn, pov){
   const r=(l,v,na)=>`<div class="tt-ir"><span>${l}</span><b class="${na?'na':''}">${v}</b></div>`, P=pov?ssEsc(pov):'';
@@ -4386,14 +4490,17 @@ function tkCheckHTML(list, R, open){
   const n=(list||[]).length; if(!n) return '';
   const c=(l,v)=>`<div class="tt-c" role="cell" data-l="${l}">${v}</div>`;
   return `<details class="tt-card tk-chk" id="tkChk"${open?' open':''}><summary>Landings to check (${n})</summary>`
-    +`<div class="dnote tk-chkwhy">${ssEsc('Kickouts placed in Code Room before 13 Sep 2026 were saved on an older chart scale and can read too far down the pitch. Re-place them in Code Room to correct them.')}</div>`
+    +`<div class="dnote tk-chkwhy">${ssEsc('Kickouts placed in Code Room before 13 Sep 2026 were saved on an older chart scale and can read too far down the pitch. Fix each one here: Retag (the tags follow the landing), Move landing (the landing follows the tags) or It’s fine (stop flagging it); tick several to retag or clear them together. Every fix is saved to the game and can be undone straight after.')}</div>`
     +`<div class="dnote">${ssEsc('Kickouts whose landing position disagrees with the tagged length or zone (by more than '+TK_CHECK_TOL_M+' m), or is more than '+TK_VIEW_M+' m from the kicking goal (beyond the far 45m line), or that the kicking team WON more than '+TK_ARC_TOL_M+' m inside the 40m arc or behind the 20m line (“won, but tagged n m inside the arc” — it is still counted, in the nearest zone outside the arc). A flag only: they are kept and counted (lengths by the tagged label, zones by the location and the Inside-arc rule). Both teams’ kickouts in the selected games are listed by game, then time, whatever the switch and the filters show.')}</div>`
-    +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE','REASON',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
-    +list.map((k,i)=>{ const m=R.gameOf.get(k.gid), own=k.team===R.team, kicker=own?R.team:(m?m.opp:k.team), clip=cpClip(k);
-      return `<div class="tk-chkrow" role="row" data-chk="${i}">`+c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Kicking team', ssEsc(kicker))+c('Time', ssEsc(ttClockTxt(k.e)))
+    +tkFixBarHTML(list)
+    +'<div class="tk-chktab" role="table" aria-label="Landings to check"><div class="tk-chkrow tk-chkhd" role="row">'+['','GAME','KICKING TEAM','TIME','TAGGED','OUTCOME','DISTANCE','REASON',''].map(h=>`<div role="columnheader">${h}</div>`).join('')+'</div>'
+    +list.map((k,i)=>{ const m=R.gameOf.get(k.gid), own=k.team===R.team, kicker=own?R.team:(m?m.opp:k.team), clip=cpClip(k), key=tkFixKeyOf(k);
+      return `<div class="tk-chkrow" role="row" data-chk="${i}"><div class="tt-c tk-chksel" role="cell">${key?`<input type="checkbox" data-kfix="${i}"${TK_FIX.sel.has(key)?' checked':''}${TK_FIX.busy?' disabled':''} aria-label="${ssEsc('Select the '+kicker+' kickout at '+ttClockTxt(k.e))}">`:''}</div>`
+        +c('Game', m?ssEsc('v '+m.opp+' · '+(ovShortDate(m.date)||'date n/a')):'n/a')+c('Kicking team', ssEsc(kicker))+c('Time', ssEsc(ttClockTxt(k.e)))
         +c('Tagged', ssEsc(tkTaggedTxt(k)))+c('Outcome', ssEsc(k.out||tkOutcomeTxt(k)))+c('Distance', `<b>${Math.round(k.dist)} m</b>`)+c('Reason', ssEsc(k.checkWhy.join('; ')))
         +`<div class="tt-c tk-chkact" role="cell"><button type="button" class="tt-btn" data-act="chk-watch" data-i="${i}"${clip?'':' disabled aria-disabled="true" title="'+CP_NOVIDEO+'"'}>Watch clip</button>`
-        +(clip?`<button type="button" class="tt-btn pri" data-act="chk-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')+'</div></div>'; }).join('')
+        +(clip?`<button type="button" class="tt-btn pri" data-act="chk-pl" data-i="${i}" aria-haspopup="menu">Add to playlist</button>`:'')
+        +(key?tkFixBtnsHTML(k, 'data-i="'+i+'"'):'')+'</div></div>'; }).join('')
     +'</div></details>';
 }
 function tkMapSectionHTML(R, V, F, o){
@@ -5033,6 +5140,7 @@ function ttTipClick(e){
   else if(act==='pl-pick') ttPlPick(a.dataset.id);
   else if(act==='pl-new'){ ttPlDraw({phase:'new'}); const n=ssEl('ttPlName'); if(n&&n.focus){ try{ n.focus({preventScroll:true}); }catch(_){ } } }
   else if(act==='pl-create') ttPlCreate();
+  else if(/^kfix-/.test(act)&&!a.disabled) tkFixAct(a);
 }
 // ── playlists: add the shot(s) behind the pinned card to a playlist ──
 // Writes go through netlify/functions/playlists.js, which is the authority: only an admin may create
@@ -5171,6 +5279,159 @@ function tkCheckAct(btn){
   t.hidden=false; if(t.classList) t.classList.add('pin'); if(t.setAttribute) t.setAttribute('role','dialog');
   ttPlaceTip();
   return ttPlOpen();
+}
+// ── the fixes' UI: three buttons per landing to check (list row and pinned map card), tick boxes + a batch bar,
+// the Move window, one Undo for the last save. TK_FIX.sel = the ticked kickouts by tkFixKeyOf (game + row id, so a
+// tick survives a re-draw); busy = a save is running (every fix button is disabled meanwhile).
+const TK_FIX={sel:new Set(), msg:'', err:false, undo:null, busy:false};
+function tkFixKeyOf(k){ const id=k&&k.e?EV_ROW.get(k.e):null; return id==null?'':k.gid+':'+id; }
+function tkFixWhyNot(P){ return !P.changes.length?'Nothing to retag: the tags already match the landing. Flagged for: '+(P.left.join('; ')||'n/a')+'. Move the landing, or mark it fine.'
+  :'Retagging would not clear the flag ('+P.left.join('; ')+'): the landing itself needs moving.'; }
+function tkFixBtnsHTML(k, at){
+  const P=tkFixRetagPlan(k), dis=TK_FIX.busy?' disabled aria-disabled="true"':'';
+  return `<span class="tk-fixbtns"><button type="button" class="tt-btn tk-fx" data-act="kfix-retag" ${at}${P.clears&&!TK_FIX.busy?' title="'+ssEsc('Rewrite the tag to match the landing: '+P.changes.map(c=>c.from+' → '+c.to).join(', '))+'"':' disabled aria-disabled="true" title="'+ssEsc(TK_FIX.busy?'Saving…':tkFixWhyNot(P))+'"'}>Retag${P.clears?' → '+ssEsc(tkFixRetagTxt(P)):''}</button>`
+    +`<button type="button" class="tt-btn tk-fx" data-act="kfix-move" ${at}${dis} title="Place the landing again on a pitch; the tags stay as they are">Move landing</button>`
+    +`<button type="button" class="tt-btn tk-fx" data-act="kfix-ok" ${at}${dis} title="The landing and the tags are right as they are: stop flagging this kickout">It’s fine</button></span>`;
+}
+function tkFixPicked(list){ return (list||[]).filter(k=>TK_FIX.sel.has(tkFixKeyOf(k))); }
+function tkFixBarHTML(list){
+  const keys=(list||[]).map(tkFixKeyOf).filter(Boolean); if(!keys.length) return '';
+  const pick=tkFixPicked(list), nR=pick.filter(k=>tkFixRetagPlan(k).clears).length, all=keys.every(q=>TK_FIX.sel.has(q)), dis=TK_FIX.busy?' disabled':'';
+  return '<div class="tk-fixbar" role="group" aria-label="Fix the selected landings">'
+    +`<label class="tk-fixall"><input type="checkbox" data-kfixall="1"${all?' checked':''}${dis}> Select all (${keys.length})</label>`
+    +`<button type="button" class="tt-btn pri" data-act="kfix-bretag"${nR&&!TK_FIX.busy?'':' disabled aria-disabled="true"'}>Retag selected (${nR})</button>`
+    +`<button type="button" class="tt-btn" data-act="kfix-bok"${pick.length&&!TK_FIX.busy?'':' disabled aria-disabled="true"'}>Mark selected fine (${pick.length})</button>`
+    +(pick.length>nR?`<span class="tk-fixnote">${ssEsc((pick.length-nR)+' selected can’t be retagged (the landing needs moving)')}</span>`:'')
+    +`<span class="tk-fixmsg${TK_FIX.err?' err':''}" role="status" aria-live="polite">${ssEsc(TK_FIX.msg)}</span>`
+    +(TK_FIX.undo&&!TK_FIX.busy?'<button type="button" class="tt-btn" data-act="kfix-undo">Undo</button>':'')+'</div>';
+}
+function tkFixTick(t){
+  const list=(TK_VIEW&&TK_VIEW.check)||[];
+  if(t.dataset.kfixall!=null) list.forEach(k=>{ const q=tkFixKeyOf(k); if(q){ if(t.checked) TK_FIX.sel.add(q); else TK_FIX.sel.delete(q); } });
+  else { const q=tkFixKeyOf(list[+t.dataset.kfix]); if(q){ if(t.checked) TK_FIX.sel.add(q); else TK_FIX.sel.delete(q); } }
+  tkFixBarSync();
+}
+// the bar only (a tick must not re-draw the list under the pointer)
+function tkFixBarSync(){
+  const d=ssEl('tkChk'), bar=d&&d.querySelector?d.querySelector('.tk-fixbar'):null; if(!bar) return;
+  const list=(TK_VIEW&&TK_VIEW.check)||[], tmp=document.createElement('div'); tmp.innerHTML=tkFixBarHTML(list);
+  if(tmp.firstChild) bar.replaceWith(tmp.firstChild);
+  d.querySelectorAll('input[data-kfix]').forEach(x=>{ const q=tkFixKeyOf(list[+x.dataset.kfix]); x.checked=!!q&&TK_FIX.sel.has(q); });
+}
+function tkFixAct(btn){
+  const act=btn.dataset.act, list=(TK_VIEW&&TK_VIEW.check)||[];
+  if(act==='kfix-undo') return tkFixUndo();
+  if(act==='kfix-bretag'){ const ks=tkFixPicked(list).filter(k=>tkFixRetagPlan(k).clears); if(ks.length) tkFixPreview(ks, btn); return; }
+  if(act==='kfix-bok'){ const ks=tkFixPicked(list); if(ks.length) tkFixRun(ks.map(k=>({k, op:{kind:'ok'}})), 'Marked '+ks.length+' kickout'+(ks.length===1?'':'s')+' fine'); return; }
+  const k=btn.dataset.pin?(ttPinItem()||{}).s:list[+btn.dataset.i]; if(!k) return;
+  if(act==='kfix-retag'){ const P=tkFixRetagPlan(k); if(P.clears) tkFixRun([{k, op:{kind:'retag', changes:P.changes}}], 'Retagged 1 kickout ('+P.changes.map(c=>c.from+' → '+c.to).join(', ')+')'); }
+  else if(act==='kfix-ok') tkFixRun([{k, op:{kind:'ok'}}], 'Marked 1 kickout fine');
+  else if(act==='kfix-move') tkFixMoveOpen(k, btn);
+}
+function tkFixWhere(k){ const m=TK_LAST&&TK_LAST.gameOf.get(k.gid); return (m?'v '+m.opp+' · '+(ovShortDate(m.date)||'')+' · ':'')+ttClockTxt(k.e); }
+// a small window over the page (the match-report modal's frame)
+function tkFixModal(title, sub, bodyHTML, footHTML, opener){
+  tkFixClose();
+  const el=document.createElement('div'); el.className='mr-modal tk-fixmodal'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.setAttribute('aria-label', title);
+  el.innerHTML=`<div class="mr-mcard tk-fixcard"><div class="mr-mhd"><div class="mr-mt"><b>${ssEsc(title)}</b><span>${ssEsc(sub)}</span></div><button type="button" class="mr-mx" data-fx="close" aria-label="Close">×</button></div>`
+    +`<div class="mr-mbody tk-fixbody">${bodyHTML}</div><div class="mr-mft tk-fixft">${footHTML}<div class="mr-mmsg" role="status" aria-live="polite"></div></div></div>`;
+  const M={el, opener:opener||null};
+  M.onKey=ev=>{ if(ev.key==='Escape'){ ev.preventDefault(); ev.stopPropagation(); tkFixClose(); } };
+  document.addEventListener('keydown', M.onKey, true);
+  el.addEventListener('click', ev=>{ if(ev.target===el){ tkFixClose(); return; } const b=ev.target.closest?ev.target.closest('[data-fx]'):null; if(b&&b.dataset.fx==='close') tkFixClose(); });
+  document.body.appendChild(el); TK_FIX.modal=M;
+  return M;
+}
+function tkFixClose(){
+  const M=TK_FIX.modal; if(!M) return; TK_FIX.modal=null;
+  document.removeEventListener('keydown', M.onKey, true); if(M.el&&M.el.remove) M.el.remove();
+  if(M.opener&&M.opener.isConnected&&M.opener.focus){ try{ M.opener.focus({preventScroll:true}); }catch(_){ } }
+}
+// batch retag: what will change, then Save
+function tkFixPreview(ks, opener){
+  const plans=ks.map(k=>({k, P:tkFixRetagPlan(k)})), games=new Set(ks.map(k=>k.gid)).size, tally=new Map();
+  plans.forEach(({P})=>P.changes.forEach(c=>{ const t=c.from+' → '+c.to; tally.set(t, (tally.get(t)||0)+1); }));
+  const body=`<p class="tk-fxlead">${ssEsc('Retag '+ks.length+' kickout'+(ks.length===1?'':'s')+' in '+games+' game'+(games===1?'':'s')+' so the tags match where they landed. Positions are not changed. You can undo this straight after.')}</p>`
+    +'<div class="tk-fxsum">'+[...tally].map(([t,n])=>`<span>${ssEsc(t)} <b>×${n}</b></span>`).join('')+'</div>'
+    +'<div class="tk-fxlist">'+plans.map(({k,P})=>`<div><span>${ssEsc(tkFixWhere(k)+' · '+k.team)}</span><b>${ssEsc(P.changes.map(c=>c.from+' → '+c.to).join(', '))}</b></div>`).join('')+'</div>';
+  const M=tkFixModal('RETAG SELECTED', ks.length+' kickout'+(ks.length===1?'':'s'), body, '<button type="button" class="primary" data-fx="save">Retag '+ks.length+'</button><button type="button" data-fx="close">Cancel</button>', opener);
+  const save=M.el.querySelector('[data-fx="save"]'); try{ save.focus(); }catch(_){ }
+  save.addEventListener('click', ()=>{ tkFixClose(); tkFixRun(plans.map(({k,P})=>({k, op:{kind:'retag', changes:P.changes}})), 'Retagged '+ks.length+' kickout'+(ks.length===1?'':'s')); });
+}
+// MOVE: click (or arrow keys) to place the landing on the kickout pitch; the tagged zone is shaded
+function tkFixMoveOpen(k, opener){
+  const zN=tkZoneLabel(k.e), lab=tkLenLabel(k.e), st={x:k.x, d:Math.max(TK_START_M, Math.min(TK_VIEW_M, k.dist))};
+  const thirds=`<line x1="${tkPX(33.3)}" y1="${tkPY(tkArcD(33.3))}" x2="${tkPX(33.3)}" y2="${tkPY(TK_VIEW_M)}" stroke="rgba(255,255,255,.35)" stroke-width=".35" stroke-dasharray="1.2 1.4"/><line x1="${tkPX(66.7)}" y1="${tkPY(tkArcD(66.7))}" x2="${tkPX(66.7)}" y2="${tkPY(TK_VIEW_M)}" stroke="rgba(255,255,255,.35)" stroke-width=".35" stroke-dasharray="1.2 1.4"/>`;
+  const shade=zN?`<path d="${TK_ZG.shape[zN]}" fill="rgba(255,210,63,.22)" stroke="#ffd23f" stroke-width=".4"/>`:'';
+  const svg=tkPitchOpen('tk-fixpitch', 'Kickout pitch: click where the kickout landed').replace('<svg ', '<svg tabindex="0" ')+thirds+shade
+    +`<circle cx="${tkPX(k.x)}" cy="${tkPY(k.dist)}" r="1.6" fill="none" stroke="#ffd23f" stroke-width=".5" stroke-dasharray="1 .7"/>`
+    +`<g class="tk-fxnew"><circle r="1.5" fill="#ffffff" stroke="#111" stroke-width=".4"/></g></svg>`;
+  const tagTxt=[lab?TK_LEN_NAME[lab]:'', zN?'Zone '+zN:''].filter(Boolean).join(' · ')||'no length or zone tag';
+  const body=`<p class="tk-fxlead">${ssEsc('Click where the kickout actually landed (Watch clip first if unsure). The dashed ring is where it is now; the shaded zone is what it is tagged: '+tagTxt+'. Arrow keys nudge the new spot by 1 m (Shift: 5 m).')}</p>`
+    +`<div class="tk-fxpbox">${svg}</div><div class="tk-fxread" aria-live="polite"></div>`;
+  const M=tkFixModal('MOVE THE LANDING', tkFixWhere(k)+' · '+k.team+' kickout', body, '<button type="button" class="primary" data-fx="save" disabled>Save new landing</button><button type="button" data-fx="close">Cancel</button>', opener);
+  const sv=M.el.querySelector('svg.tk-fixpitch'), dot=M.el.querySelector('.tk-fxnew'), rd=M.el.querySelector('.tk-fxread'), save=M.el.querySelector('[data-fx="save"]');
+  let moved=false;
+  const draw=()=>{ dot.setAttribute('transform', `translate(${tkPX(st.x)} ${tkPY(st.d)})`);
+    const r=tkFixMoveRead(k, st.x, st.d), nm={S:'short', M:'medium', L:'long'};
+    rd.innerHTML=moved?`New landing: <b>${Math.round(st.d)} m</b> · ${ssEsc(r.zone==='arc'?'inside the arc':'Zone '+r.zone)} · ${nm[r.len]} — `+(r.clears?'<span class="ok">agrees with the tags ✓</span>':`<span class="no">${ssEsc('still flagged: '+r.why.join('; '))}</span>`)
+      :'Now: <b>'+Math.round(k.dist)+' m</b> · '+ssEsc(k.checkWhy.join('; '));
+    save.disabled=!moved; };
+  const place=(x,d)=>{ st.x=Math.max(0, Math.min(100, x)); st.d=Math.max(TK_START_M, Math.min(TK_VIEW_M, d)); moved=true; draw(); };
+  sv.addEventListener('click', ev=>{ const p=sv.createSVGPoint(); p.x=ev.clientX; p.y=ev.clientY; const q=p.matrixTransform(sv.getScreenCTM().inverse());
+    place((q.x-TK_PM)*100/(100-2*TK_PM), (q.y-TK_PM)/TK_K+TK_START_M); });
+  sv.addEventListener('keydown', ev=>{ const f=ev.shiftKey?5:1, dx={ArrowLeft:-f, ArrowRight:f}[ev.key], dd={ArrowUp:-f, ArrowDown:f}[ev.key];
+    if(dx==null&&dd==null) return; ev.preventDefault(); place(st.x+(dx||0)*100/TK_WIDTH_M, st.d+(dd||0)); });
+  save.addEventListener('click', ()=>{ const x=st.x, d=st.d; tkFixClose(); tkFixRun([{k, op:{kind:'move', x, d}}], 'Moved 1 landing to '+Math.round(d)+' m'); });
+  draw(); try{ sv.focus(); }catch(_){ }
+}
+async function tkFixRun(items, verb){
+  if(TK_FIX.busy||!items.length) return;
+  TK_FIX.busy=true; TK_FIX.err=false; TK_FIX.msg='Saving…'; ttHideTip(); tkFixRedraw();
+  try{
+    const plan=await tkFixSave(items.map(it=>({gid:it.k.gid, e:it.k.e, op:it.op})));
+    TK_FIX.undo={verb, rows:plan.map(p=>({gid:p.gid, e:p.next, before:p.before}))};
+    items.forEach(it=>TK_FIX.sel.delete(tkFixKeyOf(it.k)));
+    TK_FIX.msg=verb+'.';
+  }catch(e){ TK_FIX.err=true; TK_FIX.msg='Not saved: '+(e&&e.message||e); }
+  TK_FIX.busy=false; tkFixRedraw(true);
+}
+async function tkFixUndo(){
+  const U=TK_FIX.undo; if(!U||TK_FIX.busy) return;
+  TK_FIX.busy=true; TK_FIX.err=false; TK_FIX.msg='Undoing…'; tkFixRedraw();
+  try{ await tkFixSave(U.rows.map(r=>({gid:r.gid, e:r.e, op:{kind:'undo', fields:r.before}}))); TK_FIX.undo=null; TK_FIX.msg='Undone: '+U.verb.charAt(0).toLowerCase()+U.verb.slice(1)+'.'; }
+  catch(e){ TK_FIX.err=true; TK_FIX.msg='Undo not saved: '+(e&&e.message||e); }
+  TK_FIX.busy=false; tkFixRedraw(true);
+}
+// re-draw the Kickouts sub-tab; recount = the games' events changed (tkSelCalc reads the replaced bundles)
+function tkFixRedraw(recount){ if(!TK_BASE||!TK_LAST) return; if(recount) tkSelCalc(); if(TT_SUB==='kickouts'&&TAB==='team-trends') tkRender(); }
+// THE SAVE. items = [{gid, e (the loaded event), op}]; op.kind 'retag' | 'move' | 'ok' | 'undo' (fields = the old ones).
+// Per game: re-read its events, find each row by its id, refuse it if its labels / position are not what this page
+// shows, apply the op to the FRESH row, then write every row in ONE editEvent call. The written rows replace the
+// loaded ones (a new events array, so every cached tally of the game recounts). Returns [{gid, id, e, before, next}].
+async function tkFixSave(items){
+  const byG=new Map(); items.forEach(it=>{ if(!byG.has(it.gid)) byG.set(it.gid, []); byG.get(it.gid).push(it); });
+  const plan=[];
+  for(const [gid, its] of byG){
+    const b=BUNDLES.get(gid); if(!b||!b.meta) throw new Error('the game is not loaded');
+    const j=await cohesionRead({action:'getEvents', gameId:gid}), fresh=new Map((j.events||[]).map(r=>[String(r.id), r.data]));
+    const K=tkGameKos(b.meta, b.events), ctx={conv:K?K.conv:'tracker', home:b.meta.homeTeam};
+    its.forEach(it=>{
+      const id=EV_ROW.get(it.e); if(id==null) throw new Error('a kickout has no database row');
+      const f=fresh.get(String(id)); if(!f) throw new Error('a kickout is no longer in the game: reload the page');
+      if(!tkFixSame(f, it.e)) throw new Error('a kickout was changed since this page loaded it (in Code Room?): reload the page and try again');
+      const next=it.op.kind==='undo'?tkFixPut(JSON.parse(JSON.stringify(f)), it.op.fields):tkFixApply(f, it.op, ctx);
+      plan.push({gid, id, e:it.e, before:tkFixFields(f), next});
+    });
+  }
+  const res=await cohesionEventBatch(plan.map(p=>({action:'update', id:p.id, data:p.next, ref:String(p.id)})));
+  const okIds=new Set((res&&res.results||[]).filter(r=>r&&r.ok).map(r=>String(r.ref)));
+  const done=plan.filter(p=>okIds.has(String(p.id)));
+  byG.forEach((its, gid)=>{ const b=BUNDLES.get(gid), rep=new Map(done.filter(p=>p.gid===gid).map(p=>[p.e, p])); if(!rep.size) return;
+    BUNDLES.set(gid, {meta:b.meta, events:b.events.map(e=>{ const p=rep.get(e); if(!p) return e; EV_ROW.set(p.next, p.id); return p.next; })}); });
+  if(done.length<plan.length){ const bad=(res&&res.results||[]).find(r=>r&&!r.ok);
+    throw new Error((plan.length-done.length)+' of '+plan.length+' not saved'+(done.length?' ('+done.length+' saved)':'')+(bad&&bad.error?': '+bad.error:'')); }
+  return plan;
 }
 // ═══════════════════════════════════════════════════════════════
 //  CLIP PLAYER — "Watch clip" on a pinned shot / kickout card plays that clip in a window on this
@@ -5385,12 +5646,14 @@ function ttInit(){
     if(b&&b.dataset.f){ ttSetFilter(b.dataset.f, b.dataset.v); return; }
     if(b&&b.dataset.act==='pl-all'){ if(!b.disabled) ttPlAll(b); return; }
     if(b&&(b.dataset.act==='chk-watch'||b.dataset.act==='chk-pl')){ if(!b.disabled) tkCheckAct(b); return; }
+    if(b&&/^kfix-/.test(b.dataset.act||'')){ if(!b.disabled) tkFixAct(b); return; }
     if(b&&b.dataset.act==='kt-watch'){ const l=TK_KTW.get(b.dataset.k); if(!b.disabled&&l&&l.length){ const v=l.filter(k=>cpClip(k)); if(v.length) cpOpen('ko', v[0], b, v); } return; }
     const tip=tipOf(e);
     if(tip&&ttCanPin(tip)) ttPinTip(tip);            // a marker: click / tap pins its card (again: closes it)
     else if(tip) ttShowTip(tip); else ttHideTip();   // a tap shows the card; a tap anywhere else closes it
   });
   pane.addEventListener('change', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.mmsel){ mmSetFilter(t.dataset.mmsel, t.value); return; }
+    if(t&&t.dataset&&(t.dataset.kfix!=null||t.dataset.kfixall!=null)){ tkFixTick(t); return; }
     if(t&&t.dataset&&t.dataset.tdk) (t.closest&&t.closest('[data-gs="mm"]')?mmSelToggle:t.closest&&t.closest('[data-gs="tt"]')?ttSelToggle:t.closest&&t.closest('[data-gs="tk"]')?tkSelToggle:t.closest&&t.closest('[data-gs="tv"]')?tvSelToggle:tdToggle)(t.dataset.tdk, t.value, !!t.checked); });
   pane.addEventListener('mouseover', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&tip!==TT_TIP) ttShowTip(tip); });
   pane.addEventListener('mouseout', e=>{ if(TT_PIN) return; const tip=tipOf(e); if(tip&&(!e.relatedTarget||!tip.contains(e.relatedTarget))&&tip===TT_TIP) ttHideTip(); });
