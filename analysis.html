@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
+<script>try{ document.documentElement.setAttribute('data-theme', localStorage.getItem('cohesion_theme')==='light'?'light':'dark'); }catch(_e){}</script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0b0b10;--panel:#14141c;--card:#1b1b25;--border:#2a2a36;--t1:#ececf1;--t2:#a0a0ae;--t3:#6d6d7a;--accent:#4fc3f7;--teal:#2dd4bf;--amber:#f5a623;--green:#22c55e;--red:#ef4444;}
+/* LIGHT — the same light colours as the Dashboard and Library (cohesion_theme, set on any page). Exports stay dark:
+   the 🖼 Image draws with the fixed dark set (ssThemeColors) and printing switches the page to dark for the print. */
+[data-theme="light"]{--bg:#f0eeeb;--panel:#ffffff;--card:#f7f6f3;--border:rgba(0,0,0,0.11);--t1:#1a1a28;--t2:#555572;--t3:#7c7c8e;--accent:#0369a1;--teal:#0f766e;--amber:#b45309;--green:#15803d;--red:#b91c1c;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--t1);font-family:'Barlow',sans-serif;}
 header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);}
@@ -932,6 +936,52 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   .pf-tab{min-width:860px;} .pf-tab td.py-n{position:sticky;left:0;background:var(--panel);z-index:1;} .pf-tab th.py-n{position:sticky;left:0;background:var(--panel);z-index:1;} .pf-row.sel td.py-n{background:#1c3b4c;}
   .pf-who h3{font-size:18px;}
 }
+
+/* ── LIGHT MODE: the rules above that were written for the dark page only ── */
+[data-theme="light"] button.act.primary,[data-theme="light"] .seg button.on,[data-theme="light"] .mr-xmlbtn,[data-theme="light"] .mr-mft button.primary,[data-theme="light"] .tt-btn.pri,[data-theme="light"] .tt-btn.pri:hover{color:#fff;}
+[data-theme="light"] .mr-row:hover,[data-theme="light"] .py-row:hover td,[data-theme="light"] .py-row:focus-visible td,[data-theme="light"] .py-kl li[data-pykrow]:hover,[data-theme="light"] .pf-br:hover,[data-theme="light"] .pf-row:hover td,[data-theme="light"] .pf-row:focus-visible td{background:rgba(0,0,0,.035);}
+[data-theme="light"] .mr-row.sel,[data-theme="light"] .py-row.sel td,[data-theme="light"] .py-kl li.sel,[data-theme="light"] .pf-br.sel,[data-theme="light"] .pf-row.sel td,[data-theme="light"] .py-row.sel td.py-n,[data-theme="light"] .pf-row.sel td.py-n{background:#dcecf8;}
+[data-theme="light"] .mr-row.sel,[data-theme="light"] .py-kl li.sel,[data-theme="light"] .pf-br.sel{border-left-color:#0369a1;}
+[data-theme="light"] .py-row.sel td:first-child,[data-theme="light"] .pf-row.sel td:first-child,[data-theme="light"] .py-row.sel td.py-n{border-left-color:#0369a1;}
+[data-theme="light"] .py-kl li.sel[data-pykrow]:hover{background:#cfe4f5;}
+[data-theme="light"] .pf-br.sel .pf-bn{color:var(--t1);}
+[data-theme="light"] .mr-ic:hover,[data-theme="light"] .mr-ic:focus-visible,[data-theme="light"] .mr-row.sel .mr-ic{color:#0369a1;}
+[data-theme="light"] .mr-chk input{accent-color:#0369a1;}
+[data-theme="light"] .py-kl li[data-pykrow]:focus-visible,[data-theme="light"] .pf-br:focus-visible{outline-color:#0369a1;}
+[data-theme="light"] .mr-tm.me span{color:var(--t1);} [data-theme="light"] .mr-tm:not(.me) span{color:var(--t2);}
+[data-theme="light"] .mr-chip,[data-theme="light"] .tk-zkey .tk-zsw{border-color:rgba(0,0,0,.25);}
+[data-theme="light"] .mr-badge.W{background:#dcfce7;color:#15803d;} [data-theme="light"] .mr-badge.D{background:#fef3c7;color:#b45309;} [data-theme="light"] .mr-badge.L{background:#fee2e2;color:#b91c1c;}
+[data-theme="light"] .mr-fv small{color:var(--t3);}
+[data-theme="light"] .mr-open{border-color:#0369a1;background:#e0f0fb;color:#0369a1;} [data-theme="light"] .mr-open:hover{background:#cde6f7;}
+[data-theme="light"] .mr-mcard{border-color:var(--border);box-shadow:0 24px 70px rgba(0,0,0,.25);}
+[data-theme="light"] .mr-spin{border-color:var(--border);border-top-color:var(--accent);}
+[data-theme="light"] .tt-grid{stroke:rgba(0,0,0,.1);}
+[data-theme="light"] .tt-d-team,[data-theme="light"] .mm-mk{stroke:#ffffff;}
+[data-theme="light"] .tt-d-opp,[data-theme="light"] .tt-d-xp{fill:#ffffff;}
+[data-theme="light"] .tt-d-opp{stroke:#8a8a9a;}
+[data-theme="light"] .tt-sw.none{background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.35);}
+[data-theme="light"] #ttTip{background:#ffffff;border-color:rgba(0,0,0,.14);box-shadow:0 14px 36px rgba(0,0,0,.18);}
+[data-theme="light"] #ttTip.pin{border-color:rgba(0,0,0,.24);}
+[data-theme="light"] .tt-btn{border-color:rgba(0,0,0,.18);background:var(--card);}
+[data-theme="light"] .tt-x:hover,[data-theme="light"] .tt-x:focus-visible{border-color:rgba(0,0,0,.18);}
+[data-theme="light"] .tt-plm{border-top-color:var(--border);}
+[data-theme="light"] .tt-pll button,[data-theme="light"] .tt-plnew input,[data-theme="light"] .tt-plnew select{border-color:rgba(0,0,0,.15);background:var(--card);}
+[data-theme="light"] .tt-plnote,[data-theme="light"] .tk-chkn{color:#b45309;}
+[data-theme="light"] .mm-minband{fill:#000;} [data-theme="light"] .tt-hit:hover .mm-minband,[data-theme="light"] .tt-hit:focus .mm-minband,[data-theme="light"] .tt-hit.tip-on .mm-minband{fill-opacity:.06;}
+[data-theme="light"] .mm-htband{fill:#000;fill-opacity:.045;}
+[data-theme="light"] .mm-pill.v3{background:rgba(180,83,9,.12);color:#b45309;} [data-theme="light"] .mm-pill.v2{background:rgba(3,105,161,.1);color:#0369a1;} [data-theme="light"] .mm-pill.v1{background:rgba(21,128,61,.1);color:#15803d;} [data-theme="light"] .mm-pill.v0{background:rgba(0,0,0,.06);}
+[data-theme="light"] .mm-sm span,[data-theme="light"] .py-it,[data-theme="light"] .pf-bt{background:rgba(0,0,0,.07);}
+[data-theme="light"] .py-tab th button:hover,[data-theme="light"] .py-tab th button:focus-visible,[data-theme="light"] .py-tab th button:hover .py-sm,[data-theme="light"] .py-tab th button:focus-visible .py-sm{color:var(--accent);}
+[data-theme="light"] .py-badge{background:#ffffff;color:var(--t1);}
+[data-theme="light"] .py-map .tt-pitch{border-color:rgba(0,0,0,.15);}
+[data-theme="light"] .py-bar:hover .py-barhit,[data-theme="light"] .py-bar:focus .py-barhit,[data-theme="light"] .py-bar.tip-on .py-barhit{fill:rgba(0,0,0,.05);}
+[data-theme="light"] .py-bar:hover .py-barfill,[data-theme="light"] .py-bar:focus .py-barfill,[data-theme="light"] .py-bar.tip-on .py-barfill{stroke:#1a1a28;}
+[data-theme="light"] .py-gktab .py-gsep{border-left-color:var(--border);}
+[data-theme="light"] .mcard.W em,[data-theme="light"] .mr-res.W,[data-theme="light"] .tt-cscore em.W,[data-theme="light"] .kpi-v.pd-pos,[data-theme="light"] .kpi-v.tv-pos,[data-theme="light"] .tv-big.won .td-ct,[data-theme="light"] .tv-big.won .tv-bn,[data-theme="light"] .tv-third.won .tv-tv,[data-theme="light"] .tt-cr b.tv-w,[data-theme="light"] .mm-val.pos,[data-theme="light"] .mm-kc.best .mm-kn,[data-theme="light"] .mm-mg.pos,[data-theme="light"] .ov-h em.tv-em.won{color:#15803d;}
+[data-theme="light"] .mcard.L em,[data-theme="light"] .mr-res.L,[data-theme="light"] .tt-cscore em.L,[data-theme="light"] .kpi-v.pd-neg,[data-theme="light"] .kpi-v.tv-neg,[data-theme="light"] .tv-big.lost .td-ct,[data-theme="light"] .tv-big.lost .tv-bn,[data-theme="light"] .tv-third.lost .tv-tv,[data-theme="light"] .tt-cr b.tv-l,[data-theme="light"] .mm-val.neg,[data-theme="light"] .mm-kc.worst .mm-kn,[data-theme="light"] .mm-mg.neg,[data-theme="light"] .ov-h em.tv-em.lost{color:#b91c1c;}
+[data-theme="light"] .mcard.D em,[data-theme="light"] .mr-res.D,[data-theme="light"] .tt-cscore em.D{color:#b45309;}
+[data-theme="light"] .mm-kc.high .mm-kn{color:#0369a1;}
+[data-theme="light"] .ov-h em.tv-em.won{border-color:#15803d;} [data-theme="light"] .ov-h em.tv-em.lost{border-color:#b91c1c;}
 </style>
 </head>
 <body>
@@ -941,6 +991,7 @@ body[data-sub=attacking] #tt-attacking,body[data-sub=defending] #tt-defending,bo
   <div class="hdr-actions">
     <button class="hdr-btn only-compare" id="pdfBtn" onclick="ssExportPDF()" disabled title="Run a comparison first">📄 PDF</button>
     <button class="hdr-btn only-compare" id="imgBtn" onclick="ssExportImage()" disabled title="Run a comparison first">🖼 Image</button>
+    <div class="hdr-btn theme-btn" onclick="toggleTheme()" id="themeToggle" title="Light / dark">☀️</div>
     <a href="library.html" class="hdr-btn">← Library</a>
   </div>
 </header>
@@ -2226,6 +2277,9 @@ async function fetchBundle(id){
 function ssHexRgb(h){ const m=/^#?([0-9a-f]{6})$/i.exec(String(h||'').trim()); if(!m) return null; const n=parseInt(m[1],16); return [n>>16&255,n>>8&255,n&255]; }
 function ssLum(rgb){ return (0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255; }
 function ssLighten(rgb,f){ return '#'+rgb.map(v=>Math.round(v+(255-v)*f).toString(16).padStart(2,'0')).join(''); }
+// light / dark: on-screen colours follow the page (exports never do — they keep the dark set)
+function anLight(){ try{ return document.documentElement.getAttribute('data-theme')==='light'; }catch(_e){ return false; } }
+function anInkOpts(){ return anLight()?{theme:'light', bg:'#ffffff'}:{theme:'dark', bg:'#14141c'}; }
 function ssTeamColor(T){
   // most recent game the team appears in wins (metas are newest-first)
   for(const g of GAMES){
@@ -2237,11 +2291,13 @@ function ssTeamColor(T){
 // png:true → the colours as the PNG export has always drawn them (no on-screen ink step)
 function ssDisplayColors(TA, TB, png){
   const fallbackA='#2dd4bf', fallbackB='#f5a623';
-  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); const c=L<0.28?ssLighten(c2.rgb,0.45):c2.hex;   // navy/black lift to readable
-    // on screen: and at least 3:1 (WCAG) against this dark page — the shared team-ink rule (cohesion-ink.js); display only
-    return (!png&&window.cohTeamInk)?cohTeamInk(c, {theme:'dark', bg:'#14141c'}):c; };
+  const lt=!png&&anLight();
+  const legible=c2=>{ if(!c2) return null; const L=ssLum(c2.rgb); const c=(L<0.28&&!lt)?ssLighten(c2.rgb,0.45):c2.hex;   // navy/black lift to readable (dark page)
+    // on screen: and at least 3:1 (WCAG) against this page (dark or light) — the shared team-ink rule (cohesion-ink.js); display only
+    return (!png&&window.cohTeamInk)?cohTeamInk(c, anInkOpts()):c; };
   let a=legible(ssTeamColor(TA))||fallbackA;
   let b=(TB&&TB!=='__baseline__')?(legible(ssTeamColor(TB))||fallbackB):fallbackB;
+  if(lt&&window.cohTeamInk){ a=cohTeamInk(a, anInkOpts()); b=cohTeamInk(b, anInkOpts()); }   // the teal / amber fallbacks too, on white
   const ra=ssHexRgb(a), rb=ssHexRgb(b);
   if(ra&&rb){ const d=Math.hypot(ra[0]-rb[0],ra[1]-rb[1],ra[2]-rb[2]); if(d<90) b=fallbackB; }   // clash → B goes amber
   if(a.toLowerCase()===fallbackB.toLowerCase()) a=fallbackA;   // degenerate: both resolved amber
@@ -2605,7 +2661,7 @@ function ovDonutSVG(set, unit){
   const S=260, cx=130, cy=130, R=116, r=62, total=set.total;
   let h=`<svg class="donut" viewBox="0 0 ${S} ${S}" role="img" aria-label="${ssEsc(unit)} by source">`;
   if(!(total>0)){
-    return h+`<circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="#2a2a36" stroke-width="${R-r}"/><text x="${cx}" y="${cy+6}" text-anchor="middle" class="dn-na">n/a</text></svg>`;
+    return h+`<circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" style="stroke:var(--border)" stroke-width="${R-r}"/><text x="${cx}" y="${cy+6}" text-anchor="middle" class="dn-na">n/a</text></svg>`;
   }
   h+=`<circle cx="${cx}" cy="${cy}" r="${R+3}" fill="none" stroke="#a9adb6" stroke-width="3" opacity=".75"/>`;
   const pt=(rad,a)=>(cx+rad*Math.cos(a)).toFixed(2)+','+(cy+rad*Math.sin(a)).toFixed(2);
@@ -2613,7 +2669,7 @@ function ovDonutSVG(set, unit){
   set.items.forEach(it=>{
     if(!(it.v>0)) return;
     const frac=it.v/total, a1=a0+Math.min(frac,0.99999)*2*Math.PI, big=(a1-a0)>Math.PI?1:0;
-    h+=`<path d="M${pt(R,a0)} A${R},${R} 0 ${big} 1 ${pt(R,a1)} L${pt(r,a1)} A${r},${r} 0 ${big} 0 ${pt(r,a0)} Z" fill="${it.col}" stroke="#14141c" stroke-width="1.5"><title>${ssEsc(it.label)}: ${Math.round(it.pct)}% (${it.v} ${ssEsc(unit)})</title></path>`;
+    h+=`<path d="M${pt(R,a0)} A${R},${R} 0 ${big} 1 ${pt(R,a1)} L${pt(r,a1)} A${r},${r} 0 ${big} 0 ${pt(r,a0)} Z" fill="${it.col}" style="stroke:var(--panel)" stroke-width="1.5"><title>${ssEsc(it.label)}: ${Math.round(it.pct)}% (${it.v} ${ssEsc(unit)})</title></path>`;
     if(it.pct>=4){ const am=(a0+a1)/2, lr=(R+r)/2;
       labels+=`<text x="${(cx+lr*Math.cos(am)).toFixed(1)}" y="${(cy+lr*Math.sin(am)+5).toFixed(1)}" text-anchor="middle" class="dn-lbl${it.k==='TI'?' dark':''}">${Math.round(it.pct)}%</text>`; }
     a0=a0+frac*2*Math.PI;
@@ -3247,7 +3303,7 @@ function ttFiltersHTML(F){
     +'</div>';
 }
 function ttMapKeyHTML(){
-  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
+  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k=anLight()?'#8a8f99':'#d7dbe0';   // the shape key: pale grey on dark, mid grey on light
   const dot=c=>`<circle cx="5" cy="5" r="3.6" fill="${c}" stroke="${ink}" stroke-width="1"/>`;
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${['1','2','G','P'].map(t=>gl(dot(TT_MK_COL[t]), TT_MK_LABEL[t])).join('')}</span>`
@@ -4314,7 +4370,7 @@ function tkFiltersHTML(F, pov){
     +'</div>';
 }
 function tkMapKeyHTML(pov){
-  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
+  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k=anLight()?'#8a8f99':'#d7dbe0';   // the shape key: pale grey on dark, mid grey on light
   return '<div class="tt-key tt-mkey">'
     +`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`,pov?ssEsc('Filled = won by '+pov):'Won by the kicker')}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,pov?'Hollow = won by the opposition (the kicking team)':'Lost')}</span>`
@@ -5663,7 +5719,7 @@ function mmCumSVG(C, W, o){
     const S=mine?C.F:C.A; for(let q=1; q<=end; q++) d+='L'+n1(X(q))+' '+n1(Y(S[q])); return d; };
   h+=`<path class="mm-line opp" stroke="${o.ocol}" d="${path(false)}"/><path class="mm-line" stroke="${o.col}" d="${path(true)}"/>`;
   if(C.single) C.pts.forEach(p=>{ const x=X(p.x), y=Y(p.mine?p.f:p.a), c=p.mine?o.col:o.ocol;
-    h+=p.v===3?`<circle class="mm-mk" cx="${n1(x)}" cy="${n1(y)}" r="6.5" fill="${c}"/><circle cx="${n1(x)}" cy="${n1(y)}" r="2.2" fill="#0b0b10"/>`
+    h+=p.v===3?`<circle class="mm-mk" cx="${n1(x)}" cy="${n1(y)}" r="6.5" fill="${c}"/><circle cx="${n1(x)}" cy="${n1(y)}" r="2.2" style="fill:var(--bg)"/>`
       :p.v===2?`<path class="mm-mk" fill="${c}" d="M${n1(x)} ${n1(y-6.5)}L${n1(x+6.5)} ${n1(y)}L${n1(x)} ${n1(y+6.5)}L${n1(x-6.5)} ${n1(y)}Z"/>`
       :`<circle cx="${n1(x)}" cy="${n1(y)}" r="2.6" fill="${c}"/>`; });
   for(let q=1; q<=end; q++){ const x0=X(q-1), f=C.F[q], a=C.A[q], t=v=>C.single?String(v):v.toFixed(1);
@@ -5677,7 +5733,7 @@ function mmCumSecHTML(R, V, o){
     +`<div class="mm-ch"><h4 class="td-ct">${C.single?'RUNNING SCORE':'AVERAGE RUNNING SCORE'} <small>${ssEsc((C.single?'':'per game · ')+mmWhoTxt(R, V))}</small></h4></div>`
     +`<div class="tt-chart">${mmCumSVG(C, o.W, {col:o.col, ocol:o.ocol, team:T})}</div>`
     +`<div class="tt-key"><span><i class="tt-sw" style="background:${o.col}"></i>${ssEsc(T+' '+t(C.f))}</span><span><i class="tt-sw" style="background:${o.ocol}"></i>${ssEsc(opp+' '+t(C.a))}</span>`
-    +(C.single?`<span>${mk('<circle cx="7" cy="7" r="6" fill="currentColor"/><circle cx="7" cy="7" r="2" fill="#0b0b10"/>')}Goal</span><span>${mk('<path d="M7 1L13 7L7 13L1 7Z" fill="currentColor"/>')}2-pointer</span><span>${mk('<circle cx="7" cy="7" r="2.6" fill="currentColor"/>')}Point</span>`:'')+'</div>'
+    +(C.single?`<span>${mk('<circle cx="7" cy="7" r="6" fill="currentColor"/><circle cx="7" cy="7" r="2" style="fill:var(--bg)"/>')}Goal</span><span>${mk('<path d="M7 1L13 7L7 13L1 7Z" fill="currentColor"/>')}2-pointer</span><span>${mk('<circle cx="7" cy="7" r="2.6" fill="currentColor"/>')}Point</span>`:'')+'</div>'
     +`<div class="dnote">${ssEsc((C.single?'The points on the board after each score, by game minute (the 2nd half starts where the 1st ended, minute '+C.ht+').'
       :'The average points per game on the board at each minute, over '+mmGl(C.n)+'. The games share one clock: the 2nd half starts at minute '+C.ht+', the longest 1st half of the selection, and a game holds its total once its own half is over.')
       +(C.e1End!=null?' Extra time runs from FT (minute '+C.ft+').':'')+' Hover, focus or tap a minute for both totals and the margin.')}</div></div>`;
@@ -6037,7 +6093,7 @@ function mrListHTML(vis, o){
     +(left>0?`<button type="button" class="mr-more" data-act="more">Show more (${Math.min(MR_PAGE,left)} of ${left})</button>`:'')+'</div>';
   return h;
 }
-function mrInk(c){ return window.cohTeamInk?cohTeamInk(c, {theme:'dark', bg:'#14141c'}):c; }   // on-screen chip: readable on this dark page (cohesion-ink.js)
+function mrInk(c){ return window.cohTeamInk?cohTeamInk(c, anInkOpts()):c; }   // on-screen chip: readable on this page, dark or light (cohesion-ink.js)
 function mrHex(c, fb){ return /^#[0-9a-f]{6}$/i.test(String(c||'').trim())?String(c).trim():fb; }
 // deco = {hexH, hexA, crestH, crestA} (colours / crest URLs; all optional)
 function mrCardHTML(c, deco){
@@ -6547,12 +6603,8 @@ function ssExportPDF(){
 
 // ── PNG: dark COHESION theme, drawn by hand so fonts/colours are exact ──
 function ssThemeColors(){
-  const fb={bg:'#0b0b10',panel:'#14141c',card:'#1b1b25',border:'#2a2a36',t1:'#ececf1',t2:'#a0a0ae',t3:'#6d6d7a',accent:'#4fc3f7',amber:'#f5a623'};
-  try{
-    const cs=getComputedStyle(document.documentElement);
-    Object.keys(fb).forEach(k=>{ const v=cs.getPropertyValue('--'+k).trim(); if(v) fb[k]=v; });
-  }catch(_e){}
-  return fb;
+  // always the dark set (the page's :root dark colours), whichever mode the page is in — exports look the same in both
+  return {bg:'#0b0b10',panel:'#14141c',card:'#1b1b25',border:'#2a2a36',t1:'#ececf1',t2:'#a0a0ae',t3:'#6d6d7a',accent:'#4fc3f7',amber:'#f5a623'};
 }
 function ssDrawImage(snap, ctx, C, now){
   const W=1180, P=28, FC="'Barlow Condensed', 'Arial Narrow', sans-serif", FB="'Barlow', Arial, sans-serif";
@@ -7243,7 +7295,7 @@ function pyKoMapSVG(kos, T){
       return `<g class="tt-mk" data-tip="pko:${i}" tabindex="0" role="button" aria-label="${ssEsc(k.team+' kickout, '+(TK_LEN_NAME[k.len]||'no length').toLowerCase()+', '+tkTypeName(k.type).toLowerCase()+(k.who?', '+k.who.name:''))}"><circle class="tt-mx" cx="${m.x}" cy="${m.y}" r="${TT_MK_HIT}" fill="transparent"/>${k.check?`<circle class="tk-far" cx="${m.x}" cy="${m.y}" r="${TK_FAR_R}" fill="none" stroke="${TK_FAR_COL}" stroke-width=".42" stroke-dasharray=".9 .7"/>`:''}${ttGlyph(m)}</g>`; }).join('')+'</g></svg>';
 }
 function pyKoKeyHTML(T){
-  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k='#d7dbe0';
+  const gl=(p,l)=>`<span><svg viewBox="0 0 10 10" aria-hidden="true">${p}</svg>${l}</span>`, ink=TT_MK_INK, k=anLight()?'#8a8f99':'#d7dbe0';   // the shape key: pale grey on dark, mid grey on light
   return '<div class="tt-key tt-mkey">'+`<span class="tt-kg">${TK_TYPES.map(t=>gl(`<circle cx="5" cy="5" r="3.6" fill="${TK_MK_COL[t[0]]}" stroke="${ink}" stroke-width="1"/>`, t[1])).join('')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="3.4" fill="${k}"/>`, ssEsc('Won by '+T))}${gl(`<circle cx="5" cy="5" r="2.9" fill="none" stroke="${k}" stroke-width="1.5"/>`,'Lost')}</span>`
     +`<span class="tt-kg">${gl(`<circle cx="5" cy="5" r="4.3" fill="none" stroke="${TK_FAR_COL}" stroke-width="1" stroke-dasharray="2 1.4"/><circle cx="5" cy="5" r="2" fill="${k}"/>`,'Check tag (see Team Trends › Kickouts)')}</span></div>`;
@@ -7833,7 +7885,17 @@ ovInit(); mrInit(); ttInit(); pyInit(); if(typeof pdInit==='function') pdInit();
 anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash));
 window.addEventListener('hashchange',()=>anSetTab(anTabFromHash(location.hash), anSubFromHash(location.hash)));
 cohesionIdentityReady().then(boot);
+// light / dark — shared with every page (localStorage cohesion_theme); cohesion-theme.js turns the button into the pill
+function initTheme(){ let t='dark'; try{ t=localStorage.getItem('cohesion_theme')==='light'?'light':'dark'; }catch(_e){} try{ document.documentElement.setAttribute('data-theme',t); const b=document.getElementById('themeToggle'); if(b) b.textContent=t==='dark'?'☀️':'🌙'; }catch(_e){} }
+function toggleTheme(){ const n=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light'; document.documentElement.setAttribute('data-theme',n); try{ localStorage.setItem('cohesion_theme',n); }catch(_e){} const b=document.getElementById('themeToggle'); if(b) b.textContent=n==='dark'?'☀️':'🌙';
+  try{ if(typeof GAMES_READY!=='undefined'&&GAMES_READY) anSetTab(TAB, TT_SUB); }catch(_e){} }   // redraw: team colours are picked for the page's background
+initTheme();
+// printing (Reports, Player Dashboard, Panel print-out → Save as PDF) is unchanged by light mode: dark for the print, then back
+let anPrintTheme=null;
+if(typeof window.addEventListener==='function') window.addEventListener('beforeprint',()=>{ const t=document.documentElement.getAttribute('data-theme'); if(t!=='dark'){ anPrintTheme=t; document.documentElement.setAttribute('data-theme','dark'); } });
+if(typeof window.addEventListener==='function') window.addEventListener('afterprint',()=>{ if(anPrintTheme){ document.documentElement.setAttribute('data-theme',anPrintTheme); anPrintTheme=null; } });
 </script>
+<script src="cohesion-theme.js"></script>
 <script src="cohesion-notify.js"></script>
 <script src="cohesion-teamband.js"></script>
 </body>

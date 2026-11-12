@@ -72,7 +72,9 @@ function pdColours(T){
   const pal=C[sl]||CC[sl]||null, g=(typeof ssTeamColor==='function')?ssTeamColor(T):null;
   const primary=(pal&&pal.primary)||(g&&g.hex)||'#4fc3f7', secondary=(pal&&pal.secondary)||null;
   // text and marks on the dark page: the same hue lifted to 4.5:1 (WCAG text) against the panels
-  const ink=(c,bg)=>(typeof window!=='undefined'&&window.cohTeamInk)?window.cohTeamInk(c, {theme:'dark', bg:bg||'#1b1b25', min:4.5}):c;
+  // (light mode: against white — the same rule, darkened instead of lifted)
+  const lt=typeof document!=='undefined'&&document.documentElement&&document.documentElement.getAttribute('data-theme')==='light';
+  const ink=(c,bg)=>(typeof window!=='undefined'&&window.cohTeamInk)?window.cohTeamInk(c, lt?{theme:'light', bg:'#ffffff', min:4.5}:{theme:'dark', bg:bg||'#1b1b25', min:4.5}):c;
   // the HIGHLIGHT: the primary, unless it is black or white (Sligo, Kilkenny, Kildare, Tyrone …) and the secondary is a real
   // colour — then the secondary; black with no colour beside it falls back to the other (white). Lifted to 4.5:1 on the panels.
   const hi=pdAchro(primary)&&secondary&&(!pdAchro(secondary)||pdLum(primary)<0.15)?secondary:primary, lo=hi===primary?(secondary||primary):primary;
@@ -1163,7 +1165,7 @@ const PD_CSS=`
 .pd-finfo{display:flex;align-items:center;justify-content:flex-end;gap:2px;margin:-6px 4px 14px;font-size:.78rem;color:var(--t3);}
 @media print{ .pd-i,.pd-ipop{display:none !important;} } .pd-tsub{font-size:.68rem;color:var(--amber);line-height:1.2;margin:-1px 0 2px;}
 .pd-w{background:transparent;border:1px solid var(--pa);color:var(--pa);border-radius:999px;padding:3px 9px;font:700 11px 'Barlow',sans-serif;cursor:pointer;white-space:nowrap;margin:2px 4px 2px 0;}
-.pd-w:hover,.pd-w:focus-visible{background:var(--pa);color:#0b0b10;} .pd-grp h4 .pd-w{margin-left:8px;letter-spacing:0;}
+.pd-w:hover,.pd-w:focus-visible{background:var(--pa);color:#0b0b10;} [data-theme="light"] .pd-w:hover,[data-theme="light"] .pd-w:focus-visible,[data-theme="light"] #pane-player-dash .seg button.on{color:#fff;} .pd-grp h4 .pd-w{margin-left:8px;letter-spacing:0;}
 .pd-wrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;} .pd-ws{display:flex;flex-wrap:wrap;gap:2px;} .py-bw{text-align:right;white-space:nowrap;}
 .pd-range .pd-w{align-self:flex-start;}
 @media (max-width:1100px){ .pd-panels{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'a b' 'c d';} .pd-area-g{grid-template-columns:minmax(0,1fr);} .pd-shoot,.pd-shoot.norate{grid-template-areas:'maps' 'dead' 'press' 'rate';grid-template-rows:none;} }
