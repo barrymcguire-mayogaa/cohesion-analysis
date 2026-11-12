@@ -298,7 +298,7 @@ select option{background:var(--card);}
   max-width:1400px;margin:28px auto 34px;padding:0 20px;
 }
 .library-tile-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px;
+  display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:16px;
   margin:0;
 }
 .library-tile{
@@ -311,6 +311,10 @@ select option{background:var(--card);}
   border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg);
 }
 .library-tile img{width:100%;height:100%;object-fit:cover;display:block;}
+/* each card has a dark and a light badge; the one for the current mode shows */
+.library-tile img.lt-light{display:none;}
+[data-theme="light"] .library-tile img.lt-dark{display:none;}
+[data-theme="light"] .library-tile img.lt-light{display:block;}
 .library-reset{
   margin-top:14px;
   border:none;background:transparent;color:var(--t2);
@@ -322,7 +326,7 @@ select option{background:var(--card);}
 
 .library-tile-label{display:none;}
 /* the cards scale with the screen: 5 a row on a tablet; on a phone 2 a row as short bars (the badge small on the left,
-   the competition's name beside it) instead of half-screen squares */
+   the competition's name beside it) instead of half-screen squares. Desktop: all ten in one row, the same width as the game cards. */
 @media (max-width:1200px){
   .library-tile-grid{grid-template-columns:repeat(5,1fr);gap:12px;}
 }
@@ -386,6 +390,7 @@ select option{background:var(--card);}
     <option>Leinster SFC</option>
     <option>Munster SFC</option>
     <option>Ulster SFC</option>
+    <option>Tailteann Cup</option>
     <option>All-Ireland SFC</option>
     <option>U20 Championship</option>
   </select>
@@ -608,59 +613,65 @@ const libraryTiles = [
   {
     key: 'division-1',
     label: 'Division 1',
-    image: 'Assets/Div 1.png',
+    image: 'Div 1.png',
     competition: 'National Football League',
     division: '1'
   },
   {
     key: 'division-2',
     label: 'Division 2',
-    image: 'Assets/Div 2.png',
+    image: 'Div 2.png',
     competition: 'National Football League',
     division: '2'
   },
   {
     key: 'division-3',
     label: 'Division 3',
-    image: 'Assets/Div 3.png',
+    image: 'Div 3.png',
     competition: 'National Football League',
     division: '3'
   },
   {
     key: 'division-4',
     label: 'Division 4',
-    image: 'Assets/Div 4.png',
+    image: 'Div 4.png',
     competition: 'National Football League',
     division: '4'
   },
   {
     key: 'csfc',
     label: 'CSFC',
-    image: 'Assets/CSFC.png',
+    image: 'CSFC.png',
     competition: 'Connacht SFC'
   },
   {
     key: 'lsfc',
     label: 'LSFC',
-    image: 'Assets/LSFC.png',
+    image: 'LSFC.png',
     competition: 'Leinster SFC'
   },
   {
     key: 'msfc',
     label: 'MSFC',
-    image: 'Assets/MSFC.png',
+    image: 'MSFC.png',
     competition: 'Munster SFC'
   },
   {
     key: 'usfc',
     label: 'USFC',
-    image: 'Assets/USFC.png',
+    image: 'USFC.png',
     competition: 'Ulster SFC'
+  },
+  {
+    key: 'tailteann',
+    label: 'Tailteann Cup',
+    image: 'Tailteann.png',
+    competition: 'Tailteann Cup'
   },
   {
     key: 'aisfc',
     label: 'All-Ireland SFC',
-    image: 'Assets/AISFC.png',
+    image: 'AISFC.png',
     competition: 'All-Ireland SFC'
   }
 ];
@@ -675,8 +686,9 @@ function renderLibraryTiles(){
     <div class="library-tile ${activeTileKey === tile.key ? 'active' : ''}"
          onclick="applyLibraryTileFilter('${tile.key}')"
          title="${tile.label}">
-      <img src="${tile.image}" alt="${tile.label}" loading="lazy">
-      <span class="library-tile-label">${tile.division ? 'Division ' + tile.division : String(tile.competition).replace(/ SFC$/, '')}</span>
+      <img class="lt-dark" src="Assets/Tiles/Dark/${tile.image}" alt="${tile.label}" loading="lazy">
+      <img class="lt-light" src="Assets/Tiles/Light/${tile.image}" alt="${tile.label}" loading="lazy">
+      <span class="library-tile-label">${tile.division ? 'Division ' + tile.division : String(tile.competition).replace(/ SFC$/, '').replace(/ Cup$/, '')}</span>
     </div>
   `).join('');
 }
@@ -933,7 +945,7 @@ function renderGames(games){
         <a class="game-card" href="dashboard.html?game=${g.id}">
           <div class="card-thumb">
             <img src="${thumbUrl}" alt="${title}"
-                 onerror="this.src='https://img.youtube.com/vi/${ytId}/hqdefault.jpg'">
+                 onerror="this.onerror=null;this.src='https://img.youtube.com/vi/${ytId}/hqdefault.jpg'">
             <div class="card-thumb-overlay">
               <div class="card-competition">${comp}</div>
               ${g.angles&&g.angles.length>1?`<div class="card-angles">📹 ${g.angles.length}</div>`:''}
