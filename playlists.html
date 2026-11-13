@@ -358,6 +358,19 @@ body.pl-offline .cmrow,body.pl-offline .cmops,body.pl-offline #cmDrawBtn,body.pl
 .pp-cam{background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.4);border-radius:8px;padding:6px 8px;margin:0 0 8px;} .pp-cam b{color:#ffd600;}
 .pp-seg{display:flex;gap:6px;margin-top:6px;} .pp-seg button{flex:1;padding:5px;border-radius:7px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;cursor:pointer;} .pp-seg button.on{background:#4fc3f7;border-color:#4fc3f7;color:#04202d;}
 .pp-rev{margin:0 0 8px;color:#9aa0b4;font-size:11.5px;}
+.pospanel{width:306px;max-height:calc(100vh - 80px);overflow:auto;}
+.pp-teams{display:flex;gap:6px;margin:0 0 6px;} .pp-team{flex:1;display:flex;align-items:center;gap:5px;min-width:0;padding:6px 7px;border-radius:8px;border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;font:700 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;cursor:pointer;}
+.pp-team span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;} .pp-team em{font-style:normal;color:#9aa0b4;} .pp-team.on{border-color:#ffd600;background:rgba(255,214,0,.12);}
+.pp-team i,.pp-fig i,.pp-sel i{display:inline-block;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;flex:none;} .pp-team i.ball{background:#fff;border-color:#0b0d12;box-shadow:0 0 0 1px #fff;}
+.pp-cols{display:flex;gap:10px;margin:0 0 6px;color:#9aa0b4;font-size:11px;} .pp-cols label{display:flex;align-items:center;gap:4px;} .pp-cols input{width:22px;height:18px;padding:0;border:none;background:none;cursor:pointer;}
+.pp-sel{display:flex;align-items:center;gap:6px;margin:0 0 6px;padding:5px 6px;border-radius:8px;background:rgba(255,214,0,.08);border:1px solid rgba(255,214,0,.35);} .pp-sel select{flex:1;min-width:0;background:#0b0d12;color:#e6e7ee;border:1px solid #2c3040;border-radius:6px;padding:3px 4px;font:12px Barlow,sans-serif;}
+.pp-sel button{border:1px solid #2c3040;background:#1a1d27;color:#e6e7ee;border-radius:6px;padding:3px 7px;cursor:pointer;font:12px Barlow,sans-serif;} .pp-near{color:#9aa0b4;font-size:11px;white-space:nowrap;}
+.pp-map{display:block;margin:0 auto 6px;max-width:100%;height:auto;}
+.pp-fig{width:100%;border-collapse:collapse;margin:0 0 8px;font-size:12px;} .pp-fig th{text-align:left;font-weight:400;color:#9aa0b4;padding:2px 4px 2px 0;white-space:nowrap;} .pp-fig td{text-align:right;padding:2px 0 2px 6px;font-weight:700;white-space:nowrap;}
+.pp-fig tr:first-child td{font:800 12px 'Barlow Condensed',sans-serif;letter-spacing:.4px;} .pp-fig tr:first-child td i{width:9px;height:9px;margin-right:4px;vertical-align:-1px;} .pp-fig tr+tr{border-top:1px solid #1f2230;}
+.pp-def>span,.pp-mapc>span{color:#9aa0b4;font-size:11.5px;min-width:86px;} .pp-def .pp-seg,.pp-mapc .pp-seg{flex:1;margin:0;} .pp-def em{font-style:normal;color:#22c55e;font-size:11px;}
+.pp-mapc .pp-seg button{padding:4px 2px;}
+
 </style>
 </head>
 <body>
@@ -1808,7 +1821,8 @@ const IC={
   styles:'<path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>',
   spotpin:'<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
   pitch:'<path d="M2.5 18.5L6.5 6h11l4 12.5z"/><path d="M12 6v12.5M4.6 12.2h14.8"/><circle cx="12" cy="12.2" r="2"/>',
-  dist:'<path d="M4 16l12-12 4 4-12 12z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>'
+  dist:'<path d="M4 16l12-12 4 4-12 12z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>',
+  posmap:'<rect x="2.5" y="5" width="19" height="14" rx="1.5"/><path d="M12 5v14"/><circle cx="7" cy="9.5" r="1.6" fill="currentColor"/><circle cx="8.5" cy="15" r="1.6" fill="currentColor"/><circle cx="16" cy="11" r="1.6"/><circle cx="17" cy="15.5" r="1.6"/>'
 };
 const ico=n=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>';
 const TOOLS=[
@@ -1845,7 +1859,8 @@ function buildDrawBar(){
     +(G.g==='text'?['plain','dark','box'].map(ts=>b('data-ts="'+ts+'" onclick="dSetTextStyle(\''+ts+'\')"','<span class="ts" style="'+(ts==='plain'?'color:#fff;text-shadow:0 1px 3px #000;':ts==='dark'?'background:#0a0c12;color:#fff;border:1px solid #444;':'background:#4fc3f7;color:#06121a;')+'">Aa</span>',{plain:'Text: plain with shadow',dark:'Text: dark box',box:'Text: colour box'}[ts])).join(''):'')
     +(G.g==='players'?b('id="dBeamBtn" onclick="dToggleBeam()"',ico('beam'),'Spotlight light beam on / off'):'')
     +(G.g==='pitch'?b('id="dSpotBtn" onclick="dSpotAdd()"',ico('spotpin'),'📍 Tagged spot — put this clip’s shot or kickout location from Code Room on the frame (needs 📐 the pitch lined up)'):'')
-    +(G.g==='pitch'?b('id="dPitchBtn" onclick="dPitchOpen()"',ico('pitch'),'📐 Line up the pitch — click 4 or more known points (line ends, rectangle corners…); then pitch lines, rings flat on the grass and distances in metres'):'')+'</div>'; });
+    +(G.g==='pitch'?b('id="dPitchBtn" onclick="dPitchOpen()"',ico('pitch'),'📐 Line up the pitch — click 4 or more known points (line ends, rectangle corners…); then pitch lines, rings flat on the grass and distances in metres'):'')
+    +(G.g==='pitch'?b('id="dPosBtn" onclick="dPosOpen()"',ico('posmap'),'👥 Mark players — click each player’s feet: a top-down map of where everyone stands, the teams’ width, depth and shape (needs 📐 the pitch lined up)'):'')+'</div>'; });
   const cols=(dCtx&&dCtx.kind==='comment'?[null]:[]).concat(['#ffd600','#ff5252','#4fc3f7','#69f0ae','#ff9100','#b388ff','#ffffff','#0b0d12']);
   h+='<div class="dgrp sw" data-g="style">'+cols.map(c=>c?'<button type="button" class="dsw" data-c="'+c+'" style="background:'+c+'" onclick="dSetColor(\''+c+'\',this)" data-tip="Colour" aria-label="Colour '+c+'"></button>'
       :'<button type="button" class="dsw auto" data-c="" style="background:'+esc(dCtx.color)+'" onclick="dSetColor(null,this)" data-tip="Your comment\'s colour" aria-label="Your comment\'s colour"></button>').join('')
@@ -1884,6 +1899,8 @@ function dPaintBar(){
   if(u) u.disabled=!(st&&st.canUndo); if(rd) rd.disabled=!(st&&st.canRedo); if(dl) dl.disabled=!(st&&st.sel);
   const s=document.getElementById('drawSvg'); if(s) s.classList.toggle('t-select',dTool==='select');
   const pb=document.getElementById('dPitchBtn'); if(pb) pb.classList.toggle('on', !!(ED&&ED.pitchModel&&ED.pitchModel()));
+  const pob=document.getElementById('dPosBtn'); if(pob){ const lu=!!(ED&&ED.pitchModel&&ED.pitchModel()); pob.disabled=!lu; pob.classList.toggle('off',!lu); pob.classList.toggle('on', lu&&!!(ED.getPos&&ED.getPos()));
+    pob.dataset.tip=lu?'👥 Mark players — click each player’s feet: a top-down map of where everyone stands, the teams’ width, depth and shape':'👥 Mark players — line up the pitch first (📐)'; }
   const sb2=document.getElementById('dSpotBtn'); if(sb2){ const it=ITEMS[playIdx], ok=!!(ED&&ED.pitchModel&&ED.pitchModel()&&it&&it.gameId&&it.eventId); sb2.disabled=!ok; sb2.classList.toggle('off',!ok);
     sb2.dataset.tip=ok?'📍 Tagged spot — put this clip’s shot or kickout location from Code Room on the frame':(ED&&ED.pitchModel&&ED.pitchModel()?'📍 Tagged spot — this clip is not linked to a tagged event':'📍 Tagged spot — line up the pitch first (📐)'); }
   const mg=bar.querySelector('.dtool[data-tool="mag"]'); if(mg){ const ok=!!teleFrame(); mg.disabled=!ok; mg.classList.toggle('off',!ok);
@@ -1910,6 +1927,7 @@ let PC=null;
 function pcModel(){ return PC&&window.CohPitch?CohPitch.model({len:PC.len, wid:PC.wid, pts:PC.pts}):null; }
 function dPitchOpen(){
   if(!ED||!window.CohPitch) return;
+  if(PP) dPosClose(false);
   if(ED.hasCurrent()) ED.finishCurrent();
   const p=ED.getPitch();
   const ang=(ITEMS[playIdx]&&ITEMS[playIdx].angle)||'';
@@ -2065,6 +2083,149 @@ function dPitchClose(save){
     if(was!==now) ED.setPitch(keep); }
   PC=null;
   const pn=document.getElementById('pitchPanel'); if(pn) pn.style.display='none';
+  const ov=document.getElementById('pitchSvg'); if(ov){ ov.style.display='none'; ov.innerHTML=''; }
+  const ds=document.getElementById('drawSvg'); if(ds&&drawMode) ds.style.pointerEvents='auto';
+  dPaintBar();
+}
+// ── 👥 MARK PLAYERS (Nov 2026) ─────────────────────────────────────────────────────────────────────────────────────
+// With the pitch lined up (📐), click each player's feet on the frame — in his team's colour — and COHESION puts him at
+// his true spot on a top-down pitch: the teams' width, depth and shape, how many are behind the ball and who is nearest
+// it. A player's name and number come from the team sheet (pick him in the panel). The players are saved in the drawing
+// (one 'pos' shape — cohesion-pitch.js positions / posMap), so everyone who watches sees the dots and the map; untick
+// "Show the pitch lines" to keep only the players. One Undo takes the change out.
+let PP=null;
+function ppSlug(n){ return String(n||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,''); }
+function ppCols(name){ const C=window.COHESION_COUNTY_COLOURS||{}, T=window.COHESION_TEAM_COLOURS||{}, c=C[ppSlug(name)]||T[ppSlug(name)]; return c&&c.primary?[c.primary, c.secondary||c.primary]:null; }
+function ppNear(a,b){ const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); const A=p(a), B=p(b); return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2])<90; }
+// the two teams' names and colours: the clip's game (home, away), each in its county colour — the second team in its
+// other colour when the two would look alike (Mayo and Kerry are both green)
+function ppTeams(names){
+  const a=names[0]||'Team A', b=names[1]||'Team B', ca=ppCols(a), cb=ppCols(b);
+  let A=ca?ca[0]:'#e53935', B=cb?cb[0]:'#1e88e5';
+  if(ppNear(A,B)){ if(cb&&!ppNear(A,cb[1])) B=cb[1]; else if(ca&&!ppNear(ca[1],B)) A=ca[1]; else B='#1e88e5'; }
+  if(ppNear(A,B)) B='#ffffff';
+  return {ta:{name:a, color:A}, tb:{name:b, color:B}};
+}
+function ppNorm(p){ return p?JSON.stringify({ta:p.ta||null, tb:p.tb||null, pl:(p.pl||[]).map(q=>[q.x,q.y,q.s,q.no||'',q.nm||'']), map:p.map||'br', hull:!!p.hull, dots:p.dots!==false, adef:p.adef||null}):'null'; }
+function ppShape(){ if(!PP) return null; const o={ta:PP.ta, tb:PP.tb, pl:PP.pl.map(q=>{ const r={x:Math.round(q.x*10000)/10000, y:Math.round(q.y*10000)/10000, s:q.s}; if(q.no) r.no=q.no; if(q.nm) r.nm=q.nm; return r; }), map:PP.map};
+  if(PP.hull) o.hull=true; if(!PP.dots) o.dots=false; if(PP.adef) o.adef=PP.adef; return o; }
+function dPosOpen(){
+  if(!ED||!window.CohPitch) return;
+  if(PC) dPitchClose(false);
+  if(ED.hasCurrent()) ED.finishCurrent();
+  const M=ED.pitchModel(); if(!M){ spotMsg('Line up the pitch first (📐), then mark the players.', true); return; }
+  const p=ED.getPos(), pit=ED.getPitch(), it=ITEMS[playIdx]||{};
+  const names=String(it.gameTitle||'').split(/\s+v(?:s\.?)?\s+/i).map(s=>s.trim()).filter(Boolean);
+  const T=p?{ta:Object.assign({name:'Team A', color:'#e53935'}, p.ta||{}), tb:Object.assign({name:'Team B', color:'#1e88e5'}, p.tb||{})}:ppTeams(names);
+  PP={ta:T.ta, tb:T.tb, pl:p?p.pl.map(q=>Object.assign({},q)):[], map:p?(p.map||'br'):'br', hull:p?!!p.hull:true, dots:p?p.dots!==false:true, adef:p&&p.adef||null,
+    lines:!!(pit&&pit.show!==false), side:'a', sel:null, drag:null, msg:'', teams:[], orig:p, origLines:!!(pit&&pit.show!==false)};
+  // the team sheets (names, numbers) — and the real team names when the clip's game has them
+  tagPlayers().then(teams=>{ if(!PP) return; PP.teams=teams||[];
+    if(!p&&teams&&teams.length===2&&(teams[0].team||'')&&ppSlug(teams[0].team)!==ppSlug(PP.ta.name)){ const t2=ppTeams([teams[0].team, teams[1].team]); PP.ta=t2.ta; PP.tb=t2.tb; }
+    ppRender(); }).catch(()=>{});
+  // which goal team A defends, from the game's ⇆ direction of play and this clip's half (for "behind the ball")
+  if(!PP.adef&&it.gameId&&it.eventId) spotLoadLibs().then(()=>spotGame(it.gameId)).then(g=>{ if(!PP||PP.adef) return;
+    const e=g.events.find(x=>String(x.id)===String(it.eventId))||g.events.find(x=>String(x._rowId)===String(it.eventId)); if(!e) return;
+    const l=CohPitch.attacksLeft((g.meta&&g.meta.dirOfPlay)||null, PP.ta.name, e.half); if(l==null) return;
+    let def=l?'B':'A'; if(pit&&pit.rev) def=def==='A'?'B':'A'; PP.adef=def; PP.adefAuto=true; ppRender(); }).catch(()=>{});
+  let pn=document.getElementById('posPanel');
+  if(!pn){ pn=document.createElement('div'); pn.id='posPanel'; pn.className='pitchpanel pospanel'; document.body.appendChild(pn);
+    let dg=null; pn.addEventListener('pointerdown',e=>{ if(!e.target.closest('.pp-h')||e.target.closest('button')) return; dg={x:e.clientX-pn.offsetLeft, y:e.clientY-pn.offsetTop}; pn.setPointerCapture(e.pointerId); });
+    pn.addEventListener('pointermove',e=>{ if(dg){ pn.style.left=Math.max(4,Math.min(innerWidth-60,e.clientX-dg.x))+'px'; pn.style.top=Math.max(4,Math.min(innerHeight-40,e.clientY-dg.y))+'px'; } });
+    pn.addEventListener('pointerup',()=>{ dg=null; });
+    const ov=document.getElementById('pitchSvg');
+    const fr=e=>{ const r=ov.getBoundingClientRect(); return [(e.clientX-r.left)/(r.width||1), (e.clientY-r.top)/(r.height||1)]; };
+    ov.addEventListener('pointerdown',e=>{ if(!PP) return; e.preventDefault(); const [x,y]=fr(e), r=ov.getBoundingClientRect();
+      let best=-1, bd=13; PP.pl.forEach((q,i)=>{ const d=Math.hypot((q.x-x)*r.width,(q.y-y)*r.height); if(d<=bd){ bd=d; best=i; } });
+      if(best>=0){ PP.sel=best; PP.drag=best; PP.msg=''; try{ ov.setPointerCapture(e.pointerId); }catch(_){} ppRender(); return; }
+      const M=ED&&ED.pitchModel(); if(!M||!CohPitch.onGrass(M,x,y)){ PP.msg='That spot is not on the grass — click a player’s feet.'; ppRender(); return; }
+      if(PP.side==='ball'){ const b=PP.pl.findIndex(q=>q.s==='ball'); if(b>=0) PP.pl.splice(b,1); }
+      else if(PP.pl.filter(q=>q.s===PP.side).length>=15){ PP.msg='All 15 of '+PP[PP.side==='a'?'ta':'tb'].name+' are marked.'; ppRender(); return; }
+      PP.pl.push({x, y, s:PP.side}); PP.sel=PP.pl.length-1; PP.drag=PP.sel; PP.msg=''; try{ ov.setPointerCapture(e.pointerId); }catch(_){} ppRender(); });
+    ov.addEventListener('pointermove',e=>{ if(!PP||PP.drag==null) return; const [x,y]=fr(e), q=PP.pl[PP.drag]; if(q){ q.x=Math.max(0,Math.min(1,x)); q.y=Math.max(0,Math.min(1,y)); ppRender(true); } });
+    ov.addEventListener('pointerup',()=>{ if(PP&&PP.drag!=null){ const q=PP.pl[PP.drag], M=ED&&ED.pitchModel(); if(q&&M&&!CohPitch.onGrass(M,q.x,q.y)){ PP.pl.splice(PP.drag,1); PP.sel=null; } PP.drag=null; ppRender(); } });
+    document.addEventListener('keydown',e=>{ if(!PP) return; const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA')) return;
+      if(e.key==='Escape'){ e.preventDefault(); e.stopImmediatePropagation(); dPosClose(false); }
+      else if((e.key==='Delete'||e.key==='Backspace')&&PP.sel!=null){ e.preventDefault(); e.stopImmediatePropagation(); ppRemove(); }
+      else if((e.metaKey||e.ctrlKey)&&(e.key==='z'||e.key==='Z')){ e.preventDefault(); e.stopImmediatePropagation(); ppUndoPoint(); } }, true);
+  }
+  pn.style.display='block';
+  const v=document.querySelector('.stage .vid'), vr=v?v.getBoundingClientRect():{left:20, top:100};
+  if(!pn.style.left){ const beside=vr.left>=336;
+    pn.style.left=(beside?Math.max(4, vr.left-334):Math.max(8,Math.min(innerWidth-336, vr.left+12)))+'px'; pn.style.top=Math.max(64,Math.min(innerHeight-560, beside?vr.top-40:vr.top+60))+'px'; }
+  const ds=document.getElementById('drawSvg'); if(ds) ds.style.pointerEvents='none';
+  ppRender();
+}
+function ppSide(s){ if(!PP) return; PP.side=s; PP.msg=''; ppRender(); }
+function ppColor(s,v){ if(!PP||!/^#[0-9a-f]{6}$/i.test(v)) return; PP['t'+s].color=v; ppRender(); }
+function ppRemove(){ if(!PP||PP.sel==null) return; PP.pl.splice(PP.sel,1); PP.sel=null; ppRender(); }
+function ppUndoPoint(){ if(PP&&PP.pl.length){ PP.pl.pop(); PP.sel=null; ppRender(); } }
+function ppClear(){ if(PP&&PP.pl.length){ PP.pl=[]; PP.sel=null; ppRender(); } }
+function ppSet(k,v){ if(!PP) return; PP[k]=v; if(k==='adef') PP.adefAuto=false; ppRender(); }
+// the picked player ← a team-sheet name (and its number: numbers only ever come from the team sheet)
+function ppPick(v){ if(!PP||PP.sel==null) return; const q=PP.pl[PP.sel]; if(!q||q.s==='ball') return;
+  const L=ppRoster(q.s), r=L[+v]; delete q.no; delete q.nm; if(r){ q.nm=r.name; if(r.no) q.no=String(r.no); } ppRender(); }
+function ppRoster(s){ const name=ppSlug(PP&&PP['t'+s].name), T=(PP&&PP.teams||[]).find(t=>ppSlug(t.team)===name)||(PP&&PP.teams&&PP.teams[s==='a'?0:1])||null;
+  return T?T.players.slice().sort((a,b)=>(+a.no||99)-(+b.no||99)||a.name.localeCompare(b.name)):[]; }
+function ppRender(fast){
+  const pn=document.getElementById('posPanel'), ov=document.getElementById('pitchSvg'), ds=document.getElementById('drawSvg'); if(!PP||!pn||!ov||!ds||!ED) return;
+  const W=+ds.getAttribute('width')||1, H=+ds.getAttribute('height')||1;
+  ov.style.left=ds.style.left; ov.style.top=ds.style.top; ov.setAttribute('width',W); ov.setAttribute('height',H); ov.setAttribute('viewBox','0 0 '+W+' '+H); ov.style.display='block';
+  const shape=ppShape(); ED.previewPos(shape.pl.length?shape:null, PP.lines);           // the drawing shows it live (no undo step until ✓ Done)
+  const M=ED.pitchModel();
+  // the picked player, ringed on the frame
+  let o=''; const q=PP.sel!=null&&PP.pl[PP.sel];
+  if(q&&M){ const e=CohPitch.groundEllipse(M,q.x,q.y,1.7); if(e) o='<ellipse cx="'+e.gx*W+'" cy="'+e.gy*H+'" rx="'+Math.max(9,e.rx*W)+'" ry="'+Math.max(5,e.ry*H)+'" transform="rotate('+e.rot+' '+e.gx*W+' '+e.gy*H+')" fill="none" stroke="#ffd600" stroke-width="2.4" stroke-dasharray="5 4"/>'; }
+  ov.innerHTML=o;
+  if(fast) return;
+  const map=CohPitch.posMap(M, shape, 0, 0, 304, {hull:PP.hull, sel:PP.sel}), R=map.R;
+  const nA=PP.pl.filter(q=>q.s==='a').length, nB=PP.pl.filter(q=>q.s==='b').length, hasBall=PP.pl.some(q=>q.s==='ball');
+  const tA=PP.ta, tB=PP.tb, m=v=>v==null?'–':Math.round(v)+' m';
+  const seg=(s,label,col,n)=>'<button type="button" class="pp-team'+(PP.side===s?' on':'')+'" onclick="ppSide(\''+s+'\')">'+(col?'<i style="background:'+esc(col)+'"></i>':'<i class="ball"></i>')+'<span>'+esc(label)+'</span>'+(n!=null?'<em>'+n+'</em>':'')+'</button>';
+  const cur=PP.side==='ball'?'the ball':esc(PP['t'+PP.side].name);
+  // the figures, side by side
+  const row=(lab,fa,fb,tip)=>'<tr'+(tip?' title="'+esc(tip)+'"':'')+'><th>'+lab+'</th><td>'+fa+'</td><td>'+fb+'</td></tr>', A=R.a||{}, B=R.b||{};
+  const who=(T,s)=>{ if(!T||!T.ball) return '–'; const p=PP.pl[T.ball.i]; return (p&&p.no?'#'+esc(p.no)+' ':'')+(T.ball.d<10?T.ball.d.toFixed(1):Math.round(T.ball.d))+' m'; };
+  let fig='<table class="pp-fig"><tr><th></th><td><i style="background:'+esc(tA.color)+'"></i>'+esc(tA.name)+'</td><td><i style="background:'+esc(tB.color)+'"></i>'+esc(tB.name)+'</td></tr>'
+    +row('Marked',A.n||0,B.n||0)
+    +row('Width',m(A.width),m(B.width),'Across the pitch, between the outfield players furthest apart (a No. 1 from the team sheet is left out)')
+    +row('Depth',m(A.depth),m(B.depth),'Along the pitch, from the deepest outfield player to the most advanced')
+    +row('Shape area',A.area!=null?Math.round(A.area)+' m²':'–',B.area!=null?Math.round(B.area)+' m²':'–','The ground the outfield players cover (their outline)')
+    +(PP.adef?row('Deepest from own goal',A.line?m(A.line.deep):'–',B.line?m(B.line.deep):'–','The last outfield player’s distance from his own goal line')
+      +row('Highest from own goal',A.line?m(A.line.high):'–',B.line?m(B.line.high):'–','The most advanced outfield player’s distance from his own goal line'):'')
+    +(hasBall?(PP.adef?row('Behind the ball',A.behind!=null?A.behind:'–',B.behind!=null?B.behind:'–','Players goal-side of the ball (between it and their own goal)'):'')+row('Nearest to the ball',who(A),who(B)):'')
+    +'</table>';
+  const sq=q&&q.s!=='ball'?ppRoster(q.s):[];
+  const pick=q?(q.s==='ball'?'<div class="pp-sel"><b>⚽ The ball</b><span style="flex:1"></span><button type="button" onclick="ppRemove()">🗑 Remove</button></div>'
+    :'<div class="pp-sel"><i style="background:'+esc(PP['t'+q.s].color)+'"></i><select onchange="ppPick(this.value)" aria-label="Who is this player"><option value="">'+(sq.length?'Who is it? (team sheet)':'No team sheet names for '+esc(PP['t'+q.s].name))+'</option>'
+      +sq.map((r,i)=>'<option value="'+i+'"'+(q.nm&&ppSlug(q.nm)===ppSlug(r.name)?' selected':'')+'>'+(r.no?esc(r.no)+' · ':'')+esc(r.name)+'</option>').join('')+'</select>'
+      +(q.near?'<span class="pp-near" title="The nearest opponent">↔ '+(q.near.d<10?q.near.d.toFixed(1):Math.round(q.near.d))+' m</span>':'')+'<button type="button" onclick="ppRemove()" title="Remove (Delete)">🗑</button></div>'):'';
+  const corner=c=>'<button type="button" class="'+(PP.map===c?'on':'')+'" onclick="ppSet(\'map\',\''+c+'\')" title="'+({off:'No map on the video',tl:'Top left',tr:'Top right',bl:'Bottom left',br:'Bottom right'}[c])+'">'+({off:'Off',tl:'◤',tr:'◥',bl:'◣',br:'◢'}[c])+'</button>';
+  pn.innerHTML='<div class="pp-h"><b>👥 Mark players</b><span>drag here to move</span><button type="button" class="pp-x" onclick="dPosClose(false)" title="Close without changing (Esc)">✕</button></div>'
+    +'<div class="pp-step">Click each player’s <b>feet</b> on the picture — now marking <b>'+cur+'</b>. Drag a dot to move it; click one to name it.</div>'
+    +'<div class="pp-teams">'+seg('a',tA.name,tA.color,nA)+seg('b',tB.name,tB.color,nB)+seg('ball','Ball',null,null)+'</div>'
+    +'<div class="pp-cols"><label>'+esc(tA.name)+' <input type="color" value="'+esc(tA.color)+'" onchange="ppColor(\'a\',this.value)"></label><label>'+esc(tB.name)+' <input type="color" value="'+esc(tB.color)+'" onchange="ppColor(\'b\',this.value)"></label></div>'
+    +pick
+    +'<svg class="pp-map" viewBox="0 0 304 '+map.h.toFixed(1)+'" width="304" height="'+map.h.toFixed(1)+'">'+map.svg+'</svg>'
+    +(PP.msg?'<div class="pp-msg">'+esc(PP.msg)+'</div>':'')
+    +(R.off?'<div class="pp-msg">'+R.off+' mark'+(R.off===1?' is':'s are')+' off the grass and left out.</div>':'')
+    +fig
+    +'<div class="pp-row pp-def"><span>'+esc(tA.name)+' defends</span><div class="pp-seg"><button type="button" class="'+(PP.adef==='A'?'on':'')+'" onclick="ppSet(\'adef\',\'A\')">◀ Left goal</button><button type="button" class="'+(PP.adef==='B'?'on':'')+'" onclick="ppSet(\'adef\',\'B\')">Right goal ▶</button></div>'
+    +(PP.adefAuto?'<em title="From the game’s ⇆ direction of play">auto</em>':'')+'</div>'
+    +'<div class="pp-row pp-mapc"><span>Map on the video</span><div class="pp-seg">'+['off','tl','tr','bl','br'].map(corner).join('')+'</div></div>'
+    +'<div class="pp-row"><label class="pp-chk"><input type="checkbox"'+(PP.dots?' checked':'')+' onchange="ppSet(\'dots\',this.checked)"> Dots on the players</label>'
+    +'<label class="pp-chk"><input type="checkbox"'+(PP.hull?' checked':'')+' onchange="ppSet(\'hull\',this.checked)"> Team shapes</label>'
+    +'<label class="pp-chk"><input type="checkbox"'+(PP.lines?' checked':'')+' onchange="ppSet(\'lines\',this.checked)"> Pitch lines</label></div>'
+    +'<div class="pp-row pp-btns"><button type="button" onclick="ppUndoPoint()"'+(PP.pl.length?'':' disabled')+'>↶ Last</button><button type="button" onclick="ppClear()"'+(PP.pl.length?'':' disabled')+'>Clear</button><span style="flex:1"></span><button type="button" class="pri" onclick="dPosClose(true)">✓ Done</button></div>';
+}
+function dPosClose(save){
+  if(!PP) return;
+  const keep=save?ppShape():null, lines=PP.lines, orig=PP.orig, origLines=PP.origLines;
+  ED.previewPos(orig, origLines);                                                 // back to how it was …
+  if(save){ const now=keep.pl.length?keep:null;                                   // … then the change as ONE undo step
+    if(ppNorm(now)!==ppNorm(orig)||lines!==origLines) ED.setPos(now, lines); }
+  PP=null;
+  const pn=document.getElementById('posPanel'); if(pn) pn.style.display='none';
   const ov=document.getElementById('pitchSvg'); if(ov){ ov.style.display='none'; ov.innerHTML=''; }
   const ds=document.getElementById('drawSvg'); if(ds&&drawMode) ds.style.pointerEvents='auto';
   dPaintBar();
@@ -2261,6 +2422,7 @@ function enterDraw(ctx, shapes){
 }
 function exitDraw(){
   if(PC) dPitchClose(false);
+  if(PP) dPosClose(false);
   SPOT=null; { const sb=document.getElementById('spotBar'); if(sb) sb.style.display='none'; }
   drawMode=false; tagPickClose(null);
   const te=document.getElementById('txtEdit'); if(te&&te.style.display==='block'){ te.blur(); te.style.display='none'; }

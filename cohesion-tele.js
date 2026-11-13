@@ -14,6 +14,8 @@
  *   pitch{len,wid,pts:[{k,x,y}],show?} (📐 the drawing's line-up with the pitch — cohesion-pitch.js; at most one, never
  *       selected; its lines are drawn under everything when show is not false) · dist{x1,y1,x2,y2} (📏 a distance on the
  *       grass, measured with the drawing's line-up) · ring rot? (degrees: the ring's long axis, from the line-up)
+ *   pos{ta,tb:{name,color},pl:[{x,y,s:'a'|'b'|'ball',no?,nm?}],map,hull?,dots?,adef?} (👥 the players marked at their feet on
+ *       the lined-up frame — cohesion-pitch.js positions / posFrameSvg; the top-down map drawn in its corner over everything)
  *   mag{cx,cy,r,lx,ly,z} (a magnifier: the spot cx,cy of radius r (fraction of the height) shown z× in a lens at lx,ly;
  *       it needs a picture of the frame — opts.frame — and shows an empty lens without one)
  *   every shape: color? (#rrggbb — absent = the layer's colour, e.g. its comment's), w (1–16), alpha?
@@ -205,6 +207,11 @@
         o = C.linesSvg(M, W, H);
         break;
       }
+      case 'pos': {                                            // 👥 the players at their spots (discs on the grass, numbers, team shapes)
+        const C = CP(), M = opts.pitchM; if (!C || !M) break;
+        o = C.posFrameSvg(M, s, W, H, { sel: opts.posSel });
+        break;
+      }
       case 'dist': {                                           // 📏 a distance on the grass
         const x1 = s.x1 * W, y1 = s.y1 * H, x2 = s.x2 * W, y2 = s.y2 * H, a = Math.atan2(y2 - y1, x2 - x1), nx = -Math.sin(a) * 6 * k, ny = Math.cos(a) * 6 * k;
         const C = CP(), M = opts.pitchM, m = C && M ? C.groundDist(M, [s.x1, s.y1], [s.x2, s.y2]) : null;
@@ -310,7 +317,10 @@
     const k = kOf(H);
     return defs(opts.id, colorsUsed(layers.concat(opts.extra ? [opts.extra] : [])), k) + focusDim(layers, W, H, opts.id, k)
       + layers.map(L => { const M = pitchModel(L.shapes), lo = Object.assign({}, opts, { pitchM: M });
-        const r = L.shapes.filter(s => s && s.type === 'pitch').concat(L.shapes.filter(s => s && s.type !== 'pitch')).map(s => shapeSvg(s, W, H, L.color, opts.id, lo)).join(''); opts.n = lo.n; return r; }).join('');
+        const pos = L.shapes.find(s => s && s.type === 'pos'), C = CP();
+        const r = L.shapes.filter(s => s && s.type === 'pitch').concat(pos ? [pos] : [], L.shapes.filter(s => s && s.type !== 'pitch' && s.type !== 'pos')).map(s => shapeSvg(s, W, H, L.color, opts.id, lo)).join('')
+          + (pos && M && C && opts.posMap !== false ? C.posMapOnFrame(M, pos, W, H) : '');      // 👥 the top-down map in its corner, over everything
+        opts.n = lo.n; return r; }).join('');
   }
   // every focus area of the drawing cut out of ONE darkened layer (soft edges), so two areas never darken each other
   function focusDim(layers, W, H, id, k) {
@@ -327,7 +337,7 @@
     const px = x * W, py = y * H;
     switch (s.type) {
       case 'line': case 'arrow': case 'darrow': case 'dist': return segDist(px, py, s.x1 * W, s.y1 * H, s.x2 * W, s.y2 * H) <= tol;
-      case 'pitch': return false;
+      case 'pitch': case 'pos': return false;
       case 'carrow': { const a = [s.x1 * W, s.y1 * H], c = [s.cx * W, s.cy * H], b = [s.x2 * W, s.y2 * H], pts = []; for (let t = 0; t <= 1.0001; t += 1 / 24) pts.push(qPoint(a, c, b, t)); return polyDist(px, py, pts, false) <= tol; }
       case 'rect': { const x1 = Math.min(s.x1, s.x2) * W, x2 = Math.max(s.x1, s.x2) * W, y1 = Math.min(s.y1, s.y2) * H, y2 = Math.max(s.y1, s.y2) * H;
         if (fillOf(s) && px >= x1 && px <= x2 && py >= y1 && py <= y2) return true; return polyDist(px, py, [[x1, y1], [x2, y1], [x2, y2], [x1, y2]], true) <= tol; }
@@ -392,7 +402,7 @@
   function move(s, dx, dy) {
     const m = p => [clamp(p[0] + dx, 0, 1), clamp(p[1] + dy, 0, 1)];
     switch (s.type) {
-      case 'pitch': break;
+      case 'pitch': case 'pos': break;
       case 'free': case 'poly': case 'link': s.pts = (s.pts || []).map(m); break;
       case 'spot': case 'focus': case 'ring': s.cx = clamp(s.cx + dx, 0, 1); s.cy = clamp(s.cy + dy, 0, 1); break;
       case 'mark': s.x = clamp(s.x + dx, 0, 1); s.y = clamp(s.y + dy, 0, 1); break;
@@ -412,7 +422,7 @@
       case 'spot': case 'focus': pts = [[(s.cx - s.rx) * W, (s.cy - s.ry) * H], [(s.cx + s.rx) * W, (s.cy + s.ry) * H]]; break;
       case 'ring': { const m = ringMax(s); pts = [[(s.cx - s.rx * m) * W, (s.cy - s.ry * m) * H], [(s.cx + s.rx * m) * W, (s.cy + s.ry * m) * H]]; break; }
       case 'mark': { const b = markBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
-      case 'pitch': return null;
+      case 'pitch': case 'pos': return null;
       case 'mag': { const m = magGeo(s, W, H); pts = [[m.cx - m.r, m.cy - m.r], [m.cx + m.r, m.cy + m.r], [m.lx - m.R, m.ly - m.R], [m.lx + m.R, m.ly + m.R]]; break; }
       case 'text': { const b = textBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; break; }
       case 'tag': { const b = tagBox(s, W, H); pts = [[b.x, b.y], [b.x + b.w, b.y + b.h]]; if (s.px != null) pts.push([s.px * W, s.py * H]); break; }
@@ -660,6 +670,11 @@
       else { st.hist.pop(); }                                        // nothing changed on this shape
       renderNow(); changed();
     }
+    function putPos(p, show) {
+      st.shapes = st.shapes.filter(x => x.type !== 'pos');
+      if (p) { const at = st.shapes.findIndex(x => x.type === 'pitch'); st.shapes.splice(at + 1, 0, Object.assign(JSON.parse(JSON.stringify(p)), { type: 'pos' })); }
+      if (show != null) { const pt = st.shapes.find(x => x.type === 'pitch'); if (pt) { if (show) delete pt.show; else pt.show = false; } }
+    }
     const api = {
       state: () => ({ tool: st.tool, n: st.shapes.length, canUndo: st.hist.length > 0 || !!st.cur, canRedo: st.redo.length > 0, sel: sel(), cur: !!st.cur }),
       tool: () => st.tool,
@@ -676,13 +691,18 @@
         if (st.sel != null && st.sel >= st.shapes.length) select(null); renderNow(); changed(); return true;
       },
       redo() { if (!st.redo.length) return false; st.hist.push(snap()); st.shapes = JSON.parse(st.redo.pop()); st.styleRun = null; if (st.sel != null && st.sel >= st.shapes.length) select(null); renderNow(); changed(); return true; },
-      del() { if (st.sel == null || !st.shapes[st.sel] || st.shapes[st.sel].type === 'pitch') return false; push(); st.shapes.splice(st.sel, 1); select(null); renderNow(); changed(); return true; },
+      del() { if (st.sel == null || !st.shapes[st.sel] || st.shapes[st.sel].type === 'pitch' || st.shapes[st.sel].type === 'pos') return false; push(); st.shapes.splice(st.sel, 1); select(null); renderNow(); changed(); return true; },
       clear() { if (!st.shapes.length) return false; push(); st.shapes = []; select(null); renderNow(); changed(); return true; },
       shapes: () => JSON.parse(snap()),
       // 📐 the drawing's line-up with the pitch: read / set (one undo step) / its fitted model
       getPitch() { const p = st.shapes.find(x => x.type === 'pitch'); return p ? JSON.parse(JSON.stringify(p)) : null; },
       setPitch(p) { push(); st.shapes = st.shapes.filter(x => x.type !== 'pitch'); if (p) st.shapes.unshift(Object.assign(JSON.parse(JSON.stringify(p)), { type: 'pitch' })); select(null); renderNow(); changed(); },
       pitchModel: () => PM(),
+      // 👥 the drawing's marked players (one 'pos' shape, just after the line-up): read / set (one undo step; show = the
+      // line-up's "Show the lines" in the same step) / preview (no undo step — while the panel is open)
+      getPos() { const p = st.shapes.find(x => x.type === 'pos'); return p ? JSON.parse(JSON.stringify(p)) : null; },
+      setPos(p, show) { push(); putPos(p, show); select(null); renderNow(); changed(); },
+      previewPos(p, show) { putPos(p, show); renderNow(); },
       // several shapes in one undo step (📍 a tagged spot: its ring, label and distance)
       addShapes(list) { if (!Array.isArray(list) || !list.length) return 0; push(); list.forEach(x => st.shapes.push(JSON.parse(JSON.stringify(x)))); select(null); renderNow(); changed(); return list.length; },
       load(list) { st.shapes = JSON.parse(JSON.stringify(list || [])); st.hist = []; st.redo = []; select(null); renderNow(); changed(); },

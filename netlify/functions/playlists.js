@@ -624,7 +624,7 @@ exports.handler = async (event, context) => {
         if (!r.data || r.data.length < 1000) break;
       }
       const byGame = new Map([[String(meta.id), evs]]);
-      const teams = [meta.homeTeam, meta.awayTeam].filter(Boolean).map(team => ({ team: str(team, 60), players: TM.knownPlayers(team, [meta], byGame).map(p => ({ name: p.name, key: p.key })) }));
+      const teams = [meta.homeTeam, meta.awayTeam].filter(Boolean).map(team => ({ team: str(team, 60), players: (nos => TM.knownPlayers(team, [meta], byGame).map(p => Object.assign({ name: p.name, key: p.key }, nos.get(p.key) ? { no: nos.get(p.key) } : {})))(TM.sheetNumbers(team, meta)) }));   // no = the team sheet's jersey number (👥 Mark players)
       return J(200, { ok: true, teams });
     }
 

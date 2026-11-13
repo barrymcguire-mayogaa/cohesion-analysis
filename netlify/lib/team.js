@@ -72,6 +72,14 @@ function knownPlayers(team, games, eventsByGame) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// a team's JERSEY NUMBERS from one game's team sheet (meta.rosters) — the only place a number comes from: Map(player key → '7')
+function sheetNumbers(team, meta) {
+  const out = new Map(); if (!meta) return out;
+  const side = TS.sideOf(meta, up(team)); if (!side) return out;
+  TS.sheet(meta, side).forEach(r => { const k = cohPlayerKey(tidy(r.name)); if (k && r.no && /^\d{1,2}$/.test(String(r.no)) && !out.has(k)) out.set(k, String(r.no)); });
+  return out;
+}
+
 // a name an admin picked / typed → the known player it is.
 //   exact     the same player key (case, spaces and apostrophes ignored — cohPlayerKey)
 //   variant   the same LOOSE key (fadas, dots, hyphens too) as exactly ONE known player: "Sean O Se" → "Seán Ó Sé"
@@ -136,5 +144,5 @@ function rolesOfAny(raw) {
   return (Array.isArray(raw) ? raw : []).map(r => String(r).toLowerCase().trim()).filter(Boolean);
 }
 
-module.exports = { BASE_ROLES, TEAM_GROUPS, MEMBER_FIELDS, cleanRoles, groupsOfRoles, looseKey, knownPlayers, resolvePlayer, linkKeyIn,
+module.exports = { sheetNumbers, BASE_ROLES, TEAM_GROUPS, MEMBER_FIELDS, cleanRoles, groupsOfRoles, looseKey, knownPlayers, resolvePlayer, linkKeyIn,
   displayName, publicMember, linkOf, pickerPeople, rolesOfAny, up, tidy };

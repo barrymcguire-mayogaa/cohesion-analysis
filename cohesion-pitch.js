@@ -6,6 +6,7 @@
  *   · draw every pitch line in perspective over the picture            linesSvg(model, W, H)
  *   · size a ring or spotlight so it lies on the grass                  groundEllipse(model, x, y, metres)
  *   · measure a distance on the grass                                   groundDist(model, a, b)
+ *   · 👥 place the players at their spots and read the team shapes        positions / posMap / posFrameSvg
  *
  * PITCH COORDINATES (metres): X along the pitch from the LEFT goal's line (0, end A) to the RIGHT goal's (len, end B), as the
  * main camera sees them; Y across from the sideline nearest the camera (0) to the far one (wid). Markings follow COHESION's own true-scale pitch art (cohesion-graphics.js shotPitchArt):
@@ -225,8 +226,116 @@
   // the end the line-up was made on: the end most of its points belong to
   function seenEnd(p) { let a = 0, b = 0; ((p && p.pts) || []).forEach(q => { if (/^A/.test(q.k)) a++; else if (/^B/.test(q.k)) b++; }); return b > a ? 'B' : 'A'; }
 
+  // ── 👥 PLAYER POSITIONS (Nov 2026) ──
+  // The drawing's players, clicked at their feet on the lined-up frame, as one shape (at most one a drawing):
+  //   pos{ta:{name,color}, tb:{name,color}, pl:[{x, y, s:'a'|'b'|'ball', no?, nm?}], map:'off'|'tl'|'tr'|'bl'|'br',
+  //       hull?, dots?:false, adef?:'A'|'B'}
+  // x, y = frame fractions (the feet); no = the team sheet's jersey number; adef = the end team a defends (as the camera
+  // sees it), for "behind the ball". positions() turns them into pitch metres and the shape figures below; posMap() draws
+  // the top-down pitch with every player where he stands.
+  function hullOf(P) {                        // convex hull (monotone chain) of [[X, Y]] → its corners, anticlockwise
+    const p = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (p.length < 3) return p;
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], hi = [];
+    p.forEach(q => { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+    for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+    return lo.slice(0, -1).concat(hi.slice(0, -1));
+  }
+  function areaOf(poly) { let a = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+  // → {pl:[{…, X, Y, i, near:{i, d}}], ball:{X, Y}|null, off:n (clicks not on the grass), a:{…}, b:{…}}; per team:
+  //   n (marked) · width (across, touchline to touchline) and depth (along the pitch) of the outfield players (a No. 1
+  //   from the team sheet is left out) · area (m², the outfield shape) · line: the deepest and most advanced outfield
+  //   player's distance from his own goal (with adef) · behind: players goal-side of the ball (with adef and a ball) ·
+  //   ball: the nearest player to the ball {i, d}
+  // a frame point → pitch metres when it is on (or just off) the pitch: null above the horizon, in the stand or far away
+  function onGrass(M, x, y) { const g = toGround(M, x, y); return g && g[0] > -12 && g[0] < M.len + 12 && g[1] > -12 && g[1] < M.wid + 12 ? g : null; }
+  function positions(M, pos) {
+    const out = { pl: [], ball: null, off: 0, a: null, b: null }; if (!M || !pos || !Array.isArray(pos.pl)) return out;
+    pos.pl.forEach((p, i) => { const g = p && onGrass(M, +p.x, +p.y);
+      if (!g) { out.off++; return; }
+      const q = Object.assign({}, p, { X: g[0], Y: g[1], i }); if (p.s === 'ball') { if (!out.ball) out.ball = q; } else out.pl.push(q); });
+    const def = { a: pos.adef === 'A' || pos.adef === 'B' ? pos.adef : null }; def.b = def.a ? (def.a === 'A' ? 'B' : 'A') : null;
+    const own = (s, X) => def[s] === 'A' ? X : def[s] === 'B' ? M.len - X : null;          // metres from his own goal line
+    out.pl.forEach(q => { let best = null; out.pl.forEach(r => { if (r.s === q.s) return; const d = Math.hypot(r.X - q.X, r.Y - q.Y); if (!best || d < best.d) best = { i: r.i, d }; }); q.near = best; });
+    ['a', 'b'].forEach(s => {
+      const L = out.pl.filter(q => q.s === s); if (!L.length) return;
+      const O = L.filter(q => String(q.no || '') !== '1'), xs = O.map(q => q.X), ys = O.map(q => q.Y);
+      const T = { n: L.length, outfield: O.length };
+      if (O.length >= 2) { T.width = Math.max.apply(null, ys) - Math.min.apply(null, ys); T.depth = Math.max.apply(null, xs) - Math.min.apply(null, xs); }
+      if (O.length >= 3) { const H = hullOf(O.map(q => [q.X, q.Y])); T.area = H.length >= 3 ? areaOf(H) : 0; T.hull = H; }
+      if (def[s] && O.length) { const d = O.map(q => own(s, q.X)); T.line = { deep: Math.min.apply(null, d), high: Math.max.apply(null, d) }; }
+      if (out.ball) { if (def[s]) T.behind = L.filter(q => own(s, q.X) < own(s, out.ball.X)).length;
+        let best = null; L.forEach(q => { const d = Math.hypot(q.X - out.ball.X, q.Y - out.ball.Y); if (!best || d < best.d) best = { i: q.i, d }; }); T.ball = best; }
+      out[s] = T;
+    });
+    return out;
+  }
+  const escT = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const HEX6 = /^#[0-9a-f]{6}$/i, colT = (c, d) => HEX6.test(c || '') ? c : d;
+  const lumT = hex => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255; };
+  const TEAM_DEF = { a: '#e53935', b: '#1e88e5' };
+  function teamOf(pos, s) { const t = (pos && pos['t' + s]) || {}; return { name: String(t.name || (s === 'a' ? 'Team A' : 'Team B')).slice(0, 40), color: colT(t.color, TEAM_DEF[s]) }; }
+  // the figures as short lines of text, one a team (+ the ball): for the map's caption and the panel
+  function figureLines(R, pos) {
+    const L = [], m = v => Math.round(v) + ' m';
+    ['a', 'b'].forEach(s => { const T = R[s]; if (!T) return; const t = teamOf(pos, s), bits = [T.n + ' marked'];
+      if (T.width != null) bits.push(m(T.width) + ' wide', m(T.depth) + ' deep');
+      if (T.behind != null) bits.push(T.behind + ' behind the ball');
+      L.push({ s, name: t.name, color: t.color, text: bits.join(' · ') }); });
+    return L;
+  }
+  // the top-down map: the pitch (camera side at the bottom, left goal on the left — as the picture) with each player at his
+  // spot; w px wide, at (x0, y0). o.hull = the team shapes; o.caption = the figures under it; o.sel = the picked index.
+  // → {svg (a <g>), h}
+  function posMap(M, pos, x0, y0, w, o) {
+    o = o || {}; const len = M ? M.len : DEF_LEN, wid = M ? M.wid : DEF_WID, R = positions(M, pos);
+    const pad = Math.max(5, w * 0.025), s = (w - 2 * pad) / len, ph = wid * s, k = w / 300;
+    const X = v => x0 + pad + clamp(v, -4, len + 4) * s, Y = v => y0 + pad + (wid - clamp(v, -4, wid + 4)) * s;
+    const caps = o.caption ? figureLines(R, pos) : [], lh = 13 * k, h = ph + 2 * pad + (caps.length ? caps.length * lh + 4 * k : 0);
+    let d = ''; markings(len, wid).forEach(poly => { d += 'M' + poly.map(p => f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('L'); });
+    let g = '<rect x="' + f1(x0) + '" y="' + f1(y0) + '" width="' + f1(w) + '" height="' + f1(h) + '" rx="' + f1(6 * k) + '" fill="#0b0d12" fill-opacity="0.86" stroke="#ffffff" stroke-opacity="0.18"/>'
+      + '<rect x="' + f1(X(0)) + '" y="' + f1(Y(wid)) + '" width="' + f1(len * s) + '" height="' + f1(ph) + '" fill="#2f6b3a"/>'
+      + '<path d="' + d + '" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="' + f1(Math.max(0.6, 0.9 * k)) + '"/>';
+    if (o.hull) ['a', 'b'].forEach(t => { const T = R[t]; if (!T || !T.hull || T.hull.length < 3) return; const c = teamOf(pos, t).color;
+      g += '<polygon points="' + T.hull.map(p => f1(X(p[0])) + ',' + f1(Y(p[1]))).join(' ') + '" fill="' + c + '" fill-opacity="0.18" stroke="' + c + '" stroke-width="' + f1(1.2 * k) + '" stroke-dasharray="' + f1(4 * k) + ' ' + f1(3 * k) + '"/>'; });
+    const r = Math.max(3.2, 5.6 * k);
+    R.pl.forEach(q => { const c = teamOf(pos, q.s).color, on = o.sel === q.i, ink = lumT(c) > 0.55 ? '#0b0d12' : '#ffffff';
+      g += '<circle cx="' + f1(X(q.X)) + '" cy="' + f1(Y(q.Y)) + '" r="' + f1(on ? r * 1.35 : r) + '" fill="' + c + '" stroke="' + (on ? '#ffd600' : '#ffffff') + '" stroke-width="' + f1((on ? 2 : 1.1) * k) + '"/>';
+      if (q.no) g += '<text x="' + f1(X(q.X)) + '" y="' + f1(Y(q.Y) + r * 0.42) + '" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="800" font-size="' + f1(r * 1.25) + '" fill="' + ink + '">' + escT(q.no) + '</text>'; });
+    if (R.ball) g += '<circle cx="' + f1(X(R.ball.X)) + '" cy="' + f1(Y(R.ball.Y)) + '" r="' + f1(r * 0.62) + '" fill="#ffffff" stroke="#0b0d12" stroke-width="' + f1(1.2 * k) + '"' + (o.sel === R.ball.i ? ' style="stroke:#ffd600"' : '') + '/>';
+    const room = w - 2 * pad - 12 * k, chars = Math.max.apply(null, caps.map(c => c.name.length + 1 + c.text.length).concat([1])), cfs = Math.min(10.5 * k, room / (chars * 0.5));   // the caption fits the box
+    caps.forEach((c, i) => { const ty = y0 + ph + 2 * pad + i * lh + 10 * k;
+      g += '<circle cx="' + f1(x0 + pad + 4 * k) + '" cy="' + f1(ty - 3.6 * k) + '" r="' + f1(3.6 * k) + '" fill="' + c.color + '" stroke="#fff" stroke-width="' + f1(0.8 * k) + '"/>'
+        + '<text x="' + f1(x0 + pad + 11 * k) + '" y="' + f1(ty) + '" font-family="\'Barlow Condensed\',sans-serif" font-size="' + f1(cfs) + '" fill="#e6e7ee"><tspan font-weight="800">' + escT(c.name.toUpperCase()) + '</tspan> ' + escT(c.text) + '</text>'; });
+    return { svg: '<g class="cp-posmap" pointer-events="none">' + g + '</g>', h, R };
+  }
+  // the players on the frame: a disc on the grass at each one's feet (1 m), his number beside it, the ball, the team shapes
+  function posFrameSvg(M, pos, W, H, o) {
+    o = o || {}; if (!M || !pos || !Array.isArray(pos.pl)) return '';
+    const R = positions(M, pos), k = clamp(H / 480, 0.6, 2.4); let g = '';
+    if (pos.hull) ['a', 'b'].forEach(t => { const T = R[t]; if (!T || !T.hull || T.hull.length < 3) return; const c = teamOf(pos, t).color;
+      let d = '', pen = false; sample(T.hull.concat([T.hull[0]])).forEach(p => { const q = proj(M.H, p[0], p[1]); if (!q) { pen = false; return; } d += (pen ? 'L' : 'M') + f1(q[0] / FW * W) + ' ' + f1(q[1] / FH * H); pen = true; });
+      g += '<path d="' + d + 'Z" fill="' + c + '" fill-opacity="0.16" stroke="' + c + '" stroke-width="' + f1(2 * k) + '" stroke-dasharray="' + f1(8 * k) + ' ' + f1(6 * k) + '" stroke-linejoin="round"/>'; });
+    if (pos.dots !== false) {
+      R.pl.forEach(q => { const e = groundEllipse(M, q.x, q.y, 1); if (!e) return; const c = teamOf(pos, q.s).color, on = o.sel === q.i;
+        g += '<ellipse cx="' + f1(e.gx * W) + '" cy="' + f1(e.gy * H) + '" rx="' + f1(Math.max(4, e.rx * W)) + '" ry="' + f1(Math.max(2, e.ry * H)) + '" transform="rotate(' + e.rot + ' ' + f1(e.gx * W) + ' ' + f1(e.gy * H) + ')" fill="' + c + '" fill-opacity="0.8" stroke="' + (on ? '#ffd600' : '#ffffff') + '" stroke-width="' + f1((on ? 2.6 : 1.4) * k) + '"/>';
+        if (q.no) { const fs = 11 * k, x = e.gx * W + Math.max(4, e.rx * W) + 3 * k, y = e.gy * H + fs * 0.35, ink = lumT(c) > 0.55 ? '#0b0d12' : '#ffffff', bw = (String(q.no).length * 0.62 + 0.6) * fs;
+          g += '<rect x="' + f1(x) + '" y="' + f1(y - fs * 0.95) + '" width="' + f1(bw) + '" height="' + f1(fs * 1.25) + '" rx="' + f1(3 * k) + '" fill="' + c + '" stroke="#fff" stroke-width="' + f1(0.8 * k) + '"/>'
+            + '<text x="' + f1(x + bw / 2) + '" y="' + f1(y) + '" text-anchor="middle" font-family="\'Barlow Condensed\',sans-serif" font-weight="800" font-size="' + f1(fs) + '" fill="' + ink + '">' + escT(q.no) + '</text>'; } });
+      if (R.ball) { const e = groundEllipse(M, R.ball.x, R.ball.y, 0.6); if (e) g += '<ellipse cx="' + f1(e.gx * W) + '" cy="' + f1(e.gy * H) + '" rx="' + f1(Math.max(3, e.rx * W)) + '" ry="' + f1(Math.max(2, e.ry * H)) + '" transform="rotate(' + e.rot + ' ' + f1(e.gx * W) + ' ' + f1(e.gy * H) + ')" fill="#ffffff" fill-opacity="0.9" stroke="#0b0d12" stroke-width="' + f1(1.2 * k) + '"/>'; }
+    }
+    return '<g class="ct-pos" pointer-events="none">' + g + '</g>';
+  }
+  // the map's place on the frame (a corner), w = 26 % of the width
+  function posMapOnFrame(M, pos, W, H) {
+    const c = pos && pos.map; if (!M || !pos || !c || c === 'off' || !/^(tl|tr|bl|br)$/.test(c)) return '';
+    const w = Math.round(W * 0.26), m = Math.round(W * 0.015), probe = posMap(M, pos, 0, 0, w, { caption: true, hull: pos.hull }).h;
+    const x = c[1] === 'l' ? m : W - w - m, y = c[0] === 't' ? m : H - probe - m;
+    return posMap(M, pos, x, y, w, { caption: true, hull: pos.hull }).svg;
+  }
+
   const API = { DEF_LEN, DEF_WID, FW, FH, keypoints, homography, model, toFrame, toGround, groundDist, groundEllipse, markings, linesSvg, diagramSvg,
-    shotChartToMetres, koChartToMetres, chartToPitch, seenEnd, periodOf, attacksLeft, spotEnd };
+    shotChartToMetres, koChartToMetres, chartToPitch, seenEnd, periodOf, attacksLeft, spotEnd,
+    hullOf, areaOf, onGrass, positions, figureLines, posMap, posFrameSvg, posMapOnFrame, teamOf };
   root.CohPitch = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

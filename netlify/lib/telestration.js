@@ -42,7 +42,7 @@ function nextColorIdx(existing) {
 }
 
 const MAX_SHAPES = 80, MAX_POINTS = 600, MAX_TOTAL_POINTS = 5000, MAX_NODES = 200, MAX_TEXT = 160, MAX_CAPTION = 200, MAX_STOPS = 40;
-const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'mag', 'ring', 'mark', 'pitch', 'dist'];
+const TYPES = ['free', 'line', 'arrow', 'darrow', 'carrow', 'rect', 'ellipse', 'poly', 'spot', 'tag', 'link', 'text', 'pen', 'focus', 'mag', 'ring', 'mark', 'pitch', 'dist', 'pos'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n * 10000) / 10000)) : null; };
 const frac = v => num(v, 0, 1);
@@ -81,6 +81,19 @@ function cleanShape(s, budget) {
       for (const q of s.pts) { if (P.length >= 16 || budget.n <= 0) break; if (!q || typeof q !== 'object' || typeof q.k !== 'string' || !/^[ABH][a-z0-9]{1,6}$/.test(q.k) || seen.has(q.k)) continue;
         const x = handle(q.x), y = handle(q.y); if (x == null || y == null) continue; seen.add(q.k); P.push({ k: q.k, x, y }); budget.n--; }
       if (!P.length) return null; o.pts = P; if (s.show === false) o.show = false; if (s.rev === true) o.rev = true; delete o.color; delete o.alpha; break; }
+    case 'pos': {                                               // 👥 the players marked on the lined-up frame: two teams (name, colour), up to 30 players and a ball
+      delete o.w; delete o.color; delete o.alpha;
+      ['a', 'b'].forEach(t => { const T = s['t' + t]; if (!T || typeof T !== 'object' || Array.isArray(T)) return; const q = {}; const nm = cleanText(T.name, 40); if (nm) q.name = nm; const c = color(T.color); if (c) q.color = c; o['t' + t] = q; });
+      if (!Array.isArray(s.pl)) return null; const P = []; let ball = false, na = 0, nb = 0;
+      for (const q of s.pl) { if (P.length >= 31 || budget.n <= 0) break; if (!q || typeof q !== 'object' || Array.isArray(q)) continue;
+        const side = q.s === 'a' || q.s === 'b' || q.s === 'ball' ? q.s : null; if (!side) continue;
+        if (side === 'ball') { if (ball) continue; ball = true; } else if (side === 'a' ? na >= 15 : nb >= 15) continue;
+        const x = frac(q.x), y = frac(q.y); if (x == null || y == null) continue;
+        const r = { x, y, s: side };
+        if (side !== 'ball') { const no = cleanText(q.no, 3); if (/^\d{1,2}$/.test(no)) r.no = no; const nm = cleanText(q.nm, 60); if (nm) r.nm = nm; if (side === 'a') na++; else nb++; }
+        P.push(r); budget.n--; }
+      o.pl = P; o.map = ['off', 'tl', 'tr', 'bl', 'br'].includes(s.map) ? s.map : 'br';
+      if (s.hull === true) o.hull = true; if (s.dots === false) o.dots = false; if (s.adef === 'A' || s.adef === 'B') o.adef = s.adef; break; }
     case 'carrow': { if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; const cx = handle(s.cx), cy = handle(s.cy);
       o.cx = cx == null ? (o.x1 + o.x2) / 2 : cx; o.cy = cy == null ? (o.y1 + o.y2) / 2 : cy; break; }
     case 'rect': case 'ellipse': if (!XY(['x1', 'y1', 'x2', 'y2'])) return null; fill(); break;
